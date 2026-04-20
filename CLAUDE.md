@@ -23,11 +23,30 @@ Add shadcn components: `pnpm dlx shadcn@latest add <component-name>`
 ## Git Workflow
 
 - **Repo:** https://github.com/huffed/trading-app-demo
-- **Working branch:** `dev` - all work goes here
-- **Main branch:** `main` - merge from dev when ready
+- **Main branch:** `main` — production-ready code
+- **Integration branch:** `dev` — merge feature branches here via PR
 - Do not include `Co-Authored-By` lines in commit messages
-- Always run `pnpm build` and `pnpm lint` before committing to catch errors
-- **Commit after each completed iteration** — once local testing confirms the feature works, commit and push to dev
+- Always run `pnpm build` and `pnpm lint` before committing (0 errors, 0 warnings)
+
+### Feature Branches
+
+All work happens on feature branches off `dev`. Never commit directly to `dev` or `main`.
+
+- **Branch naming:** `feat/<short-description>` (e.g., `feat/dashboard-widgets`, `feat/broker-integration`)
+- **Scope:** One branch per iteration or logical feature. If an iteration is large, split it into multiple branches with focused PRs (e.g., `feat/dashboard-stat-cards`, `feat/dashboard-charts`).
+- **PR size:** Keep PRs reviewable — aim for under ~500 lines changed. Split larger work into sequential PRs.
+- **Flow:** Create branch → develop → test locally → push → open PR into `dev` → merge
+
+```bash
+# Start new feature
+git checkout dev && git pull
+git checkout -b feat/my-feature
+
+# When done
+pnpm build && pnpm lint
+git push -u origin feat/my-feature
+gh pr create --base dev
+```
 
 ## Tech Stack
 
