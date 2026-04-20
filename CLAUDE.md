@@ -17,6 +17,14 @@ Add shadcn components: `pnpm dlx shadcn@latest add <component-name>`
 
 **Package manager: pnpm.** Do not use npm or yarn. Do not create package-lock.json or yarn.lock.
 
+## Git Workflow
+
+- **Repo:** https://github.com/huffed/trading-app-demo
+- **Working branch:** `dev` - all work goes here
+- **Main branch:** `main` - merge from dev when ready
+- Do not include `Co-Authored-By` lines in commit messages
+- Always run `pnpm build` before committing to catch TypeScript errors
+
 ## Tech Stack
 
 | Layer | Technology | Version |

@@ -1,36 +1,72 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# QuantTrader
+
+AI-powered quant trading platform for algorithmic trading, multi-broker integration, and intelligent trade journaling.
+
+## Features
+
+- **AI Trading Algorithms** - Generate profitable trading strategies with Claude AI
+- **Smart Trading Journal** - AI-analyzed journal with sentiment and emotion tracking
+- **Multi-Broker Support** - Connect funded accounts via API (Alpaca, Binance, Bybit, MetaTrader, cTrader, IBKR)
+- **Performance Analytics** - P&L tracking, win rate, risk metrics, and visualizations
+- **Dark-Mode-First UI** - Clean, minimal interface inspired by Perplexity AI
+
+## Tech Stack
+
+- **Frontend:** Next.js 16 (App Router) + React 19 + TypeScript
+- **UI:** shadcn/ui v4 + Tailwind CSS 4
+- **Backend:** Supabase (Postgres, Auth, Realtime)
+- **AI:** Claude API (Anthropic SDK)
+- **State:** TanStack React Query + Zustand
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
+
+- Node.js 18+
+- pnpm (`npm install -g pnpm`)
+- A [Supabase](https://supabase.com) project
+
+### Setup
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
+# Install dependencies
+pnpm install
+
+# Copy env template and fill in your Supabase credentials
+cp .env.example .env.local
+
+# Run the profiles migration against your Supabase project
+# (paste supabase/migrations/00001_create_profiles.sql into the Supabase SQL editor)
+
+# Start dev server
 pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Scripts
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+pnpm dev         # Start dev server
+pnpm build       # Production build
+pnpm lint        # ESLint
+pnpm start       # Start production server
+```
 
-## Learn More
+## Project Status
 
-To learn more about Next.js, take a look at the following resources:
+**Current:** Skeleton - auth, dashboard shell, page placeholders
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+**Roadmap:**
+1. Trade management (manual entry, CSV import, P&L)
+2. Trading journal (rich text, sentiment, AI analysis)
+3. AI integration (Claude API streaming, trade review)
+4. Dashboard widgets (charts, stats, recent trades)
+5. Broker integration (abstraction layer, Alpaca, Binance)
+6. AI algorithm generation (natural language to code, backtesting)
+7. Advanced analytics (Sharpe ratio, drawdown, heatmaps)
+8. Monetization (Stripe billing, WhatsApp/Teams integration)
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## License
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Private
