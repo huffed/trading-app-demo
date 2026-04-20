@@ -22,37 +22,38 @@ export function BacktestForm({ onSubmit, disabled }: BacktestFormProps) {
   const [period, setPeriod] = useState("compact");
 
   return (
-    <div className="flex flex-wrap items-end gap-2">
-      <div className="space-y-1.5">
-        <Label htmlFor="bt-symbol">Symbol</Label>
-        <Input
-          id="bt-symbol"
-          placeholder="AAPL"
-          value={symbol}
-          onChange={(e) => setSymbol(e.target.value.toUpperCase())}
-          className="w-28"
-        />
+    <div className="space-y-2">
+      <div className="grid grid-cols-[1fr_1fr_auto] items-end gap-2">
+        <div className="space-y-1.5">
+          <Label htmlFor="bt-symbol">Symbol</Label>
+          <Input
+            id="bt-symbol"
+            placeholder="AAPL"
+            value={symbol}
+            onChange={(e) => setSymbol(e.target.value.toUpperCase())}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label>Period</Label>
+          <Select value={period} onValueChange={(v) => setPeriod(v ?? "compact")}>
+            <SelectTrigger className="w-full h-8">
+              <SelectValue>{period === "compact" ? "Last 100 days" : "Full history"}</SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="compact">Last 100 days</SelectItem>
+              <SelectItem value="full">Full history</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <Button
+          size="default"
+          disabled={disabled || !symbol.trim()}
+          onClick={() => onSubmit(symbol.trim(), period)}
+        >
+          {disabled ? "Running..." : "Run Backtest"}
+        </Button>
       </div>
-      <div className="space-y-1.5">
-        <Label>Period</Label>
-        <Select value={period} onValueChange={(v) => setPeriod(v ?? "compact")}>
-          <SelectTrigger className="w-36">
-            <SelectValue>{period === "compact" ? "Last 100 days" : "Full history"}</SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="compact">Last 100 days</SelectItem>
-            <SelectItem value="full">Full history</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-      <Button
-        size="sm"
-        disabled={disabled || !symbol.trim()}
-        onClick={() => onSubmit(symbol.trim(), period)}
-      >
-        {disabled ? "Running..." : "Run Backtest"}
-      </Button>
-      <p className="w-full text-xs text-muted-foreground">
+      <p className="text-xs text-muted-foreground">
         Uses Alpha Vantage (25 free requests/day)
       </p>
     </div>
