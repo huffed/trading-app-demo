@@ -9,7 +9,10 @@ AI-powered quant trading platform. Next.js 16 + Supabase + shadcn/ui v4.
 ```bash
 pnpm dev         # Start dev server (http://localhost:3000)
 pnpm build       # Production build (run to verify before committing)
-pnpm lint        # ESLint
+pnpm lint        # ESLint (0 errors, 0 warnings required)
+pnpm lint:fix    # Auto-fix lint issues
+pnpm format      # Prettier format all source files
+pnpm format:check # Check formatting without writing
 pnpm start       # Start production server
 ```
 
@@ -23,7 +26,8 @@ Add shadcn components: `pnpm dlx shadcn@latest add <component-name>`
 - **Working branch:** `dev` - all work goes here
 - **Main branch:** `main` - merge from dev when ready
 - Do not include `Co-Authored-By` lines in commit messages
-- Always run `pnpm build` before committing to catch TypeScript errors
+- Always run `pnpm build` and `pnpm lint` before committing to catch errors
+- **Commit after each completed iteration** — once local testing confirms the feature works, commit and push to dev
 
 ## Tech Stack
 

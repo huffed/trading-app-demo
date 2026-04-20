@@ -1,6 +1,40 @@
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
 import { ArrowRight, BarChart3, Bot, BookOpen } from "lucide-react";
+import { Button } from "@/components/ui/button";
+
+const features = [
+  {
+    icon: Bot,
+    title: "AI Algorithms",
+    desc: "Generate profitable trading strategies with Claude AI.",
+  },
+  {
+    icon: BookOpen,
+    title: "Smart Journal",
+    desc: "AI-analyzed trade journal with sentiment tracking.",
+  },
+  {
+    icon: BarChart3,
+    title: "Deep Analytics",
+    desc: "Performance metrics, risk analysis, and insights.",
+  },
+];
+
+function FeatureCards() {
+  return (
+    <div className="mt-20 grid max-w-3xl gap-8 sm:grid-cols-3">
+      {features.map((feature) => (
+        <div key={feature.title} className="text-center space-y-2">
+          <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+            <feature.icon className="h-5 w-5 text-primary" />
+          </div>
+          <h3 className="text-sm font-semibold">{feature.title}</h3>
+          <p className="text-xs text-muted-foreground">{feature.desc}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export default function LandingPage() {
   return (
@@ -42,33 +76,7 @@ export default function LandingPage() {
           </div>
         </div>
 
-        <div className="mt-20 grid max-w-3xl gap-8 sm:grid-cols-3">
-          {[
-            {
-              icon: Bot,
-              title: "AI Algorithms",
-              desc: "Generate profitable trading strategies with Claude AI.",
-            },
-            {
-              icon: BookOpen,
-              title: "Smart Journal",
-              desc: "AI-analyzed trade journal with sentiment tracking.",
-            },
-            {
-              icon: BarChart3,
-              title: "Deep Analytics",
-              desc: "Performance metrics, risk analysis, and insights.",
-            },
-          ].map((feature) => (
-            <div key={feature.title} className="text-center space-y-2">
-              <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-                <feature.icon className="h-5 w-5 text-primary" />
-              </div>
-              <h3 className="text-sm font-semibold">{feature.title}</h3>
-              <p className="text-xs text-muted-foreground">{feature.desc}</p>
-            </div>
-          ))}
-        </div>
+        <FeatureCards />
       </main>
     </div>
   );

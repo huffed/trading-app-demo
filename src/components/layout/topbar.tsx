@@ -1,8 +1,8 @@
 "use client";
 
+import { MobileNav } from "@/components/layout/mobile-nav";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { UserMenu } from "@/components/layout/user-menu";
-import { MobileNav } from "@/components/layout/mobile-nav";
 
 export function Topbar() {
   return (
