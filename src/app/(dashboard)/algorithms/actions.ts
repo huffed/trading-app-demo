@@ -17,12 +17,34 @@ type ActionResult<T = unknown> =
   | { success: false; error: string };
 
 function parseRulesFromResponse(text: string): AlgorithmRules | null {
+  // Try delimiter first
   const parts = text.split(RULES_DELIMITER);
-  if (parts.length < 2) return null;
+  if (parts.length >= 2) {
+    const result = tryParseJson(parts[1]);
+    if (result) return result;
+  }
 
-  const jsonStr = parts[1].trim().replace(/```json?\n?/g, "").replace(/```/g, "").trim();
+  // Fallback: find JSON in code blocks
+  const codeBlockMatch = text.match(/```(?:json)?\s*\n?([\s\S]*?)```/);
+  if (codeBlockMatch) {
+    const result = tryParseJson(codeBlockMatch[1]);
+    if (result) return result;
+  }
+
+  // Fallback: find first { that looks like our schema
+  const braceMatch = text.match(/\{[\s\S]*"entry_conditions"[\s\S]*\}/);
+  if (braceMatch) {
+    const result = tryParseJson(braceMatch[0]);
+    if (result) return result;
+  }
+
+  return null;
+}
+
+function tryParseJson(str: string): AlgorithmRules | null {
+  const cleaned = str.trim().replace(/```json?\n?/g, "").replace(/```/g, "").trim();
   try {
-    const parsed = JSON.parse(jsonStr);
+    const parsed = JSON.parse(cleaned);
     const result = algorithmRulesSchema.safeParse(parsed);
     return result.success ? (result.data as AlgorithmRules) : null;
   } catch {
@@ -175,6 +197,11 @@ export async function runHistoricalBacktest(
     .eq("user_id", user.id)
     .single();
   if (algoErr || !algo) return { success: false, error: "Algorithm not found" };
+
+  const rules = algo.rules as AlgorithmRules;
+  if (!rules.entry_conditions || rules.entry_conditions.length === 0) {
+    return { success: false, error: "Algorithm has no trading rules. Try regenerating it." };
+  }
 
   try {
     const prices = await fetchDailyPrices(symbol, outputSize);

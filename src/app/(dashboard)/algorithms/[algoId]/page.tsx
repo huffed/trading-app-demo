@@ -57,6 +57,27 @@ function AlgoDescription({ description }: { description: string }) {
   );
 }
 
+function DeleteAlgoDialog({ name, open, onOpenChange, isPending, onConfirm }: {
+  name: string; open: boolean; onOpenChange: (v: boolean) => void; isPending: boolean; onConfirm: () => void;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-xs">
+        <DialogHeader>
+          <DialogTitle>Delete Algorithm</DialogTitle>
+          <DialogDescription>Delete &ldquo;{name}&rdquo;? This cannot be undone.</DialogDescription>
+        </DialogHeader>
+        <div className="flex gap-2 justify-end">
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button variant="destructive" disabled={isPending} onClick={onConfirm}>
+            {isPending ? "Deleting..." : "Delete"}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function AlgorithmDetailPage() {
   const { algoId } = useParams<{ algoId: string }>();
   const router = useRouter();
@@ -103,7 +124,14 @@ export default function AlgorithmDetailPage() {
           setBacktestError(null);
           historicalBacktest.mutate(
             { id: algo.id, symbol, period: period as "compact" | "full" },
-            { onError: () => setBacktestError("Backtest failed. Check symbol and try again.") }
+            {
+              onSuccess: (result) => {
+                if (!result.success) {
+                  setBacktestError(result.error);
+                }
+              },
+              onError: () => setBacktestError("Backtest failed. Check symbol and try again."),
+            }
           );
         }}
       />
@@ -114,28 +142,15 @@ export default function AlgorithmDetailPage() {
         <BacktestResultsDisplay results={algo.backtest_results as BacktestMetrics} />
       )}
 
-      <Dialog open={showDelete} onOpenChange={setShowDelete}>
-        <DialogContent className="sm:max-w-xs">
-          <DialogHeader>
-            <DialogTitle>Delete Algorithm</DialogTitle>
-            <DialogDescription>
-              Delete &ldquo;{algo.name}&rdquo;? This cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex gap-2 justify-end">
-            <Button variant="outline" onClick={() => setShowDelete(false)}>Cancel</Button>
-            <Button
-              variant="destructive"
-              disabled={deleteMutation.isPending}
-              onClick={() => {
-                deleteMutation.mutate(algo.id, { onSuccess: () => router.push("/algorithms") });
-              }}
-            >
-              {deleteMutation.isPending ? "Deleting..." : "Delete"}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <DeleteAlgoDialog
+        name={algo.name}
+        open={showDelete}
+        onOpenChange={setShowDelete}
+        isPending={deleteMutation.isPending}
+        onConfirm={() => {
+          deleteMutation.mutate(algo.id, { onSuccess: () => router.push("/algorithms") });
+        }}
+      />
     </div>
   );
 }
