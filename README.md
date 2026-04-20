@@ -55,16 +55,16 @@ pnpm start       # Start production server
 
 ## Project Status
 
-**Current:** AI-powered journal analysis with Claude
+**Current:** Dashboard widgets, onboarding, and AI chat assistant
 
 **Roadmap:**
 1. ~~Trade management (manual entry, CSV import, P&L)~~ ✓
 2. ~~Trading journal (rich text, sentiment, AI analysis)~~ ✓
 3. ~~AI integration (Claude API, journal auto-analysis)~~ ✓
-4. Dashboard widgets (charts, stats, recent trades)
-5. AI-guided onboarding & education (interactive tutorials, contextual explanations, trading basics)
-6. Broker integration (abstraction layer, Alpaca, Binance)
-7. AI algorithm generation (natural language to code, backtesting)
+4. ~~Dashboard widgets (charts, stats, recent trades)~~ ✓
+5. ~~AI-guided onboarding & education (tooltips, guided tour, AI chat)~~ ✓
+6. AI algorithm generation (natural language to code, paper trading, backtesting)
+7. Broker integration (API keys, trade sync, order execution from platform)
 8. Advanced analytics (Sharpe ratio, drawdown, heatmaps)
 9. Monetization (Stripe billing, WhatsApp/Teams integration)
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
+import { ContextualTip } from "@/components/onboarding/contextual-tip";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useDashboardStats } from "@/hooks/use-dashboard-stats";
@@ -60,7 +61,10 @@ export function AssetAllocationChart() {
   return (
     <Card>
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-medium">Asset Allocation</CardTitle>
+        <CardTitle className="text-sm font-medium flex items-center gap-1.5">
+          Asset Allocation
+          <ContextualTip tipId="asset-allocation" />
+        </CardTitle>
       </CardHeader>
       <CardContent>
         {isLoading && <Skeleton className="h-48 w-full" />}

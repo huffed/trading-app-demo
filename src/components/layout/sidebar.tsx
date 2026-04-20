@@ -76,6 +76,7 @@ function NavItem({
     <Link
       href={item.href}
       onClick={onClick}
+      data-tour={item.href.replace("/", "")}
       className={cn(
         "relative flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors overflow-hidden",
         isActive

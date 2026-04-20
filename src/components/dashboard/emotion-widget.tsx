@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
+import { ContextualTip } from "@/components/onboarding/contextual-tip";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -54,7 +55,10 @@ export function EmotionWidget() {
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between pb-2">
-        <CardTitle className="text-sm font-medium">Emotion Trends</CardTitle>
+        <CardTitle className="text-sm font-medium flex items-center gap-1.5">
+          Emotion Trends
+          <ContextualTip tipId="emotion-trends" />
+        </CardTitle>
         {entries.length > 0 && (
           <Button
             variant="ghost"
