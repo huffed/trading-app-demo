@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -27,9 +28,14 @@ const riskLabels: Record<string, string> = {
 };
 
 export function GenerateForm({ onSubmit, disabled }: GenerateFormProps) {
+  const [assetClass, setAssetClass] = useState("equity");
+  const [riskLevel, setRiskLevel] = useState("moderate");
+
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
+    fd.set("asset_class", assetClass);
+    fd.set("risk_level", riskLevel);
     onSubmit(Object.fromEntries(fd) as Record<string, string>);
   }
 
@@ -38,8 +44,10 @@ export function GenerateForm({ onSubmit, disabled }: GenerateFormProps) {
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1.5">
           <Label>Asset Class</Label>
-          <Select name="asset_class" defaultValue="equity">
-            <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+          <Select value={assetClass} onValueChange={(v) => setAssetClass(v ?? "equity")}>
+            <SelectTrigger className="w-full">
+              <SelectValue>{assetLabels[assetClass]}</SelectValue>
+            </SelectTrigger>
             <SelectContent>
               {assetClasses.map((ac) => (
                 <SelectItem key={ac} value={ac}>{assetLabels[ac]}</SelectItem>
@@ -49,8 +57,10 @@ export function GenerateForm({ onSubmit, disabled }: GenerateFormProps) {
         </div>
         <div className="space-y-1.5">
           <Label>Risk Level</Label>
-          <Select name="risk_level" defaultValue="moderate">
-            <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+          <Select value={riskLevel} onValueChange={(v) => setRiskLevel(v ?? "moderate")}>
+            <SelectTrigger className="w-full">
+              <SelectValue>{riskLabels[riskLevel]}</SelectValue>
+            </SelectTrigger>
             <SelectContent>
               {riskLevels.map((r) => (
                 <SelectItem key={r} value={r}>{riskLabels[r]}</SelectItem>

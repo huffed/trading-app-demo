@@ -36,7 +36,9 @@ export function BacktestForm({ onSubmit, disabled }: BacktestFormProps) {
       <div className="space-y-1.5">
         <Label>Period</Label>
         <Select value={period} onValueChange={(v) => setPeriod(v ?? "compact")}>
-          <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="w-36">
+            <SelectValue>{period === "compact" ? "Last 100 days" : "Full history"}</SelectValue>
+          </SelectTrigger>
           <SelectContent>
             <SelectItem value="compact">Last 100 days</SelectItem>
             <SelectItem value="full">Full history</SelectItem>
