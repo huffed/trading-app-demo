@@ -1,6 +1,6 @@
 "use server";
 
-import { getAnthropicClient } from "@/lib/ai/client";
+import { AI_MODEL, getAIClient } from "@/lib/ai/client";
 import { buildAlgorithmPrompt, RULES_DELIMITER } from "@/lib/ai/prompts/algorithm";
 import { buildAiBacktestPrompt } from "@/lib/ai/prompts/backtest";
 import { createClient } from "@/lib/supabase/server";
@@ -46,22 +46,17 @@ export async function generateAlgorithm(
     .from("trades")
     .select("*", { count: "exact", head: true });
 
-  const client = getAnthropicClient();
+  const client = getAIClient();
   const { system, userMessage } = buildAlgorithmPrompt(parsed.data, count ?? 0);
 
-  const response = await client.messages.create({
-    model: "claude-sonnet-4-20250514",
-    max_tokens: 2048,
-    system,
-    messages: [{ role: "user", content: userMessage }],
+  const response = await client.models.generateContent({
+    model: AI_MODEL,
+    contents: userMessage,
+    config: { systemInstruction: system, maxOutputTokens: 2048 },
   });
 
-  const textBlock = response.content.find((b) => b.type === "text");
-  if (!textBlock || textBlock.type !== "text") {
-    return { success: false, error: "No response from AI" };
-  }
-
-  const fullText = textBlock.text;
+  const fullText = response.text;
+  if (!fullText) return { success: false, error: "No response from AI" };
   const rules = parseRulesFromResponse(fullText);
   const description = fullText.split(RULES_DELIMITER)[0].trim();
   const nameLine = description.split("\n").find((l) => l.startsWith("**") || l.startsWith("#"));
@@ -138,30 +133,27 @@ export async function runAiBacktest(algorithmId: string): Promise<ActionResult> 
 
   const { data: trades } = await supabase.from("trades").select("*");
 
-  const client = getAnthropicClient();
+  const client = getAIClient();
   const { system, userMessage } = buildAiBacktestPrompt(
     algo as Algorithm,
     (trades ?? []) as Trade[]
   );
 
-  const res = await client.messages.create({
-    model: "claude-sonnet-4-20250514",
-    max_tokens: 1024,
-    system,
-    messages: [{ role: "user", content: userMessage }],
+  const res = await client.models.generateContent({
+    model: AI_MODEL,
+    contents: userMessage,
+    config: { systemInstruction: system, maxOutputTokens: 1024 },
   });
 
-  const text = res.content.find((b) => b.type === "text");
-  if (!text || text.type !== "text") {
-    return { success: false, error: "No response from AI" };
-  }
+  const analysisText = res.text;
+  if (!analysisText) return { success: false, error: "No response from AI" };
 
   await supabase
     .from("algorithms")
-    .update({ ai_analysis: text.text })
+    .update({ ai_analysis: analysisText })
     .eq("id", algorithmId);
 
-  return { success: true, data: { ai_analysis: text.text } };
+  return { success: true, data: { ai_analysis: analysisText } };
 }
 
 export async function runHistoricalBacktest(

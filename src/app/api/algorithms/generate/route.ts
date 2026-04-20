@@ -1,4 +1,4 @@
-import { getAnthropicClient } from "@/lib/ai/client";
+import { AI_MODEL, getAIClient } from "@/lib/ai/client";
 import { buildAlgorithmPrompt } from "@/lib/ai/prompts/algorithm";
 import { createClient } from "@/lib/supabase/server";
 import { algorithmFormSchema } from "@/lib/validators/algorithm";
@@ -21,22 +21,25 @@ export async function POST(request: Request) {
     .from("trades")
     .select("*", { count: "exact", head: true });
 
-  const client = getAnthropicClient();
+  const client = getAIClient();
   const { system, userMessage } = buildAlgorithmPrompt(parsed.data, count ?? 0);
 
-  const stream = await client.messages.stream({
-    model: "claude-sonnet-4-20250514",
-    max_tokens: 2048,
-    system,
-    messages: [{ role: "user", content: userMessage }],
+  const stream = await client.models.generateContentStream({
+    model: AI_MODEL,
+    contents: userMessage,
+    config: {
+      systemInstruction: system,
+      maxOutputTokens: 2048,
+    },
   });
 
   const encoder = new TextEncoder();
   const readable = new ReadableStream({
     async start(controller) {
-      for await (const event of stream) {
-        if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
-          controller.enqueue(encoder.encode(event.delta.text));
+      for await (const chunk of stream) {
+        const text = chunk.text;
+        if (text) {
+          controller.enqueue(encoder.encode(text));
         }
       }
       controller.close();
