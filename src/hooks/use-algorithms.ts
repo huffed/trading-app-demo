@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   deleteAlgorithm,
   generateAlgorithm,
+  runAiBacktest,
   updateAlgorithmStatus,
 } from "@/app/(dashboard)/algorithms/actions";
 import { createClient } from "@/lib/supabase/client";
@@ -73,6 +74,18 @@ export function useUpdateAlgorithmStatus() {
   return useMutation({
     mutationFn: ({ id, status }: { id: string; status: AlgorithmStatus }) =>
       updateAlgorithmStatus(id, status),
+    onSuccess: (result) => {
+      if (result.success) {
+        queryClient.invalidateQueries({ queryKey: ALGORITHMS_KEY });
+      }
+    },
+  });
+}
+
+export function useRunAiBacktest() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (algorithmId: string) => runAiBacktest(algorithmId),
     onSuccess: (result) => {
       if (result.success) {
         queryClient.invalidateQueries({ queryKey: ALGORITHMS_KEY });

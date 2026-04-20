@@ -2,13 +2,15 @@
 
 import { getAnthropicClient } from "@/lib/ai/client";
 import { buildAlgorithmPrompt, RULES_DELIMITER } from "@/lib/ai/prompts/algorithm";
+import { buildAiBacktestPrompt } from "@/lib/ai/prompts/backtest";
 import { createClient } from "@/lib/supabase/server";
 import {
   algorithmFormSchema,
   algorithmRulesSchema,
   type AlgorithmFormValues,
 } from "@/lib/validators/algorithm";
-import type { AlgorithmRules, AlgorithmStatus } from "@/types/algorithm";
+import type { Algorithm, AlgorithmRules, AlgorithmStatus } from "@/types/algorithm";
+import type { Trade } from "@/types/trade";
 
 type ActionResult<T = unknown> =
   | { success: true; data: T }
@@ -119,4 +121,45 @@ export async function updateAlgorithmStatus(
 
   if (error) return { success: false, error: error.message };
   return { success: true, data };
+}
+
+export async function runAiBacktest(algorithmId: string): Promise<ActionResult> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { success: false, error: "Not authenticated" };
+
+  const { data: algo, error: algoErr } = await supabase
+    .from("algorithms")
+    .select("*")
+    .eq("id", algorithmId)
+    .eq("user_id", user.id)
+    .single();
+  if (algoErr || !algo) return { success: false, error: "Algorithm not found" };
+
+  const { data: trades } = await supabase.from("trades").select("*");
+
+  const client = getAnthropicClient();
+  const { system, userMessage } = buildAiBacktestPrompt(
+    algo as Algorithm,
+    (trades ?? []) as Trade[]
+  );
+
+  const res = await client.messages.create({
+    model: "claude-sonnet-4-20250514",
+    max_tokens: 1024,
+    system,
+    messages: [{ role: "user", content: userMessage }],
+  });
+
+  const text = res.content.find((b) => b.type === "text");
+  if (!text || text.type !== "text") {
+    return { success: false, error: "No response from AI" };
+  }
+
+  await supabase
+    .from("algorithms")
+    .update({ ai_analysis: text.text })
+    .eq("id", algorithmId);
+
+  return { success: true, data: { ai_analysis: text.text } };
 }
