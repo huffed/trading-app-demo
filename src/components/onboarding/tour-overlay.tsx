@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useSyncExternalStore } from "react";
+import { useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { tourSteps } from "@/lib/content/tour-steps";
@@ -18,26 +18,11 @@ interface Rect {
 }
 
 function getTargetRect(selector: string | undefined): Rect | null {
-  if (!selector) return null;
+  if (typeof window === "undefined" || !selector) return null;
   const el = document.querySelector(selector);
   if (!el) return null;
   const r = el.getBoundingClientRect();
   return { top: r.top, left: r.left, width: r.width, height: r.height };
-}
-
-function useTargetRect(selector: string | undefined) {
-  const subscribe = useMemo(() => {
-    return (cb: () => void) => {
-      window.addEventListener("resize", cb);
-      return () => window.removeEventListener("resize", cb);
-    };
-  }, []);
-
-  return useSyncExternalStore(
-    subscribe,
-    () => getTargetRect(selector),
-    () => null
-  );
 }
 
 function ProgressDots({ current, total }: { current: number; total: number }) {
@@ -137,8 +122,7 @@ function computeCardPosition(rect: Rect | null): React.CSSProperties {
 export function TourOverlay({ onComplete }: TourOverlayProps) {
   const [step, setStep] = useState(0);
   const current = tourSteps[step];
-  const rect = useTargetRect(current.target);
-
+  const rect = getTargetRect(current.target);
   const cardStyle = computeCardPosition(rect);
 
   return (
