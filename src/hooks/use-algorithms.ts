@@ -5,6 +5,7 @@ import {
   deleteAlgorithm,
   generateAlgorithm,
   runAiBacktest,
+  runHistoricalBacktest,
   updateAlgorithmStatus,
 } from "@/app/(dashboard)/algorithms/actions";
 import { createClient } from "@/lib/supabase/client";
@@ -86,6 +87,19 @@ export function useRunAiBacktest() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (algorithmId: string) => runAiBacktest(algorithmId),
+    onSuccess: (result) => {
+      if (result.success) {
+        queryClient.invalidateQueries({ queryKey: ALGORITHMS_KEY });
+      }
+    },
+  });
+}
+
+export function useRunHistoricalBacktest() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, symbol, period }: { id: string; symbol: string; period: "compact" | "full" }) =>
+      runHistoricalBacktest(id, symbol, period),
     onSuccess: (result) => {
       if (result.success) {
         queryClient.invalidateQueries({ queryKey: ALGORITHMS_KEY });

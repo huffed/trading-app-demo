@@ -163,3 +163,43 @@ export async function runAiBacktest(algorithmId: string): Promise<ActionResult> 
 
   return { success: true, data: { ai_analysis: text.text } };
 }
+
+export async function runHistoricalBacktest(
+  algorithmId: string,
+  symbol: string,
+  outputSize: "compact" | "full"
+): Promise<ActionResult> {
+  const { fetchDailyPrices } = await import("@/lib/market-data/alpha-vantage");
+  const { runBacktest } = await import("@/lib/market-data/backtest-engine");
+
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { success: false, error: "Not authenticated" };
+
+  const { data: algo, error: algoErr } = await supabase
+    .from("algorithms")
+    .select("*")
+    .eq("id", algorithmId)
+    .eq("user_id", user.id)
+    .single();
+  if (algoErr || !algo) return { success: false, error: "Algorithm not found" };
+
+  try {
+    const prices = await fetchDailyPrices(symbol, outputSize);
+    if (prices.length < 30) {
+      return { success: false, error: "Not enough price data for backtesting" };
+    }
+
+    const results = runBacktest(algo.rules as AlgorithmRules, prices, algo.capital);
+
+    await supabase
+      .from("algorithms")
+      .update({ backtest_results: results })
+      .eq("id", algorithmId);
+
+    return { success: true, data: results };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Backtest failed";
+    return { success: false, error: msg };
+  }
+}

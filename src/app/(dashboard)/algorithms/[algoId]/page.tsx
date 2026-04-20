@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, Trash2 } from "lucide-react";
 import { AiBacktestCard } from "@/components/algorithms/ai-backtest-card";
+import { BacktestForm } from "@/components/algorithms/backtest-form";
+import { BacktestResultsDisplay } from "@/components/algorithms/backtest-results-display";
 import { RulesDisplay } from "@/components/algorithms/rules-display";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -17,7 +19,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useAlgorithm, useDeleteAlgorithm, useRunAiBacktest } from "@/hooks/use-algorithms";
+import { useAlgorithm, useDeleteAlgorithm, useRunAiBacktest, useRunHistoricalBacktest } from "@/hooks/use-algorithms";
+import type { BacktestMetrics } from "@/lib/market-data/types";
 
 const statusColors: Record<string, "default" | "secondary" | "outline"> = {
   draft: "secondary",
@@ -60,7 +63,9 @@ export default function AlgorithmDetailPage() {
   const { data: algo, isLoading } = useAlgorithm(algoId);
   const deleteMutation = useDeleteAlgorithm();
   const backtestMutation = useRunAiBacktest();
+  const historicalBacktest = useRunHistoricalBacktest();
   const [showDelete, setShowDelete] = useState(false);
+  const [backtestError, setBacktestError] = useState<string | null>(null);
 
   if (isLoading) {
     return (
@@ -92,6 +97,22 @@ export default function AlgorithmDetailPage() {
         onRunBacktest={() => backtestMutation.mutate(algo.id)}
         isPending={backtestMutation.isPending}
       />
+      <BacktestForm
+        disabled={historicalBacktest.isPending}
+        onSubmit={(symbol, period) => {
+          setBacktestError(null);
+          historicalBacktest.mutate(
+            { id: algo.id, symbol, period: period as "compact" | "full" },
+            { onError: () => setBacktestError("Backtest failed. Check symbol and try again.") }
+          );
+        }}
+      />
+      {backtestError && (
+        <p className="text-sm text-destructive">{backtestError}</p>
+      )}
+      {algo.backtest_results && (
+        <BacktestResultsDisplay results={algo.backtest_results as BacktestMetrics} />
+      )}
 
       <Dialog open={showDelete} onOpenChange={setShowDelete}>
         <DialogContent className="sm:max-w-xs">
