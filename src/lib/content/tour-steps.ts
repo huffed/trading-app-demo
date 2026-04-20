@@ -3,6 +3,7 @@ export interface TourStep {
   title: string;
   description: string;
   icon: string;
+  target?: string;
 }
 
 export const tourSteps: TourStep[] = [
@@ -10,42 +11,46 @@ export const tourSteps: TourStep[] = [
     id: "welcome",
     title: "Welcome to QuantTrader",
     description:
-      "Let's take a quick tour of your trading platform. We'll show you the key features that help you trade smarter — even if you're just getting started.",
+      "Let's walk you through the key features. We'll highlight each one so you know exactly where to find it.",
     icon: "👋",
   },
   {
     id: "dashboard",
     title: "Your Dashboard",
     description:
-      "This is your home base. You'll see your total profit/loss, win rate, open positions, and charts that track your performance over time. Everything updates as you add trades.",
+      "This is your home base. Stats update automatically as you log trades — your P&L, win rate, and open positions are all here.",
     icon: "📊",
+    target: "[data-tour='dashboard']",
   },
   {
     id: "trades",
     title: "Trade Management",
     description:
-      "Log every trade you make — the asset, entry and exit prices, fees, and strategy. You can enter them manually or import a CSV file from your broker. The app calculates your P&L automatically.",
+      "Log trades manually or import a CSV. The app calculates P&L, tracks your history, and lets you filter by status, side, or asset class.",
     icon: "📈",
+    target: "[data-tour='trades']",
   },
   {
     id: "journal",
     title: "Trading Journal",
     description:
-      "The journal is where you reflect on your decisions and emotions. After each trade, write about what you were thinking and feeling. Our AI will analyze your entries and help you spot patterns.",
+      "Reflect on your decisions and emotions after each trade. Our AI reads your entries and gives you coaching feedback automatically.",
     icon: "📝",
+    target: "[data-tour='journal']",
   },
   {
-    id: "ai",
-    title: "AI-Powered Analysis",
+    id: "chat",
+    title: "AI Chat Assistant",
     description:
-      "When you save a journal entry, our AI automatically reviews it and gives you feedback — what went well, what to improve, and tips for next time. It's like having a trading coach in your pocket.",
+      "Got a question about trading or your data? Click this button anytime to chat with your AI assistant. It knows your stats and can explain concepts.",
     icon: "✨",
+    target: "[data-tour='chat']",
   },
   {
     id: "done",
     title: "You're All Set!",
     description:
-      "Start by adding your first trade, then write a journal entry about it. The more data you add, the better our AI can help you improve. You can dismiss the info icons on the dashboard anytime.",
+      "Start by adding your first trade, then write a journal entry about it. The more data you add, the smarter your AI coach becomes.",
     icon: "🚀",
   },
 ];

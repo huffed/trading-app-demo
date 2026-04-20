@@ -14,6 +14,7 @@ export function ChatButton({ onClick }: ChatButtonProps) {
   return (
     <Button
       size="icon-lg"
+      data-tour="chat"
       className="fixed bottom-6 right-6 z-40 rounded-full shadow-lg"
       onClick={onClick}
     >
