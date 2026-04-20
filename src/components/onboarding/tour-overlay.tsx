@@ -104,15 +104,27 @@ function computeCardPosition(rect: Rect | null): React.CSSProperties {
   const padding = 12;
   const cardWidth = 320;
 
-  // Position to the right of the target if space, otherwise below
+  const cardHeight = 200;
   const rightSpace = window.innerWidth - (rect.left + rect.width + padding);
+  const bottomSpace = window.innerHeight - (rect.top + rect.height + padding);
+
+  // Prefer right of target
   if (rightSpace >= cardWidth + padding) {
     return {
-      top: Math.max(padding, rect.top),
+      top: Math.max(padding, Math.min(rect.top, window.innerHeight - cardHeight - padding)),
       left: rect.left + rect.width + padding,
     };
   }
 
+  // If not enough space below, position above
+  if (bottomSpace < cardHeight + padding) {
+    return {
+      top: Math.max(padding, rect.top - cardHeight - padding),
+      left: Math.min(rect.left, window.innerWidth - cardWidth - padding),
+    };
+  }
+
+  // Default: below
   return {
     top: rect.top + rect.height + padding,
     left: Math.min(rect.left, window.innerWidth - cardWidth - padding),
