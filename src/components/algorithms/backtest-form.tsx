@@ -22,8 +22,8 @@ export function BacktestForm({ onSubmit, disabled }: BacktestFormProps) {
   const [period, setPeriod] = useState("compact");
 
   return (
-    <div className="space-y-2">
-      <div className="grid grid-cols-[1fr_1fr_auto] items-end gap-2">
+    <div className="space-y-3">
+      <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1.5">
           <Label htmlFor="bt-symbol">Symbol</Label>
           <Input
@@ -36,7 +36,7 @@ export function BacktestForm({ onSubmit, disabled }: BacktestFormProps) {
         <div className="space-y-1.5">
           <Label>Period</Label>
           <Select value={period} onValueChange={(v) => setPeriod(v ?? "compact")}>
-            <SelectTrigger className="w-full h-8">
+            <SelectTrigger className="w-full">
               <SelectValue>{period === "compact" ? "Last 100 days" : "Full history"}</SelectValue>
             </SelectTrigger>
             <SelectContent>
@@ -45,14 +45,14 @@ export function BacktestForm({ onSubmit, disabled }: BacktestFormProps) {
             </SelectContent>
           </Select>
         </div>
-        <Button
-          size="default"
-          disabled={disabled || !symbol.trim()}
-          onClick={() => onSubmit(symbol.trim(), period)}
-        >
-          {disabled ? "Running..." : "Run Backtest"}
-        </Button>
       </div>
+      <Button
+        disabled={disabled || !symbol.trim()}
+        onClick={() => onSubmit(symbol.trim(), period)}
+        className="w-full"
+      >
+        {disabled ? "Running..." : "Run Backtest"}
+      </Button>
       <p className="text-xs text-muted-foreground">
         Uses Alpha Vantage (25 free requests/day)
       </p>
