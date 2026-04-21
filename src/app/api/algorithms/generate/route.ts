@@ -21,29 +21,33 @@ export async function POST(request: Request) {
     .from("trades")
     .select("*", { count: "exact", head: true });
 
-  const client = getAIClient();
-  const { system, userMessage } = buildStrategyPrompt(parsed.data, count ?? 0);
+  try {
+    const client = getAIClient();
+    const { system, userMessage } = buildStrategyPrompt(parsed.data, count ?? 0);
 
-  const stream = await client.models.generateContentStream({
-    model: AI_MODEL,
-    contents: userMessage,
-    config: { systemInstruction: system, maxOutputTokens: 1024 },
-  });
+    const stream = await client.models.generateContentStream({
+      model: AI_MODEL,
+      contents: userMessage,
+      config: { systemInstruction: system, maxOutputTokens: 1024 },
+    });
 
-  const encoder = new TextEncoder();
-  const readable = new ReadableStream({
-    async start(controller) {
-      for await (const chunk of stream) {
-        const text = chunk.text;
-        if (text) {
-          controller.enqueue(encoder.encode(text));
+    const encoder = new TextEncoder();
+    const readable = new ReadableStream({
+      async start(controller) {
+        for await (const chunk of stream) {
+          const text = chunk.text;
+          if (text) {
+            controller.enqueue(encoder.encode(text));
+          }
         }
-      }
-      controller.close();
-    },
-  });
+        controller.close();
+      },
+    });
 
-  return new Response(readable, {
-    headers: { "Content-Type": "text/plain; charset=utf-8" },
-  });
+    return new Response(readable, {
+      headers: { "Content-Type": "text/plain; charset=utf-8" },
+    });
+  } catch {
+    return new Response("AI is temporarily unavailable. Please try again.", { status: 503 });
+  }
 }
