@@ -1,7 +1,8 @@
 "use server";
 
+import { Type } from "@google/genai";
 import { AI_MODEL, getAIClient } from "@/lib/ai/client";
-import { buildAlgorithmPrompt, RULES_DELIMITER } from "@/lib/ai/prompts/algorithm";
+import { buildRulesPrompt, buildStrategyPrompt } from "@/lib/ai/prompts/algorithm";
 import { buildAiBacktestPrompt } from "@/lib/ai/prompts/backtest";
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -16,40 +17,101 @@ type ActionResult<T = unknown> =
   | { success: true; data: T }
   | { success: false; error: string };
 
-function parseRulesFromResponse(text: string): AlgorithmRules | null {
-  // Try delimiter first
-  const parts = text.split(RULES_DELIMITER);
-  if (parts.length >= 2) {
-    const result = tryParseJson(parts[1]);
-    if (result) return result;
-  }
+async function generateRules(
+  params: AlgorithmFormValues,
+  tradeCount: number
+): Promise<AlgorithmRules> {
+  const client = getAIClient();
+  const { system, userMessage } = buildRulesPrompt(params, tradeCount);
 
-  // Fallback: find JSON in code blocks
-  const codeBlockMatch = text.match(/```(?:json)?\s*\n?([\s\S]*?)```/);
-  if (codeBlockMatch) {
-    const result = tryParseJson(codeBlockMatch[1]);
-    if (result) return result;
-  }
+  const res = await client.models.generateContent({
+    model: AI_MODEL,
+    contents: userMessage,
+    config: {
+      systemInstruction: system,
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          entry_conditions: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                indicator: { type: Type.STRING },
+                operator: { type: Type.STRING },
+                value: { type: Type.NUMBER },
+                timeframe: { type: Type.STRING },
+              },
+              required: ["indicator", "operator", "value", "timeframe"],
+            },
+          },
+          exit_conditions: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                indicator: { type: Type.STRING },
+                operator: { type: Type.STRING },
+                value: { type: Type.NUMBER },
+                timeframe: { type: Type.STRING },
+              },
+              required: ["indicator", "operator", "value", "timeframe"],
+            },
+          },
+          stop_loss: {
+            type: Type.OBJECT,
+            properties: { type: { type: Type.STRING }, value: { type: Type.NUMBER } },
+            required: ["type", "value"],
+          },
+          take_profit: {
+            type: Type.OBJECT,
+            properties: { type: { type: Type.STRING }, value: { type: Type.NUMBER } },
+            required: ["type", "value"],
+          },
+          position_sizing: {
+            type: Type.OBJECT,
+            properties: { type: { type: Type.STRING }, value: { type: Type.NUMBER } },
+            required: ["type", "value"],
+          },
+          max_positions: { type: Type.INTEGER },
+          timeframe: { type: Type.STRING },
+          asset_class: { type: Type.STRING },
+        },
+        required: [
+          "entry_conditions", "exit_conditions", "stop_loss",
+          "take_profit", "position_sizing", "max_positions",
+          "timeframe", "asset_class",
+        ],
+      },
+    },
+  });
 
-  // Fallback: find first { that looks like our schema
-  const braceMatch = text.match(/\{[\s\S]*"entry_conditions"[\s\S]*\}/);
-  if (braceMatch) {
-    const result = tryParseJson(braceMatch[0]);
-    if (result) return result;
+  const parsed = JSON.parse(res.text ?? "{}");
+  const validated = algorithmRulesSchema.safeParse(parsed);
+  if (!validated.success) {
+    throw new Error("AI generated invalid rules structure");
   }
-
-  return null;
+  return validated.data as AlgorithmRules;
 }
 
-function tryParseJson(str: string): AlgorithmRules | null {
-  const cleaned = str.trim().replace(/```json?\n?/g, "").replace(/```/g, "").trim();
-  try {
-    const parsed = JSON.parse(cleaned);
-    const result = algorithmRulesSchema.safeParse(parsed);
-    return result.success ? (result.data as AlgorithmRules) : null;
-  } catch {
-    return null;
-  }
+async function generateDescription(
+  params: AlgorithmFormValues,
+  tradeCount: number
+): Promise<{ name: string; description: string }> {
+  const client = getAIClient();
+  const { system, userMessage } = buildStrategyPrompt(params, tradeCount);
+
+  const res = await client.models.generateContent({
+    model: AI_MODEL,
+    contents: userMessage,
+    config: { systemInstruction: system, maxOutputTokens: 1024 },
+  });
+
+  const text = res.text ?? "";
+  const firstLine = text.split("\n").find((l) => l.trim().length > 0) ?? "";
+  const name = firstLine.replace(/^[#*\s]+/, "").replace(/[*#]+$/, "").trim() || "Untitled Strategy";
+  return { name, description: text };
 }
 
 export async function generateAlgorithm(
@@ -68,41 +130,35 @@ export async function generateAlgorithm(
     .from("trades")
     .select("*", { count: "exact", head: true });
 
-  const client = getAIClient();
-  const { system, userMessage } = buildAlgorithmPrompt(parsed.data, count ?? 0);
+  try {
+    const [rules, { name, description }] = await Promise.all([
+      generateRules(parsed.data, count ?? 0),
+      generateDescription(parsed.data, count ?? 0),
+    ]);
 
-  const response = await client.models.generateContent({
-    model: AI_MODEL,
-    contents: userMessage,
-    config: { systemInstruction: system, maxOutputTokens: 2048 },
-  });
+    const { data, error } = await supabase
+      .from("algorithms")
+      .insert({
+        user_id: user.id,
+        name,
+        description,
+        asset_class: parsed.data.asset_class,
+        risk_level: parsed.data.risk_level,
+        time_horizon: parsed.data.time_horizon,
+        capital: parsed.data.capital,
+        user_hints: parsed.data.user_hints || null,
+        rules,
+        status: "draft",
+      })
+      .select()
+      .single();
 
-  const fullText = response.text;
-  if (!fullText) return { success: false, error: "No response from AI" };
-  const rules = parseRulesFromResponse(fullText);
-  const description = fullText.split(RULES_DELIMITER)[0].trim();
-  const nameLine = description.split("\n").find((l) => l.startsWith("**") || l.startsWith("#"));
-  const name = nameLine?.replace(/[#*]/g, "").trim() ?? "Untitled Strategy";
-
-  const { data, error } = await supabase
-    .from("algorithms")
-    .insert({
-      user_id: user.id,
-      name,
-      description,
-      asset_class: parsed.data.asset_class,
-      risk_level: parsed.data.risk_level,
-      time_horizon: parsed.data.time_horizon,
-      capital: parsed.data.capital,
-      user_hints: parsed.data.user_hints || null,
-      rules: rules ?? {},
-      status: "draft",
-    })
-    .select()
-    .single();
-
-  if (error) return { success: false, error: error.message };
-  return { success: true, data };
+    if (error) return { success: false, error: error.message };
+    return { success: true, data };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Algorithm generation failed";
+    return { success: false, error: msg };
+  }
 }
 
 export async function deleteAlgorithm(id: string): Promise<ActionResult> {
@@ -213,7 +269,7 @@ export async function runHistoricalBacktest(
       return { success: false, error: "Not enough price data for backtesting" };
     }
 
-    const results = runBacktest(algo.rules as AlgorithmRules, prices, algo.capital);
+    const results = runBacktest(rules, prices, algo.capital);
 
     await supabase
       .from("algorithms")

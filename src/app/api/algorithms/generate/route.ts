@@ -1,5 +1,5 @@
 import { AI_MODEL, getAIClient } from "@/lib/ai/client";
-import { buildAlgorithmPrompt } from "@/lib/ai/prompts/algorithm";
+import { buildStrategyPrompt } from "@/lib/ai/prompts/algorithm";
 import { createClient } from "@/lib/supabase/server";
 import { algorithmFormSchema } from "@/lib/validators/algorithm";
 
@@ -22,15 +22,12 @@ export async function POST(request: Request) {
     .select("*", { count: "exact", head: true });
 
   const client = getAIClient();
-  const { system, userMessage } = buildAlgorithmPrompt(parsed.data, count ?? 0);
+  const { system, userMessage } = buildStrategyPrompt(parsed.data, count ?? 0);
 
   const stream = await client.models.generateContentStream({
     model: AI_MODEL,
     contents: userMessage,
-    config: {
-      systemInstruction: system,
-      maxOutputTokens: 2048,
-    },
+    config: { systemInstruction: system, maxOutputTokens: 1024 },
   });
 
   const encoder = new TextEncoder();

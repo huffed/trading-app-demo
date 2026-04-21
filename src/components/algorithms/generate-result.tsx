@@ -2,22 +2,14 @@
 
 import { Loader2, Sparkles } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
-import { RULES_DELIMITER } from "@/lib/ai/prompts/algorithm";
 
 interface GenerateResultProps {
   text: string;
   isStreaming: boolean;
 }
 
-function parseExplanation(text: string): string {
-  const parts = text.split(RULES_DELIMITER);
-  return parts[0].trim();
-}
-
 export function GenerateResult({ text, isStreaming }: GenerateResultProps) {
   if (!text && !isStreaming) return null;
-
-  const explanation = parseExplanation(text);
 
   return (
     <Card>
@@ -32,9 +24,9 @@ export function GenerateResult({ text, isStreaming }: GenerateResultProps) {
             Designing your algorithm...
           </div>
         )}
-        {explanation && (
+        {text && (
           <div className="whitespace-pre-wrap text-sm leading-relaxed">
-            {explanation}
+            {text}
           </div>
         )}
         {isStreaming && text && (
