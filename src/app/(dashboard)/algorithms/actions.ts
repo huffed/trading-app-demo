@@ -155,27 +155,31 @@ export async function runAiBacktest(algorithmId: string): Promise<ActionResult> 
 
   const { data: trades } = await supabase.from("trades").select("*");
 
-  const client = getAIClient();
-  const { system, userMessage } = buildAiBacktestPrompt(
-    algo as Algorithm,
-    (trades ?? []) as Trade[]
-  );
+  try {
+    const client = getAIClient();
+    const { system, userMessage } = buildAiBacktestPrompt(
+      algo as Algorithm,
+      (trades ?? []) as Trade[]
+    );
 
-  const res = await client.models.generateContent({
-    model: AI_MODEL,
-    contents: userMessage,
-    config: { systemInstruction: system, maxOutputTokens: 1024 },
-  });
+    const res = await client.models.generateContent({
+      model: AI_MODEL,
+      contents: userMessage,
+      config: { systemInstruction: system, maxOutputTokens: 1024 },
+    });
 
-  const analysisText = res.text;
-  if (!analysisText) return { success: false, error: "No response from AI" };
+    const analysisText = res.text;
+    if (!analysisText) return { success: false, error: "No response from AI" };
 
-  await supabase
-    .from("algorithms")
-    .update({ ai_analysis: analysisText })
-    .eq("id", algorithmId);
+    await supabase
+      .from("algorithms")
+      .update({ ai_analysis: analysisText })
+      .eq("id", algorithmId);
 
-  return { success: true, data: { ai_analysis: analysisText } };
+    return { success: true, data: { ai_analysis: analysisText } };
+  } catch {
+    return { success: false, error: "AI is temporarily unavailable. Please try again in a moment." };
+  }
 }
 
 export async function runHistoricalBacktest(

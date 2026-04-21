@@ -6,11 +6,12 @@ import { Card, CardContent } from "@/components/ui/card";
 
 interface AiBacktestCardProps {
   analysis: string | null;
+  error: string | null;
   onRunBacktest: () => void;
   isPending: boolean;
 }
 
-export function AiBacktestCard({ analysis, onRunBacktest, isPending }: AiBacktestCardProps) {
+export function AiBacktestCard({ analysis, error, onRunBacktest, isPending }: AiBacktestCardProps) {
   return (
     <Card className="border-dashed">
       <CardContent className="p-4 space-y-3">
@@ -37,7 +38,10 @@ export function AiBacktestCard({ analysis, onRunBacktest, isPending }: AiBacktes
         {!isPending && analysis && (
           <div className="whitespace-pre-wrap text-sm leading-relaxed">{analysis}</div>
         )}
-        {!isPending && !analysis && (
+        {!isPending && error && (
+          <p className="text-sm text-destructive">{error}</p>
+        )}
+        {!isPending && !analysis && !error && (
           <p className="text-sm text-muted-foreground">
             Run an AI analysis to evaluate this algorithm against your trading history.
           </p>

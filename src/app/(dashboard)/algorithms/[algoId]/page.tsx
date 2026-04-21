@@ -87,6 +87,7 @@ export default function AlgorithmDetailPage() {
   const historicalBacktest = useRunHistoricalBacktest();
   const [showDelete, setShowDelete] = useState(false);
   const [backtestError, setBacktestError] = useState<string | null>(null);
+  const [aiBacktestError, setAiBacktestError] = useState<string | null>(null);
 
   if (isLoading) {
     return (
@@ -115,7 +116,13 @@ export default function AlgorithmDetailPage() {
       <RulesDisplay rules={algo.rules} />
       <AiBacktestCard
         analysis={algo.ai_analysis}
-        onRunBacktest={() => backtestMutation.mutate(algo.id)}
+        error={aiBacktestError}
+        onRunBacktest={() => {
+          setAiBacktestError(null);
+          backtestMutation.mutate(algo.id, {
+            onSuccess: (r) => { if (!r.success) { setAiBacktestError(r.error); } },
+          });
+        }}
         isPending={backtestMutation.isPending}
       />
       <BacktestForm
