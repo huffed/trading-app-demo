@@ -2,7 +2,14 @@
 
 # QuantTrader
 
-AI-powered quant trading platform. Next.js 16 + Supabase + shadcn/ui v4.
+AI-powered trading autopilot. Users connect funded broker accounts (Alpaca, Binance, etc.) and AI-generated algorithms auto-trade on their behalf — monitoring the market, placing orders at the right time, and closing positions for profit.
+
+## Product Vision
+
+- **Primary:** AI algorithm auto-trading on connected broker accounts. The AI is the strategist — users set preferences, AI decides the logic. Minimize human error in the trading loop.
+- **Secondary:** Manual trade placement through our UI (executing on broker), trade journaling with AI analysis, performance dashboard, educational onboarding.
+- **Architecture:** Our app is NOT a trading platform itself. It's a frontend/controller that interacts with real trading platforms (brokers) via their APIs. The UI should feel like a real trading platform — placing orders, viewing positions, managing trades — but everything executes on the connected broker.
+- **No brokerage license needed** — we connect to existing brokers, they handle regulatory compliance.
 
 ## Commands
 

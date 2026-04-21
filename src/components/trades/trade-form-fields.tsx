@@ -70,7 +70,7 @@ export function InstrumentFields({ form, errors, updateField }: FieldProps) {
           onValueChange={(v) => updateField("asset_class", v as string)}
         >
           <SelectTrigger className="w-full">
-            <SelectValue />
+            <SelectValue>{assetClassLabels[form.asset_class] ?? form.asset_class}</SelectValue>
           </SelectTrigger>
           <SelectContent>
             {assetClasses.map((ac) => (
@@ -127,7 +127,7 @@ export function PositionFields({ form, errors, updateField }: FieldProps) {
         <Label>Side</Label>
         <Select value={form.side} onValueChange={(v) => updateField("side", v as string)}>
           <SelectTrigger className="w-full">
-            <SelectValue />
+            <SelectValue>{form.side === "long" ? "Long" : "Short"}</SelectValue>
           </SelectTrigger>
           <SelectContent>
             {tradeSides.map((s) => (
@@ -192,7 +192,7 @@ export function TimingFields({ form, errors, updateField }: FieldProps) {
         <Label>Status</Label>
         <Select value={form.status} onValueChange={(v) => updateField("status", v as string)}>
           <SelectTrigger className="w-full">
-            <SelectValue />
+            <SelectValue>{form.status === "open" ? "Open" : "Closed"}</SelectValue>
           </SelectTrigger>
           <SelectContent>
             {tradeStatuses.map((s) => (

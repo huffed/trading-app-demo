@@ -1,13 +1,16 @@
 # QuantTrader
 
-AI-powered quant trading platform for algorithmic trading, multi-broker integration, and intelligent trade journaling.
+AI-powered trading autopilot. Connect your funded broker account, generate AI trading algorithms, and let them trade automatically — or place trades manually through our UI.
 
 ## Features
 
-- **AI Trading Algorithms** - Generate profitable trading strategies with Claude AI
+- **AI Auto-Trading** - AI-generated algorithms monitor the market and execute trades on your connected broker
+- **Multi-Broker Integration** - Connect funded accounts via API (Alpaca, Binance, Bybit, MetaTrader, cTrader, IBKR)
+- **Manual Trading** - Place trades through our UI, executing on your broker as if it were a native trading platform
+- **Algorithm Backtesting** - Test strategies against real historical market data before going live
 - **Smart Trading Journal** - AI-analyzed journal with sentiment and emotion tracking
-- **Multi-Broker Support** - Connect funded accounts via API (Alpaca, Binance, Bybit, MetaTrader, cTrader, IBKR)
-- **Performance Analytics** - P&L tracking, win rate, risk metrics, and visualizations
+- **Performance Dashboard** - P&L tracking, win rate, risk metrics, charts, and visualizations
+- **AI Chat Assistant** - Ask questions about trading concepts or your performance
 - **Dark-Mode-First UI** - Clean, minimal interface inspired by Perplexity AI
 
 ## Tech Stack
