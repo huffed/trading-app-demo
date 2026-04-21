@@ -25,17 +25,21 @@ export async function POST(request: Request) {
     const client = getAIClient();
     const { system, userMessage } = buildStrategyPrompt(parsed.data, count ?? 0);
 
-    const stream = await client.models.generateContentStream({
+    const stream = await client.chat.completions.create({
       model: AI_MODEL,
-      contents: userMessage,
-      config: { systemInstruction: system, maxOutputTokens: 1024 },
+      max_tokens: 1024,
+      stream: true,
+      messages: [
+        { role: "system", content: system },
+        { role: "user", content: userMessage },
+      ],
     });
 
     const encoder = new TextEncoder();
     const readable = new ReadableStream({
       async start(controller) {
         for await (const chunk of stream) {
-          const text = chunk.text;
+          const text = chunk.choices[0]?.delta?.content;
           if (text) {
             controller.enqueue(encoder.encode(text));
           }
@@ -48,6 +52,6 @@ export async function POST(request: Request) {
       headers: { "Content-Type": "text/plain; charset=utf-8" },
     });
   } catch {
-    return new Response("AI is temporarily unavailable. Please try again.", { status: 503 });
+    return new Response("AI is temporarily unavailable.", { status: 503 });
   }
 }

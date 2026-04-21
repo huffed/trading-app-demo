@@ -16,37 +16,37 @@ export async function POST(request: Request) {
     stats: Record<string, unknown> | null;
   };
 
-  const client = getAIClient();
-  const system = buildChatSystemPrompt(stats as Parameters<typeof buildChatSystemPrompt>[0]);
+  try {
+    const client = getAIClient();
+    const system = buildChatSystemPrompt(stats as Parameters<typeof buildChatSystemPrompt>[0]);
 
-  const contents = messages.map((m) => ({
-    role: m.role === "assistant" ? ("model" as const) : ("user" as const),
-    parts: [{ text: m.content }],
-  }));
+    const stream = await client.chat.completions.create({
+      model: AI_MODEL,
+      max_tokens: 512,
+      stream: true,
+      messages: [
+        { role: "system", content: system },
+        ...messages.map((m) => ({ role: m.role as "user" | "assistant", content: m.content })),
+      ],
+    });
 
-  const stream = await client.models.generateContentStream({
-    model: AI_MODEL,
-    contents,
-    config: {
-      systemInstruction: system,
-      maxOutputTokens: 512,
-    },
-  });
-
-  const encoder = new TextEncoder();
-  const readable = new ReadableStream({
-    async start(controller) {
-      for await (const chunk of stream) {
-        const text = chunk.text;
-        if (text) {
-          controller.enqueue(encoder.encode(text));
+    const encoder = new TextEncoder();
+    const readable = new ReadableStream({
+      async start(controller) {
+        for await (const chunk of stream) {
+          const text = chunk.choices[0]?.delta?.content;
+          if (text) {
+            controller.enqueue(encoder.encode(text));
+          }
         }
-      }
-      controller.close();
-    },
-  });
+        controller.close();
+      },
+    });
 
-  return new Response(readable, {
-    headers: { "Content-Type": "text/plain; charset=utf-8" },
-  });
+    return new Response(readable, {
+      headers: { "Content-Type": "text/plain; charset=utf-8" },
+    });
+  } catch {
+    return new Response("AI is temporarily unavailable.", { status: 503 });
+  }
 }

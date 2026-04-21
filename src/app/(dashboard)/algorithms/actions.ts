@@ -1,6 +1,5 @@
 "use server";
 
-import { Type } from "@google/genai";
 import { AI_MODEL, getAIClient } from "@/lib/ai/client";
 import { buildRulesPrompt, buildStrategyPrompt } from "@/lib/ai/prompts/algorithm";
 import { buildAiBacktestPrompt } from "@/lib/ai/prompts/backtest";
@@ -24,70 +23,18 @@ async function generateRules(
   const client = getAIClient();
   const { system, userMessage } = buildRulesPrompt(params, tradeCount);
 
-  const res = await client.models.generateContent({
+  const res = await client.chat.completions.create({
     model: AI_MODEL,
-    contents: userMessage,
-    config: {
-      systemInstruction: system,
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.OBJECT,
-        properties: {
-          entry_conditions: {
-            type: Type.ARRAY,
-            items: {
-              type: Type.OBJECT,
-              properties: {
-                indicator: { type: Type.STRING },
-                operator: { type: Type.STRING },
-                value: { type: Type.NUMBER },
-                timeframe: { type: Type.STRING },
-              },
-              required: ["indicator", "operator", "value", "timeframe"],
-            },
-          },
-          exit_conditions: {
-            type: Type.ARRAY,
-            items: {
-              type: Type.OBJECT,
-              properties: {
-                indicator: { type: Type.STRING },
-                operator: { type: Type.STRING },
-                value: { type: Type.NUMBER },
-                timeframe: { type: Type.STRING },
-              },
-              required: ["indicator", "operator", "value", "timeframe"],
-            },
-          },
-          stop_loss: {
-            type: Type.OBJECT,
-            properties: { type: { type: Type.STRING }, value: { type: Type.NUMBER } },
-            required: ["type", "value"],
-          },
-          take_profit: {
-            type: Type.OBJECT,
-            properties: { type: { type: Type.STRING }, value: { type: Type.NUMBER } },
-            required: ["type", "value"],
-          },
-          position_sizing: {
-            type: Type.OBJECT,
-            properties: { type: { type: Type.STRING }, value: { type: Type.NUMBER } },
-            required: ["type", "value"],
-          },
-          max_positions: { type: Type.INTEGER },
-          timeframe: { type: Type.STRING },
-          asset_class: { type: Type.STRING },
-        },
-        required: [
-          "entry_conditions", "exit_conditions", "stop_loss",
-          "take_profit", "position_sizing", "max_positions",
-          "timeframe", "asset_class",
-        ],
-      },
-    },
+    messages: [
+      { role: "system", content: system },
+      { role: "user", content: userMessage },
+    ],
+    response_format: { type: "json_object" },
+    max_tokens: 2048,
   });
 
-  const parsed = JSON.parse(res.text ?? "{}");
+  const text = res.choices[0]?.message?.content ?? "{}";
+  const parsed = JSON.parse(text);
   const validated = algorithmRulesSchema.safeParse(parsed);
   if (!validated.success) {
     throw new Error("AI generated invalid rules structure");
@@ -102,13 +49,16 @@ async function generateDescription(
   const client = getAIClient();
   const { system, userMessage } = buildStrategyPrompt(params, tradeCount);
 
-  const res = await client.models.generateContent({
+  const res = await client.chat.completions.create({
     model: AI_MODEL,
-    contents: userMessage,
-    config: { systemInstruction: system, maxOutputTokens: 1024 },
+    messages: [
+      { role: "system", content: system },
+      { role: "user", content: userMessage },
+    ],
+    max_tokens: 1024,
   });
 
-  const text = res.text ?? "";
+  const text = res.choices[0]?.message?.content ?? "";
   const firstLine = text.split("\n").find((l) => l.trim().length > 0) ?? "";
   const name = firstLine.replace(/^[#*\s]+/, "").replace(/[*#]+$/, "").trim() || "Untitled Strategy";
   return { name, description: text };
@@ -218,13 +168,16 @@ export async function runAiBacktest(algorithmId: string): Promise<ActionResult> 
       (trades ?? []) as Trade[]
     );
 
-    const res = await client.models.generateContent({
+    const res = await client.chat.completions.create({
       model: AI_MODEL,
-      contents: userMessage,
-      config: { systemInstruction: system, maxOutputTokens: 1024 },
+      messages: [
+        { role: "system", content: system },
+        { role: "user", content: userMessage },
+      ],
+      max_tokens: 1024,
     });
 
-    const analysisText = res.text;
+    const analysisText = res.choices[0]?.message?.content;
     if (!analysisText) return { success: false, error: "No response from AI" };
 
     await supabase
