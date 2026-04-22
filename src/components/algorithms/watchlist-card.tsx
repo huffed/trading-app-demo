@@ -11,8 +11,6 @@ import { useAddWatchlistItem, useRemoveWatchlistItem, useWatchlist } from "@/hoo
 import type { SignalResult } from "@/lib/signals/evaluate-live";
 import type { WatchlistItem } from "@/types/watchlist";
 
-const ADDED_BY_LABELS: Record<string, string> = { user: "Manual", ai: "AI", csv: "CSV" };
-
 function SignalBadge({ signal }: { signal: SignalResult["signal"] }) {
   if (signal === "buy") return <Badge className="bg-[var(--profit)]/10 text-[var(--profit)]"><CheckCircle2 className="mr-1 h-3 w-3" />Buy</Badge>;
   if (signal === "hold") return <Badge className="bg-yellow-500/10 text-yellow-500"><MinusCircle className="mr-1 h-3 w-3" />Hold</Badge>;
@@ -56,7 +54,6 @@ function WatchlistRow({ item, hasSentiment, signalResult, isChecking, onCheck, o
       <div className="flex items-center gap-2 py-1.5">
         <span className="font-mono text-sm font-medium min-w-[60px]">{item.ticker}</span>
         <span className="text-xs text-muted-foreground truncate flex-1">{item.name || "\u00A0"}</span>
-        <Badge variant="outline" className="text-[10px] shrink-0">{ADDED_BY_LABELS[item.added_by] ?? item.added_by}</Badge>
         {hasSentiment && (signalResult ? (
           <button onClick={onToggleDetail} className="cursor-pointer" type="button"><SignalBadge signal={signalResult.signal} /></button>
         ) : (
