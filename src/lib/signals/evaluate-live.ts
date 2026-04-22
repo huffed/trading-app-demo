@@ -1,6 +1,7 @@
 import { AI_MODEL, getAIClient } from "@/lib/ai/client";
 import { buildSignalPrompt } from "@/lib/ai/prompts/signal";
 import { fetchNewsSentiment } from "@/lib/market-data/news-sentiment";
+import { getCachedSentiment, saveSentimentToCache } from "@/lib/market-data/sentiment-cache";
 import { evaluateAllSentimentConditions } from "@/lib/market-data/sentiment-evaluator";
 import { isSentimentCondition, type AlgorithmRules, type SentimentCondition } from "@/types/algorithm";
 
@@ -34,9 +35,14 @@ export async function evaluateLiveSignal(
     };
   }
 
-  // Collect topics from all sentiment conditions
+  // Collect topics and check cache before hitting API
   const topics = [...new Set(sentimentConditions.flatMap((c) => c.topics ?? []))];
-  const snapshot = await fetchNewsSentiment(ticker, topics.length > 0 ? topics : undefined);
+  const topicsArg = topics.length > 0 ? topics : undefined;
+  let snapshot = await getCachedSentiment(ticker, topicsArg);
+  if (!snapshot) {
+    snapshot = await fetchNewsSentiment(ticker, topicsArg);
+    await saveSentimentToCache(snapshot, topicsArg).catch(() => {}); // best-effort cache write
+  }
 
   // Mechanical evaluation
   const { results } = evaluateAllSentimentConditions(sentimentConditions, snapshot);
