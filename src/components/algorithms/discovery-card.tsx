@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Check, Loader2, Plus, Sparkles } from "lucide-react";
 import { discoverTickers } from "@/app/(dashboard)/algorithms/discovery-actions";
 import { addWatchlistItem, bulkAddWatchlistItems } from "@/app/(dashboard)/algorithms/watchlist-actions";
@@ -9,8 +10,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { DiscoverySuggestion } from "@/types/watchlist";
 
-function SuggestionRow({ suggestion, algorithmId, isAdded, onAdded }: {
-  suggestion: DiscoverySuggestion; algorithmId: string; isAdded: boolean; onAdded: (ticker: string) => void;
+function SuggestionRow({ suggestion, algorithmId, isAdded, onAdded, onWatchlistChanged }: {
+  suggestion: DiscoverySuggestion; algorithmId: string; isAdded: boolean;
+  onAdded: (ticker: string) => void; onWatchlistChanged: () => void;
 }) {
   const [isAdding, setIsAdding] = useState(false);
 
@@ -18,7 +20,7 @@ function SuggestionRow({ suggestion, algorithmId, isAdded, onAdded }: {
     setIsAdding(true);
     try {
       const result = await addWatchlistItem(algorithmId, suggestion.ticker, suggestion.name, "ai", suggestion.reasoning);
-      if (result.success) onAdded(suggestion.ticker);
+      if (result.success) { onAdded(suggestion.ticker); onWatchlistChanged(); }
     } catch { /* best effort */ } finally { setIsAdding(false); }
   }
 
@@ -43,9 +45,9 @@ function SuggestionRow({ suggestion, algorithmId, isAdded, onAdded }: {
   );
 }
 
-function SuggestionList({ suggestions, algorithmId, addedTickers, onAdded, onAddAll, isAddingAll }: {
+function SuggestionList({ suggestions, algorithmId, addedTickers, onAdded, onAddAll, isAddingAll, onWatchlistChanged }: {
   suggestions: DiscoverySuggestion[]; algorithmId: string; addedTickers: Set<string>;
-  onAdded: (ticker: string) => void; onAddAll: () => void; isAddingAll: boolean;
+  onAdded: (ticker: string) => void; onAddAll: () => void; isAddingAll: boolean; onWatchlistChanged: () => void;
 }) {
   const allAdded = suggestions.every((s) => addedTickers.has(s.ticker));
   return (
@@ -53,7 +55,7 @@ function SuggestionList({ suggestions, algorithmId, addedTickers, onAdded, onAdd
       <div className="divide-y">
         {suggestions.map((s) => (
           <SuggestionRow key={s.ticker} suggestion={s} algorithmId={algorithmId}
-            isAdded={addedTickers.has(s.ticker)} onAdded={onAdded} />
+            isAdded={addedTickers.has(s.ticker)} onAdded={onAdded} onWatchlistChanged={onWatchlistChanged} />
         ))}
       </div>
       <Button variant="outline" size="sm" onClick={onAddAll} disabled={allAdded || isAddingAll} className="w-full">
@@ -66,11 +68,16 @@ function SuggestionList({ suggestions, algorithmId, addedTickers, onAdded, onAdd
 }
 
 export function DiscoveryCard({ algorithmId }: { algorithmId: string }) {
+  const queryClient = useQueryClient();
   const [suggestions, setSuggestions] = useState<DiscoverySuggestion[]>([]);
   const [addedTickers, setAddedTickers] = useState<Set<string>>(new Set());
   const [isDiscovering, setIsDiscovering] = useState(false);
   const [isAddingAll, setIsAddingAll] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  function invalidateWatchlist() {
+    queryClient.invalidateQueries({ queryKey: ["watchlist"] });
+  }
 
   async function handleDiscover() {
     setIsDiscovering(true);
@@ -94,7 +101,7 @@ export function DiscoveryCard({ algorithmId }: { algorithmId: string }) {
         toAdd.map((s) => ({ symbol: s.ticker, name: s.name })),
         "ai"
       );
-      if (result.success) setAddedTickers(new Set(suggestions.map((s) => s.ticker)));
+      if (result.success) { setAddedTickers(new Set(suggestions.map((s) => s.ticker))); invalidateWatchlist(); }
     } catch { /* best effort */ } finally { setIsAddingAll(false); }
   }
 
@@ -116,7 +123,7 @@ export function DiscoveryCard({ algorithmId }: { algorithmId: string }) {
         {suggestions.length > 0 && (
           <SuggestionList suggestions={suggestions} algorithmId={algorithmId}
             addedTickers={addedTickers} onAdded={(t) => setAddedTickers((prev) => new Set(prev).add(t))}
-            onAddAll={handleAddAll} isAddingAll={isAddingAll} />
+            onAddAll={handleAddAll} isAddingAll={isAddingAll} onWatchlistChanged={invalidateWatchlist} />
         )}
       </CardContent>
     </Card>
