@@ -45,6 +45,7 @@ export interface CsvParseResult {
   analysisText: string;
   tradeCount: number;
   symbolCount: number;
+  tickers: { symbol: string; name: string }[];
 }
 
 function parseAction(action: string): "buy" | "sell" | null {
@@ -225,6 +226,10 @@ export function parseTradeHistoryCsv(file: File): Promise<CsvParseResult> {
           analysisText: buildAnalysisText(trades, byTicker, dateRange),
           tradeCount: trades.length,
           symbolCount: Object.keys(byTicker).length,
+          tickers: Object.entries(byTicker).map(([symbol, summary]) => ({
+            symbol,
+            name: summary.name,
+          })),
         });
       },
       error: (err: Error) => reject(err),

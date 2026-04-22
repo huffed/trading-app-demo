@@ -8,8 +8,8 @@ import { AiBacktestCard } from "@/components/algorithms/ai-backtest-card";
 import { AlgorithmEditView } from "@/components/algorithms/algorithm-edit-view";
 import { BacktestForm } from "@/components/algorithms/backtest-form";
 import { BacktestResultsDisplay } from "@/components/algorithms/backtest-results-display";
-import { LiveSignalCard } from "@/components/algorithms/live-signal-card";
 import { RulesDisplay } from "@/components/algorithms/rules-display";
+import { WatchlistCard } from "@/components/algorithms/watchlist-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -76,7 +76,7 @@ function ReadView({ algo, backtestError, aiBacktestError, localBacktestResults, 
       <RulesDisplay rules={algo.rules} />
       <AiBacktestCard analysis={algo.ai_analysis} error={aiBacktestError} onRunBacktest={onRunAiBacktest} isPending={isAiPending} />
       <BacktestForm disabled={isBtPending} onSubmit={onRunBacktest} />
-      {algo.rules.entry_conditions.some(isSentimentCondition) && <LiveSignalCard algorithmId={algo.id} />}
+      <WatchlistCard algorithmId={algo.id} hasSentimentConditions={algo.rules.entry_conditions.some(isSentimentCondition)} />
       {backtestError && <p className="text-sm text-destructive">{backtestError}</p>}
       {(localBacktestResults || algo.backtest_results) && (
         <BacktestResultsDisplay results={(localBacktestResults ?? algo.backtest_results) as BacktestMetrics} />
