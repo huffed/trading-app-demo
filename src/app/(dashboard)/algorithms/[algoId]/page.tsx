@@ -113,7 +113,7 @@ export default function AlgorithmDetailPage() {
   function handleHistoricalBacktest(symbol: string, period: string) {
     setBacktestError(null);
     historicalBacktest.mutate(
-      { id: algo.id, symbol, period: period as "compact" | "full" },
+      { id: algoId, symbol, period: period as "compact" | "full" },
       {
         onSuccess: (r) => {
           if (!r.success) { setBacktestError(r.error); }
