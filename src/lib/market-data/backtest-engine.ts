@@ -1,6 +1,6 @@
 import { isTechnicalCondition, type AlgorithmRules, type TechnicalCondition } from "@/types/algorithm";
 import { bollingerBands, ema, macd, rsi, sma } from "./indicators";
-import type { BacktestMetrics, BacktestTrade, PriceBar } from "./types";
+import type { BacktestMetrics, BacktestTrade, OpenPosition, PriceBar } from "./types";
 
 type Cache = Map<string, (number | null)[]>;
 
@@ -90,7 +90,7 @@ function checkConditions(conditions: TechnicalCondition[], cache: Cache, closes:
   });
 }
 
-function calculateMetrics(trades: BacktestTrade[], capital: number, prices: PriceBar[]): Omit<BacktestMetrics, "sentiment_conditions_excluded" | "backtest_mode"> {
+function calculateMetrics(trades: BacktestTrade[], capital: number, prices: PriceBar[], openPos: OpenPosition | null): Omit<BacktestMetrics, "sentiment_conditions_excluded" | "backtest_mode"> {
   const wins = trades.filter((t) => t.pnl > 0);
   const totalReturn = trades.reduce((s, t) => s + t.pnl, 0);
   let equity = capital;
@@ -115,6 +115,7 @@ function calculateMetrics(trades: BacktestTrade[], capital: number, prices: Pric
     total_trades: trades.length,
     win_rate: trades.length > 0 ? Number(((wins.length / trades.length) * 100).toFixed(1)) : 0,
     equity_curve: curve,
+    open_position: openPos,
   };
 }
 
@@ -129,7 +130,7 @@ export function runBacktest(rules: AlgorithmRules, prices: PriceBar[], capital: 
   // If no technical entry conditions remain, we can't run a meaningful backtest
   if (techEntry.length === 0) {
     return {
-      ...calculateMetrics([], capital, prices),
+      ...calculateMetrics([], capital, prices, null),
       sentiment_conditions_excluded: sentimentExcluded,
       backtest_mode: mode,
     };
@@ -169,8 +170,23 @@ export function runBacktest(rules: AlgorithmRules, prices: PriceBar[], capital: 
     }
   }
 
+  // Capture open position at end of backtest period
+  let openPos: OpenPosition | null = null;
+  if (inPosition && prices.length > 0) {
+    const lastPrice = closes[closes.length - 1];
+    const pnlPct = (lastPrice - entryPrice) / entryPrice;
+    openPos = {
+      entry_date: entryDate,
+      entry_price: entryPrice,
+      current_price: lastPrice,
+      side: "long",
+      unrealized_pnl: Number((capital * posSize * pnlPct).toFixed(2)),
+      unrealized_pnl_pct: Number((pnlPct * 100).toFixed(2)),
+    };
+  }
+
   return {
-    ...calculateMetrics(trades, capital, prices),
+    ...calculateMetrics(trades, capital, prices, openPos),
     sentiment_conditions_excluded: sentimentExcluded,
     backtest_mode: mode,
   };

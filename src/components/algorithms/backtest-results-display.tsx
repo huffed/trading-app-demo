@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, TrendingUp } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { BacktestMetrics } from "@/lib/market-data/types";
 import { pnlColorClass } from "@/lib/utils/pnl";
@@ -61,7 +61,21 @@ export function BacktestResultsDisplay({ results, symbol }: BacktestResultsDispl
           <StatItem label="Win Rate" value={`${results.win_rate}%`} />
           <StatItem label="Total Trades" value={results.total_trades.toString()} />
         </div>
-        {noTrades && <NoTradesExplanation />}
+        {results.open_position && (
+          <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 space-y-1">
+            <div className="flex items-center gap-2">
+              <TrendingUp className="h-4 w-4 text-primary" />
+              <span className="text-sm font-medium">Open Position</span>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Entered {results.open_position.entry_date} at ${results.open_position.entry_price.toFixed(2)} — now ${results.open_position.current_price.toFixed(2)}
+            </p>
+            <p className={`text-sm font-medium ${pnlColorClass(results.open_position.unrealized_pnl)}`}>
+              Unrealized: ${results.open_position.unrealized_pnl.toFixed(2)} ({results.open_position.unrealized_pnl_pct.toFixed(1)}%)
+            </p>
+          </div>
+        )}
+        {noTrades && !results.open_position && <NoTradesExplanation />}
         {!noTrades && <EquityCurveChart data={results.equity_curve} />}
       </CardContent>
     </Card>
