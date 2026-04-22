@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Pencil, Trash2 } from "lucide-react";
+import { ArrowLeft, Pencil, Trash2, X } from "lucide-react";
 import { AiBacktestCard } from "@/components/algorithms/ai-backtest-card";
 import { AlgorithmEditView } from "@/components/algorithms/algorithm-edit-view";
 import { BacktestForm } from "@/components/algorithms/backtest-form";
@@ -74,6 +74,13 @@ function ReadView({ algo, backtestError, aiBacktestError, localBacktestResults, 
 }) {
   const { data: watchlistItems = [] } = useWatchlist(algo.id);
   const watchlistTickers = watchlistItems.map((w) => ({ ticker: w.ticker, name: w.name }));
+  const [resultsVisible, setResultsVisible] = useState(true);
+  const backtestResults = localBacktestResults ?? (algo.backtest_results as BacktestMetrics | null);
+
+  function handleRunBacktest(symbol: string, period: string) {
+    setResultsVisible(true);
+    onRunBacktest(symbol, period);
+  }
 
   return (
     <Tabs defaultValue={0}>
@@ -97,11 +104,16 @@ function ReadView({ algo, backtestError, aiBacktestError, localBacktestResults, 
 
       <TabsContent value={2} className="space-y-4 pt-2">
         <AiBacktestCard analysis={algo.ai_analysis} error={aiBacktestError} onRunBacktest={onRunAiBacktest} isPending={isAiPending} />
-        <BacktestForm disabled={isBtPending} onSubmit={onRunBacktest} />
+        <BacktestForm disabled={isBtPending} onSubmit={handleRunBacktest} />
         <BacktestRankingCard algorithmId={algo.id} tickers={watchlistTickers} />
         {backtestError && <p className="text-sm text-destructive">{backtestError}</p>}
-        {(localBacktestResults || algo.backtest_results) && (
-          <BacktestResultsDisplay results={(localBacktestResults ?? algo.backtest_results) as BacktestMetrics} />
+        {backtestResults && resultsVisible && (
+          <div className="relative">
+            <Button size="icon-xs" variant="ghost" className="absolute right-2 top-2 z-10" onClick={() => setResultsVisible(false)}>
+              <X className="h-3 w-3" />
+            </Button>
+            <BacktestResultsDisplay results={backtestResults} />
+          </div>
         )}
       </TabsContent>
     </Tabs>
