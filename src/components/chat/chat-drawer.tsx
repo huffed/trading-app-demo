@@ -212,8 +212,18 @@ export function ChatDrawer({ open, onOpenChange, stats }: ChatDrawerProps) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="flex flex-col p-0 sm:max-w-sm">
-        <SheetHeader className="border-b border-border px-4 py-3">
+        <SheetHeader className="border-b border-border px-4 py-3 flex flex-row items-center justify-between">
           <SheetTitle className="text-sm">AI Assistant</SheetTitle>
+          {messages.length > 0 && (
+            <Button
+              variant="ghost"
+              size="xs"
+              onClick={() => { setMessages([]); setCreatedAlgoIds([]); }}
+              disabled={isStreaming}
+            >
+              New Chat
+            </Button>
+          )}
         </SheetHeader>
         <MessageList messages={messages} isStreaming={isStreaming} createdAlgoIds={createdAlgoIds} />
         <ChatInput onSend={handleSend} disabled={isStreaming} />
