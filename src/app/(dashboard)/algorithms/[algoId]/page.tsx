@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAlgorithm, useDeleteAlgorithm, useRunAiBacktest, useRunHistoricalBacktest, useUpdateAlgorithm } from "@/hooks/use-algorithms";
 import { useWatchlist } from "@/hooks/use-watchlist";
 import { STATUS_COLORS, STATUS_LABELS } from "@/lib/constants/algorithm";
@@ -75,21 +76,35 @@ function ReadView({ algo, backtestError, aiBacktestError, localBacktestResults, 
   const watchlistTickers = watchlistItems.map((w) => ({ ticker: w.ticker, name: w.name }));
 
   return (
-    <>
-      {algo.description && (
-        <Card><CardContent className="p-4"><div className="whitespace-pre-wrap text-sm leading-relaxed">{algo.description}</div></CardContent></Card>
-      )}
-      <RulesDisplay rules={algo.rules} />
-      <AiBacktestCard analysis={algo.ai_analysis} error={aiBacktestError} onRunBacktest={onRunAiBacktest} isPending={isAiPending} />
-      <BacktestForm disabled={isBtPending} onSubmit={onRunBacktest} />
-      <WatchlistCard algorithmId={algo.id} hasSentimentConditions={algo.rules.entry_conditions.some(isSentimentCondition)} />
-      <DiscoveryCard algorithmId={algo.id} />
-      <BacktestRankingCard algorithmId={algo.id} tickers={watchlistTickers} />
-      {backtestError && <p className="text-sm text-destructive">{backtestError}</p>}
-      {(localBacktestResults || algo.backtest_results) && (
-        <BacktestResultsDisplay results={(localBacktestResults ?? algo.backtest_results) as BacktestMetrics} />
-      )}
-    </>
+    <Tabs defaultValue={0}>
+      <TabsList variant="line">
+        <TabsTrigger value={0}>Overview</TabsTrigger>
+        <TabsTrigger value={1}>Watchlist</TabsTrigger>
+        <TabsTrigger value={2}>Backtest</TabsTrigger>
+      </TabsList>
+
+      <TabsContent value={0} className="space-y-4 pt-2">
+        {algo.description && (
+          <Card><CardContent className="p-4"><div className="whitespace-pre-wrap text-sm leading-relaxed">{algo.description}</div></CardContent></Card>
+        )}
+        <RulesDisplay rules={algo.rules} />
+      </TabsContent>
+
+      <TabsContent value={1} className="space-y-4 pt-2">
+        <WatchlistCard algorithmId={algo.id} hasSentimentConditions={algo.rules.entry_conditions.some(isSentimentCondition)} />
+        <DiscoveryCard algorithmId={algo.id} />
+      </TabsContent>
+
+      <TabsContent value={2} className="space-y-4 pt-2">
+        <AiBacktestCard analysis={algo.ai_analysis} error={aiBacktestError} onRunBacktest={onRunAiBacktest} isPending={isAiPending} />
+        <BacktestForm disabled={isBtPending} onSubmit={onRunBacktest} />
+        <BacktestRankingCard algorithmId={algo.id} tickers={watchlistTickers} />
+        {backtestError && <p className="text-sm text-destructive">{backtestError}</p>}
+        {(localBacktestResults || algo.backtest_results) && (
+          <BacktestResultsDisplay results={(localBacktestResults ?? algo.backtest_results) as BacktestMetrics} />
+        )}
+      </TabsContent>
+    </Tabs>
   );
 }
 
