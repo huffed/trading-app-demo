@@ -48,7 +48,7 @@ export async function saveSentimentToCache(
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) { return; }
 
-  await supabase.from("sentiment_cache").insert({
+  await supabase.from("sentiment_cache").upsert({
     user_id: user.id,
     ticker: snapshot.ticker,
     topics: topics ?? [],
