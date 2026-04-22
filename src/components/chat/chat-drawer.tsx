@@ -212,7 +212,7 @@ export function ChatDrawer({ open, onOpenChange, stats }: ChatDrawerProps) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="flex flex-col p-0 sm:max-w-sm">
-        <SheetHeader className="border-b border-border px-4 py-3 flex flex-row items-center justify-between">
+        <SheetHeader className="border-b border-border px-4 py-3 pr-12 flex flex-row items-center justify-between">
           <SheetTitle className="text-sm">AI Assistant</SheetTitle>
           {messages.length > 0 && (
             <Button
