@@ -31,19 +31,34 @@ For moving average crossovers, use TWO conditions:
     means price is above SMA20. Value 0 = compare price against the indicator.
 
 GOOD examples:
-  { "indicator": "RSI", "operator": "less_than", "value": 30, "timeframe": "1d" }
-  { "indicator": "RSI", "operator": "greater_than", "value": 70, "timeframe": "1d" }
-  { "indicator": "EMA12", "operator": "crosses_above", "value": 0, "timeframe": "1d" }
-  { "indicator": "BollingerBands_lower", "operator": "less_than", "value": 0, "timeframe": "1d" }
+  { "type": "technical", "indicator": "RSI", "operator": "less_than", "value": 45, "timeframe": "1d" }
+  { "type": "technical", "indicator": "EMA12", "operator": "crosses_above", "value": 0, "timeframe": "1d" }
+  { "type": "technical", "indicator": "BollingerBands_lower", "operator": "less_than", "value": 0, "timeframe": "1d" }
 
 BAD examples (NEVER do this):
-  { "indicator": "SMA20", "operator": "crosses_above", "value": 50 } — 50 is not a valid SMA threshold
-  { "indicator": "SMA50", "operator": "greater_than", "value": 200 } — nonsensical comparison
+  { "indicator": "SMA20", ... } — MISSING "type" field
+  { "type": "technical", "indicator": "SMA20", "operator": "crosses_above", "value": 50 } — 50 is not valid for SMA
 
-Schema:
+There are TWO condition types. Every condition MUST include a "type" field.
+
+## Technical conditions (price-based indicators)
+Schema: { "type": "technical", "indicator": string, "operator": string, "value": number, "timeframe": string }
+Valid indicators: RSI, SMA20, SMA50, EMA12, EMA26, MACD, BollingerBands_upper, BollingerBands_lower
+Valid operators: less_than, greater_than, crosses_above, crosses_below
+
+## Sentiment conditions (news/social data — use when user mentions catalysts, hype, news, narrative, sector momentum)
+Schema: { "type": "sentiment", "source": "news"|"social", "metric": string, "operator": string, "threshold": number, "topics": string[], "tickers": string[], "timeframe": string }
+Valid metrics: overall_sentiment, article_count, topic_buzz
+Valid operators for sentiment: above, below, spike_above, spike_below
+Threshold ranges: overall_sentiment (-1 to 1, 0.2 = moderately bullish), article_count (integer), topic_buzz (0-1)
+
+Example sentiment condition:
+  { "type": "sentiment", "source": "news", "metric": "overall_sentiment", "operator": "above", "threshold": 0.2, "topics": ["quantum computing"], "tickers": ["QBTS"], "timeframe": "1d" }
+
+## Full rules schema
 {
-  "entry_conditions": [{ "indicator": string, "operator": string, "value": number, "timeframe": string }],
-  "exit_conditions": [{ "indicator": string, "operator": string, "value": number, "timeframe": string }],
+  "entry_conditions": [(technical or sentiment condition)],
+  "exit_conditions": [(technical or sentiment condition)],
   "stop_loss": { "type": "percentage"|"fixed", "value": number },
   "take_profit": { "type": "percentage"|"fixed", "value": number },
   "position_sizing": { "type": "percentage_of_capital"|"fixed_amount", "value": number },
@@ -52,16 +67,24 @@ Schema:
   "asset_class": string
 }
 
-Valid indicators: RSI, SMA20, SMA50, EMA12, EMA26, MACD, BollingerBands_upper, BollingerBands_lower
-Valid operators: less_than, greater_than, crosses_above, crosses_below
+CRITICAL — Condition limits:
+- Day trading: max 2 entry conditions total
+- Swing / long term: max 2 entry conditions total (e.g., 1 sentiment + 1 technical)
+- NEVER use 3+ entry conditions
+- Exit: 1 condition
+
+WHEN TO USE SENTIMENT: If user_hints mention trade history, news, catalysts, hype cycles, sector momentum, or emerging tech — include a sentiment entry condition. A strong pattern: 1 sentiment condition (confirms narrative) + 1 technical condition (confirms price support).
 
 Rules:
-- Use 2-3 entry conditions and 1-2 exit conditions
-- RSI conditions MUST have meaningful thresholds (20-40 for entry, 60-80 for exit)
+- RSI thresholds: 40-50 for swing/long-term entry (NOT 30), 55-70 for exit
 - MA/BB conditions should use value 0 (compare against price or companion indicator)
-- Conservative: stop_loss 2-3%, take_profit 5-8%, position_sizing 5-8%, max_positions 2-3
-- Moderate: stop_loss 3-5%, take_profit 8-15%, position_sizing 8-12%, max_positions 3-5
-- Aggressive: stop_loss 5-10%, take_profit 15-25%, position_sizing 12-20%, max_positions 5-8`;
+- IMPORTANT: stop_loss, take_profit, position_sizing values are INTEGER percentages (e.g., 3 means 3%, NOT 0.03)
+- CRITICAL: If user_hints contain a "RISK PROFILE" section with suggested stop_loss/take_profit ranges derived from actual trade history, USE THOSE VALUES instead of the defaults below. The derived values are based on real data and will always be more appropriate.
+- Default risk levels (use ONLY if no trade history risk profile is available):
+  - Conservative: stop_loss 2-3, take_profit 5-8, position_sizing 5-8, max_positions 2-3
+  - Moderate: stop_loss 3-5, take_profit 8-15, position_sizing 8-12, max_positions 3-5
+  - Aggressive: stop_loss 5-10, take_profit 15-25, position_sizing 12-20, max_positions 5-8
+- Sentiment conditions CANNOT be backtested — mention this in the strategy description`;
 
 const RISK_DESCRIPTIONS: Record<string, string> = {
   conservative: "Low risk, capital preservation, steady returns",

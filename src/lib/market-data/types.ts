@@ -23,4 +23,6 @@ export interface BacktestMetrics {
   total_trades: number;
   win_rate: number;
   equity_curve: { date: string; value: number }[];
+  sentiment_conditions_excluded: number;
+  backtest_mode: "full" | "technical_only";
 }

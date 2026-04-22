@@ -11,18 +11,22 @@ export async function POST(request: Request) {
     return new Response("Unauthorized", { status: 401 });
   }
 
-  const { messages, stats } = (await request.json()) as {
+  const { messages, stats, tradeHistory } = (await request.json()) as {
     messages: ChatMessage[];
     stats: Record<string, unknown> | null;
+    tradeHistory?: string | null;
   };
 
   try {
     const client = getAIClient();
-    const system = buildChatSystemPrompt(stats as Parameters<typeof buildChatSystemPrompt>[0]);
+    const system = buildChatSystemPrompt(
+      stats as Parameters<typeof buildChatSystemPrompt>[0],
+      tradeHistory
+    );
 
     const stream = await client.chat.completions.create({
       model: AI_MODEL,
-      max_tokens: 512,
+      max_tokens: tradeHistory ? 1024 : 512,
       stream: true,
       messages: [
         { role: "system", content: system },

@@ -6,11 +6,12 @@ import {
   generateAlgorithm,
   runAiBacktest,
   runHistoricalBacktest,
+  updateAlgorithm,
   updateAlgorithmStatus,
 } from "@/app/(dashboard)/algorithms/actions";
 import { createClient } from "@/lib/supabase/client";
 import type { AlgorithmFormValues } from "@/lib/validators/algorithm";
-import type { Algorithm, AlgorithmStatus } from "@/types/algorithm";
+import type { Algorithm, AlgorithmRules, AlgorithmStatus } from "@/types/algorithm";
 
 const ALGORITHMS_KEY = ["algorithms"];
 
@@ -62,6 +63,19 @@ export function useDeleteAlgorithm() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => deleteAlgorithm(id),
+    onSuccess: (result) => {
+      if (result.success) {
+        queryClient.invalidateQueries({ queryKey: ALGORITHMS_KEY });
+      }
+    },
+  });
+}
+
+export function useUpdateAlgorithm() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, updates }: { id: string; updates: { name?: string; description?: string; status?: AlgorithmStatus; rules?: AlgorithmRules } }) =>
+      updateAlgorithm(id, updates),
     onSuccess: (result) => {
       if (result.success) {
         queryClient.invalidateQueries({ queryKey: ALGORITHMS_KEY });

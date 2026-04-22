@@ -2,26 +2,40 @@
 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import type { AlgorithmRules } from "@/types/algorithm";
+import { isTechnicalCondition, type AlgorithmRules, type EntryCondition, type ExitCondition } from "@/types/algorithm";
 
-function ConditionList({ title, conditions }: { title: string; conditions: { indicator: string; operator: string; value: number; timeframe: string }[] }) {
-  if (!conditions || conditions.length === 0) return null;
+const techOpLabels: Record<string, string> = {
+  less_than: "<", greater_than: ">", crosses_above: "crosses above", crosses_below: "crosses below",
+};
 
-  const opLabels: Record<string, string> = {
-    less_than: "<", greater_than: ">", crosses_above: "crosses above", crosses_below: "crosses below",
-  };
+const sentimentOpLabels: Record<string, string> = {
+  above: ">", below: "<", spike_above: "spikes above", spike_below: "spikes below",
+};
+
+function ConditionList({ title, conditions }: { title: string; conditions: (EntryCondition | ExitCondition)[] }) {
+  if (!conditions || conditions.length === 0) { return null; }
 
   return (
     <div className="space-y-1">
       <h4 className="text-xs font-medium text-muted-foreground">{title}</h4>
-      {conditions.map((c, i) => (
-        <div key={i} className="flex items-center gap-1.5 text-sm">
-          <Badge variant="outline" className="text-xs">{c.indicator}</Badge>
-          <span className="text-muted-foreground">{opLabels[c.operator] ?? c.operator}</span>
-          <span className="font-medium">{c.value}</span>
-          <span className="text-xs text-muted-foreground">({c.timeframe})</span>
-        </div>
-      ))}
+      {conditions.map((c, i) =>
+        isTechnicalCondition(c) ? (
+          <div key={i} className="flex items-center gap-1.5 text-sm">
+            <Badge variant="outline" className="text-xs">{c.indicator}</Badge>
+            <span className="text-muted-foreground">{techOpLabels[c.operator] ?? c.operator}</span>
+            <span className="font-medium">{c.value}</span>
+            <span className="text-xs text-muted-foreground">({c.timeframe})</span>
+          </div>
+        ) : (
+          <div key={i} className="flex flex-wrap items-center gap-1.5 text-sm">
+            <Badge className="text-xs bg-primary/10 text-primary">sentiment</Badge>
+            <span className="text-muted-foreground">{c.metric}</span>
+            <span className="text-muted-foreground">{sentimentOpLabels[c.operator] ?? c.operator}</span>
+            <span className="font-medium">{c.threshold}</span>
+            {c.topics?.map((t) => <Badge key={t} variant="outline" className="text-xs">{t}</Badge>)}
+          </div>
+        )
+      )}
     </div>
   );
 }

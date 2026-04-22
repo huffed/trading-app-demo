@@ -9,12 +9,43 @@ import {
   algorithmRulesSchema,
   type AlgorithmFormValues,
 } from "@/lib/validators/algorithm";
-import type { Algorithm, AlgorithmRules, AlgorithmStatus } from "@/types/algorithm";
+import { isTechnicalCondition, type Algorithm, type AlgorithmRules, type AlgorithmStatus } from "@/types/algorithm";
 import type { Trade } from "@/types/trade";
 
 type ActionResult<T = unknown> =
   | { success: true; data: T }
   | { success: false; error: string };
+
+const LONG_HORIZONS = new Set(["swing", "long term", "long_term", "weekly", "monthly"]);
+
+function clampRules(rules: AlgorithmRules, timeHorizon: string): AlgorithmRules {
+  const isLong = LONG_HORIZONS.has(timeHorizon.toLowerCase()) || timeHorizon.toLowerCase().includes("long");
+  const clamped = { ...rules };
+  // Limit technical entry conditions to 1 for swing/long (multiple technicals that all must fire = zero trades)
+  if (isLong) {
+    const tech = clamped.entry_conditions.filter(isTechnicalCondition);
+    const sentiment = clamped.entry_conditions.filter((c) => !isTechnicalCondition(c));
+    clamped.entry_conditions = [...tech.slice(0, 1), ...sentiment.slice(0, 1)];
+  } else if (clamped.entry_conditions.length > 2) {
+    clamped.entry_conditions = clamped.entry_conditions.slice(0, 2);
+  }
+  if (clamped.exit_conditions.length > 2) {
+    clamped.exit_conditions = clamped.exit_conditions.slice(0, 2);
+  }
+  // Relax overly strict RSI thresholds for long-term strategies
+  if (isLong) {
+    for (const c of clamped.entry_conditions) {
+      if (isTechnicalCondition(c) && c.indicator.toLowerCase() === "rsi" && c.operator === "less_than" && c.value < 40) {
+        c.value = 45;
+      }
+    }
+  }
+  // Fix decimal-form percentages (AI sometimes outputs 0.05 meaning 5%, not 5 meaning 5%)
+  if (clamped.stop_loss && clamped.stop_loss.value < 1) { clamped.stop_loss.value = Math.round(clamped.stop_loss.value * 100); }
+  if (clamped.take_profit && clamped.take_profit.value < 1) { clamped.take_profit.value = Math.round(clamped.take_profit.value * 100); }
+  if (clamped.position_sizing && clamped.position_sizing.value < 1) { clamped.position_sizing.value = Math.round(clamped.position_sizing.value * 100); }
+  return clamped;
+}
 
 async function generateRules(
   params: AlgorithmFormValues,
@@ -39,7 +70,7 @@ async function generateRules(
   if (!validated.success) {
     throw new Error("AI generated invalid rules structure");
   }
-  return validated.data as AlgorithmRules;
+  return clampRules(validated.data as AlgorithmRules, params.time_horizon);
 }
 
 async function generateDescription(
@@ -109,6 +140,26 @@ export async function generateAlgorithm(
     const msg = err instanceof Error ? err.message : "Algorithm generation failed";
     return { success: false, error: msg };
   }
+}
+
+export async function updateAlgorithm(
+  id: string,
+  updates: { name?: string; description?: string; status?: AlgorithmStatus; rules?: AlgorithmRules }
+): Promise<ActionResult> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) { return { success: false, error: "Not authenticated" }; }
+
+  const { data, error } = await supabase
+    .from("algorithms")
+    .update(updates)
+    .eq("id", id)
+    .eq("user_id", user.id)
+    .select()
+    .single();
+
+  if (error) { return { success: false, error: error.message }; }
+  return { success: true, data };
 }
 
 export async function deleteAlgorithm(id: string): Promise<ActionResult> {
@@ -232,6 +283,37 @@ export async function runHistoricalBacktest(
     return { success: true, data: results };
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Backtest failed";
+    return { success: false, error: msg };
+  }
+}
+
+export async function runLiveSignal(
+  algorithmId: string,
+  ticker: string
+): Promise<ActionResult> {
+  const { evaluateLiveSignal } = await import("@/lib/signals/evaluate-live");
+
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) { return { success: false, error: "Not authenticated" }; }
+
+  const { data: algo, error: algoErr } = await supabase
+    .from("algorithms")
+    .select("*")
+    .eq("id", algorithmId)
+    .eq("user_id", user.id)
+    .single();
+  if (algoErr || !algo) { return { success: false, error: "Algorithm not found" }; }
+
+  try {
+    const result = await evaluateLiveSignal(
+      algo.rules as AlgorithmRules,
+      ticker,
+      (algo.description as string) ?? ""
+    );
+    return { success: true, data: result };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Signal evaluation failed";
     return { success: false, error: msg };
   }
 }

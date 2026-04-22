@@ -41,7 +41,7 @@ export function BacktestForm({ onSubmit, disabled }: BacktestFormProps) {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="compact">Last 100 days</SelectItem>
-              <SelectItem value="full">Full history</SelectItem>
+              <SelectItem value="full">Full history (premium)</SelectItem>
             </SelectContent>
           </Select>
         </div>
