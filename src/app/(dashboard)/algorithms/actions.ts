@@ -256,6 +256,7 @@ export async function runHistoricalBacktest(
   outputSize: "compact" | "full"
 ): Promise<ActionResult> {
   const { fetchDailyPrices } = await import("@/lib/market-data/alpha-vantage");
+  const { getCachedPrices, savePricesToCache } = await import("@/lib/market-data/price-cache");
   const { runBacktest } = await import("@/lib/market-data/backtest-engine");
 
   const supabase = await createClient();
@@ -276,7 +277,11 @@ export async function runHistoricalBacktest(
   }
 
   try {
-    const prices = await fetchDailyPrices(symbol, outputSize);
+    let prices = await getCachedPrices(symbol, outputSize);
+    if (!prices) {
+      prices = await fetchDailyPrices(symbol, outputSize);
+      savePricesToCache(symbol, outputSize, prices).catch(() => {});
+    }
     if (prices.length < 30) {
       return { success: false, error: "Not enough price data for backtesting" };
     }

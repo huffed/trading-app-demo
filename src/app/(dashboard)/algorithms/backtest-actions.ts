@@ -2,6 +2,7 @@
 
 import { fetchDailyPrices } from "@/lib/market-data/alpha-vantage";
 import { runBacktest } from "@/lib/market-data/backtest-engine";
+import { getCachedPrices, savePricesToCache } from "@/lib/market-data/price-cache";
 import type { BacktestMetrics } from "@/lib/market-data/types";
 import type { AlgorithmRules } from "@/types/algorithm";
 import { getAuthedUser } from "./actions";
@@ -34,7 +35,11 @@ export async function backtestTicker(
   }
 
   try {
-    const prices = await fetchDailyPrices(ticker, outputSize);
+    let prices = await getCachedPrices(ticker, outputSize);
+    if (!prices) {
+      prices = await fetchDailyPrices(ticker, outputSize);
+      savePricesToCache(ticker, outputSize, prices).catch(() => {});
+    }
     if (prices.length < 30) {
       return { success: false, error: "Not enough price data" };
     }
