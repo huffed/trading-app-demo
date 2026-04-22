@@ -109,9 +109,7 @@ export function Sidebar() {
   const { sidebarOpen, toggleSidebar } = useUIStore();
   const [loadingHref, setLoadingHref] = useState<string | null>(null);
 
-  // Derive: if we navigated to the loading target, clear it
-  const isStillLoading =
-    loadingHref !== null && !pathname.startsWith(loadingHref);
+  const isStillLoading = loadingHref !== null && !pathname.startsWith(loadingHref);
 
   return (
     <aside

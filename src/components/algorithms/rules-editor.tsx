@@ -7,21 +7,15 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { SENTIMENT_OP_LABELS, TECHNICAL_OP_LABELS } from "@/lib/constants/algorithm";
 import { isTechnicalCondition, type AlgorithmRules, type EntryCondition, type ExitCondition } from "@/types/algorithm";
-
-const techOp: Record<string, string> = {
-  less_than: "<", greater_than: ">", crosses_above: "crosses above", crosses_below: "crosses below",
-};
-const sentOp: Record<string, string> = {
-  above: ">", below: "<", spike_above: "spikes above", spike_below: "spikes below",
-};
 
 function ConditionRow({ condition, onRemove }: { condition: EntryCondition | ExitCondition; onRemove: () => void }) {
   if (isTechnicalCondition(condition)) {
     return (
       <div className="flex items-center gap-1.5 text-sm group">
         <Badge variant="outline" className="text-xs">{condition.indicator}</Badge>
-        <span className="text-muted-foreground">{techOp[condition.operator] ?? condition.operator}</span>
+        <span className="text-muted-foreground">{TECHNICAL_OP_LABELS[condition.operator] ?? condition.operator}</span>
         <span className="font-medium">{condition.value}</span>
         <span className="text-xs text-muted-foreground">({condition.timeframe})</span>
         <button type="button" onClick={onRemove} className="ml-auto opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive">
@@ -33,7 +27,7 @@ function ConditionRow({ condition, onRemove }: { condition: EntryCondition | Exi
   return (
     <div className="flex items-center gap-1.5 text-sm group">
       <Badge className="text-xs bg-primary/10 text-primary">sentiment</Badge>
-      <span className="text-muted-foreground">{condition.metric} {sentOp[condition.operator] ?? condition.operator} {condition.threshold}</span>
+      <span className="text-muted-foreground">{condition.metric} {SENTIMENT_OP_LABELS[condition.operator] ?? condition.operator} {condition.threshold}</span>
       {condition.topics?.map((t) => <Badge key={t} variant="outline" className="text-xs">{t}</Badge>)}
       <button type="button" onClick={onRemove} className="ml-auto opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive">
         <X className="h-3.5 w-3.5" />
@@ -47,7 +41,7 @@ function NumericField({ label, value, onChange, suffix }: { label: string; value
     <div className="space-y-1">
       <Label className="text-xs">{label}</Label>
       <div className="flex items-center gap-1.5">
-        <Input type="number" value={value} onChange={(e) => onChange(Number(e.target.value))} className="w-24" />
+        <Input type="number" min={0} value={value} onChange={(e) => { const n = Number(e.target.value); if (!isNaN(n)) { onChange(n); } }} className="w-24" />
         {suffix && <span className="text-xs text-muted-foreground">{suffix}</span>}
       </div>
     </div>

@@ -16,11 +16,18 @@ type ActionResult<T = unknown> =
   | { success: true; data: T }
   | { success: false; error: string };
 
+export async function getAuthedUser() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) { throw new Error("Not authenticated"); }
+  return { supabase, user };
+}
+
 const LONG_HORIZONS = new Set(["swing", "long term", "long_term", "weekly", "monthly"]);
 
 function clampRules(rules: AlgorithmRules, timeHorizon: string): AlgorithmRules {
   const isLong = LONG_HORIZONS.has(timeHorizon.toLowerCase()) || timeHorizon.toLowerCase().includes("long");
-  const clamped = { ...rules };
+  const clamped = structuredClone(rules);
   // Limit technical entry conditions to 1 for swing/long (multiple technicals that all must fire = zero trades)
   if (isLong) {
     const tech = clamped.entry_conditions.filter(isTechnicalCondition);
@@ -65,7 +72,8 @@ async function generateRules(
   });
 
   const text = res.choices[0]?.message?.content ?? "{}";
-  const parsed = JSON.parse(text);
+  let parsed: unknown;
+  try { parsed = JSON.parse(text); } catch { throw new Error("AI returned invalid JSON for rules"); }
   const validated = algorithmRulesSchema.safeParse(parsed);
   if (!validated.success) {
     throw new Error("AI generated invalid rules structure");

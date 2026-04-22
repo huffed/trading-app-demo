@@ -3,14 +3,8 @@
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { STATUS_COLORS } from "@/lib/constants/algorithm";
 import type { Algorithm } from "@/types/algorithm";
-
-const statusColors: Record<string, string> = {
-  draft: "secondary",
-  active: "default",
-  paused: "outline",
-  archived: "secondary",
-};
 
 const riskColors: Record<string, string> = {
   conservative: "text-[var(--profit)]",
@@ -19,9 +13,8 @@ const riskColors: Record<string, string> = {
 };
 
 export function AlgorithmCard({ algorithm }: { algorithm: Algorithm }) {
-  const preview = algorithm.description.length > 120
-    ? algorithm.description.slice(0, 120) + "..."
-    : algorithm.description;
+  const desc = algorithm.description ?? "";
+  const preview = desc.length > 120 ? desc.slice(0, 120) + "..." : desc;
 
   return (
     <Link href={`/algorithms/${algorithm.id}`}>
@@ -32,7 +25,7 @@ export function AlgorithmCard({ algorithm }: { algorithm: Algorithm }) {
               {algorithm.name}
             </h3>
             <Badge
-              variant={statusColors[algorithm.status] as "default" | "secondary" | "outline"}
+              variant={STATUS_COLORS[algorithm.status] ?? "secondary"}
               className="text-xs shrink-0"
             >
               {algorithm.status}

@@ -148,7 +148,7 @@ export function useTradesForLinking(search?: string) {
 
       const { data, error } = await query;
       if (error) throw error;
-      return data ?? [];
+      return (data ?? []) as { id: string; symbol: string; side: string; entry_date: string; realized_pnl: number | null }[];
     },
   });
 }

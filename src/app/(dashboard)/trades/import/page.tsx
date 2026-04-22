@@ -215,6 +215,10 @@ export default function ImportPage() {
       complete: (results) => {
         setParsedRows(results.data.map(parseCsvRow));
       },
+      error: () => {
+        setFileName(null);
+        setParsedRows([]);
+      },
     });
   }, []);
 

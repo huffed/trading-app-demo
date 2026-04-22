@@ -139,47 +139,44 @@ export function runBacktest(rules: AlgorithmRules, prices: PriceBar[], capital: 
   const closes = prices.map((p) => p.close);
   const cache: Cache = new Map();
   const trades: BacktestTrade[] = [];
-  let inPosition = false;
-  let entryPrice = 0;
-  let entryDate = "";
+  const positions: { entryPrice: number; entryDate: string }[] = [];
+  const maxPos = rules.max_positions ?? 1;
   const posSize = (rules.position_sizing?.value ?? 10) / 100;
   const stopPct = (rules.stop_loss?.value ?? 5) / 100;
   const tpPct = (rules.take_profit?.value ?? 15) / 100;
 
   for (let i = 1; i < prices.length; i++) {
-    if (!inPosition) {
-      if (checkConditions(techEntry, cache, closes, i)) {
-        inPosition = true;
-        entryPrice = closes[i];
-        entryDate = prices[i].date;
-      }
-    } else {
-      const pnlPct = (closes[i] - entryPrice) / entryPrice;
+    // Check exits for all open positions (iterate backwards to safely splice)
+    for (let p = positions.length - 1; p >= 0; p--) {
+      const pos = positions[p];
+      const pnlPct = (closes[i] - pos.entryPrice) / pos.entryPrice;
       const hitStop = pnlPct <= -stopPct;
       const hitTp = pnlPct >= tpPct;
       const hitExit = techExit.length > 0 && checkConditions(techExit, cache, closes, i);
       if (hitStop || hitTp || hitExit) {
-        const pnl = capital * posSize * pnlPct;
         trades.push({
-          entry_date: entryDate, exit_date: prices[i].date,
-          entry_price: entryPrice, exit_price: closes[i],
-          side: "long", pnl: Number(pnl.toFixed(2)),
+          entry_date: pos.entryDate, exit_date: prices[i].date,
+          entry_price: pos.entryPrice, exit_price: closes[i],
+          side: "long", pnl: Number((capital * posSize * pnlPct).toFixed(2)),
         });
-        inPosition = false;
+        positions.splice(p, 1);
       }
+    }
+    // Check entry if we have room for more positions
+    if (positions.length < maxPos && checkConditions(techEntry, cache, closes, i)) {
+      positions.push({ entryPrice: closes[i], entryDate: prices[i].date });
     }
   }
 
-  // Capture open position at end of backtest period
+  // Capture first open position at end of backtest period
   let openPos: OpenPosition | null = null;
-  if (inPosition && prices.length > 0) {
+  if (positions.length > 0) {
     const lastPrice = closes[closes.length - 1];
-    const pnlPct = (lastPrice - entryPrice) / entryPrice;
+    const pos = positions[0];
+    const pnlPct = (lastPrice - pos.entryPrice) / pos.entryPrice;
     openPos = {
-      entry_date: entryDate,
-      entry_price: entryPrice,
-      current_price: lastPrice,
-      side: "long",
+      entry_date: pos.entryDate, entry_price: pos.entryPrice,
+      current_price: lastPrice, side: "long",
       unrealized_pnl: Number((capital * posSize * pnlPct).toFixed(2)),
       unrealized_pnl_pct: Number((pnlPct * 100).toFixed(2)),
     };
