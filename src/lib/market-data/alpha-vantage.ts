@@ -2,11 +2,6 @@ import type { PriceBar } from "./types";
 
 const BASE_URL = "https://www.alphavantage.co/query";
 
-// In-memory price cache — daily bars don't change once fetched.
-// 1-hour TTL avoids stale data while saving API calls for repeat backtests.
-const PRICE_CACHE_TTL_MS = 60 * 60 * 1000;
-const priceCache = new Map<string, { data: PriceBar[]; fetchedAt: number }>();
-
 interface AVSearchMatch {
   "1. symbol": string;
   "2. name": string;
@@ -50,12 +45,6 @@ export async function fetchDailyPrices(
   symbol: string,
   outputSize: "compact" | "full" = "compact"
 ): Promise<PriceBar[]> {
-  const cacheKey = `${symbol.toUpperCase()}:${outputSize}`;
-  const cached = priceCache.get(cacheKey);
-  if (cached && Date.now() - cached.fetchedAt < PRICE_CACHE_TTL_MS) {
-    return cached.data;
-  }
-
   const apiKey = process.env.ALPHA_VANTAGE_API_KEY;
   if (!apiKey) {
     throw new Error("ALPHA_VANTAGE_API_KEY is not set");
@@ -84,7 +73,7 @@ export async function fetchDailyPrices(
   const timeSeries = data["Time Series (Daily)"];
   if (!timeSeries) { throw new Error("No price data returned"); }
 
-  const prices = Object.entries(timeSeries)
+  return Object.entries(timeSeries)
     .map(([date, bar]) => ({
       date,
       open: parseFloat(bar["1. open"]),
@@ -94,7 +83,4 @@ export async function fetchDailyPrices(
       volume: parseInt(bar["5. volume"]),
     }))
     .sort((a, b) => a.date.localeCompare(b.date));
-
-  priceCache.set(cacheKey, { data: prices, fetchedAt: Date.now() });
-  return prices;
 }

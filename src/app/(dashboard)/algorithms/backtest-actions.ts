@@ -1,8 +1,8 @@
 "use server";
 
-import { fetchDailyPrices } from "@/lib/market-data/alpha-vantage";
 import { runBacktest } from "@/lib/market-data/backtest-engine";
 import { getCachedPrices, savePricesToCache } from "@/lib/market-data/price-cache";
+import { fetchDailyPrices } from "@/lib/market-data/prices";
 import type { BacktestMetrics } from "@/lib/market-data/types";
 import type { AlgorithmRules } from "@/types/algorithm";
 import { getAuthedUser } from "./actions";

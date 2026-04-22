@@ -255,7 +255,7 @@ export async function runHistoricalBacktest(
   symbol: string,
   outputSize: "compact" | "full"
 ): Promise<ActionResult> {
-  const { fetchDailyPrices } = await import("@/lib/market-data/alpha-vantage");
+  const { fetchDailyPrices } = await import("@/lib/market-data/prices");
   const { getCachedPrices, savePricesToCache } = await import("@/lib/market-data/price-cache");
   const { runBacktest } = await import("@/lib/market-data/backtest-engine");
 

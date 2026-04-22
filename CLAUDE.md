@@ -71,7 +71,7 @@ gh pr create --base dev
 | Client State | Zustand | 5 |
 | Validation | Zod | 4 |
 | AI/LLM | Groq SDK (`groq-sdk`) — llama-3.3-70b-versatile | - |
-| Market Data | Alpha Vantage (prices + news sentiment), Finnhub (ticker lookup, company profiles) | - |
+| Market Data | Twelve Data (prices, primary), Yahoo Finance (prices, fallback), Alpha Vantage (news sentiment), Finnhub (ticker lookup, company profiles) | - |
 | CSV Parsing | PapaParse | 5 |
 | Charts | Recharts | 3 |
 | Theme | next-themes (dark mode default) | - |
@@ -241,6 +241,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY= # Supabase anonymous/public key
 GROQ_API_KEY=                  # Groq API key (server-only, free tier)
 ALPHA_VANTAGE_API_KEY=         # Alpha Vantage key (prices + news, 25 req/day free)
 FINNHUB_API_KEY=               # Finnhub key (ticker lookup, company profiles, 60 req/min free)
+TWELVE_DATA_API_KEY=           # Twelve Data key (price data, primary provider, 800 credits/day free)
 ```
 
 `NEXT_PUBLIC_` prefix = exposed to browser. Server-only secrets must NOT have this prefix.
