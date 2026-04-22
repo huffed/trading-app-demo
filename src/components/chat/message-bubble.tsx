@@ -1,4 +1,5 @@
 import { memo } from "react";
+import { MarkdownText } from "@/components/shared/markdown-text";
 import { cn } from "@/lib/utils";
 import type { ChatMessage } from "@/types/chat";
 
@@ -13,13 +14,13 @@ export const MessageBubble = memo(function MessageBubble({ message }: MessageBub
     <div className={cn("flex", isUser ? "justify-end" : "justify-start")}>
       <div
         className={cn(
-          "max-w-[85%] rounded-lg px-3 py-2 text-sm leading-relaxed whitespace-pre-wrap",
+          "max-w-[85%] rounded-lg px-3 py-2 text-sm leading-relaxed",
           isUser
-            ? "bg-primary text-primary-foreground"
+            ? "bg-primary text-primary-foreground whitespace-pre-wrap"
             : "bg-muted text-foreground"
         )}
       >
-        {message.content}
+        {isUser ? message.content : <MarkdownText text={message.content} />}
       </div>
     </div>
   );
