@@ -16,3 +16,10 @@ export type WatchlistItemInsert = Pick<
   WatchlistItem,
   "algorithm_id" | "ticker" | "name" | "added_by" | "notes"
 >;
+
+export interface DiscoverySuggestion {
+  ticker: string;
+  name: string;
+  sector: string;
+  reasoning: string;
+}
