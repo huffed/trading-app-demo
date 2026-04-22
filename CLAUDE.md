@@ -71,7 +71,7 @@ gh pr create --base dev
 | Client State | Zustand | 5 |
 | Validation | Zod | 4 |
 | AI/LLM | Groq SDK (`groq-sdk`) — llama-3.3-70b-versatile | - |
-| Market Data | Alpha Vantage (prices + news sentiment) | - |
+| Market Data | Alpha Vantage (prices + news sentiment), Finnhub (ticker lookup, company profiles) | - |
 | CSV Parsing | PapaParse | 5 |
 | Charts | Recharts | 3 |
 | Theme | next-themes (dark mode default) | - |
@@ -240,6 +240,7 @@ NEXT_PUBLIC_SUPABASE_URL=      # Supabase project URL
 NEXT_PUBLIC_SUPABASE_ANON_KEY= # Supabase anonymous/public key
 GROQ_API_KEY=                  # Groq API key (server-only, free tier)
 ALPHA_VANTAGE_API_KEY=         # Alpha Vantage key (prices + news, 25 req/day free)
+FINNHUB_API_KEY=               # Finnhub key (ticker lookup, company profiles, 60 req/min free)
 ```
 
 `NEXT_PUBLIC_` prefix = exposed to browser. Server-only secrets must NOT have this prefix.
@@ -249,10 +250,11 @@ ALPHA_VANTAGE_API_KEY=         # Alpha Vantage key (prices + news, 25 req/day fr
 Migrations live in `supabase/migrations/` and must be run manually against your Supabase project.
 
 Current tables:
-- `profiles` — extends `auth.users` with app data (auto-created via trigger on signup)
+- `profiles` — extends `auth.users` with app data (auto-created via trigger on signup). Unique: email.
 - `trades` — trade records with entry/exit prices, P&L, status (open/closed)
 - `journal_entries` — trade reflections with emotion tracking and AI analysis
-- `algorithms` — AI-generated trading algorithms with rules (JSONB), backtest results, status
+- `algorithms` — AI-generated trading algorithms with rules (JSONB), backtest results, status. Unique: (user_id, name).
+- `sentiment_cache` — cached NEWS_SENTIMENT API responses per ticker/topics, builds historical data. Unique: (user_id, ticker, fetched_at).
 
 All tables use Row Level Security (RLS). Users can only access their own data.
 

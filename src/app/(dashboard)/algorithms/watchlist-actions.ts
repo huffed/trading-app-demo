@@ -1,6 +1,6 @@
 "use server";
 
-import { lookupTickerName } from "@/lib/market-data/alpha-vantage";
+import { lookupTickerName } from "@/lib/market-data/finnhub";
 import type { WatchlistAddedBy, WatchlistItem } from "@/types/watchlist";
 import { getAuthedUser } from "./actions";
 
