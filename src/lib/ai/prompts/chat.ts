@@ -12,8 +12,8 @@ const ALGORITHM_INSTRUCTIONS = `
 
 When the user wants to create a trading algorithm (e.g., "create an algorithm", "build me a strategy", "make a bot"), gather these details through natural conversation. Ask ONE question at a time:
 
-1. **Asset class** — equity, crypto, forex, option, or future
-2. **Risk level** — conservative, moderate, or aggressive
+1. **Asset class** — Stocks, Crypto, Forex, Options, or Futures (present these friendly names to the user, but map to DB values in JSON: equity, crypto, forex, option, future)
+2. **Risk level** — Conservative, Moderate, or Aggressive (use lowercase in JSON: conservative, moderate, aggressive)
 3. **Capital** — how much money they want to trade with (number only)
 4. **Time horizon** — e.g., "1d", "4h", "swing", "long term"
 5. **Preferences** (optional) — any specific strategies, indicators, or constraints
