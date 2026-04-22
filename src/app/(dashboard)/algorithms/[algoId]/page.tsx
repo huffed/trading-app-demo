@@ -7,6 +7,7 @@ import { ArrowLeft, Pencil, Trash2 } from "lucide-react";
 import { AiBacktestCard } from "@/components/algorithms/ai-backtest-card";
 import { AlgorithmEditView } from "@/components/algorithms/algorithm-edit-view";
 import { BacktestForm } from "@/components/algorithms/backtest-form";
+import { BacktestRankingCard } from "@/components/algorithms/backtest-ranking-card";
 import { BacktestResultsDisplay } from "@/components/algorithms/backtest-results-display";
 import { DiscoveryCard } from "@/components/algorithms/discovery-card";
 import { RulesDisplay } from "@/components/algorithms/rules-display";
@@ -17,6 +18,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAlgorithm, useDeleteAlgorithm, useRunAiBacktest, useRunHistoricalBacktest, useUpdateAlgorithm } from "@/hooks/use-algorithms";
+import { useWatchlist } from "@/hooks/use-watchlist";
 import { STATUS_COLORS, STATUS_LABELS } from "@/lib/constants/algorithm";
 import type { BacktestMetrics } from "@/lib/market-data/types";
 import { isSentimentCondition, type Algorithm, type AlgorithmRules, type AlgorithmStatus } from "@/types/algorithm";
@@ -69,6 +71,9 @@ function ReadView({ algo, backtestError, aiBacktestError, localBacktestResults, 
   backtestError: string | null; aiBacktestError: string | null; localBacktestResults: BacktestMetrics | null;
   onRunAiBacktest: () => void; onRunBacktest: (symbol: string, period: string) => void; isAiPending: boolean; isBtPending: boolean;
 }) {
+  const { data: watchlistItems = [] } = useWatchlist(algo.id);
+  const watchlistTickers = watchlistItems.map((w) => ({ ticker: w.ticker, name: w.name }));
+
   return (
     <>
       {algo.description && (
@@ -79,6 +84,7 @@ function ReadView({ algo, backtestError, aiBacktestError, localBacktestResults, 
       <BacktestForm disabled={isBtPending} onSubmit={onRunBacktest} />
       <WatchlistCard algorithmId={algo.id} hasSentimentConditions={algo.rules.entry_conditions.some(isSentimentCondition)} />
       <DiscoveryCard algorithmId={algo.id} />
+      <BacktestRankingCard algorithmId={algo.id} tickers={watchlistTickers} />
       {backtestError && <p className="text-sm text-destructive">{backtestError}</p>}
       {(localBacktestResults || algo.backtest_results) && (
         <BacktestResultsDisplay results={(localBacktestResults ?? algo.backtest_results) as BacktestMetrics} />
