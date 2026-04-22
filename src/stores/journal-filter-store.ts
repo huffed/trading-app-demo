@@ -16,10 +16,11 @@ export const useJournalFilterStore = create<JournalFilterState>((set) => ({
   filters: {},
   page: 1,
   setFilter: (key, value) =>
-    set((state) => ({
-      filters: { ...state.filters, [key]: value || undefined },
-      page: 1,
-    })),
+    set((state) => {
+      const filters = { ...state.filters };
+      if (value) { filters[key] = value; } else { delete filters[key]; }
+      return { filters, page: 1 };
+    }),
   resetFilters: () => set({ filters: {}, page: 1 }),
   setPage: (page) => set({ page }),
 }));

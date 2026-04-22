@@ -66,12 +66,9 @@ export async function createJournalEntry(
 
   if (error) return { success: false, error: error.message };
 
-  try {
-    const analyzed = await triggerAnalysis(supabase, data as JournalEntry);
-    return { success: true, data: analyzed };
-  } catch {
-    return { success: true, data };
-  }
+  // AI analysis is best-effort — entry is saved regardless
+  const analyzed = await triggerAnalysis(supabase, data as JournalEntry).catch(() => null);
+  return { success: true, data: analyzed ?? data };
 }
 
 export async function updateJournalEntry(
@@ -98,12 +95,8 @@ export async function updateJournalEntry(
 
   if (error) return { success: false, error: error.message };
 
-  try {
-    const analyzed = await triggerAnalysis(supabase, data as JournalEntry);
-    return { success: true, data: analyzed };
-  } catch {
-    return { success: true, data };
-  }
+  const analyzed = await triggerAnalysis(supabase, data as JournalEntry).catch(() => null);
+  return { success: true, data: analyzed ?? data };
 }
 
 export async function deleteJournalEntry(id: string): Promise<ActionResult> {

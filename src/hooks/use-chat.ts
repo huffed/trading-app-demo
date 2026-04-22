@@ -73,11 +73,19 @@ export function useChat(stats: Record<string, unknown> | null) {
       const decoder = new TextDecoder();
       let assistantText = "";
       setMessages([...updated, { role: "assistant", content: "" }]);
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) { break; }
-        assistantText += decoder.decode(value, { stream: true });
-        setMessages([...updated, { role: "assistant", content: assistantText }]);
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) { break; }
+          assistantText += decoder.decode(value, { stream: true });
+          setMessages((prev) => {
+            const copy = [...prev];
+            copy[copy.length - 1] = { role: "assistant", content: assistantText };
+            return copy;
+          });
+        }
+      } finally {
+        reader.cancel();
       }
       const algoValues = parseAlgorithmMarker(assistantText);
       if (algoValues) { await createAlgorithm(algoValues, setMessages, setCreatedAlgoIds); }

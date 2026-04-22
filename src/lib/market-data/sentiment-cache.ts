@@ -10,17 +10,14 @@ export async function getCachedSentiment(
   const supabase = await createClient();
   const cutoff = new Date(Date.now() - CACHE_MAX_AGE_HOURS * 60 * 60 * 1000).toISOString();
 
-  let query = supabase
+  const query = supabase
     .from("sentiment_cache")
     .select("*")
     .eq("ticker", ticker)
+    .eq("topics", `{${(topics ?? []).join(",")}}`)
     .gte("fetched_at", cutoff)
     .order("fetched_at", { ascending: false })
     .limit(1);
-
-  if (topics?.length) {
-    query = query.contains("topics", topics);
-  }
 
   const { data } = await query;
   if (!data || data.length === 0) { return null; }
