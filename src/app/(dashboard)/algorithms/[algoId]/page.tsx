@@ -88,6 +88,7 @@ export default function AlgorithmDetailPage() {
   const [showDelete, setShowDelete] = useState(false);
   const [backtestError, setBacktestError] = useState<string | null>(null);
   const [aiBacktestError, setAiBacktestError] = useState<string | null>(null);
+  const [localBacktestResults, setLocalBacktestResults] = useState<BacktestMetrics | null>(null);
 
   if (isLoading) {
     return (
@@ -109,6 +110,20 @@ export default function AlgorithmDetailPage() {
     );
   }
 
+  function handleHistoricalBacktest(symbol: string, period: string) {
+    setBacktestError(null);
+    historicalBacktest.mutate(
+      { id: algo.id, symbol, period: period as "compact" | "full" },
+      {
+        onSuccess: (r) => {
+          if (!r.success) { setBacktestError(r.error); }
+          else { setLocalBacktestResults(r.data as BacktestMetrics); }
+        },
+        onError: () => setBacktestError("Backtest failed. Check symbol and try again."),
+      }
+    );
+  }
+
   return (
     <div className="mx-auto max-w-2xl space-y-4">
       <AlgoHeader name={algo.name} status={algo.status} onDelete={() => setShowDelete(true)} />
@@ -127,26 +142,15 @@ export default function AlgorithmDetailPage() {
       />
       <BacktestForm
         disabled={historicalBacktest.isPending}
-        onSubmit={(symbol, period) => {
-          setBacktestError(null);
-          historicalBacktest.mutate(
-            { id: algo.id, symbol, period: period as "compact" | "full" },
-            {
-              onSuccess: (result) => {
-                if (!result.success) {
-                  setBacktestError(result.error);
-                }
-              },
-              onError: () => setBacktestError("Backtest failed. Check symbol and try again."),
-            }
-          );
-        }}
+        onSubmit={(symbol, period) => handleHistoricalBacktest(symbol, period)}
       />
       {backtestError && (
         <p className="text-sm text-destructive">{backtestError}</p>
       )}
-      {algo.backtest_results && (
-        <BacktestResultsDisplay results={algo.backtest_results as BacktestMetrics} />
+      {(localBacktestResults || algo.backtest_results) && (
+        <BacktestResultsDisplay
+          results={(localBacktestResults ?? algo.backtest_results) as BacktestMetrics}
+        />
       )}
 
       <DeleteAlgoDialog
