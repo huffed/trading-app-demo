@@ -1,6 +1,7 @@
 "use client";
 
 import { Loader2, RefreshCw, Sparkles } from "lucide-react";
+import { MarkdownText } from "@/components/shared/markdown-text";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useAnalyzeJournalEntry } from "@/hooks/use-journal";
@@ -12,13 +13,7 @@ interface AiAnalysisCardProps {
 }
 
 function AnalysisContent({ analysis }: { analysis: string }) {
-  return (
-    <div className="space-y-1">
-      <div className="whitespace-pre-wrap text-sm leading-relaxed">
-        {analysis}
-      </div>
-    </div>
-  );
+  return <MarkdownText text={analysis} className="text-sm leading-relaxed space-y-1" />;
 }
 
 function AnalysisPlaceholder() {
