@@ -86,3 +86,59 @@ export function buildDiscoveryPrompt(
 
   return { system: DISCOVERY_SYSTEM_PROMPT, userMessage: sections.join("\n") };
 }
+
+const ANALYSIS_SYSTEM_PROMPT = `You are a trading analyst. Given an algorithm's strategy and a set of tickers with their backtest results, write a brief analysis for each ticker.
+
+Output ONLY valid JSON — no explanation, no markdown.
+
+Your response MUST be a JSON object with an "analyses" key:
+{
+  "analyses": [
+    {
+      "ticker": "SYMBOL",
+      "analysis": "2-3 sentence analysis"
+    }
+  ]
+}
+
+For each ticker:
+- Reference current market trends, sector momentum, and news catalysts relevant to that stock
+- Explain WHY the algorithm performed well or poorly on it (connect the strategy's rules to the stock's behavior)
+- For profitable tickers: highlight what makes them a good fit and any risks
+- For unprofitable tickers: explain what went wrong — was the stock too stable for a dip-buying strategy? In a sustained downtrend? Wrong sector dynamics?
+- Be specific — mention the stock's industry, recent performance trajectory, and how it interacts with the algorithm's entry/exit rules
+- Keep each analysis to 2-3 sentences`;
+
+export interface TickerBacktestSummary {
+  ticker: string;
+  name: string;
+  totalReturn: number;
+  winRate: number;
+  totalTrades: number;
+  profitable: boolean;
+  failed: boolean;
+}
+
+export function buildAnalysisPrompt(
+  algo: Algorithm,
+  results: TickerBacktestSummary[]
+): { system: string; userMessage: string } {
+  const sections: string[] = [
+    `Algorithm: ${algo.name}`,
+    `Strategy: ${algo.description ?? "N/A"}`,
+  ];
+
+  const conditions = summarizeConditions(algo);
+  if (conditions) sections.push(`Rules:\n${conditions}`);
+
+  sections.push("\nBacktest results per ticker:");
+  for (const r of results) {
+    if (r.failed) {
+      sections.push(`- ${r.ticker} (${r.name}): backtest failed`);
+    } else {
+      sections.push(`- ${r.ticker} (${r.name}): return ${r.totalReturn >= 0 ? "+" : ""}${r.totalReturn.toFixed(1)}%, win rate ${r.winRate.toFixed(0)}%, ${r.totalTrades} trades`);
+    }
+  }
+
+  return { system: ANALYSIS_SYSTEM_PROMPT, userMessage: sections.join("\n") };
+}

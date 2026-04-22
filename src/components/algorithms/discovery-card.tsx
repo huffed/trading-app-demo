@@ -2,53 +2,58 @@
 
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Loader2, Sparkles } from "lucide-react";
-import { seedWatchlist, type SeedResult } from "@/app/(dashboard)/algorithms/seed-watchlist-action";
+import { Check, Loader2, Sparkles, X } from "lucide-react";
+import { seedWatchlist, type ScreenedTicker, type ScreenResult } from "@/app/(dashboard)/algorithms/seed-watchlist-action";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { pnlColorClass } from "@/lib/utils/pnl";
 
-function SeedResults({ data }: { data: SeedResult }) {
+function TickerRow({ ticker }: { ticker: ScreenedTicker }) {
+  const m = ticker.metrics;
+  return (
+    <div className="py-2.5 space-y-1.5">
+      <div className="flex items-center gap-2">
+        <span className="font-mono text-sm font-medium">{ticker.ticker}</span>
+        <span className="text-xs text-muted-foreground truncate flex-1">{ticker.name}</span>
+        <Badge variant="outline" className="text-[10px] shrink-0">{ticker.sector}</Badge>
+        {ticker.profitable
+          ? <Check className="h-3.5 w-3.5 text-[var(--profit)] shrink-0" />
+          : <X className="h-3.5 w-3.5 text-[var(--loss)] shrink-0" />}
+      </div>
+      {m && (
+        <div className="flex gap-3 text-xs">
+          <span className={`font-medium tabular-nums ${pnlColorClass(m.total_return)}`}>
+            {m.total_return >= 0 ? "+" : ""}{m.total_return.toFixed(1)}%
+          </span>
+          <span className="text-muted-foreground tabular-nums">{m.win_rate.toFixed(0)}% win</span>
+          <span className="text-muted-foreground tabular-nums">{m.total_trades} trades</span>
+        </div>
+      )}
+      {!m && <p className="text-xs text-[var(--loss)]">Backtest failed</p>}
+      <p className="text-xs text-muted-foreground leading-relaxed">{ticker.analysis}</p>
+    </div>
+  );
+}
+
+function ScreenResults({ data }: { data: ScreenResult }) {
   return (
     <div className="space-y-2">
-      <div className="grid grid-cols-3 gap-2 text-center">
-        <div>
-          <p className="text-lg font-semibold">{data.discovered}</p>
-          <p className="text-[10px] text-muted-foreground">Discovered</p>
-        </div>
-        <div>
-          <p className="text-lg font-semibold">{data.backtested}</p>
-          <p className="text-[10px] text-muted-foreground">Backtested</p>
-        </div>
-        <div>
-          <p className="text-lg font-semibold text-[var(--profit)]">{data.profitable}</p>
-          <p className="text-[10px] text-muted-foreground">Profitable</p>
-        </div>
+      <div className="flex items-center gap-3 text-xs text-muted-foreground">
+        <span>{data.tickers.length} screened</span>
+        <span className="text-[var(--profit)]">{data.added} profitable &amp; added</span>
+        <span className="text-[var(--loss)]">{data.tickers.length - data.added} filtered out</span>
       </div>
-      {data.added.length > 0 && (
-        <div className="space-y-1">
-          <p className="text-xs font-medium text-muted-foreground">Added to watchlist</p>
-          <div className="flex flex-wrap gap-1">
-            {data.added.map((s) => (
-              <Badge key={s.ticker} variant="secondary" className="text-xs">
-                {s.ticker}
-              </Badge>
-            ))}
-          </div>
-        </div>
-      )}
-      {data.added.length === 0 && data.discovered > 0 && (
-        <p className="text-xs text-muted-foreground text-center">
-          No tickers were profitable in backtesting. Try adjusting the algorithm rules.
-        </p>
-      )}
+      <div className="divide-y">
+        {data.tickers.map((t) => <TickerRow key={t.ticker} ticker={t} />)}
+      </div>
     </div>
   );
 }
 
 export function DiscoveryCard({ algorithmId }: { algorithmId: string }) {
   const queryClient = useQueryClient();
-  const [result, setResult] = useState<SeedResult | null>(null);
+  const [result, setResult] = useState<ScreenResult | null>(null);
   const [isRunning, setIsRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -61,14 +66,9 @@ export function DiscoveryCard({ algorithmId }: { algorithmId: string }) {
       if (res.success) {
         setResult(res.data);
         queryClient.invalidateQueries({ queryKey: ["watchlist"] });
-      } else {
-        setError(res.error);
-      }
-    } catch {
-      setError("Discovery failed. Please try again.");
-    } finally {
-      setIsRunning(false);
-    }
+      } else { setError(res.error); }
+    } catch { setError("Discovery failed. Please try again."); }
+    finally { setIsRunning(false); }
   }
 
   return (
@@ -80,13 +80,13 @@ export function DiscoveryCard({ algorithmId }: { algorithmId: string }) {
       </CardHeader>
       <CardContent className="space-y-3">
         <p className="text-xs text-muted-foreground">
-          AI discovers tickers matching your strategy, backtests each one, and adds only the profitable ones to your watchlist.
+          AI discovers tickers, backtests each against your rules, and adds profitable ones to your watchlist.
         </p>
         <Button variant="outline" size="sm" onClick={handleSeed} disabled={isRunning} className="w-full">
-          {isRunning ? <><Loader2 className="mr-2 h-3 w-3 animate-spin" />Discovering &amp; screening...</> : "Discover & Screen Tickers"}
+          {isRunning ? <><Loader2 className="mr-2 h-3 w-3 animate-spin" />Discovering &amp; screening...</> : "Discover & Screen"}
         </Button>
         {error && <p className="text-xs text-[var(--loss)]">{error}</p>}
-        {result && <SeedResults data={result} />}
+        {result && <ScreenResults data={result} />}
       </CardContent>
     </Card>
   );

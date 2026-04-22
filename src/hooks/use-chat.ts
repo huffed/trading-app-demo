@@ -58,11 +58,12 @@ async function createAlgorithm(
     }]);
 
     const seed = await seedWatchlist(algo.id);
-    if (seed.success && seed.data.added.length > 0) {
-      const tickerList = seed.data.added.map((s) => s.ticker).join(", ");
+    if (seed.success && seed.data.added > 0) {
+      const profitable = seed.data.tickers.filter((t) => t.profitable);
+      const tickerList = profitable.map((t) => t.ticker).join(", ");
       setMessages((p) => [...p.slice(0, -1), {
         role: "assistant",
-        content: `Your algorithm "${algo.name}" is ready. Screened ${seed.data.discovered} tickers — ${seed.data.added.length} were profitable in backtesting and added to the watchlist: ${tickerList}`,
+        content: `Your algorithm "${algo.name}" is ready. Screened ${seed.data.tickers.length} tickers — ${seed.data.added} were profitable in backtesting and added to the watchlist: ${tickerList}`,
       }]);
     } else {
       setMessages((p) => [...p.slice(0, -1), {

@@ -1,11 +1,12 @@
 "use server";
 
+import { AI_MODEL, getAIClient } from "@/lib/ai/client";
+import { buildAnalysisPrompt, type TickerBacktestSummary } from "@/lib/ai/prompts/discovery";
 import { runBacktest } from "@/lib/market-data/backtest-engine";
 import { getCachedPrices, savePricesToCache } from "@/lib/market-data/price-cache";
 import { fetchDailyPrices } from "@/lib/market-data/prices";
 import type { BacktestMetrics } from "@/lib/market-data/types";
 import type { Algorithm, AlgorithmRules } from "@/types/algorithm";
-import type { DiscoverySuggestion } from "@/types/watchlist";
 import { getAuthedUser } from "./actions";
 import { discoverTickers } from "./discovery-actions";
 import { bulkAddWatchlistItems } from "./watchlist-actions";
@@ -14,18 +15,21 @@ type ActionResult<T = unknown> =
   | { success: true; data: T }
   | { success: false; error: string };
 
-export interface SeedResult {
-  discovered: number;
-  backtested: number;
-  profitable: number;
-  added: DiscoverySuggestion[];
+export interface ScreenedTicker {
+  ticker: string;
+  name: string;
+  sector: string;
+  metrics: BacktestMetrics | null;
+  analysis: string;
+  profitable: boolean;
 }
 
-async function backtestSuggestion(
-  rules: AlgorithmRules,
-  capital: number,
-  ticker: string
-): Promise<BacktestMetrics | null> {
+export interface ScreenResult {
+  tickers: ScreenedTicker[];
+  added: number;
+}
+
+async function backtestOne(rules: AlgorithmRules, capital: number, ticker: string): Promise<BacktestMetrics | null> {
   try {
     let prices = await getCachedPrices(ticker, "compact");
     if (!prices) {
@@ -34,65 +38,81 @@ async function backtestSuggestion(
     }
     if (prices.length < 30) return null;
     return runBacktest(rules, prices, capital);
-  } catch {
-    return null;
-  }
+  } catch { return null; }
 }
 
-export async function seedWatchlist(
-  algorithmId: string
-): Promise<ActionResult<SeedResult>> {
+async function generateAnalyses(algo: Algorithm, summaries: TickerBacktestSummary[]): Promise<Record<string, string>> {
+  try {
+    const client = getAIClient();
+    const { system, userMessage } = buildAnalysisPrompt(algo, summaries);
+    const res = await client.chat.completions.create({
+      model: AI_MODEL,
+      messages: [{ role: "system", content: system }, { role: "user", content: userMessage }],
+      response_format: { type: "json_object" },
+      max_tokens: 2048,
+    });
+    const text = res.choices[0]?.message?.content ?? "{}";
+    const parsed = JSON.parse(text) as { analyses?: { ticker: string; analysis: string }[] };
+    const map: Record<string, string> = {};
+    for (const a of parsed.analyses ?? []) { map[a.ticker] = a.analysis; }
+    return map;
+  } catch { return {}; }
+}
+
+export async function seedWatchlist(algorithmId: string): Promise<ActionResult<ScreenResult>> {
   const { supabase, user } = await getAuthedUser();
 
   const { data: algo, error: algoErr } = await supabase
-    .from("algorithms")
-    .select("*")
-    .eq("id", algorithmId)
-    .eq("user_id", user.id)
-    .single();
+    .from("algorithms").select("*").eq("id", algorithmId).eq("user_id", user.id).single();
+  if (algoErr || !algo) return { success: false, error: "Algorithm not found" };
 
-  if (algoErr || !algo) {
-    return { success: false, error: "Algorithm not found" };
-  }
-
-  // 1. Discover tickers
   const discoveryResult = await discoverTickers(algorithmId);
-  if (!discoveryResult.success) {
-    return { success: false, error: discoveryResult.error };
-  }
-
+  if (!discoveryResult.success) return { success: false, error: discoveryResult.error };
   const suggestions = discoveryResult.data;
-  if (suggestions.length === 0) {
-    return { success: true, data: { discovered: 0, backtested: 0, profitable: 0, added: [] } };
-  }
+  if (suggestions.length === 0) return { success: true, data: { tickers: [], added: 0 } };
 
-  // 2. Backtest each and filter to profitable
-  const rules = algo.rules as AlgorithmRules;
-  const profitable: DiscoverySuggestion[] = [];
-
+  // Backtest each ticker
+  const rules = (algo as Algorithm).rules;
+  const capital = (algo as Algorithm).capital;
+  const metricsMap = new Map<string, BacktestMetrics | null>();
   for (const s of suggestions) {
-    const metrics = await backtestSuggestion(rules, (algo as Algorithm).capital, s.ticker);
-    if (metrics && metrics.total_return > 0) {
-      profitable.push(s);
-    }
+    metricsMap.set(s.ticker, await backtestOne(rules, capital, s.ticker));
   }
 
-  // 3. Add profitable tickers to watchlist
+  // Build summaries for AI analysis
+  const summaries: TickerBacktestSummary[] = suggestions.map((s) => {
+    const m = metricsMap.get(s.ticker);
+    return {
+      ticker: s.ticker, name: s.name,
+      totalReturn: m?.total_return ?? 0, winRate: m?.win_rate ?? 0, totalTrades: m?.total_trades ?? 0,
+      profitable: (m?.total_return ?? 0) > 0, failed: !m,
+    };
+  });
+
+  // Generate AI analysis per ticker
+  const analyses = await generateAnalyses(algo as Algorithm, summaries);
+
+  // Build results
+  const screened: ScreenedTicker[] = suggestions.map((s) => {
+    const m = metricsMap.get(s.ticker) ?? null;
+    return {
+      ticker: s.ticker, name: s.name, sector: s.sector,
+      metrics: m, analysis: analyses[s.ticker] ?? s.reasoning,
+      profitable: (m?.total_return ?? 0) > 0,
+    };
+  });
+
+  // Sort: profitable first (by return desc), then unprofitable (by return desc)
+  screened.sort((a, b) => {
+    if (a.profitable !== b.profitable) return a.profitable ? -1 : 1;
+    return (b.metrics?.total_return ?? 0) - (a.metrics?.total_return ?? 0);
+  });
+
+  // Add profitable to watchlist
+  const profitable = screened.filter((t) => t.profitable);
   if (profitable.length > 0) {
-    await bulkAddWatchlistItems(
-      algorithmId,
-      profitable.map((s) => ({ symbol: s.ticker, name: s.name })),
-      "ai"
-    );
+    await bulkAddWatchlistItems(algorithmId, profitable.map((t) => ({ symbol: t.ticker, name: t.name })), "ai");
   }
 
-  return {
-    success: true,
-    data: {
-      discovered: suggestions.length,
-      backtested: suggestions.length,
-      profitable: profitable.length,
-      added: profitable,
-    },
-  };
+  return { success: true, data: { tickers: screened, added: profitable.length } };
 }
