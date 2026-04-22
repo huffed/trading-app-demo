@@ -16,7 +16,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAlgorithm, useDeleteAlgorithm, useRunAiBacktest, useRunHistoricalBacktest, useUpdateAlgorithm } from "@/hooks/use-algorithms";
-import { STATUS_COLORS } from "@/lib/constants/algorithm";
+import { STATUS_COLORS, STATUS_LABELS } from "@/lib/constants/algorithm";
 import type { BacktestMetrics } from "@/lib/market-data/types";
 import { isSentimentCondition, type Algorithm, type AlgorithmRules, type AlgorithmStatus } from "@/types/algorithm";
 
@@ -31,7 +31,7 @@ function AlgoHeader({ name, status, isEditing, onEdit, onDelete }: {
       <div className="flex-1">
         <h1 className="text-2xl font-semibold tracking-tight">{name}</h1>
       </div>
-      <Badge variant={STATUS_COLORS[status] ?? "secondary"}>{status}</Badge>
+      <Badge variant={STATUS_COLORS[status] ?? "secondary"}>{STATUS_LABELS[status] ?? status}</Badge>
       {!isEditing && (
         <Button variant="ghost" size="icon-sm" onClick={onEdit} title="Edit algorithm">
           <Pencil className="h-4 w-4" />

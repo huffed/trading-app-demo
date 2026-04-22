@@ -10,6 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { ASSET_CLASS_LABELS } from "@/lib/constants/algorithm";
 import { useTradeFilterStore } from "@/stores/trade-filter-store";
 import type { AssetClass, TradeSide, TradeStatus } from "@/types/trade";
 
@@ -60,11 +61,9 @@ function AssetClassSelect({ value, onChange }: { value: string; onChange: (v: As
       </SelectTrigger>
       <SelectContent>
         <SelectItem value="all">All Assets</SelectItem>
-        <SelectItem value="equity">Equity</SelectItem>
-        <SelectItem value="option">Option</SelectItem>
-        <SelectItem value="future">Future</SelectItem>
-        <SelectItem value="forex">Forex</SelectItem>
-        <SelectItem value="crypto">Crypto</SelectItem>
+        {Object.entries(ASSET_CLASS_LABELS).map(([value, label]) => (
+          <SelectItem key={value} value={value}>{label}</SelectItem>
+        ))}
       </SelectContent>
     </Select>
   );

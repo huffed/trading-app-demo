@@ -8,6 +8,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { ASSET_CLASS_LABELS } from "@/lib/constants/algorithm";
 import { assetClasses, tradeSides, tradeStatuses } from "@/lib/validators/trade";
 
 export interface TradeFormState {
@@ -34,13 +35,6 @@ export interface FieldProps {
   updateField: (field: string, value: string) => void;
 }
 
-const assetClassLabels: Record<string, string> = {
-  equity: "Equity",
-  option: "Option",
-  future: "Future",
-  forex: "Forex",
-  crypto: "Crypto",
-};
 
 export function toDatetimeLocal(iso: string | null): string {
   if (!iso) return "";
@@ -70,12 +64,12 @@ export function InstrumentFields({ form, errors, updateField }: FieldProps) {
           onValueChange={(v) => updateField("asset_class", v as string)}
         >
           <SelectTrigger className="w-full">
-            <SelectValue>{assetClassLabels[form.asset_class] ?? form.asset_class}</SelectValue>
+            <SelectValue>{ASSET_CLASS_LABELS[form.asset_class] ?? form.asset_class}</SelectValue>
           </SelectTrigger>
           <SelectContent>
             {assetClasses.map((ac) => (
               <SelectItem key={ac} value={ac}>
-                {assetClassLabels[ac]}
+                {ASSET_CLASS_LABELS[ac]}
               </SelectItem>
             ))}
           </SelectContent>

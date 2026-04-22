@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { STATUS_LABELS } from "@/lib/constants/algorithm";
 import type { Algorithm, AlgorithmRules, AlgorithmStatus } from "@/types/algorithm";
 import { RulesEditor } from "./rules-editor";
 
@@ -41,10 +42,10 @@ function MetadataEditor({ name, setName, description, setDescription, status, se
           <Label className="text-xs">Status</Label>
           <Select value={status} onValueChange={(v) => setStatus(v as AlgorithmStatus)}>
             <SelectTrigger className="w-40">
-              <SelectValue>{status}</SelectValue>
+              <SelectValue>{STATUS_LABELS[status] ?? status}</SelectValue>
             </SelectTrigger>
             <SelectContent>
-              {STATUS_OPTIONS.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+              {STATUS_OPTIONS.map((s) => <SelectItem key={s} value={s}>{STATUS_LABELS[s] ?? s}</SelectItem>)}
             </SelectContent>
           </Select>
         </div>

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { STATUS_COLORS } from "@/lib/constants/algorithm";
+import { ASSET_CLASS_LABELS, RISK_LEVEL_LABELS, STATUS_COLORS, STATUS_LABELS } from "@/lib/constants/algorithm";
 import type { Algorithm } from "@/types/algorithm";
 
 const riskColors: Record<string, string> = {
@@ -28,15 +28,15 @@ export function AlgorithmCard({ algorithm }: { algorithm: Algorithm }) {
               variant={STATUS_COLORS[algorithm.status] ?? "secondary"}
               className="text-xs shrink-0"
             >
-              {algorithm.status}
+              {STATUS_LABELS[algorithm.status] ?? algorithm.status}
             </Badge>
           </div>
           <div className="flex flex-wrap gap-1.5">
             <Badge variant="outline" className="text-xs">
-              {algorithm.asset_class}
+              {ASSET_CLASS_LABELS[algorithm.asset_class] ?? algorithm.asset_class}
             </Badge>
             <span className={`text-xs font-medium ${riskColors[algorithm.risk_level]}`}>
-              {algorithm.risk_level}
+              {RISK_LEVEL_LABELS[algorithm.risk_level] ?? algorithm.risk_level}
             </span>
           </div>
           {preview && (

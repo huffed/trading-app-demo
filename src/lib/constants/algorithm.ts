@@ -18,3 +18,24 @@ export const STATUS_COLORS: Record<string, "default" | "secondary" | "outline"> 
   paused: "outline",
   archived: "secondary",
 };
+
+export const ASSET_CLASS_LABELS: Record<string, string> = {
+  equity: "Stocks",
+  option: "Options",
+  future: "Futures",
+  forex: "Forex",
+  crypto: "Crypto",
+};
+
+export const RISK_LEVEL_LABELS: Record<string, string> = {
+  conservative: "Conservative",
+  moderate: "Moderate",
+  aggressive: "Aggressive",
+};
+
+export const STATUS_LABELS: Record<string, string> = {
+  draft: "Draft",
+  active: "Active",
+  paused: "Paused",
+  archived: "Archived",
+};

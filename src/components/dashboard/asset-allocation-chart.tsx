@@ -5,6 +5,7 @@ import { ContextualTip } from "@/components/onboarding/contextual-tip";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useDashboardStats } from "@/hooks/use-dashboard-stats";
+import { ASSET_CLASS_LABELS } from "@/lib/constants/algorithm";
 import type { Trade } from "@/types/trade";
 
 const COLORS = [
@@ -15,13 +16,6 @@ const COLORS = [
   "var(--color-chart-5)",
 ];
 
-const CLASS_LABELS: Record<string, string> = {
-  equity: "Equity",
-  option: "Option",
-  future: "Future",
-  forex: "Forex",
-  crypto: "Crypto",
-};
 
 function computeAllocation(trades: Trade[]) {
   const counts: Record<string, number> = {};
@@ -29,7 +23,7 @@ function computeAllocation(trades: Trade[]) {
     counts[t.asset_class] = (counts[t.asset_class] ?? 0) + 1;
   }
   return Object.entries(counts).map(([name, value]) => ({
-    name: CLASS_LABELS[name] ?? name,
+    name: ASSET_CLASS_LABELS[name] ?? name,
     value,
   }));
 }
