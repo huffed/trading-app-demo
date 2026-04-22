@@ -1,6 +1,7 @@
 "use client";
 
 import { Loader2, RefreshCw, Sparkles } from "lucide-react";
+import { MarkdownText } from "@/components/shared/markdown-text";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 
@@ -36,7 +37,7 @@ export function AiBacktestCard({ analysis, error, onRunBacktest, isPending }: Ai
           </div>
         )}
         {!isPending && analysis && (
-          <div className="whitespace-pre-wrap text-sm leading-relaxed">{analysis}</div>
+          <MarkdownText text={analysis} className="text-sm leading-relaxed space-y-1" />
         )}
         {!isPending && error && (
           <p className="text-sm text-destructive">{error}</p>
