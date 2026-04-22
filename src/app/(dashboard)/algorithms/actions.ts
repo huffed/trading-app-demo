@@ -142,6 +142,26 @@ export async function generateAlgorithm(
   }
 }
 
+export async function updateAlgorithm(
+  id: string,
+  updates: { name?: string; description?: string; status?: AlgorithmStatus; rules?: AlgorithmRules }
+): Promise<ActionResult> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) { return { success: false, error: "Not authenticated" }; }
+
+  const { data, error } = await supabase
+    .from("algorithms")
+    .update(updates)
+    .eq("id", id)
+    .eq("user_id", user.id)
+    .select()
+    .single();
+
+  if (error) { return { success: false, error: error.message }; }
+  return { success: true, data };
+}
+
 export async function deleteAlgorithm(id: string): Promise<ActionResult> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
