@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { generateAlgorithm } from "@/app/(dashboard)/algorithms/actions";
+import { seedWatchlist } from "@/app/(dashboard)/algorithms/seed-watchlist-action";
 import { bulkAddWatchlistItems } from "@/app/(dashboard)/algorithms/watchlist-actions";
 import { parseTradeHistoryCsv } from "@/lib/utils/parse-trade-csv";
 import type { AlgorithmFormValues } from "@/lib/validators/algorithm";
@@ -38,15 +39,36 @@ async function createAlgorithm(
   setMessages((p) => [...p, { role: "assistant", content: "Generating your algorithm with AI-optimized rules..." }]);
   try {
     const result = await generateAlgorithm(values);
-    if (result.success) {
-      const algo = result.data as { id: string; name: string };
-      setCreatedAlgoIds((p) => [...p, algo.id]);
-      if (tickers && tickers.length > 0) {
-        bulkAddWatchlistItems(algo.id, tickers, "csv").catch(() => {});
-      }
-      setMessages((p) => [...p.slice(0, -1), { role: "assistant", content: `Your algorithm "${algo.name}" has been created with optimized trading rules.` }]);
-    } else {
+    if (!result.success) {
       setMessages((p) => [...p.slice(0, -1), { role: "assistant", content: `Algorithm creation failed: ${result.error}` }]);
+      return;
+    }
+    const algo = result.data as { id: string; name: string };
+    setCreatedAlgoIds((p) => [...p, algo.id]);
+
+    // Add CSV tickers to watchlist
+    if (tickers && tickers.length > 0) {
+      bulkAddWatchlistItems(algo.id, tickers, "csv").catch(() => {});
+    }
+
+    // Discover + backtest + add profitable tickers
+    setMessages((p) => [...p.slice(0, -1), {
+      role: "assistant",
+      content: `Your algorithm "${algo.name}" has been created. Now discovering and screening tickers...`,
+    }]);
+
+    const seed = await seedWatchlist(algo.id);
+    if (seed.success && seed.data.added.length > 0) {
+      const tickerList = seed.data.added.map((s) => s.ticker).join(", ");
+      setMessages((p) => [...p.slice(0, -1), {
+        role: "assistant",
+        content: `Your algorithm "${algo.name}" is ready. Screened ${seed.data.discovered} tickers — ${seed.data.added.length} were profitable in backtesting and added to the watchlist: ${tickerList}`,
+      }]);
+    } else {
+      setMessages((p) => [...p.slice(0, -1), {
+        role: "assistant",
+        content: `Your algorithm "${algo.name}" has been created with optimized trading rules.`,
+      }]);
     }
   } catch {
     setMessages((p) => [...p.slice(0, -1), { role: "assistant", content: "Algorithm creation failed. Please try again." }]);

@@ -2,107 +2,73 @@
 
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Check, Loader2, Plus, Sparkles } from "lucide-react";
-import { discoverTickers } from "@/app/(dashboard)/algorithms/discovery-actions";
-import { addWatchlistItem, bulkAddWatchlistItems } from "@/app/(dashboard)/algorithms/watchlist-actions";
+import { Loader2, Sparkles } from "lucide-react";
+import { seedWatchlist, type SeedResult } from "@/app/(dashboard)/algorithms/seed-watchlist-action";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import type { DiscoverySuggestion } from "@/types/watchlist";
 
-function SuggestionRow({ suggestion, algorithmId, isAdded, onAdded, onWatchlistChanged }: {
-  suggestion: DiscoverySuggestion; algorithmId: string; isAdded: boolean;
-  onAdded: (ticker: string) => void; onWatchlistChanged: () => void;
-}) {
-  const [isAdding, setIsAdding] = useState(false);
-
-  async function handleAdd() {
-    setIsAdding(true);
-    try {
-      const result = await addWatchlistItem(algorithmId, suggestion.ticker, suggestion.name, "ai", suggestion.reasoning);
-      if (result.success) { onAdded(suggestion.ticker); onWatchlistChanged(); }
-    } catch { /* best effort */ } finally { setIsAdding(false); }
-  }
-
+function SeedResults({ data }: { data: SeedResult }) {
   return (
-    <div className="flex items-start gap-3 py-2.5">
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <span className="font-mono text-sm font-medium">{suggestion.ticker}</span>
-          <span className="text-xs text-muted-foreground truncate">{suggestion.name}</span>
+    <div className="space-y-2">
+      <div className="grid grid-cols-3 gap-2 text-center">
+        <div>
+          <p className="text-lg font-semibold">{data.discovered}</p>
+          <p className="text-[10px] text-muted-foreground">Discovered</p>
         </div>
-        <div className="flex items-center gap-2 mt-1">
-          <Badge variant="outline" className="text-[10px]">{suggestion.sector}</Badge>
+        <div>
+          <p className="text-lg font-semibold">{data.backtested}</p>
+          <p className="text-[10px] text-muted-foreground">Backtested</p>
         </div>
-        <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{suggestion.reasoning}</p>
+        <div>
+          <p className="text-lg font-semibold text-[var(--profit)]">{data.profitable}</p>
+          <p className="text-[10px] text-muted-foreground">Profitable</p>
+        </div>
       </div>
-      <Button size="icon-xs" variant={isAdded ? "secondary" : "ghost"} onClick={handleAdd} disabled={isAdded || isAdding}>
-        {isAdding && <Loader2 className="h-3 w-3 animate-spin" />}
-        {!isAdding && isAdded && <Check className="h-3 w-3" />}
-        {!isAdding && !isAdded && <Plus className="h-3 w-3" />}
-      </Button>
+      {data.added.length > 0 && (
+        <div className="space-y-1">
+          <p className="text-xs font-medium text-muted-foreground">Added to watchlist</p>
+          <div className="flex flex-wrap gap-1">
+            {data.added.map((s) => (
+              <Badge key={s.ticker} variant="secondary" className="text-xs">
+                {s.ticker}
+              </Badge>
+            ))}
+          </div>
+        </div>
+      )}
+      {data.added.length === 0 && data.discovered > 0 && (
+        <p className="text-xs text-muted-foreground text-center">
+          No tickers were profitable in backtesting. Try adjusting the algorithm rules.
+        </p>
+      )}
     </div>
-  );
-}
-
-function SuggestionList({ suggestions, algorithmId, addedTickers, onAdded, onAddAll, isAddingAll, onWatchlistChanged }: {
-  suggestions: DiscoverySuggestion[]; algorithmId: string; addedTickers: Set<string>;
-  onAdded: (ticker: string) => void; onAddAll: () => void; isAddingAll: boolean; onWatchlistChanged: () => void;
-}) {
-  const allAdded = suggestions.every((s) => addedTickers.has(s.ticker));
-  return (
-    <>
-      <div className="divide-y">
-        {suggestions.map((s) => (
-          <SuggestionRow key={s.ticker} suggestion={s} algorithmId={algorithmId}
-            isAdded={addedTickers.has(s.ticker)} onAdded={onAdded} onWatchlistChanged={onWatchlistChanged} />
-        ))}
-      </div>
-      <Button variant="outline" size="sm" onClick={onAddAll} disabled={allAdded || isAddingAll} className="w-full">
-        {isAddingAll && "Adding..."}
-        {!isAddingAll && allAdded && "All added to watchlist"}
-        {!isAddingAll && !allAdded && "Add All to Watchlist"}
-      </Button>
-    </>
   );
 }
 
 export function DiscoveryCard({ algorithmId }: { algorithmId: string }) {
   const queryClient = useQueryClient();
-  const [suggestions, setSuggestions] = useState<DiscoverySuggestion[]>([]);
-  const [addedTickers, setAddedTickers] = useState<Set<string>>(new Set());
-  const [isDiscovering, setIsDiscovering] = useState(false);
-  const [isAddingAll, setIsAddingAll] = useState(false);
+  const [result, setResult] = useState<SeedResult | null>(null);
+  const [isRunning, setIsRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  function invalidateWatchlist() {
-    queryClient.invalidateQueries({ queryKey: ["watchlist"] });
-  }
-
-  async function handleDiscover() {
-    setIsDiscovering(true);
+  async function handleSeed() {
+    setIsRunning(true);
     setError(null);
-    setSuggestions([]);
-    setAddedTickers(new Set());
+    setResult(null);
     try {
-      const result = await discoverTickers(algorithmId);
-      if (result.success) setSuggestions(result.data);
-      else setError(result.error);
-    } catch { setError("Discovery failed. Please try again."); } finally { setIsDiscovering(false); }
-  }
-
-  async function handleAddAll() {
-    const toAdd = suggestions.filter((s) => !addedTickers.has(s.ticker));
-    if (toAdd.length === 0) return;
-    setIsAddingAll(true);
-    try {
-      const result = await bulkAddWatchlistItems(
-        algorithmId,
-        toAdd.map((s) => ({ symbol: s.ticker, name: s.name })),
-        "ai"
-      );
-      if (result.success) { setAddedTickers(new Set(suggestions.map((s) => s.ticker))); invalidateWatchlist(); }
-    } catch { /* best effort */ } finally { setIsAddingAll(false); }
+      const res = await seedWatchlist(algorithmId);
+      if (res.success) {
+        setResult(res.data);
+        queryClient.invalidateQueries({ queryKey: ["watchlist"] });
+      } else {
+        setError(res.error);
+      }
+    } catch {
+      setError("Discovery failed. Please try again.");
+    } finally {
+      setIsRunning(false);
+    }
   }
 
   return (
@@ -114,17 +80,13 @@ export function DiscoveryCard({ algorithmId }: { algorithmId: string }) {
       </CardHeader>
       <CardContent className="space-y-3">
         <p className="text-xs text-muted-foreground">
-          AI suggests stocks matching your trading profile and strategy. Discoveries are added to your watchlist.
+          AI discovers tickers matching your strategy, backtests each one, and adds only the profitable ones to your watchlist.
         </p>
-        <Button variant="outline" size="sm" onClick={handleDiscover} disabled={isDiscovering} className="w-full">
-          {isDiscovering ? <><Loader2 className="mr-2 h-3 w-3 animate-spin" />Discovering...</> : "Discover Tickers"}
+        <Button variant="outline" size="sm" onClick={handleSeed} disabled={isRunning} className="w-full">
+          {isRunning ? <><Loader2 className="mr-2 h-3 w-3 animate-spin" />Discovering &amp; screening...</> : "Discover & Screen Tickers"}
         </Button>
         {error && <p className="text-xs text-[var(--loss)]">{error}</p>}
-        {suggestions.length > 0 && (
-          <SuggestionList suggestions={suggestions} algorithmId={algorithmId}
-            addedTickers={addedTickers} onAdded={(t) => setAddedTickers((prev) => new Set(prev).add(t))}
-            onAddAll={handleAddAll} isAddingAll={isAddingAll} onWatchlistChanged={invalidateWatchlist} />
-        )}
+        {result && <SeedResults data={result} />}
       </CardContent>
     </Card>
   );
