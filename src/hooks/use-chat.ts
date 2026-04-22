@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { generateAlgorithm } from "@/app/(dashboard)/algorithms/actions";
+import { bulkAddWatchlistItems } from "@/app/(dashboard)/algorithms/watchlist-actions";
 import { parseTradeHistoryCsv } from "@/lib/utils/parse-trade-csv";
 import type { AlgorithmFormValues } from "@/lib/validators/algorithm";
 import type { ChatMessage } from "@/types/chat";
@@ -31,7 +32,8 @@ export function stripMarker(text: string): string {
 async function createAlgorithm(
   values: AlgorithmFormValues,
   setMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>,
-  setCreatedAlgoIds: React.Dispatch<React.SetStateAction<string[]>>
+  setCreatedAlgoIds: React.Dispatch<React.SetStateAction<string[]>>,
+  tickers?: { symbol: string; name: string }[] | null
 ) {
   setMessages((p) => [...p, { role: "assistant", content: "Generating your algorithm with AI-optimized rules..." }]);
   try {
@@ -39,6 +41,9 @@ async function createAlgorithm(
     if (result.success) {
       const algo = result.data as { id: string; name: string };
       setCreatedAlgoIds((p) => [...p, algo.id]);
+      if (tickers && tickers.length > 0) {
+        bulkAddWatchlistItems(algo.id, tickers, "csv").catch(() => {});
+      }
       setMessages((p) => [...p.slice(0, -1), { role: "assistant", content: `Your algorithm "${algo.name}" has been created with optimized trading rules.` }]);
     } else {
       setMessages((p) => [...p.slice(0, -1), { role: "assistant", content: `Algorithm creation failed: ${result.error}` }]);
@@ -53,6 +58,7 @@ export function useChat(stats: Record<string, unknown> | null) {
   const [isStreaming, setIsStreaming] = useState(false);
   const [createdAlgoIds, setCreatedAlgoIds] = useState<string[]>([]);
   const [tradeHistory, setTradeHistory] = useState<string | null>(null);
+  const [parsedTickers, setParsedTickers] = useState<{ symbol: string; name: string }[] | null>(null);
   const [attachedFileName, setAttachedFileName] = useState<string | null>(null);
   const [isParsing, setIsParsing] = useState(false);
 
@@ -88,7 +94,7 @@ export function useChat(stats: Record<string, unknown> | null) {
         reader.cancel();
       }
       const algoValues = parseAlgorithmMarker(assistantText);
-      if (algoValues) { await createAlgorithm(algoValues, setMessages, setCreatedAlgoIds); }
+      if (algoValues) { await createAlgorithm(algoValues, setMessages, setCreatedAlgoIds, parsedTickers); }
     } catch {
       setMessages([...updated, { role: "assistant", content: "Sorry, I couldn't process that. Please try again." }]);
     } finally {
@@ -102,6 +108,7 @@ export function useChat(stats: Record<string, unknown> | null) {
     try {
       const result = await parseTradeHistoryCsv(file);
       setTradeHistory(result.analysisText);
+      setParsedTickers(result.tickers);
       setAttachedFileName(file.name);
       const msg = `I've uploaded my trade history (${result.tradeCount} trades, ${result.symbolCount} symbols). Analyze my trading patterns and tell me what you find.`;
       handleSend(msg, result.analysisText);
@@ -116,6 +123,7 @@ export function useChat(stats: Record<string, unknown> | null) {
     setMessages([]);
     setCreatedAlgoIds([]);
     setTradeHistory(null);
+    setParsedTickers(null);
     setAttachedFileName(null);
   }
 
