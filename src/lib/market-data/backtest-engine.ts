@@ -115,6 +115,8 @@ function calculateMetrics(trades: BacktestTrade[], capital: number, prices: Pric
     total_trades: trades.length,
     win_rate: trades.length > 0 ? Number(((wins.length / trades.length) * 100).toFixed(1)) : 0,
     equity_curve: curve,
+    trades,
+    prices,
     open_position: openPos,
   };
 }

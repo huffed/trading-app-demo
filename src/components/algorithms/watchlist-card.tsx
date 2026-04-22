@@ -72,6 +72,7 @@ function WatchlistItems({ items, algorithmId, hasSentiment, onRemove, isRemoving
   items: WatchlistItem[]; algorithmId: string; hasSentiment: boolean; onRemove: (id: string) => void; isRemoving: boolean;
 }) {
   const [signalResults, setSignalResults] = useState<Record<string, SignalResult>>({});
+  const [signalError, setSignalError] = useState<string | null>(null);
   const [checkingTicker, setCheckingTicker] = useState<string | null>(null);
   const [isCheckingAll, setIsCheckingAll] = useState(false);
   const [checkedCount, setCheckedCount] = useState(0);
@@ -79,21 +80,26 @@ function WatchlistItems({ items, algorithmId, hasSentiment, onRemove, isRemoving
 
   async function handleCheck(ticker: string) {
     setCheckingTicker(ticker);
+    setSignalError(null);
     try {
       const result = await runLiveSignal(algorithmId, ticker);
       if (result.success) setSignalResults((prev) => ({ ...prev, [ticker]: result.data as SignalResult }));
-    } catch { /* user can retry */ } finally { setCheckingTicker(null); }
+      else setSignalError(`${ticker}: ${result.error}`);
+    } catch (err) {
+      setSignalError(`${ticker}: ${err instanceof Error ? err.message : "Signal check failed"}`);
+    } finally { setCheckingTicker(null); }
   }
 
   async function handleCheckAll() {
     setIsCheckingAll(true);
     setCheckedCount(0);
     setSignalResults({});
+    setSignalError(null);
     for (const item of items) {
       try {
         const result = await runLiveSignal(algorithmId, item.ticker);
         if (result.success) setSignalResults((prev) => ({ ...prev, [item.ticker]: result.data as SignalResult }));
-      } catch { /* continue */ }
+      } catch { /* continue to next */ }
       setCheckedCount((c) => c + 1);
     }
     setIsCheckingAll(false);
@@ -113,6 +119,7 @@ function WatchlistItems({ items, algorithmId, hasSentiment, onRemove, isRemoving
           />
         ))}
       </div>
+      {signalError && <p className="text-xs text-[var(--loss)]">{signalError}</p>}
       {hasSentiment && (
         <Button variant="outline" size="sm" onClick={handleCheckAll} disabled={isCheckingAll || !!checkingTicker} className="w-full">
           {isCheckingAll ? `Checking... (${checkedCount}/${items.length})` : "Check All Signals"}
