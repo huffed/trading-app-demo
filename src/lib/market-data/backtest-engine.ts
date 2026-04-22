@@ -1,29 +1,79 @@
-import type { AlgorithmRules, EntryCondition, ExitCondition } from "@/types/algorithm";
-import { bollingerBands, ema, rsi, sma } from "./indicators";
+import { isTechnicalCondition, type AlgorithmRules, type TechnicalCondition } from "@/types/algorithm";
+import { bollingerBands, ema, macd, rsi, sma } from "./indicators";
 import type { BacktestMetrics, BacktestTrade, PriceBar } from "./types";
+
+type Cache = Map<string, (number | null)[]>;
 
 function computeIndicator(closes: number[], name: string): (number | null)[] {
   const lower = name.toLowerCase();
-  if (lower === "rsi") return rsi(closes);
-  if (lower === "sma" || lower === "sma20") return sma(closes, 20);
-  if (lower === "sma50") return sma(closes, 50);
-  if (lower === "ema" || lower === "ema12") return ema(closes, 12);
-  if (lower === "ema26") return ema(closes, 26);
-  if (lower === "bollingerbands_upper") return bollingerBands(closes).upper;
-  if (lower === "bollingerbands_lower") return bollingerBands(closes).lower;
+  if (lower === "rsi") { return rsi(closes); }
+  if (lower === "sma" || lower === "sma20") { return sma(closes, 20); }
+  if (lower === "sma50") { return sma(closes, 50); }
+  if (lower === "ema" || lower === "ema12") { return ema(closes, 12); }
+  if (lower === "ema26") { return ema(closes, 26); }
+  if (lower === "macd") { return macd(closes); }
+  if (lower === "bollingerbands_upper") { return bollingerBands(closes).upper; }
+  if (lower === "bollingerbands_lower") { return bollingerBands(closes).lower; }
   return closes.map(() => null);
 }
 
-function evaluateCondition(
-  cond: EntryCondition | ExitCondition,
-  values: (number | null)[],
-  prevValues: (number | null)[],
-  i: number
-): boolean {
-  const val = values[i];
-  const prev = prevValues[i - 1] ?? null;
-  if (val === null) return false;
+function getValues(name: string, cache: Cache, closes: number[]): (number | null)[] {
+  if (!cache.has(name)) { cache.set(name, computeIndicator(closes, name)); }
+  return cache.get(name)!;
+}
 
+function isPriceIndicator(name: string): boolean {
+  const l = name.toLowerCase();
+  return l.startsWith("sma") || l.startsWith("ema") || l.startsWith("bollinger");
+}
+
+// When value=0 for MAs/BBs, compare price against the indicator (or EMA12 against EMA26)
+function evalPriceComparison(
+  cond: TechnicalCondition, indVals: (number | null)[], closes: number[], cache: Cache, i: number
+): boolean {
+  const ind = indVals[i];
+  if (ind === null) { return false; }
+  const prevInd = indVals[i - 1] ?? null;
+
+  // EMA12 crossover: compare against EMA26
+  if (cond.indicator.toLowerCase() === "ema12") {
+    const ema26 = getValues("EMA26", cache, closes);
+    const comp = ema26[i];
+    const prevComp = ema26[i - 1] ?? null;
+    if (comp === null) { return false; }
+    switch (cond.operator) {
+      case "less_than": return ind < comp;
+      case "greater_than": return ind > comp;
+      case "crosses_above": return prevInd !== null && prevComp !== null && prevInd <= prevComp && ind > comp;
+      case "crosses_below": return prevInd !== null && prevComp !== null && prevInd >= prevComp && ind < comp;
+    }
+  }
+
+  // All other MAs and BBs: compare closing price against indicator value
+  const price = closes[i];
+  const prevPrice = closes[i - 1] ?? null;
+  switch (cond.operator) {
+    case "less_than": return price < ind;
+    case "greater_than": return price > ind;
+    case "crosses_above": return prevPrice !== null && prevInd !== null && prevPrice <= prevInd && price > ind;
+    case "crosses_below": return prevPrice !== null && prevInd !== null && prevPrice >= prevInd && price < ind;
+    default: return false;
+  }
+}
+
+function evaluateCondition(
+  cond: TechnicalCondition, indVals: (number | null)[], closes: number[], cache: Cache, i: number
+): boolean {
+  const val = indVals[i];
+  if (val === null) { return false; }
+
+  // value=0 on price-based indicators uses special comparison semantics
+  if (cond.value === 0 && isPriceIndicator(cond.indicator)) {
+    return evalPriceComparison(cond, indVals, closes, cache, i);
+  }
+
+  // Standard literal comparison (RSI thresholds, MACD zero line, etc.)
+  const prev = indVals[i - 1] ?? null;
   switch (cond.operator) {
     case "less_than": return val < cond.value;
     case "greater_than": return val > cond.value;
@@ -33,47 +83,35 @@ function evaluateCondition(
   }
 }
 
-function checkConditions(
-  conditions: (EntryCondition | ExitCondition)[],
-  indicatorCache: Map<string, (number | null)[]>,
-  closes: number[],
-  i: number
-): boolean {
+function checkConditions(conditions: TechnicalCondition[], cache: Cache, closes: number[], i: number): boolean {
   return conditions.every((c) => {
-    if (!indicatorCache.has(c.indicator)) {
-      indicatorCache.set(c.indicator, computeIndicator(closes, c.indicator));
-    }
-    const vals = indicatorCache.get(c.indicator)!;
-    return evaluateCondition(c, vals, vals, i);
+    const vals = getValues(c.indicator, cache, closes);
+    return evaluateCondition(c, vals, closes, cache, i);
   });
 }
 
-function calculateMetrics(trades: BacktestTrade[], capital: number, prices: PriceBar[]): BacktestMetrics {
+function calculateMetrics(trades: BacktestTrade[], capital: number, prices: PriceBar[]): Omit<BacktestMetrics, "sentiment_conditions_excluded" | "backtest_mode"> {
   const wins = trades.filter((t) => t.pnl > 0);
   const totalReturn = trades.reduce((s, t) => s + t.pnl, 0);
-
   let equity = capital;
   let peak = capital;
   let maxDrawdown = 0;
   const curve: { date: string; value: number }[] = [{ date: prices[0]?.date ?? "", value: capital }];
-
   for (const t of trades) {
     equity += t.pnl;
     peak = Math.max(peak, equity);
     maxDrawdown = Math.max(maxDrawdown, (peak - equity) / peak);
     curve.push({ date: t.exit_date, value: Number(equity.toFixed(2)) });
   }
-
   const returns = trades.map((t) => t.pnl / capital);
-  const avgReturn = returns.length > 0 ? returns.reduce((a, b) => a + b, 0) / returns.length : 0;
-  const stdReturn = returns.length > 1
-    ? Math.sqrt(returns.reduce((s, r) => s + (r - avgReturn) ** 2, 0) / (returns.length - 1))
+  const avg = returns.length > 0 ? returns.reduce((a, b) => a + b, 0) / returns.length : 0;
+  const std = returns.length > 1
+    ? Math.sqrt(returns.reduce((s, r) => s + (r - avg) ** 2, 0) / (returns.length - 1))
     : 0;
-
   return {
     total_return: Number(totalReturn.toFixed(2)),
     max_drawdown: Number((maxDrawdown * 100).toFixed(2)),
-    sharpe_ratio: stdReturn > 0 ? Number((avgReturn / stdReturn).toFixed(2)) : 0,
+    sharpe_ratio: std > 0 ? Number((avg / std).toFixed(2)) : 0,
     total_trades: trades.length,
     win_rate: trades.length > 0 ? Number(((wins.length / trades.length) * 100).toFixed(1)) : 0,
     equity_curve: curve,
@@ -81,20 +119,35 @@ function calculateMetrics(trades: BacktestTrade[], capital: number, prices: Pric
 }
 
 export function runBacktest(rules: AlgorithmRules, prices: PriceBar[], capital: number): BacktestMetrics {
+  // Partition conditions — only technical conditions can be backtested
+  const techEntry = rules.entry_conditions.filter(isTechnicalCondition);
+  const techExit = rules.exit_conditions.filter(isTechnicalCondition);
+  const sentimentExcluded =
+    (rules.entry_conditions.length - techEntry.length) + (rules.exit_conditions.length - techExit.length);
+  const mode = sentimentExcluded > 0 ? "technical_only" as const : "full" as const;
+
+  // If no technical entry conditions remain, we can't run a meaningful backtest
+  if (techEntry.length === 0) {
+    return {
+      ...calculateMetrics([], capital, prices),
+      sentiment_conditions_excluded: sentimentExcluded,
+      backtest_mode: mode,
+    };
+  }
+
   const closes = prices.map((p) => p.close);
-  const indicatorCache = new Map<string, (number | null)[]>();
+  const cache: Cache = new Map();
   const trades: BacktestTrade[] = [];
   let inPosition = false;
   let entryPrice = 0;
   let entryDate = "";
-
   const posSize = (rules.position_sizing?.value ?? 10) / 100;
   const stopPct = (rules.stop_loss?.value ?? 5) / 100;
   const tpPct = (rules.take_profit?.value ?? 15) / 100;
 
   for (let i = 1; i < prices.length; i++) {
     if (!inPosition) {
-      if (checkConditions(rules.entry_conditions, indicatorCache, closes, i)) {
+      if (checkConditions(techEntry, cache, closes, i)) {
         inPosition = true;
         entryPrice = closes[i];
         entryDate = prices[i].date;
@@ -103,23 +156,22 @@ export function runBacktest(rules: AlgorithmRules, prices: PriceBar[], capital: 
       const pnlPct = (closes[i] - entryPrice) / entryPrice;
       const hitStop = pnlPct <= -stopPct;
       const hitTp = pnlPct >= tpPct;
-      const hitExit = checkConditions(rules.exit_conditions, indicatorCache, closes, i);
-
+      const hitExit = techExit.length > 0 && checkConditions(techExit, cache, closes, i);
       if (hitStop || hitTp || hitExit) {
-        const positionValue = capital * posSize;
-        const pnl = positionValue * pnlPct;
+        const pnl = capital * posSize * pnlPct;
         trades.push({
-          entry_date: entryDate,
-          exit_date: prices[i].date,
-          entry_price: entryPrice,
-          exit_price: closes[i],
-          side: "long",
-          pnl: Number(pnl.toFixed(2)),
+          entry_date: entryDate, exit_date: prices[i].date,
+          entry_price: entryPrice, exit_price: closes[i],
+          side: "long", pnl: Number(pnl.toFixed(2)),
         });
         inPosition = false;
       }
     }
   }
 
-  return calculateMetrics(trades, capital, prices);
+  return {
+    ...calculateMetrics(trades, capital, prices),
+    sentiment_conditions_excluded: sentimentExcluded,
+    backtest_mode: mode,
+  };
 }

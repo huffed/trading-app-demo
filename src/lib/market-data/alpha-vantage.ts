@@ -11,6 +11,7 @@ interface AVDailyResponse {
     "5. volume": string;
   }>;
   Note?: string;
+  Information?: string;
   "Error Message"?: string;
 }
 
@@ -35,9 +36,16 @@ export async function fetchDailyPrices(
   if (data.Note) {
     throw new Error("Alpha Vantage rate limit reached (25 requests/day)");
   }
+  if (data.Information) {
+    throw new Error(
+      outputSize === "full"
+        ? "Full history requires an Alpha Vantage premium plan. Try using the last 100 days instead."
+        : "Alpha Vantage API limit reached. Try again later."
+    );
+  }
 
   const timeSeries = data["Time Series (Daily)"];
-  if (!timeSeries) throw new Error("No price data returned");
+  if (!timeSeries) { throw new Error("No price data returned"); }
 
   return Object.entries(timeSeries)
     .map(([date, bar]) => ({

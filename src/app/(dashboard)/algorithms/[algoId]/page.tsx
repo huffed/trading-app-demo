@@ -7,6 +7,7 @@ import { ArrowLeft, Trash2 } from "lucide-react";
 import { AiBacktestCard } from "@/components/algorithms/ai-backtest-card";
 import { BacktestForm } from "@/components/algorithms/backtest-form";
 import { BacktestResultsDisplay } from "@/components/algorithms/backtest-results-display";
+import { LiveSignalCard } from "@/components/algorithms/live-signal-card";
 import { RulesDisplay } from "@/components/algorithms/rules-display";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -21,6 +22,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAlgorithm, useDeleteAlgorithm, useRunAiBacktest, useRunHistoricalBacktest } from "@/hooks/use-algorithms";
 import type { BacktestMetrics } from "@/lib/market-data/types";
+import { isSentimentCondition } from "@/types/algorithm";
 
 const statusColors: Record<string, "default" | "secondary" | "outline"> = {
   draft: "secondary",
@@ -91,21 +93,14 @@ export default function AlgorithmDetailPage() {
   const [localBacktestResults, setLocalBacktestResults] = useState<BacktestMetrics | null>(null);
 
   if (isLoading) {
-    return (
-      <div className="mx-auto max-w-2xl space-y-4">
-        <Skeleton className="h-8 w-48" />
-        <Skeleton className="h-64 w-full" />
-      </div>
-    );
+    return <div className="mx-auto max-w-2xl space-y-4"><Skeleton className="h-8 w-48" /><Skeleton className="h-64 w-full" /></div>;
   }
 
   if (!algo) {
     return (
       <div className="mx-auto max-w-2xl text-center py-16">
         <p className="text-sm text-muted-foreground">Algorithm not found</p>
-        <Button className="mt-4" variant="outline" render={<Link href="/algorithms" />} nativeButton={false}>
-          Back to Algorithms
-        </Button>
+        <Button className="mt-4" variant="outline" render={<Link href="/algorithms" />} nativeButton={false}>Back to Algorithms</Button>
       </div>
     );
   }
@@ -144,6 +139,9 @@ export default function AlgorithmDetailPage() {
         disabled={historicalBacktest.isPending}
         onSubmit={(symbol, period) => handleHistoricalBacktest(symbol, period)}
       />
+      {algo.rules.entry_conditions.some(isSentimentCondition) && (
+        <LiveSignalCard algorithmId={algo.id} />
+      )}
       {backtestError && (
         <p className="text-sm text-destructive">{backtestError}</p>
       )}

@@ -1,20 +1,41 @@
 export type AlgorithmStatus = "draft" | "active" | "paused" | "archived";
 export type RiskLevel = "conservative" | "moderate" | "aggressive";
 export type IndicatorOperator = "less_than" | "greater_than" | "crosses_above" | "crosses_below";
+export type SentimentOperator = "above" | "below" | "spike_above" | "spike_below";
 
-export interface EntryCondition {
+// --- Discriminated union for conditions ---
+
+export interface TechnicalCondition {
+  type: "technical";
   indicator: string;
   operator: IndicatorOperator;
   value: number;
   timeframe: string;
 }
 
-export interface ExitCondition {
-  indicator: string;
-  operator: IndicatorOperator;
-  value: number;
+export interface SentimentCondition {
+  type: "sentiment";
+  source: "news" | "social";
+  metric: string;
+  operator: SentimentOperator;
+  threshold: number;
+  topics?: string[];
+  tickers?: string[];
   timeframe: string;
 }
+
+export type EntryCondition = TechnicalCondition | SentimentCondition;
+export type ExitCondition = TechnicalCondition | SentimentCondition;
+
+export function isTechnicalCondition(c: EntryCondition | ExitCondition): c is TechnicalCondition {
+  return c.type === "technical";
+}
+
+export function isSentimentCondition(c: EntryCondition | ExitCondition): c is SentimentCondition {
+  return c.type === "sentiment";
+}
+
+// --- Risk management & rules ---
 
 export interface StopLoss {
   type: "percentage" | "fixed";
@@ -42,6 +63,8 @@ export interface AlgorithmRules {
   asset_class: string;
 }
 
+// --- Backtest results ---
+
 export interface BacktestResults {
   total_return: number;
   max_drawdown: number;
@@ -50,6 +73,8 @@ export interface BacktestResults {
   win_rate: number;
   equity_curve: { date: string; value: number }[];
 }
+
+// --- Algorithm entity ---
 
 export interface Algorithm {
   id: string;

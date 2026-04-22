@@ -55,6 +55,12 @@ export function rsi(closes: number[], period = 14): (number | null)[] {
   return result;
 }
 
+export function macd(closes: number[]): (number | null)[] {
+  const ema12 = ema(closes, 12);
+  const ema26 = ema(closes, 26);
+  return ema12.map((v, i) => (v !== null && ema26[i] !== null ? v - ema26[i]! : null));
+}
+
 export function bollingerBands(
   closes: number[],
   period = 20,
