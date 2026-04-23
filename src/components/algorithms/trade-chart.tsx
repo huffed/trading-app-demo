@@ -49,7 +49,7 @@ export function TradeChart({ prices, trades }: TradeChartProps) {
       height: 300,
       layout: {
         background: { type: ColorType.Solid, color: "transparent" },
-        textColor: "var(--color-muted-foreground)",
+        textColor: "#888888",
         fontSize: 11,
       },
       grid: {
