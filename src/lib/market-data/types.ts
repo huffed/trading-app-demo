@@ -25,6 +25,22 @@ export interface OpenPosition {
   unrealized_pnl_pct: number;
 }
 
+export interface PropFirmReport {
+  daily_loss_breaches: number;
+  max_daily_loss: number;
+  peak_drawdown: number;
+  drawdown_breached: boolean;
+  max_consecutive_losses: number;
+  kill_switch_triggered: boolean;
+  consistency_pass: boolean;
+  worst_day_pct_of_profit: number;
+  total_slippage: number;
+  total_commission: number;
+  profit_target_met: boolean;
+  evaluation_result: "pass" | "fail";
+  fail_reasons: string[];
+}
+
 export interface BacktestMetrics {
   total_return: number;
   max_drawdown: number;
@@ -37,4 +53,5 @@ export interface BacktestMetrics {
   open_position: OpenPosition | null;
   sentiment_conditions_excluded: number;
   backtest_mode: "full" | "technical_only";
+  prop_firm_report?: PropFirmReport;
 }

@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { BacktestMetrics } from "@/lib/market-data/types";
 import { pnlColorClass } from "@/lib/utils/pnl";
 import { EquityCurveChart } from "./equity-curve-chart";
+import { PropFirmReportCard } from "./prop-firm-report";
 import { TradeChart } from "./trade-chart";
 
 interface BacktestResultsDisplayProps {
@@ -76,6 +77,7 @@ export function BacktestResultsDisplay({ results, symbol }: BacktestResultsDispl
             </p>
           </div>
         )}
+        {results.prop_firm_report && <PropFirmReportCard report={results.prop_firm_report} />}
         {noTrades && !results.open_position && <NoTradesExplanation />}
         {!noTrades && results.prices?.length > 0 && (
           <TradeChart prices={results.prices} trades={results.trades ?? []} />
