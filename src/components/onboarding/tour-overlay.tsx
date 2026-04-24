@@ -69,9 +69,7 @@ function TourCard({
       <div className="space-y-2">
         <div className="text-2xl">{step.icon}</div>
         <h3 className="font-medium text-sm">{step.title}</h3>
-        <p className="text-xs text-muted-foreground leading-relaxed">
-          {step.description}
-        </p>
+        <p className="text-xs text-muted-foreground leading-relaxed">{step.description}</p>
       </div>
       <div className="mt-4 flex items-center justify-between">
         <ProgressDots current={current} total={total} />
@@ -140,10 +138,7 @@ export function TourOverlay({ onComplete }: TourOverlayProps) {
   return (
     <>
       {/* Backdrop */}
-      <div
-        className="fixed inset-0 z-50 bg-black/60 transition-opacity"
-        onClick={onComplete}
-      />
+      <div className="fixed inset-0 z-50 bg-black/60 transition-opacity" onClick={onComplete} />
 
       {/* Spotlight cutout */}
       {rect && (

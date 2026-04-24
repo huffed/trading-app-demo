@@ -1,10 +1,6 @@
 "use client";
 
-import {
-  useQuery,
-  useMutation,
-  useQueryClient,
-} from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   analyzeJournalEntryAction,
   createJournalEntry,
@@ -17,11 +13,7 @@ import type { JournalEntry, JournalFilters } from "@/types/journal";
 
 const JOURNAL_KEY = ["journal"];
 
-export function useJournalEntries(
-  filters: JournalFilters = {},
-  page = 1,
-  perPage = 12
-) {
+export function useJournalEntries(filters: JournalFilters = {}, page = 1, perPage = 12) {
   return useQuery({
     queryKey: [...JOURNAL_KEY, filters, page, perPage],
     queryFn: async () => {
@@ -32,16 +24,12 @@ export function useJournalEntries(
         .order("created_at", { ascending: false });
 
       if (filters.emotion) query = query.eq("emotion", filters.emotion);
-      if (filters.entry_type)
-        {query = query.eq("entry_type", filters.entry_type);}
-      if (filters.date_from)
-        {query = query.gte("created_at", filters.date_from);}
-      if (filters.date_to)
-        {query = query.lte("created_at", filters.date_to);}
-      if (filters.search)
-        {query = query.or(
-          `title.ilike.%${filters.search}%,content.ilike.%${filters.search}%`
-        );}
+      if (filters.entry_type) query = query.eq("entry_type", filters.entry_type);
+      if (filters.date_from) query = query.gte("created_at", filters.date_from);
+      if (filters.date_to) query = query.lte("created_at", filters.date_to);
+      if (filters.search) {
+        query = query.or(`title.ilike.%${filters.search}%,content.ilike.%${filters.search}%`);
+      }
 
       const from = (page - 1) * perPage;
       const to = from + perPage - 1;
@@ -65,11 +53,12 @@ export function useJournalEntry(id: string | null) {
     queryKey: [...JOURNAL_KEY, id],
     enabled: !!id,
     queryFn: async () => {
+      if (!id) throw new Error("Journal entry ID is required");
       const supabase = createClient();
       const { data, error } = await supabase
         .from("journal_entries")
         .select("*")
-        .eq("id", id!)
+        .eq("id", id)
         .single();
       if (error) throw error;
       return data as JournalEntry;
@@ -92,13 +81,8 @@ export function useCreateJournalEntry() {
 export function useUpdateJournalEntry() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({
-      id,
-      values,
-    }: {
-      id: string;
-      values: Partial<JournalFormValues>;
-    }) => updateJournalEntry(id, values),
+    mutationFn: ({ id, values }: { id: string; values: Partial<JournalFormValues> }) =>
+      updateJournalEntry(id, values),
     onSuccess: (result) => {
       if (result.success) {
         queryClient.invalidateQueries({ queryKey: JOURNAL_KEY });
@@ -148,7 +132,13 @@ export function useTradesForLinking(search?: string) {
 
       const { data, error } = await query;
       if (error) throw error;
-      return (data ?? []) as { id: string; symbol: string; side: string; entry_date: string; realized_pnl: number | null }[];
+      return (data ?? []) as {
+        id: string;
+        symbol: string;
+        side: string;
+        entry_date: string;
+        realized_pnl: number | null;
+      }[];
     },
   });
 }

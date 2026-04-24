@@ -6,15 +6,14 @@ import type { Algorithm } from "@/types/algorithm";
 import type { DiscoverySuggestion } from "@/types/watchlist";
 import { getAuthedUser } from "./actions";
 
-type ActionResult<T = unknown> =
-  | { success: true; data: T }
-  | { success: false; error: string };
+type ActionResult<T = unknown> = { success: true; data: T } | { success: false; error: string };
 
 function validateSuggestion(s: unknown): s is DiscoverySuggestion {
   if (!s || typeof s !== "object") return false;
   const obj = s as Record<string, unknown>;
   return (
-    typeof obj.ticker === "string" && obj.ticker.length > 0 &&
+    typeof obj.ticker === "string" &&
+    obj.ticker.length > 0 &&
     typeof obj.name === "string" &&
     typeof obj.sector === "string" &&
     typeof obj.reasoning === "string"
@@ -45,10 +44,7 @@ export async function discoverTickers(
   const existingTickers = (watchlist ?? []).map((w) => w.ticker as string);
 
   try {
-    const { system, userMessage } = buildDiscoveryPrompt(
-      algo as Algorithm,
-      existingTickers
-    );
+    const { system, userMessage } = buildDiscoveryPrompt(algo as Algorithm, existingTickers);
 
     const client = getAIClient();
     const res = await client.chat.completions.create({

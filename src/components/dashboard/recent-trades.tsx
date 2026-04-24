@@ -9,7 +9,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useTradesList } from "@/hooks/use-trades";
 import { formatPnl, pnlColorClass } from "@/lib/utils/pnl";
 
-function TradeRow({ trade }: { trade: { symbol: string; side: string; entry_date: string; realized_pnl: number | null } }) {
+function TradeRow({
+  trade,
+}: {
+  trade: { symbol: string; side: string; entry_date: string; realized_pnl: number | null };
+}) {
   return (
     <div className="flex items-center justify-between py-2">
       <div className="flex items-center gap-2">
@@ -56,12 +60,7 @@ export function RecentTrades() {
       <CardHeader className="flex flex-row items-center justify-between pb-2">
         <CardTitle className="text-sm font-medium">Recent Trades</CardTitle>
         {trades.length > 0 && (
-          <Button
-            variant="ghost"
-            size="sm"
-            render={<Link href="/trades" />}
-            nativeButton={false}
-          >
+          <Button variant="ghost" size="sm" render={<Link href="/trades" />} nativeButton={false}>
             View all
             <ArrowRight className="ml-1 h-3 w-3" />
           </Button>

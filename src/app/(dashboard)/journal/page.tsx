@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Plus, ChevronLeft, ChevronRight  } from "lucide-react";
+import { Plus, ChevronLeft, ChevronRight } from "lucide-react";
 import { JournalCard } from "@/components/journal/journal-card";
 import { JournalFilters } from "@/components/journal/journal-filters";
 import { Button } from "@/components/ui/button";
@@ -63,18 +63,11 @@ function CardGrid({ entries, total, page, totalPages, setPage }: CardGridProps) 
 function EmptyState() {
   return (
     <div className="flex flex-col items-center justify-center py-16 text-center">
-      <p className="text-sm text-muted-foreground">
-        No journal entries yet
-      </p>
+      <p className="text-sm text-muted-foreground">No journal entries yet</p>
       <p className="text-xs text-muted-foreground mt-1">
         Start your first entry to begin tracking your trading mindset.
       </p>
-      <Button
-        className="mt-4"
-        size="sm"
-        render={<Link href="/journal/new" />}
-        nativeButton={false}
-      >
+      <Button className="mt-4" size="sm" render={<Link href="/journal/new" />} nativeButton={false}>
         Write your first entry
       </Button>
     </div>
@@ -98,11 +91,7 @@ export default function JournalPage() {
             Reflect on your trades and track your mindset.
           </p>
         </div>
-        <Button
-          size="sm"
-          render={<Link href="/journal/new" />}
-          nativeButton={false}
-        >
+        <Button size="sm" render={<Link href="/journal/new" />} nativeButton={false}>
           <Plus className="mr-1.5 h-3.5 w-3.5" />
           New Entry
         </Button>

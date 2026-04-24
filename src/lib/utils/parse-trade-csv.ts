@@ -50,8 +50,12 @@ export interface CsvParseResult {
 
 function parseAction(action: string): "buy" | "sell" | null {
   const lower = action.toLowerCase();
-  if (lower.includes("buy")) { return "buy"; }
-  if (lower.includes("sell")) { return "sell"; }
+  if (lower.includes("buy")) {
+    return "buy";
+  }
+  if (lower.includes("sell")) {
+    return "sell";
+  }
   return null;
 }
 
@@ -69,12 +73,16 @@ function parseTrades(rows: RawCsvRow[]): ParsedTrade[] {
   const trades: ParsedTrade[] = [];
   for (const row of rows) {
     const action = parseAction(row.Action);
-    if (!action || !row.Ticker) { continue; }
+    if (!action || !row.Ticker) {
+      continue;
+    }
     const shares = parseFloat(row["No. of shares"]);
     const price = parseFloat(row["Price / share"]);
     const total = parseFloat(row.Total);
     const result = row.Result ? parseFloat(row.Result) : null;
-    if (isNaN(shares) || isNaN(price) || isNaN(total)) { continue; }
+    if (isNaN(shares) || isNaN(price) || isNaN(total)) {
+      continue;
+    }
     trades.push({
       action,
       ticker: row.Ticker.trim(),
@@ -95,9 +103,16 @@ function buildTickerSummaries(trades: ParsedTrade[]): Record<string, TickerSumma
   for (const t of trades) {
     if (!byTicker[t.ticker]) {
       byTicker[t.ticker] = {
-        name: t.name, totalBought: 0, totalSold: 0, pnl: 0,
-        buyCount: 0, sellCount: 0, firstBuyDate: t.date,
-        lastSellDate: null, holdDays: null, sharesRemaining: 0,
+        name: t.name,
+        totalBought: 0,
+        totalSold: 0,
+        pnl: 0,
+        buyCount: 0,
+        sellCount: 0,
+        firstBuyDate: t.date,
+        lastSellDate: null,
+        holdDays: null,
+        sharesRemaining: 0,
       };
     }
     const s = byTicker[t.ticker];
@@ -105,18 +120,28 @@ function buildTickerSummaries(trades: ParsedTrade[]): Record<string, TickerSumma
       s.totalBought += t.totalGbp;
       s.buyCount++;
       s.sharesRemaining += t.shares;
-      if (!s.firstBuyDate || t.date < s.firstBuyDate) { s.firstBuyDate = t.date; }
+      if (!s.firstBuyDate || t.date < s.firstBuyDate) {
+        s.firstBuyDate = t.date;
+      }
     } else {
       s.totalSold += t.totalGbp;
       s.sellCount++;
       s.sharesRemaining -= t.shares;
-      if (t.resultGbp !== null) { s.pnl += t.resultGbp; }
-      if (!s.lastSellDate || t.date > s.lastSellDate) { s.lastSellDate = t.date; }
+      if (t.resultGbp !== null) {
+        s.pnl += t.resultGbp;
+      }
+      if (!s.lastSellDate || t.date > s.lastSellDate) {
+        s.lastSellDate = t.date;
+      }
     }
   }
   for (const s of Object.values(byTicker)) {
-    if (s.lastSellDate && s.firstBuyDate) { s.holdDays = daysBetween(s.firstBuyDate, s.lastSellDate); }
-    if (Math.abs(s.sharesRemaining) < 0.001) { s.sharesRemaining = 0; }
+    if (s.lastSellDate && s.firstBuyDate) {
+      s.holdDays = daysBetween(s.firstBuyDate, s.lastSellDate);
+    }
+    if (Math.abs(s.sharesRemaining) < 0.001) {
+      s.sharesRemaining = 0;
+    }
   }
   return byTicker;
 }
@@ -131,7 +156,9 @@ function buildPositionsText(byTicker: Record<string, TickerSummary>): string[] {
       const hold = s.holdDays !== null ? `, ${s.holdDays}d hold` : "";
       const partial = s.sharesRemaining > 0.001 ? " (partially closed)" : "";
       const pctReturn = s.totalBought > 0 ? ((s.pnl / s.totalBought) * 100).toFixed(0) : "0";
-      lines.push(`- ${ticker} (${s.name}): P&L: ${fmt(s.pnl)} GBP (${pctReturn}% return), invested: ${s.totalBought.toFixed(0)} GBP${hold}${partial}`);
+      lines.push(
+        `- ${ticker} (${s.name}): P&L: ${fmt(s.pnl)} GBP (${pctReturn}% return), invested: ${s.totalBought.toFixed(0)} GBP${hold}${partial}`
+      );
     }
     lines.push("");
   }
@@ -139,14 +166,19 @@ function buildPositionsText(byTicker: Record<string, TickerSummary>): string[] {
   if (open.length > 0) {
     lines.push("OPEN POSITIONS:");
     for (const [ticker, s] of open) {
-      lines.push(`- ${ticker} (${s.name}): ${s.sharesRemaining.toFixed(4)} shares, invested: ${s.totalBought.toFixed(2)} GBP`);
+      lines.push(
+        `- ${ticker} (${s.name}): ${s.sharesRemaining.toFixed(4)} shares, invested: ${s.totalBought.toFixed(2)} GBP`
+      );
     }
     lines.push("");
   }
   return lines;
 }
 
-function buildSummaryText(trades: ParsedTrade[], byTicker: Record<string, TickerSummary>): string[] {
+function buildSummaryText(
+  trades: ParsedTrade[],
+  byTicker: Record<string, TickerSummary>
+): string[] {
   const sells = trades.filter((t) => t.action === "sell" && t.resultGbp !== null);
   const totalPnl = sells.reduce((sum, t) => sum + (t.resultGbp ?? 0), 0);
   const winners = sells.filter((t) => (t.resultGbp ?? 0) > 0);
@@ -158,42 +190,72 @@ function buildSummaryText(trades: ParsedTrade[], byTicker: Record<string, Ticker
     `- ${winners.length} winning sells, ${losers.length} losing sells (${winRate}% win rate)`,
   ];
   if (winners.length > 0) {
-    lines.push(`- Average win: ${fmt(winners.reduce((s, t) => s + (t.resultGbp ?? 0), 0) / winners.length)} GBP`);
+    lines.push(
+      `- Average win: ${fmt(winners.reduce((s, t) => s + (t.resultGbp ?? 0), 0) / winners.length)} GBP`
+    );
   }
   if (losers.length > 0) {
-    lines.push(`- Average loss: ${fmt(losers.reduce((s, t) => s + (t.resultGbp ?? 0), 0) / losers.length)} GBP`);
+    lines.push(
+      `- Average loss: ${fmt(losers.reduce((s, t) => s + (t.resultGbp ?? 0), 0) / losers.length)} GBP`
+    );
   }
   const tickerPnls = Object.entries(byTicker)
     .filter(([, s]) => s.sellCount > 0)
     .map(([ticker, s]) => ({ ticker, pnl: s.pnl }));
-  const best = tickerPnls.reduce<{ ticker: string; pnl: number } | null>((b, t) => (!b || t.pnl > b.pnl ? t : b), null);
-  const worst = tickerPnls.reduce<{ ticker: string; pnl: number } | null>((w, t) => (!w || t.pnl < w.pnl ? t : w), null);
-  if (best) { lines.push(`- Best position: ${best.ticker} ${fmt(best.pnl)} GBP`); }
-  if (worst && worst.pnl < 0) { lines.push(`- Worst position: ${worst.ticker} ${fmt(worst.pnl)} GBP`); }
+  const best = tickerPnls.reduce<{ ticker: string; pnl: number } | null>(
+    (b, t) => (!b || t.pnl > b.pnl ? t : b),
+    null
+  );
+  const worst = tickerPnls.reduce<{ ticker: string; pnl: number } | null>(
+    (w, t) => (!w || t.pnl < w.pnl ? t : w),
+    null
+  );
+  if (best) {
+    lines.push(`- Best position: ${best.ticker} ${fmt(best.pnl)} GBP`);
+  }
+  if (worst && worst.pnl < 0) {
+    lines.push(`- Worst position: ${worst.ticker} ${fmt(worst.pnl)} GBP`);
+  }
   lines.push(`- Symbols traded: ${Object.keys(byTicker).join(", ")}`);
 
   // Calculate % returns per closed position for risk profile
-  const closedTickers = Object.entries(byTicker).filter(([, s]) => s.sellCount > 0 && s.totalBought > 0);
+  const closedTickers = Object.entries(byTicker).filter(
+    ([, s]) => s.sellCount > 0 && s.totalBought > 0
+  );
   const pctReturns = closedTickers.map(([, s]) => (s.pnl / s.totalBought) * 100);
   const winReturns = pctReturns.filter((r) => r > 0);
   const lossReturns = pctReturns.filter((r) => r < 0);
   if (pctReturns.length > 0) {
     lines.push("");
-    lines.push("RISK PROFILE (derived from actual trades — use these to set algorithm parameters):");
+    lines.push(
+      "RISK PROFILE (derived from actual trades — use these to set algorithm parameters):"
+    );
     if (winReturns.length > 0) {
       const avgWinPct = winReturns.reduce((a, b) => a + b, 0) / winReturns.length;
       const maxWinPct = Math.max(...winReturns);
-      lines.push(`- Average winning return: ${avgWinPct.toFixed(0)}%, best: ${maxWinPct.toFixed(0)}%`);
-      lines.push(`- Suggested take_profit: ${Math.round(avgWinPct * 0.5)}-${Math.round(avgWinPct * 0.75)}% (capture most of avg win)`);
+      lines.push(
+        `- Average winning return: ${avgWinPct.toFixed(0)}%, best: ${maxWinPct.toFixed(0)}%`
+      );
+      lines.push(
+        `- Suggested take_profit: ${Math.round(avgWinPct * 0.5)}-${Math.round(avgWinPct * 0.75)}% (capture most of avg win)`
+      );
     }
     if (lossReturns.length > 0) {
       const avgLossPct = lossReturns.reduce((a, b) => a + b, 0) / lossReturns.length;
-      lines.push(`- Average losing return: ${avgLossPct.toFixed(0)}% (user held through this — no stop losses used)`);
-      lines.push(`- Suggested stop_loss: ${Math.round(Math.abs(avgLossPct) * 0.3)}-${Math.round(Math.abs(avgLossPct) * 0.5)}% (cut losses much earlier than actual)`);
+      lines.push(
+        `- Average losing return: ${avgLossPct.toFixed(0)}% (user held through this — no stop losses used)`
+      );
+      lines.push(
+        `- Suggested stop_loss: ${Math.round(Math.abs(avgLossPct) * 0.3)}-${Math.round(Math.abs(avgLossPct) * 0.5)}% (cut losses much earlier than actual)`
+      );
     }
-    const avgHold = closedTickers.filter(([, s]) => s.holdDays !== null).map(([, s]) => s.holdDays!);
+    const avgHold = closedTickers
+      .filter(([, s]) => s.holdDays !== null)
+      .map(([, s]) => s.holdDays!);
     if (avgHold.length > 0) {
-      lines.push(`- Average hold: ${Math.round(avgHold.reduce((a, b) => a + b, 0) / avgHold.length)} days`);
+      lines.push(
+        `- Average hold: ${Math.round(avgHold.reduce((a, b) => a + b, 0) / avgHold.length)} days`
+      );
     }
   }
   return lines;
@@ -205,7 +267,9 @@ function buildAnalysisText(
   dateRange: { from: string; to: string }
 ): string {
   const header = `Trade History (${dateRange.from} to ${dateRange.to}), currency: GBP`;
-  return [header, "", ...buildPositionsText(byTicker), ...buildSummaryText(trades, byTicker)].join("\n");
+  return [header, "", ...buildPositionsText(byTicker), ...buildSummaryText(trades, byTicker)].join(
+    "\n"
+  );
 }
 
 export function parseTradeHistoryCsv(file: File): Promise<CsvParseResult> {
@@ -220,7 +284,10 @@ export function parseTradeHistoryCsv(file: File): Promise<CsvParseResult> {
           return;
         }
         const byTicker = buildTickerSummaries(trades);
-        const dates = trades.map((t) => t.date).filter(Boolean).sort();
+        const dates = trades
+          .map((t) => t.date)
+          .filter(Boolean)
+          .sort();
         const dateRange = { from: dates[0] ?? "", to: dates[dates.length - 1] ?? "" };
         resolve({
           analysisText: buildAnalysisText(trades, byTicker, dateRange),

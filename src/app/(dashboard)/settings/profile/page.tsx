@@ -6,9 +6,7 @@ export default function ProfilePage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Profile</h1>
-        <p className="text-sm text-muted-foreground">
-          Your personal information and preferences.
-        </p>
+        <p className="text-sm text-muted-foreground">Your personal information and preferences.</p>
       </div>
       <Card className="max-w-2xl">
         <CardHeader>

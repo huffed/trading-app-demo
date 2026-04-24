@@ -9,12 +9,7 @@ export type JournalEmotion =
   | "impulsive"
   | "frustrated";
 
-export type JournalEntryType =
-  | "pre-market"
-  | "reflection"
-  | "review"
-  | "lesson"
-  | "strategy-idea";
+export type JournalEntryType = "pre-market" | "reflection" | "review" | "lesson" | "strategy-idea";
 
 export interface JournalEntry {
   id: string;

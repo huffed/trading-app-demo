@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import {
   Area,
   AreaChart,
@@ -32,9 +33,7 @@ function computeCumulativePnl(trades: Trade[]) {
 function ChartEmpty() {
   return (
     <div className="flex items-center justify-center h-48">
-      <p className="text-sm text-muted-foreground">
-        Close your first trade to see P&L trends
-      </p>
+      <p className="text-sm text-muted-foreground">Close your first trade to see P&L trends</p>
     </div>
   );
 }
@@ -84,6 +83,12 @@ function PnlAreaChart({ data }: { data: { date: string; pnl: number }[] }) {
   );
 }
 
+function PnlContent({ trades }: { trades: Trade[] }) {
+  const chartData = useMemo(() => computeCumulativePnl(trades), [trades]);
+  if (chartData.length === 0) return <ChartEmpty />;
+  return <PnlAreaChart data={chartData} />;
+}
+
 export function PnlChart() {
   const { data, isLoading } = useDashboardStats();
 
@@ -94,14 +99,7 @@ export function PnlChart() {
       </CardHeader>
       <CardContent>
         {isLoading && <Skeleton className="h-48 w-full" />}
-        {!isLoading && data && (
-          <>
-            {computeCumulativePnl(data.trades).length === 0 && <ChartEmpty />}
-            {computeCumulativePnl(data.trades).length > 0 && (
-              <PnlAreaChart data={computeCumulativePnl(data.trades)} />
-            )}
-          </>
-        )}
+        {!isLoading && data && <PnlContent trades={data.trades} />}
       </CardContent>
     </Card>
   );

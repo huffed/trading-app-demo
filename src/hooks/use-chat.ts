@@ -1,3 +1,17 @@
+/**
+ * Chat hook — manages the AI chat conversation for algorithm creation/editing.
+ *
+ * The LLM uses special markers in its response to trigger actions:
+ * - [CREATE_ALGORITHM]{...json...} → creates a new algorithm via server action
+ * - [EDIT_ALGORITHM]{...json...}   → updates an existing algorithm
+ *
+ * After creating an algorithm, the hook automatically:
+ * 1. Seeds the watchlist with CSV-parsed tickers (if CSV was uploaded)
+ * 2. Runs discovery + backtesting via seedWatchlist()
+ * 3. Reports results back in the chat
+ *
+ * The marker text is stripped from the displayed message via stripMarker().
+ */
 import { useState } from "react";
 import { generateAlgorithm, updateAlgorithm } from "@/app/(dashboard)/algorithms/actions";
 import { seedWatchlist } from "@/app/(dashboard)/algorithms/seed-watchlist-action";
@@ -11,10 +25,14 @@ const EDIT_MARKER = "[EDIT_ALGORITHM]";
 
 export function parseAlgorithmMarker(text: string): AlgorithmFormValues | null {
   const idx = text.indexOf(ALGO_MARKER);
-  if (idx === -1) { return null; }
+  if (idx === -1) {
+    return null;
+  }
   const after = text.substring(idx + ALGO_MARKER.length).trim();
   const jsonMatch = after.match(/^\{[^}]+\}/);
-  if (!jsonMatch) { return null; }
+  if (!jsonMatch) {
+    return null;
+  }
   try {
     return JSON.parse(jsonMatch[0]) as AlgorithmFormValues;
   } catch {
@@ -31,16 +49,23 @@ function parseEditMarker(text: string): { id: string; updates: Record<string, un
     const simpleMatch = after.match(/^\{[\s\S]+\}/);
     if (!simpleMatch) return null;
     try {
-      const parsed = JSON.parse(simpleMatch[0]) as { id?: string; updates?: Record<string, unknown> };
+      const parsed = JSON.parse(simpleMatch[0]) as {
+        id?: string;
+        updates?: Record<string, unknown>;
+      };
       if (!parsed.id || !parsed.updates) return null;
       return { id: parsed.id, updates: parsed.updates };
-    } catch { return null; }
+    } catch {
+      return null;
+    }
   }
   try {
     const parsed = JSON.parse(jsonMatch[0]) as { id?: string; updates?: Record<string, unknown> };
     if (!parsed.id || !parsed.updates) return null;
     return { id: parsed.id, updates: parsed.updates };
-  } catch { return null; }
+  } catch {
+    return null;
+  }
 }
 
 export function stripMarker(text: string): string {
@@ -62,43 +87,64 @@ async function createAlgorithm(
   setCreatedAlgoIds: React.Dispatch<React.SetStateAction<string[]>>,
   tickers?: { symbol: string; name: string }[] | null
 ) {
-  setMessages((p) => [...p, { role: "assistant", content: "Generating your algorithm with AI-optimized rules..." }]);
+  setMessages((p) => [
+    ...p,
+    { role: "assistant", content: "Generating your algorithm with AI-optimized rules..." },
+  ]);
   try {
     const result = await generateAlgorithm(values);
     if (!result.success) {
-      setMessages((p) => [...p.slice(0, -1), { role: "assistant", content: `Algorithm creation failed: ${result.error}` }]);
+      setMessages((p) => [
+        ...p.slice(0, -1),
+        { role: "assistant", content: `Algorithm creation failed: ${result.error}` },
+      ]);
       return;
     }
-    const algo = result.data as { id: string; name: string };
-    setCreatedAlgoIds((p) => [...p, algo.id]);
+    setCreatedAlgoIds((p) => [...p, result.data.id]);
+
+    const algoName = result.data.name;
 
     // Add CSV tickers to watchlist
     if (tickers && tickers.length > 0) {
-      bulkAddWatchlistItems(algo.id, tickers, "csv").catch(() => {});
+      bulkAddWatchlistItems(result.data.id, tickers, "csv").catch((e) =>
+        console.warn("[watchlist] Failed to seed CSV tickers:", e instanceof Error ? e.message : e)
+      );
     }
 
     // Discover + backtest + add profitable tickers
-    setMessages((p) => [...p.slice(0, -1), {
-      role: "assistant",
-      content: `Your algorithm "${algo.name}" has been created. Now discovering and screening tickers...`,
-    }]);
+    setMessages((p) => [
+      ...p.slice(0, -1),
+      {
+        role: "assistant",
+        content: `Your algorithm "${algoName}" has been created. Now discovering and screening tickers...`,
+      },
+    ]);
 
-    const seed = await seedWatchlist(algo.id);
+    const seed = await seedWatchlist(result.data.id);
     if (seed.success && seed.data.added > 0) {
       const profitable = seed.data.tickers.filter((t) => t.profitable);
       const tickerList = profitable.map((t) => t.ticker).join(", ");
-      setMessages((p) => [...p.slice(0, -1), {
-        role: "assistant",
-        content: `Your algorithm "${algo.name}" is ready. Screened ${seed.data.tickers.length} tickers — ${seed.data.added} were profitable in backtesting and added to the watchlist: ${tickerList}`,
-      }]);
+      setMessages((p) => [
+        ...p.slice(0, -1),
+        {
+          role: "assistant",
+          content: `Your algorithm "${algoName}" is ready. Screened ${seed.data.tickers.length} tickers — ${seed.data.added} were profitable in backtesting and added to the watchlist: ${tickerList}`,
+        },
+      ]);
     } else {
-      setMessages((p) => [...p.slice(0, -1), {
-        role: "assistant",
-        content: `Your algorithm "${algo.name}" has been created with optimized trading rules.`,
-      }]);
+      setMessages((p) => [
+        ...p.slice(0, -1),
+        {
+          role: "assistant",
+          content: `Your algorithm "${algoName}" has been created with optimized trading rules.`,
+        },
+      ]);
     }
   } catch {
-    setMessages((p) => [...p.slice(0, -1), { role: "assistant", content: "Algorithm creation failed. Please try again." }]);
+    setMessages((p) => [
+      ...p.slice(0, -1),
+      { role: "assistant", content: "Algorithm creation failed. Please try again." },
+    ]);
   }
 }
 
@@ -110,13 +156,21 @@ async function editAlgorithm(
   try {
     const result = await updateAlgorithm(data.id, data.updates);
     if (result.success) {
-      const algo = result.data as { name: string };
-      setMessages((p) => [...p.slice(0, -1), { role: "assistant", content: `"${algo.name}" has been updated.` }]);
+      setMessages((p) => [
+        ...p.slice(0, -1),
+        { role: "assistant", content: `"${result.data.name}" has been updated.` },
+      ]);
     } else {
-      setMessages((p) => [...p.slice(0, -1), { role: "assistant", content: `Update failed: ${result.error}` }]);
+      setMessages((p) => [
+        ...p.slice(0, -1),
+        { role: "assistant", content: `Update failed: ${result.error}` },
+      ]);
     }
   } catch {
-    setMessages((p) => [...p.slice(0, -1), { role: "assistant", content: "Failed to apply changes. Please try again." }]);
+    setMessages((p) => [
+      ...p.slice(0, -1),
+      { role: "assistant", content: "Failed to apply changes. Please try again." },
+    ]);
   }
 }
 
@@ -125,7 +179,9 @@ export function useChat(stats: Record<string, unknown> | null) {
   const [isStreaming, setIsStreaming] = useState(false);
   const [createdAlgoIds, setCreatedAlgoIds] = useState<string[]>([]);
   const [tradeHistory, setTradeHistory] = useState<string | null>(null);
-  const [parsedTickers, setParsedTickers] = useState<{ symbol: string; name: string }[] | null>(null);
+  const [parsedTickers, setParsedTickers] = useState<{ symbol: string; name: string }[] | null>(
+    null
+  );
   const [attachedFileName, setAttachedFileName] = useState<string | null>(null);
   const [isParsing, setIsParsing] = useState(false);
 
@@ -141,7 +197,9 @@ export function useChat(stats: Record<string, unknown> | null) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ messages: updated, stats, tradeHistory: history }),
       });
-      if (!res.ok || !res.body) { throw new Error("Chat request failed"); }
+      if (!res.ok || !res.body) {
+        throw new Error("Chat request failed");
+      }
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let assistantText = "";
@@ -149,7 +207,9 @@ export function useChat(stats: Record<string, unknown> | null) {
       try {
         while (true) {
           const { done, value } = await reader.read();
-          if (done) { break; }
+          if (done) {
+            break;
+          }
           assistantText += decoder.decode(value, { stream: true });
           setMessages((prev) => {
             const copy = [...prev];
@@ -168,14 +228,19 @@ export function useChat(stats: Record<string, unknown> | null) {
         if (editData) await editAlgorithm(editData, setMessages);
       }
     } catch {
-      setMessages([...updated, { role: "assistant", content: "Sorry, I couldn't process that. Please try again." }]);
+      setMessages([
+        ...updated,
+        { role: "assistant", content: "Sorry, I couldn't process that. Please try again." },
+      ]);
     } finally {
       setIsStreaming(false);
     }
   }
 
   async function handleFileSelect(file: File) {
-    if (!file.name.endsWith(".csv")) { return; }
+    if (!file.name.endsWith(".csv")) {
+      return;
+    }
     setIsParsing(true);
     try {
       const result = await parseTradeHistoryCsv(file);
@@ -185,21 +250,39 @@ export function useChat(stats: Record<string, unknown> | null) {
       const msg = `I've uploaded my trade history (${result.tradeCount} trades, ${result.symbolCount} symbols). Analyze my trading patterns and tell me what you find.`;
       handleSend(msg, result.analysisText);
     } catch {
-      setMessages((p) => [...p, { role: "assistant", content: "I couldn't parse that CSV file. Make sure it's a valid trade history export (e.g., from Trading 212)." }]);
+      setMessages((p) => [
+        ...p,
+        {
+          role: "assistant",
+          content:
+            "I couldn't parse that CSV file. Make sure it's a valid trade history export (e.g., from Trading 212).",
+        },
+      ]);
     } finally {
       setIsParsing(false);
     }
   }
 
-  function handleNewChat() { setMessages([]); setCreatedAlgoIds([]);
+  function handleNewChat() {
+    setMessages([]);
+    setCreatedAlgoIds([]);
     setTradeHistory(null);
     setParsedTickers(null);
     setAttachedFileName(null);
   }
 
   return {
-    messages, isStreaming, createdAlgoIds, attachedFileName, isParsing,
-    handleSend, handleFileSelect, handleNewChat,
-    handleRemoveFile: () => { setTradeHistory(null); setAttachedFileName(null); },
+    messages,
+    isStreaming,
+    createdAlgoIds,
+    attachedFileName,
+    isParsing,
+    handleSend,
+    handleFileSelect,
+    handleNewChat,
+    handleRemoveFile: () => {
+      setTradeHistory(null);
+      setAttachedFileName(null);
+    },
   };
 }

@@ -10,7 +10,11 @@ function CsvAttachment({ fileName, onRemove }: { fileName: string; onRemove: () 
     <div className="mx-3 mb-0 flex items-center gap-2 rounded-t-lg border border-b-0 border-border bg-muted/50 px-3 py-1.5">
       <FileSpreadsheet className="h-3.5 w-3.5 text-primary" />
       <span className="flex-1 truncate text-xs font-medium">{fileName}</span>
-      <button type="button" onClick={onRemove} className="text-muted-foreground hover:text-foreground">
+      <button
+        type="button"
+        onClick={onRemove}
+        className="text-muted-foreground hover:text-foreground"
+      >
         <X className="h-3.5 w-3.5" />
       </button>
     </div>
@@ -47,8 +51,12 @@ export function ChatInput({
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    if (file) { onFileSelect(file); }
-    if (fileRef.current) { fileRef.current.value = ""; }
+    if (file) {
+      onFileSelect(file);
+    }
+    if (fileRef.current) {
+      fileRef.current.value = "";
+    }
   }
 
   return (
@@ -71,9 +79,19 @@ export function ChatInput({
         >
           <Paperclip className="h-4 w-4" />
         </Button>
-        <input ref={fileRef} type="file" accept=".csv" className="hidden" onChange={handleFileChange} />
+        <input
+          ref={fileRef}
+          type="file"
+          accept=".csv"
+          className="hidden"
+          onChange={handleFileChange}
+        />
         <Input
-          placeholder={attachedFile ? "Ask about your trade history..." : "Ask about trading or create an algorithm..."}
+          placeholder={
+            attachedFile
+              ? "Ask about your trade history..."
+              : "Ask about trading or create an algorithm..."
+          }
           value={input}
           onChange={(e) => setInput(e.target.value)}
           disabled={disabled}

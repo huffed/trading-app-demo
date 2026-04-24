@@ -53,13 +53,13 @@ export interface PositionSizing {
 }
 
 export interface PropFirmRules {
-  daily_loss_limit: number;       // % of starting balance (e.g., 5)
-  max_drawdown: number;           // % of starting balance (e.g., 10)
-  profit_target: number;          // % evaluation target (e.g., 10)
+  daily_loss_limit: number; // % of starting balance (e.g., 5)
+  max_drawdown: number; // % of starting balance (e.g., 10)
+  profit_target: number; // % evaluation target (e.g., 10)
   max_consecutive_losses: number; // kill switch threshold (e.g., 5)
-  consistency_rule: number;       // max % of total profit from single day (e.g., 40)
-  slippage_bps: number;           // basis points per trade (e.g., 10 = 0.1%)
-  commission_pct: number;         // % per trade (e.g., 0.1)
+  consistency_rule: number; // max % of total profit from single day (e.g., 40)
+  slippage_bps: number; // basis points per trade (e.g., 10 = 0.1%)
+  commission_pct: number; // % per trade (e.g., 0.1)
 }
 
 export interface AlgorithmRules {

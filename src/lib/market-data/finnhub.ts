@@ -27,9 +27,7 @@ export interface CompanyInfo {
   exchange: string;
 }
 
-export async function getCompanyProfile(
-  symbol: string
-): Promise<CompanyInfo | null> {
+export async function getCompanyProfile(symbol: string): Promise<CompanyInfo | null> {
   try {
     const url = `${BASE_URL}/stock/profile2?symbol=${encodeURIComponent(symbol)}&token=${getApiKey()}`;
     const res = await fetch(url);

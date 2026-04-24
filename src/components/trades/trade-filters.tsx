@@ -14,7 +14,13 @@ import { ASSET_CLASS_LABELS } from "@/lib/constants/algorithm";
 import { useTradeFilterStore } from "@/stores/trade-filter-store";
 import type { AssetClass, TradeSide, TradeStatus } from "@/types/trade";
 
-function StatusSelect({ value, onChange }: { value: string; onChange: (v: TradeStatus | undefined) => void }) {
+function StatusSelect({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: TradeStatus | undefined) => void;
+}) {
   return (
     <Select
       value={value}
@@ -32,7 +38,13 @@ function StatusSelect({ value, onChange }: { value: string; onChange: (v: TradeS
   );
 }
 
-function SideSelect({ value, onChange }: { value: string; onChange: (v: TradeSide | undefined) => void }) {
+function SideSelect({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: TradeSide | undefined) => void;
+}) {
   return (
     <Select
       value={value}
@@ -50,7 +62,13 @@ function SideSelect({ value, onChange }: { value: string; onChange: (v: TradeSid
   );
 }
 
-function AssetClassSelect({ value, onChange }: { value: string; onChange: (v: AssetClass | undefined) => void }) {
+function AssetClassSelect({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: AssetClass | undefined) => void;
+}) {
   return (
     <Select
       value={value}
@@ -62,7 +80,9 @@ function AssetClassSelect({ value, onChange }: { value: string; onChange: (v: As
       <SelectContent>
         <SelectItem value="all">All Assets</SelectItem>
         {Object.entries(ASSET_CLASS_LABELS).map(([value, label]) => (
-          <SelectItem key={value} value={value}>{label}</SelectItem>
+          <SelectItem key={value} value={value}>
+            {label}
+          </SelectItem>
         ))}
       </SelectContent>
     </Select>
@@ -82,14 +102,8 @@ export function TradeFilters() {
         value={filters.symbol ?? ""}
         onChange={(e) => setFilter("symbol", e.target.value || undefined)}
       />
-      <StatusSelect
-        value={filters.status ?? "all"}
-        onChange={(v) => setFilter("status", v)}
-      />
-      <SideSelect
-        value={filters.side ?? "all"}
-        onChange={(v) => setFilter("side", v)}
-      />
+      <StatusSelect value={filters.status ?? "all"} onChange={(v) => setFilter("status", v)} />
+      <SideSelect value={filters.side ?? "all"} onChange={(v) => setFilter("side", v)} />
       <AssetClassSelect
         value={filters.asset_class ?? "all"}
         onChange={(v) => setFilter("asset_class", v)}

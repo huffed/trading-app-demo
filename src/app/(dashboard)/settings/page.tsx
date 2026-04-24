@@ -6,9 +6,7 @@ export default function SettingsPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
-        <p className="text-sm text-muted-foreground">
-          Manage your account and preferences.
-        </p>
+        <p className="text-sm text-muted-foreground">Manage your account and preferences.</p>
       </div>
       <div className="grid gap-4 max-w-2xl">
         {["General", "Notifications", "API Keys", "Billing"].map((title) => (

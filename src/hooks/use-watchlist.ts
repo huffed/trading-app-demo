@@ -16,11 +16,12 @@ export function useWatchlist(algorithmId: string | null) {
     queryKey: [...WATCHLIST_KEY, algorithmId],
     enabled: !!algorithmId,
     queryFn: async () => {
+      if (!algorithmId) throw new Error("Algorithm ID is required");
       const supabase = createClient();
       const { data, error } = await supabase
         .from("algorithm_watchlist")
         .select("*")
-        .eq("algorithm_id", algorithmId!)
+        .eq("algorithm_id", algorithmId)
         .order("created_at", { ascending: true });
       if (error) throw error;
       return (data ?? []) as WatchlistItem[];

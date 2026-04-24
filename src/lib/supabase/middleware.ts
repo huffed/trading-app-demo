@@ -15,9 +15,7 @@ export async function updateSession(request: NextRequest) {
           return request.cookies.getAll();
         },
         setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) =>
-            request.cookies.set(name, value)
-          );
+          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
           supabaseResponse = NextResponse.next({
             request,
           });
@@ -34,16 +32,18 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Redirect unauthenticated users trying to access dashboard
-  if (
-    !user &&
-    request.nextUrl.pathname.startsWith("/dashboard") ||
-    !user && request.nextUrl.pathname.startsWith("/trades") ||
-    !user && request.nextUrl.pathname.startsWith("/journal") ||
-    !user && request.nextUrl.pathname.startsWith("/algorithms") ||
-    !user && request.nextUrl.pathname.startsWith("/analytics") ||
-    !user && request.nextUrl.pathname.startsWith("/settings")
-  ) {
+  // Protected route prefixes — must match the (dashboard) route group pages
+  const protectedPrefixes = [
+    "/dashboard",
+    "/trades",
+    "/journal",
+    "/algorithms",
+    "/analytics",
+    "/settings",
+  ];
+  const isProtectedRoute = protectedPrefixes.some((p) => request.nextUrl.pathname.startsWith(p));
+
+  if (!user && isProtectedRoute) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);

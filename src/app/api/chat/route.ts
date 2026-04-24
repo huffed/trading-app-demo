@@ -1,21 +1,36 @@
+import { z } from "zod";
 import { AI_MODEL, getAIClient } from "@/lib/ai/client";
 import { buildChatSystemPrompt } from "@/lib/ai/prompts/chat";
 import { createClient } from "@/lib/supabase/server";
-import type { ChatMessage } from "@/types/chat";
+
+const chatRequestSchema = z.object({
+  messages: z
+    .array(
+      z.object({ role: z.enum(["user", "assistant"]), content: z.string().min(1).max(10_000) })
+    )
+    .min(1)
+    .max(100),
+  stats: z.record(z.string(), z.unknown()).nullable().optional(),
+  tradeHistory: z.string().max(50_000).nullable().optional(),
+});
 
 export async function POST(request: Request) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
   if (!user) {
     return new Response("Unauthorized", { status: 401 });
   }
 
-  const { messages, stats, tradeHistory } = (await request.json()) as {
-    messages: ChatMessage[];
-    stats: Record<string, unknown> | null;
-    tradeHistory?: string | null;
-  };
+  const body = await request.json();
+  const parsed = chatRequestSchema.safeParse(body);
+  if (!parsed.success) {
+    return new Response(parsed.error.issues[0].message, { status: 400 });
+  }
+
+  const { messages, stats, tradeHistory } = parsed.data;
 
   // Fetch user's algorithms for editing context
   const { data: algorithms } = await supabase
@@ -37,7 +52,7 @@ export async function POST(request: Request) {
       stream: true,
       messages: [
         { role: "system", content: system },
-        ...messages.map((m) => ({ role: m.role as "user" | "assistant", content: m.content })),
+        ...messages.map((m) => ({ role: m.role, content: m.content })),
       ],
     });
 

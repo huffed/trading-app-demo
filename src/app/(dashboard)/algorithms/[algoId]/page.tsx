@@ -15,27 +15,61 @@ import { WatchlistCard } from "@/components/algorithms/watchlist-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useAlgorithm, useDeleteAlgorithm, useRunAiBacktest, useRunHistoricalBacktest, useUpdateAlgorithm } from "@/hooks/use-algorithms";
+import {
+  useAlgorithm,
+  useDeleteAlgorithm,
+  useRunAiBacktest,
+  useRunHistoricalBacktest,
+  useUpdateAlgorithm,
+} from "@/hooks/use-algorithms";
 import { useWatchlist } from "@/hooks/use-watchlist";
 import { STATUS_COLORS, STATUS_LABELS } from "@/lib/constants/algorithm";
 import type { BacktestMetrics } from "@/lib/market-data/types";
-import { isSentimentCondition, type Algorithm, type AlgorithmRules, type AlgorithmStatus } from "@/types/algorithm";
+import {
+  isSentimentCondition,
+  type Algorithm,
+  type AlgorithmRules,
+  type AlgorithmStatus,
+} from "@/types/algorithm";
 
-function AlgoHeader({ name, status, isEditing, onEdit, onDelete }: {
-  name: string; status: string; isEditing: boolean; onEdit: () => void; onDelete: () => void;
+function AlgoHeader({
+  name,
+  status,
+  isEditing,
+  onEdit,
+  onDelete,
+}: {
+  name: string;
+  status: string;
+  isEditing: boolean;
+  onEdit: () => void;
+  onDelete: () => void;
 }) {
   return (
     <div className="flex items-center gap-3">
-      <Button variant="ghost" size="icon-sm" render={<Link href="/algorithms" />} nativeButton={false}>
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        render={<Link href="/algorithms" />}
+        nativeButton={false}
+      >
         <ArrowLeft className="h-4 w-4" />
       </Button>
       <div className="flex-1">
         <h1 className="text-2xl font-semibold tracking-tight">{name}</h1>
       </div>
-      <Badge variant={STATUS_COLORS[status] ?? "secondary"}>{STATUS_LABELS[status] ?? status}</Badge>
+      <Badge variant={STATUS_COLORS[status] ?? "secondary"}>
+        {STATUS_LABELS[status] ?? status}
+      </Badge>
       {!isEditing && (
         <Button variant="ghost" size="icon-sm" onClick={onEdit} title="Edit algorithm">
           <Pencil className="h-4 w-4" />
@@ -48,8 +82,18 @@ function AlgoHeader({ name, status, isEditing, onEdit, onDelete }: {
   );
 }
 
-function DeleteAlgoDialog({ name, open, onOpenChange, isPending, onConfirm }: {
-  name: string; open: boolean; onOpenChange: (v: boolean) => void; isPending: boolean; onConfirm: () => void;
+function DeleteAlgoDialog({
+  name,
+  open,
+  onOpenChange,
+  isPending,
+  onConfirm,
+}: {
+  name: string;
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  isPending: boolean;
+  onConfirm: () => void;
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -59,22 +103,44 @@ function DeleteAlgoDialog({ name, open, onOpenChange, isPending, onConfirm }: {
           <DialogDescription>Delete &ldquo;{name}&rdquo;? This cannot be undone.</DialogDescription>
         </DialogHeader>
         <div className="flex gap-2 justify-end">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button variant="destructive" disabled={isPending} onClick={onConfirm}>{isPending ? "Deleting..." : "Delete"}</Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button variant="destructive" disabled={isPending} onClick={onConfirm}>
+            {isPending ? "Deleting..." : "Delete"}
+          </Button>
         </div>
       </DialogContent>
     </Dialog>
   );
 }
 
-function ReadView({ algo, backtestError, aiBacktestError, localBacktestResults, onRunAiBacktest, onRunBacktest, isAiPending, isBtPending }: {
-  algo: Pick<Algorithm, "id" | "name" | "description" | "rules" | "ai_analysis" | "backtest_results">;
-  backtestError: string | null; aiBacktestError: string | null; localBacktestResults: BacktestMetrics | null;
-  onRunAiBacktest: () => void; onRunBacktest: (symbol: string, period: string) => void; isAiPending: boolean; isBtPending: boolean;
+function ReadView({
+  algo,
+  backtestError,
+  aiBacktestError,
+  localBacktestResults,
+  onRunAiBacktest,
+  onRunBacktest,
+  isAiPending,
+  isBtPending,
+}: {
+  algo: Pick<
+    Algorithm,
+    "id" | "name" | "description" | "rules" | "ai_analysis" | "backtest_results"
+  >;
+  backtestError: string | null;
+  aiBacktestError: string | null;
+  localBacktestResults: BacktestMetrics | null;
+  onRunAiBacktest: () => void;
+  onRunBacktest: (symbol: string, period: string) => void;
+  isAiPending: boolean;
+  isBtPending: boolean;
 }) {
   const { data: watchlistItems = [] } = useWatchlist(algo.id);
   const watchlistTickers = watchlistItems.map((w) => ({
-    ticker: w.ticker, name: w.name,
+    ticker: w.ticker,
+    name: w.name,
     backtestMetrics: w.backtest_metrics as BacktestMetrics | null,
   }));
   const [resultsVisible, setResultsVisible] = useState(true);
@@ -95,24 +161,41 @@ function ReadView({ algo, backtestError, aiBacktestError, localBacktestResults, 
 
       <TabsContent value={0} className="space-y-4 pt-2">
         {algo.description && (
-          <Card><CardContent className="p-4"><div className="whitespace-pre-wrap text-sm leading-relaxed">{algo.description}</div></CardContent></Card>
+          <Card>
+            <CardContent className="p-4">
+              <div className="whitespace-pre-wrap text-sm leading-relaxed">{algo.description}</div>
+            </CardContent>
+          </Card>
         )}
         <RulesDisplay rules={algo.rules} />
       </TabsContent>
 
       <TabsContent value={1} className="space-y-4 pt-2">
-        <WatchlistCard algorithmId={algo.id} hasSentimentConditions={algo.rules.entry_conditions.some(isSentimentCondition)} />
+        <WatchlistCard
+          algorithmId={algo.id}
+          hasSentimentConditions={algo.rules.entry_conditions.some(isSentimentCondition)}
+        />
         <DiscoveryCard algorithmId={algo.id} />
       </TabsContent>
 
       <TabsContent value={2} className="space-y-4 pt-2">
-        <AiBacktestCard analysis={algo.ai_analysis} error={aiBacktestError} onRunBacktest={onRunAiBacktest} isPending={isAiPending} />
+        <AiBacktestCard
+          analysis={algo.ai_analysis}
+          error={aiBacktestError}
+          onRunBacktest={onRunAiBacktest}
+          isPending={isAiPending}
+        />
         <BacktestForm disabled={isBtPending} onSubmit={handleRunBacktest} />
         <BacktestRankingCard algorithmId={algo.id} tickers={watchlistTickers} />
         {backtestError && <p className="text-sm text-destructive">{backtestError}</p>}
         {backtestResults && resultsVisible && (
           <div className="relative">
-            <Button size="icon-xs" variant="ghost" className="absolute right-2 top-2 z-10" onClick={() => setResultsVisible(false)}>
+            <Button
+              size="icon-xs"
+              variant="ghost"
+              className="absolute right-2 top-2 z-10"
+              onClick={() => setResultsVisible(false)}
+            >
               <X className="h-3 w-3" />
             </Button>
             <BacktestResultsDisplay results={backtestResults} />
@@ -139,24 +222,49 @@ export default function AlgorithmDetailPage() {
   const [showRerunPrompt, setShowRerunPrompt] = useState(false);
 
   if (isLoading) {
-    return <div className="mx-auto max-w-2xl space-y-4"><Skeleton className="h-8 w-48" /><Skeleton className="h-64 w-full" /></div>;
+    return (
+      <div className="mx-auto max-w-2xl space-y-4">
+        <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-64 w-full" />
+      </div>
+    );
   }
   if (!algo) {
     return (
       <div className="mx-auto max-w-2xl text-center py-16">
         <p className="text-sm text-muted-foreground">Algorithm not found</p>
-        <Button className="mt-4" variant="outline" render={<Link href="/algorithms" />} nativeButton={false}>Back to Algorithms</Button>
+        <Button
+          className="mt-4"
+          variant="outline"
+          render={<Link href="/algorithms" />}
+          nativeButton={false}
+        >
+          Back to Algorithms
+        </Button>
       </div>
     );
   }
 
-  function handleSave(updates: { name: string; description: string; status: AlgorithmStatus; rules: AlgorithmRules }) {
+  function handleSave(updates: {
+    name: string;
+    description: string;
+    status: AlgorithmStatus;
+    rules: AlgorithmRules;
+  }) {
     const rulesChanged = JSON.stringify(updates.rules) !== JSON.stringify(algo!.rules);
-    updateMutation.mutate({ id: algoId, updates }, {
-      onSuccess: (r) => {
-        if (r.success) { setIsEditing(false); if (rulesChanged) { setShowRerunPrompt(true); } }
-      },
-    });
+    updateMutation.mutate(
+      { id: algoId, updates },
+      {
+        onSuccess: (r) => {
+          if (r.success) {
+            setIsEditing(false);
+            if (rulesChanged) {
+              setShowRerunPrompt(true);
+            }
+          }
+        },
+      }
+    );
   }
 
   function handleHistoricalBacktest(symbol: string, period: string) {
@@ -165,7 +273,13 @@ export default function AlgorithmDetailPage() {
     historicalBacktest.mutate(
       { id: algoId, symbol, period: period as "compact" | "full" },
       {
-        onSuccess: (r) => { if (!r.success) { setBacktestError(r.error); } else { setLocalBacktestResults(r.data as BacktestMetrics); } },
+        onSuccess: (r) => {
+          if (!r.success) {
+            setBacktestError(r.error);
+          } else {
+            setLocalBacktestResults(r.data as BacktestMetrics);
+          }
+        },
         onError: () => setBacktestError("Backtest failed. Check symbol and try again."),
       }
     );
@@ -173,24 +287,58 @@ export default function AlgorithmDetailPage() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-4">
-      <AlgoHeader name={algo.name} status={algo.status} isEditing={isEditing} onEdit={() => setIsEditing(true)} onDelete={() => setShowDelete(true)} />
+      <AlgoHeader
+        name={algo.name}
+        status={algo.status}
+        isEditing={isEditing}
+        onEdit={() => setIsEditing(true)}
+        onDelete={() => setShowDelete(true)}
+      />
       {showRerunPrompt && (
         <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 flex items-center justify-between">
           <span className="text-sm">Rules updated — re-run backtest?</span>
-          <Button size="sm" variant="outline" onClick={() => setShowRerunPrompt(false)}>Dismiss</Button>
+          <Button size="sm" variant="outline" onClick={() => setShowRerunPrompt(false)}>
+            Dismiss
+          </Button>
         </div>
       )}
       {isEditing ? (
-        <AlgorithmEditView algorithm={algo} onSave={handleSave} onCancel={() => setIsEditing(false)} isSaving={updateMutation.isPending} />
+        <AlgorithmEditView
+          algorithm={algo}
+          onSave={handleSave}
+          onCancel={() => setIsEditing(false)}
+          isSaving={updateMutation.isPending}
+        />
       ) : (
         <ReadView
-          algo={algo} backtestError={backtestError} aiBacktestError={aiBacktestError} localBacktestResults={localBacktestResults}
-          onRunAiBacktest={() => { setAiBacktestError(null); backtestMutation.mutate(algo.id, { onSuccess: (r) => { if (!r.success) { setAiBacktestError(r.error); } } }); }}
-          onRunBacktest={handleHistoricalBacktest} isAiPending={backtestMutation.isPending} isBtPending={historicalBacktest.isPending}
+          algo={algo}
+          backtestError={backtestError}
+          aiBacktestError={aiBacktestError}
+          localBacktestResults={localBacktestResults}
+          onRunAiBacktest={() => {
+            setAiBacktestError(null);
+            backtestMutation.mutate(algo.id, {
+              onSuccess: (r) => {
+                if (!r.success) {
+                  setAiBacktestError(r.error);
+                }
+              },
+            });
+          }}
+          onRunBacktest={handleHistoricalBacktest}
+          isAiPending={backtestMutation.isPending}
+          isBtPending={historicalBacktest.isPending}
         />
       )}
-      <DeleteAlgoDialog name={algo.name} open={showDelete} onOpenChange={setShowDelete} isPending={deleteMutation.isPending}
-        onConfirm={() => { deleteMutation.mutate(algo.id, { onSuccess: () => router.push("/algorithms") }); }} />
+      <DeleteAlgoDialog
+        name={algo.name}
+        open={showDelete}
+        onOpenChange={setShowDelete}
+        isPending={deleteMutation.isPending}
+        onConfirm={() => {
+          deleteMutation.mutate(algo.id, { onSuccess: () => router.push("/algorithms") });
+        }}
+      />
     </div>
   );
 }

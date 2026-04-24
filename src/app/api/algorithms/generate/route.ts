@@ -1,31 +1,43 @@
+import { z } from "zod";
 import { AI_MODEL, getAIClient } from "@/lib/ai/client";
 import { buildStrategyPrompt } from "@/lib/ai/prompts/algorithm";
 import { createClient } from "@/lib/supabase/server";
 import { algorithmFormSchema } from "@/lib/validators/algorithm";
-import type { ChatMessage } from "@/types/chat";
+
+const generateRequestSchema = z.object({
+  preferences: z.record(z.string(), z.string()),
+  messages: z
+    .array(
+      z.object({ role: z.enum(["user", "assistant"]), content: z.string().min(1).max(10_000) })
+    )
+    .max(50)
+    .optional(),
+});
 
 export async function POST(request: Request) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
   if (!user) {
     return new Response("Unauthorized", { status: 401 });
   }
 
-  const body = await request.json();
-  const { preferences, messages } = body as {
-    preferences: Record<string, string>;
-    messages?: ChatMessage[];
-  };
+  const raw = await request.json();
+  const reqParsed = generateRequestSchema.safeParse(raw);
+  if (!reqParsed.success) {
+    return new Response(reqParsed.error.issues[0].message, { status: 400 });
+  }
+
+  const { preferences, messages } = reqParsed.data;
 
   const parsed = algorithmFormSchema.safeParse(preferences);
   if (!parsed.success) {
     return new Response(parsed.error.issues[0].message, { status: 400 });
   }
 
-  const { count } = await supabase
-    .from("trades")
-    .select("*", { count: "exact", head: true });
+  const { count } = await supabase.from("trades").select("*", { count: "exact", head: true });
 
   try {
     const client = getAIClient();

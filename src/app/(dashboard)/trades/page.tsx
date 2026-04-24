@@ -23,9 +23,7 @@ export default function TradesPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Trades</h1>
-          <p className="text-sm text-muted-foreground">
-            Manage your trade history.
-          </p>
+          <p className="text-sm text-muted-foreground">Manage your trade history.</p>
         </div>
         <div className="flex gap-2">
           <Button
@@ -51,9 +49,7 @@ export default function TradesPage() {
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Add Trade</DialogTitle>
-            <DialogDescription>
-              Manually log a new trade.
-            </DialogDescription>
+            <DialogDescription>Manually log a new trade.</DialogDescription>
           </DialogHeader>
           <TradeForm onSuccess={() => setShowAdd(false)} />
         </DialogContent>

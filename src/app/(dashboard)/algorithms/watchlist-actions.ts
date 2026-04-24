@@ -4,9 +4,7 @@ import { lookupTickerName } from "@/lib/market-data/finnhub";
 import type { WatchlistAddedBy, WatchlistItem } from "@/types/watchlist";
 import { getAuthedUser } from "./actions";
 
-type ActionResult<T = unknown> =
-  | { success: true; data: T }
-  | { success: false; error: string };
+type ActionResult<T = unknown> = { success: true; data: T } | { success: false; error: string };
 
 export async function addWatchlistItem(
   algorithmId: string,
@@ -21,7 +19,7 @@ export async function addWatchlistItem(
     return { success: false, error: "Ticker is required" };
   }
 
-  const resolvedName = name.trim() || await lookupTickerName(normalized);
+  const resolvedName = name.trim() || (await lookupTickerName(normalized));
 
   const { data, error } = await supabase
     .from("algorithm_watchlist")
@@ -79,9 +77,7 @@ export async function bulkAddWatchlistItems(
   return { success: true, data: { added, skipped: rows.length - added } };
 }
 
-export async function removeWatchlistItem(
-  id: string
-): Promise<ActionResult<null>> {
+export async function removeWatchlistItem(id: string): Promise<ActionResult<null>> {
   const { supabase, user } = await getAuthedUser();
 
   const { error } = await supabase

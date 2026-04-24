@@ -7,7 +7,13 @@ import { Input } from "@/components/ui/input";
 import { useTradesForLinking } from "@/hooks/use-journal";
 import { formatPnl, pnlColorClass } from "@/lib/utils/pnl";
 
-type LinkableTrade = { id: string; symbol: string; side: string; entry_date: string; realized_pnl: number | null };
+type LinkableTrade = {
+  id: string;
+  symbol: string;
+  side: string;
+  entry_date: string;
+  realized_pnl: number | null;
+};
 
 interface TradeDropdownProps {
   available: LinkableTrade[];
@@ -43,14 +49,24 @@ function TradeDropdown({ available, onSelect }: TradeDropdownProps) {
   );
 }
 
-function SelectedTrades({ selected, onRemove }: { selected: LinkableTrade[]; onRemove: (id: string) => void }) {
+function SelectedTrades({
+  selected,
+  onRemove,
+}: {
+  selected: LinkableTrade[];
+  onRemove: (id: string) => void;
+}) {
   if (selected.length === 0) return null;
   return (
     <div className="flex flex-wrap gap-1.5">
       {selected.map((trade) => (
         <Badge key={trade.id} variant="secondary" className="gap-1 text-xs">
           {trade.symbol} ({trade.side})
-          <button type="button" onClick={() => onRemove(trade.id)} className="ml-0.5 cursor-pointer">
+          <button
+            type="button"
+            onClick={() => onRemove(trade.id)}
+            className="ml-0.5 cursor-pointer"
+          >
             <X className="h-3 w-3" />
           </button>
         </Badge>
@@ -89,18 +105,20 @@ export function TradeLinker({ value, onChange }: TradeLinkerProps) {
             setShowDropdown(true);
           }}
           onFocus={() => setShowDropdown(true)}
-          onBlur={() => setTimeout(() => setShowDropdown(false), 200)}
+          onBlur={() => setShowDropdown(false)}
         />
         {showDropdown && available.length > 0 && (
           <TradeDropdown available={available} onSelect={addTrade} />
         )}
       </div>
-      <SelectedTrades selected={selected} onRemove={(id) => onChange(value.filter((v) => v !== id))} />
+      <SelectedTrades
+        selected={selected}
+        onRemove={(id) => onChange(value.filter((v) => v !== id))}
+      />
       {value.length > 0 && selected.length < value.length && (
         <p className="text-xs text-muted-foreground">
           {value.length - selected.length} linked trade
-          {value.length - selected.length !== 1 && "s"} not shown (may have
-          been deleted)
+          {value.length - selected.length !== 1 && "s"} not shown (may have been deleted)
         </p>
       )}
     </div>

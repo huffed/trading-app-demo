@@ -87,25 +87,39 @@ export async function fetchNewsSentiment(
 ): Promise<SentimentSnapshot> {
   const cacheKey = `${ticker}:${topics?.join(",") ?? ""}`;
   const cached = cache.get(cacheKey);
-  if (cached && cached.expiry > Date.now()) { return cached.snapshot; }
+  if (cached && cached.expiry > Date.now()) {
+    return cached.snapshot;
+  }
 
   const apiKey = process.env.ALPHA_VANTAGE_API_KEY;
-  if (!apiKey) { throw new Error("ALPHA_VANTAGE_API_KEY is not set"); }
+  if (!apiKey) {
+    throw new Error("ALPHA_VANTAGE_API_KEY is not set");
+  }
 
   const params = new URLSearchParams({
     function: "NEWS_SENTIMENT",
     tickers: ticker,
     apikey: apiKey,
   });
-  if (topics?.length) { params.set("topics", topics.join(",")); }
+  if (topics?.length) {
+    params.set("topics", topics.join(","));
+  }
 
   const res = await fetch(`${BASE_URL}?${params}`);
-  if (!res.ok) { throw new Error(`News sentiment request failed: ${res.status}`); }
+  if (!res.ok) {
+    throw new Error(`News sentiment request failed: ${res.status}`);
+  }
 
   const data = (await res.json()) as AVResponse;
-  if (data.Information) { throw new Error("Alpha Vantage API limit reached. Try again later."); }
-  if (data.Note) { throw new Error("Alpha Vantage rate limit reached (25 requests/day)"); }
-  if (!data.feed) { throw new Error("No news data returned"); }
+  if (data.Information) {
+    throw new Error("Alpha Vantage API limit reached. Try again later.");
+  }
+  if (data.Note) {
+    throw new Error("Alpha Vantage rate limit reached (25 requests/day)");
+  }
+  if (!data.feed) {
+    throw new Error("No news data returned");
+  }
 
   const articles = data.feed.map(normalizeArticle);
   const snapshot: SentimentSnapshot = {

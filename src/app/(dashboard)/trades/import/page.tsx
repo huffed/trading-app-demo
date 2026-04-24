@@ -55,23 +55,14 @@ function UploadArea({ onDrop, onFileInput }: UploadAreaProps) {
         onClick={() => document.getElementById("csv-input")?.click()}
       >
         <Upload className="h-8 w-8 text-muted-foreground mb-3" />
-        <p className="text-sm font-medium">
-          Drop a CSV file here or click to browse
-        </p>
+        <p className="text-sm font-medium">Drop a CSV file here or click to browse</p>
         <p className="text-xs text-muted-foreground mt-1">
           Required columns: symbol, side, quantity, entry_price, entry_date
         </p>
         <p className="text-xs text-muted-foreground">
-          Optional: exit_price, exit_date, commission, fees, strategy, notes,
-          asset_class
+          Optional: exit_price, exit_date, commission, fees, strategy, notes, asset_class
         </p>
-        <input
-          id="csv-input"
-          type="file"
-          accept=".csv"
-          className="hidden"
-          onChange={onFileInput}
-        />
+        <input id="csv-input" type="file" accept=".csv" className="hidden" onChange={onFileInput} />
       </CardContent>
     </Card>
   );
@@ -120,11 +111,7 @@ function ImportPreview({
           <Button variant="outline" size="sm" onClick={onReset}>
             Reset
           </Button>
-          <Button
-            size="sm"
-            disabled={validCount === 0 || isPending}
-            onClick={onImport}
-          >
+          <Button size="sm" disabled={validCount === 0 || isPending} onClick={onImport}>
             {isPending
               ? "Importing..."
               : `Import ${validCount} trade${validCount !== 1 ? "s" : ""}`}
@@ -136,8 +123,7 @@ function ImportPreview({
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
-            {errorCount} row{errorCount !== 1 && "s"} have validation errors and
-            will be skipped.
+            {errorCount} row{errorCount !== 1 && "s"} have validation errors and will be skipped.
           </AlertDescription>
         </Alert>
       )}
@@ -146,7 +132,6 @@ function ImportPreview({
     </>
   );
 }
-
 
 function parseCsvRow(raw: unknown, i: number): ParsedRow {
   const data = raw as Record<string, string>;
@@ -175,21 +160,12 @@ function parseCsvRow(raw: unknown, i: number): ParsedRow {
 function ImportPageHeader() {
   return (
     <div className="flex items-center gap-3">
-      <Button
-        variant="ghost"
-        size="icon-sm"
-        render={<Link href="/trades" />}
-        nativeButton={false}
-      >
+      <Button variant="ghost" size="icon-sm" render={<Link href="/trades" />} nativeButton={false}>
         <ArrowLeft className="h-4 w-4" />
       </Button>
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">
-          Import Trades
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Upload a CSV file to bulk import trades.
-        </p>
+        <h1 className="text-2xl font-semibold tracking-tight">Import Trades</h1>
+        <p className="text-sm text-muted-foreground">Upload a CSV file to bulk import trades.</p>
       </div>
     </div>
   );
@@ -234,9 +210,7 @@ export default function ImportPage() {
   }
 
   async function handleImport() {
-    const validRows = parsedRows
-      .filter((r) => r.parsed != null)
-      .map((r) => r.parsed!);
+    const validRows = parsedRows.filter((r) => r.parsed != null).map((r) => r.parsed!);
     const result = await importTrades.mutateAsync(validRows);
     if (result.success) {
       setImportResult(result.data);
@@ -251,10 +225,7 @@ export default function ImportPage() {
       <ImportPageHeader />
 
       {importResult && (
-        <ImportSuccess
-          result={importResult}
-          onViewTrades={() => router.push("/trades")}
-        />
+        <ImportSuccess result={importResult} onViewTrades={() => router.push("/trades")} />
       )}
       {!importResult && !fileName && (
         <UploadArea onDrop={handleDrop} onFileInput={handleFileInput} />

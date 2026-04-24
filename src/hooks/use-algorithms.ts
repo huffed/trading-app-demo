@@ -35,12 +35,9 @@ export function useAlgorithm(id: string | null) {
     queryKey: [...ALGORITHMS_KEY, id],
     enabled: !!id,
     queryFn: async () => {
+      if (!id) throw new Error("Algorithm ID is required");
       const supabase = createClient();
-      const { data, error } = await supabase
-        .from("algorithms")
-        .select("*")
-        .eq("id", id!)
-        .single();
+      const { data, error } = await supabase.from("algorithms").select("*").eq("id", id).single();
       if (error) throw error;
       return data as Algorithm;
     },
@@ -74,8 +71,18 @@ export function useDeleteAlgorithm() {
 export function useUpdateAlgorithm() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, updates }: { id: string; updates: { name?: string; description?: string; status?: AlgorithmStatus; rules?: AlgorithmRules } }) =>
-      updateAlgorithm(id, updates),
+    mutationFn: ({
+      id,
+      updates,
+    }: {
+      id: string;
+      updates: {
+        name?: string;
+        description?: string;
+        status?: AlgorithmStatus;
+        rules?: AlgorithmRules;
+      };
+    }) => updateAlgorithm(id, updates),
     onSuccess: (result) => {
       if (result.success) {
         queryClient.invalidateQueries({ queryKey: ALGORITHMS_KEY });
@@ -112,8 +119,15 @@ export function useRunAiBacktest() {
 export function useRunHistoricalBacktest() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, symbol, period }: { id: string; symbol: string; period: "compact" | "full" }) =>
-      runHistoricalBacktest(id, symbol, period),
+    mutationFn: ({
+      id,
+      symbol,
+      period,
+    }: {
+      id: string;
+      symbol: string;
+      period: "compact" | "full";
+    }) => runHistoricalBacktest(id, symbol, period),
     onSuccess: (result) => {
       if (result.success) {
         queryClient.invalidateQueries({ queryKey: ALGORITHMS_KEY });

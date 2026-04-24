@@ -39,11 +39,7 @@ export default function AlgorithmsPage() {
             AI-generated trading strategies and backtesting.
           </p>
         </div>
-        <Button
-          size="sm"
-          render={<Link href="/algorithms/generate" />}
-          nativeButton={false}
-        >
+        <Button size="sm" render={<Link href="/algorithms/generate" />} nativeButton={false}>
           <Plus className="mr-1.5 h-3.5 w-3.5" />
           Generate New
         </Button>

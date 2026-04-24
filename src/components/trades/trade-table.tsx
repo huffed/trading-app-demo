@@ -47,44 +47,30 @@ function TradeRowCells({ trade, onEdit, onDelete }: TradeRowProps) {
     <TableRow>
       <TableCell className="font-medium">{trade.symbol}</TableCell>
       <TableCell>
-        <Badge
-          variant={trade.side === "long" ? "default" : "secondary"}
-          className="text-xs"
-        >
+        <Badge variant={trade.side === "long" ? "default" : "secondary"} className="text-xs">
           {trade.side === "long" ? "Long" : "Short"}
         </Badge>
       </TableCell>
-      <TableCell className="text-right">
-        {formatQuantity(trade.quantity)}
-      </TableCell>
-      <TableCell className="text-right">
-        {formatCurrency(trade.entry_price)}
-      </TableCell>
+      <TableCell className="text-right">{formatQuantity(trade.quantity)}</TableCell>
+      <TableCell className="text-right">{formatCurrency(trade.entry_price)}</TableCell>
       <TableCell className="text-right">
         {trade.exit_price != null ? formatCurrency(trade.exit_price) : "\u2014"}
       </TableCell>
-      <TableCell
-        className={`text-right font-medium ${pnlColorClass(trade.realized_pnl)}`}
-      >
+      <TableCell className={`text-right font-medium ${pnlColorClass(trade.realized_pnl)}`}>
         {formatPnl(trade.realized_pnl)}
       </TableCell>
       <TableCell className={`text-right ${pnlColorClass(pnlPct)}`}>
         {formatPnlPercent(pnlPct)}
       </TableCell>
       <TableCell>
-        <Badge
-          variant={trade.status === "open" ? "outline" : "secondary"}
-          className="text-xs"
-        >
+        <Badge variant={trade.status === "open" ? "outline" : "secondary"} className="text-xs">
           {trade.status === "open" ? "Open" : "Closed"}
         </Badge>
       </TableCell>
       <TableCell className="text-muted-foreground">
         {new Date(trade.entry_date).toLocaleDateString()}
       </TableCell>
-      <TableCell className="text-muted-foreground">
-        {trade.strategy ?? "\u2014"}
-      </TableCell>
+      <TableCell className="text-muted-foreground">{trade.strategy ?? "\u2014"}</TableCell>
       <TableCell>
         <div className="flex gap-1">
           <Button variant="ghost" size="icon-xs" onClick={() => onEdit(trade)}>
@@ -161,36 +147,24 @@ function TradeDialogs({
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Edit Trade</DialogTitle>
-            <DialogDescription>
-              Update the details of your trade.
-            </DialogDescription>
+            <DialogDescription>Update the details of your trade.</DialogDescription>
           </DialogHeader>
-          {editTrade && (
-            <TradeForm trade={editTrade} onSuccess={() => setEditTrade(null)} />
-          )}
+          {editTrade && <TradeForm trade={editTrade} onSuccess={() => setEditTrade(null)} />}
         </DialogContent>
       </Dialog>
-      <Dialog
-        open={!!deleteTarget}
-        onOpenChange={(open) => !open && setDeleteTarget(null)}
-      >
+      <Dialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
         <DialogContent className="sm:max-w-xs">
           <DialogHeader>
             <DialogTitle>Delete Trade</DialogTitle>
             <DialogDescription>
-              Delete {deleteTarget?.symbol} {deleteTarget?.side} trade? This
-              cannot be undone.
+              Delete {deleteTarget?.symbol} {deleteTarget?.side} trade? This cannot be undone.
             </DialogDescription>
           </DialogHeader>
           <div className="flex gap-2 justify-end">
             <Button variant="outline" onClick={() => setDeleteTarget(null)}>
               Cancel
             </Button>
-            <Button
-              variant="destructive"
-              onClick={onDelete}
-              disabled={isDeleting}
-            >
+            <Button variant="destructive" onClick={onDelete} disabled={isDeleting}>
               {isDeleting ? "Deleting..." : "Delete"}
             </Button>
           </div>
@@ -269,12 +243,7 @@ export function TradeTable() {
           ))}
         </TableBody>
       </Table>
-      <TablePagination
-        page={page}
-        totalPages={totalPages}
-        total={total}
-        setPage={setPage}
-      />
+      <TablePagination page={page} totalPages={totalPages} total={total} setPage={setPage} />
       <TradeDialogs
         editTrade={editTrade}
         setEditTrade={setEditTrade}

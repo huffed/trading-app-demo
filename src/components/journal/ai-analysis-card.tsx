@@ -19,8 +19,8 @@ function AnalysisContent({ analysis }: { analysis: string }) {
 function AnalysisPlaceholder() {
   return (
     <p className="text-sm text-muted-foreground">
-      AI analysis will appear here once the entry is saved. It will review your
-      decisions and emotions to help identify patterns in your trading.
+      AI analysis will appear here once the entry is saved. It will review your decisions and
+      emotions to help identify patterns in your trading.
     </p>
   );
 }

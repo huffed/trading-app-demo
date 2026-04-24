@@ -5,11 +5,7 @@ import { Topbar } from "@/components/layout/topbar";
 import { TourProvider } from "@/components/onboarding/tour-provider";
 import { createClient } from "@/lib/supabase/server";
 
-export default async function DashboardLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
   const {
     data: { user },
