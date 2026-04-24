@@ -32,6 +32,8 @@ export interface BacktestMetrics {
   total_trades: number;
   win_rate: number;
   equity_curve: { date: string; value: number }[];
+  trades: BacktestTrade[];
+  prices: PriceBar[];
   open_position: OpenPosition | null;
   sentiment_conditions_excluded: number;
   backtest_mode: "full" | "technical_only";

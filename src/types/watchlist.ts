@@ -8,6 +8,7 @@ export interface WatchlistItem {
   name: string;
   added_by: WatchlistAddedBy;
   notes: string | null;
+  backtest_metrics: Record<string, unknown> | null;
   created_at: string;
   updated_at: string;
 }
@@ -16,3 +17,10 @@ export type WatchlistItemInsert = Pick<
   WatchlistItem,
   "algorithm_id" | "ticker" | "name" | "added_by" | "notes"
 >;
+
+export interface DiscoverySuggestion {
+  ticker: string;
+  name: string;
+  sector: string;
+  reasoning: string;
+}

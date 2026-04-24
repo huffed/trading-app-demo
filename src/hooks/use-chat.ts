@@ -1,11 +1,13 @@
 import { useState } from "react";
-import { generateAlgorithm } from "@/app/(dashboard)/algorithms/actions";
+import { generateAlgorithm, updateAlgorithm } from "@/app/(dashboard)/algorithms/actions";
+import { seedWatchlist } from "@/app/(dashboard)/algorithms/seed-watchlist-action";
 import { bulkAddWatchlistItems } from "@/app/(dashboard)/algorithms/watchlist-actions";
 import { parseTradeHistoryCsv } from "@/lib/utils/parse-trade-csv";
 import type { AlgorithmFormValues } from "@/lib/validators/algorithm";
 import type { ChatMessage } from "@/types/chat";
 
 const ALGO_MARKER = "[CREATE_ALGORITHM]";
+const EDIT_MARKER = "[EDIT_ALGORITHM]";
 
 export function parseAlgorithmMarker(text: string): AlgorithmFormValues | null {
   const idx = text.indexOf(ALGO_MARKER);
@@ -20,13 +22,38 @@ export function parseAlgorithmMarker(text: string): AlgorithmFormValues | null {
   }
 }
 
+function parseEditMarker(text: string): { id: string; updates: Record<string, unknown> } | null {
+  const idx = text.indexOf(EDIT_MARKER);
+  if (idx === -1) return null;
+  const after = text.substring(idx + EDIT_MARKER.length).trim();
+  const jsonMatch = after.match(/^\{[\s\S]*?\}(?:\s*\})*\s*$/m);
+  if (!jsonMatch) {
+    const simpleMatch = after.match(/^\{[\s\S]+\}/);
+    if (!simpleMatch) return null;
+    try {
+      const parsed = JSON.parse(simpleMatch[0]) as { id?: string; updates?: Record<string, unknown> };
+      if (!parsed.id || !parsed.updates) return null;
+      return { id: parsed.id, updates: parsed.updates };
+    } catch { return null; }
+  }
+  try {
+    const parsed = JSON.parse(jsonMatch[0]) as { id?: string; updates?: Record<string, unknown> };
+    if (!parsed.id || !parsed.updates) return null;
+    return { id: parsed.id, updates: parsed.updates };
+  } catch { return null; }
+}
+
 export function stripMarker(text: string): string {
-  const idx = text.indexOf(ALGO_MARKER);
-  if (idx === -1) { return text; }
-  const before = text.substring(0, idx).trim();
-  const after = text.substring(idx + ALGO_MARKER.length).trim();
-  const afterJson = after.replace(/^\{[^}]+\}\s*/, "").trim();
-  return [before, afterJson].filter(Boolean).join("\n\n");
+  let result = text;
+  for (const marker of [ALGO_MARKER, EDIT_MARKER]) {
+    const idx = result.indexOf(marker);
+    if (idx === -1) continue;
+    const before = result.substring(0, idx).trim();
+    const after = result.substring(idx + marker.length).trim();
+    const afterJson = after.replace(/^\{[\s\S]*?\}(?:\s*\})*\s*/m, "").trim();
+    result = [before, afterJson].filter(Boolean).join("\n\n");
+  }
+  return result;
 }
 
 async function createAlgorithm(
@@ -38,18 +65,58 @@ async function createAlgorithm(
   setMessages((p) => [...p, { role: "assistant", content: "Generating your algorithm with AI-optimized rules..." }]);
   try {
     const result = await generateAlgorithm(values);
-    if (result.success) {
-      const algo = result.data as { id: string; name: string };
-      setCreatedAlgoIds((p) => [...p, algo.id]);
-      if (tickers && tickers.length > 0) {
-        bulkAddWatchlistItems(algo.id, tickers, "csv").catch(() => {});
-      }
-      setMessages((p) => [...p.slice(0, -1), { role: "assistant", content: `Your algorithm "${algo.name}" has been created with optimized trading rules.` }]);
-    } else {
+    if (!result.success) {
       setMessages((p) => [...p.slice(0, -1), { role: "assistant", content: `Algorithm creation failed: ${result.error}` }]);
+      return;
+    }
+    const algo = result.data as { id: string; name: string };
+    setCreatedAlgoIds((p) => [...p, algo.id]);
+
+    // Add CSV tickers to watchlist
+    if (tickers && tickers.length > 0) {
+      bulkAddWatchlistItems(algo.id, tickers, "csv").catch(() => {});
+    }
+
+    // Discover + backtest + add profitable tickers
+    setMessages((p) => [...p.slice(0, -1), {
+      role: "assistant",
+      content: `Your algorithm "${algo.name}" has been created. Now discovering and screening tickers...`,
+    }]);
+
+    const seed = await seedWatchlist(algo.id);
+    if (seed.success && seed.data.added > 0) {
+      const profitable = seed.data.tickers.filter((t) => t.profitable);
+      const tickerList = profitable.map((t) => t.ticker).join(", ");
+      setMessages((p) => [...p.slice(0, -1), {
+        role: "assistant",
+        content: `Your algorithm "${algo.name}" is ready. Screened ${seed.data.tickers.length} tickers — ${seed.data.added} were profitable in backtesting and added to the watchlist: ${tickerList}`,
+      }]);
+    } else {
+      setMessages((p) => [...p.slice(0, -1), {
+        role: "assistant",
+        content: `Your algorithm "${algo.name}" has been created with optimized trading rules.`,
+      }]);
     }
   } catch {
     setMessages((p) => [...p.slice(0, -1), { role: "assistant", content: "Algorithm creation failed. Please try again." }]);
+  }
+}
+
+async function editAlgorithm(
+  data: { id: string; updates: Record<string, unknown> },
+  setMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>
+) {
+  setMessages((p) => [...p.slice(0, -1), { role: "assistant", content: "Applying changes..." }]);
+  try {
+    const result = await updateAlgorithm(data.id, data.updates);
+    if (result.success) {
+      const algo = result.data as { name: string };
+      setMessages((p) => [...p.slice(0, -1), { role: "assistant", content: `"${algo.name}" has been updated.` }]);
+    } else {
+      setMessages((p) => [...p.slice(0, -1), { role: "assistant", content: `Update failed: ${result.error}` }]);
+    }
+  } catch {
+    setMessages((p) => [...p.slice(0, -1), { role: "assistant", content: "Failed to apply changes. Please try again." }]);
   }
 }
 
@@ -94,7 +161,12 @@ export function useChat(stats: Record<string, unknown> | null) {
         reader.cancel();
       }
       const algoValues = parseAlgorithmMarker(assistantText);
-      if (algoValues) { await createAlgorithm(algoValues, setMessages, setCreatedAlgoIds, parsedTickers); }
+      if (algoValues) {
+        await createAlgorithm(algoValues, setMessages, setCreatedAlgoIds, parsedTickers);
+      } else {
+        const editData = parseEditMarker(assistantText);
+        if (editData) await editAlgorithm(editData, setMessages);
+      }
     } catch {
       setMessages([...updated, { role: "assistant", content: "Sorry, I couldn't process that. Please try again." }]);
     } finally {
@@ -119,9 +191,7 @@ export function useChat(stats: Record<string, unknown> | null) {
     }
   }
 
-  function handleNewChat() {
-    setMessages([]);
-    setCreatedAlgoIds([]);
+  function handleNewChat() { setMessages([]); setCreatedAlgoIds([]);
     setTradeHistory(null);
     setParsedTickers(null);
     setAttachedFileName(null);

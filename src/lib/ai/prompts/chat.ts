@@ -68,13 +68,52 @@ When trade history data is provided below, you have access to the user's actual 
    Present ALL proposed values in one message like: "Based on your history, I'd recommend: Stocks, Moderate risk, £X capital, Swing trading. Here's why... Want me to create this, or adjust anything?"
    The user should only need to say "yes" or tweak one value — not answer 5 separate questions.`;
 
+interface AlgorithmContext {
+  id: string;
+  name: string;
+  description: string | null;
+  rules: Record<string, unknown>;
+  status: string;
+  risk_level: string;
+  capital: number;
+  time_horizon: string;
+  asset_class: string;
+}
+
+const ALGORITHM_EDIT_INSTRUCTIONS = `
+## Algorithm Editing
+
+When the user wants to modify an existing algorithm (e.g., "change the stop loss", "make it more aggressive", "remove the sentiment condition"), use the algorithm data provided below.
+
+1. Identify which algorithm they mean — if ambiguous, ask.
+2. Propose the changes clearly and confirm with the user.
+3. When confirmed, output the FULL updated rules object (not just the changed fields) using this marker:
+
+[EDIT_ALGORITHM]
+{"id":"<algorithm-id>","updates":{"rules":{...full rules object...}}}
+
+You can also update name, description, or status alongside rules:
+[EDIT_ALGORITHM]
+{"id":"<algorithm-id>","updates":{"name":"New Name","rules":{...}}}
+
+CRITICAL RULES:
+- The [EDIT_ALGORITHM] marker must be on its own line
+- The JSON must include the full "rules" object with ALL conditions, not just changed ones
+- Rules format is the same as [CREATE_ALGORITHM] — see the rules schema above
+- Include stop_loss, take_profit, position_sizing, max_positions, entry/exit conditions, timeframe, asset_class
+- Every condition MUST have a "type" field ("technical" or "sentiment")
+- stop_loss/take_profit/position_sizing values are INTEGER percentages (3 = 3%)
+- Always confirm changes before outputting the marker`;
+
 export function buildChatSystemPrompt(
   stats: UserStats | null,
-  tradeHistory?: string | null
+  tradeHistory?: string | null,
+  algorithms?: AlgorithmContext[]
 ): string {
   const hasHistory = tradeHistory && tradeHistory.length > 0;
+  const hasAlgorithms = algorithms && algorithms.length > 0;
 
-  const base = `You are a trading assistant built into QuantTrader. You help users learn about trading, understand their performance, and create AI-powered trading algorithms.
+  const base = `You are a trading assistant built into QuantTrader. You help users learn about trading, understand their performance, and create or edit AI-powered trading algorithms.
 
 Guidelines:
 - Explain trading concepts in simple, beginner-friendly language.
@@ -84,6 +123,7 @@ Guidelines:
 - Never give financial advice or guarantee outcomes. Frame everything as education.
 - Use a supportive, coaching tone.
 ${ALGORITHM_INSTRUCTIONS}
+${hasAlgorithms ? ALGORITHM_EDIT_INSTRUCTIONS : ""}
 ${hasHistory ? TRADE_HISTORY_INSTRUCTIONS : ""}`;
 
   const sections: string[] = [base];
@@ -113,6 +153,18 @@ ${hasHistory ? TRADE_HISTORY_INSTRUCTIONS : ""}`;
 
   if (hasHistory) {
     sections.push(`\nUser's Uploaded Trade History:\n${tradeHistory}`);
+  }
+
+  if (hasAlgorithms) {
+    const algoLines = algorithms.map((a) => {
+      const rules = a.rules as Record<string, unknown>;
+      return [
+        `\n### ${a.name} (id: ${a.id})`,
+        `Status: ${a.status} | Risk: ${a.risk_level} | Capital: $${a.capital} | Horizon: ${a.time_horizon}`,
+        `Rules: ${JSON.stringify(rules)}`,
+      ].join("\n");
+    });
+    sections.push(`\nUser's Existing Algorithms:\n${algoLines.join("\n")}`);
   }
 
   return sections.join("\n");

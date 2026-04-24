@@ -2,6 +2,32 @@ import type { PriceBar } from "./types";
 
 const BASE_URL = "https://www.alphavantage.co/query";
 
+interface AVSearchMatch {
+  "1. symbol": string;
+  "2. name": string;
+  "3. type": string;
+  "4. region": string;
+}
+
+export async function lookupTickerName(symbol: string): Promise<string> {
+  const apiKey = process.env.ALPHA_VANTAGE_API_KEY;
+  if (!apiKey) return "";
+
+  try {
+    const url = `${BASE_URL}?function=SYMBOL_SEARCH&keywords=${encodeURIComponent(symbol)}&apikey=${apiKey}`;
+    const res = await fetch(url);
+    if (!res.ok) return "";
+
+    const data = (await res.json()) as { bestMatches?: AVSearchMatch[] };
+    const exact = data.bestMatches?.find(
+      (m) => m["1. symbol"].toUpperCase() === symbol.toUpperCase()
+    );
+    return exact?.["2. name"] ?? data.bestMatches?.[0]?.["2. name"] ?? "";
+  } catch {
+    return "";
+  }
+}
+
 interface AVDailyResponse {
   "Time Series (Daily)": Record<string, {
     "1. open": string;

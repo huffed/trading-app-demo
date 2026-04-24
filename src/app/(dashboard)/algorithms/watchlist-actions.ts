@@ -1,5 +1,6 @@
 "use server";
 
+import { lookupTickerName } from "@/lib/market-data/finnhub";
 import type { WatchlistAddedBy, WatchlistItem } from "@/types/watchlist";
 import { getAuthedUser } from "./actions";
 
@@ -20,13 +21,15 @@ export async function addWatchlistItem(
     return { success: false, error: "Ticker is required" };
   }
 
+  const resolvedName = name.trim() || await lookupTickerName(normalized);
+
   const { data, error } = await supabase
     .from("algorithm_watchlist")
     .insert({
       user_id: user.id,
       algorithm_id: algorithmId,
       ticker: normalized,
-      name: name.trim(),
+      name: resolvedName,
       added_by: addedBy,
       notes: notes ?? null,
     })

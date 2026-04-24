@@ -255,7 +255,8 @@ export async function runHistoricalBacktest(
   symbol: string,
   outputSize: "compact" | "full"
 ): Promise<ActionResult> {
-  const { fetchDailyPrices } = await import("@/lib/market-data/alpha-vantage");
+  const { fetchDailyPrices } = await import("@/lib/market-data/prices");
+  const { getCachedPrices, savePricesToCache } = await import("@/lib/market-data/price-cache");
   const { runBacktest } = await import("@/lib/market-data/backtest-engine");
 
   const supabase = await createClient();
@@ -276,16 +277,22 @@ export async function runHistoricalBacktest(
   }
 
   try {
-    const prices = await fetchDailyPrices(symbol, outputSize);
+    let prices = await getCachedPrices(symbol, outputSize);
+    if (!prices) {
+      prices = await fetchDailyPrices(symbol, outputSize);
+      savePricesToCache(symbol, outputSize, prices).catch(() => {});
+    }
     if (prices.length < 30) {
       return { success: false, error: "Not enough price data for backtesting" };
     }
 
     const results = runBacktest(rules, prices, algo.capital);
 
+    // Strip prices from DB save (too large for JSONB), keep trades for display
+    const { prices: _prices, ...storable } = results;
     await supabase
       .from("algorithms")
-      .update({ backtest_results: results })
+      .update({ backtest_results: storable })
       .eq("id", algorithmId);
 
     return { success: true, data: results };

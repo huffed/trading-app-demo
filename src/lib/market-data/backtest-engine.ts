@@ -1,4 +1,4 @@
-import { isTechnicalCondition, type AlgorithmRules, type TechnicalCondition } from "@/types/algorithm";
+import { isTechnicalCondition, type AlgorithmRules, type EntryCondition, type ExitCondition, type TechnicalCondition } from "@/types/algorithm";
 import { bollingerBands, ema, macd, rsi, sma } from "./indicators";
 import type { BacktestMetrics, BacktestTrade, OpenPosition, PriceBar } from "./types";
 
@@ -115,16 +115,30 @@ function calculateMetrics(trades: BacktestTrade[], capital: number, prices: Pric
     total_trades: trades.length,
     win_rate: trades.length > 0 ? Number(((wins.length / trades.length) * 100).toFixed(1)) : 0,
     equity_curve: curve,
+    trades,
+    prices,
     open_position: openPos,
   };
 }
 
+// Legacy conditions stored without `type` field are treated as technical
+function normalize(conditions: (EntryCondition | ExitCondition)[]): (EntryCondition | ExitCondition)[] {
+  return conditions.map((c) => {
+    if (!c.type && "indicator" in c) {
+      return Object.assign({}, c, { type: "technical" as const }) as TechnicalCondition;
+    }
+    return c;
+  });
+}
+
 export function runBacktest(rules: AlgorithmRules, prices: PriceBar[], capital: number): BacktestMetrics {
-  // Partition conditions — only technical conditions can be backtested
-  const techEntry = rules.entry_conditions.filter(isTechnicalCondition);
-  const techExit = rules.exit_conditions.filter(isTechnicalCondition);
+  // Normalize legacy conditions, then partition — only technical can be backtested
+  const entry = normalize(rules.entry_conditions);
+  const exit = normalize(rules.exit_conditions);
+  const techEntry = entry.filter(isTechnicalCondition);
+  const techExit = exit.filter(isTechnicalCondition);
   const sentimentExcluded =
-    (rules.entry_conditions.length - techEntry.length) + (rules.exit_conditions.length - techExit.length);
+    (entry.length - techEntry.length) + (exit.length - techExit.length);
   const mode = sentimentExcluded > 0 ? "technical_only" as const : "full" as const;
 
   // If no technical entry conditions remain, we can't run a meaningful backtest

@@ -3,11 +3,13 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Pencil, Trash2 } from "lucide-react";
+import { ArrowLeft, Pencil, Trash2, X } from "lucide-react";
 import { AiBacktestCard } from "@/components/algorithms/ai-backtest-card";
 import { AlgorithmEditView } from "@/components/algorithms/algorithm-edit-view";
 import { BacktestForm } from "@/components/algorithms/backtest-form";
+import { BacktestRankingCard } from "@/components/algorithms/backtest-ranking-card";
 import { BacktestResultsDisplay } from "@/components/algorithms/backtest-results-display";
+import { DiscoveryCard } from "@/components/algorithms/discovery-card";
 import { RulesDisplay } from "@/components/algorithms/rules-display";
 import { WatchlistCard } from "@/components/algorithms/watchlist-card";
 import { Badge } from "@/components/ui/badge";
@@ -15,7 +17,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAlgorithm, useDeleteAlgorithm, useRunAiBacktest, useRunHistoricalBacktest, useUpdateAlgorithm } from "@/hooks/use-algorithms";
+import { useWatchlist } from "@/hooks/use-watchlist";
 import { STATUS_COLORS, STATUS_LABELS } from "@/lib/constants/algorithm";
 import type { BacktestMetrics } from "@/lib/market-data/types";
 import { isSentimentCondition, type Algorithm, type AlgorithmRules, type AlgorithmStatus } from "@/types/algorithm";
@@ -68,20 +72,54 @@ function ReadView({ algo, backtestError, aiBacktestError, localBacktestResults, 
   backtestError: string | null; aiBacktestError: string | null; localBacktestResults: BacktestMetrics | null;
   onRunAiBacktest: () => void; onRunBacktest: (symbol: string, period: string) => void; isAiPending: boolean; isBtPending: boolean;
 }) {
+  const { data: watchlistItems = [] } = useWatchlist(algo.id);
+  const watchlistTickers = watchlistItems.map((w) => ({
+    ticker: w.ticker, name: w.name,
+    backtestMetrics: w.backtest_metrics as BacktestMetrics | null,
+  }));
+  const [resultsVisible, setResultsVisible] = useState(true);
+  const backtestResults = localBacktestResults ?? (algo.backtest_results as BacktestMetrics | null);
+
+  function handleRunBacktest(symbol: string, period: string) {
+    setResultsVisible(true);
+    onRunBacktest(symbol, period);
+  }
+
   return (
-    <>
-      {algo.description && (
-        <Card><CardContent className="p-4"><div className="whitespace-pre-wrap text-sm leading-relaxed">{algo.description}</div></CardContent></Card>
-      )}
-      <RulesDisplay rules={algo.rules} />
-      <AiBacktestCard analysis={algo.ai_analysis} error={aiBacktestError} onRunBacktest={onRunAiBacktest} isPending={isAiPending} />
-      <BacktestForm disabled={isBtPending} onSubmit={onRunBacktest} />
-      <WatchlistCard algorithmId={algo.id} hasSentimentConditions={algo.rules.entry_conditions.some(isSentimentCondition)} />
-      {backtestError && <p className="text-sm text-destructive">{backtestError}</p>}
-      {(localBacktestResults || algo.backtest_results) && (
-        <BacktestResultsDisplay results={(localBacktestResults ?? algo.backtest_results) as BacktestMetrics} />
-      )}
-    </>
+    <Tabs defaultValue={0}>
+      <TabsList variant="line">
+        <TabsTrigger value={0}>Overview</TabsTrigger>
+        <TabsTrigger value={1}>Watchlist</TabsTrigger>
+        <TabsTrigger value={2}>Backtest</TabsTrigger>
+      </TabsList>
+
+      <TabsContent value={0} className="space-y-4 pt-2">
+        {algo.description && (
+          <Card><CardContent className="p-4"><div className="whitespace-pre-wrap text-sm leading-relaxed">{algo.description}</div></CardContent></Card>
+        )}
+        <RulesDisplay rules={algo.rules} />
+      </TabsContent>
+
+      <TabsContent value={1} className="space-y-4 pt-2">
+        <WatchlistCard algorithmId={algo.id} hasSentimentConditions={algo.rules.entry_conditions.some(isSentimentCondition)} />
+        <DiscoveryCard algorithmId={algo.id} />
+      </TabsContent>
+
+      <TabsContent value={2} className="space-y-4 pt-2">
+        <AiBacktestCard analysis={algo.ai_analysis} error={aiBacktestError} onRunBacktest={onRunAiBacktest} isPending={isAiPending} />
+        <BacktestForm disabled={isBtPending} onSubmit={handleRunBacktest} />
+        <BacktestRankingCard algorithmId={algo.id} tickers={watchlistTickers} />
+        {backtestError && <p className="text-sm text-destructive">{backtestError}</p>}
+        {backtestResults && resultsVisible && (
+          <div className="relative">
+            <Button size="icon-xs" variant="ghost" className="absolute right-2 top-2 z-10" onClick={() => setResultsVisible(false)}>
+              <X className="h-3 w-3" />
+            </Button>
+            <BacktestResultsDisplay results={backtestResults} />
+          </div>
+        )}
+      </TabsContent>
+    </Tabs>
   );
 }
 
