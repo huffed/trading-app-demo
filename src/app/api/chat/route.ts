@@ -32,18 +32,24 @@ export async function POST(request: Request) {
 
   const { messages, stats, tradeHistory } = parsed.data;
 
-  // Fetch user's algorithms for editing context
-  const { data: algorithms } = await supabase
-    .from("algorithms")
-    .select("id, name, description, rules, status, risk_level, capital, time_horizon, asset_class")
-    .order("created_at", { ascending: false });
+  // Fetch user's algorithms and trading profile for context
+  const [{ data: algorithms }, { data: profile }] = await Promise.all([
+    supabase
+      .from("algorithms")
+      .select(
+        "id, name, description, rules, status, risk_level, capital, time_horizon, asset_class"
+      )
+      .order("created_at", { ascending: false }),
+    supabase.from("profiles").select("trading_profile").eq("id", user.id).single(),
+  ]);
 
   try {
     const client = getAIClient();
     const system = buildChatSystemPrompt(
       stats as Parameters<typeof buildChatSystemPrompt>[0],
       tradeHistory,
-      algorithms ?? []
+      algorithms ?? [],
+      profile?.trading_profile as Parameters<typeof buildChatSystemPrompt>[3]
     );
 
     const stream = await client.chat.completions.create({

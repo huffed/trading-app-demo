@@ -2,12 +2,13 @@
 
 # QuantTrader
 
-Autonomous AI trading agent. Users upload their trade history, the AI learns their winning patterns, discovers new opportunities, auto-trades on connected broker accounts, manages positions, and reports results. The user does zero work after setup.
+AI-powered trading platform that works for everyone — from complete beginners to experienced traders. The AI discovers opportunities, builds strategies, manages risk, and (eventually) trades autonomously. No prior trading experience required.
 
 ## Product Vision
 
-- **Core:** The AI is the strategist AND the executor. It discovers opportunities the user has never heard of, evaluates them against learned patterns, trades automatically, manages risk, and improves over time. Human error is where profit is lost — minimize human decision-making.
-- **Architecture layers:** User Profile (learned from CSV) → Discovery Engine (finds opportunities) → Signal Engine (technical + sentiment conditions) → Execution Engine (broker API) → Learning Loop (refines over time).
+- **Core:** The AI is the strategist AND the executor. Users don't need trading experience — the AI guides beginners through what to trade and why, while experienced traders can upload history to refine the AI's approach. Human error is where profit is lost — minimize human decision-making.
+- **Two entry points:** (1) Beginners — the AI asks about goals, risk comfort, and interests, then builds strategies from scratch. (2) Experienced traders — upload CSV history, AI learns winning patterns and enhances them.
+- **Architecture layers:** User Profile (learned from conversation OR CSV) → Discovery Engine (finds opportunities) → Signal Engine (technical + sentiment conditions) → Execution Engine (broker API) → Learning Loop (refines over time).
 - **Autonomy levels:** Monitor → Suggest → Semi-auto → Full auto. User progresses as trust builds.
 - **Secondary:** Manual trade placement, trade journaling with AI analysis, performance dashboard, educational onboarding.
 - **Our app is NOT a broker.** It's a controller that executes on connected brokers (Alpaca, Trading 212, Binance) via their APIs. No brokerage license needed.
@@ -317,6 +318,22 @@ Both API routes (`api/chat/route.ts`, `api/algorithms/generate/route.ts`) valida
 
 ### Auth Redirect Whitelist
 The OAuth callback (`app/(auth)/callback/route.ts`) validates the `next` parameter against an allowed paths whitelist. When adding new protected routes, add them to the `ALLOWED_REDIRECTS` array and the `protectedPrefixes` array in `lib/supabase/middleware.ts`.
+
+### Beginner Onboarding Wizard
+After the guided tour completes, a 6-step wizard dialog asks beginner-friendly questions (goal, risk comfort, capital, interests, time commitment, experience level). Answers are stored as `trading_profile` JSONB on the `profiles` table.
+
+**Flow:** Tour completes → `setWizardPending()` in onboarding store → `WizardProvider` mounts in dashboard layout → dialog opens → user fills out → `saveTradingProfileAndGenerate()` saves profile AND auto-generates first algorithm → redirects to algorithm detail page.
+
+**Key files:**
+- `components/onboarding/wizard-dialog.tsx` — the multi-step dialog UI
+- `components/onboarding/wizard-provider.tsx` — show/hide logic based on store + DB state
+- `lib/utils/derive-trading-params.ts` — pure function mapping answers → algorithm params
+- `lib/constants/onboarding.ts` — label maps for wizard options
+- `app/(dashboard)/onboarding/actions.ts` — `saveTradingProfileAndGenerate()` server action
+
+**Chat integration:** When `trading_profile` exists, the chat system prompt includes the user's preferences and experience level. For beginners, it instructs the AI to explain concepts in plain language and skip re-asking for asset class/risk/capital.
+
+**Skip path:** Experienced traders can dismiss the wizard at any step. The chat falls back to existing question-by-question behavior when no profile exists.
 
 ## Adding New Features
 
