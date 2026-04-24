@@ -26,13 +26,7 @@ const navItems = [
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
-function SidebarHeader({
-  open,
-  onToggle,
-}: {
-  open: boolean;
-  onToggle: () => void;
-}) {
+function SidebarHeader({ open, onToggle }: { open: boolean; onToggle: () => void }) {
   if (open) {
     return (
       <>

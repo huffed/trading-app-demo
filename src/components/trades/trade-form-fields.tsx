@@ -35,7 +35,6 @@ export interface FieldProps {
   updateField: (field: string, value: string) => void;
 }
 
-
 export function toDatetimeLocal(iso: string | null): string {
   if (!iso) return "";
   const d = new Date(iso);

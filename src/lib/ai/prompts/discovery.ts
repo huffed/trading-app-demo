@@ -35,14 +35,22 @@ function summarizeConditions(algo: Algorithm): string {
   const sentEntry = algo.rules.entry_conditions.filter(isSentimentCondition);
 
   if (techEntry.length > 0) {
-    parts.push("Technical entry: " + techEntry.map((c) =>
-      `${c.indicator} ${c.operator} ${c.value}`
-    ).join(", "));
+    parts.push(
+      "Technical entry: " +
+        techEntry.map((c) => `${c.indicator} ${c.operator} ${c.value}`).join(", ")
+    );
   }
   if (sentEntry.length > 0) {
-    parts.push("Sentiment entry: " + sentEntry.map((c) =>
-      `${c.metric} ${c.operator} ${c.threshold}` + (c.topics?.length ? ` (topics: ${c.topics.join(", ")})` : "")
-    ).join(", "));
+    parts.push(
+      "Sentiment entry: " +
+        sentEntry
+          .map(
+            (c) =>
+              `${c.metric} ${c.operator} ${c.threshold}` +
+              (c.topics?.length ? ` (topics: ${c.topics.join(", ")})` : "")
+          )
+          .join(", ")
+    );
   }
 
   const { stop_loss, take_profit, position_sizing } = algo.rules;
@@ -123,10 +131,7 @@ export function buildAnalysisPrompt(
   algo: Algorithm,
   results: TickerBacktestSummary[]
 ): { system: string; userMessage: string } {
-  const sections: string[] = [
-    `Algorithm: ${algo.name}`,
-    `Strategy: ${algo.description ?? "N/A"}`,
-  ];
+  const sections: string[] = [`Algorithm: ${algo.name}`, `Strategy: ${algo.description ?? "N/A"}`];
 
   const conditions = summarizeConditions(algo);
   if (conditions) sections.push(`Rules:\n${conditions}`);
@@ -136,7 +141,9 @@ export function buildAnalysisPrompt(
     if (r.failed) {
       sections.push(`- ${r.ticker} (${r.name}): backtest failed`);
     } else {
-      sections.push(`- ${r.ticker} (${r.name}): return ${r.totalReturn >= 0 ? "+" : ""}${r.totalReturn.toFixed(1)}%, win rate ${r.winRate.toFixed(0)}%, ${r.totalTrades} trades`);
+      sections.push(
+        `- ${r.ticker} (${r.name}): return ${r.totalReturn >= 0 ? "+" : ""}${r.totalReturn.toFixed(1)}%, win rate ${r.winRate.toFixed(0)}%, ${r.totalTrades} trades`
+      );
     }
   }
 

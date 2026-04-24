@@ -27,12 +27,16 @@ export function buildSignalPrompt(
   conditions: SentimentCondition[],
   algorithmDescription: string
 ): { system: string; userMessage: string } {
-  const topArticles = snapshot.articles.slice(0, 10).map((a, i) =>
-    `${i + 1}. "${a.title}" (sentiment: ${a.overall_sentiment.toFixed(3)}, source: ${a.source})`
-  );
+  const topArticles = snapshot.articles
+    .slice(0, 10)
+    .map(
+      (a, i) =>
+        `${i + 1}. "${a.title}" (sentiment: ${a.overall_sentiment.toFixed(3)}, source: ${a.source})`
+    );
 
-  const conditionsSummary = conditions.map((c) =>
-    `- ${c.metric} ${c.operator} ${c.threshold} for ${c.topics?.join(", ") ?? c.tickers?.join(", ") ?? "general"}`
+  const conditionsSummary = conditions.map(
+    (c) =>
+      `- ${c.metric} ${c.operator} ${c.threshold} for ${c.topics?.join(", ") ?? c.tickers?.join(", ") ?? "general"}`
   );
 
   const userMessage = [

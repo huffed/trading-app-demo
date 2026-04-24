@@ -10,6 +10,8 @@ function init() {
 }
 
 export function createClient() {
-  if (!instance) { instance = init(); }
+  if (!instance) {
+    instance = init();
+  }
   return instance;
 }

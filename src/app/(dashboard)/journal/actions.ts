@@ -2,17 +2,12 @@
 
 import { analyzeJournalEntry } from "@/lib/ai/analyze";
 import { createClient } from "@/lib/supabase/server";
-import {
-  journalFormSchema,
-  type JournalFormValues,
-} from "@/lib/validators/journal";
+import { journalFormSchema, type JournalFormValues } from "@/lib/validators/journal";
 import type { JournalEntry } from "@/types/journal";
 import type { Trade } from "@/types/trade";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-type ActionResult<T = unknown> =
-  | { success: true; data: T }
-  | { success: false; error: string };
+type ActionResult<T = unknown> = { success: true; data: T } | { success: false; error: string };
 
 async function triggerAnalysis(
   supabase: SupabaseClient,
@@ -38,9 +33,7 @@ async function triggerAnalysis(
   return { ...entry, ai_analysis: analysis, ai_analyzed_at: analyzedAt };
 }
 
-export async function createJournalEntry(
-  values: JournalFormValues
-): Promise<ActionResult> {
+export async function createJournalEntry(values: JournalFormValues): Promise<ActionResult> {
   const parsed = journalFormSchema.safeParse(values);
   if (!parsed.success) {
     return { success: false, error: parsed.error.issues[0].message };
@@ -58,7 +51,7 @@ export async function createJournalEntry(
     .from("journal_entries")
     .insert({
       ...rest,
-      self_rating: self_rating === "" ? null : self_rating ?? null,
+      self_rating: self_rating === "" ? null : (self_rating ?? null),
       user_id: user.id,
     })
     .select()
@@ -116,9 +109,7 @@ export async function deleteJournalEntry(id: string): Promise<ActionResult> {
   return { success: true, data: null };
 }
 
-export async function analyzeJournalEntryAction(
-  entryId: string
-): Promise<ActionResult> {
+export async function analyzeJournalEntryAction(entryId: string): Promise<ActionResult> {
   const supabase = await createClient();
   const {
     data: { user },

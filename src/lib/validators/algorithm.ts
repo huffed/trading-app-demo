@@ -61,9 +61,12 @@ const propFirmSchema = z.object({
 export const algorithmRulesSchema = z.object({
   entry_conditions: z.array(normalizedCondition),
   exit_conditions: z.array(normalizedCondition),
-  stop_loss: z.object({ type: z.string(), value: z.number() }),
-  take_profit: z.object({ type: z.string(), value: z.number() }),
-  position_sizing: z.object({ type: z.string(), value: z.number() }),
+  stop_loss: z.object({ type: z.enum(["percentage", "fixed"]), value: z.number() }),
+  take_profit: z.object({ type: z.enum(["percentage", "fixed"]), value: z.number() }),
+  position_sizing: z.object({
+    type: z.enum(["percentage_of_capital", "fixed_amount", "fixed_quantity"]),
+    value: z.number(),
+  }),
   max_positions: z.number().int().positive(),
   timeframe: z.string(),
   asset_class: z.string(),

@@ -14,10 +14,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  useCreateJournalEntry,
-  useUpdateJournalEntry,
-} from "@/hooks/use-journal";
+import { useCreateJournalEntry, useUpdateJournalEntry } from "@/hooks/use-journal";
+import { ENTRY_TYPE_LABELS } from "@/lib/constants/journal";
 import {
   journalFormSchema,
   journalEntryTypes,
@@ -32,14 +30,6 @@ interface JournalFormProps {
   entry?: JournalEntry;
   onSuccess?: () => void;
 }
-
-const entryTypeLabels: Record<string, string> = {
-  "pre-market": "Pre-Market Plan",
-  reflection: "Trade Reflection",
-  review: "Daily/Weekly Review",
-  lesson: "Lesson Learned",
-  "strategy-idea": "Strategy Idea",
-};
 
 const entryTypeDescriptions: Record<string, string> = {
   "pre-market": "What are you watching today? What's your plan?",
@@ -67,40 +57,41 @@ interface FormFieldsProps {
   removeTag: (tag: string) => void;
 }
 
-function EntryTypeField({ form, errors, updateField }: Pick<FormFieldsProps, "form" | "errors" | "updateField">) {
+function EntryTypeField({
+  form,
+  errors,
+  updateField,
+}: Pick<FormFieldsProps, "form" | "errors" | "updateField">) {
   return (
     <div className="space-y-1.5">
       <Label>What kind of entry is this?</Label>
-      <Select
-        value={form.entry_type}
-        onValueChange={(v) => updateField("entry_type", v)}
-      >
+      <Select value={form.entry_type} onValueChange={(v) => updateField("entry_type", v)}>
         <SelectTrigger className="w-full">
           <SelectValue placeholder="Select type">
-            {form.entry_type ? (entryTypeLabels[form.entry_type] ?? form.entry_type) : undefined}
+            {form.entry_type ? (ENTRY_TYPE_LABELS[form.entry_type] ?? form.entry_type) : undefined}
           </SelectValue>
         </SelectTrigger>
         <SelectContent>
           {journalEntryTypes.map((t) => (
             <SelectItem key={t} value={t}>
-              {entryTypeLabels[t]}
+              {ENTRY_TYPE_LABELS[t]}
             </SelectItem>
           ))}
         </SelectContent>
       </Select>
-      {errors.entry_type && (
-        <p className="text-xs text-destructive">{errors.entry_type}</p>
-      )}
+      {errors.entry_type && <p className="text-xs text-destructive">{errors.entry_type}</p>}
       {form.entry_type && (
-        <p className="text-xs text-muted-foreground">
-          {entryTypeDescriptions[form.entry_type]}
-        </p>
+        <p className="text-xs text-muted-foreground">{entryTypeDescriptions[form.entry_type]}</p>
       )}
     </div>
   );
 }
 
-function ContentFields({ form, errors, updateField }: Pick<FormFieldsProps, "form" | "errors" | "updateField">) {
+function ContentFields({
+  form,
+  errors,
+  updateField,
+}: Pick<FormFieldsProps, "form" | "errors" | "updateField">) {
   return (
     <>
       <div className="space-y-1.5">
@@ -112,9 +103,7 @@ function ContentFields({ form, errors, updateField }: Pick<FormFieldsProps, "for
           value={form.title}
           onChange={(e) => updateField("title", e.target.value)}
         />
-        {errors.title && (
-          <p className="text-xs text-destructive">{errors.title}</p>
-        )}
+        {errors.title && <p className="text-xs text-destructive">{errors.title}</p>}
       </div>
       <div className="space-y-1.5">
         <Label htmlFor="content">Your thoughts</Label>
@@ -125,15 +114,19 @@ function ContentFields({ form, errors, updateField }: Pick<FormFieldsProps, "for
           value={form.content}
           onChange={(e) => updateField("content", e.target.value)}
         />
-        {errors.content && (
-          <p className="text-xs text-destructive">{errors.content}</p>
-        )}
+        {errors.content && <p className="text-xs text-destructive">{errors.content}</p>}
       </div>
     </>
   );
 }
 
-function TagsField({ form, tagInput, setTagInput, addTag, removeTag }: Pick<FormFieldsProps, "form" | "tagInput" | "setTagInput" | "addTag" | "removeTag">) {
+function TagsField({
+  form,
+  tagInput,
+  setTagInput,
+  addTag,
+  removeTag,
+}: Pick<FormFieldsProps, "form" | "tagInput" | "setTagInput" | "addTag" | "removeTag">) {
   return (
     <div className="space-y-1.5">
       <Label>Tags (optional)</Label>
@@ -155,11 +148,7 @@ function TagsField({ form, tagInput, setTagInput, addTag, removeTag }: Pick<Form
           {form.tags.map((tag) => (
             <Badge key={tag} variant="secondary" className="gap-1 text-xs">
               {tag}
-              <button
-                type="button"
-                onClick={() => removeTag(tag)}
-                className="cursor-pointer"
-              >
+              <button type="button" onClick={() => removeTag(tag)} className="cursor-pointer">
                 <X className="h-3 w-3" />
               </button>
             </Badge>
@@ -193,17 +182,11 @@ function MoodAndRatingFields({ form, updateField }: Pick<FormFieldsProps, "form"
     <>
       <div className="space-y-1.5">
         <Label>How are you feeling about your trading?</Label>
-        <EmotionPicker
-          value={form.emotion}
-          onChange={(v) => updateField("emotion", v)}
-        />
+        <EmotionPicker value={form.emotion} onChange={(v) => updateField("emotion", v)} />
       </div>
       <div className="space-y-1.5">
         <Label>How well did you follow your plan?</Label>
-        <StarRating
-          value={form.self_rating}
-          onChange={(v) => updateField("self_rating", v)}
-        />
+        <StarRating value={form.self_rating} onChange={(v) => updateField("self_rating", v)} />
         <p className="text-xs text-muted-foreground">
           1 = didn&apos;t follow it at all, 5 = stuck to it perfectly
         </p>
@@ -256,7 +239,10 @@ export function JournalForm({ entry, onSuccess }: JournalFormProps) {
   }
 
   function removeTag(tag: string) {
-    updateField("tags", form.tags.filter((t) => t !== tag));
+    updateField(
+      "tags",
+      form.tags.filter((t) => t !== tag)
+    );
   }
 
   async function handleSubmit(e: React.FormEvent) {

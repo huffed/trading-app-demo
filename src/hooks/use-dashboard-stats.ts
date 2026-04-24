@@ -15,7 +15,9 @@ export function useDashboardStats() {
       const supabase = createClient();
       const { data, error } = await supabase
         .from("trades")
-        .select("id, symbol, side, quantity, entry_price, exit_price, entry_date, exit_date, status, realized_pnl, asset_class, currency")
+        .select(
+          "id, symbol, side, quantity, entry_price, exit_price, entry_date, exit_date, status, realized_pnl, asset_class, currency"
+        )
         .order("entry_date", { ascending: false });
 
       if (error) throw error;

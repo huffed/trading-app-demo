@@ -49,9 +49,7 @@ export function ContextualTip({ tipId, personalizedValue }: ContextualTipProps) 
   const tip = getTip(tipId);
   if (!tip) return null;
 
-  const content = personalizedValue
-    ? personalizeTip(tip, personalizedValue)
-    : tip.body;
+  const content = personalizedValue ? personalizeTip(tip, personalizedValue) : tip.body;
 
   return (
     <span className="relative inline-flex">

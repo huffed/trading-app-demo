@@ -77,9 +77,7 @@ export function LoginForm() {
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <EmailField value={email} onChange={setEmail} />
           <PasswordField value={password} onChange={setPassword} />
-          {error && (
-            <p className="text-sm text-destructive">{error}</p>
-          )}
+          {error && <p className="text-sm text-destructive">{error}</p>}
           <Button type="submit" className="w-full" disabled={loading}>
             {loading ? "Signing in..." : "Sign in"}
           </Button>

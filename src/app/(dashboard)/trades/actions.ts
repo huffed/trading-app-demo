@@ -3,13 +3,9 @@
 import { createClient } from "@/lib/supabase/server";
 import { tradeFormSchema, type TradeFormValues } from "@/lib/validators/trade";
 
-type ActionResult<T = unknown> =
-  | { success: true; data: T }
-  | { success: false; error: string };
+type ActionResult<T = unknown> = { success: true; data: T } | { success: false; error: string };
 
-export async function createTrade(
-  values: TradeFormValues
-): Promise<ActionResult> {
+export async function createTrade(values: TradeFormValues): Promise<ActionResult> {
   const parsed = tradeFormSchema.safeParse(values);
   if (!parsed.success) {
     return { success: false, error: parsed.error.issues[0].message };
@@ -27,10 +23,10 @@ export async function createTrade(
     .from("trades")
     .insert({
       ...rest,
-      exit_price: exit_price === "" ? null : exit_price ?? null,
-      exit_date: exit_date === "" ? null : exit_date ?? null,
-      strategy: strategy === "" ? null : strategy ?? null,
-      notes: notes === "" ? null : notes ?? null,
+      exit_price: exit_price === "" ? null : (exit_price ?? null),
+      exit_date: exit_date === "" ? null : (exit_date ?? null),
+      strategy: strategy === "" ? null : (strategy ?? null),
+      notes: notes === "" ? null : (notes ?? null),
       user_id: user.id,
     })
     .select()
@@ -74,11 +70,7 @@ export async function deleteTrade(id: string): Promise<ActionResult> {
   } = await supabase.auth.getUser();
   if (!user) return { success: false, error: "Not authenticated" };
 
-  const { error } = await supabase
-    .from("trades")
-    .delete()
-    .eq("id", id)
-    .eq("user_id", user.id);
+  const { error } = await supabase.from("trades").delete().eq("id", id).eq("user_id", user.id);
 
   if (error) return { success: false, error: error.message };
   return { success: true, data: null };
@@ -91,8 +83,9 @@ export async function importTrades(
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user)
-    {return { success: false, error: "Not authenticated" };}
+  if (!user) {
+    return { success: false, error: "Not authenticated" };
+  }
 
   const validRows: Record<string, unknown>[] = [];
   const errors: string[] = [];
@@ -106,10 +99,10 @@ export async function importTrades(
     const { exit_price, exit_date, strategy, notes, ...rest } = parsed.data;
     validRows.push({
       ...rest,
-      exit_price: exit_price === "" ? null : exit_price ?? null,
-      exit_date: exit_date === "" ? null : exit_date ?? null,
-      strategy: strategy === "" ? null : strategy ?? null,
-      notes: notes === "" ? null : notes ?? null,
+      exit_price: exit_price === "" ? null : (exit_price ?? null),
+      exit_date: exit_date === "" ? null : (exit_date ?? null),
+      strategy: strategy === "" ? null : (strategy ?? null),
+      notes: notes === "" ? null : (notes ?? null),
       user_id: user.id,
     });
   }

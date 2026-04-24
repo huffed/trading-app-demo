@@ -19,20 +19,9 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  useJournalEntry,
-  useDeleteJournalEntry,
-  useTradesForLinking,
-} from "@/hooks/use-journal";
+import { useJournalEntry, useDeleteJournalEntry, useTradesForLinking } from "@/hooks/use-journal";
+import { ENTRY_TYPE_LABELS } from "@/lib/constants/journal";
 import type { JournalEntry } from "@/types/journal";
-
-const entryTypeLabels: Record<string, string> = {
-  "pre-market": "Pre-Market Plan",
-  reflection: "Trade Reflection",
-  review: "Daily/Weekly Review",
-  lesson: "Lesson Learned",
-  "strategy-idea": "Strategy Idea",
-};
 
 interface EntryMetaProps {
   entry: JournalEntry;
@@ -43,15 +32,11 @@ function EntryMeta({ entry }: EntryMetaProps) {
   return (
     <>
       <div className="flex flex-wrap items-center gap-2">
-        <Badge variant="outline">
-          {entryTypeLabels[entry.entry_type] ?? entry.entry_type}
-        </Badge>
+        <Badge variant="outline">{ENTRY_TYPE_LABELS[entry.entry_type] ?? entry.entry_type}</Badge>
         <Badge variant="secondary">
           {emotion.emoji} {emotion.label}
         </Badge>
-        {entry.self_rating != null && (
-          <StarRating value={entry.self_rating} readOnly size="sm" />
-        )}
+        {entry.self_rating != null && <StarRating value={entry.self_rating} readOnly size="sm" />}
       </div>
       {entry.tags.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
@@ -66,7 +51,13 @@ function EntryMeta({ entry }: EntryMetaProps) {
   );
 }
 
-type LinkedTrade = { id: string; symbol: string; side: string; entry_date: string; realized_pnl: number | null };
+type LinkedTrade = {
+  id: string;
+  symbol: string;
+  side: string;
+  entry_date: string;
+  realized_pnl: number | null;
+};
 
 interface EntryViewProps {
   entry: JournalEntry;
@@ -75,21 +66,22 @@ interface EntryViewProps {
   onDelete: () => void;
 }
 
-function EntryHeader({ entry, onEdit, onDelete }: { entry: JournalEntry; onEdit: () => void; onDelete: () => void }) {
+function EntryHeader({
+  entry,
+  onEdit,
+  onDelete,
+}: {
+  entry: JournalEntry;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
   return (
     <div className="flex items-center gap-3">
-      <Button
-        variant="ghost"
-        size="icon-sm"
-        render={<Link href="/journal" />}
-        nativeButton={false}
-      >
+      <Button variant="ghost" size="icon-sm" render={<Link href="/journal" />} nativeButton={false}>
         <ArrowLeft className="h-4 w-4" />
       </Button>
       <div className="flex-1">
-        <h1 className="text-2xl font-semibold tracking-tight">
-          {entry.title}
-        </h1>
+        <h1 className="text-2xl font-semibold tracking-tight">{entry.title}</h1>
         <p className="text-xs text-muted-foreground">
           {new Date(entry.created_at).toLocaleDateString("en-US", {
             weekday: "long",
@@ -121,15 +113,11 @@ function LinkedTradesCard({ linkedTrades }: { linkedTrades: LinkedTrade[] }) {
         <h3 className="text-sm font-medium mb-2">Linked Trades</h3>
         <div className="space-y-1">
           {linkedTrades.map((trade) => (
-            <div
-              key={trade.id}
-              className="flex items-center justify-between text-sm"
-            >
+            <div key={trade.id} className="flex items-center justify-between text-sm">
               <span>
                 <span className="font-medium">{trade.symbol}</span>{" "}
                 <span className="text-muted-foreground">
-                  {trade.side} &middot;{" "}
-                  {new Date(trade.entry_date).toLocaleDateString()}
+                  {trade.side} &middot; {new Date(trade.entry_date).toLocaleDateString()}
                 </span>
               </span>
             </div>
@@ -149,9 +137,7 @@ function EntryView({ entry, linkedTrades, onEdit, onDelete }: EntryViewProps) {
         <CardContent className="p-6">
           <div className="whitespace-pre-wrap text-sm leading-relaxed">
             {entry.content || (
-              <span className="text-muted-foreground italic">
-                No content written.
-              </span>
+              <span className="text-muted-foreground italic">No content written.</span>
             )}
           </div>
         </CardContent>
@@ -255,9 +241,7 @@ export default function JournalEntryPage() {
   if (isLoading) return <EntryLoadingSkeleton />;
   if (!entry) return <EntryNotFound />;
 
-  const linkedTrades = (trades ?? []).filter((t) =>
-    entry.linked_trade_ids.includes(t.id)
-  );
+  const linkedTrades = (trades ?? []).filter((t) => entry.linked_trade_ids.includes(t.id));
 
   if (isEditing) {
     return <EditEntryView entry={entry} onClose={() => setIsEditing(false)} />;

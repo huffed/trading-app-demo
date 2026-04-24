@@ -11,9 +11,7 @@ import { getAuthedUser } from "./actions";
 import { discoverTickers } from "./discovery-actions";
 import { bulkAddWatchlistItems } from "./watchlist-actions";
 
-type ActionResult<T = unknown> =
-  | { success: true; data: T }
-  | { success: false; error: string };
+type ActionResult<T = unknown> = { success: true; data: T } | { success: false; error: string };
 
 export interface ScreenedTicker {
   ticker: string;
@@ -29,41 +27,63 @@ export interface ScreenResult {
   added: number;
 }
 
-async function backtestOne(rules: AlgorithmRules, capital: number, ticker: string): Promise<BacktestMetrics | null> {
+async function backtestOne(
+  rules: AlgorithmRules,
+  capital: number,
+  ticker: string
+): Promise<BacktestMetrics | null> {
   try {
     let prices = await getCachedPrices(ticker, "compact");
     if (!prices) {
       prices = await fetchDailyPrices(ticker, "compact");
-      savePricesToCache(ticker, "compact", prices).catch(() => {});
+      savePricesToCache(ticker, "compact", prices).catch((e) =>
+        console.warn(`[price-cache] Failed to cache ${ticker}:`, e instanceof Error ? e.message : e)
+      );
     }
     if (prices.length < 30) return null;
     return runBacktest(rules, prices, capital);
-  } catch { return null; }
+  } catch {
+    return null;
+  }
 }
 
-async function generateAnalyses(algo: Algorithm, summaries: TickerBacktestSummary[]): Promise<Record<string, string>> {
+async function generateAnalyses(
+  algo: Algorithm,
+  summaries: TickerBacktestSummary[]
+): Promise<Record<string, string>> {
   try {
     const client = getAIClient();
     const { system, userMessage } = buildAnalysisPrompt(algo, summaries);
     const res = await client.chat.completions.create({
       model: AI_MODEL,
-      messages: [{ role: "system", content: system }, { role: "user", content: userMessage }],
+      messages: [
+        { role: "system", content: system },
+        { role: "user", content: userMessage },
+      ],
       response_format: { type: "json_object" },
       max_tokens: 2048,
     });
     const text = res.choices[0]?.message?.content ?? "{}";
     const parsed = JSON.parse(text) as { analyses?: { ticker: string; analysis: string }[] };
     const map: Record<string, string> = {};
-    for (const a of parsed.analyses ?? []) { map[a.ticker] = a.analysis; }
+    for (const a of parsed.analyses ?? []) {
+      map[a.ticker] = a.analysis;
+    }
     return map;
-  } catch { return {}; }
+  } catch {
+    return {};
+  }
 }
 
 export async function seedWatchlist(algorithmId: string): Promise<ActionResult<ScreenResult>> {
   const { supabase, user } = await getAuthedUser();
 
   const { data: algo, error: algoErr } = await supabase
-    .from("algorithms").select("*").eq("id", algorithmId).eq("user_id", user.id).single();
+    .from("algorithms")
+    .select("*")
+    .eq("id", algorithmId)
+    .eq("user_id", user.id)
+    .single();
   if (algoErr || !algo) return { success: false, error: "Algorithm not found" };
 
   const discoveryResult = await discoverTickers(algorithmId);
@@ -83,9 +103,13 @@ export async function seedWatchlist(algorithmId: string): Promise<ActionResult<S
   const summaries: TickerBacktestSummary[] = suggestions.map((s) => {
     const m = metricsMap.get(s.ticker);
     return {
-      ticker: s.ticker, name: s.name,
-      totalReturn: m?.total_return ?? 0, winRate: m?.win_rate ?? 0, totalTrades: m?.total_trades ?? 0,
-      profitable: (m?.total_return ?? 0) > 0, failed: !m,
+      ticker: s.ticker,
+      name: s.name,
+      totalReturn: m?.total_return ?? 0,
+      winRate: m?.win_rate ?? 0,
+      totalTrades: m?.total_trades ?? 0,
+      profitable: (m?.total_return ?? 0) > 0,
+      failed: !m,
     };
   });
 
@@ -96,8 +120,11 @@ export async function seedWatchlist(algorithmId: string): Promise<ActionResult<S
   const screened: ScreenedTicker[] = suggestions.map((s) => {
     const m = metricsMap.get(s.ticker) ?? null;
     return {
-      ticker: s.ticker, name: s.name, sector: s.sector,
-      metrics: m, analysis: analyses[s.ticker] ?? s.reasoning,
+      ticker: s.ticker,
+      name: s.name,
+      sector: s.sector,
+      metrics: m,
+      analysis: analyses[s.ticker] ?? s.reasoning,
       profitable: (m?.total_return ?? 0) > 0,
     };
   });
@@ -111,7 +138,11 @@ export async function seedWatchlist(algorithmId: string): Promise<ActionResult<S
   // Add profitable to watchlist
   const profitable = screened.filter((t) => t.profitable);
   if (profitable.length > 0) {
-    await bulkAddWatchlistItems(algorithmId, profitable.map((t) => ({ symbol: t.ticker, name: t.name })), "ai");
+    await bulkAddWatchlistItems(
+      algorithmId,
+      profitable.map((t) => ({ symbol: t.ticker, name: t.name })),
+      "ai"
+    );
   }
 
   return { success: true, data: { tickers: screened, added: profitable.length } };

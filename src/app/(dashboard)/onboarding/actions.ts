@@ -2,9 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 
-type ActionResult =
-  | { success: true }
-  | { success: false; error: string };
+type ActionResult = { success: true } | { success: false; error: string };
 
 export async function completeOnboarding(): Promise<ActionResult> {
   const supabase = await createClient();

@@ -19,11 +19,7 @@ export function ChatProvider() {
   return (
     <>
       <ChatButton onClick={handleOpen} />
-      <ChatDrawer
-        open={open}
-        onOpenChange={setOpen}
-        stats={data?.stats ?? null}
-      />
+      <ChatDrawer open={open} onOpenChange={setOpen} stats={data?.stats ?? null} />
     </>
   );
 }

@@ -53,9 +53,7 @@ export function BacktestForm({ onSubmit, disabled }: BacktestFormProps) {
       >
         {disabled ? "Running..." : "Run Backtest"}
       </Button>
-      <p className="text-xs text-muted-foreground">
-        Uses Alpha Vantage (25 free requests/day)
-      </p>
+      <p className="text-xs text-muted-foreground">Uses Alpha Vantage (25 free requests/day)</p>
     </div>
   );
 }

@@ -101,9 +101,7 @@ export function SignupForm() {
           <NameField value={fullName} onChange={setFullName} />
           <EmailField value={email} onChange={setEmail} />
           <PasswordField value={password} onChange={setPassword} />
-          {error && (
-            <p className="text-sm text-destructive">{error}</p>
-          )}
+          {error && <p className="text-sm text-destructive">{error}</p>}
           <Button type="submit" className="w-full" disabled={loading}>
             {loading ? "Creating account..." : "Create account"}
           </Button>

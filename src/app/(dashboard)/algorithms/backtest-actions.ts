@@ -7,9 +7,7 @@ import type { BacktestMetrics } from "@/lib/market-data/types";
 import type { AlgorithmRules } from "@/types/algorithm";
 import { getAuthedUser } from "./actions";
 
-type ActionResult<T = unknown> =
-  | { success: true; data: T }
-  | { success: false; error: string };
+type ActionResult<T = unknown> = { success: true; data: T } | { success: false; error: string };
 
 export async function backtestTicker(
   algorithmId: string,
@@ -38,7 +36,9 @@ export async function backtestTicker(
     let prices = await getCachedPrices(ticker, outputSize);
     if (!prices) {
       prices = await fetchDailyPrices(ticker, outputSize);
-      savePricesToCache(ticker, outputSize, prices).catch(() => {});
+      savePricesToCache(ticker, outputSize, prices).catch((e) =>
+        console.warn(`[price-cache] Failed to cache ${ticker}:`, e instanceof Error ? e.message : e)
+      );
     }
     if (prices.length < 30) {
       return { success: false, error: "Not enough price data" };

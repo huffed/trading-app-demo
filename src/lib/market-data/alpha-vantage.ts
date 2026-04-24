@@ -29,13 +29,16 @@ export async function lookupTickerName(symbol: string): Promise<string> {
 }
 
 interface AVDailyResponse {
-  "Time Series (Daily)": Record<string, {
-    "1. open": string;
-    "2. high": string;
-    "3. low": string;
-    "4. close": string;
-    "5. volume": string;
-  }>;
+  "Time Series (Daily)": Record<
+    string,
+    {
+      "1. open": string;
+      "2. high": string;
+      "3. low": string;
+      "4. close": string;
+      "5. volume": string;
+    }
+  >;
   Note?: string;
   Information?: string;
   "Error Message"?: string;
@@ -71,7 +74,9 @@ export async function fetchDailyPrices(
   }
 
   const timeSeries = data["Time Series (Daily)"];
-  if (!timeSeries) { throw new Error("No price data returned"); }
+  if (!timeSeries) {
+    throw new Error("No price data returned");
+  }
 
   return Object.entries(timeSeries)
     .map(([date, bar]) => ({

@@ -12,6 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { ASSET_CLASS_LABELS, RISK_LEVEL_LABELS } from "@/lib/constants/algorithm";
 import { riskLevels } from "@/lib/validators/algorithm";
 import { assetClasses } from "@/lib/validators/trade";
 
@@ -19,13 +20,6 @@ interface GenerateFormProps {
   onSubmit: (values: Record<string, string>) => void;
   disabled: boolean;
 }
-
-const assetLabels: Record<string, string> = {
-  equity: "Stocks", option: "Options", future: "Futures", forex: "Forex", crypto: "Crypto",
-};
-const riskLabels: Record<string, string> = {
-  conservative: "Conservative", moderate: "Moderate", aggressive: "Aggressive",
-};
 
 export function GenerateForm({ onSubmit, disabled }: GenerateFormProps) {
   const [assetClass, setAssetClass] = useState("equity");
@@ -46,11 +40,13 @@ export function GenerateForm({ onSubmit, disabled }: GenerateFormProps) {
           <Label>Asset Class</Label>
           <Select value={assetClass} onValueChange={(v) => setAssetClass(v ?? "equity")}>
             <SelectTrigger className="w-full">
-              <SelectValue>{assetLabels[assetClass]}</SelectValue>
+              <SelectValue>{ASSET_CLASS_LABELS[assetClass]}</SelectValue>
             </SelectTrigger>
             <SelectContent>
               {assetClasses.map((ac) => (
-                <SelectItem key={ac} value={ac}>{assetLabels[ac]}</SelectItem>
+                <SelectItem key={ac} value={ac}>
+                  {ASSET_CLASS_LABELS[ac]}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -59,11 +55,13 @@ export function GenerateForm({ onSubmit, disabled }: GenerateFormProps) {
           <Label>Risk Level</Label>
           <Select value={riskLevel} onValueChange={(v) => setRiskLevel(v ?? "moderate")}>
             <SelectTrigger className="w-full">
-              <SelectValue>{riskLabels[riskLevel]}</SelectValue>
+              <SelectValue>{RISK_LEVEL_LABELS[riskLevel]}</SelectValue>
             </SelectTrigger>
             <SelectContent>
               {riskLevels.map((r) => (
-                <SelectItem key={r} value={r}>{riskLabels[r]}</SelectItem>
+                <SelectItem key={r} value={r}>
+                  {RISK_LEVEL_LABELS[r]}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -76,7 +74,12 @@ export function GenerateForm({ onSubmit, disabled }: GenerateFormProps) {
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="time_horizon">Time Horizon</Label>
-          <Input id="time_horizon" name="time_horizon" defaultValue="1d" placeholder="e.g. 1d, 4h, swing" />
+          <Input
+            id="time_horizon"
+            name="time_horizon"
+            defaultValue="1d"
+            placeholder="e.g. 1d, 4h, swing"
+          />
         </div>
       </div>
       <div className="space-y-1.5">

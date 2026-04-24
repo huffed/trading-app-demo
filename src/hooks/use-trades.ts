@@ -1,10 +1,6 @@
 "use client";
 
-import {
-  useQuery,
-  useMutation,
-  useQueryClient,
-} from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   createTrade,
   updateTrade,
@@ -17,11 +13,7 @@ import type { Trade, TradeFilters } from "@/types/trade";
 
 const TRADES_KEY = ["trades"];
 
-export function useTradesList(
-  filters: TradeFilters = {},
-  page = 1,
-  perPage = 50
-) {
+export function useTradesList(filters: TradeFilters = {}, page = 1, perPage = 50) {
   return useQuery({
     queryKey: [...TRADES_KEY, filters, page, perPage],
     queryFn: async () => {
@@ -33,14 +25,10 @@ export function useTradesList(
 
       if (filters.status) query = query.eq("status", filters.status);
       if (filters.side) query = query.eq("side", filters.side);
-      if (filters.asset_class)
-        {query = query.eq("asset_class", filters.asset_class);}
-      if (filters.symbol)
-        {query = query.ilike("symbol", `%${filters.symbol}%`);}
-      if (filters.strategy)
-        {query = query.ilike("strategy", `%${filters.strategy}%`);}
-      if (filters.date_from)
-        {query = query.gte("entry_date", filters.date_from);}
+      if (filters.asset_class) query = query.eq("asset_class", filters.asset_class);
+      if (filters.symbol) query = query.ilike("symbol", `%${filters.symbol}%`);
+      if (filters.strategy) query = query.ilike("strategy", `%${filters.strategy}%`);
+      if (filters.date_from) query = query.gte("entry_date", filters.date_from);
       if (filters.date_to) query = query.lte("entry_date", filters.date_to);
 
       const from = (page - 1) * perPage;
@@ -65,12 +53,9 @@ export function useTrade(id: string | null) {
     queryKey: [...TRADES_KEY, id],
     enabled: !!id,
     queryFn: async () => {
+      if (!id) throw new Error("Trade ID is required");
       const supabase = createClient();
-      const { data, error } = await supabase
-        .from("trades")
-        .select("*")
-        .eq("id", id!)
-        .single();
+      const { data, error } = await supabase.from("trades").select("*").eq("id", id).single();
       if (error) throw error;
       return data as Trade;
     },

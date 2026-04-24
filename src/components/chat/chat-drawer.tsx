@@ -64,7 +64,8 @@ function MessageList({
               Try: &quot;Create me a trading algorithm&quot;
             </Badge>
             <Badge variant="outline" className="text-xs">
-              Or: Upload a trade history CSV with the <Paperclip className="inline h-3 w-3" /> button
+              Or: Upload a trade history CSV with the <Paperclip className="inline h-3 w-3" />{" "}
+              button
             </Badge>
           </div>
         </div>
@@ -95,12 +96,21 @@ export function ChatDrawer({ open, onOpenChange, stats }: ChatDrawerProps) {
         <SheetHeader className="border-b border-border px-4 py-3 pr-12 flex flex-row items-center justify-between">
           <SheetTitle className="text-sm">AI Assistant</SheetTitle>
           {chat.messages.length > 0 && (
-            <Button variant="ghost" size="xs" onClick={chat.handleNewChat} disabled={chat.isStreaming}>
+            <Button
+              variant="ghost"
+              size="xs"
+              onClick={chat.handleNewChat}
+              disabled={chat.isStreaming}
+            >
               New Chat
             </Button>
           )}
         </SheetHeader>
-        <MessageList messages={chat.messages} isStreaming={chat.isStreaming} createdAlgoIds={chat.createdAlgoIds} />
+        <MessageList
+          messages={chat.messages}
+          isStreaming={chat.isStreaming}
+          createdAlgoIds={chat.createdAlgoIds}
+        />
         <ChatInput
           onSend={chat.handleSend}
           disabled={chat.isStreaming}

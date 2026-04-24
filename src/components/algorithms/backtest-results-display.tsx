@@ -13,7 +13,15 @@ interface BacktestResultsDisplayProps {
   symbol?: string;
 }
 
-function StatItem({ label, value, colorValue }: { label: string; value: string; colorValue?: number }) {
+function StatItem({
+  label,
+  value,
+  colorValue,
+}: {
+  label: string;
+  value: string;
+  colorValue?: number;
+}) {
   return (
     <div className="space-y-0.5">
       <p className="text-xs text-muted-foreground">{label}</p>
@@ -32,10 +40,10 @@ function NoTradesExplanation() {
         <span className="text-sm font-medium">No trades triggered</span>
       </div>
       <p className="text-xs text-muted-foreground leading-relaxed">
-        The algorithm&apos;s entry conditions were never met simultaneously during this period.
-        This happens when conditions are too strict (e.g., RSI below 30 AND EMA crossover AND
-        Bollinger touch all at once). Try a different symbol, a longer period, or regenerate
-        the algorithm with fewer entry conditions.
+        The algorithm&apos;s entry conditions were never met simultaneously during this period. This
+        happens when conditions are too strict (e.g., RSI below 30 AND EMA crossover AND Bollinger
+        touch all at once). Try a different symbol, a longer period, or regenerate the algorithm
+        with fewer entry conditions.
       </p>
     </div>
   );
@@ -70,10 +78,15 @@ export function BacktestResultsDisplay({ results, symbol }: BacktestResultsDispl
               <span className="text-sm font-medium">Open Position</span>
             </div>
             <p className="text-xs text-muted-foreground">
-              Entered {results.open_position.entry_date} at ${results.open_position.entry_price.toFixed(2)} — now ${results.open_position.current_price.toFixed(2)}
+              Entered {results.open_position.entry_date} at $
+              {results.open_position.entry_price.toFixed(2)} — now $
+              {results.open_position.current_price.toFixed(2)}
             </p>
-            <p className={`text-sm font-medium ${pnlColorClass(results.open_position.unrealized_pnl)}`}>
-              Unrealized: ${results.open_position.unrealized_pnl.toFixed(2)} ({results.open_position.unrealized_pnl_pct.toFixed(1)}%)
+            <p
+              className={`text-sm font-medium ${pnlColorClass(results.open_position.unrealized_pnl)}`}
+            >
+              Unrealized: ${results.open_position.unrealized_pnl.toFixed(2)} (
+              {results.open_position.unrealized_pnl_pct.toFixed(1)}%)
             </p>
           </div>
         )}

@@ -14,14 +14,20 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { createClient } from "@/lib/supabase/client";
 
-function MenuItems({ email, onProfile, onSignOut }: { email: string | null; onProfile: () => void; onSignOut: () => void }) {
+function MenuItems({
+  email,
+  onProfile,
+  onSignOut,
+}: {
+  email: string | null;
+  onProfile: () => void;
+  onSignOut: () => void;
+}) {
   return (
     <DropdownMenuContent align="end" className="w-56">
       {email && (
         <>
-          <div className="px-2 py-1.5 text-xs text-muted-foreground truncate">
-            {email}
-          </div>
+          <div className="px-2 py-1.5 text-xs text-muted-foreground truncate">{email}</div>
           <DropdownMenuSeparator />
         </>
       )}
@@ -61,9 +67,7 @@ export function UserMenu() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
-        render={
-          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" />
-        }
+        render={<Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" />}
       >
         <Avatar className="h-8 w-8">
           <AvatarFallback className="text-xs">

@@ -3,7 +3,15 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, LayoutDashboard, ArrowLeftRight, BookOpen, Bot, BarChart3, Settings } from "lucide-react";
+import {
+  Menu,
+  LayoutDashboard,
+  ArrowLeftRight,
+  BookOpen,
+  Bot,
+  BarChart3,
+  Settings,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
@@ -23,11 +31,7 @@ export function MobileNav() {
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
-      <SheetTrigger
-        render={
-          <Button variant="ghost" size="icon" className="h-8 w-8 md:hidden" />
-        }
-      >
+      <SheetTrigger render={<Button variant="ghost" size="icon" className="h-8 w-8 md:hidden" />}>
         <Menu className="h-4 w-4" />
         <span className="sr-only">Menu</span>
       </SheetTrigger>

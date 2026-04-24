@@ -129,9 +129,7 @@ ${hasHistory ? TRADE_HISTORY_INSTRUCTIONS : ""}`;
   const sections: string[] = [base];
 
   if (!stats && !hasHistory) {
-    sections.push(
-      "\nThe user hasn't recorded any trades yet. Encourage them to get started."
-    );
+    sections.push("\nThe user hasn't recorded any trades yet. Encourage them to get started.");
   }
 
   if (stats) {
@@ -144,9 +142,7 @@ ${hasHistory ? TRADE_HISTORY_INSTRUCTIONS : ""}`;
       `- Closed Trades: ${stats.closedTrades}`,
     ];
     if (stats.recentEmotions && stats.recentEmotions.length > 0) {
-      statsContext.push(
-        `- Recent Journal Emotions: ${stats.recentEmotions.join(", ")}`
-      );
+      statsContext.push(`- Recent Journal Emotions: ${stats.recentEmotions.join(", ")}`);
     }
     sections.push(statsContext.join("\n"));
   }

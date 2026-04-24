@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { ENTRY_TYPE_SHORT_LABELS } from "@/lib/constants/journal";
 import type { JournalEntry } from "@/types/journal";
 import { getEmotionDisplay } from "./emotion-picker";
 import { StarRating } from "./star-rating";
@@ -12,18 +13,8 @@ interface JournalCardProps {
   entry: JournalEntry;
 }
 
-const entryTypeLabels: Record<string, string> = {
-  "pre-market": "Pre-Market",
-  reflection: "Reflection",
-  review: "Review",
-  lesson: "Lesson",
-  "strategy-idea": "Strategy",
-};
-
 function timeAgo(date: string): string {
-  const seconds = Math.floor(
-    (Date.now() - new Date(date).getTime()) / 1000
-  );
+  const seconds = Math.floor((Date.now() - new Date(date).getTime()) / 1000);
   if (seconds < 60) return "just now";
   const minutes = Math.floor(seconds / 60);
   if (minutes < 60) return `${minutes}m ago`;
@@ -36,10 +27,7 @@ function timeAgo(date: string): string {
 
 export function JournalCard({ entry }: JournalCardProps) {
   const emotion = getEmotionDisplay(entry.emotion);
-  const preview =
-    entry.content.length > 150
-      ? entry.content.slice(0, 150) + "..."
-      : entry.content;
+  const preview = entry.content.length > 150 ? entry.content.slice(0, 150) + "..." : entry.content;
 
   return (
     <Link href={`/journal/${entry.id}`}>
@@ -47,9 +35,7 @@ export function JournalCard({ entry }: JournalCardProps) {
         <CardContent className="p-4 space-y-3">
           {/* Header */}
           <div className="flex items-start justify-between gap-2">
-            <h3 className="font-medium text-sm leading-tight line-clamp-2">
-              {entry.title}
-            </h3>
+            <h3 className="font-medium text-sm leading-tight line-clamp-2">{entry.title}</h3>
             <span className="shrink-0 text-xs text-muted-foreground">
               {timeAgo(entry.created_at)}
             </span>
@@ -58,7 +44,7 @@ export function JournalCard({ entry }: JournalCardProps) {
           {/* Badges */}
           <div className="flex flex-wrap items-center gap-1.5">
             <Badge variant="outline" className="text-xs">
-              {entryTypeLabels[entry.entry_type] ?? entry.entry_type}
+              {ENTRY_TYPE_SHORT_LABELS[entry.entry_type] ?? entry.entry_type}
             </Badge>
             <Badge variant="secondary" className="text-xs">
               {emotion.emoji} {emotion.label}
@@ -72,11 +58,7 @@ export function JournalCard({ entry }: JournalCardProps) {
           </div>
 
           {/* Content preview */}
-          {preview && (
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              {preview}
-            </p>
-          )}
+          {preview && <p className="text-xs text-muted-foreground leading-relaxed">{preview}</p>}
 
           {/* Footer */}
           <div className="flex items-center justify-between">

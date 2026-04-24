@@ -10,9 +10,7 @@ export async function getCachedPrices(
   outputSize: string
 ): Promise<PriceBar[] | null> {
   const supabase = await createClient();
-  const cutoff = new Date(
-    Date.now() - CACHE_MAX_AGE_HOURS * 60 * 60 * 1000
-  ).toISOString();
+  const cutoff = new Date(Date.now() - CACHE_MAX_AGE_HOURS * 60 * 60 * 1000).toISOString();
 
   const { data } = await supabase
     .from("price_cache")

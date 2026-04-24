@@ -15,18 +15,16 @@ export default function AnalyticsPage() {
         <Badge variant="secondary">Coming soon</Badge>
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
-        {["Equity Curve", "Drawdown", "Win/Loss Distribution", "Trade Duration"].map(
-          (title) => (
-            <Card key={title}>
-              <CardHeader>
-                <CardTitle className="text-sm font-medium">{title}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Skeleton className="h-40 w-full" />
-              </CardContent>
-            </Card>
-          )
-        )}
+        {["Equity Curve", "Drawdown", "Win/Loss Distribution", "Trade Duration"].map((title) => (
+          <Card key={title}>
+            <CardHeader>
+              <CardTitle className="text-sm font-medium">{title}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Skeleton className="h-40 w-full" />
+            </CardContent>
+          </Card>
+        ))}
       </div>
     </div>
   );

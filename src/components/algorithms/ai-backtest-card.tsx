@@ -39,9 +39,7 @@ export function AiBacktestCard({ analysis, error, onRunBacktest, isPending }: Ai
         {!isPending && analysis && (
           <MarkdownText text={analysis} className="text-sm leading-relaxed space-y-1" />
         )}
-        {!isPending && error && (
-          <p className="text-sm text-destructive">{error}</p>
-        )}
+        {!isPending && error && <p className="text-sm text-destructive">{error}</p>}
         {!isPending && !analysis && !error && (
           <p className="text-sm text-muted-foreground">
             Run an AI analysis to evaluate this algorithm against your trading history.

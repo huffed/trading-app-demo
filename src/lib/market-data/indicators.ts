@@ -35,14 +35,19 @@ export function rsi(closes: number[], period = 14): (number | null)[] {
 
   for (let i = 1; i <= period; i++) {
     const change = closes[i] - closes[i - 1];
-    if (change > 0) { avgGain += change; }
-    else { avgLoss += Math.abs(change); }
+    if (change > 0) {
+      avgGain += change;
+    } else {
+      avgLoss += Math.abs(change);
+    }
   }
 
   avgGain /= period;
   avgLoss /= period;
 
-  for (let i = 0; i < period; i++) { result.push(null); }
+  for (let i = 0; i < period; i++) {
+    result.push(null);
+  }
   result.push(avgLoss === 0 ? 100 : 100 - 100 / (1 + avgGain / avgLoss));
 
   for (let i = period + 1; i < closes.length; i++) {

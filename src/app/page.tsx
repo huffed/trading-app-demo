@@ -64,9 +64,8 @@ export default function LandingPage() {
             <span className="text-primary">powered by AI</span>
           </h1>
           <p className="text-lg text-muted-foreground">
-            AI-generated algorithms, intelligent trade journaling, and
-            multi-broker integration. Everything you need to trade
-            profitably.
+            AI-generated algorithms, intelligent trade journaling, and multi-broker integration.
+            Everything you need to trade profitably.
           </p>
           <div className="flex items-center justify-center gap-3">
             <Button size="lg" render={<Link href="/signup" />}>

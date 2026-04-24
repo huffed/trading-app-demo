@@ -16,7 +16,6 @@ const COLORS = [
   "var(--color-chart-5)",
 ];
 
-
 function computeAllocation(trades: Trade[]) {
   const counts: Record<string, number> = {};
   for (const t of trades) {

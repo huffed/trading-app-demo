@@ -39,25 +39,14 @@ export function PreviewTable({ parsedRows }: { parsedRows: ParsedRow[] }) {
           </TableHeader>
           <TableBody>
             {parsedRows.slice(0, 100).map((row) => (
-              <TableRow
-                key={row.rowIndex}
-                className={row.error ? "bg-destructive/5" : undefined}
-              >
-                <TableCell className="text-muted-foreground text-xs">
-                  {row.rowIndex}
-                </TableCell>
+              <TableRow key={row.rowIndex} className={row.error ? "bg-destructive/5" : undefined}>
+                <TableCell className="text-muted-foreground text-xs">{row.rowIndex}</TableCell>
                 {row.parsed ? (
                   <>
-                    <TableCell className="font-medium">
-                      {row.parsed.symbol}
-                    </TableCell>
+                    <TableCell className="font-medium">{row.parsed.symbol}</TableCell>
                     <TableCell>{row.parsed.side}</TableCell>
-                    <TableCell className="text-right">
-                      {row.parsed.quantity}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {row.parsed.entry_price}
-                    </TableCell>
+                    <TableCell className="text-right">{row.parsed.quantity}</TableCell>
+                    <TableCell className="text-right">{row.parsed.entry_price}</TableCell>
                     <TableCell className="text-right">
                       {row.parsed.exit_price || "\u2014"}
                     </TableCell>

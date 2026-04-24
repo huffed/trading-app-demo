@@ -4,7 +4,13 @@ import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { STATUS_LABELS } from "@/lib/constants/algorithm";
 import type { Algorithm, AlgorithmRules, AlgorithmStatus } from "@/types/algorithm";
 import { RulesEditor } from "./rules-editor";
@@ -13,15 +19,30 @@ const STATUS_OPTIONS: AlgorithmStatus[] = ["draft", "active", "paused", "archive
 
 interface AlgorithmEditViewProps {
   algorithm: Algorithm;
-  onSave: (updates: { name: string; description: string; status: AlgorithmStatus; rules: AlgorithmRules }) => void;
+  onSave: (updates: {
+    name: string;
+    description: string;
+    status: AlgorithmStatus;
+    rules: AlgorithmRules;
+  }) => void;
   onCancel: () => void;
   isSaving: boolean;
 }
 
-function MetadataEditor({ name, setName, description, setDescription, status, setStatus }: {
-  name: string; setName: (v: string) => void;
-  description: string; setDescription: (v: string) => void;
-  status: AlgorithmStatus; setStatus: (v: AlgorithmStatus) => void;
+function MetadataEditor({
+  name,
+  setName,
+  description,
+  setDescription,
+  status,
+  setStatus,
+}: {
+  name: string;
+  setName: (v: string) => void;
+  description: string;
+  setDescription: (v: string) => void;
+  status: AlgorithmStatus;
+  setStatus: (v: AlgorithmStatus) => void;
 }) {
   return (
     <Card>
@@ -45,7 +66,11 @@ function MetadataEditor({ name, setName, description, setDescription, status, se
               <SelectValue>{STATUS_LABELS[status] ?? status}</SelectValue>
             </SelectTrigger>
             <SelectContent>
-              {STATUS_OPTIONS.map((s) => <SelectItem key={s} value={s}>{STATUS_LABELS[s] ?? s}</SelectItem>)}
+              {STATUS_OPTIONS.map((s) => (
+                <SelectItem key={s} value={s}>
+                  {STATUS_LABELS[s] ?? s}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
@@ -54,7 +79,12 @@ function MetadataEditor({ name, setName, description, setDescription, status, se
   );
 }
 
-export function AlgorithmEditView({ algorithm, onSave, onCancel, isSaving }: AlgorithmEditViewProps) {
+export function AlgorithmEditView({
+  algorithm,
+  onSave,
+  onCancel,
+  isSaving,
+}: AlgorithmEditViewProps) {
   const [name, setName] = useState(algorithm.name);
   const [description, setDescription] = useState(algorithm.description);
   const [status, setStatus] = useState<AlgorithmStatus>(algorithm.status);
@@ -66,9 +96,12 @@ export function AlgorithmEditView({ algorithm, onSave, onCancel, isSaving }: Alg
   return (
     <div className="space-y-4">
       <MetadataEditor
-        name={name} setName={setName}
-        description={description} setDescription={setDescription}
-        status={status} setStatus={setStatus}
+        name={name}
+        setName={setName}
+        description={description}
+        setDescription={setDescription}
+        status={status}
+        setStatus={setStatus}
       />
       <RulesEditor
         rules={algorithm.rules}

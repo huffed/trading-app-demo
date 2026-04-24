@@ -132,17 +132,22 @@ src/
 │   │   └── types.ts            # PriceBar, BacktestTrade, BacktestMetrics
 │   ├── signals/
 │   │   └── evaluate-live.ts    # LLM-powered live signal evaluation orchestrator
+│   ├── constants/
+│   │   ├── algorithm.ts        # Label maps: asset class, risk, status, operators
+│   │   ├── journal.ts          # Label maps: entry type, emotion
+│   │   └── prop-firm.ts        # FTMO, Topstep, FundedNext, The5ers presets
 │   ├── utils/
 │   │   ├── parse-trade-csv.ts  # Trading 212 CSV parser → trade analysis text
 │   │   └── pnl.ts              # P&L formatting helpers
 │   ├── utils.ts                # cn() - clsx + tailwind-merge
-│   └── validators/             # Zod schemas (algorithm, trade)
+│   └── validators/             # Zod schemas (algorithm, trade, journal)
 ├── hooks/
 │   ├── use-algorithms.ts       # CRUD + backtest hooks for algorithms
-│   ├── use-chat.ts             # Chat state, streaming, CSV upload, algorithm creation
+│   ├── use-chat.ts             # Chat state, streaming, CSV upload, algorithm creation/editing
 │   ├── use-live-signal.ts      # Live signal evaluation mutation
 │   ├── use-trades.ts           # Trade CRUD hooks
-│   ├── use-journal.ts          # Journal CRUD hooks
+│   ├── use-journal.ts          # Journal CRUD + trade linking hooks
+│   ├── use-watchlist.ts        # Watchlist CRUD per algorithm
 │   └── use-dashboard-stats.ts  # Dashboard statistics
 ├── stores/                     # Zustand stores (ui-store.ts = sidebar state)
 ├── providers/                  # React context providers (theme, query)
@@ -256,8 +261,62 @@ Current tables:
 - `journal_entries` — trade reflections with emotion tracking and AI analysis
 - `algorithms` — AI-generated trading algorithms with rules (JSONB), backtest results, status. Unique: (user_id, name).
 - `sentiment_cache` — cached NEWS_SENTIMENT API responses per ticker/topics, builds historical data. Unique: (user_id, ticker, fetched_at).
+- `algorithm_watchlist` — tickers linked to algorithms with backtest metrics. `added_by`: "user" | "ai" | "csv".
+- `price_cache` — cached OHLCV bars per ticker/output_size, avoids redundant API calls.
 
 All tables use Row Level Security (RLS). Users can only access their own data.
+
+## Architecture Decisions & Gotchas
+
+Things that are easy to get wrong or forget. Read this before modifying any of these systems.
+
+### AI Chat → Algorithm Creation Flow
+The chat hook (`use-chat.ts`) parses special markers from LLM responses:
+- `[CREATE_ALGORITHM]{json}` → calls `generateAlgorithm()` server action → seeds watchlist → runs discovery + backtest
+- `[EDIT_ALGORITHM]{json}` → calls `updateAlgorithm()` server action
+
+The LLM is instructed to emit these markers in `lib/ai/prompts/chat.ts`. The marker JSON is stripped from the displayed message via `stripMarker()`. If you change the marker format, update both the prompt and the parser.
+
+### Condition value=0 Semantics
+When a technical condition has `value: 0` and is a price-based indicator (SMA/EMA/BB), the backtest engine compares **indicator vs price** (not indicator vs 0). This is how the LLM generates crossover signals: "SMA20 crosses_above 0" means "price crosses above SMA20".
+
+**Special case:** EMA12 with value=0 compares against EMA26 (standard MACD crossover), NOT against price. This is hardcoded in `backtest-engine.ts:evalPriceComparison()`.
+
+### clampRules() Post-Processing
+The LLM's generated rules go through `clampRules()` in `algorithms/actions.ts` before saving. This function:
+- Limits entry conditions to 1 tech + 1 sentiment for swing/long strategies (prevents zero-trade backtests)
+- Relaxes RSI < 30 to RSI < 45 for long-term strategies
+- Converts decimal percentages (0.05 → 5) for stop loss / take profit / position sizing
+
+This exists because the LLM regularly ignores prompt instructions. If you change condition limits, also update the prompt to match.
+
+### Price Provider Fallback Chain
+`lib/market-data/prices.ts` fetches prices via: Twelve Data → Yahoo Finance → Alpha Vantage. Each failure is logged and falls through. The final provider throws on failure. In-memory cache has 1h TTL. Persistent cache is in Supabase `price_cache` table, managed by callers.
+
+### Sentinel Conditions: Legacy Normalization
+Old algorithms stored in DB may have conditions without a `type` field. These are normalized to `"technical"` in TWO places:
+1. Zod validator (`lib/validators/algorithm.ts`) — at parse time via `z.preprocess`
+2. Backtest engine (`lib/market-data/backtest-engine.ts`) — as a safety net for unvalidated DB reads
+
+Both must stay in sync. The backtest engine's version is intentionally redundant — it catches data that bypasses validation.
+
+### Display Labels — Single Source of Truth
+**Never define label maps inline in components.** Import from:
+- `lib/constants/algorithm.ts` — `ASSET_CLASS_LABELS`, `RISK_LEVEL_LABELS`, `STATUS_LABELS`, `STATUS_COLORS`, operator labels
+- `lib/constants/journal.ts` — `ENTRY_TYPE_LABELS`, `ENTRY_TYPE_SHORT_LABELS`, `EMOTION_LABELS`
+- `lib/constants/prop-firm.ts` — prop firm preset configurations
+
+### Server Actions Return `ActionResult<T>`
+All server actions in `app/(dashboard)/*/actions.ts` return `{ success: true, data: T } | { success: false, error: string }`. When adding new actions, always type the generic parameter (e.g., `ActionResult<Algorithm>`), never leave it as `ActionResult` (defaults to `unknown`).
+
+### API Route Validation
+Both API routes (`api/chat/route.ts`, `api/algorithms/generate/route.ts`) validate request bodies with Zod before processing. When adding new API routes, always:
+1. Check auth via `supabase.auth.getUser()`
+2. Validate the request body with a Zod schema
+3. Return typed error responses (not generic 503s)
+
+### Auth Redirect Whitelist
+The OAuth callback (`app/(auth)/callback/route.ts`) validates the `next` parameter against an allowed paths whitelist. When adding new protected routes, add them to the `ALLOWED_REDIRECTS` array and the `protectedPrefixes` array in `lib/supabase/middleware.ts`.
 
 ## Adding New Features
 

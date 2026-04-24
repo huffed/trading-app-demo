@@ -9,26 +9,48 @@ import {
   algorithmRulesSchema,
   type AlgorithmFormValues,
 } from "@/lib/validators/algorithm";
-import { isTechnicalCondition, type Algorithm, type AlgorithmRules, type AlgorithmStatus } from "@/types/algorithm";
+import {
+  isTechnicalCondition,
+  type Algorithm,
+  type AlgorithmRules,
+  type AlgorithmStatus,
+} from "@/types/algorithm";
 import type { Trade } from "@/types/trade";
 
-type ActionResult<T = unknown> =
-  | { success: true; data: T }
-  | { success: false; error: string };
+type ActionResult<T = unknown> = { success: true; data: T } | { success: false; error: string };
 
 export async function getAuthedUser() {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) { throw new Error("Not authenticated"); }
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    throw new Error("Not authenticated");
+  }
   return { supabase, user };
 }
 
 const LONG_HORIZONS = new Set(["swing", "long term", "long_term", "weekly", "monthly"]);
 
+/**
+ * Post-process LLM-generated rules to fix common AI output problems:
+ *
+ * 1. **Condition count clamping:** The LLM often generates 3-4 technical entry conditions
+ *    that must ALL fire simultaneously (AND logic). With daily bars, this almost never
+ *    triggers — resulting in zero trades. We limit to 1 technical + 1 sentiment for long
+ *    strategies, 2 total for short. This is a pragmatic trade-off: fewer conditions =
+ *    more trades = more useful backtests.
+ *
+ * 2. **RSI relaxation:** For long-term strategies, the LLM tends to output RSI < 30
+ *    (textbook oversold), which rarely triggers on quality stocks. We relax to < 45.
+ *
+ * 3. **Decimal percentage fix:** The LLM sometimes outputs 0.05 meaning 5% instead of
+ *    5 meaning 5%. Values < 1 are assumed to be decimal form and converted.
+ */
 function clampRules(rules: AlgorithmRules, timeHorizon: string): AlgorithmRules {
-  const isLong = LONG_HORIZONS.has(timeHorizon.toLowerCase()) || timeHorizon.toLowerCase().includes("long");
+  const isLong =
+    LONG_HORIZONS.has(timeHorizon.toLowerCase()) || timeHorizon.toLowerCase().includes("long");
   const clamped = structuredClone(rules);
-  // Limit technical entry conditions to 1 for swing/long (multiple technicals that all must fire = zero trades)
   if (isLong) {
     const tech = clamped.entry_conditions.filter(isTechnicalCondition);
     const sentiment = clamped.entry_conditions.filter((c) => !isTechnicalCondition(c));
@@ -42,15 +64,26 @@ function clampRules(rules: AlgorithmRules, timeHorizon: string): AlgorithmRules 
   // Relax overly strict RSI thresholds for long-term strategies
   if (isLong) {
     for (const c of clamped.entry_conditions) {
-      if (isTechnicalCondition(c) && c.indicator.toLowerCase() === "rsi" && c.operator === "less_than" && c.value < 40) {
+      if (
+        isTechnicalCondition(c) &&
+        c.indicator.toLowerCase() === "rsi" &&
+        c.operator === "less_than" &&
+        c.value < 40
+      ) {
         c.value = 45;
       }
     }
   }
   // Fix decimal-form percentages (AI sometimes outputs 0.05 meaning 5%, not 5 meaning 5%)
-  if (clamped.stop_loss && clamped.stop_loss.value < 1) { clamped.stop_loss.value = Math.round(clamped.stop_loss.value * 100); }
-  if (clamped.take_profit && clamped.take_profit.value < 1) { clamped.take_profit.value = Math.round(clamped.take_profit.value * 100); }
-  if (clamped.position_sizing && clamped.position_sizing.value < 1) { clamped.position_sizing.value = Math.round(clamped.position_sizing.value * 100); }
+  if (clamped.stop_loss && clamped.stop_loss.value < 1) {
+    clamped.stop_loss.value = Math.round(clamped.stop_loss.value * 100);
+  }
+  if (clamped.take_profit && clamped.take_profit.value < 1) {
+    clamped.take_profit.value = Math.round(clamped.take_profit.value * 100);
+  }
+  if (clamped.position_sizing && clamped.position_sizing.value < 1) {
+    clamped.position_sizing.value = Math.round(clamped.position_sizing.value * 100);
+  }
   return clamped;
 }
 
@@ -73,7 +106,11 @@ async function generateRules(
 
   const text = res.choices[0]?.message?.content ?? "{}";
   let parsed: unknown;
-  try { parsed = JSON.parse(text); } catch { throw new Error("AI returned invalid JSON for rules"); }
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    throw new Error("AI returned invalid JSON for rules");
+  }
   const validated = algorithmRulesSchema.safeParse(parsed);
   if (!validated.success) {
     throw new Error("AI generated invalid rules structure");
@@ -99,25 +136,29 @@ async function generateDescription(
 
   const text = res.choices[0]?.message?.content ?? "";
   const firstLine = text.split("\n").find((l) => l.trim().length > 0) ?? "";
-  const name = firstLine.replace(/^[#*\s]+/, "").replace(/[*#]+$/, "").trim() || "Untitled Strategy";
+  const name =
+    firstLine
+      .replace(/^[#*\s]+/, "")
+      .replace(/[*#]+$/, "")
+      .trim() || "Untitled Strategy";
   return { name, description: text };
 }
 
 export async function generateAlgorithm(
   values: AlgorithmFormValues
-): Promise<ActionResult> {
+): Promise<ActionResult<Algorithm>> {
   const parsed = algorithmFormSchema.safeParse(values);
   if (!parsed.success) {
     return { success: false, error: parsed.error.issues[0].message };
   }
 
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   if (!user) return { success: false, error: "Not authenticated" };
 
-  const { count } = await supabase
-    .from("trades")
-    .select("*", { count: "exact", head: true });
+  const { count } = await supabase.from("trades").select("*", { count: "exact", head: true });
 
   try {
     const [rules, { name, description }] = await Promise.all([
@@ -153,10 +194,14 @@ export async function generateAlgorithm(
 export async function updateAlgorithm(
   id: string,
   updates: { name?: string; description?: string; status?: AlgorithmStatus; rules?: AlgorithmRules }
-): Promise<ActionResult> {
+): Promise<ActionResult<Algorithm>> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) { return { success: false, error: "Not authenticated" }; }
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return { success: false, error: "Not authenticated" };
+  }
 
   const { data, error } = await supabase
     .from("algorithms")
@@ -166,20 +211,20 @@ export async function updateAlgorithm(
     .select()
     .single();
 
-  if (error) { return { success: false, error: error.message }; }
+  if (error) {
+    return { success: false, error: error.message };
+  }
   return { success: true, data };
 }
 
 export async function deleteAlgorithm(id: string): Promise<ActionResult> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   if (!user) return { success: false, error: "Not authenticated" };
 
-  const { error } = await supabase
-    .from("algorithms")
-    .delete()
-    .eq("id", id)
-    .eq("user_id", user.id);
+  const { error } = await supabase.from("algorithms").delete().eq("id", id).eq("user_id", user.id);
 
   if (error) return { success: false, error: error.message };
   return { success: true, data: null };
@@ -190,7 +235,9 @@ export async function updateAlgorithmStatus(
   status: AlgorithmStatus
 ): Promise<ActionResult> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   if (!user) return { success: false, error: "Not authenticated" };
 
   const { data, error } = await supabase
@@ -207,7 +254,9 @@ export async function updateAlgorithmStatus(
 
 export async function runAiBacktest(algorithmId: string): Promise<ActionResult> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   if (!user) return { success: false, error: "Not authenticated" };
 
   const { data: algo, error: algoErr } = await supabase
@@ -239,14 +288,14 @@ export async function runAiBacktest(algorithmId: string): Promise<ActionResult> 
     const analysisText = res.choices[0]?.message?.content;
     if (!analysisText) return { success: false, error: "No response from AI" };
 
-    await supabase
-      .from("algorithms")
-      .update({ ai_analysis: analysisText })
-      .eq("id", algorithmId);
+    await supabase.from("algorithms").update({ ai_analysis: analysisText }).eq("id", algorithmId);
 
     return { success: true, data: { ai_analysis: analysisText } };
   } catch {
-    return { success: false, error: "AI is temporarily unavailable. Please try again in a moment." };
+    return {
+      success: false,
+      error: "AI is temporarily unavailable. Please try again in a moment.",
+    };
   }
 }
 
@@ -260,7 +309,9 @@ export async function runHistoricalBacktest(
   const { runBacktest } = await import("@/lib/market-data/backtest-engine");
 
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   if (!user) return { success: false, error: "Not authenticated" };
 
   const { data: algo, error: algoErr } = await supabase
@@ -280,7 +331,9 @@ export async function runHistoricalBacktest(
     let prices = await getCachedPrices(symbol, outputSize);
     if (!prices) {
       prices = await fetchDailyPrices(symbol, outputSize);
-      savePricesToCache(symbol, outputSize, prices).catch(() => {});
+      savePricesToCache(symbol, outputSize, prices).catch((e) =>
+        console.warn(`[price-cache] Failed to cache ${symbol}:`, e instanceof Error ? e.message : e)
+      );
     }
     if (prices.length < 30) {
       return { success: false, error: "Not enough price data for backtesting" };
@@ -290,10 +343,7 @@ export async function runHistoricalBacktest(
 
     // Strip prices from DB save (too large for JSONB), keep trades for display
     const { prices: _prices, ...storable } = results;
-    await supabase
-      .from("algorithms")
-      .update({ backtest_results: storable })
-      .eq("id", algorithmId);
+    await supabase.from("algorithms").update({ backtest_results: storable }).eq("id", algorithmId);
 
     return { success: true, data: results };
   } catch (err) {
@@ -302,15 +352,16 @@ export async function runHistoricalBacktest(
   }
 }
 
-export async function runLiveSignal(
-  algorithmId: string,
-  ticker: string
-): Promise<ActionResult> {
+export async function runLiveSignal(algorithmId: string, ticker: string): Promise<ActionResult> {
   const { evaluateLiveSignal } = await import("@/lib/signals/evaluate-live");
 
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) { return { success: false, error: "Not authenticated" }; }
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return { success: false, error: "Not authenticated" };
+  }
 
   const { data: algo, error: algoErr } = await supabase
     .from("algorithms")
@@ -318,7 +369,9 @@ export async function runLiveSignal(
     .eq("id", algorithmId)
     .eq("user_id", user.id)
     .single();
-  if (algoErr || !algo) { return { success: false, error: "Algorithm not found" }; }
+  if (algoErr || !algo) {
+    return { success: false, error: "Algorithm not found" };
+  }
 
   try {
     const result = await evaluateLiveSignal(

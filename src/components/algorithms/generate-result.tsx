@@ -24,11 +24,7 @@ export function GenerateResult({ text, isStreaming }: GenerateResultProps) {
             Designing your algorithm...
           </div>
         )}
-        {text && (
-          <div className="whitespace-pre-wrap text-sm leading-relaxed">
-            {text}
-          </div>
-        )}
+        {text && <div className="whitespace-pre-wrap text-sm leading-relaxed">{text}</div>}
         {isStreaming && text && (
           <div className="flex items-center gap-1 text-xs text-muted-foreground">
             <Loader2 className="h-3 w-3 animate-spin" />

@@ -20,7 +20,9 @@ export async function getCachedSentiment(
     .limit(1);
 
   const { data } = await query;
-  if (!data || data.length === 0) { return null; }
+  if (!data || data.length === 0) {
+    return null;
+  }
 
   const row = data[0];
   return {
@@ -42,8 +44,12 @@ export async function saveSentimentToCache(
   topics?: string[]
 ): Promise<void> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) { return; }
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return;
+  }
 
   await supabase.from("sentiment_cache").upsert({
     user_id: user.id,

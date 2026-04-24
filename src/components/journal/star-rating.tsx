@@ -10,12 +10,7 @@ interface StarRatingProps {
   size?: "sm" | "default";
 }
 
-export function StarRating({
-  value,
-  onChange,
-  readOnly,
-  size = "default",
-}: StarRatingProps) {
+export function StarRating({ value, onChange, readOnly, size = "default" }: StarRatingProps) {
   const stars = [1, 2, 3, 4, 5];
   const iconSize = size === "sm" ? "h-3.5 w-3.5" : "h-4 w-4";
 
@@ -35,9 +30,7 @@ export function StarRating({
               filled ? "text-yellow-400" : "text-muted-foreground/30"
             )}
           >
-            <Star
-              className={cn(iconSize, filled && "fill-yellow-400")}
-            />
+            <Star className={cn(iconSize, filled && "fill-yellow-400")} />
           </button>
         );
       })}

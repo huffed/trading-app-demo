@@ -20,13 +20,26 @@ const EMOTION_CONFIG: Record<string, { label: string; color: string }> = {
   frustrated: { label: "Frustrated", color: "var(--color-chart-3)" },
 };
 
-function EmotionBar({ label, count, max, color }: { label: string; count: number; max: number; color: string }) {
+function EmotionBar({
+  label,
+  count,
+  max,
+  color,
+}: {
+  label: string;
+  count: number;
+  max: number;
+  color: string;
+}) {
   const width = max > 0 ? (count / max) * 100 : 0;
   return (
     <div className="flex items-center gap-2">
       <span className="text-xs text-muted-foreground w-20 shrink-0">{label}</span>
       <div className="flex-1 h-2 rounded-full bg-muted">
-        <div className="h-full rounded-full" style={{ width: `${width}%`, backgroundColor: color }} />
+        <div
+          className="h-full rounded-full"
+          style={{ width: `${width}%`, backgroundColor: color }}
+        />
       </div>
       <span className="text-xs text-muted-foreground w-6 text-right">{count}</span>
     </div>
@@ -60,12 +73,7 @@ export function EmotionWidget() {
           <ContextualTip tipId="emotion-trends" />
         </CardTitle>
         {entries.length > 0 && (
-          <Button
-            variant="ghost"
-            size="sm"
-            render={<Link href="/journal" />}
-            nativeButton={false}
-          >
+          <Button variant="ghost" size="sm" render={<Link href="/journal" />} nativeButton={false}>
             Journal
             <ArrowRight className="ml-1 h-3 w-3" />
           </Button>

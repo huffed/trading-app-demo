@@ -1,12 +1,6 @@
 import { z } from "zod";
 
-export const assetClasses = [
-  "equity",
-  "option",
-  "future",
-  "forex",
-  "crypto",
-] as const;
+export const assetClasses = ["equity", "option", "future", "forex", "crypto"] as const;
 
 export const tradeSides = ["long", "short"] as const;
 export const tradeStatuses = ["open", "closed"] as const;
@@ -21,16 +15,16 @@ export const tradeFormSchema = z
     asset_class: z.enum(assetClasses),
     side: z.enum(tradeSides),
     quantity: z.coerce.number().positive("Quantity must be positive"),
-    entry_price: z.coerce.number().min(0,"Entry price must be non-negative"),
+    entry_price: z.coerce.number().min(0, "Entry price must be non-negative"),
     exit_price: z.coerce
       .number()
-      .min(0,"Exit price must be non-negative")
+      .min(0, "Exit price must be non-negative")
       .optional()
       .or(z.literal("")),
     entry_date: z.string().min(1, "Entry date is required"),
     exit_date: z.string().optional().or(z.literal("")),
-    commission: z.coerce.number().min(0,).default(0),
-    fees: z.coerce.number().min(0,).default(0),
+    commission: z.coerce.number().min(0).default(0),
+    fees: z.coerce.number().min(0).default(0),
     strategy: z.string().max(100).optional().or(z.literal("")),
     tags: z.array(z.string()).default([]),
     notes: z.string().max(2000).optional().or(z.literal("")),
@@ -61,12 +55,12 @@ export const csvRowSchema = z.object({
   symbol: z.string().min(1),
   side: z.enum(tradeSides),
   quantity: z.coerce.number().positive(),
-  entry_price: z.coerce.number().min(0,),
-  exit_price: z.coerce.number().min(0,).optional(),
+  entry_price: z.coerce.number().min(0),
+  exit_price: z.coerce.number().min(0).optional(),
   entry_date: z.string().min(1),
   exit_date: z.string().optional(),
-  commission: z.coerce.number().min(0,).optional().default(0),
-  fees: z.coerce.number().min(0,).optional().default(0),
+  commission: z.coerce.number().min(0).optional().default(0),
+  fees: z.coerce.number().min(0).optional().default(0),
   strategy: z.string().optional(),
   notes: z.string().optional(),
   asset_class: z.enum(assetClasses).optional().default("equity"),
