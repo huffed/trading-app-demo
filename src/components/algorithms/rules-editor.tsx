@@ -8,7 +8,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SENTIMENT_OP_LABELS, TECHNICAL_OP_LABELS } from "@/lib/constants/algorithm";
-import { isTechnicalCondition, type AlgorithmRules, type EntryCondition, type ExitCondition } from "@/types/algorithm";
+import { PROP_FIRM_LABELS, PROP_FIRM_PRESETS, type PropFirmPreset } from "@/lib/constants/prop-firm";
+import { isTechnicalCondition, type AlgorithmRules, type EntryCondition, type ExitCondition, type PropFirmRules } from "@/types/algorithm";
 
 function ConditionRow({ condition, onRemove }: { condition: EntryCondition | ExitCondition; onRemove: () => void }) {
   if (isTechnicalCondition(condition)) {
@@ -44,6 +45,46 @@ function NumericField({ label, value, onChange, suffix }: { label: string; value
         <Input type="number" min={0} value={value} onChange={(e) => { const n = Number(e.target.value); if (!isNaN(n)) { onChange(n); } }} className="w-24" />
         {suffix && <span className="text-xs text-muted-foreground">{suffix}</span>}
       </div>
+    </div>
+  );
+}
+
+function PropFirmSection({ propFirm, onChange }: { propFirm?: PropFirmRules; onChange: (pf: PropFirmRules | undefined) => void }) {
+  const [preset, setPreset] = useState<PropFirmPreset>(propFirm ? "custom" : "custom");
+
+  function handlePreset(key: PropFirmPreset) {
+    setPreset(key);
+    if (key === "custom") { onChange(undefined); return; }
+    onChange({ ...PROP_FIRM_PRESETS[key] });
+  }
+
+  function updateField(field: keyof PropFirmRules, value: number) {
+    const base = propFirm ?? PROP_FIRM_PRESETS.ftmo;
+    onChange({ ...base, [field]: value });
+    setPreset("custom");
+  }
+
+  return (
+    <div className="space-y-2 border-t pt-3">
+      <h4 className="text-xs font-medium text-muted-foreground">Prop Firm Rules</h4>
+      <div className="flex flex-wrap gap-1">
+        {(Object.keys(PROP_FIRM_LABELS) as PropFirmPreset[]).map((key) => (
+          <Button key={key} size="xs" variant={(preset === key && propFirm) || (key === "custom" && !propFirm) ? "default" : "outline"}
+            onClick={() => handlePreset(key)}>{PROP_FIRM_LABELS[key]}</Button>
+        ))}
+        {propFirm && <Button size="xs" variant="ghost" onClick={() => { onChange(undefined); setPreset("custom"); }}>Remove</Button>}
+      </div>
+      {propFirm && (
+        <div className="grid gap-3 sm:grid-cols-2">
+          <NumericField label="Daily Loss Limit" value={propFirm.daily_loss_limit} onChange={(v) => updateField("daily_loss_limit", v)} suffix="%" />
+          <NumericField label="Max Drawdown" value={propFirm.max_drawdown} onChange={(v) => updateField("max_drawdown", v)} suffix="%" />
+          <NumericField label="Profit Target" value={propFirm.profit_target} onChange={(v) => updateField("profit_target", v)} suffix="%" />
+          <NumericField label="Max Consecutive Losses" value={propFirm.max_consecutive_losses} onChange={(v) => updateField("max_consecutive_losses", v)} />
+          <NumericField label="Consistency Rule" value={propFirm.consistency_rule} onChange={(v) => updateField("consistency_rule", v)} suffix="% max day" />
+          <NumericField label="Slippage" value={propFirm.slippage_bps} onChange={(v) => updateField("slippage_bps", v)} suffix="bps" />
+          <NumericField label="Commission" value={propFirm.commission_pct} onChange={(v) => updateField("commission_pct", v)} suffix="% per trade" />
+        </div>
+      )}
     </div>
   );
 }
@@ -96,6 +137,7 @@ export function RulesEditor({ rules, onSave, onCancel, isSaving }: RulesEditorPr
           <NumericField label="Position Size" value={draft.position_sizing?.value ?? 10} onChange={(v) => updateRisk("position_sizing", v)} suffix="% of capital" />
           <NumericField label="Max Positions" value={draft.max_positions ?? 3} onChange={(v) => setDraft((d) => ({ ...d, max_positions: v }))} />
         </div>
+        <PropFirmSection propFirm={draft.prop_firm} onChange={(pf) => setDraft((d) => ({ ...d, prop_firm: pf }))} />
         <div className="flex gap-2 justify-end">
           <Button variant="outline" size="sm" onClick={onCancel} disabled={isSaving}>Cancel</Button>
           <Button size="sm" onClick={() => onSave(draft)} disabled={isSaving}>
