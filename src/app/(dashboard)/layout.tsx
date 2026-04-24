@@ -3,6 +3,7 @@ import { ChatProvider } from "@/components/chat/chat-provider";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Topbar } from "@/components/layout/topbar";
 import { TourProvider } from "@/components/onboarding/tour-provider";
+import { WizardProvider } from "@/components/onboarding/wizard-provider";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -17,7 +18,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("onboarding_completed")
+    .select("onboarding_completed, trading_profile")
     .eq("id", user.id)
     .single();
 
@@ -29,6 +30,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         <main className="flex-1 overflow-y-auto p-6">{children}</main>
       </div>
       <TourProvider onboardingCompleted={profile?.onboarding_completed ?? false} />
+      <WizardProvider hasTradingProfile={profile?.trading_profile != null} />
       <ChatProvider />
     </div>
   );

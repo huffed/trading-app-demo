@@ -68,6 +68,15 @@ When trade history data is provided below, you have access to the user's actual 
    Present ALL proposed values in one message like: "Based on your history, I'd recommend: Stocks, Moderate risk, £X capital, Swing trading. Here's why... Want me to create this, or adjust anything?"
    The user should only need to say "yes" or tweak one value — not answer 5 separate questions.`;
 
+import type { TradingProfile } from "@/types/trading-profile";
+import {
+  GOAL_LABELS,
+  INTEREST_LABELS,
+  RISK_COMFORT_LABELS,
+  TIME_COMMITMENT_LABELS,
+  EXPERIENCE_LABELS,
+} from "@/lib/constants/onboarding";
+
 interface AlgorithmContext {
   id: string;
   name: string;
@@ -108,10 +117,12 @@ CRITICAL RULES:
 export function buildChatSystemPrompt(
   stats: UserStats | null,
   tradeHistory?: string | null,
-  algorithms?: AlgorithmContext[]
+  algorithms?: AlgorithmContext[],
+  tradingProfile?: TradingProfile | null
 ): string {
   const hasHistory = tradeHistory && tradeHistory.length > 0;
   const hasAlgorithms = algorithms && algorithms.length > 0;
+  const hasProfile = tradingProfile != null;
 
   const base = `You are a trading assistant built into QuantTrader. You help users learn about trading, understand their performance, and create or edit AI-powered trading algorithms.
 
@@ -161,6 +172,29 @@ ${hasHistory ? TRADE_HISTORY_INSTRUCTIONS : ""}`;
       ].join("\n");
     });
     sections.push(`\nUser's Existing Algorithms:\n${algoLines.join("\n")}`);
+  }
+
+  if (hasProfile) {
+    const a = tradingProfile.answers;
+    const d = tradingProfile.derived;
+    const interestNames = a.interests.map((i) => INTEREST_LABELS[i] ?? i).join(", ");
+    const isBeginner = a.experience_level === "total_beginner";
+    sections.push(
+      [
+        `\nUser's Trading Profile (from onboarding):`,
+        `- Goal: ${GOAL_LABELS[a.goal]}`,
+        `- Risk comfort: ${RISK_COMFORT_LABELS[a.risk_comfort]}`,
+        `- Capital: $${a.capital.toLocaleString()}`,
+        `- Interests: ${interestNames}`,
+        `- Time commitment: ${TIME_COMMITMENT_LABELS[a.time_commitment]}`,
+        `- Experience: ${EXPERIENCE_LABELS[a.experience_level]}`,
+        `- Derived: ${d.asset_class}, ${d.risk_level} risk, ${d.time_horizon}`,
+        "",
+        isBeginner
+          ? `IMPORTANT: This user is a complete beginner. Explain all concepts simply — don't use jargon like "RSI", "stop loss", or "position sizing" without explaining what they mean in plain language. When creating algorithms, use their derived preferences as defaults — don't re-ask for asset class, risk level, capital, or time horizon.`
+          : `When creating algorithms for this user, use their profile preferences as defaults — only ask for details they haven't specified.`,
+      ].join("\n")
+    );
   }
 
   return sections.join("\n");

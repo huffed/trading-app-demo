@@ -10,7 +10,7 @@ interface TourProviderProps {
 }
 
 export function TourProvider({ onboardingCompleted }: TourProviderProps) {
-  const { tourCompleted, setTourCompleted } = useOnboardingStore();
+  const { tourCompleted, setTourCompleted, setWizardPending } = useOnboardingStore();
   const [dismissed, setDismissed] = useState(false);
 
   const shouldShow = !onboardingCompleted && !tourCompleted && !dismissed;
@@ -20,6 +20,7 @@ export function TourProvider({ onboardingCompleted }: TourProviderProps) {
   async function handleComplete() {
     setDismissed(true);
     setTourCompleted();
+    setWizardPending();
     await completeOnboarding();
   }
 
