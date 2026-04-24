@@ -9,9 +9,10 @@ import type { BacktestMetrics } from "@/lib/market-data/types";
 import { pnlColorClass } from "@/lib/utils/pnl";
 import { BacktestResultsDisplay } from "./backtest-results-display";
 
-interface TickerInfo {
+export interface TickerInfo {
   ticker: string;
   name: string;
+  backtestMetrics?: BacktestMetrics | null;
 }
 
 function RankingRow({ ticker, name, metrics, error, isExpanded, onToggle }: {
@@ -73,7 +74,11 @@ function RankingTable({ results, errors, tickers }: {
 }
 
 export function BacktestRankingCard({ algorithmId, tickers }: { algorithmId: string; tickers: TickerInfo[] }) {
-  const [results, setResults] = useState<Record<string, BacktestMetrics>>({});
+  const initial: Record<string, BacktestMetrics> = {};
+  for (const t of tickers) {
+    if (t.backtestMetrics) initial[t.ticker] = t.backtestMetrics;
+  }
+  const [results, setResults] = useState<Record<string, BacktestMetrics>>(initial);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isRunning, setIsRunning] = useState(false);
   const [progress, setProgress] = useState(0);

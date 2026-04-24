@@ -45,6 +45,16 @@ export async function backtestTicker(
     }
 
     const results = runBacktest(rules, prices, algo.capital);
+
+    // Persist summary metrics on the watchlist row (strip prices to keep JSONB small)
+    const { prices: _p, ...storable } = results;
+    supabase
+      .from("algorithm_watchlist")
+      .update({ backtest_metrics: storable })
+      .eq("algorithm_id", algorithmId)
+      .eq("ticker", ticker.toUpperCase())
+      .then(() => {});
+
     return { success: true, data: results };
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Backtest failed";

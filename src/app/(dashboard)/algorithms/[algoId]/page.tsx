@@ -73,7 +73,10 @@ function ReadView({ algo, backtestError, aiBacktestError, localBacktestResults, 
   onRunAiBacktest: () => void; onRunBacktest: (symbol: string, period: string) => void; isAiPending: boolean; isBtPending: boolean;
 }) {
   const { data: watchlistItems = [] } = useWatchlist(algo.id);
-  const watchlistTickers = watchlistItems.map((w) => ({ ticker: w.ticker, name: w.name }));
+  const watchlistTickers = watchlistItems.map((w) => ({
+    ticker: w.ticker, name: w.name,
+    backtestMetrics: w.backtest_metrics as BacktestMetrics | null,
+  }));
   const [resultsVisible, setResultsVisible] = useState(true);
   const backtestResults = localBacktestResults ?? (algo.backtest_results as BacktestMetrics | null);
 

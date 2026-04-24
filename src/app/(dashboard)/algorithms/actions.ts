@@ -288,9 +288,11 @@ export async function runHistoricalBacktest(
 
     const results = runBacktest(rules, prices, algo.capital);
 
+    // Strip prices from DB save (too large for JSONB), keep trades for display
+    const { prices: _prices, ...storable } = results;
     await supabase
       .from("algorithms")
-      .update({ backtest_results: results })
+      .update({ backtest_results: storable })
       .eq("id", algorithmId);
 
     return { success: true, data: results };

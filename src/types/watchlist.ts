@@ -8,6 +8,7 @@ export interface WatchlistItem {
   name: string;
   added_by: WatchlistAddedBy;
   notes: string | null;
+  backtest_metrics: Record<string, unknown> | null;
   created_at: string;
   updated_at: string;
 }
