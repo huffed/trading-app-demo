@@ -17,11 +17,18 @@ export async function POST(request: Request) {
     tradeHistory?: string | null;
   };
 
+  // Fetch user's algorithms for editing context
+  const { data: algorithms } = await supabase
+    .from("algorithms")
+    .select("id, name, description, rules, status, risk_level, capital, time_horizon, asset_class")
+    .order("created_at", { ascending: false });
+
   try {
     const client = getAIClient();
     const system = buildChatSystemPrompt(
       stats as Parameters<typeof buildChatSystemPrompt>[0],
-      tradeHistory
+      tradeHistory,
+      algorithms ?? []
     );
 
     const stream = await client.chat.completions.create({
