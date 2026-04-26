@@ -28,6 +28,7 @@ import {
   useAutoRefreshPrices,
 } from "@/hooks/use-paper-trading";
 import { EXIT_REASON_LABELS } from "@/lib/constants/algorithm";
+import { getQuantityUnitFor } from "@/lib/constants/markets";
 import { formatCurrency, formatPnl, formatQuantity, pnlColorClass } from "@/lib/utils/pnl";
 import type { PaperPosition } from "@/types/position";
 
@@ -48,7 +49,7 @@ function PositionRow({
         <div>
           <span className="font-medium">{pos.ticker}</span>
           <span className="ml-1.5 text-xs text-muted-foreground">
-            {formatQuantity(pos.quantity)} shares
+            {formatQuantity(pos.quantity)} {getQuantityUnitFor(pos.ticker, pos.quantity)}
           </span>
         </div>
       </TableCell>

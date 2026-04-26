@@ -8,9 +8,23 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useAddWatchlistItem, useRemoveWatchlistItem, useWatchlist } from "@/hooks/use-watchlist";
+import { COMMODITIES, FOREX_PAIRS, type InstrumentMeta } from "@/lib/constants/markets";
 import type { SignalResult } from "@/lib/signals/evaluate-live";
 import type { WatchlistItem } from "@/types/watchlist";
 import { WatchlistRow } from "./watchlist-row";
+
+function getPlaceholder(assetClass?: string): string {
+  if (assetClass === "forex") return "EUR/USD";
+  if (assetClass === "commodity") return "XAU/USD";
+  if (assetClass === "crypto") return "BTC/USD";
+  return "AAPL";
+}
+
+function getSuggestedInstruments(assetClass?: string): InstrumentMeta[] {
+  if (assetClass === "forex") return FOREX_PAIRS;
+  if (assetClass === "commodity") return COMMODITIES;
+  return [];
+}
 
 function useSignalState(algorithmId: string, items: WatchlistItem[]) {
   const [signalResults, setSignalResults] = useState<Record<string, SignalResult>>({});
@@ -127,25 +141,32 @@ function AddTickerForm({
   onAdd,
   isPending,
   addError,
+  assetClass,
+  existingTickers,
 }: {
   onAdd: (ticker: string) => void;
   isPending: boolean;
   addError: string | null;
+  assetClass?: string;
+  existingTickers: string[];
 }) {
   const [newTicker, setNewTicker] = useState("");
+  const suggestions = getSuggestedInstruments(assetClass);
+  const existing = new Set(existingTickers.map((t) => t.toUpperCase()));
+  const remainingSuggestions = suggestions.filter((s) => !existing.has(s.symbol.toUpperCase()));
 
-  function handleAdd() {
-    const ticker = newTicker.trim().toUpperCase();
+  function handleAdd(symbol?: string) {
+    const ticker = (symbol ?? newTicker).trim().toUpperCase();
     if (!ticker) return;
     onAdd(ticker);
-    setNewTicker("");
+    if (!symbol) setNewTicker("");
   }
 
   return (
     <>
       <div className="flex gap-2">
         <Input
-          placeholder="AAPL"
+          placeholder={getPlaceholder(assetClass)}
           value={newTicker}
           onChange={(e) => setNewTicker(e.target.value.toUpperCase())}
           onKeyDown={(e) => {
@@ -153,11 +174,31 @@ function AddTickerForm({
           }}
           className="flex-1"
         />
-        <Button size="sm" onClick={handleAdd} disabled={isPending || !newTicker.trim()}>
+        <Button size="sm" onClick={() => handleAdd()} disabled={isPending || !newTicker.trim()}>
           <Plus className="h-4 w-4" />
         </Button>
       </div>
       {addError && <p className="text-xs text-[var(--loss)]">{addError}</p>}
+      {remainingSuggestions.length > 0 && (
+        <div className="space-y-1.5">
+          <p className="text-xs text-muted-foreground">Suggested:</p>
+          <div className="flex flex-wrap gap-1.5">
+            {remainingSuggestions.map((s) => (
+              <Button
+                key={s.symbol}
+                variant="outline"
+                size="sm"
+                className="h-7 px-2 text-xs font-mono"
+                disabled={isPending}
+                onClick={() => handleAdd(s.symbol)}
+                title={`${s.name} — ${s.description}`}
+              >
+                {s.symbol}
+              </Button>
+            ))}
+          </div>
+        </div>
+      )}
     </>
   );
 }
@@ -165,9 +206,11 @@ function AddTickerForm({
 export function WatchlistCard({
   algorithmId,
   hasSentimentConditions,
+  assetClass,
 }: {
   algorithmId: string;
   hasSentimentConditions: boolean;
+  assetClass?: string;
 }) {
   const { data: items = [], isLoading } = useWatchlist(algorithmId);
   const addMutation = useAddWatchlistItem();
@@ -202,7 +245,13 @@ export function WatchlistCard({
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
-        <AddTickerForm onAdd={handleAdd} isPending={addMutation.isPending} addError={addError} />
+        <AddTickerForm
+          onAdd={handleAdd}
+          isPending={addMutation.isPending}
+          addError={addError}
+          assetClass={assetClass}
+          existingTickers={items.map((i) => i.ticker)}
+        />
         {isLoading && (
           <p className="text-xs text-muted-foreground text-center py-4">Loading watchlist...</p>
         )}

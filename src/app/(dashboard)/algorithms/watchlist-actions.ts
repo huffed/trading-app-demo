@@ -1,5 +1,6 @@
 "use server";
 
+import { getInstrumentMeta } from "@/lib/constants/markets";
 import { lookupTickerName } from "@/lib/market-data/finnhub";
 import type { WatchlistAddedBy, WatchlistItem } from "@/types/watchlist";
 import { getAuthedUser } from "./actions";
@@ -19,7 +20,8 @@ export async function addWatchlistItem(
     return { success: false, error: "Ticker is required" };
   }
 
-  const resolvedName = name.trim() || (await lookupTickerName(normalized));
+  const resolvedName =
+    name.trim() || getInstrumentMeta(normalized)?.name || (await lookupTickerName(normalized));
 
   const { data, error } = await supabase
     .from("algorithm_watchlist")

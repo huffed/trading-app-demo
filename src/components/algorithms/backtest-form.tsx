@@ -15,9 +15,17 @@ import {
 interface BacktestFormProps {
   onSubmit: (symbol: string, period: string) => void;
   disabled: boolean;
+  assetClass?: string;
 }
 
-export function BacktestForm({ onSubmit, disabled }: BacktestFormProps) {
+function placeholderFor(assetClass?: string): string {
+  if (assetClass === "forex") return "EUR/USD";
+  if (assetClass === "commodity") return "XAU/USD";
+  if (assetClass === "crypto") return "BTC/USD";
+  return "AAPL";
+}
+
+export function BacktestForm({ onSubmit, disabled, assetClass }: BacktestFormProps) {
   const [symbol, setSymbol] = useState("");
   const [period, setPeriod] = useState("compact");
 
@@ -28,7 +36,7 @@ export function BacktestForm({ onSubmit, disabled }: BacktestFormProps) {
           <Label htmlFor="bt-symbol">Symbol</Label>
           <Input
             id="bt-symbol"
-            placeholder="AAPL"
+            placeholder={placeholderFor(assetClass)}
             value={symbol}
             onChange={(e) => setSymbol(e.target.value.toUpperCase())}
           />

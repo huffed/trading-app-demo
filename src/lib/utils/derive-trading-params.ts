@@ -20,18 +20,21 @@ export function deriveTradingParams(answers: TradingProfileAnswers): DerivedTrad
   };
 }
 
-function deriveAssetClass(interests: string[]): "equity" | "crypto" | "forex" {
+function deriveAssetClass(interests: string[]): "equity" | "crypto" | "forex" | "commodity" {
   const hasCrypto = interests.includes("crypto");
   const hasForex = interests.includes("forex");
+  const hasCommodity = interests.includes("metals_commodities");
   const hasStocks = interests.some((i) =>
     ["tech_companies", "green_energy", "healthcare", "space_defense", "ai_ml", "ai_picks"].includes(
       i
     )
   );
 
-  // If only crypto selected, use crypto. If only forex, use forex. Otherwise equity.
-  if (hasCrypto && !hasForex && !hasStocks) return "crypto";
-  if (hasForex && !hasCrypto && !hasStocks) return "forex";
+  // Single-class selections route to their dedicated asset class.
+  // Mixed selections fall through to equity (the most general universe).
+  if (hasCommodity && !hasCrypto && !hasForex && !hasStocks) return "commodity";
+  if (hasCrypto && !hasForex && !hasCommodity && !hasStocks) return "crypto";
+  if (hasForex && !hasCrypto && !hasCommodity && !hasStocks) return "forex";
   return "equity";
 }
 

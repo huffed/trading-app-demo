@@ -32,6 +32,7 @@ export const INTEREST_LABELS: Record<string, string> = {
   space_defense: "Space & defense",
   ai_ml: "AI & machine learning",
   forex: "Global currencies (Forex)",
+  metals_commodities: "Gold, oil & commodities",
   ai_picks: "Let the AI decide for me",
 };
 

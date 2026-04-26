@@ -84,7 +84,13 @@ Rules:
   - Conservative: stop_loss 2-3, take_profit 5-8, position_sizing 5-8, max_positions 2-3
   - Moderate: stop_loss 3-5, take_profit 8-15, position_sizing 8-12, max_positions 3-5
   - Aggressive: stop_loss 5-10, take_profit 15-25, position_sizing 12-20, max_positions 5-8
-- Sentiment conditions CANNOT be backtested — mention this in the strategy description`;
+- Sentiment conditions CANNOT be backtested — mention this in the strategy description
+
+Asset class guidance:
+- For asset_class "forex" and "commodity": ALWAYS use position_sizing.type "percentage_of_capital" (not fixed_quantity — lot semantics are too easy to get wrong). Stops should be tighter than equities since these instruments have lower per-bar volatility: prefer stop_loss 1-3 for conservative, 2-5 for moderate, 4-8 for aggressive. Take profit 2-5x the stop.
+- Forex sentiment conditions are unreliable (Alpha Vantage news coverage is thin for currency pairs) — strongly prefer pure technical setups for forex.
+- Commodities like XAU/USD (gold) react to inflation/macro headlines — sentiment conditions on topics like "inflation" or "monetary_policy" can work.
+- timeframe "1d" works well for swing forex/commodity setups; "4h" or "1h" for more active strategies.`;
 
 const RISK_DESCRIPTIONS: Record<string, string> = {
   conservative: "Low risk, capital preservation, steady returns",

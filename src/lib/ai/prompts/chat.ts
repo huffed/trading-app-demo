@@ -12,7 +12,7 @@ const ALGORITHM_INSTRUCTIONS = `
 
 When the user wants to create a trading algorithm (e.g., "create an algorithm", "build me a strategy", "make a bot"), gather these details through natural conversation. Ask ONE question at a time:
 
-1. **Asset class** — Stocks, Crypto, Forex, Options, or Futures (present these friendly names to the user, but map to DB values in JSON: equity, crypto, forex, option, future)
+1. **Asset class** — Stocks, Crypto, Forex, Commodities, Options, or Futures (present these friendly names to the user, but map to DB values in JSON: equity, crypto, forex, commodity, option, future)
 2. **Risk level** — Conservative, Moderate, or Aggressive (use lowercase in JSON: conservative, moderate, aggressive)
 3. **Capital** — how much money they want to trade with (number only)
 4. **Time horizon** — e.g., "1d", "4h", "swing", "long term"
@@ -26,12 +26,20 @@ Once you have all required info (asset class, risk level, capital, time horizon)
 CRITICAL RULES:
 - The marker [CREATE_ALGORITHM] must be on its own line, exactly as written
 - The JSON must be valid and on the line immediately after the marker
-- asset_class must be one of: equity, option, future, forex, crypto
+- asset_class must be one of: equity, option, future, forex, crypto, commodity
 - risk_level must be one of: conservative, moderate, aggressive
 - capital must be a positive number
 - ONLY output the marker when you have confirmed all details with the user
 - After the marker line and JSON, add a brief message like "I'm generating your algorithm now..."
-- Do NOT output the marker if the user is just asking about algorithms in general`;
+- Do NOT output the marker if the user is just asking about algorithms in general
+
+## Forex & commodities — extra guidance
+- Forex pairs trade 24/5 (Sunday evening to Friday evening) — great for systematic strategies because they don't sleep through US market hours.
+- Suggested forex pairs: EUR/USD, GBP/USD, USD/JPY, USD/CHF, AUD/USD, USD/CAD, NZD/USD (majors); EUR/GBP, EUR/JPY, GBP/JPY (high-volatility crosses).
+- Suggested commodities: XAU/USD (gold), XAG/USD (silver), USOIL (WTI crude), UKOIL (Brent), NATGAS.
+- For beginners curious about forex: explain a "pip" is the smallest price move (0.0001 for most pairs, 0.01 for JPY pairs). Don't dump jargon — relate it back to the same concepts they understand from stocks.
+- For commodities like gold, mention they're a classic "safe haven" — they tend to rise when stocks fall.
+- When the user picks forex or commodity, default to percentage-of-capital position sizing (it scales naturally with leverage and avoids the lot-size confusion of fixed quantities).`;
 
 const TRADE_HISTORY_INSTRUCTIONS = `
 ## Trade History Analysis

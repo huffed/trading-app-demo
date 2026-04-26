@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { getQuantityUnit } from "@/lib/constants/markets";
 import {
   isTechnicalCondition,
   type AlgorithmRules,
@@ -170,8 +171,10 @@ function formatPositionSizing(rules: AlgorithmRules): string {
       return `${rules.position_sizing.value}% of capital per trade`;
     case "fixed_amount":
       return `$${rules.position_sizing.value.toLocaleString()} per trade`;
-    case "fixed_quantity":
-      return `${rules.position_sizing.value} shares per trade`;
+    case "fixed_quantity": {
+      const unit = getQuantityUnit(rules.asset_class);
+      return `${rules.position_sizing.value.toLocaleString()} ${unit} per trade`;
+    }
     default:
       return `${rules.position_sizing.value}`;
   }

@@ -1,6 +1,7 @@
+import { COMMODITIES, FOREX_PAIRS } from "@/lib/constants/markets";
 import { isTechnicalCondition, isSentimentCondition, type Algorithm } from "@/types/algorithm";
 
-const DISCOVERY_SYSTEM_PROMPT = `You are a stock discovery engine for a trading platform. Given a user's trading profile and algorithm strategy, suggest stocks they should be monitoring.
+const EQUITY_DISCOVERY_PROMPT = `You are a stock discovery engine for a trading platform. Given a user's trading profile and algorithm strategy, suggest stocks they should be monitoring.
 
 Output ONLY valid JSON — no explanation, no markdown.
 
@@ -28,6 +29,50 @@ RULES:
 - Each reasoning should explain the specific connection to the user's trading style
 - Prefer liquid stocks with reasonable trading volume
 - Match the user's apparent risk level and price range`;
+
+function buildForexCommodityCatalogue(assetClass: string): string {
+  const universe = assetClass === "forex" ? FOREX_PAIRS : COMMODITIES;
+  return universe
+    .map((m) => `  - ${m.symbol} (${m.name}) — ${m.description}`)
+    .join("\n");
+}
+
+function buildForexCommodityPrompt(assetClass: string): string {
+  const noun = assetClass === "forex" ? "forex pair" : "commodity";
+  const catalogue = buildForexCommodityCatalogue(assetClass);
+  return `You are a ${noun} discovery engine for a trading platform. Given the user's strategy, recommend instruments from the curated universe below.
+
+Output ONLY valid JSON — no explanation, no markdown.
+
+Your response MUST be a JSON object with a "suggestions" key containing an array:
+{
+  "suggestions": [
+    {
+      "ticker": "SYMBOL",
+      "name": "Display Name",
+      "sector": "Category (e.g., Major pair, Metal, Energy)",
+      "reasoning": "1-2 sentences on why this fits the user's strategy and risk profile"
+    }
+  ]
+}
+
+CURATED UNIVERSE — pick ONLY from these symbols:
+${catalogue}
+
+RULES:
+- Suggest 4-7 instruments from the universe above. Use the symbol exactly as written (including the slash for pairs).
+- DO NOT suggest any symbol listed in the ALREADY WATCHING section.
+- Match the user's risk profile: prefer majors (EUR/USD, GBP/USD, USD/JPY) and large commodities (XAU/USD, USOIL) for conservative strategies; minor crosses (GBP/JPY) and volatile commodities (NATGAS) for aggressive setups.
+- Each reasoning must explain WHY this specific instrument fits the strategy — reference its volatility, drivers, or correlation behavior.
+- Do NOT invent symbols outside the curated universe.`;
+}
+
+function pickDiscoveryPrompt(assetClass: string): string {
+  if (assetClass === "forex" || assetClass === "commodity") {
+    return buildForexCommodityPrompt(assetClass);
+  }
+  return EQUITY_DISCOVERY_PROMPT;
+}
 
 function summarizeConditions(algo: Algorithm): string {
   const parts: string[] = [];
@@ -92,7 +137,7 @@ export function buildDiscoveryPrompt(
     sections.push("\nALREADY WATCHING: none");
   }
 
-  return { system: DISCOVERY_SYSTEM_PROMPT, userMessage: sections.join("\n") };
+  return { system: pickDiscoveryPrompt(algo.asset_class), userMessage: sections.join("\n") };
 }
 
 const ANALYSIS_SYSTEM_PROMPT = `You are a trading analyst. Given an algorithm's strategy and a set of tickers with their backtest results, write a brief analysis for each ticker.

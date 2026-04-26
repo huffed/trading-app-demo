@@ -25,6 +25,7 @@ export const ASSET_CLASS_LABELS: Record<string, string> = {
   future: "Futures",
   forex: "Forex",
   crypto: "Crypto",
+  commodity: "Commodities",
 };
 
 export const RISK_LEVEL_LABELS: Record<string, string> = {
