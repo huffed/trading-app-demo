@@ -34,7 +34,7 @@ import type {
   PropFirmReport,
 } from "./types";
 
-type Cache = Map<string, (number | null)[]>;
+export type Cache = Map<string, (number | null)[]>;
 
 /** Mapping of supported indicator names (lowercased) to their computation functions. */
 const INDICATOR_REGISTRY: Record<string, (closes: number[]) => (number | null)[]> = {
@@ -149,7 +149,7 @@ function evaluateCondition(
   }
 }
 
-function checkConditions(
+export function checkConditions(
   conditions: TechnicalCondition[],
   cache: Cache,
   closes: number[],
@@ -166,7 +166,7 @@ function checkConditions(
  * The Zod validator (lib/validators/algorithm.ts) also normalizes at parse time,
  * but rules loaded from Supabase JSONB may bypass validation — this is the safety net.
  */
-function normalize(
+export function normalize(
   conditions: (EntryCondition | ExitCondition)[]
 ): (EntryCondition | ExitCondition)[] {
   return conditions.map((c) => {

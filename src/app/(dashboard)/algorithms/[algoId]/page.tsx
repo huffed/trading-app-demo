@@ -10,6 +10,7 @@ import { BacktestForm } from "@/components/algorithms/backtest-form";
 import { BacktestRankingCard } from "@/components/algorithms/backtest-ranking-card";
 import { BacktestResultsDisplay } from "@/components/algorithms/backtest-results-display";
 import { DiscoveryCard } from "@/components/algorithms/discovery-card";
+import { PaperTradingTab } from "@/components/algorithms/paper-trading-tab";
 import { RulesDisplay } from "@/components/algorithms/rules-display";
 import { WatchlistCard } from "@/components/algorithms/watchlist-card";
 import { Badge } from "@/components/ui/badge";
@@ -127,7 +128,14 @@ function ReadView({
 }: {
   algo: Pick<
     Algorithm,
-    "id" | "name" | "description" | "rules" | "ai_analysis" | "backtest_results"
+    | "id"
+    | "name"
+    | "description"
+    | "rules"
+    | "ai_analysis"
+    | "backtest_results"
+    | "status"
+    | "last_scanned_at"
   >;
   backtestError: string | null;
   aiBacktestError: string | null;
@@ -157,6 +165,7 @@ function ReadView({
         <TabsTrigger value={0}>Overview</TabsTrigger>
         <TabsTrigger value={1}>Watchlist</TabsTrigger>
         <TabsTrigger value={2}>Backtest</TabsTrigger>
+        <TabsTrigger value={3}>Paper Trading</TabsTrigger>
       </TabsList>
 
       <TabsContent value={0} className="space-y-4 pt-2">
@@ -201,6 +210,14 @@ function ReadView({
             <BacktestResultsDisplay results={backtestResults} />
           </div>
         )}
+      </TabsContent>
+
+      <TabsContent value={3} className="space-y-4 pt-2">
+        <PaperTradingTab
+          algorithmId={algo.id}
+          algorithmStatus={algo.status}
+          lastScannedAt={algo.last_scanned_at}
+        />
       </TabsContent>
     </Tabs>
   );

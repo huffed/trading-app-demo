@@ -1,83 +1,212 @@
 "use client";
 
+import {
+  ArrowDown,
+  ArrowUp,
+  BarChart3,
+  Newspaper,
+  ShieldAlert,
+  Target,
+  TrendingUp,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { SENTIMENT_OP_LABELS, TECHNICAL_OP_LABELS } from "@/lib/constants/algorithm";
 import {
   isTechnicalCondition,
   type AlgorithmRules,
   type EntryCondition,
   type ExitCondition,
+  type SentimentCondition,
+  type TechnicalCondition,
 } from "@/types/algorithm";
 
-function ConditionList({
+// ---- Human-readable condition formatting ----
+
+const INDICATOR_NAMES: Record<string, string> = {
+  rsi: "RSI (14)",
+  sma: "SMA 20",
+  sma20: "SMA 20",
+  sma50: "SMA 50",
+  ema: "EMA 12",
+  ema12: "EMA 12",
+  ema26: "EMA 26",
+  macd: "MACD",
+  bollingerbands_upper: "Bollinger Upper",
+  bollingerbands_lower: "Bollinger Lower",
+};
+
+const SENTIMENT_METRIC_NAMES: Record<string, string> = {
+  overall_sentiment: "Overall sentiment",
+  article_count: "Article count",
+  topic_buzz: "Topic buzz",
+};
+
+function isPriceIndicator(name: string): boolean {
+  const l = name.toLowerCase();
+  return l.startsWith("sma") || l.startsWith("ema") || l.startsWith("bollinger");
+}
+
+function formatTechnicalCondition(c: TechnicalCondition): string {
+  const name = INDICATOR_NAMES[c.indicator.toLowerCase()] ?? c.indicator;
+
+  // value=0 on price indicators means crossover vs price (or EMA12 vs EMA26)
+  if (c.value === 0 && isPriceIndicator(c.indicator)) {
+    if (c.indicator.toLowerCase() === "ema12") {
+      switch (c.operator) {
+        case "crosses_above":
+          return "EMA 12 crosses above EMA 26 (bullish MACD crossover)";
+        case "crosses_below":
+          return "EMA 12 crosses below EMA 26 (bearish MACD crossover)";
+        case "greater_than":
+          return "EMA 12 is above EMA 26";
+        case "less_than":
+          return "EMA 12 is below EMA 26";
+      }
+    }
+    switch (c.operator) {
+      case "crosses_above":
+        return `Price crosses above ${name}`;
+      case "crosses_below":
+        return `Price crosses below ${name}`;
+      case "greater_than":
+        return `Price is above ${name}`;
+      case "less_than":
+        return `Price is below ${name}`;
+    }
+  }
+
+  switch (c.operator) {
+    case "less_than":
+      return `${name} is below ${c.value}`;
+    case "greater_than":
+      return `${name} is above ${c.value}`;
+    case "crosses_above":
+      return `${name} crosses above ${c.value}`;
+    case "crosses_below":
+      return `${name} crosses below ${c.value}`;
+    default:
+      return `${name} ${c.operator} ${c.value}`;
+  }
+}
+
+function formatSentimentCondition(c: SentimentCondition): string {
+  const metric = SENTIMENT_METRIC_NAMES[c.metric] ?? c.metric;
+  switch (c.operator) {
+    case "above":
+      return `${metric} above ${c.threshold}`;
+    case "below":
+      return `${metric} below ${c.threshold}`;
+    case "spike_above":
+      return `${metric} spikes above ${c.threshold}`;
+    case "spike_below":
+      return `${metric} drops below ${c.threshold}`;
+    default:
+      return `${metric} ${c.operator} ${c.threshold}`;
+  }
+}
+
+// ---- Components ----
+
+function ConditionItem({ condition }: { condition: EntryCondition | ExitCondition }) {
+  if (isTechnicalCondition(condition)) {
+    return (
+      <div className="flex items-start gap-2.5 rounded-md border p-2.5">
+        <BarChart3 className="mt-0.5 h-4 w-4 shrink-0 text-blue-500" />
+        <div>
+          <p className="text-sm">{formatTechnicalCondition(condition)}</p>
+          <p className="text-xs text-muted-foreground">{condition.timeframe} timeframe</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-start gap-2.5 rounded-md border p-2.5">
+      <Newspaper className="mt-0.5 h-4 w-4 shrink-0 text-purple-500" />
+      <div>
+        <p className="text-sm">{formatSentimentCondition(condition)}</p>
+        {condition.topics && condition.topics.length > 0 && (
+          <div className="mt-1 flex flex-wrap gap-1">
+            {condition.topics.map((t) => (
+              <Badge key={t} variant="secondary" className="text-xs">
+                {t}
+              </Badge>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ConditionSection({
   title,
+  icon,
   conditions,
 }: {
   title: string;
+  icon: React.ReactNode;
   conditions: (EntryCondition | ExitCondition)[];
 }) {
   if (!conditions || conditions.length === 0) {
     return null;
   }
-
   return (
-    <div className="space-y-1">
-      <h4 className="text-xs font-medium text-muted-foreground">{title}</h4>
-      {conditions.map((c, i) =>
-        isTechnicalCondition(c) ? (
-          <div key={i} className="flex items-center gap-1.5 text-sm">
-            <Badge variant="outline" className="text-xs">
-              {c.indicator}
-            </Badge>
-            <span className="text-muted-foreground">
-              {TECHNICAL_OP_LABELS[c.operator] ?? c.operator}
-            </span>
-            <span className="font-medium">{c.value}</span>
-            <span className="text-xs text-muted-foreground">({c.timeframe})</span>
-          </div>
-        ) : (
-          <div key={i} className="flex flex-wrap items-center gap-1.5 text-sm">
-            <Badge className="text-xs bg-primary/10 text-primary">sentiment</Badge>
-            <span className="text-muted-foreground">{c.metric}</span>
-            <span className="text-muted-foreground">
-              {SENTIMENT_OP_LABELS[c.operator] ?? c.operator}
-            </span>
-            <span className="font-medium">{c.threshold}</span>
-            {c.topics?.map((t) => (
-              <Badge key={t} variant="outline" className="text-xs">
-                {t}
-              </Badge>
-            ))}
-          </div>
-        )
-      )}
+    <div className="space-y-2">
+      <h4 className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        {icon}
+        {title}
+      </h4>
+      {conditions.map((c, i) => (
+        <ConditionItem key={i} condition={c} />
+      ))}
     </div>
   );
+}
+
+function formatPositionSizing(rules: AlgorithmRules): string {
+  switch (rules.position_sizing.type) {
+    case "percentage_of_capital":
+      return `${rules.position_sizing.value}% of capital per trade`;
+    case "fixed_amount":
+      return `$${rules.position_sizing.value.toLocaleString()} per trade`;
+    case "fixed_quantity":
+      return `${rules.position_sizing.value} shares per trade`;
+    default:
+      return `${rules.position_sizing.value}`;
+  }
 }
 
 function RiskParams({ rules }: { rules: AlgorithmRules }) {
   return (
     <div className="grid gap-3 sm:grid-cols-2">
-      <div className="space-y-1">
-        <h4 className="text-xs font-medium text-muted-foreground">Stop Loss</h4>
-        <p className="text-sm">
-          {rules.stop_loss?.value}% ({rules.stop_loss?.type})
-        </p>
+      <div className="flex items-center gap-2.5 rounded-md border p-2.5">
+        <ShieldAlert className="h-4 w-4 shrink-0 text-[var(--loss)]" />
+        <div>
+          <p className="text-xs text-muted-foreground">Stop Loss</p>
+          <p className="text-sm font-medium">{rules.stop_loss.value}%</p>
+        </div>
       </div>
-      <div className="space-y-1">
-        <h4 className="text-xs font-medium text-muted-foreground">Take Profit</h4>
-        <p className="text-sm">
-          {rules.take_profit?.value}% ({rules.take_profit?.type})
-        </p>
+      <div className="flex items-center gap-2.5 rounded-md border p-2.5">
+        <Target className="h-4 w-4 shrink-0 text-[var(--profit)]" />
+        <div>
+          <p className="text-xs text-muted-foreground">Take Profit</p>
+          <p className="text-sm font-medium">{rules.take_profit.value}%</p>
+        </div>
       </div>
-      <div className="space-y-1">
-        <h4 className="text-xs font-medium text-muted-foreground">Position Size</h4>
-        <p className="text-sm">{rules.position_sizing?.value}% of capital</p>
+      <div className="flex items-center gap-2.5 rounded-md border p-2.5">
+        <TrendingUp className="h-4 w-4 shrink-0 text-muted-foreground" />
+        <div>
+          <p className="text-xs text-muted-foreground">Position Size</p>
+          <p className="text-sm font-medium">{formatPositionSizing(rules)}</p>
+        </div>
       </div>
-      <div className="space-y-1">
-        <h4 className="text-xs font-medium text-muted-foreground">Max Positions</h4>
-        <p className="text-sm">{rules.max_positions}</p>
+      <div className="flex items-center gap-2.5 rounded-md border p-2.5">
+        <BarChart3 className="h-4 w-4 shrink-0 text-muted-foreground" />
+        <div>
+          <p className="text-xs text-muted-foreground">Max Positions</p>
+          <p className="text-sm font-medium">{rules.max_positions}</p>
+        </div>
       </div>
     </div>
   );
@@ -100,9 +229,23 @@ export function RulesDisplay({ rules }: { rules: AlgorithmRules }) {
         <CardTitle className="text-sm font-medium">Trading Rules</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <ConditionList title="Entry Conditions" conditions={rules.entry_conditions} />
-        <ConditionList title="Exit Conditions" conditions={rules.exit_conditions} />
-        <RiskParams rules={rules} />
+        <ConditionSection
+          title="Entry Conditions"
+          icon={<ArrowUp className="h-3 w-3" />}
+          conditions={rules.entry_conditions}
+        />
+        <ConditionSection
+          title="Exit Conditions"
+          icon={<ArrowDown className="h-3 w-3" />}
+          conditions={rules.exit_conditions}
+        />
+        <div>
+          <h4 className="mb-2 flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            <ShieldAlert className="h-3 w-3" />
+            Risk Management
+          </h4>
+          <RiskParams rules={rules} />
+        </div>
       </CardContent>
     </Card>
   );

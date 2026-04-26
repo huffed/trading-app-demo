@@ -1,3 +1,12 @@
+export interface RealTimeQuote {
+  symbol: string;
+  price: number;
+  previousClose: number | null;
+  change: number | null;
+  changePercent: number | null;
+  timestamp: number;
+}
+
 export interface PriceBar {
   date: string;
   open: number;
