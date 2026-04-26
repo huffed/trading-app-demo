@@ -58,12 +58,12 @@ function DashboardScanSummary({ results }: { results: ScanResult[] }) {
     <div className="mt-3 space-y-1 text-xs">
       {allOpened.map((e, i) => (
         <p key={`o-${i}`} className="text-[var(--profit)]">
-          {"▲"} Opened <strong>{e.ticker}</strong> at {formatCurrency(e.price)}
+          &#9650; Opened <strong>{e.ticker}</strong> at {formatCurrency(e.price)}
         </p>
       ))}
       {allClosed.map((e, i) => (
         <p key={`c-${i}`}>
-          {"▼"} Closed <strong>{e.ticker}</strong>{" "}
+          &#9660; Closed <strong>{e.ticker}</strong>{" "}
           <span className={pnlColorClass(e.pnl)}>{formatPnl(e.pnl)}</span>{" "}
           <span className="text-muted-foreground">
             ({EXIT_REASON_LABELS[e.reason] ?? e.reason})

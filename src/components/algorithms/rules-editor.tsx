@@ -105,6 +105,60 @@ function NumericField({
   );
 }
 
+function PropFirmFields({
+  propFirm,
+  updateField,
+}: {
+  propFirm: PropFirmRules;
+  updateField: (field: keyof PropFirmRules, value: number) => void;
+}) {
+  return (
+    <div className="grid gap-3 sm:grid-cols-2">
+      <NumericField
+        label="Daily Loss Limit"
+        value={propFirm.daily_loss_limit}
+        onChange={(v) => updateField("daily_loss_limit", v)}
+        suffix="%"
+      />
+      <NumericField
+        label="Max Drawdown"
+        value={propFirm.max_drawdown}
+        onChange={(v) => updateField("max_drawdown", v)}
+        suffix="%"
+      />
+      <NumericField
+        label="Profit Target"
+        value={propFirm.profit_target}
+        onChange={(v) => updateField("profit_target", v)}
+        suffix="%"
+      />
+      <NumericField
+        label="Max Consecutive Losses"
+        value={propFirm.max_consecutive_losses}
+        onChange={(v) => updateField("max_consecutive_losses", v)}
+      />
+      <NumericField
+        label="Consistency Rule"
+        value={propFirm.consistency_rule}
+        onChange={(v) => updateField("consistency_rule", v)}
+        suffix="% max day"
+      />
+      <NumericField
+        label="Slippage"
+        value={propFirm.slippage_bps}
+        onChange={(v) => updateField("slippage_bps", v)}
+        suffix="bps"
+      />
+      <NumericField
+        label="Commission"
+        value={propFirm.commission_pct}
+        onChange={(v) => updateField("commission_pct", v)}
+        suffix="% per trade"
+      />
+    </div>
+  );
+}
+
 function PropFirmSection({
   propFirm,
   onChange,
@@ -160,51 +214,7 @@ function PropFirmSection({
           </Button>
         )}
       </div>
-      {propFirm && (
-        <div className="grid gap-3 sm:grid-cols-2">
-          <NumericField
-            label="Daily Loss Limit"
-            value={propFirm.daily_loss_limit}
-            onChange={(v) => updateField("daily_loss_limit", v)}
-            suffix="%"
-          />
-          <NumericField
-            label="Max Drawdown"
-            value={propFirm.max_drawdown}
-            onChange={(v) => updateField("max_drawdown", v)}
-            suffix="%"
-          />
-          <NumericField
-            label="Profit Target"
-            value={propFirm.profit_target}
-            onChange={(v) => updateField("profit_target", v)}
-            suffix="%"
-          />
-          <NumericField
-            label="Max Consecutive Losses"
-            value={propFirm.max_consecutive_losses}
-            onChange={(v) => updateField("max_consecutive_losses", v)}
-          />
-          <NumericField
-            label="Consistency Rule"
-            value={propFirm.consistency_rule}
-            onChange={(v) => updateField("consistency_rule", v)}
-            suffix="% max day"
-          />
-          <NumericField
-            label="Slippage"
-            value={propFirm.slippage_bps}
-            onChange={(v) => updateField("slippage_bps", v)}
-            suffix="bps"
-          />
-          <NumericField
-            label="Commission"
-            value={propFirm.commission_pct}
-            onChange={(v) => updateField("commission_pct", v)}
-            suffix="% per trade"
-          />
-        </div>
-      )}
+      {propFirm && <PropFirmFields propFirm={propFirm} updateField={updateField} />}
     </div>
   );
 }

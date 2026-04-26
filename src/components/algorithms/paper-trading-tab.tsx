@@ -32,7 +32,7 @@ function ScanSummary({ results }: { results: ScanResult[] }) {
 
       {allOpened.map((e, i) => (
         <div key={`o-${i}`} className="flex items-center gap-2 text-[var(--profit)]">
-          <span>{"▲"}</span>
+          <span>&#9650;</span>
           <span>
             Opened <strong>{e.ticker}</strong> at {formatCurrency(e.price)}
           </span>
@@ -41,7 +41,7 @@ function ScanSummary({ results }: { results: ScanResult[] }) {
 
       {allClosed.map((e, i) => (
         <div key={`c-${i}`} className="flex items-center gap-2">
-          <span className="text-muted-foreground">{"▼"}</span>
+          <span className="text-muted-foreground">&#9660;</span>
           <span>
             Closed <strong>{e.ticker}</strong> at {formatCurrency(e.price)}
             {" — "}

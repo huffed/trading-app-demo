@@ -175,6 +175,47 @@ function buildPositionsText(byTicker: Record<string, TickerSummary>): string[] {
   return lines;
 }
 
+function buildRiskProfileText(byTicker: Record<string, TickerSummary>): string[] {
+  const closedTickers = Object.entries(byTicker).filter(
+    ([, s]) => s.sellCount > 0 && s.totalBought > 0
+  );
+  const pctReturns = closedTickers.map(([, s]) => (s.pnl / s.totalBought) * 100);
+  if (pctReturns.length === 0) return [];
+
+  const winReturns = pctReturns.filter((r) => r > 0);
+  const lossReturns = pctReturns.filter((r) => r < 0);
+  const lines: string[] = [
+    "",
+    "RISK PROFILE (derived from actual trades — use these to set algorithm parameters):",
+  ];
+  if (winReturns.length > 0) {
+    const avgWinPct = winReturns.reduce((a, b) => a + b, 0) / winReturns.length;
+    const maxWinPct = Math.max(...winReturns);
+    lines.push(
+      `- Average winning return: ${avgWinPct.toFixed(0)}%, best: ${maxWinPct.toFixed(0)}%`
+    );
+    lines.push(
+      `- Suggested take_profit: ${Math.round(avgWinPct * 0.5)}-${Math.round(avgWinPct * 0.75)}% (capture most of avg win)`
+    );
+  }
+  if (lossReturns.length > 0) {
+    const avgLossPct = lossReturns.reduce((a, b) => a + b, 0) / lossReturns.length;
+    lines.push(
+      `- Average losing return: ${avgLossPct.toFixed(0)}% (user held through this — no stop losses used)`
+    );
+    lines.push(
+      `- Suggested stop_loss: ${Math.round(Math.abs(avgLossPct) * 0.3)}-${Math.round(Math.abs(avgLossPct) * 0.5)}% (cut losses much earlier than actual)`
+    );
+  }
+  const avgHold = closedTickers.filter(([, s]) => s.holdDays !== null).map(([, s]) => s.holdDays!);
+  if (avgHold.length > 0) {
+    lines.push(
+      `- Average hold: ${Math.round(avgHold.reduce((a, b) => a + b, 0) / avgHold.length)} days`
+    );
+  }
+  return lines;
+}
+
 function buildSummaryText(
   trades: ParsedTrade[],
   byTicker: Record<string, TickerSummary>
@@ -217,47 +258,7 @@ function buildSummaryText(
     lines.push(`- Worst position: ${worst.ticker} ${fmt(worst.pnl)} GBP`);
   }
   lines.push(`- Symbols traded: ${Object.keys(byTicker).join(", ")}`);
-
-  // Calculate % returns per closed position for risk profile
-  const closedTickers = Object.entries(byTicker).filter(
-    ([, s]) => s.sellCount > 0 && s.totalBought > 0
-  );
-  const pctReturns = closedTickers.map(([, s]) => (s.pnl / s.totalBought) * 100);
-  const winReturns = pctReturns.filter((r) => r > 0);
-  const lossReturns = pctReturns.filter((r) => r < 0);
-  if (pctReturns.length > 0) {
-    lines.push("");
-    lines.push(
-      "RISK PROFILE (derived from actual trades — use these to set algorithm parameters):"
-    );
-    if (winReturns.length > 0) {
-      const avgWinPct = winReturns.reduce((a, b) => a + b, 0) / winReturns.length;
-      const maxWinPct = Math.max(...winReturns);
-      lines.push(
-        `- Average winning return: ${avgWinPct.toFixed(0)}%, best: ${maxWinPct.toFixed(0)}%`
-      );
-      lines.push(
-        `- Suggested take_profit: ${Math.round(avgWinPct * 0.5)}-${Math.round(avgWinPct * 0.75)}% (capture most of avg win)`
-      );
-    }
-    if (lossReturns.length > 0) {
-      const avgLossPct = lossReturns.reduce((a, b) => a + b, 0) / lossReturns.length;
-      lines.push(
-        `- Average losing return: ${avgLossPct.toFixed(0)}% (user held through this — no stop losses used)`
-      );
-      lines.push(
-        `- Suggested stop_loss: ${Math.round(Math.abs(avgLossPct) * 0.3)}-${Math.round(Math.abs(avgLossPct) * 0.5)}% (cut losses much earlier than actual)`
-      );
-    }
-    const avgHold = closedTickers
-      .filter(([, s]) => s.holdDays !== null)
-      .map(([, s]) => s.holdDays!);
-    if (avgHold.length > 0) {
-      lines.push(
-        `- Average hold: ${Math.round(avgHold.reduce((a, b) => a + b, 0) / avgHold.length)} days`
-      );
-    }
-  }
+  lines.push(...buildRiskProfileText(byTicker));
   return lines;
 }
 

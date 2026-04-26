@@ -142,9 +142,11 @@ export function BacktestRankingCard({
     for (const t of tickers) {
       try {
         const result = await backtestTicker(algorithmId, t.ticker);
-        if (result.success)
+        if (result.success) {
           setResults((prev) => ({ ...prev, [t.ticker]: result.data as BacktestMetrics }));
-        else setErrors((prev) => ({ ...prev, [t.ticker]: result.error }));
+        } else {
+          setErrors((prev) => ({ ...prev, [t.ticker]: result.error }));
+        }
       } catch {
         setErrors((prev) => ({ ...prev, [t.ticker]: "Backtest failed" }));
       }
