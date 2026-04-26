@@ -72,7 +72,7 @@ export function calculatePnlPercent(trade: {
 export function formatPnl(value: number | null): string {
   if (value == null) return "—";
   const converted = value * conversionRate;
-  const sign = converted >= 0 ? "+" : "";
+  const sign = converted >= 0 ? "+" : "-";
   const formatted = getCurrencyFormatter(activeCurrency).format(Math.abs(converted));
   return `${sign}${formatted}`;
 }
