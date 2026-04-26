@@ -12,6 +12,7 @@ interface OnboardingState {
   setChatSeen: () => void;
   setWizardPending: () => void;
   setWizardDismissed: () => void;
+  resetOnboarding: () => void;
   isTipDismissed: (id: string) => boolean;
 }
 
@@ -31,6 +32,13 @@ export const useOnboardingStore = create<OnboardingState>()(
       setChatSeen: () => set({ chatSeen: true }),
       setWizardPending: () => set({ wizardPending: true }),
       setWizardDismissed: () => set({ wizardPending: false, wizardDismissed: true }),
+      resetOnboarding: () =>
+        set({
+          tourCompleted: false,
+          wizardPending: false,
+          wizardDismissed: false,
+          dismissedTips: [],
+        }),
       isTipDismissed: (id) => get().dismissedTips.includes(id),
     }),
     { name: "quanttrader-onboarding" }

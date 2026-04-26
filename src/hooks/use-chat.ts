@@ -174,6 +174,49 @@ async function editAlgorithm(
   }
 }
 
+async function streamResponse(
+  res: Response,
+  updated: ChatMessage[],
+  setMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>
+): Promise<string> {
+  const reader = res.body!.getReader();
+  const decoder = new TextDecoder();
+  let assistantText = "";
+  setMessages([...updated, { role: "assistant", content: "" }]);
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) {
+        break;
+      }
+      assistantText += decoder.decode(value, { stream: true });
+      setMessages((prev) => {
+        const copy = [...prev];
+        copy[copy.length - 1] = { role: "assistant", content: assistantText };
+        return copy;
+      });
+    }
+  } finally {
+    reader.cancel();
+  }
+  return assistantText;
+}
+
+async function processResponse(
+  assistantText: string,
+  setMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>,
+  setCreatedAlgoIds: React.Dispatch<React.SetStateAction<string[]>>,
+  parsedTickers: { symbol: string; name: string }[] | null
+) {
+  const algoValues = parseAlgorithmMarker(assistantText);
+  if (algoValues) {
+    await createAlgorithm(algoValues, setMessages, setCreatedAlgoIds, parsedTickers);
+  } else {
+    const editData = parseEditMarker(assistantText);
+    if (editData) await editAlgorithm(editData, setMessages);
+  }
+}
+
 export function useChat(stats: Record<string, unknown> | null) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
@@ -200,33 +243,8 @@ export function useChat(stats: Record<string, unknown> | null) {
       if (!res.ok || !res.body) {
         throw new Error("Chat request failed");
       }
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let assistantText = "";
-      setMessages([...updated, { role: "assistant", content: "" }]);
-      try {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) {
-            break;
-          }
-          assistantText += decoder.decode(value, { stream: true });
-          setMessages((prev) => {
-            const copy = [...prev];
-            copy[copy.length - 1] = { role: "assistant", content: assistantText };
-            return copy;
-          });
-        }
-      } finally {
-        reader.cancel();
-      }
-      const algoValues = parseAlgorithmMarker(assistantText);
-      if (algoValues) {
-        await createAlgorithm(algoValues, setMessages, setCreatedAlgoIds, parsedTickers);
-      } else {
-        const editData = parseEditMarker(assistantText);
-        if (editData) await editAlgorithm(editData, setMessages);
-      }
+      const assistantText = await streamResponse(res, updated, setMessages);
+      await processResponse(assistantText, setMessages, setCreatedAlgoIds, parsedTickers);
     } catch {
       setMessages([
         ...updated,
@@ -238,9 +256,7 @@ export function useChat(stats: Record<string, unknown> | null) {
   }
 
   async function handleFileSelect(file: File) {
-    if (!file.name.endsWith(".csv")) {
-      return;
-    }
+    if (!file.name.endsWith(".csv")) return;
     setIsParsing(true);
     try {
       const result = await parseTradeHistoryCsv(file);
@@ -263,14 +279,6 @@ export function useChat(stats: Record<string, unknown> | null) {
     }
   }
 
-  function handleNewChat() {
-    setMessages([]);
-    setCreatedAlgoIds([]);
-    setTradeHistory(null);
-    setParsedTickers(null);
-    setAttachedFileName(null);
-  }
-
   return {
     messages,
     isStreaming,
@@ -279,7 +287,13 @@ export function useChat(stats: Record<string, unknown> | null) {
     isParsing,
     handleSend,
     handleFileSelect,
-    handleNewChat,
+    handleNewChat: () => {
+      setMessages([]);
+      setCreatedAlgoIds([]);
+      setTradeHistory(null);
+      setParsedTickers(null);
+      setAttachedFileName(null);
+    },
     handleRemoveFile: () => {
       setTradeHistory(null);
       setAttachedFileName(null);

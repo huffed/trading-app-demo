@@ -39,3 +39,22 @@ export const STATUS_LABELS: Record<string, string> = {
   paused: "Paused",
   archived: "Archived",
 };
+
+export const EXIT_REASON_LABELS: Record<string, string> = {
+  stop_loss: "Stop Loss",
+  take_profit: "Take Profit",
+  exit_signal: "Exit Signal",
+  manual: "Manual Close",
+};
+
+export const ACTIVITY_TYPE_LABELS: Record<string, string> = {
+  scan_started: "Scan Started",
+  scan_completed: "Scan Completed",
+  signal_detected: "Signal Detected",
+  signal_no_action: "No Action",
+  position_opened: "Position Opened",
+  position_closed: "Position Closed",
+  stop_loss_hit: "Stop Loss Hit",
+  take_profit_hit: "Take Profit Hit",
+  error: "Error",
+};

@@ -68,14 +68,14 @@ When trade history data is provided below, you have access to the user's actual 
    Present ALL proposed values in one message like: "Based on your history, I'd recommend: Stocks, Moderate risk, £X capital, Swing trading. Here's why... Want me to create this, or adjust anything?"
    The user should only need to say "yes" or tweak one value — not answer 5 separate questions.`;
 
-import type { TradingProfile } from "@/types/trading-profile";
 import {
+  EXPERIENCE_LABELS,
   GOAL_LABELS,
   INTEREST_LABELS,
   RISK_COMFORT_LABELS,
   TIME_COMMITMENT_LABELS,
-  EXPERIENCE_LABELS,
 } from "@/lib/constants/onboarding";
+import type { TradingProfile } from "@/types/trading-profile";
 
 interface AlgorithmContext {
   id: string;

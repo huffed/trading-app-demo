@@ -101,6 +101,7 @@ export interface Algorithm {
   ai_analysis: string | null;
   backtest_results: BacktestResults | null;
   status: AlgorithmStatus;
+  last_scanned_at: string | null;
   created_at: string;
   updated_at: string;
 }

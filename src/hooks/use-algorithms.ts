@@ -4,11 +4,13 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   deleteAlgorithm,
   generateAlgorithm,
-  runAiBacktest,
-  runHistoricalBacktest,
   updateAlgorithm,
   updateAlgorithmStatus,
 } from "@/app/(dashboard)/algorithms/actions";
+import {
+  runAiBacktest,
+  runHistoricalBacktest,
+} from "@/app/(dashboard)/algorithms/backtest-run-actions";
 import { createClient } from "@/lib/supabase/client";
 import type { AlgorithmFormValues } from "@/lib/validators/algorithm";
 import type { Algorithm, AlgorithmRules, AlgorithmStatus } from "@/types/algorithm";

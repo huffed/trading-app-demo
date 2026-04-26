@@ -13,6 +13,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useDashboardStats } from "@/hooks/use-dashboard-stats";
+import { formatCurrency } from "@/lib/utils/pnl";
 import type { Trade } from "@/types/trade";
 
 function computeCumulativePnl(trades: Trade[]) {
@@ -59,7 +60,7 @@ function PnlAreaChart({ data }: { data: { date: string; pnl: number }[] }) {
           tick={{ fontSize: 11, fill: "var(--color-muted-foreground)" }}
           axisLine={false}
           tickLine={false}
-          tickFormatter={(v: number) => `$${v}`}
+          tickFormatter={(v: number) => formatCurrency(v)}
         />
         <Tooltip
           contentStyle={{
@@ -69,7 +70,7 @@ function PnlAreaChart({ data }: { data: { date: string; pnl: number }[] }) {
             fontSize: 12,
             color: "var(--color-popover-foreground)",
           }}
-          formatter={(value) => [`$${Number(value).toFixed(2)}`, "P&L"]}
+          formatter={(value) => [formatCurrency(Number(value)), "P&L"]}
         />
         <Area
           type="monotone"

@@ -9,6 +9,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { formatCurrency } from "@/lib/utils/pnl";
 
 interface EquityCurveChartProps {
   data: { date: string; value: number }[];
@@ -37,7 +38,7 @@ export function EquityCurveChart({ data }: EquityCurveChartProps) {
           tick={{ fontSize: 10, fill: "var(--color-muted-foreground)" }}
           axisLine={false}
           tickLine={false}
-          tickFormatter={(v: number) => `$${v}`}
+          tickFormatter={(v: number) => formatCurrency(v)}
         />
         <Tooltip
           contentStyle={{
@@ -47,7 +48,7 @@ export function EquityCurveChart({ data }: EquityCurveChartProps) {
             fontSize: 12,
             color: "var(--color-popover-foreground)",
           }}
-          formatter={(value) => [`$${Number(value).toFixed(2)}`, "Equity"]}
+          formatter={(value) => [formatCurrency(Number(value)), "Equity"]}
         />
         <Area
           type="monotone"
