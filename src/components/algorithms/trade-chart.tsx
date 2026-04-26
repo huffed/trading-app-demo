@@ -98,7 +98,7 @@ export function TradeChart({ prices, trades }: TradeChartProps) {
     volumeSeries.setData(
       prices.map((p) => ({
         time: p.date,
-        value: p.volume,
+        value: Number.isFinite(p.volume) ? p.volume : 0,
         color: p.close >= p.open ? "rgba(34,197,94,0.15)" : "rgba(239,68,68,0.15)",
       }))
     );

@@ -160,13 +160,16 @@ export async function fetchDailyPrices(
   }
 
   return data.values
-    .map((v) => ({
-      date: v.datetime,
-      open: parseFloat(v.open),
-      high: parseFloat(v.high),
-      low: parseFloat(v.low),
-      close: parseFloat(v.close),
-      volume: parseInt(v.volume),
-    }))
+    .map((v) => {
+      const vol = parseInt(v.volume);
+      return {
+        date: v.datetime,
+        open: parseFloat(v.open),
+        high: parseFloat(v.high),
+        low: parseFloat(v.low),
+        close: parseFloat(v.close),
+        volume: Number.isFinite(vol) ? vol : 0,
+      };
+    })
     .sort((a, b) => a.date.localeCompare(b.date));
 }
