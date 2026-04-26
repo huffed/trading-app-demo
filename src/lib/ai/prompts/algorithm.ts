@@ -63,6 +63,7 @@ Example sentiment condition:
   "take_profit": { "type": "percentage"|"fixed", "value": number },
   "position_sizing": { "type": "percentage_of_capital"|"fixed_amount", "value": number },
   "max_positions": integer,
+  "max_per_ticker": integer,           // pyramiding cap per symbol; 1 = no pyramiding
   "timeframe": "1d"|"4h"|"1h",
   "asset_class": string
 }
@@ -87,10 +88,20 @@ Rules:
 - Sentiment conditions CANNOT be backtested — mention this in the strategy description
 
 Asset class guidance:
-- For asset_class "forex" and "commodity": ALWAYS use position_sizing.type "percentage_of_capital" (not fixed_quantity — lot semantics are too easy to get wrong). Stops should be tighter than equities since these instruments have lower per-bar volatility: prefer stop_loss 1-3 for conservative, 2-5 for moderate, 4-8 for aggressive. Take profit 2-5x the stop.
+- For asset_class "forex" and "commodity": ALWAYS use position_sizing.type "percentage_of_capital" (not fixed_quantity — lot semantics are too easy to get wrong).
 - Forex sentiment conditions are unreliable (Alpha Vantage news coverage is thin for currency pairs) — strongly prefer pure technical setups for forex.
 - Commodities like XAU/USD (gold) react to inflation/macro headlines — sentiment conditions on topics like "inflation" or "monetary_policy" can work.
-- timeframe "1d" works well for swing forex/commodity setups; "4h" or "1h" for more active strategies.`;
+
+CRITICAL — forex/commodity timeframe & risk defaults (override the equity defaults above):
+- DEFAULT timeframe: "4h" for swing/general setups, "1h" for more active strategies. Only use "1d" if the user explicitly asks for long-term/position trading.
+- These markets move in pips. On daily bars a 3-5% stop equals 300-500 pips, which rarely fills — strategies sit dormant. INSTEAD use:
+  - Conservative: stop_loss 0.3-0.5, take_profit 0.6-1.0, position_sizing 3-5, max_positions 3-5, max_per_ticker 2
+  - Moderate:     stop_loss 0.5-0.8, take_profit 1.0-1.5, position_sizing 5-8, max_positions 4-6, max_per_ticker 3
+  - Aggressive:   stop_loss 0.8-1.5, take_profit 1.5-3.0, position_sizing 8-12, max_positions 6-10, max_per_ticker 4
+- Reward must remain >= 1.5x risk. Pyramiding (max_per_ticker > 1) lets the algorithm scale into trending pairs and is encouraged for forex/commodity strategies that target prop-firm profit goals.
+- When user_hints mention "prop firm", "funded account", "FTMO", "Topstep", or "max trades": push to the aggressive end of these ranges and bias toward "1h" timeframe with max_per_ticker 3-4.
+
+For asset_class "equity"/"crypto" the default ranges at the top still apply (max_per_ticker defaults to 1 unless the user is explicitly chasing pyramiding).`;
 
 const RISK_DESCRIPTIONS: Record<string, string> = {
   conservative: "Low risk, capital preservation, steady returns",

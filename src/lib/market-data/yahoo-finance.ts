@@ -1,3 +1,4 @@
+import type { BarInterval } from "./interval";
 import type { PriceBar } from "./types";
 
 interface YFChartResult {
@@ -18,16 +19,28 @@ interface YFChartResult {
   };
 }
 
-function toDateStr(ts: number): string {
-  return new Date(ts * 1000).toISOString().split("T")[0];
+function toDateStr(ts: number, interval: BarInterval): string {
+  const d = new Date(ts * 1000);
+  // Daily bars use YYYY-MM-DD; intraday bars need a full timestamp so the
+  // backtest engine and chart can plot multiple bars per day.
+  return interval === "1day" ? d.toISOString().split("T")[0] : d.toISOString();
 }
+
+// Yahoo intraday lookback limits: 1h ≤ 730d, finer intervals ≤ 60d.
+const YAHOO_RANGE: Record<BarInterval, { compact: string; full: string; yahooInterval: string }> = {
+  "1day": { compact: "6mo", full: "5y", yahooInterval: "1d" },
+  "4h": { compact: "60d", full: "60d", yahooInterval: "1h" }, // Yahoo has no 4h — caller resamples upstream if needed
+  "1h": { compact: "60d", full: "730d", yahooInterval: "1h" },
+};
 
 export async function fetchDailyPrices(
   symbol: string,
-  outputSize: "compact" | "full" = "compact"
+  outputSize: "compact" | "full" = "compact",
+  interval: BarInterval = "1day"
 ): Promise<PriceBar[]> {
-  const range = outputSize === "full" ? "5y" : "6mo";
-  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=${range}&interval=1d`;
+  const cfg = YAHOO_RANGE[interval];
+  const range = outputSize === "full" ? cfg.full : cfg.compact;
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=${range}&interval=${cfg.yahooInterval}`;
 
   const res = await fetch(url, {
     headers: { "User-Agent": "Mozilla/5.0" },
@@ -58,7 +71,7 @@ export async function fetchDailyPrices(
     if (o == null || h == null || l == null || c == null) continue;
 
     prices.push({
-      date: toDateStr(timestamp[i]),
+      date: toDateStr(timestamp[i], interval),
       open: o,
       high: h,
       low: l,

@@ -1,3 +1,4 @@
+import type { BarInterval } from "./interval";
 import type { PriceBar, RealTimeQuote } from "./types";
 
 const BASE_URL = "https://api.twelvedata.com";
@@ -139,13 +140,14 @@ interface TDResponse {
 
 export async function fetchDailyPrices(
   symbol: string,
-  outputSize: "compact" | "full" = "compact"
+  outputSize: "compact" | "full" = "compact",
+  interval: BarInterval = "1day"
 ): Promise<PriceBar[]> {
   const apiKey = process.env.TWELVE_DATA_API_KEY;
   if (!apiKey) throw new Error("TWELVE_DATA_API_KEY is not set");
 
   const size = outputSize === "full" ? 5000 : 100;
-  const url = `${BASE_URL}/time_series?symbol=${encodeURIComponent(symbol)}&interval=1day&outputsize=${size}&apikey=${apiKey}`;
+  const url = `${BASE_URL}/time_series?symbol=${encodeURIComponent(symbol)}&interval=${interval}&outputsize=${size}&apikey=${apiKey}`;
 
   const res = await fetch(url);
   if (!res.ok) throw new Error(`Twelve Data request failed: ${res.status}`);

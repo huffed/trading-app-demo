@@ -48,6 +48,9 @@ function clampRules(rules: AlgorithmRules, timeHorizon: string): AlgorithmRules 
   const isLong =
     LONG_HORIZONS.has(timeHorizon.toLowerCase()) || timeHorizon.toLowerCase().includes("long");
   const clamped = structuredClone(rules);
+  const isFxOrCommodity =
+    clamped.asset_class === "forex" || clamped.asset_class === "commodity";
+
   if (isLong) {
     const tech = clamped.entry_conditions.filter(isTechnicalCondition);
     const sentiment = clamped.entry_conditions.filter((c) => !isTechnicalCondition(c));
@@ -71,16 +74,32 @@ function clampRules(rules: AlgorithmRules, timeHorizon: string): AlgorithmRules 
       }
     }
   }
-  // Fix decimal-form percentages (AI sometimes outputs 0.05 meaning 5%, not 5 meaning 5%)
-  if (clamped.stop_loss && clamped.stop_loss.value < 1) {
-    clamped.stop_loss.value = Math.round(clamped.stop_loss.value * 100);
-  }
-  if (clamped.take_profit && clamped.take_profit.value < 1) {
-    clamped.take_profit.value = Math.round(clamped.take_profit.value * 100);
+  // Fix decimal-form percentages (AI sometimes outputs 0.05 meaning 5%, not 5 meaning 5%).
+  // Forex/commodity legitimately use sub-1% stops (e.g. 0.5 = 50 pips on EUR/USD), so we
+  // skip the rescue heuristic for those asset classes — the AI prompt is explicit about
+  // their tighter scale.
+  if (!isFxOrCommodity) {
+    if (clamped.stop_loss && clamped.stop_loss.value < 1) {
+      clamped.stop_loss.value = Math.round(clamped.stop_loss.value * 100);
+    }
+    if (clamped.take_profit && clamped.take_profit.value < 1) {
+      clamped.take_profit.value = Math.round(clamped.take_profit.value * 100);
+    }
   }
   if (clamped.position_sizing && clamped.position_sizing.value < 1) {
     clamped.position_sizing.value = Math.round(clamped.position_sizing.value * 100);
   }
+
+  // Default pyramiding cap. Forex/commodity benefit from stacking 2-3 entries on
+  // trending pairs; equities default to single entry per ticker.
+  if (clamped.max_per_ticker == null || clamped.max_per_ticker < 1) {
+    clamped.max_per_ticker = isFxOrCommodity ? 3 : 1;
+  }
+  // Sanity cap — pyramiding > 5 on a single symbol is rarely intentional.
+  if (clamped.max_per_ticker > 5) {
+    clamped.max_per_ticker = 5;
+  }
+
   return clamped;
 }
 

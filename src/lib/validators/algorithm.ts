@@ -68,6 +68,7 @@ export const algorithmRulesSchema = z.object({
     value: z.number(),
   }),
   max_positions: z.number().int().positive(),
+  max_per_ticker: z.number().int().positive().optional(),
   timeframe: z.string(),
   asset_class: z.string(),
   prop_firm: propFirmSchema.optional(),

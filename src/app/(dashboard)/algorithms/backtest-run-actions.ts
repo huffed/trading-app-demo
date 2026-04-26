@@ -83,11 +83,14 @@ export async function runHistoricalBacktest(
     return { success: false, error: "Algorithm has no trading rules. Try regenerating it." };
   }
 
+  const { timeframeToInterval } = await import("@/lib/market-data/interval");
+  const interval = timeframeToInterval(rules.timeframe);
+
   try {
-    let prices = await getCachedPrices(symbol, outputSize);
+    let prices = await getCachedPrices(symbol, outputSize, interval);
     if (!prices) {
-      prices = await fetchDailyPrices(symbol, outputSize);
-      savePricesToCache(symbol, outputSize, prices).catch((e) =>
+      prices = await fetchDailyPrices(symbol, outputSize, interval);
+      savePricesToCache(symbol, outputSize, prices, interval).catch((e) =>
         console.warn(`[price-cache] Failed to cache ${symbol}:`, e instanceof Error ? e.message : e)
       );
     }

@@ -208,7 +208,14 @@ function RiskParams({ rules }: { rules: AlgorithmRules }) {
         <BarChart3 className="h-4 w-4 shrink-0 text-muted-foreground" />
         <div>
           <p className="text-xs text-muted-foreground">Max Positions</p>
-          <p className="text-sm font-medium">{rules.max_positions}</p>
+          <p className="text-sm font-medium">
+            {rules.max_positions}
+            {rules.max_per_ticker && rules.max_per_ticker > 1 ? (
+              <span className="ml-1 text-xs font-normal text-muted-foreground">
+                ({rules.max_per_ticker} per pair)
+              </span>
+            ) : null}
+          </p>
         </div>
       </div>
     </div>

@@ -1,22 +1,27 @@
 import { createClient } from "@/lib/supabase/server";
+import type { BarInterval } from "./interval";
 import type { PriceBar } from "./types";
 
-// Price data is refreshed once per day — cache for 23 hours so the latest
-// bar is never more than ~1 day stale. Historical bars never change.
-const CACHE_MAX_AGE_HOURS = 23;
+// Daily bars refresh once per market day, intraday bars far more often.
+// Tighter TTL on intraday so live signals don't act on stale data.
+const DAILY_TTL_HOURS = 23;
+const INTRADAY_TTL_HOURS = 1;
 
 export async function getCachedPrices(
   ticker: string,
-  outputSize: string
+  outputSize: string,
+  interval: BarInterval = "1day"
 ): Promise<PriceBar[] | null> {
   const supabase = await createClient();
-  const cutoff = new Date(Date.now() - CACHE_MAX_AGE_HOURS * 60 * 60 * 1000).toISOString();
+  const ttlHours = interval === "1day" ? DAILY_TTL_HOURS : INTRADAY_TTL_HOURS;
+  const cutoff = new Date(Date.now() - ttlHours * 60 * 60 * 1000).toISOString();
 
   const { data } = await supabase
     .from("price_cache")
     .select("bars")
     .eq("ticker", ticker.toUpperCase())
     .eq("output_size", outputSize)
+    .eq("interval", interval)
     .gte("fetched_at", cutoff)
     .limit(1)
     .single();
@@ -28,7 +33,8 @@ export async function getCachedPrices(
 export async function savePricesToCache(
   ticker: string,
   outputSize: string,
-  bars: PriceBar[]
+  bars: PriceBar[],
+  interval: BarInterval = "1day"
 ): Promise<void> {
   const supabase = await createClient();
   const {
@@ -41,10 +47,11 @@ export async function savePricesToCache(
       user_id: user.id,
       ticker: ticker.toUpperCase(),
       output_size: outputSize,
+      interval,
       bars,
       bar_count: bars.length,
       fetched_at: new Date().toISOString(),
     },
-    { onConflict: "user_id,ticker,output_size" }
+    { onConflict: "user_id,ticker,output_size,interval" }
   );
 }

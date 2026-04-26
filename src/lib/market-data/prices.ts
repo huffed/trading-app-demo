@@ -12,51 +12,57 @@
  * Callers should check the Supabase cache first (via getCachedPrices) before
  * calling this function. This function handles the in-memory cache and API fallback.
  */
+import type { BarInterval } from "./interval";
 import type { PriceBar } from "./types";
 
 const MEMORY_CACHE_TTL_MS = 60 * 60 * 1000;
 const memoryCache = new Map<string, { data: PriceBar[]; fetchedAt: number }>();
 
 /**
- * Fetch daily OHLCV prices with a provider fallback chain:
- *   Twelve Data (800/day) → Yahoo Finance (unlimited) → Alpha Vantage (25/day)
+ * Fetch OHLCV prices with a provider fallback chain:
+ *   Twelve Data (800/day) → Yahoo Finance (unlimited) → Alpha Vantage (25/day, daily-only)
+ *
+ * `interval` controls the bar size. Alpha Vantage only serves daily bars,
+ * so it's skipped automatically for intraday requests.
  *
  * Callers should wrap this with the Supabase price cache for persistence.
  */
 export async function fetchDailyPrices(
   symbol: string,
-  outputSize: "compact" | "full" = "compact"
+  outputSize: "compact" | "full" = "compact",
+  interval: BarInterval = "1day"
 ): Promise<PriceBar[]> {
-  const cacheKey = `${symbol.toUpperCase()}:${outputSize}`;
+  const cacheKey = `${symbol.toUpperCase()}:${outputSize}:${interval}`;
   const cached = memoryCache.get(cacheKey);
   if (cached && Date.now() - cached.fetchedAt < MEMORY_CACHE_TTL_MS) {
     return cached.data;
   }
 
-  const prices = await fetchWithFallback(symbol, outputSize);
+  const prices = await fetchWithFallback(symbol, outputSize, interval);
   memoryCache.set(cacheKey, { data: prices, fetchedAt: Date.now() });
   return prices;
 }
 
 async function fetchWithFallback(
   symbol: string,
-  outputSize: "compact" | "full"
+  outputSize: "compact" | "full",
+  interval: BarInterval
 ): Promise<PriceBar[]> {
   // Provider fallback chain — each catch logs and falls through to the next.
   // The final provider throws on failure (no silent swallowing).
 
-  // 1. Twelve Data (primary — 800 credits/day)
+  // 1. Twelve Data (primary — 800 credits/day, supports all intervals)
   try {
     const { fetchDailyPrices: fromTwelveData } = await import("./twelve-data");
-    return await fromTwelveData(symbol, outputSize);
+    return await fromTwelveData(symbol, outputSize, interval);
   } catch (e) {
     console.warn(`[prices] Twelve Data failed for ${symbol}:`, e instanceof Error ? e.message : e);
   }
 
-  // 2. Yahoo Finance (fallback — unlimited, unofficial)
+  // 2. Yahoo Finance (fallback — unlimited, supports 1h; 4h is approximated via 1h)
   try {
     const { fetchDailyPrices: fromYahoo } = await import("./yahoo-finance");
-    return await fromYahoo(symbol, outputSize);
+    return await fromYahoo(symbol, outputSize, interval);
   } catch (e) {
     console.warn(
       `[prices] Yahoo Finance failed for ${symbol}:`,
@@ -64,7 +70,13 @@ async function fetchWithFallback(
     );
   }
 
-  // 3. Alpha Vantage (last resort — 25 req/day). Throws on failure — all providers exhausted.
+  // 3. Alpha Vantage (last resort — daily bars only). Throws if intraday was requested
+  // and the upstream providers both failed.
+  if (interval !== "1day") {
+    throw new Error(
+      `No intraday data available for ${symbol} at ${interval} (Alpha Vantage is daily-only).`
+    );
+  }
   const { fetchDailyPrices: fromAlphaVantage } = await import("./alpha-vantage");
   return await fromAlphaVantage(symbol, outputSize);
 }

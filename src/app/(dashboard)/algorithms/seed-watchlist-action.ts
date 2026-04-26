@@ -32,11 +32,13 @@ async function backtestOne(
   capital: number,
   ticker: string
 ): Promise<BacktestMetrics | null> {
+  const { timeframeToInterval } = await import("@/lib/market-data/interval");
+  const interval = timeframeToInterval(rules.timeframe);
   try {
-    let prices = await getCachedPrices(ticker, "compact");
+    let prices = await getCachedPrices(ticker, "compact", interval);
     if (!prices) {
-      prices = await fetchDailyPrices(ticker, "compact");
-      savePricesToCache(ticker, "compact", prices).catch((e) =>
+      prices = await fetchDailyPrices(ticker, "compact", interval);
+      savePricesToCache(ticker, "compact", prices, interval).catch((e) =>
         console.warn(`[price-cache] Failed to cache ${ticker}:`, e instanceof Error ? e.message : e)
       );
     }

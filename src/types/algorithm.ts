@@ -69,6 +69,8 @@ export interface AlgorithmRules {
   take_profit: TakeProfit;
   position_sizing: PositionSizing;
   max_positions: number;
+  /** Pyramiding cap per symbol. Defaults to 1 (no stacking). */
+  max_per_ticker?: number;
   timeframe: string;
   asset_class: string;
   prop_firm?: PropFirmRules;

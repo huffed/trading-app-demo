@@ -39,7 +39,9 @@ CRITICAL RULES:
 - Suggested commodities: XAU/USD (gold), XAG/USD (silver), USOIL (WTI crude), UKOIL (Brent), NATGAS.
 - For beginners curious about forex: explain a "pip" is the smallest price move (0.0001 for most pairs, 0.01 for JPY pairs). Don't dump jargon — relate it back to the same concepts they understand from stocks.
 - For commodities like gold, mention they're a classic "safe haven" — they tend to rise when stocks fall.
-- When the user picks forex or commodity, default to percentage-of-capital position sizing (it scales naturally with leverage and avoids the lot-size confusion of fixed quantities).`;
+- When the user picks forex or commodity, default to percentage-of-capital position sizing (it scales naturally with leverage and avoids the lot-size confusion of fixed quantities).
+- For forex/commodity propose **time_horizon "4h"** by default (or "1h" for active/scalping setups). Daily bars on FX produce very few trades because typical TP/SL distances rarely fill — confirm the user understands this trade-off before defaulting to "1d".
+- For prop-firm/funded-account users (mentions of FTMO, Topstep, funded, daily-loss limits): bias toward 1h timeframe, tighter stops (0.5-1%), and pyramiding (multiple stacked positions per pair) so the strategy can hit profit targets faster.`;
 
 const TRADE_HISTORY_INSTRUCTIONS = `
 ## Trade History Analysis
