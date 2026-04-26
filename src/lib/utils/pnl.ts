@@ -135,11 +135,45 @@ export function getTradeStats(trades: Trade[]) {
   const wins = closed.filter((t) => t.realized_pnl != null && t.realized_pnl > 0);
   const totalPnl = closed.reduce((sum, t) => sum + (t.realized_pnl ?? 0), 0);
 
+  // Today's P&L
+  const today = new Date().toISOString().slice(0, 10);
+  const todayPnl = closed
+    .filter((t) => t.exit_date?.startsWith(today))
+    .reduce((sum, t) => sum + (t.realized_pnl ?? 0), 0);
+
+  // Current streak
+  const sortedClosed = [...closed]
+    .filter((t) => t.realized_pnl != null)
+    .sort((a, b) => new Date(b.exit_date!).getTime() - new Date(a.exit_date!).getTime());
+  let streak = 0;
+  if (sortedClosed.length > 0) {
+    const firstIsWin = sortedClosed[0].realized_pnl! > 0;
+    for (const t of sortedClosed) {
+      if (t.realized_pnl! > 0 === firstIsWin) {
+        streak++;
+      } else {
+        break;
+      }
+    }
+    if (!firstIsWin) {
+      streak = -streak;
+    }
+  }
+
+  // Best & worst
+  const pnls = closed.filter((t) => t.realized_pnl != null).map((t) => t.realized_pnl!);
+  const bestTrade = pnls.length > 0 ? Math.max(...pnls) : 0;
+  const worstTrade = pnls.length > 0 ? Math.min(...pnls) : 0;
+
   return {
     totalTrades: trades.length,
     openTrades: trades.length - closed.length,
     closedTrades: closed.length,
     winRate: closed.length > 0 ? (wins.length / closed.length) * 100 : 0,
     totalPnl,
+    todayPnl,
+    streak,
+    bestTrade,
+    worstTrade,
   };
 }

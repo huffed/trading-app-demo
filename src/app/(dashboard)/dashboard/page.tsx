@@ -5,6 +5,7 @@ import { PaperTradingCard } from "@/components/dashboard/paper-trading-card";
 import { PnlChart } from "@/components/dashboard/pnl-chart";
 import { RecentTrades } from "@/components/dashboard/recent-trades";
 import { StatCards } from "@/components/dashboard/stat-cards";
+import { TopPerformers } from "@/components/dashboard/top-performers";
 
 export default function DashboardPage() {
   return (
@@ -17,13 +18,16 @@ export default function DashboardPage() {
       <PaperTradingCard />
       <div className="grid gap-4 lg:grid-cols-2">
         <PnlChart />
-        <RecentTrades />
+        <TopPerformers />
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
+        <RecentTrades />
         <ActivityFeed />
+      </div>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <AssetAllocationChart />
         <EmotionWidget />
       </div>
-      <AssetAllocationChart />
     </div>
   );
 }
