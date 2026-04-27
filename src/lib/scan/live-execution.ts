@@ -67,6 +67,9 @@ interface EntryArgs {
   stopLossPrice: number;
   takeProfitPrice: number;
   ctx: BrokerExecutionContext;
+  /** Lot-based sizing: pass the raw lot count so we don't round-trip through
+   *  USD notional (which is wrong for JPY crosses where price is in JPY). */
+  lots?: number;
 }
 
 /**
@@ -78,12 +81,25 @@ export async function executeLiveEntry(args: EntryArgs): Promise<void> {
   const { supabase, userId, algorithmId, paperPositionId, ticker, side, notionalUsd } = args;
   try {
     const spec = await fetchSymbolSpec(args.ctx.apiToken, args.ctx.accountId, args.ctx.region, ticker);
-    const lots = notionalToLots(notionalUsd, args.currentPrice, spec);
+    let lots: number;
+    if (args.lots != null && args.lots > 0) {
+      // Honour exact lot-sized algorithms — floor to broker volume step so a
+      // backtest-validated size (e.g. 0.125) never gets nudged UP into a
+      // higher-risk regime. Min-volume clamp prevents a 0 deployment.
+      const stepped = Math.floor(args.lots / spec.volumeStep) * spec.volumeStep;
+      lots = Number(
+        Math.min(Math.max(stepped, spec.minVolume), spec.maxVolume).toFixed(4)
+      );
+    } else {
+      lots = notionalToLots(notionalUsd, args.currentPrice, spec);
+    }
     if (lots <= 0) {
       throw new Error(
         `Computed lot size 0 for ${ticker} — minVolume=${spec.minVolume}, notional=${notionalUsd}.`
       );
     }
+    // Intentionally omit clientId — MetaApi's regex rejects hex/UUID-shaped
+    // ids and we already correlate via the orderId/positionId in the response.
     const placed = await placeMarketOrder(args.ctx.apiToken, args.ctx.accountId, args.ctx.region, {
       symbol: toBrokerSymbol(ticker),
       side: side === "long" ? "buy" : "sell",
@@ -91,7 +107,6 @@ export async function executeLiveEntry(args: EntryArgs): Promise<void> {
       stopLoss: args.stopLossPrice,
       takeProfit: args.takeProfitPrice,
       comment: `qt:${algorithmId.slice(0, 8)}`,
-      clientId: paperPositionId,
     });
     await supabase
       .from("paper_positions")

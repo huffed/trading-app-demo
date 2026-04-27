@@ -48,35 +48,39 @@ async function fetchWithFallback(
   outputSize: "compact" | "full",
   interval: BarInterval
 ): Promise<PriceBar[]> {
-  // Provider fallback chain — each catch logs and falls through to the next.
-  // The final provider throws on failure (no silent swallowing).
+  const providerErrors: string[] = [];
 
-  // 1. Twelve Data (primary — 800 credits/day, supports all intervals)
   try {
     const { fetchDailyPrices: fromTwelveData } = await import("./twelve-data");
     return await fromTwelveData(symbol, outputSize, interval);
   } catch (e) {
-    console.warn(`[prices] Twelve Data failed for ${symbol}:`, e instanceof Error ? e.message : e);
+    const msg = e instanceof Error ? e.message : String(e);
+    providerErrors.push(`twelve-data: ${msg}`);
+    console.warn(`[prices] Twelve Data failed for ${symbol}: ${msg}`);
   }
 
-  // 2. Yahoo Finance (fallback — unlimited, supports 1h; 4h is approximated via 1h)
   try {
     const { fetchDailyPrices: fromYahoo } = await import("./yahoo-finance");
     return await fromYahoo(symbol, outputSize, interval);
   } catch (e) {
-    console.warn(
-      `[prices] Yahoo Finance failed for ${symbol}:`,
-      e instanceof Error ? e.message : e
-    );
+    const msg = e instanceof Error ? e.message : String(e);
+    providerErrors.push(`yahoo: ${msg}`);
+    console.warn(`[prices] Yahoo Finance failed for ${symbol}: ${msg}`);
   }
 
-  // 3. Alpha Vantage (last resort — daily bars only). Throws if intraday was requested
-  // and the upstream providers both failed.
+  // Alpha Vantage is daily-only — for intraday requests, surface the
+  // upstream provider errors so we can actually diagnose why both failed.
   if (interval !== "1day") {
     throw new Error(
-      `No intraday data available for ${symbol} at ${interval} (Alpha Vantage is daily-only).`
+      `No intraday data for ${symbol} at ${interval}. ${providerErrors.join(" | ")}`
     );
   }
-  const { fetchDailyPrices: fromAlphaVantage } = await import("./alpha-vantage");
-  return await fromAlphaVantage(symbol, outputSize);
+  try {
+    const { fetchDailyPrices: fromAlphaVantage } = await import("./alpha-vantage");
+    return await fromAlphaVantage(symbol, outputSize);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    providerErrors.push(`alpha-vantage: ${msg}`);
+    throw new Error(`All price providers failed for ${symbol}: ${providerErrors.join(" | ")}`);
+  }
 }

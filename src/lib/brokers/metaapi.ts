@@ -189,6 +189,9 @@ interface MarketOrderResponse {
   message?: string;
   orderId?: string;
   positionId?: string;
+  /** MetaApi sometimes nests details here on validation failures. */
+  details?: unknown;
+  error?: string;
 }
 
 /**
@@ -228,8 +231,16 @@ export async function placeMarketOrder(
     /* leave data empty */
   }
   if (!res.ok || (data.stringCode && data.stringCode !== "TRADE_RETCODE_DONE")) {
-    const detail = data.message ?? data.stringCode ?? `HTTP ${res.status}`;
-    throw new Error(`Order rejected: ${detail}`);
+    const parts = [
+      data.message,
+      data.stringCode,
+      data.error,
+      data.details ? JSON.stringify(data.details).slice(0, 300) : null,
+      `HTTP ${res.status}`,
+    ].filter(Boolean);
+    const detail = parts.join(" | ") || text.slice(0, 300) || "no body";
+    const sentBody = JSON.stringify({ ...body, _note: "input echoed for diagnosis" }).slice(0, 300);
+    throw new Error(`Order rejected: ${detail} :: sent ${sentBody}`);
   }
   if (!data.orderId || !data.positionId) {
     throw new Error("Order placed but broker returned no order/position id.");

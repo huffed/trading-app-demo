@@ -39,7 +39,7 @@ async function openPosition(
   brokerCtx: BrokerExecutionContext | null
 ): Promise<{ opened: number; openEvent?: PositionEvent }> {
   const openValue = allOpenPositions.reduce((sum, p) => sum + p.notional_value, 0);
-  const sizing = calculatePositionSize(algo.rules, algo.capital, openValue, currentPrice);
+  const sizing = calculatePositionSize(algo.rules, algo.capital, openValue, currentPrice, ticker);
   if (!sizing) {
     return { opened: 0 };
   }
@@ -81,6 +81,9 @@ async function openPosition(
     .single();
 
   if (!position) return { opened: 0 };
+  const lotSizing = algo.rules.position_sizing.type === "lots"
+    ? algo.rules.position_sizing.value
+    : undefined;
   await logOpenAndMirror({
     supabase,
     userId,
@@ -93,6 +96,7 @@ async function openPosition(
     stopLossPrice,
     takeProfitPrice,
     brokerCtx,
+    lots: lotSizing,
   });
   return {
     opened: 1,
@@ -112,6 +116,9 @@ interface LogAndMirrorArgs {
   stopLossPrice: number;
   takeProfitPrice: number;
   brokerCtx: BrokerExecutionContext | null;
+  /** When the algo uses lot-based sizing, this is the raw lot count.
+   *  Threaded to executeLiveEntry so JPY crosses don't get mis-converted. */
+  lots?: number;
 }
 
 async function logOpenAndMirror(args: LogAndMirrorArgs): Promise<void> {
@@ -141,6 +148,7 @@ async function logOpenAndMirror(args: LogAndMirrorArgs): Promise<void> {
       stopLossPrice: args.stopLossPrice,
       takeProfitPrice: args.takeProfitPrice,
       ctx: args.brokerCtx,
+      lots: args.lots,
     });
   }
 }
