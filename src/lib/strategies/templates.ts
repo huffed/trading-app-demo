@@ -13,7 +13,8 @@
  * - 3:1 reward:risk minimum
  * - position_sizing.percentage_of_capital
  */
-import type { AlgorithmRules } from "@/types/algorithm";
+import { defaultLeverage } from "@/lib/constants/markets";
+import type { AlgorithmRules, PositionSizing } from "@/types/algorithm";
 
 export type RiskLevel = "conservative" | "moderate" | "aggressive";
 
@@ -22,6 +23,30 @@ export interface TemplateContext {
   risk_level: RiskLevel;
   capital: number;
   time_horizon: string;
+}
+
+/**
+ * For Aggressive forex/commodity, switch from percentage-of-capital to
+ * lot-based sizing so the backtest can reach prop-firm-realistic
+ * leverage. Conservative/Moderate stay on percentage where the risk
+ * profile is more conservative anyway.
+ */
+function aggressiveSizing(
+  ctx: TemplateContext,
+  fxLots: number,
+  commodityLots: number,
+  fallbackPct: number
+): { sizing: PositionSizing; leverage: number } {
+  if (ctx.risk_level === "aggressive" && ctx.asset_class === "forex") {
+    return { sizing: { type: "lots", value: fxLots }, leverage: 100 };
+  }
+  if (ctx.risk_level === "aggressive" && ctx.asset_class === "commodity") {
+    return { sizing: { type: "lots", value: commodityLots }, leverage: 30 };
+  }
+  return {
+    sizing: { type: "percentage_of_capital", value: fallbackPct },
+    leverage: defaultLeverage(ctx.asset_class),
+  };
 }
 
 export interface StrategyTemplate {
@@ -65,6 +90,7 @@ function fxBaseRules(
     | "max_positions"
     | "max_per_ticker"
     | "entry_logic"
+    | "leverage"
   >
 ): AlgorithmRules {
   return {
@@ -98,7 +124,7 @@ Best on liquid markets with persistent direction — major forex pairs in clear 
   build: (ctx) => {
     const stop = pickByRisk(ctx.risk_level, 0.4, 0.6, 1.0);
     const tp = stop * 3;
-    const size = pickByRisk(ctx.risk_level, 6, 10, 16);
+    const { sizing, leverage } = aggressiveSizing(ctx, 0.2, 0.05, 16);
     return fxBaseRules(ctx, {
       entry_conditions: [
         { type: "technical", indicator: "EMA12", operator: "greater_than", value: 0, timeframe: ctx.time_horizon },
@@ -109,7 +135,8 @@ Best on liquid markets with persistent direction — major forex pairs in clear 
       exit_conditions: [],
       stop_loss: { type: "percentage", value: stop },
       take_profit: { type: "percentage", value: tp },
-      position_sizing: { type: "percentage_of_capital", value: size },
+      position_sizing: sizing,
+      leverage,
       max_positions: pickByRisk(ctx.risk_level, 4, 6, 10),
       max_per_ticker: pickByRisk(ctx.risk_level, 3, 4, 6),
     });
@@ -208,7 +235,7 @@ Designed specifically for forex/commodity 4h scalping with prop-firm constraints
   build: (ctx) => {
     const stop = pickByRisk(ctx.risk_level, 0.5, 0.7, 1.2);
     const tp = stop * 3;
-    const size = pickByRisk(ctx.risk_level, 6, 10, 18);
+    const { sizing, leverage } = aggressiveSizing(ctx, 0.3, 0.08, 18);
     return fxBaseRules(ctx, {
       entry_conditions: [
         { type: "technical", indicator: "EMA12", operator: "greater_than", value: 0, timeframe: ctx.time_horizon },
@@ -220,7 +247,8 @@ Designed specifically for forex/commodity 4h scalping with prop-firm constraints
       exit_conditions: [],
       stop_loss: { type: "percentage", value: stop },
       take_profit: { type: "percentage", value: tp },
-      position_sizing: { type: "percentage_of_capital", value: size },
+      position_sizing: sizing,
+      leverage,
       max_positions: pickByRisk(ctx.risk_level, 4, 7, 12),
       max_per_ticker: pickByRisk(ctx.risk_level, 3, 4, 6),
     });
@@ -245,7 +273,7 @@ Works on commodities during macro themes (oil during supply shocks, gold during 
   build: (ctx) => {
     const stop = pickByRisk(ctx.risk_level, 0.6, 1.0, 1.5);
     const tp = stop * 4;
-    const size = pickByRisk(ctx.risk_level, 6, 10, 16);
+    const { sizing, leverage } = aggressiveSizing(ctx, 0.2, 0.05, 16);
     return fxBaseRules(ctx, {
       entry_conditions: [
         { type: "technical", indicator: "BollingerBands_upper", operator: "crosses_above", value: 0, timeframe: ctx.time_horizon },
@@ -256,7 +284,8 @@ Works on commodities during macro themes (oil during supply shocks, gold during 
       ],
       stop_loss: { type: "percentage", value: stop },
       take_profit: { type: "percentage", value: tp },
-      position_sizing: { type: "percentage_of_capital", value: size },
+      position_sizing: sizing,
+      leverage,
       max_positions: pickByRisk(ctx.risk_level, 3, 6, 10),
       max_per_ticker: pickByRisk(ctx.risk_level, 2, 3, 4),
     });

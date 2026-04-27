@@ -193,6 +193,11 @@ function formatPositionSizing(rules: AlgorithmRules): string {
       const unit = getQuantityUnit(rules.asset_class);
       return `${rules.position_sizing.value.toLocaleString()} ${unit} per trade`;
     }
+    case "lots": {
+      const lots = rules.position_sizing.value;
+      const noun = lots === 1 ? "lot" : "lots";
+      return `${lots} ${noun} per trade`;
+    }
     default:
       return `${rules.position_sizing.value}`;
   }
@@ -219,7 +224,14 @@ function RiskParams({ rules }: { rules: AlgorithmRules }) {
         <TrendingUp className="h-4 w-4 shrink-0 text-muted-foreground" />
         <div>
           <p className="text-xs text-muted-foreground">Position Size</p>
-          <p className="text-sm font-medium">{formatPositionSizing(rules)}</p>
+          <p className="text-sm font-medium">
+            {formatPositionSizing(rules)}
+            {rules.position_sizing.type === "lots" && rules.leverage ? (
+              <span className="ml-1 text-xs font-normal text-muted-foreground">
+                (1:{rules.leverage} leverage)
+              </span>
+            ) : null}
+          </p>
         </div>
       </div>
       <div className="flex items-center gap-2.5 rounded-md border p-2.5">

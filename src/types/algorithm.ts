@@ -56,7 +56,15 @@ export interface TakeProfit {
 }
 
 export interface PositionSizing {
-  type: "percentage_of_capital" | "fixed_amount" | "fixed_quantity";
+  type: "percentage_of_capital" | "fixed_amount" | "fixed_quantity" | "lots";
+  /**
+   * Interpretation depends on type:
+   *  - percentage_of_capital: % of equity (e.g. 16 → 16%)
+   *  - fixed_amount: USD notional (e.g. 1000 → $1000 per trade)
+   *  - fixed_quantity: raw units (shares for stocks)
+   *  - lots: lot count (1 = 1 standard lot; 100k forex base or asset-class
+   *    contractSize). Notional = lots × contractSize × price.
+   */
   value: number;
 }
 
@@ -116,6 +124,13 @@ export interface AlgorithmRules {
   max_positions: number;
   /** Pyramiding cap per symbol. Defaults to 1 (no stacking). */
   max_per_ticker?: number;
+  /**
+   * Account leverage ratio for margin calculations. Only matters when
+   * position_sizing.type === "lots". 30 = 30:1 (default), 100 = 100:1
+   * (typical FTMO forex). Backwards compatible: omitted = unlimited
+   * margin (legacy non-leveraged behaviour).
+   */
+  leverage?: number;
   timeframe: string;
   asset_class: string;
   prop_firm?: PropFirmRules;

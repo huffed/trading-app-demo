@@ -123,11 +123,12 @@ export const algorithmRulesSchema = z.object({
   stop_loss: z.object({ type: z.enum(["percentage", "fixed"]), value: z.number() }),
   take_profit: z.object({ type: z.enum(["percentage", "fixed"]), value: z.number() }),
   position_sizing: z.object({
-    type: z.enum(["percentage_of_capital", "fixed_amount", "fixed_quantity"]),
+    type: z.enum(["percentage_of_capital", "fixed_amount", "fixed_quantity", "lots"]),
     value: z.number(),
   }),
   max_positions: z.number().int().positive(),
   max_per_ticker: z.number().int().positive().optional(),
+  leverage: z.number().int().min(1).max(500).optional(),
   timeframe: z.string(),
   asset_class: z.string(),
   prop_firm: propFirmSchema.optional(),

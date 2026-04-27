@@ -15,7 +15,10 @@ import {
   closeSimPosition,
   enforcePropFirm,
   finalizeDay,
+  forceCloseAllPositions,
   initialSimState,
+  pickBacktestExitPrice,
+  sizeForBacktest,
   type SimConfig,
   type SimState,
 } from "./prop-firm-backtest";
@@ -129,44 +132,6 @@ const DEFAULT_POSITION_SIZE_PCT = 10;
 const DEFAULT_STOP_LOSS_PCT = 5;
 const DEFAULT_TAKE_PROFIT_PCT = 15;
 
-/**
- * Decide whether and at what price an open position exits this bar.
- * Stops and take-profits fill at the configured level (intra-bar fill
- * detected via bar.low / bar.high). Signal-based exits fill at the close.
- * If both stop and TP touch the same bar we assume the stop fills first.
- */
-function pickExitPrice(
-  pos: { entryPrice: number },
-  bar: PriceBar,
-  closePrice: number,
-  cfg: SimConfig,
-  signalExitFired: boolean
-): number | null {
-  const stopPrice = pos.entryPrice * (1 - cfg.stopPct);
-  const tpPrice = pos.entryPrice * (1 + cfg.tpPct);
-  if (bar.low <= stopPrice) return applySlippage(stopPrice, cfg.slippageBps, false);
-  if (bar.high >= tpPrice) return applySlippage(tpPrice, cfg.slippageBps, false);
-  if (signalExitFired) return applySlippage(closePrice, cfg.slippageBps, false);
-  return null;
-}
-
-function forceCloseAll(
-  positions: { entryPrice: number; entryDate: string; notionalValue: number }[],
-  dayKey: string,
-  closePrice: number,
-  capital: number,
-  cfg: SimConfig,
-  s: SimState,
-  trades: BacktestTrade[]
-): void {
-  if (positions.length === 0) return;
-  const exitPrice = applySlippage(closePrice, cfg.slippageBps, false);
-  for (let p = positions.length - 1; p >= 0; p--) {
-    closeSimPosition(positions[p], dayKey, exitPrice, capital, cfg, s, trades);
-    positions.splice(p, 1);
-  }
-}
-
 function buildSimConfig(rules: AlgorithmRules): SimConfig {
   const pf = rules.prop_firm;
   return {
@@ -179,20 +144,27 @@ function buildSimConfig(rules: AlgorithmRules): SimConfig {
   };
 }
 
+
 function runSimulation(
   prices: PriceBar[],
   capital: number,
   rules: AlgorithmRules,
   techEntry: TechnicalCondition[],
   techExit: TechnicalCondition[],
-  vetoCheck: ((barDate: string) => boolean) | null
+  vetoCheck: ((barDate: string) => boolean) | null,
+  symbol?: string
 ): { trades: BacktestTrade[]; openPos: OpenPosition | null; state: SimState } {
   const pf = rules.prop_firm;
   const cfg = buildSimConfig(rules);
   const closes = prices.map((p) => p.close);
   const cache: Cache = new Map();
   const trades: BacktestTrade[] = [];
-  const positions: { entryPrice: number; entryDate: string; notionalValue: number }[] = [];
+  const positions: {
+    entryPrice: number;
+    entryDate: string;
+    notionalValue: number;
+    marginRequired: number;
+  }[] = [];
   const s = initialSimState(capital);
   let currentDayKey = "";
   let dailyHalted = false;
@@ -212,7 +184,7 @@ function runSimulation(
       s.drawdownBreached;
     for (let p = positions.length - 1; p >= 0; p--) {
       const pos = positions[p];
-      const exitPrice = pickExitPrice(pos, bar, closes[i], cfg, signalExitFired);
+      const exitPrice = pickBacktestExitPrice(pos, bar, closes[i], cfg, signalExitFired);
       if (exitPrice !== null) {
         closeSimPosition(pos, dayKey, exitPrice, capital, cfg, s, trades);
         positions.splice(p, 1);
@@ -220,7 +192,7 @@ function runSimulation(
       }
     }
     // Real prop-firm behaviour: DLL breach mid-bar force-closes all positions.
-    if (dailyHalted) forceCloseAll(positions, dayKey, closes[i], capital, cfg, s, trades);
+    if (dailyHalted) forceCloseAllPositions(positions, dayKey, closes[i], capital, cfg, s, trades);
     const vetoed = vetoCheck ? vetoCheck(day) : false;
     if (
       !s.killTriggered &&
@@ -230,13 +202,21 @@ function runSimulation(
       positions.length < cfg.maxPos &&
       checkConditions(techEntry, cache, closes, i, rules.entry_logic)
     ) {
-      positions.push({
-        entryPrice: applySlippage(closes[i], cfg.slippageBps, true),
-        entryDate: day,
-        // Compound: each new position is sized off the running equity at
-        // open time, not the initial capital. Wins grow future positions.
-        notionalValue: s.equity * cfg.posSize,
-      });
+      const entryPrice = applySlippage(closes[i], cfg.slippageBps, true);
+      const sized = sizeForBacktest(rules, s.equity, entryPrice, symbol, cfg);
+      const freeMargin = s.equity - s.marginUsed;
+      // Skip the entry if there's not enough free margin (lot sizing only —
+      // for percentage/fixed sizing margin equals notional and free margin
+      // grows with equity, so this rarely binds).
+      if (sized.margin <= freeMargin && sized.notional > 0) {
+        s.marginUsed += sized.margin;
+        positions.push({
+          entryPrice,
+          entryDate: day,
+          notionalValue: sized.notional,
+          marginRequired: sized.margin,
+        });
+      }
     }
   }
   // Finalise the very last day so its pnl contributes to the streak.
@@ -251,6 +231,8 @@ function getOpenPosition(
   positions: { entryPrice: number; entryDate: string; notionalValue: number }[],
   closes: number[]
 ): OpenPosition | null {
+  // marginRequired exists on the live shape but doesn't matter for the
+  // unrealized-pnl summary so we don't include it in this signature.
   if (positions.length === 0) {
     return null;
   }
@@ -297,7 +279,8 @@ export function runBacktest(
     rules,
     techEntry,
     techExit,
-    vetoCheck
+    vetoCheck,
+    context?.symbol
   );
   const result: BacktestMetrics = {
     ...calculateMetrics(trades, capital, prices, openPos),

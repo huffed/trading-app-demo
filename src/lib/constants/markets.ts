@@ -14,6 +14,9 @@ export interface InstrumentMeta {
   assetClass: InstrumentClass;
   category: "major" | "minor" | "metal" | "energy" | "agriculture";
   pipSize: number;
+  /** Units per 1 lot. Forex = 100,000 base currency. Gold = 100 oz.
+   *  Silver = 5,000 oz. Crude/Brent = 1,000 barrels. NatGas = 10,000 mmBtu. */
+  contractSize: number;
   description: string;
 }
 
@@ -24,6 +27,7 @@ export const FOREX_PAIRS: InstrumentMeta[] = [
     assetClass: "forex",
     category: "major",
     pipSize: 0.0001,
+    contractSize: 100000,
     description: "Most liquid pair globally. Tight spreads, deep institutional flow.",
   },
   {
@@ -32,6 +36,7 @@ export const FOREX_PAIRS: InstrumentMeta[] = [
     assetClass: "forex",
     category: "major",
     pipSize: 0.0001,
+    contractSize: 100000,
     description: "Volatile London/NY overlap. Sensitive to UK macro and Fed differentials.",
   },
   {
@@ -40,6 +45,7 @@ export const FOREX_PAIRS: InstrumentMeta[] = [
     assetClass: "forex",
     category: "major",
     pipSize: 0.01,
+    contractSize: 100000,
     description: "Risk-on/off bellwether. Moves on rate differentials and BoJ policy.",
   },
   {
@@ -48,6 +54,7 @@ export const FOREX_PAIRS: InstrumentMeta[] = [
     assetClass: "forex",
     category: "major",
     pipSize: 0.0001,
+    contractSize: 100000,
     description: "Safe-haven inverse. Often opposite to EUR/USD.",
   },
   {
@@ -56,6 +63,7 @@ export const FOREX_PAIRS: InstrumentMeta[] = [
     assetClass: "forex",
     category: "major",
     pipSize: 0.0001,
+    contractSize: 100000,
     description: "Commodity currency tied to China demand and iron ore.",
   },
   {
@@ -64,6 +72,7 @@ export const FOREX_PAIRS: InstrumentMeta[] = [
     assetClass: "forex",
     category: "major",
     pipSize: 0.0001,
+    contractSize: 100000,
     description: "Highly correlated with crude oil moves.",
   },
   {
@@ -72,6 +81,7 @@ export const FOREX_PAIRS: InstrumentMeta[] = [
     assetClass: "forex",
     category: "major",
     pipSize: 0.0001,
+    contractSize: 100000,
     description: "Carry-trade favorite, sensitive to RBNZ decisions and dairy prices.",
   },
   {
@@ -80,6 +90,7 @@ export const FOREX_PAIRS: InstrumentMeta[] = [
     assetClass: "forex",
     category: "minor",
     pipSize: 0.0001,
+    contractSize: 100000,
     description: "Range-bound cross, popular for mean-reversion strategies.",
   },
   {
@@ -88,6 +99,7 @@ export const FOREX_PAIRS: InstrumentMeta[] = [
     assetClass: "forex",
     category: "minor",
     pipSize: 0.01,
+    contractSize: 100000,
     description: "Volatile cross capturing both EUR and JPY trends.",
   },
   {
@@ -96,6 +108,7 @@ export const FOREX_PAIRS: InstrumentMeta[] = [
     assetClass: "forex",
     category: "minor",
     pipSize: 0.01,
+    contractSize: 100000,
     description: "Highest-volatility major cross. Big pip ranges, wider stops needed.",
   },
 ];
@@ -107,6 +120,7 @@ export const COMMODITIES: InstrumentMeta[] = [
     assetClass: "commodity",
     category: "metal",
     pipSize: 0.01,
+    contractSize: 100,
     description: "Inflation hedge, safe haven. Inversely correlated with USD.",
   },
   {
@@ -115,6 +129,7 @@ export const COMMODITIES: InstrumentMeta[] = [
     assetClass: "commodity",
     category: "metal",
     pipSize: 0.001,
+    contractSize: 5000,
     description: "Industrial + monetary metal. More volatile than gold.",
   },
   {
@@ -123,6 +138,7 @@ export const COMMODITIES: InstrumentMeta[] = [
     assetClass: "commodity",
     category: "energy",
     pipSize: 0.01,
+    contractSize: 1000,
     description: "US benchmark crude. Driven by inventory data and OPEC supply.",
   },
   {
@@ -131,6 +147,7 @@ export const COMMODITIES: InstrumentMeta[] = [
     assetClass: "commodity",
     category: "energy",
     pipSize: 0.01,
+    contractSize: 1000,
     description: "Global oil benchmark. Sensitive to geopolitical risk in EMEA.",
   },
   {
@@ -139,6 +156,7 @@ export const COMMODITIES: InstrumentMeta[] = [
     assetClass: "commodity",
     category: "energy",
     pipSize: 0.001,
+    contractSize: 10000,
     description: "Highly seasonal. Storage reports drive sharp moves.",
   },
 ];
@@ -151,6 +169,33 @@ const CATALOG_BY_SYMBOL: Map<string, InstrumentMeta> = new Map(
 
 export function getInstrumentMeta(symbol: string): InstrumentMeta | null {
   return CATALOG_BY_SYMBOL.get(symbol.toUpperCase()) ?? null;
+}
+
+/**
+ * Units per 1 lot for a given symbol. Forex defaults to 100,000 base
+ * currency units when the catalog doesn't list it. Stocks/ETFs return 1
+ * (one lot = one share).
+ */
+export function getContractSize(symbol: string, assetClass?: string): number {
+  const meta = getInstrumentMeta(symbol);
+  if (meta) return meta.contractSize;
+  if (assetClass === "forex" || isCurrencyPair(symbol)) return 100000;
+  if (assetClass === "commodity") return 1; // unknown commodity — treat 1 unit per lot
+  return 1; // equity/crypto default
+}
+
+/**
+ * Sensible default leverage by asset class. Real prop firms vary:
+ *  - FTMO: 1:100 forex, 1:30 commodities/indices, 1:5 stocks
+ *  - Topstep (futures-only): 1:10-1:30 effective
+ *  - Trading 212 retail: 1:30 forex, 1:20 indices
+ * 30 is a middle-of-the-road default that fits all and won't blow accounts.
+ */
+export function defaultLeverage(assetClass: string): number {
+  if (assetClass === "forex") return 100;
+  if (assetClass === "commodity") return 30;
+  if (assetClass === "crypto") return 5;
+  return 1;
 }
 
 export function isCurrencyPair(symbol: string): boolean {
