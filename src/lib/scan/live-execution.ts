@@ -19,6 +19,7 @@ import {
   toBrokerSymbol,
   type MetaApiRegion,
 } from "@/lib/brokers/metaapi";
+import { notionalInUsd } from "@/lib/constants/markets";
 import { checkDivergenceKill, haltAlgorithmForDivergence } from "./divergence";
 import { logActivity } from "./helpers";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -139,12 +140,21 @@ export async function executeLiveEntry(args: EntryArgs): Promise<void> {
       placed.positionId
     );
     const brokerFillPrice = realFill?.openPrice ?? args.currentPrice;
+    // Re-align paper quantity + notional to what actually got placed. Broker
+    // floors lots to volumeStep (e.g. 0.125 → 0.12 on FTMO MT5), so the
+    // paper-side intent (12,500 base units) drifts ~4% above the broker's
+    // real position (12,000) — leading to paper P&L that doesn't match
+    // FTMO's reported P&L. Snap them to the broker's truth.
+    const brokerQuantity = lots * spec.contractSize;
+    const brokerNotional = notionalInUsd(ticker, lots, args.currentPrice);
     await supabase
       .from("paper_positions")
       .update({
         broker_order_id: placed.orderId,
         broker_position_id: placed.positionId,
         broker_fill_price: brokerFillPrice,
+        quantity: brokerQuantity,
+        notional_value: brokerNotional,
         broker_error: null,
       })
       .eq("id", paperPositionId);
