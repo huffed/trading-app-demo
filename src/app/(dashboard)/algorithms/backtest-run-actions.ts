@@ -84,6 +84,7 @@ export async function runHistoricalBacktest(
   }
 
   const { timeframeToInterval } = await import("@/lib/market-data/interval");
+  const { fetchEconomicCalendar } = await import("@/lib/market-data/economic-calendar");
   const interval = timeframeToInterval(rules.timeframe);
 
   try {
@@ -98,7 +99,16 @@ export async function runHistoricalBacktest(
       return { success: false, error: "Not enough price data for backtesting" };
     }
 
-    const results = runBacktest(rules, prices, algo.capital);
+    // Fetch the economic calendar covering the price range so the news veto
+    // (if enabled on the algorithm) can block entries around major releases.
+    let events: Awaited<ReturnType<typeof fetchEconomicCalendar>> = [];
+    if (rules.news_veto?.enabled) {
+      const from = new Date(prices[0].date);
+      const to = new Date(prices[prices.length - 1].date);
+      events = await fetchEconomicCalendar(from, to);
+    }
+
+    const results = runBacktest(rules, prices, algo.capital, { symbol, events });
 
     // Strip prices from DB save (too large for JSONB), keep trades for display
     const { prices: _prices, ...storable } = results;

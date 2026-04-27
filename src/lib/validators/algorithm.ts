@@ -32,6 +32,16 @@ const propFirmInput = z
   })
   .optional();
 
+// Loose form-side news_veto schema — UI sends strings, this coerces them.
+const newsVetoInput = z
+  .object({
+    enabled: z.coerce.boolean(),
+    block_minutes_before: z.coerce.number().int().min(0).max(180),
+    block_minutes_after: z.coerce.number().int().min(0).max(180),
+    min_impact: z.enum(["low", "medium", "high"]),
+  })
+  .optional();
+
 export const algorithmFormSchema = z.object({
   name: z.string().trim().max(80).optional().or(z.literal("")),
   asset_class: z.enum(assetClasses),
@@ -41,6 +51,7 @@ export const algorithmFormSchema = z.object({
   user_hints: z.string().max(2000).optional().or(z.literal("")),
   overrides: overridesSchema,
   prop_firm: propFirmInput,
+  news_veto: newsVetoInput,
 });
 
 export type AlgorithmFormValues = z.infer<typeof algorithmFormSchema>;
@@ -89,6 +100,13 @@ const propFirmSchema = z.object({
   commission_pct: z.number().min(0).max(5),
 });
 
+const newsVetoSchema = z.object({
+  enabled: z.boolean(),
+  block_minutes_before: z.number().int().min(0).max(180),
+  block_minutes_after: z.number().int().min(0).max(180),
+  min_impact: z.enum(["low", "medium", "high"]),
+});
+
 export const algorithmRulesSchema = z.object({
   entry_conditions: z.array(normalizedCondition),
   exit_conditions: z.array(normalizedCondition),
@@ -103,4 +121,5 @@ export const algorithmRulesSchema = z.object({
   timeframe: z.string(),
   asset_class: z.string(),
   prop_firm: propFirmSchema.optional(),
+  news_veto: newsVetoSchema.optional(),
 });

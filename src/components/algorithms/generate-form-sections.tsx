@@ -294,3 +294,4 @@ export function applyPropFirmPreset(
   }
   return { preset: next, values: { ...PROP_FIRM_PRESETS[next] } };
 }
+

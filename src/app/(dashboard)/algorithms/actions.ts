@@ -100,6 +100,17 @@ function clampRules(rules: AlgorithmRules, timeHorizon: string): AlgorithmRules 
     clamped.max_per_ticker = 5;
   }
 
+  // News-window veto default: ON for forex/commodity (where macro releases
+  // dominate price action). Equities and crypto stay opt-in.
+  if (clamped.news_veto == null && isFxOrCommodity) {
+    clamped.news_veto = {
+      enabled: true,
+      block_minutes_before: 15,
+      block_minutes_after: 30,
+      min_impact: "high",
+    };
+  }
+
   return clamped;
 }
 
@@ -170,6 +181,10 @@ function applyManualLayers(rules: AlgorithmRules, params: AlgorithmFormValues): 
 
   if (params.prop_firm) {
     out.prop_firm = params.prop_firm;
+  }
+
+  if (params.news_veto) {
+    out.news_veto = params.news_veto;
   }
 
   const o = params.overrides;

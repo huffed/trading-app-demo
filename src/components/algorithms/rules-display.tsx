@@ -218,6 +218,18 @@ function RiskParams({ rules }: { rules: AlgorithmRules }) {
           </p>
         </div>
       </div>
+      {rules.news_veto?.enabled && (
+        <div className="flex items-center gap-2.5 rounded-md border p-2.5 sm:col-span-2">
+          <Newspaper className="h-4 w-4 shrink-0 text-purple-500" />
+          <div>
+            <p className="text-xs text-muted-foreground">News Protection</p>
+            <p className="text-sm font-medium">
+              Block {rules.news_veto.min_impact}+ events:{" "}
+              -{rules.news_veto.block_minutes_before}m to +{rules.news_veto.block_minutes_after}m
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

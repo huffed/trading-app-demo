@@ -62,6 +62,22 @@ export interface PropFirmRules {
   commission_pct: number; // % per trade (e.g., 0.1)
 }
 
+/**
+ * News-window veto: blocks new entries inside [-before, +after] minutes
+ * around economic events that affect the symbol's currencies. Highest-EV
+ * use of news data per public-strategy research — strips out the
+ * slippage/fake-fill losses common around CPI/NFP/FOMC.
+ */
+export interface NewsVetoRules {
+  enabled: boolean;
+  /** Block window minutes BEFORE the release. */
+  block_minutes_before: number;
+  /** Block window minutes AFTER the release. */
+  block_minutes_after: number;
+  /** Only events at or above this impact level fire the veto. */
+  min_impact: "low" | "medium" | "high";
+}
+
 export interface AlgorithmRules {
   entry_conditions: EntryCondition[];
   exit_conditions: ExitCondition[];
@@ -74,6 +90,7 @@ export interface AlgorithmRules {
   timeframe: string;
   asset_class: string;
   prop_firm?: PropFirmRules;
+  news_veto?: NewsVetoRules;
 }
 
 // --- Backtest results ---

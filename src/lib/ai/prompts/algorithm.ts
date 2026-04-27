@@ -101,6 +101,8 @@ CRITICAL — forex/commodity timeframe & risk defaults (override the equity defa
 - Reward must remain >= 1.5x risk. Pyramiding (max_per_ticker > 1) lets the algorithm scale into trending pairs and is encouraged for forex/commodity strategies that target prop-firm profit goals.
 - When user_hints mention "prop firm", "funded account", "FTMO", "Topstep", or "max trades": push to the aggressive end of these ranges and bias toward "1h" timeframe with max_per_ticker 3-4.
 
+NEWS PROTECTION: Forex/commodity strategies should describe a news-window veto in the strategy text. The platform automatically blocks new entries 15min before / 30min after high-impact economic releases (CPI, NFP, FOMC, central-bank decisions) for the symbol's currencies — this is the highest-EV use of news data because it strips out the slippage and fake-fill losses that kill scalping setups around major releases. Existing positions still close normally on stops/TPs; only new entries are blocked. Mention this in the strategy description if asset_class is forex or commodity.
+
 For asset_class "equity"/"crypto" the default ranges at the top still apply (max_per_ticker defaults to 1 unless the user is explicitly chasing pyramiding).`;
 
 const RISK_DESCRIPTIONS: Record<string, string> = {

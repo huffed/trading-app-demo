@@ -33,6 +33,7 @@ async function backtestOne(
   ticker: string
 ): Promise<BacktestMetrics | null> {
   const { timeframeToInterval } = await import("@/lib/market-data/interval");
+  const { fetchEconomicCalendar } = await import("@/lib/market-data/economic-calendar");
   const interval = timeframeToInterval(rules.timeframe);
   try {
     let prices = await getCachedPrices(ticker, "compact", interval);
@@ -43,7 +44,15 @@ async function backtestOne(
       );
     }
     if (prices.length < 30) return null;
-    return runBacktest(rules, prices, capital);
+
+    let events: Awaited<ReturnType<typeof fetchEconomicCalendar>> = [];
+    if (rules.news_veto?.enabled) {
+      const from = new Date(prices[0].date);
+      const to = new Date(prices[prices.length - 1].date);
+      events = await fetchEconomicCalendar(from, to);
+    }
+
+    return runBacktest(rules, prices, capital, { symbol: ticker, events });
   } catch {
     return null;
   }

@@ -6,6 +6,7 @@ import {
   type TechnicalCondition,
 } from "@/types/algorithm";
 import { calculateMetrics } from "./backtest-metrics";
+import { buildVetoCheck, type EconomicEvent } from "./economic-calendar";
 import { bollingerBands, ema, macd, rsi, sma } from "./indicators";
 import {
   applySlippage,
@@ -16,6 +17,11 @@ import {
   type SimState,
 } from "./prop-firm-backtest";
 import type { BacktestMetrics, BacktestTrade, OpenPosition, PriceBar } from "./types";
+
+export interface BacktestContext {
+  symbol?: string;
+  events?: EconomicEvent[];
+}
 
 export type Cache = Map<string, (number | null)[]>;
 const INDICATOR_REGISTRY: Record<string, (closes: number[]) => (number | null)[]> = {
@@ -150,7 +156,8 @@ function runSimulation(
   capital: number,
   rules: AlgorithmRules,
   techEntry: TechnicalCondition[],
-  techExit: TechnicalCondition[]
+  techExit: TechnicalCondition[],
+  vetoCheck: ((barDate: string) => boolean) | null
 ): { trades: BacktestTrade[]; openPos: OpenPosition | null; state: SimState } {
   const pf = rules.prop_firm;
   const cfg: SimConfig = {
@@ -203,10 +210,12 @@ function runSimulation(
         }
       }
     }
+    const vetoed = vetoCheck ? vetoCheck(day) : false;
     if (
       !s.killTriggered &&
       !s.drawdownBreached &&
       !dailyHalted &&
+      !vetoed &&
       positions.length < cfg.maxPos &&
       checkConditions(techEntry, cache, closes, i)
     ) {
@@ -245,7 +254,8 @@ function getOpenPosition(
 export function runBacktest(
   rules: AlgorithmRules,
   prices: PriceBar[],
-  capital: number
+  capital: number,
+  context?: BacktestContext
 ): BacktestMetrics {
   const entry = normalize(rules.entry_conditions);
   const exit = normalize(rules.exit_conditions);
@@ -262,7 +272,17 @@ export function runBacktest(
     };
   }
 
-  const { trades, openPos, state } = runSimulation(prices, capital, rules, techEntry, techExit);
+  const vetoCheck = rules.news_veto?.enabled
+    ? buildVetoCheck({ symbol: context?.symbol, events: context?.events, veto: rules.news_veto })
+    : null;
+  const { trades, openPos, state } = runSimulation(
+    prices,
+    capital,
+    rules,
+    techEntry,
+    techExit,
+    vetoCheck
+  );
   const result: BacktestMetrics = {
     ...calculateMetrics(trades, capital, prices, openPos),
     sentiment_conditions_excluded: sentimentExcluded,

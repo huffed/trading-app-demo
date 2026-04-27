@@ -16,7 +16,7 @@ import { ASSET_CLASS_LABELS, RISK_LEVEL_LABELS } from "@/lib/constants/algorithm
 import { type PropFirmPreset } from "@/lib/constants/prop-firm";
 import { riskLevels, type AlgorithmFormValues } from "@/lib/validators/algorithm";
 import { assetClasses } from "@/lib/validators/trade";
-import type { PropFirmRules } from "@/types/algorithm";
+import type { NewsVetoRules, PropFirmRules } from "@/types/algorithm";
 import {
   AdvancedSection,
   applyPropFirmPreset,
@@ -25,6 +25,7 @@ import {
   PropFirmSection,
   type OverrideState,
 } from "./generate-form-sections";
+import { NewsVetoSection } from "./news-veto-section";
 
 interface GenerateFormProps {
   onSubmit: (values: AlgorithmFormValues) => void;
@@ -136,6 +137,7 @@ interface FormState {
   overrides: OverrideState;
   propFirmPreset: PropFirmPreset | null;
   propFirmValues: PropFirmRules | null;
+  newsVeto: NewsVetoRules | null;
 }
 
 function useFormState() {
@@ -148,6 +150,7 @@ function useFormState() {
   const [overrides, setOverrides] = useState<OverrideState>(EMPTY_OVERRIDES);
   const [propFirmPreset, setPropFirmPreset] = useState<PropFirmPreset | null>(null);
   const [propFirmValues, setPropFirmValues] = useState<PropFirmRules | null>(null);
+  const [newsVeto, setNewsVeto] = useState<NewsVetoRules | null>(null);
 
   return {
     name,
@@ -168,6 +171,8 @@ function useFormState() {
     setPropFirmPreset,
     propFirmValues,
     setPropFirmValues,
+    newsVeto,
+    setNewsVeto,
   };
 }
 
@@ -181,6 +186,7 @@ function buildSubmitValues(s: FormState): AlgorithmFormValues {
     user_hints: s.hints || undefined,
     overrides: buildOverrides(s.overrides),
     prop_firm: s.propFirmValues ?? undefined,
+    news_veto: s.newsVeto ?? undefined,
   };
 }
 
@@ -188,6 +194,7 @@ export function GenerateForm({ onSubmit, disabled }: GenerateFormProps) {
   const s = useFormState();
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [propFirmOpen, setPropFirmOpen] = useState(false);
+  const [newsVetoOpen, setNewsVetoOpen] = useState(false);
 
   function handlePropFirmPreset(p: PropFirmPreset | null) {
     const result = applyPropFirmPreset(p, s.propFirmValues);
@@ -213,6 +220,12 @@ export function GenerateForm({ onSubmit, disabled }: GenerateFormProps) {
         onToggle={() => setAdvancedOpen((v) => !v)}
         overrides={s.overrides}
         setOverrides={s.setOverrides}
+      />
+      <NewsVetoSection
+        open={newsVetoOpen}
+        onToggle={() => setNewsVetoOpen((v) => !v)}
+        values={s.newsVeto}
+        onChange={s.setNewsVeto}
       />
       <PropFirmSection
         open={propFirmOpen}
