@@ -7,6 +7,10 @@ import {
   clampRules,
   withPropFirmContext,
 } from "@/lib/algorithm/rules-post-process";
+import {
+  buildRulesFromTemplate,
+  selectStrategyTemplate,
+} from "@/lib/strategies/selector";
 import { createClient } from "@/lib/supabase/server";
 import {
   algorithmFormSchema,
@@ -28,7 +32,7 @@ export async function getAuthedUser() {
 }
 
 
-async function generateRules(
+async function generateRulesFreeForm(
   params: AlgorithmFormValues,
   tradeCount: number
 ): Promise<AlgorithmRules> {
@@ -57,6 +61,26 @@ async function generateRules(
     throw new Error("AI generated invalid rules structure");
   }
   return clampRules(validated.data as AlgorithmRules, params.time_horizon);
+}
+
+/**
+ * Pick the rule-generation path. Forex/commodity goes through the vetted
+ * template library — free-form generation has consistently produced
+ * un-tradeable strategies in those markets. Equity/crypto stays on the
+ * AI free-form path which works well for stock trade-history strategies.
+ */
+async function generateRules(
+  params: AlgorithmFormValues,
+  tradeCount: number
+): Promise<AlgorithmRules> {
+  const usesTemplates =
+    params.asset_class === "forex" || params.asset_class === "commodity";
+  if (usesTemplates) {
+    const { template } = await selectStrategyTemplate(params);
+    const rules = buildRulesFromTemplate(template, params);
+    return clampRules(rules, params.time_horizon);
+  }
+  return generateRulesFreeForm(params, tradeCount);
 }
 
 async function generateDescription(
