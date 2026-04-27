@@ -94,6 +94,14 @@ export function clampRules(rules: AlgorithmRules, timeHorizon: string): Algorith
     };
   }
 
+  // For forex/commodity, default the kill-switch unit to "days" because
+  // pyramiding stacks several positions per bar — counting per-trade losses
+  // burns through the budget unfairly fast. Real prop firms typically
+  // interpret "consecutive losses" as days anyway.
+  if (clamped.prop_firm && isFxOrCommodity && !clamped.prop_firm.consecutive_loss_unit) {
+    clamped.prop_firm = { ...clamped.prop_firm, consecutive_loss_unit: "days" };
+  }
+
   if (clamped.entry_logic == null && isFxOrCommodity && clamped.entry_conditions.length >= 3) {
     clamped.entry_logic = { type: "n_of_m", n: 2 };
   }
