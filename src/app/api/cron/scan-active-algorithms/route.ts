@@ -12,8 +12,13 @@
  */
 import { NextResponse } from "next/server";
 import { scanAlgorithm, type ScanResult } from "@/lib/scan/engine";
+import {
+  checkPortfolioHalt,
+  executePortfolioHalt,
+} from "@/lib/scan/portfolio-halt";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { AlgorithmRules } from "@/types/algorithm";
+import type { Portfolio } from "@/types/portfolio";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -28,7 +33,48 @@ interface AlgoRow {
   status: string;
   live_trading_enabled: boolean | null;
   broker_connection_id: string | null;
+  portfolio_id: string | null;
   algorithm_watchlist: { ticker: string; name: string }[] | null;
+}
+
+/**
+ * Group active algos by portfolio (or "no portfolio" → null bucket) and
+ * fire the portfolio-level halt check before any per-algo scan. Returns
+ * the set of algorithm IDs that have been halted by the portfolio check
+ * — those should NOT be scanned individually.
+ */
+async function applyPortfolioHalts(
+  supabase: ReturnType<typeof createAdminClient>,
+  algos: AlgoRow[]
+): Promise<Set<string>> {
+  const halted = new Set<string>();
+  const byPortfolio = new Map<string, AlgoRow[]>();
+  for (const a of algos) {
+    if (!a.portfolio_id) continue;
+    const list = byPortfolio.get(a.portfolio_id) ?? [];
+    list.push(a);
+    byPortfolio.set(a.portfolio_id, list);
+  }
+  if (byPortfolio.size === 0) return halted;
+
+  const ids = Array.from(byPortfolio.keys());
+  const { data } = await supabase.from("portfolios").select("*").in("id", ids);
+  const portfolios = (data ?? []) as unknown as Portfolio[];
+
+  for (const portfolio of portfolios) {
+    const portfolioAlgos = byPortfolio.get(portfolio.id) ?? [];
+    const algoIds = portfolioAlgos.map((a) => a.id);
+    const haltCheck = await checkPortfolioHalt(supabase, portfolio, algoIds);
+    if (haltCheck?.tripped) {
+      // user_id is consistent across a portfolio's algos (RLS on portfolios).
+      const userId = portfolioAlgos[0]?.user_id;
+      if (userId) {
+        await executePortfolioHalt(supabase, userId, portfolio, algoIds, haltCheck);
+      }
+      for (const id of algoIds) halted.add(id);
+    }
+  }
+  return halted;
 }
 
 export async function GET(request: Request) {
@@ -47,7 +93,7 @@ export async function GET(request: Request) {
   const { data, error } = await supabase
     .from("algorithms")
     .select(
-      "id, user_id, name, description, rules, capital, status, live_trading_enabled, broker_connection_id, algorithm_watchlist(ticker, name)"
+      "id, user_id, name, description, rules, capital, status, live_trading_enabled, broker_connection_id, portfolio_id, algorithm_watchlist(ticker, name)"
     )
     .eq("status", "active")
     .eq("live_trading_enabled", true);
@@ -61,8 +107,16 @@ export async function GET(request: Request) {
     return NextResponse.json({ scanned: 0, results: [] });
   }
 
+  // Portfolio-level halts fire BEFORE individual scans so a losing day on
+  // one algo flattens its portfolio peers before they take more positions.
+  const haltedByPortfolio = await applyPortfolioHalts(supabase, algos);
+
   const results: (ScanResult | { algorithm_id: string; error: string })[] = [];
   for (const algo of algos) {
+    if (haltedByPortfolio.has(algo.id)) {
+      results.push({ algorithm_id: algo.id, error: "portfolio_halt" });
+      continue;
+    }
     try {
       const result = await scanAlgorithm(supabase, algo.user_id, {
         id: algo.id,
@@ -82,5 +136,9 @@ export async function GET(request: Request) {
     }
   }
 
-  return NextResponse.json({ scanned: algos.length, results });
+  return NextResponse.json({
+    scanned: algos.length,
+    portfolio_halts: haltedByPortfolio.size,
+    results,
+  });
 }
