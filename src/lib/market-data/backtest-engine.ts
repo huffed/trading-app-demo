@@ -14,6 +14,7 @@ import {
   buildPropFirmReport,
   closeSimPosition,
   enforcePropFirm,
+  finalizeDay,
   type SimConfig,
   type SimState,
 } from "./prop-firm-backtest";
@@ -148,6 +149,35 @@ function pickExitPrice(
   return null;
 }
 
+function buildSimConfig(rules: AlgorithmRules): SimConfig {
+  const pf = rules.prop_firm;
+  return {
+    slippageBps: pf?.slippage_bps ?? 0,
+    commissionPct: pf?.commission_pct ?? 0,
+    maxPos: rules.max_positions ?? DEFAULT_MAX_POSITIONS,
+    posSize: (rules.position_sizing?.value ?? DEFAULT_POSITION_SIZE_PCT) / 100,
+    stopPct: (rules.stop_loss?.value ?? DEFAULT_STOP_LOSS_PCT) / 100,
+    tpPct: (rules.take_profit?.value ?? DEFAULT_TAKE_PROFIT_PCT) / 100,
+  };
+}
+
+function initialSimState(capital: number): SimState {
+  return {
+    equity: capital,
+    peakEquity: capital,
+    peakDrawdownPct: 0,
+    consecutiveLosses: 0,
+    maxConsecLosses: 0,
+    consecutiveLosingDays: 0,
+    maxConsecLosingDays: 0,
+    totalSlippage: 0,
+    totalCommission: 0,
+    killTriggered: false,
+    drawdownBreached: false,
+    dailyPnl: {},
+  };
+}
+
 function runSimulation(
   prices: PriceBar[],
   capital: number,
@@ -157,38 +187,23 @@ function runSimulation(
   vetoCheck: ((barDate: string) => boolean) | null
 ): { trades: BacktestTrade[]; openPos: OpenPosition | null; state: SimState } {
   const pf = rules.prop_firm;
-  const cfg: SimConfig = {
-    slippageBps: pf?.slippage_bps ?? 0,
-    commissionPct: pf?.commission_pct ?? 0,
-    maxPos: rules.max_positions ?? DEFAULT_MAX_POSITIONS,
-    posSize: (rules.position_sizing?.value ?? DEFAULT_POSITION_SIZE_PCT) / 100,
-    stopPct: (rules.stop_loss?.value ?? DEFAULT_STOP_LOSS_PCT) / 100,
-    tpPct: (rules.take_profit?.value ?? DEFAULT_TAKE_PROFIT_PCT) / 100,
-  };
+  const cfg = buildSimConfig(rules);
   const closes = prices.map((p) => p.close);
   const cache: Cache = new Map();
   const trades: BacktestTrade[] = [];
   const positions: { entryPrice: number; entryDate: string; notionalValue: number }[] = [];
-  const s: SimState = {
-    equity: capital,
-    peakEquity: capital,
-    peakDrawdownPct: 0,
-    consecutiveLosses: 0,
-    maxConsecLosses: 0,
-    totalSlippage: 0,
-    totalCommission: 0,
-    killTriggered: false,
-    drawdownBreached: false,
-    dailyPnl: {},
-  };
-  let currentDay = "";
+  const s = initialSimState(capital);
+  let currentDayKey = "";
   let dailyHalted = false;
 
   for (let i = 1; i < prices.length; i++) {
     const bar = prices[i];
     const day = bar.date;
-    if (day !== currentDay) {
-      currentDay = day;
+    // Daily bars have date "YYYY-MM-DD"; intraday bars carry full timestamps.
+    const dayKey = day.split(/[ T]/)[0];
+    if (dayKey !== currentDayKey) {
+      if (currentDayKey !== "") finalizeDay(s, currentDayKey);
+      currentDayKey = dayKey;
       dailyHalted = false;
     }
     const signalExitFired =
@@ -198,10 +213,10 @@ function runSimulation(
       const pos = positions[p];
       const exitPrice = pickExitPrice(pos, bar, closes[i], cfg, signalExitFired);
       if (exitPrice !== null) {
-        closeSimPosition(pos, day, exitPrice, capital, cfg, s, trades);
+        closeSimPosition(pos, dayKey, exitPrice, capital, cfg, s, trades);
         positions.splice(p, 1);
         if (pf) {
-          dailyHalted = enforcePropFirm(pf, s, capital, day, dailyHalted);
+          dailyHalted = enforcePropFirm(pf, s, capital, dayKey, dailyHalted);
         }
       }
     }
@@ -222,6 +237,10 @@ function runSimulation(
         notionalValue: s.equity * cfg.posSize,
       });
     }
+  }
+  // Finalise the very last day so its pnl contributes to the streak.
+  if (currentDayKey !== "") {
+    finalizeDay(s, currentDayKey);
   }
   const openPos = getOpenPosition(positions, closes);
   return { trades, openPos, state: s };
@@ -296,7 +315,8 @@ export function runBacktest(
       state.peakDrawdownPct,
       state.maxConsecLosses,
       state.killTriggered,
-      state.drawdownBreached
+      state.drawdownBreached,
+      state.maxConsecLosingDays
     );
   }
   return result;

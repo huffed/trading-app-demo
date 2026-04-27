@@ -64,7 +64,18 @@ export interface PropFirmRules {
   daily_loss_limit: number; // % of starting balance (e.g., 5)
   max_drawdown: number; // % of starting balance (e.g., 10)
   profit_target: number; // % evaluation target (e.g., 10)
-  max_consecutive_losses: number; // kill switch threshold (e.g., 5)
+  /**
+   * Optional safety kill switch — count of consecutive losses that pulls
+   * the bot off the platform. Not a published prop-firm rule; set to 0
+   * to disable.
+   */
+  max_consecutive_losses: number;
+  /**
+   * Whether `max_consecutive_losses` counts losing trades or losing days.
+   * Pyramiding strategies should usually pick "days" so a single bad bar
+   * closing 3 stacked positions doesn't blow 75% of the budget at once.
+   */
+  consecutive_loss_unit?: "trades" | "days";
   consistency_rule: number; // max % of total profit from single day (e.g., 40)
   slippage_bps: number; // basis points per trade (e.g., 10 = 0.1%)
   commission_pct: number; // % per trade (e.g., 0.1)

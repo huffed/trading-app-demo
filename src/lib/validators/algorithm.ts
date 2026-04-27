@@ -17,21 +17,6 @@ const overridesSchema = z
   })
   .optional();
 
-// Forward-declared so it can be reused in algorithmFormSchema before the
-// detailed propFirmSchema appears further down. Kept loose at parse time
-// (the strict schema below validates ranges).
-const propFirmInput = z
-  .object({
-    daily_loss_limit: z.coerce.number(),
-    max_drawdown: z.coerce.number(),
-    profit_target: z.coerce.number(),
-    max_consecutive_losses: z.coerce.number().int(),
-    consistency_rule: z.coerce.number(),
-    slippage_bps: z.coerce.number(),
-    commission_pct: z.coerce.number(),
-  })
-  .optional();
-
 // Loose form-side news_veto schema — UI sends strings, this coerces them.
 const newsVetoInput = z
   .object({
@@ -39,6 +24,20 @@ const newsVetoInput = z
     block_minutes_before: z.coerce.number().int().min(0).max(180),
     block_minutes_after: z.coerce.number().int().min(0).max(180),
     min_impact: z.enum(["low", "medium", "high"]),
+  })
+  .optional();
+
+// Loose form-side prop-firm input — strings from inputs get coerced.
+const propFirmInput = z
+  .object({
+    daily_loss_limit: z.coerce.number(),
+    max_drawdown: z.coerce.number(),
+    profit_target: z.coerce.number(),
+    max_consecutive_losses: z.coerce.number().int().min(0),
+    consecutive_loss_unit: z.enum(["trades", "days"]).optional(),
+    consistency_rule: z.coerce.number(),
+    slippage_bps: z.coerce.number(),
+    commission_pct: z.coerce.number(),
   })
   .optional();
 
@@ -94,7 +93,9 @@ const propFirmSchema = z.object({
   daily_loss_limit: z.number().min(0.5).max(20),
   max_drawdown: z.number().min(1).max(30),
   profit_target: z.number().min(1).max(50),
-  max_consecutive_losses: z.number().int().min(1).max(20),
+  // 0 disables the kill switch entirely.
+  max_consecutive_losses: z.number().int().min(0).max(50),
+  consecutive_loss_unit: z.enum(["trades", "days"]).optional(),
   consistency_rule: z.number().min(10).max(100),
   slippage_bps: z.number().min(0).max(100),
   commission_pct: z.number().min(0).max(5),

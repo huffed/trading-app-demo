@@ -11,6 +11,7 @@ import {
 } from "@/lib/constants/prop-firm";
 import type { AlgorithmFormValues } from "@/lib/validators/algorithm";
 import type { PropFirmRules } from "@/types/algorithm";
+import { PropFirmFields } from "./prop-firm-fields";
 
 export interface OverrideState {
   stop_loss: string;
@@ -125,72 +126,6 @@ export function AdvancedSection({
           </div>
         </div>
       )}
-    </div>
-  );
-}
-
-function PropFirmFields({
-  values,
-  onChange,
-}: {
-  values: PropFirmRules;
-  onChange: (next: PropFirmRules) => void;
-}) {
-  function set<K extends keyof PropFirmRules>(field: K, v: string) {
-    const n = Number(v);
-    if (!isNaN(n)) onChange({ ...values, [field]: n });
-  }
-
-  return (
-    <div className="grid gap-3 sm:grid-cols-2">
-      <NumericOverride
-        label="Daily Loss Limit"
-        value={String(values.daily_loss_limit)}
-        placeholder=""
-        suffix="%"
-        onChange={(v) => set("daily_loss_limit", v)}
-      />
-      <NumericOverride
-        label="Max Drawdown"
-        value={String(values.max_drawdown)}
-        placeholder=""
-        suffix="%"
-        onChange={(v) => set("max_drawdown", v)}
-      />
-      <NumericOverride
-        label="Profit Target"
-        value={String(values.profit_target)}
-        placeholder=""
-        suffix="%"
-        onChange={(v) => set("profit_target", v)}
-      />
-      <NumericOverride
-        label="Max Consecutive Losses"
-        value={String(values.max_consecutive_losses)}
-        placeholder=""
-        onChange={(v) => set("max_consecutive_losses", v)}
-      />
-      <NumericOverride
-        label="Consistency Rule"
-        value={String(values.consistency_rule)}
-        placeholder=""
-        suffix="% max day"
-        onChange={(v) => set("consistency_rule", v)}
-      />
-      <NumericOverride
-        label="Slippage"
-        value={String(values.slippage_bps)}
-        placeholder=""
-        suffix="bps"
-        onChange={(v) => set("slippage_bps", v)}
-      />
-      <NumericOverride
-        label="Commission"
-        value={String(values.commission_pct)}
-        placeholder=""
-        suffix="% per trade"
-        onChange={(v) => set("commission_pct", v)}
-      />
     </div>
   );
 }
