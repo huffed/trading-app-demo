@@ -34,7 +34,13 @@ export interface SimConfig {
 }
 
 export function closeSimPosition(
-  pos: { entryPrice: number; entryDate: string; notionalValue: number; marginRequired?: number },
+  pos: {
+    entryPrice: number;
+    entryDate: string;
+    notionalValue: number;
+    marginRequired?: number;
+    side?: "long" | "short";
+  },
   day: string,
   exitPrice: number,
   capital: number,
@@ -42,7 +48,13 @@ export function closeSimPosition(
   s: SimState,
   trades: BacktestTrade[]
 ) {
-  const pnlPct = (exitPrice - pos.entryPrice) / pos.entryPrice;
+  const side = pos.side ?? "long";
+  // Direction-aware percent change: longs profit on price rising, shorts
+  // profit on price falling. Notional × pct is the gross trade pnl.
+  const pnlPct =
+    side === "long"
+      ? (exitPrice - pos.entryPrice) / pos.entryPrice
+      : (pos.entryPrice - exitPrice) / pos.entryPrice;
   // Position notional was sized off equity-at-open, so wins compound naturally
   // as equity grows and losses shrink positions during drawdowns.
   const notional = pos.notionalValue;
@@ -63,7 +75,7 @@ export function closeSimPosition(
     exit_date: day,
     entry_price: pos.entryPrice,
     exit_price: exitPrice,
-    side: "long",
+    side,
     pnl,
   });
   s.equity += pnl;
@@ -189,14 +201,27 @@ export function sizeForBacktest(
  * Compute the exit price for an open position on the current bar. Stops
  * and TPs fill at the configured level (intra-bar via bar.high/low);
  * signal-based exits fill at the close. Stops win ties.
+ *
+ * Long: SL is below entry, TP is above. Stop hits when bar.low ≤ SL.
+ * Short: SL is above entry, TP is below. Stop hits when bar.high ≥ SL.
  */
 export function pickBacktestExitPrice(
-  pos: { entryPrice: number },
+  pos: { entryPrice: number; side?: "long" | "short" },
   bar: { high: number; low: number },
   closePrice: number,
   cfg: SimConfig,
   signalExitFired: boolean
 ): number | null {
+  const side = pos.side ?? "long";
+  if (side === "short") {
+    const stopPrice = pos.entryPrice * (1 + cfg.stopPct);
+    const tpPrice = pos.entryPrice * (1 - cfg.tpPct);
+    // Stops win ties — checked before TP.
+    if (bar.high >= stopPrice) return applySlippage(stopPrice, cfg.slippageBps, true);
+    if (bar.low <= tpPrice) return applySlippage(tpPrice, cfg.slippageBps, true);
+    if (signalExitFired) return applySlippage(closePrice, cfg.slippageBps, true);
+    return null;
+  }
   const stopPrice = pos.entryPrice * (1 - cfg.stopPct);
   const tpPrice = pos.entryPrice * (1 + cfg.tpPct);
   if (bar.low <= stopPrice) return applySlippage(stopPrice, cfg.slippageBps, false);

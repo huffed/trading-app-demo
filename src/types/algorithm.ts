@@ -177,6 +177,14 @@ export interface AlgorithmRules {
   leverage?: number;
   timeframe: string;
   asset_class: string;
+  /**
+   * Trade direction the algorithm commits to. Defaults to "long" when
+   * absent (backwards compatible — every existing algo is long-biased).
+   * Pattern conditions' direction filter (`direction: "bullish"` etc.)
+   * is independent: caller is responsible for picking patterns that
+   * align with the chosen side.
+   */
+  side?: "long" | "short";
   prop_firm?: PropFirmRules;
   news_veto?: NewsVetoRules;
   /**

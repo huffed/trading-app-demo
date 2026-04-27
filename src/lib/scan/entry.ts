@@ -74,7 +74,7 @@ async function openPosition(
     return { opened: 0 };
   }
 
-  const side = "long" as const;
+  const side: "long" | "short" = algo.rules.side ?? "long";
   const { stopLossPrice, takeProfitPrice } = calculateRiskPrices(currentPrice, algo.rules, side);
   const entryReason = {
     conditions_met: conditions.map(snapshotCondition),

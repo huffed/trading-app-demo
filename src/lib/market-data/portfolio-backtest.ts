@@ -43,6 +43,7 @@ interface PortfolioPosition {
   notionalValue: number;
   marginRequired: number;
   ticker: string;
+  side: "long" | "short";
 }
 
 interface TickerState {
@@ -233,7 +234,8 @@ function tryOpenEntry(
   ) {
     return;
   }
-  const entryPrice = applySlippage(state.closes[i], cfg.slippageBps, true);
+  const side: "long" | "short" = rules.side ?? "long";
+  const entryPrice = applySlippage(state.closes[i], cfg.slippageBps, side === "long");
   const sized = sizeForBacktest(rules, s.equity, entryPrice, ticker, cfg);
   const freeMargin = s.equity - s.marginUsed;
   if (sized.margin > freeMargin || sized.notional <= 0) return;
@@ -244,6 +246,7 @@ function tryOpenEntry(
     notionalValue: sized.notional,
     marginRequired: sized.margin,
     ticker,
+    side,
   });
 }
 

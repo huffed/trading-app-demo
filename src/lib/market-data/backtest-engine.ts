@@ -98,11 +98,13 @@ function runSimulation(
   // higher-timeframe context (daily_bias). Cheap aggregation; pure function.
   const higherTfBars = resampleToDaily(prices);
   const trades: BacktestTrade[] = [];
+  const side: "long" | "short" = rules.side ?? "long";
   const positions: {
     entryPrice: number;
     entryDate: string;
     notionalValue: number;
     marginRequired: number;
+    side: "long" | "short";
   }[] = [];
   const s = initialSimState(capital);
   let currentDayKey = "";
@@ -142,7 +144,9 @@ function runSimulation(
       positions.length < cfg.maxPos &&
       checkConditions(entry, ctx, rules.entry_logic)
     ) {
-      const entryPrice = applySlippage(closes[i], cfg.slippageBps, true);
+      // For shorts, slippage works the opposite way on entry — selling into
+      // bid gets you a slightly worse fill, so we still apply it as a cost.
+      const entryPrice = applySlippage(closes[i], cfg.slippageBps, side === "long");
       const sized = sizeForBacktest(rules, s.equity, entryPrice, symbol, cfg);
       const freeMargin = s.equity - s.marginUsed;
       // Skip the entry if there's not enough free margin (lot sizing only —
@@ -155,6 +159,7 @@ function runSimulation(
           entryDate: day,
           notionalValue: sized.notional,
           marginRequired: sized.margin,
+          side,
         });
       }
     }
@@ -168,7 +173,12 @@ function runSimulation(
 }
 
 function getOpenPosition(
-  positions: { entryPrice: number; entryDate: string; notionalValue: number }[],
+  positions: {
+    entryPrice: number;
+    entryDate: string;
+    notionalValue: number;
+    side?: "long" | "short";
+  }[],
   closes: number[]
 ): OpenPosition | null {
   // marginRequired exists on the live shape but doesn't matter for the
@@ -178,12 +188,16 @@ function getOpenPosition(
   }
   const lastPrice = closes[closes.length - 1];
   const pos = positions[0];
-  const pnlPct = (lastPrice - pos.entryPrice) / pos.entryPrice;
+  const side = pos.side ?? "long";
+  const pnlPct =
+    side === "long"
+      ? (lastPrice - pos.entryPrice) / pos.entryPrice
+      : (pos.entryPrice - lastPrice) / pos.entryPrice;
   return {
     entry_date: pos.entryDate,
     entry_price: pos.entryPrice,
     current_price: lastPrice,
-    side: "long",
+    side,
     unrealized_pnl: Number((pos.notionalValue * pnlPct).toFixed(2)),
     unrealized_pnl_pct: Number((pnlPct * 100).toFixed(2)),
   };

@@ -304,10 +304,21 @@ export function RulesDisplay({ rules }: { rules: AlgorithmRules }) {
     );
   }
 
+  const side = rules.side ?? "long";
   return (
     <Card>
-      <CardHeader className="pb-2">
+      <CardHeader className="pb-2 flex flex-row items-center justify-between">
         <CardTitle className="text-sm font-medium">Trading Rules</CardTitle>
+        <Badge
+          variant="secondary"
+          className={
+            side === "long"
+              ? "text-[var(--profit)] bg-[var(--profit)]/10"
+              : "text-[var(--loss)] bg-[var(--loss)]/10"
+          }
+        >
+          {side === "long" ? "LONG bias" : "SHORT bias"}
+        </Badge>
       </CardHeader>
       <CardContent className="space-y-4">
         <ConditionSection

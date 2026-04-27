@@ -153,6 +153,7 @@ export const algorithmRulesSchema = z.object({
   leverage: z.number().int().min(1).max(500).optional(),
   timeframe: z.string(),
   asset_class: z.string(),
+  side: z.enum(["long", "short"]).optional(),
   prop_firm: propFirmSchema.optional(),
   news_veto: newsVetoSchema.optional(),
   divergence_kill: divergenceKillSchema.optional(),
