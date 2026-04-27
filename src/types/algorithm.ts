@@ -178,13 +178,16 @@ export interface AlgorithmRules {
   timeframe: string;
   asset_class: string;
   /**
-   * Trade direction the algorithm commits to. Defaults to "long" when
-   * absent (backwards compatible — every existing algo is long-biased).
-   * Pattern conditions' direction filter (`direction: "bullish"` etc.)
-   * is independent: caller is responsible for picking patterns that
-   * align with the chosen side.
+   * Trade direction the algorithm commits to:
+   *  - "long" / "short": fixed bias, default "long".
+   *  - "auto": regime-adaptive — at each entry the engine reads the
+   *    higher-timeframe bias on the ticker and trades that direction.
+   *    Pattern conditions' configured `direction` filter is overridden
+   *    to match the active bias for that bar, so a single algo trades
+   *    longs in bullish regimes and shorts in bearish regimes on the
+   *    same pair without reconfiguration. Skips entry when D1 is neutral.
    */
-  side?: "long" | "short";
+  side?: "long" | "short" | "auto";
   prop_firm?: PropFirmRules;
   news_veto?: NewsVetoRules;
   /**

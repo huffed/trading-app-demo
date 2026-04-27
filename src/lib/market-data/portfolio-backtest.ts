@@ -13,6 +13,7 @@ import {
   type PatternCondition,
   type TechnicalCondition,
 } from "@/types/algorithm";
+import { resolveSide } from "./auto-side";
 import { checkConditions, normalize } from "./backtest-engine";
 import { resampleToDaily } from "./resample";
 import { calculateMetrics } from "./backtest-metrics";
@@ -225,16 +226,28 @@ function tryOpenEntry(
     onTickerCount: state.positions.length,
   };
   if (!canEnter(rules, cfg, gate)) return;
+  // Resolve active side from rules.side (auto mode reads D1 bias on this
+  // ticker — different tickers can trade different directions in the
+  // same scan when the algo is regime-adaptive).
+  const resolved = resolveSide(rules.side ?? "long", state.higherTfBars, i);
+  if (resolved === null) return;
+  const side = resolved.side;
   if (
     !checkConditions(
       techEntry,
-      { cache: state.cache, closes: state.closes, bars: state.bars, higherTfBars: state.higherTfBars, i },
+      {
+        cache: state.cache,
+        closes: state.closes,
+        bars: state.bars,
+        higherTfBars: state.higherTfBars,
+        i,
+        directionOverride: resolved.directionOverride,
+      },
       rules.entry_logic
     )
   ) {
     return;
   }
-  const side: "long" | "short" = rules.side ?? "long";
   const entryPrice = applySlippage(state.closes[i], cfg.slippageBps, side === "long");
   const sized = sizeForBacktest(rules, s.equity, entryPrice, ticker, cfg);
   const freeMargin = s.equity - s.marginUsed;

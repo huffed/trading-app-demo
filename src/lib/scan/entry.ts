@@ -2,6 +2,7 @@
  * Entry evaluation — checks if conditions are met and opens a new position.
  */
 import { getContractSize } from "@/lib/constants/markets";
+import { resolveSide } from "@/lib/market-data/auto-side";
 import { checkConditions, normalize, type Cache } from "@/lib/market-data/backtest-engine";
 import { resampleToDaily } from "@/lib/market-data/resample";
 import {
@@ -74,7 +75,12 @@ async function openPosition(
     return { opened: 0 };
   }
 
-  const side: "long" | "short" = algo.rules.side ?? "long";
+  // Side is resolved by the caller (evaluateEntry) — at this point it's
+  // a concrete long/short, never "auto". Default to long for legacy callers.
+  const side: "long" | "short" =
+    algo.rules.side === "long" || algo.rules.side === "short"
+      ? algo.rules.side
+      : "long";
   const { stopLossPrice, takeProfitPrice } = calculateRiskPrices(currentPrice, algo.rules, side);
   const entryReason = {
     conditions_met: conditions.map(snapshotCondition),
@@ -228,14 +234,22 @@ async function checkEntryConditions(
   conditions: Array<TechnicalCondition | PatternCondition>,
   bars: PriceBar[],
   closes: number[],
-  logic: AlgorithmRules["entry_logic"]
+  logic: AlgorithmRules["entry_logic"],
+  directionOverride?: "bullish" | "bearish"
 ): Promise<boolean> {
   if (conditions.length === 0) return true;
   const cache: Cache = new Map();
   // Resample intraday bars to D1 for daily_bias-style pattern conditions —
   // same approach the backtest uses, no separate API fetch needed.
   const higherTfBars = resampleToDaily(bars);
-  const ctx = { cache, closes, bars, i: closes.length - 1, higherTfBars };
+  const ctx = {
+    cache,
+    closes,
+    bars,
+    i: closes.length - 1,
+    higherTfBars,
+    directionOverride,
+  };
   if (checkConditions(conditions, ctx, logic)) return true;
   await logActivity(supabase, userId, {
     algorithm_id: algoId,
@@ -272,6 +286,20 @@ export async function evaluateEntry(
     return { opened: 0 };
   }
 
+  // Resolve the active side for this ticker. Auto-side reads D1 bias and
+  // returns null when neutral — skip the entry rather than force a guess.
+  const higherTfBars = resampleToDaily(bars);
+  const resolved = resolveSide(rules.side ?? "long", higherTfBars);
+  if (resolved === null) {
+    await logActivity(supabase, userId, {
+      algorithm_id: algo.id,
+      event_type: "signal_no_action",
+      ticker,
+      details: { reason: "Auto-side: D1 bias is neutral" },
+    });
+    return { opened: 0 };
+  }
+
   const normalizedEntry = normalize(rules.entry_conditions);
   const evaluableEntry = normalizedEntry.filter(
     (c) => isTechnicalCondition(c) || isPatternCondition(c)
@@ -284,7 +312,8 @@ export async function evaluateEntry(
     evaluableEntry,
     bars,
     closes,
-    rules.entry_logic
+    rules.entry_logic,
+    resolved.directionOverride
   );
   if (!conditionsPass) return { opened: 0 };
 

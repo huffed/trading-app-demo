@@ -4,10 +4,11 @@
  * + scan engine call to evaluate "does this pattern condition fire on
  * bar `idx`?".
  *
- * Direction filtering is applied here: a `liquidity_sweep` condition with
- * `direction: "bullish"` only fires on bullish sweeps (price pierced a
- * swing low and closed back above). When direction is omitted, any sweep
- * matches.
+ * Direction filtering: a `liquidity_sweep` condition with
+ * `direction: "bullish"` only fires on bullish sweeps. When the caller
+ * supplies a `directionOverride` (auto-side regime mode), it takes
+ * precedence over the condition's configured direction so a single algo
+ * can adapt to whichever direction the market is currently trending.
  *
  * Stateful patterns (IFVG = a previously-filled FVG that price retests)
  * are computed here from the bar history rather than persisted across
@@ -22,26 +23,33 @@ import { detectLiquiditySweep } from "./liquidity-sweep";
 /**
  * Evaluate a pattern condition against the bar series at index `idx`.
  * `higherTfBars` is optional — only used by the daily-bias pattern; if
- * omitted, daily-bias conditions always return false (caller should fetch
- * + supply D1 bars for that case).
+ * omitted, daily-bias conditions always return false (caller should
+ * supply resampled D1 bars for that case).
+ *
+ * `directionOverride` (auto-side regime mode) overrides the condition's
+ * configured `direction` filter. Pass undefined to use cond.direction.
  */
 export function evaluatePatternCondition(
   cond: PatternCondition,
   bars: PriceBar[],
   idx: number,
-  higherTfBars?: PriceBar[]
+  higherTfBars?: PriceBar[],
+  directionOverride?: "bullish" | "bearish"
 ): boolean {
+  // Effective direction filter: override beats configured. Unset means
+  // any direction matches — preserves the original "no filter" behaviour.
+  const effectiveDir = directionOverride ?? cond.direction;
   switch (cond.pattern) {
     case "liquidity_sweep": {
       const r = detectLiquiditySweep(bars, idx, cond.lookback ?? 5);
       if (!r.detected || !r.details) return false;
-      if (cond.direction && r.details.direction !== cond.direction) return false;
+      if (effectiveDir && r.details.direction !== effectiveDir) return false;
       return true;
     }
     case "fvg": {
       const r = detectFvg(bars, idx);
       if (!r.detected || !r.details) return false;
-      if (cond.direction && r.details.direction !== cond.direction) return false;
+      if (effectiveDir && r.details.direction !== effectiveDir) return false;
       return true;
     }
     case "ifvg": {
@@ -56,9 +64,8 @@ export function evaluatePatternCondition(
       for (const g of filled) {
         const inZone = bar.low <= g.gap.gap_top && bar.high >= g.gap.gap_bottom;
         if (!inZone) continue;
-        // Inverted direction — a bullish FVG flipped is a bearish signal.
         const inverseDir = g.gap.direction === "bullish" ? "bearish" : "bullish";
-        if (cond.direction && inverseDir !== cond.direction) continue;
+        if (effectiveDir && inverseDir !== effectiveDir) continue;
         return true;
       }
       return false;
@@ -67,7 +74,7 @@ export function evaluatePatternCondition(
       if (!higherTfBars || higherTfBars.length === 0) return false;
       const r = detectDailyBias(higherTfBars, cond.ma_period ?? 20);
       if (!r.detected || !r.details) return false;
-      if (cond.direction && r.details.bias !== cond.direction) return false;
+      if (effectiveDir && r.details.bias !== effectiveDir) return false;
       return true;
     }
     default:

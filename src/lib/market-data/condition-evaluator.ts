@@ -26,6 +26,10 @@ export interface ConditionContext {
   bars: PriceBar[];
   i: number;
   higherTfBars?: PriceBar[];
+  /** When set (auto-side regime mode), pattern conditions use this in
+   *  place of their configured `direction` filter. Determined per-bar
+   *  from the higher-timeframe bias at entry time. */
+  directionOverride?: "bullish" | "bearish";
 }
 
 type TechnicalEvaluator = (
@@ -53,7 +57,10 @@ export function checkConditions(
     if (isTechnicalCondition(c)) {
       if (evaluateTechnical(c, ctx)) met++;
     } else if (isPatternCondition(c)) {
-      if (evaluatePatternCondition(c, ctx.bars, ctx.i, ctx.higherTfBars)) met++;
+      if (
+        evaluatePatternCondition(c, ctx.bars, ctx.i, ctx.higherTfBars, ctx.directionOverride)
+      )
+        met++;
     }
   }
   if (logic === "all") return met === conditions.length;

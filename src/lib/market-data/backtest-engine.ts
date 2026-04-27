@@ -6,6 +6,7 @@ import {
   type ExitCondition,
   type TechnicalCondition,
 } from "@/types/algorithm";
+import { resolveSide } from "./auto-side";
 import { calculateMetrics } from "./backtest-metrics";
 import {
   checkConditions as checkMixedConditions,
@@ -98,7 +99,7 @@ function runSimulation(
   // higher-timeframe context (daily_bias). Cheap aggregation; pure function.
   const higherTfBars = resampleToDaily(prices);
   const trades: BacktestTrade[] = [];
-  const side: "long" | "short" = rules.side ?? "long";
+  const fixedSide: "long" | "short" | "auto" = rules.side ?? "long";
   const positions: {
     entryPrice: number;
     entryDate: string;
@@ -120,7 +121,18 @@ function runSimulation(
       currentDayKey = dayKey;
       dailyHalted = false;
     }
-    const ctx: ConditionContext = { cache, closes, bars: prices, i, higherTfBars };
+    // Resolve the active side for THIS bar. Fixed sides pass through; auto
+    // mode reads the resampled D1 bias and trades whichever direction it
+    // points to. Returns null when bias is neutral — entry skipped.
+    const resolved = resolveSide(fixedSide, higherTfBars, i);
+    const ctx: ConditionContext = {
+      cache,
+      closes,
+      bars: prices,
+      i,
+      higherTfBars,
+      directionOverride: resolved?.directionOverride,
+    };
     const signalExitFired =
       (exit.length > 0 && checkConditions(exit, ctx, rules.entry_logic)) ||
       s.drawdownBreached;
@@ -141,11 +153,13 @@ function runSimulation(
       !s.drawdownBreached &&
       !dailyHalted &&
       !vetoed &&
+      resolved !== null &&
       positions.length < cfg.maxPos &&
       checkConditions(entry, ctx, rules.entry_logic)
     ) {
       // For shorts, slippage works the opposite way on entry — selling into
       // bid gets you a slightly worse fill, so we still apply it as a cost.
+      const side = resolved.side;
       const entryPrice = applySlippage(closes[i], cfg.slippageBps, side === "long");
       const sized = sizeForBacktest(rules, s.equity, entryPrice, symbol, cfg);
       const freeMargin = s.equity - s.marginUsed;
