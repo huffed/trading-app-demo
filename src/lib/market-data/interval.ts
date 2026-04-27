@@ -34,3 +34,30 @@ export function barsPerDay(interval: BarInterval): number {
       return 1;
   }
 }
+
+/**
+ * Pick the right output_size for a backtest given the bar interval.
+ * - 1day: "compact" (100 bars = 100 trading days, plenty)
+ * - 4h / 1h: "full" — Twelve Data returns up to 5000 bars (~2 years of 4h,
+ *   ~7 months of 1h). Without this, intraday backtests run on ~16 days of
+ *   data, which is too small a sample for any conclusion.
+ */
+export function recommendedOutputSize(interval: BarInterval): "compact" | "full" {
+  return interval === "1day" ? "compact" : "full";
+}
+
+/**
+ * Minimum bars required for a meaningful backtest. Daily strategies need
+ * ~30 days for indicator warmup + a few signals; intraday strategies need
+ * proportionally more bars because each bar is a smaller slice of time.
+ */
+export function minBarsFor(interval: BarInterval): number {
+  switch (interval) {
+    case "1day":
+      return 30;
+    case "4h":
+      return 200; // ~33 trading days
+    case "1h":
+      return 500; // ~21 trading days
+  }
+}

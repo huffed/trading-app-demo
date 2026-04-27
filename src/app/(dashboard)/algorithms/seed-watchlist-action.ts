@@ -32,18 +32,23 @@ async function backtestOne(
   capital: number,
   ticker: string
 ): Promise<BacktestMetrics | null> {
-  const { timeframeToInterval } = await import("@/lib/market-data/interval");
+  const { timeframeToInterval, recommendedOutputSize, minBarsFor } = await import(
+    "@/lib/market-data/interval"
+  );
   const { fetchEconomicCalendar } = await import("@/lib/market-data/economic-calendar");
   const interval = timeframeToInterval(rules.timeframe);
+  const outputSize = recommendedOutputSize(interval);
+  const minBars = minBarsFor(interval);
+
   try {
-    let prices = await getCachedPrices(ticker, "compact", interval);
+    let prices = await getCachedPrices(ticker, outputSize, interval);
     if (!prices) {
-      prices = await fetchDailyPrices(ticker, "compact", interval);
-      savePricesToCache(ticker, "compact", prices, interval).catch((e) =>
+      prices = await fetchDailyPrices(ticker, outputSize, interval);
+      savePricesToCache(ticker, outputSize, prices, interval).catch((e) =>
         console.warn(`[price-cache] Failed to cache ${ticker}:`, e instanceof Error ? e.message : e)
       );
     }
-    if (prices.length < 30) return null;
+    if (prices.length < minBars) return null;
 
     let events: Awaited<ReturnType<typeof fetchEconomicCalendar>> = [];
     if (rules.news_veto?.enabled) {
