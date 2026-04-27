@@ -2,18 +2,22 @@
 
 import { AI_MODEL, getAIClient } from "@/lib/ai/client";
 import { buildRulesPrompt, buildStrategyPrompt } from "@/lib/ai/prompts/algorithm";
+import {
+  applyManualLayers,
+  clampRules,
+  withPropFirmContext,
+} from "@/lib/algorithm/rules-post-process";
+import {
+  buildRulesFromTemplate,
+  selectStrategyTemplate,
+} from "@/lib/strategies/selector";
 import { createClient } from "@/lib/supabase/server";
 import {
   algorithmFormSchema,
   algorithmRulesSchema,
   type AlgorithmFormValues,
 } from "@/lib/validators/algorithm";
-import {
-  isTechnicalCondition,
-  type Algorithm,
-  type AlgorithmRules,
-  type AlgorithmStatus,
-} from "@/types/algorithm";
+import type { Algorithm, AlgorithmRules, AlgorithmStatus } from "@/types/algorithm";
 type ActionResult<T = unknown> = { success: true; data: T } | { success: false; error: string };
 
 export async function getAuthedUser() {
@@ -27,64 +31,8 @@ export async function getAuthedUser() {
   return { supabase, user };
 }
 
-const LONG_HORIZONS = new Set(["swing", "long term", "long_term", "weekly", "monthly"]);
 
-/**
- * Post-process LLM-generated rules to fix common AI output problems:
- *
- * 1. **Condition count clamping:** The LLM often generates 3-4 technical entry conditions
- *    that must ALL fire simultaneously (AND logic). With daily bars, this almost never
- *    triggers — resulting in zero trades. We limit to 1 technical + 1 sentiment for long
- *    strategies, 2 total for short. This is a pragmatic trade-off: fewer conditions =
- *    more trades = more useful backtests.
- *
- * 2. **RSI relaxation:** For long-term strategies, the LLM tends to output RSI < 30
- *    (textbook oversold), which rarely triggers on quality stocks. We relax to < 45.
- *
- * 3. **Decimal percentage fix:** The LLM sometimes outputs 0.05 meaning 5% instead of
- *    5 meaning 5%. Values < 1 are assumed to be decimal form and converted.
- */
-function clampRules(rules: AlgorithmRules, timeHorizon: string): AlgorithmRules {
-  const isLong =
-    LONG_HORIZONS.has(timeHorizon.toLowerCase()) || timeHorizon.toLowerCase().includes("long");
-  const clamped = structuredClone(rules);
-  if (isLong) {
-    const tech = clamped.entry_conditions.filter(isTechnicalCondition);
-    const sentiment = clamped.entry_conditions.filter((c) => !isTechnicalCondition(c));
-    clamped.entry_conditions = [...tech.slice(0, 1), ...sentiment.slice(0, 1)];
-  } else if (clamped.entry_conditions.length > 2) {
-    clamped.entry_conditions = clamped.entry_conditions.slice(0, 2);
-  }
-  if (clamped.exit_conditions.length > 2) {
-    clamped.exit_conditions = clamped.exit_conditions.slice(0, 2);
-  }
-  // Relax overly strict RSI thresholds for long-term strategies
-  if (isLong) {
-    for (const c of clamped.entry_conditions) {
-      if (
-        isTechnicalCondition(c) &&
-        c.indicator.toLowerCase() === "rsi" &&
-        c.operator === "less_than" &&
-        c.value < 40
-      ) {
-        c.value = 45;
-      }
-    }
-  }
-  // Fix decimal-form percentages (AI sometimes outputs 0.05 meaning 5%, not 5 meaning 5%)
-  if (clamped.stop_loss && clamped.stop_loss.value < 1) {
-    clamped.stop_loss.value = Math.round(clamped.stop_loss.value * 100);
-  }
-  if (clamped.take_profit && clamped.take_profit.value < 1) {
-    clamped.take_profit.value = Math.round(clamped.take_profit.value * 100);
-  }
-  if (clamped.position_sizing && clamped.position_sizing.value < 1) {
-    clamped.position_sizing.value = Math.round(clamped.position_sizing.value * 100);
-  }
-  return clamped;
-}
-
-async function generateRules(
+async function generateRulesFreeForm(
   params: AlgorithmFormValues,
   tradeCount: number
 ): Promise<AlgorithmRules> {
@@ -113,6 +61,26 @@ async function generateRules(
     throw new Error("AI generated invalid rules structure");
   }
   return clampRules(validated.data as AlgorithmRules, params.time_horizon);
+}
+
+/**
+ * Pick the rule-generation path. Forex/commodity goes through the vetted
+ * template library — free-form generation has consistently produced
+ * un-tradeable strategies in those markets. Equity/crypto stays on the
+ * AI free-form path which works well for stock trade-history strategies.
+ */
+async function generateRules(
+  params: AlgorithmFormValues,
+  tradeCount: number
+): Promise<AlgorithmRules> {
+  const usesTemplates =
+    params.asset_class === "forex" || params.asset_class === "commodity";
+  if (usesTemplates) {
+    const { template } = await selectStrategyTemplate(params);
+    const rules = buildRulesFromTemplate(template, params);
+    return clampRules(rules, params.time_horizon);
+  }
+  return generateRulesFreeForm(params, tradeCount);
 }
 
 async function generateDescription(
@@ -157,24 +125,29 @@ export async function generateAlgorithm(
 
   const { count } = await supabase.from("trades").select("*", { count: "exact", head: true });
 
+  const promptParams = withPropFirmContext(parsed.data);
+
   try {
     const [rules, { name, description }] = await Promise.all([
-      generateRules(parsed.data, count ?? 0),
-      generateDescription(parsed.data, count ?? 0),
+      generateRules(promptParams, count ?? 0),
+      generateDescription(promptParams, count ?? 0),
     ]);
+
+    const finalRules = applyManualLayers(rules, parsed.data);
+    const finalName = parsed.data.name?.trim() || name;
 
     const { data, error } = await supabase
       .from("algorithms")
       .insert({
         user_id: user.id,
-        name,
+        name: finalName,
         description,
         asset_class: parsed.data.asset_class,
         risk_level: parsed.data.risk_level,
         time_horizon: parsed.data.time_horizon,
         capital: parsed.data.capital,
         user_hints: parsed.data.user_hints || null,
-        rules,
+        rules: finalRules,
         status: "draft",
       })
       .select()

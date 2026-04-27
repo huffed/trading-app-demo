@@ -2,6 +2,11 @@
  * Entry evaluation — checks if conditions are met and opens a new position.
  */
 import { checkConditions, normalize, type Cache } from "@/lib/market-data/backtest-engine";
+import {
+  fetchEconomicCalendar,
+  getEventCurrencies,
+  isWithinVetoWindow,
+} from "@/lib/market-data/economic-calendar";
 import { evaluateLiveSignal, type SignalResult } from "@/lib/signals/evaluate-live";
 import {
   isSentimentCondition,
@@ -95,6 +100,33 @@ async function openPosition(
   return { opened: 0 };
 }
 
+async function checkNewsVeto(
+  rules: AlgorithmRules,
+  ticker: string
+): Promise<{ vetoed: boolean; reason?: string }> {
+  const v = rules.news_veto;
+  if (!v?.enabled) return { vetoed: false };
+  const currencies = getEventCurrencies(ticker);
+  if (currencies.length === 0) return { vetoed: false };
+
+  const now = new Date();
+  const windowMs = Math.max(v.block_minutes_before, v.block_minutes_after) * 60 * 1000;
+  const events = await fetchEconomicCalendar(
+    new Date(now.getTime() - windowMs),
+    new Date(now.getTime() + windowMs)
+  );
+  const hit = isWithinVetoWindow(
+    now,
+    events,
+    currencies,
+    v.block_minutes_before,
+    v.block_minutes_after,
+    v.min_impact
+  );
+  if (!hit) return { vetoed: false };
+  return { vetoed: true, reason: `${hit.currency} ${hit.event} (${hit.impact} impact)` };
+}
+
 export async function evaluateEntry(
   supabase: SupabaseClient,
   userId: string,
@@ -108,11 +140,22 @@ export async function evaluateEntry(
   // Use real-time price for entry, fall back to latest daily close
   const currentPrice = livePrice ?? closes[closes.length - 1];
 
+  const veto = await checkNewsVeto(rules, ticker);
+  if (veto.vetoed) {
+    await logActivity(supabase, userId, {
+      algorithm_id: algo.id,
+      event_type: "signal_no_action",
+      ticker,
+      details: { reason: `News veto: ${veto.reason}` },
+    });
+    return { opened: 0 };
+  }
+
   const normalizedEntry = normalize(rules.entry_conditions);
   const techEntry = normalizedEntry.filter(isTechnicalCondition) as TechnicalCondition[];
   if (techEntry.length > 0) {
     const cache: Cache = new Map();
-    if (!checkConditions(techEntry, cache, closes, closes.length - 1)) {
+    if (!checkConditions(techEntry, cache, closes, closes.length - 1, rules.entry_logic)) {
       await logActivity(supabase, userId, {
         algorithm_id: algo.id,
         event_type: "signal_no_action",

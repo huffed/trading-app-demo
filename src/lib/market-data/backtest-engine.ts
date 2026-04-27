@@ -2,52 +2,30 @@ import {
   isTechnicalCondition,
   type AlgorithmRules,
   type EntryCondition,
+  type EntryLogic,
   type ExitCondition,
   type TechnicalCondition,
 } from "@/types/algorithm";
 import { calculateMetrics } from "./backtest-metrics";
-import { bollingerBands, ema, macd, rsi, sma } from "./indicators";
+import { buildVetoCheck, type EconomicEvent } from "./economic-calendar";
+import { getValues, isPriceIndicator, type Cache } from "./indicator-registry";
 import {
   applySlippage,
   buildPropFirmReport,
   closeSimPosition,
   enforcePropFirm,
+  finalizeDay,
+  initialSimState,
   type SimConfig,
   type SimState,
 } from "./prop-firm-backtest";
 import type { BacktestMetrics, BacktestTrade, OpenPosition, PriceBar } from "./types";
 
-export type Cache = Map<string, (number | null)[]>;
-const INDICATOR_REGISTRY: Record<string, (closes: number[]) => (number | null)[]> = {
-  rsi: (c) => rsi(c),
-  sma: (c) => sma(c, 20),
-  sma20: (c) => sma(c, 20),
-  sma50: (c) => sma(c, 50),
-  ema: (c) => ema(c, 12),
-  ema12: (c) => ema(c, 12),
-  ema26: (c) => ema(c, 26),
-  macd: (c) => macd(c),
-  bollingerbands_upper: (c) => bollingerBands(c).upper,
-  bollingerbands_lower: (c) => bollingerBands(c).lower,
-};
+export type { Cache } from "./indicator-registry";
 
-function computeIndicator(closes: number[], name: string): (number | null)[] {
-  const fn = INDICATOR_REGISTRY[name.toLowerCase()];
-  if (!fn) {
-    console.warn(`[backtest] Unsupported indicator "${name}" — condition will never trigger`);
-    return closes.map(() => null);
-  }
-  return fn(closes);
-}
-function getValues(name: string, cache: Cache, closes: number[]): (number | null)[] {
-  if (!cache.has(name)) cache.set(name, computeIndicator(closes, name));
-  const vals = cache.get(name);
-  if (!vals) throw new Error(`Indicator "${name}" failed to compute`);
-  return vals;
-}
-function isPriceIndicator(name: string): boolean {
-  const l = name.toLowerCase();
-  return l.startsWith("sma") || l.startsWith("ema") || l.startsWith("bollinger");
+export interface BacktestContext {
+  symbol?: string;
+  events?: EconomicEvent[];
 }
 function evalPriceComparison(
   cond: TechnicalCondition,
@@ -123,12 +101,18 @@ export function checkConditions(
   conditions: TechnicalCondition[],
   cache: Cache,
   closes: number[],
-  i: number
+  i: number,
+  logic: EntryLogic = "all"
 ): boolean {
-  return conditions.every((c) => {
+  if (conditions.length === 0) return false;
+  let met = 0;
+  for (const c of conditions) {
     const vals = getValues(c.indicator, cache, closes);
-    return evaluateCondition(c, vals, closes, cache, i);
-  });
+    if (evaluateCondition(c, vals, closes, cache, i)) met++;
+  }
+  if (logic === "all") return met === conditions.length;
+  if (logic === "any") return met > 0;
+  return met >= logic.n;
 }
 export function normalize(
   conditions: (EntryCondition | ExitCondition)[]
@@ -145,15 +129,47 @@ const DEFAULT_POSITION_SIZE_PCT = 10;
 const DEFAULT_STOP_LOSS_PCT = 5;
 const DEFAULT_TAKE_PROFIT_PCT = 15;
 
-function runSimulation(
-  prices: PriceBar[],
+/**
+ * Decide whether and at what price an open position exits this bar.
+ * Stops and take-profits fill at the configured level (intra-bar fill
+ * detected via bar.low / bar.high). Signal-based exits fill at the close.
+ * If both stop and TP touch the same bar we assume the stop fills first.
+ */
+function pickExitPrice(
+  pos: { entryPrice: number },
+  bar: PriceBar,
+  closePrice: number,
+  cfg: SimConfig,
+  signalExitFired: boolean
+): number | null {
+  const stopPrice = pos.entryPrice * (1 - cfg.stopPct);
+  const tpPrice = pos.entryPrice * (1 + cfg.tpPct);
+  if (bar.low <= stopPrice) return applySlippage(stopPrice, cfg.slippageBps, false);
+  if (bar.high >= tpPrice) return applySlippage(tpPrice, cfg.slippageBps, false);
+  if (signalExitFired) return applySlippage(closePrice, cfg.slippageBps, false);
+  return null;
+}
+
+function forceCloseAll(
+  positions: { entryPrice: number; entryDate: string; notionalValue: number }[],
+  dayKey: string,
+  closePrice: number,
   capital: number,
-  rules: AlgorithmRules,
-  techEntry: TechnicalCondition[],
-  techExit: TechnicalCondition[]
-): { trades: BacktestTrade[]; openPos: OpenPosition | null; state: SimState } {
+  cfg: SimConfig,
+  s: SimState,
+  trades: BacktestTrade[]
+): void {
+  if (positions.length === 0) return;
+  const exitPrice = applySlippage(closePrice, cfg.slippageBps, false);
+  for (let p = positions.length - 1; p >= 0; p--) {
+    closeSimPosition(positions[p], dayKey, exitPrice, capital, cfg, s, trades);
+    positions.splice(p, 1);
+  }
+}
+
+function buildSimConfig(rules: AlgorithmRules): SimConfig {
   const pf = rules.prop_firm;
-  const cfg: SimConfig = {
+  return {
     slippageBps: pf?.slippage_bps ?? 0,
     commissionPct: pf?.commission_pct ?? 0,
     maxPos: rules.max_positions ?? DEFAULT_MAX_POSITIONS,
@@ -161,70 +177,79 @@ function runSimulation(
     stopPct: (rules.stop_loss?.value ?? DEFAULT_STOP_LOSS_PCT) / 100,
     tpPct: (rules.take_profit?.value ?? DEFAULT_TAKE_PROFIT_PCT) / 100,
   };
+}
+
+function runSimulation(
+  prices: PriceBar[],
+  capital: number,
+  rules: AlgorithmRules,
+  techEntry: TechnicalCondition[],
+  techExit: TechnicalCondition[],
+  vetoCheck: ((barDate: string) => boolean) | null
+): { trades: BacktestTrade[]; openPos: OpenPosition | null; state: SimState } {
+  const pf = rules.prop_firm;
+  const cfg = buildSimConfig(rules);
   const closes = prices.map((p) => p.close);
   const cache: Cache = new Map();
   const trades: BacktestTrade[] = [];
-  const positions: { entryPrice: number; entryDate: string }[] = [];
-  const s: SimState = {
-    equity: capital,
-    peakEquity: capital,
-    peakDrawdownPct: 0,
-    consecutiveLosses: 0,
-    maxConsecLosses: 0,
-    totalSlippage: 0,
-    totalCommission: 0,
-    killTriggered: false,
-    drawdownBreached: false,
-    dailyPnl: {},
-  };
-  let currentDay = "";
+  const positions: { entryPrice: number; entryDate: string; notionalValue: number }[] = [];
+  const s = initialSimState(capital);
+  let currentDayKey = "";
   let dailyHalted = false;
 
   for (let i = 1; i < prices.length; i++) {
-    const day = prices[i].date;
-    if (day !== currentDay) {
-      currentDay = day;
+    const bar = prices[i];
+    const day = bar.date;
+    // Daily bars have date "YYYY-MM-DD"; intraday bars carry full timestamps.
+    const dayKey = day.split(/[ T]/)[0];
+    if (dayKey !== currentDayKey) {
+      if (currentDayKey !== "") finalizeDay(s, currentDayKey);
+      currentDayKey = dayKey;
       dailyHalted = false;
     }
+    const signalExitFired =
+      (techExit.length > 0 && checkConditions(techExit, cache, closes, i, rules.entry_logic)) ||
+      s.drawdownBreached;
     for (let p = positions.length - 1; p >= 0; p--) {
       const pos = positions[p];
-      const exitPrice = applySlippage(closes[i], cfg.slippageBps, false);
-      const pnlPct = (exitPrice - pos.entryPrice) / pos.entryPrice;
-      if (
-        pnlPct <= -cfg.stopPct ||
-        pnlPct >= cfg.tpPct ||
-        (techExit.length > 0 && checkConditions(techExit, cache, closes, i)) ||
-        s.drawdownBreached
-      ) {
-        closeSimPosition(pos, day, exitPrice, capital, cfg, s, trades);
+      const exitPrice = pickExitPrice(pos, bar, closes[i], cfg, signalExitFired);
+      if (exitPrice !== null) {
+        closeSimPosition(pos, dayKey, exitPrice, capital, cfg, s, trades);
         positions.splice(p, 1);
-        if (pf) {
-          dailyHalted = enforcePropFirm(pf, s, capital, day, dailyHalted);
-        }
+        if (pf) dailyHalted = enforcePropFirm(pf, s, capital, dayKey, dailyHalted);
       }
     }
+    // Real prop-firm behaviour: DLL breach mid-bar force-closes all positions.
+    if (dailyHalted) forceCloseAll(positions, dayKey, closes[i], capital, cfg, s, trades);
+    const vetoed = vetoCheck ? vetoCheck(day) : false;
     if (
       !s.killTriggered &&
       !s.drawdownBreached &&
       !dailyHalted &&
+      !vetoed &&
       positions.length < cfg.maxPos &&
-      checkConditions(techEntry, cache, closes, i)
+      checkConditions(techEntry, cache, closes, i, rules.entry_logic)
     ) {
       positions.push({
         entryPrice: applySlippage(closes[i], cfg.slippageBps, true),
         entryDate: day,
+        // Compound: each new position is sized off the running equity at
+        // open time, not the initial capital. Wins grow future positions.
+        notionalValue: s.equity * cfg.posSize,
       });
     }
   }
-  const openPos = getOpenPosition(positions, closes, capital, cfg);
+  // Finalise the very last day so its pnl contributes to the streak.
+  if (currentDayKey !== "") {
+    finalizeDay(s, currentDayKey);
+  }
+  const openPos = getOpenPosition(positions, closes);
   return { trades, openPos, state: s };
 }
 
 function getOpenPosition(
-  positions: { entryPrice: number; entryDate: string }[],
-  closes: number[],
-  capital: number,
-  cfg: SimConfig
+  positions: { entryPrice: number; entryDate: string; notionalValue: number }[],
+  closes: number[]
 ): OpenPosition | null {
   if (positions.length === 0) {
     return null;
@@ -237,7 +262,7 @@ function getOpenPosition(
     entry_price: pos.entryPrice,
     current_price: lastPrice,
     side: "long",
-    unrealized_pnl: Number((capital * cfg.posSize * pnlPct).toFixed(2)),
+    unrealized_pnl: Number((pos.notionalValue * pnlPct).toFixed(2)),
     unrealized_pnl_pct: Number((pnlPct * 100).toFixed(2)),
   };
 }
@@ -245,7 +270,8 @@ function getOpenPosition(
 export function runBacktest(
   rules: AlgorithmRules,
   prices: PriceBar[],
-  capital: number
+  capital: number,
+  context?: BacktestContext
 ): BacktestMetrics {
   const entry = normalize(rules.entry_conditions);
   const exit = normalize(rules.exit_conditions);
@@ -262,7 +288,17 @@ export function runBacktest(
     };
   }
 
-  const { trades, openPos, state } = runSimulation(prices, capital, rules, techEntry, techExit);
+  const vetoCheck = rules.news_veto?.enabled
+    ? buildVetoCheck({ symbol: context?.symbol, events: context?.events, veto: rules.news_veto })
+    : null;
+  const { trades, openPos, state } = runSimulation(
+    prices,
+    capital,
+    rules,
+    techEntry,
+    techExit,
+    vetoCheck
+  );
   const result: BacktestMetrics = {
     ...calculateMetrics(trades, capital, prices, openPos),
     sentiment_conditions_excluded: sentimentExcluded,
@@ -280,7 +316,8 @@ export function runBacktest(
       state.peakDrawdownPct,
       state.maxConsecLosses,
       state.killTriggered,
-      state.drawdownBreached
+      state.drawdownBreached,
+      state.maxConsecLosingDays
     );
   }
   return result;

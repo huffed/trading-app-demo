@@ -68,10 +68,21 @@ export async function discoverTickers(
     }));
 
     return { success: true, data: suggestions };
-  } catch {
-    return {
-      success: false,
-      error: "Discovery failed. AI may be temporarily unavailable — try again in a moment.",
-    };
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err);
+    console.error("[discovery] failed:", err);
+    // Surface the actual reason — rate limit, network, parse error, etc.
+    // Generic "AI unavailable" hides everything and confuses debugging.
+    let friendly = detail;
+    if (/429|rate.?limit|quota/i.test(detail)) {
+      friendly = "Hit the AI rate limit. Wait ~1 minute and try again — Groq's free tier resets quickly.";
+    } else if (/401|unauthor/i.test(detail)) {
+      friendly = "GROQ_API_KEY missing or invalid — check .env.local.";
+    } else if (/timeout|ECONNREFUSED|ENOTFOUND|fetch/i.test(detail)) {
+      friendly = "Network error reaching the AI. Check your connection and retry.";
+    } else if (/JSON|parse/i.test(detail)) {
+      friendly = "AI returned malformed JSON. Try again — usually transient.";
+    }
+    return { success: false, error: `Discovery failed: ${friendly}` };
   }
 }

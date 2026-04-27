@@ -4,12 +4,54 @@ import { assetClasses } from "./trade";
 export const riskLevels = ["conservative", "moderate", "aggressive"] as const;
 export const algorithmStatuses = ["draft", "active", "paused", "archived"] as const;
 
+// Optional manual overrides — when set, applied on top of the AI's generated
+// rules so power users can lock in exact values without giving up the AI's
+// condition selection.
+const overridesSchema = z
+  .object({
+    stop_loss: z.coerce.number().positive().optional(),
+    take_profit: z.coerce.number().positive().optional(),
+    position_size: z.coerce.number().positive().optional(),
+    max_positions: z.coerce.number().int().positive().optional(),
+    max_per_ticker: z.coerce.number().int().positive().optional(),
+  })
+  .optional();
+
+// Loose form-side news_veto schema — UI sends strings, this coerces them.
+const newsVetoInput = z
+  .object({
+    enabled: z.coerce.boolean(),
+    block_minutes_before: z.coerce.number().int().min(0).max(180),
+    block_minutes_after: z.coerce.number().int().min(0).max(180),
+    min_impact: z.enum(["low", "medium", "high"]),
+  })
+  .optional();
+
+// Loose form-side prop-firm input — strings from inputs get coerced.
+const propFirmInput = z
+  .object({
+    daily_loss_limit: z.coerce.number(),
+    max_drawdown: z.coerce.number(),
+    profit_target: z.coerce.number(),
+    max_consecutive_losses: z.coerce.number().int().min(0),
+    consecutive_loss_unit: z.enum(["trades", "days"]).optional(),
+    daily_loss_halt_pct: z.coerce.number().min(10).max(100).optional(),
+    consistency_rule: z.coerce.number(),
+    slippage_bps: z.coerce.number(),
+    commission_pct: z.coerce.number(),
+  })
+  .optional();
+
 export const algorithmFormSchema = z.object({
+  name: z.string().trim().max(80).optional().or(z.literal("")),
   asset_class: z.enum(assetClasses),
   risk_level: z.enum(riskLevels),
   capital: z.coerce.number().positive("Capital must be positive"),
   time_horizon: z.string().min(1, "Time horizon is required"),
   user_hints: z.string().max(2000).optional().or(z.literal("")),
+  overrides: overridesSchema,
+  prop_firm: propFirmInput,
+  news_veto: newsVetoInput,
 });
 
 export type AlgorithmFormValues = z.infer<typeof algorithmFormSchema>;
@@ -52,14 +94,31 @@ const propFirmSchema = z.object({
   daily_loss_limit: z.number().min(0.5).max(20),
   max_drawdown: z.number().min(1).max(30),
   profit_target: z.number().min(1).max(50),
-  max_consecutive_losses: z.number().int().min(1).max(20),
+  // 0 disables the kill switch entirely.
+  max_consecutive_losses: z.number().int().min(0).max(50),
+  consecutive_loss_unit: z.enum(["trades", "days"]).optional(),
+  daily_loss_halt_pct: z.number().min(10).max(100).optional(),
   consistency_rule: z.number().min(10).max(100),
   slippage_bps: z.number().min(0).max(100),
   commission_pct: z.number().min(0).max(5),
 });
 
+const newsVetoSchema = z.object({
+  enabled: z.boolean(),
+  block_minutes_before: z.number().int().min(0).max(180),
+  block_minutes_after: z.number().int().min(0).max(180),
+  min_impact: z.enum(["low", "medium", "high"]),
+});
+
+const entryLogicSchema = z.union([
+  z.literal("all"),
+  z.literal("any"),
+  z.object({ type: z.literal("n_of_m"), n: z.number().int().positive() }),
+]);
+
 export const algorithmRulesSchema = z.object({
   entry_conditions: z.array(normalizedCondition),
+  entry_logic: entryLogicSchema.optional(),
   exit_conditions: z.array(normalizedCondition),
   stop_loss: z.object({ type: z.enum(["percentage", "fixed"]), value: z.number() }),
   take_profit: z.object({ type: z.enum(["percentage", "fixed"]), value: z.number() }),
@@ -68,7 +127,9 @@ export const algorithmRulesSchema = z.object({
     value: z.number(),
   }),
   max_positions: z.number().int().positive(),
+  max_per_ticker: z.number().int().positive().optional(),
   timeframe: z.string(),
   asset_class: z.string(),
   prop_firm: propFirmSchema.optional(),
+  news_veto: newsVetoSchema.optional(),
 });

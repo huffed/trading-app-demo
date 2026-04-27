@@ -52,6 +52,8 @@ function ReadView({
     | "backtest_results"
     | "status"
     | "last_scanned_at"
+    | "asset_class"
+    | "time_horizon"
   >;
   backtestError: string | null;
   aiBacktestError: string | null;
@@ -74,6 +76,7 @@ function ReadView({
         <WatchlistCard
           algorithmId={algo.id}
           hasSentimentConditions={algo.rules.entry_conditions.some(isSentimentCondition)}
+          assetClass={algo.asset_class}
         />
         <DiscoveryCard algorithmId={algo.id} />
       </TabsContent>

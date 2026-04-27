@@ -58,20 +58,24 @@ Example sentiment condition:
 ## Full rules schema
 {
   "entry_conditions": [(technical or sentiment condition)],
+  "entry_logic": "all" | "any" | { "type": "n_of_m", "n": integer },  // default "all"
   "exit_conditions": [(technical or sentiment condition)],
   "stop_loss": { "type": "percentage"|"fixed", "value": number },
   "take_profit": { "type": "percentage"|"fixed", "value": number },
   "position_sizing": { "type": "percentage_of_capital"|"fixed_amount", "value": number },
   "max_positions": integer,
+  "max_per_ticker": integer,           // pyramiding cap per symbol; 1 = no pyramiding
   "timeframe": "1d"|"4h"|"1h",
   "asset_class": string
 }
 
-CRITICAL — Condition limits:
-- Day trading: max 2 entry conditions total
-- Swing / long term: max 2 entry conditions total (e.g., 1 sentiment + 1 technical)
-- NEVER use 3+ entry conditions
+CRITICAL — Condition limits & entry_logic:
+- Day trading (equity/crypto): max 2 entry conditions total, entry_logic "all"
+- Swing / long term: max 2 entry conditions total (e.g., 1 sentiment + 1 technical), entry_logic "all"
+- Forex / commodity: 3 entry conditions, entry_logic { "type": "n_of_m", "n": 2 } so the strategy fires when 2 of 3 align (single ANDed crossovers almost never co-fire and produce zero trades)
 - Exit: 1 condition
+
+When generating 3 conditions for forex/commodity n_of_m logic, design them as INDEPENDENT confirmations of the same directional bias rather than competing strategies. Good 2-of-3 set: trend filter (EMA12 > EMA26) + momentum (RSI > 50) + breakout (price > BollingerBands_upper). Bad: oversold reversion (RSI < 30) + bullish crossover (EMA12 crosses_above) — they almost never co-fire because momentum/reversion conditions point opposite ways.
 
 WHEN TO USE SENTIMENT: If user_hints mention trade history, news, catalysts, hype cycles, sector momentum, or emerging tech — include a sentiment entry condition. A strong pattern: 1 sentiment condition (confirms narrative) + 1 technical condition (confirms price support).
 
@@ -84,7 +88,26 @@ Rules:
   - Conservative: stop_loss 2-3, take_profit 5-8, position_sizing 5-8, max_positions 2-3
   - Moderate: stop_loss 3-5, take_profit 8-15, position_sizing 8-12, max_positions 3-5
   - Aggressive: stop_loss 5-10, take_profit 15-25, position_sizing 12-20, max_positions 5-8
-- Sentiment conditions CANNOT be backtested — mention this in the strategy description`;
+- Sentiment conditions CANNOT be backtested — mention this in the strategy description
+
+Asset class guidance:
+- For asset_class "forex" and "commodity": ALWAYS use position_sizing.type "percentage_of_capital" (not fixed_quantity — lot semantics are too easy to get wrong).
+- Forex sentiment conditions are unreliable (Alpha Vantage news coverage is thin for currency pairs) — strongly prefer pure technical setups for forex.
+- Commodities like XAU/USD (gold) react to inflation/macro headlines — sentiment conditions on topics like "inflation" or "monetary_policy" can work.
+
+CRITICAL — forex/commodity timeframe & risk defaults (override the equity defaults above):
+- DEFAULT timeframe: "4h" for swing/general setups, "1h" for more active strategies. Only use "1d" if the user explicitly asks for long-term/position trading.
+- These markets move in pips. On daily bars a 3-5% stop equals 300-500 pips, which rarely fills — strategies sit dormant. INSTEAD use:
+  - Conservative: stop_loss 0.3-0.5, take_profit 0.9-1.5, position_sizing 3-5, max_positions 3-5, max_per_ticker 2
+  - Moderate:     stop_loss 0.5-0.8, take_profit 1.5-2.5, position_sizing 5-8, max_positions 4-6, max_per_ticker 3
+  - Aggressive:   stop_loss 0.8-1.5, take_profit 2.5-4.5, position_sizing 8-12, max_positions 6-10, max_per_ticker 4
+- Reward MUST be >= 3x risk. Indicator-driven FX strategies typically run at 25-35% win rates; a 3:1 R:R is the minimum viable expectancy. The platform clamps anything below 3:1 up to it automatically.
+- Pyramiding (max_per_ticker > 1) lets the algorithm scale into trending pairs and is encouraged for forex/commodity strategies that target prop-firm profit goals.
+- When user_hints mention "prop firm", "funded account", "FTMO", "Topstep", or "max trades": push to the aggressive end of these ranges and bias toward "1h" timeframe with max_per_ticker 3-4.
+
+NEWS PROTECTION: Forex/commodity strategies should describe a news-window veto in the strategy text. The platform automatically blocks new entries 15min before / 30min after high-impact economic releases (CPI, NFP, FOMC, central-bank decisions) for the symbol's currencies — this is the highest-EV use of news data because it strips out the slippage and fake-fill losses that kill scalping setups around major releases. Existing positions still close normally on stops/TPs; only new entries are blocked. Mention this in the strategy description if asset_class is forex or commodity.
+
+For asset_class "equity"/"crypto" the default ranges at the top still apply (max_per_ticker defaults to 1 unless the user is explicitly chasing pyramiding).`;
 
 const RISK_DESCRIPTIONS: Record<string, string> = {
   conservative: "Low risk, capital preservation, steady returns",

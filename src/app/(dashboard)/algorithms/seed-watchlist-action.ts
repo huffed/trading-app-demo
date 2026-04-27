@@ -18,6 +18,8 @@ export interface ScreenedTicker {
   name: string;
   sector: string;
   metrics: BacktestMetrics | null;
+  /** Total return as a percent of starting capital (signed). */
+  return_pct: number;
   analysis: string;
   profitable: boolean;
 }
@@ -32,16 +34,32 @@ async function backtestOne(
   capital: number,
   ticker: string
 ): Promise<BacktestMetrics | null> {
+  const { timeframeToInterval, recommendedOutputSize, minBarsFor } = await import(
+    "@/lib/market-data/interval"
+  );
+  const { fetchEconomicCalendar } = await import("@/lib/market-data/economic-calendar");
+  const interval = timeframeToInterval(rules.timeframe);
+  const outputSize = recommendedOutputSize(interval);
+  const minBars = minBarsFor(interval);
+
   try {
-    let prices = await getCachedPrices(ticker, "compact");
+    let prices = await getCachedPrices(ticker, outputSize, interval);
     if (!prices) {
-      prices = await fetchDailyPrices(ticker, "compact");
-      savePricesToCache(ticker, "compact", prices).catch((e) =>
+      prices = await fetchDailyPrices(ticker, outputSize, interval);
+      savePricesToCache(ticker, outputSize, prices, interval).catch((e) =>
         console.warn(`[price-cache] Failed to cache ${ticker}:`, e instanceof Error ? e.message : e)
       );
     }
-    if (prices.length < 30) return null;
-    return runBacktest(rules, prices, capital);
+    if (prices.length < minBars) return null;
+
+    let events: Awaited<ReturnType<typeof fetchEconomicCalendar>> = [];
+    if (rules.news_veto?.enabled) {
+      const from = new Date(prices[0].date);
+      const to = new Date(prices[prices.length - 1].date);
+      events = await fetchEconomicCalendar(from, to);
+    }
+
+    return runBacktest(rules, prices, capital, { symbol: ticker, events });
   } catch {
     return null;
   }
@@ -99,16 +117,21 @@ export async function seedWatchlist(algorithmId: string): Promise<ActionResult<S
     metricsMap.set(s.ticker, await backtestOne(rules, capital, s.ticker));
   }
 
+  function pct(m: BacktestMetrics | null | undefined): number {
+    if (!m || !capital) return 0;
+    return (m.total_return / capital) * 100;
+  }
+
   // Build summaries for AI analysis
   const summaries: TickerBacktestSummary[] = suggestions.map((s) => {
     const m = metricsMap.get(s.ticker);
     return {
       ticker: s.ticker,
       name: s.name,
-      totalReturn: m?.total_return ?? 0,
+      totalReturn: pct(m),
       winRate: m?.win_rate ?? 0,
       totalTrades: m?.total_trades ?? 0,
-      profitable: (m?.total_return ?? 0) > 0,
+      profitable: pct(m) > 0,
       failed: !m,
     };
   });
@@ -119,20 +142,22 @@ export async function seedWatchlist(algorithmId: string): Promise<ActionResult<S
   // Build results
   const screened: ScreenedTicker[] = suggestions.map((s) => {
     const m = metricsMap.get(s.ticker) ?? null;
+    const returnPct = pct(m);
     return {
       ticker: s.ticker,
       name: s.name,
       sector: s.sector,
       metrics: m,
+      return_pct: Number(returnPct.toFixed(2)),
       analysis: analyses[s.ticker] ?? s.reasoning,
-      profitable: (m?.total_return ?? 0) > 0,
+      profitable: returnPct > 0,
     };
   });
 
   // Sort: profitable first (by return desc), then unprofitable (by return desc)
   screened.sort((a, b) => {
     if (a.profitable !== b.profitable) return a.profitable ? -1 : 1;
-    return (b.metrics?.total_return ?? 0) - (a.metrics?.total_return ?? 0);
+    return b.return_pct - a.return_pct;
   });
 
   // Add profitable to watchlist

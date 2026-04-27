@@ -8,14 +8,17 @@ import { GenerateForm } from "@/components/algorithms/generate-form";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useGenerateAlgorithm } from "@/hooks/use-algorithms";
-import { algorithmFormSchema } from "@/lib/validators/algorithm";
+import {
+  algorithmFormSchema,
+  type AlgorithmFormValues,
+} from "@/lib/validators/algorithm";
 
 export default function GenerateAlgorithmPage() {
   const router = useRouter();
   const generate = useGenerateAlgorithm();
   const [error, setError] = useState<string | null>(null);
 
-  function handleSubmit(values: Record<string, string>) {
+  function handleSubmit(values: AlgorithmFormValues) {
     setError(null);
     const parsed = algorithmFormSchema.safeParse(values);
     if (!parsed.success) {

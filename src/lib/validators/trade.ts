@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const assetClasses = ["equity", "option", "future", "forex", "crypto"] as const;
+export const assetClasses = ["equity", "option", "future", "forex", "crypto", "commodity"] as const;
 
 export const tradeSides = ["long", "short"] as const;
 export const tradeStatuses = ["open", "closed"] as const;

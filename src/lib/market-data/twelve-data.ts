@@ -1,3 +1,4 @@
+import type { BarInterval } from "./interval";
 import type { PriceBar, RealTimeQuote } from "./types";
 
 const BASE_URL = "https://api.twelvedata.com";
@@ -139,13 +140,14 @@ interface TDResponse {
 
 export async function fetchDailyPrices(
   symbol: string,
-  outputSize: "compact" | "full" = "compact"
+  outputSize: "compact" | "full" = "compact",
+  interval: BarInterval = "1day"
 ): Promise<PriceBar[]> {
   const apiKey = process.env.TWELVE_DATA_API_KEY;
   if (!apiKey) throw new Error("TWELVE_DATA_API_KEY is not set");
 
   const size = outputSize === "full" ? 5000 : 100;
-  const url = `${BASE_URL}/time_series?symbol=${encodeURIComponent(symbol)}&interval=1day&outputsize=${size}&apikey=${apiKey}`;
+  const url = `${BASE_URL}/time_series?symbol=${encodeURIComponent(symbol)}&interval=${interval}&outputsize=${size}&apikey=${apiKey}`;
 
   const res = await fetch(url);
   if (!res.ok) throw new Error(`Twelve Data request failed: ${res.status}`);
@@ -160,13 +162,16 @@ export async function fetchDailyPrices(
   }
 
   return data.values
-    .map((v) => ({
-      date: v.datetime,
-      open: parseFloat(v.open),
-      high: parseFloat(v.high),
-      low: parseFloat(v.low),
-      close: parseFloat(v.close),
-      volume: parseInt(v.volume),
-    }))
+    .map((v) => {
+      const vol = parseInt(v.volume);
+      return {
+        date: v.datetime,
+        open: parseFloat(v.open),
+        high: parseFloat(v.high),
+        low: parseFloat(v.low),
+        close: parseFloat(v.close),
+        volume: Number.isFinite(vol) ? vol : 0,
+      };
+    })
     .sort((a, b) => a.date.localeCompare(b.date));
 }

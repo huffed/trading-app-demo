@@ -6,6 +6,7 @@
  * between backtested and live-scanned signals.
  */
 import { checkConditions, normalize, type Cache } from "@/lib/market-data/backtest-engine";
+import { timeframeToInterval, type BarInterval } from "@/lib/market-data/interval";
 import { getCachedPrices, savePricesToCache } from "@/lib/market-data/price-cache";
 import { fetchDailyPrices } from "@/lib/market-data/prices";
 import { fetchBatchQuotes } from "@/lib/market-data/twelve-data";
@@ -157,13 +158,14 @@ async function processTicker(
   ticker: string,
   positions: PaperPosition[],
   result: ScanResult,
-  liveQuotes: Map<string, number>
+  liveQuotes: Map<string, number>,
+  interval: BarInterval
 ) {
   try {
-    let prices = await getCachedPrices(ticker, "compact");
+    let prices = await getCachedPrices(ticker, "compact", interval);
     if (!prices) {
-      prices = await fetchDailyPrices(ticker, "compact");
-      savePricesToCache(ticker, "compact", prices).catch(() => {});
+      prices = await fetchDailyPrices(ticker, "compact", interval);
+      savePricesToCache(ticker, "compact", prices, interval).catch(() => {});
     }
     if (prices.length < 10) {
       result.errors.push({ ticker, error: "Not enough price data" });
@@ -173,9 +175,11 @@ async function processTicker(
 
     const closes = prices.map((p) => p.close);
     const livePrice = liveQuotes.get(ticker.toUpperCase()) ?? null;
-    const existing = positions.find((p) => p.ticker === ticker);
 
-    if (existing) {
+    // Manage every open position on this ticker independently — each has its
+    // own SL/TP and can close on this scan.
+    const existingForTicker = positions.filter((p) => p.ticker === ticker);
+    for (const existing of existingForTicker) {
       const r = await manageExistingPosition(
         supabase,
         userId,
@@ -190,15 +194,20 @@ async function processTicker(
       if (r.closeEvent) {
         result.closed_details.push(r.closeEvent);
       }
-    } else {
-      const openCount = positions.filter((p) => p.status === "open").length;
-      const alreadyHolding = positions.some((p) => p.ticker === ticker);
-      if (openCount < algo.rules.max_positions && !alreadyHolding) {
-        const r = await evaluateEntry(supabase, userId, algo, ticker, closes, positions, livePrice);
-        result.positions_opened += r.opened;
-        if (r.openEvent) {
-          result.opened_details.push(r.openEvent);
-        }
+    }
+
+    // Count what's still open after the management pass, then decide if we
+    // can stack another entry. max_per_ticker (defaults to 1) caps pyramiding;
+    // max_positions remains the algorithm-wide cap.
+    const stillOpen = positions.filter((p) => p.status === "open");
+    const openOnTicker = stillOpen.filter((p) => p.ticker === ticker).length;
+    const maxPerTicker = algo.rules.max_per_ticker ?? 1;
+
+    if (stillOpen.length < algo.rules.max_positions && openOnTicker < maxPerTicker) {
+      const r = await evaluateEntry(supabase, userId, algo, ticker, closes, positions, livePrice);
+      result.positions_opened += r.opened;
+      if (r.openEvent) {
+        result.opened_details.push(r.openEvent);
       }
     }
     result.tickers_scanned++;
@@ -264,8 +273,9 @@ export async function scanAlgorithm(
     // Fall back to daily closes if real-time quotes unavailable
   }
 
+  const interval = timeframeToInterval(algo.rules.timeframe);
   for (const ticker of tickers) {
-    await processTicker(supabase, userId, algo, ticker, positions, result, liveQuotes);
+    await processTicker(supabase, userId, algo, ticker, positions, result, liveQuotes, interval);
   }
 
   await logActivity(supabase, userId, {

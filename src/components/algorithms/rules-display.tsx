@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { getQuantityUnit } from "@/lib/constants/markets";
 import {
   isTechnicalCondition,
   type AlgorithmRules,
@@ -139,24 +140,42 @@ function ConditionItem({ condition }: { condition: EntryCondition | ExitConditio
   );
 }
 
+function formatEntryLogic(
+  logic: AlgorithmRules["entry_logic"],
+  conditionCount: number
+): string {
+  if (!logic || logic === "all") return `all ${conditionCount} required`;
+  if (logic === "any") return "any one fires";
+  return `${logic.n} of ${conditionCount} required`;
+}
+
 function ConditionSection({
   title,
   icon,
   conditions,
+  logic,
 }: {
   title: string;
   icon: React.ReactNode;
   conditions: (EntryCondition | ExitCondition)[];
+  logic?: AlgorithmRules["entry_logic"];
 }) {
   if (!conditions || conditions.length === 0) {
     return null;
   }
   return (
     <div className="space-y-2">
-      <h4 className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-        {icon}
-        {title}
-      </h4>
+      <div className="flex items-center justify-between">
+        <h4 className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          {icon}
+          {title}
+        </h4>
+        {logic && conditions.length > 1 && (
+          <span className="text-xs text-muted-foreground">
+            {formatEntryLogic(logic, conditions.length)}
+          </span>
+        )}
+      </div>
       {conditions.map((c, i) => (
         <ConditionItem key={i} condition={c} />
       ))}
@@ -170,8 +189,10 @@ function formatPositionSizing(rules: AlgorithmRules): string {
       return `${rules.position_sizing.value}% of capital per trade`;
     case "fixed_amount":
       return `$${rules.position_sizing.value.toLocaleString()} per trade`;
-    case "fixed_quantity":
-      return `${rules.position_sizing.value} shares per trade`;
+    case "fixed_quantity": {
+      const unit = getQuantityUnit(rules.asset_class);
+      return `${rules.position_sizing.value.toLocaleString()} ${unit} per trade`;
+    }
     default:
       return `${rules.position_sizing.value}`;
   }
@@ -205,9 +226,28 @@ function RiskParams({ rules }: { rules: AlgorithmRules }) {
         <BarChart3 className="h-4 w-4 shrink-0 text-muted-foreground" />
         <div>
           <p className="text-xs text-muted-foreground">Max Positions</p>
-          <p className="text-sm font-medium">{rules.max_positions}</p>
+          <p className="text-sm font-medium">
+            {rules.max_positions}
+            {rules.max_per_ticker && rules.max_per_ticker > 1 ? (
+              <span className="ml-1 text-xs font-normal text-muted-foreground">
+                ({rules.max_per_ticker} per pair)
+              </span>
+            ) : null}
+          </p>
         </div>
       </div>
+      {rules.news_veto?.enabled && (
+        <div className="flex items-center gap-2.5 rounded-md border p-2.5 sm:col-span-2">
+          <Newspaper className="h-4 w-4 shrink-0 text-purple-500" />
+          <div>
+            <p className="text-xs text-muted-foreground">News Protection</p>
+            <p className="text-sm font-medium">
+              Block {rules.news_veto.min_impact}+ events:{" "}
+              -{rules.news_veto.block_minutes_before}m to +{rules.news_veto.block_minutes_after}m
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -233,6 +273,7 @@ export function RulesDisplay({ rules }: { rules: AlgorithmRules }) {
           title="Entry Conditions"
           icon={<ArrowUp className="h-3 w-3" />}
           conditions={rules.entry_conditions}
+          logic={rules.entry_logic}
         />
         <ConditionSection
           title="Exit Conditions"

@@ -83,11 +83,15 @@ export async function runHistoricalBacktest(
     return { success: false, error: "Algorithm has no trading rules. Try regenerating it." };
   }
 
+  const { timeframeToInterval } = await import("@/lib/market-data/interval");
+  const { fetchEconomicCalendar } = await import("@/lib/market-data/economic-calendar");
+  const interval = timeframeToInterval(rules.timeframe);
+
   try {
-    let prices = await getCachedPrices(symbol, outputSize);
+    let prices = await getCachedPrices(symbol, outputSize, interval);
     if (!prices) {
-      prices = await fetchDailyPrices(symbol, outputSize);
-      savePricesToCache(symbol, outputSize, prices).catch((e) =>
+      prices = await fetchDailyPrices(symbol, outputSize, interval);
+      savePricesToCache(symbol, outputSize, prices, interval).catch((e) =>
         console.warn(`[price-cache] Failed to cache ${symbol}:`, e instanceof Error ? e.message : e)
       );
     }
@@ -95,7 +99,16 @@ export async function runHistoricalBacktest(
       return { success: false, error: "Not enough price data for backtesting" };
     }
 
-    const results = runBacktest(rules, prices, algo.capital);
+    // Fetch the economic calendar covering the price range so the news veto
+    // (if enabled on the algorithm) can block entries around major releases.
+    let events: Awaited<ReturnType<typeof fetchEconomicCalendar>> = [];
+    if (rules.news_veto?.enabled) {
+      const from = new Date(prices[0].date);
+      const to = new Date(prices[prices.length - 1].date);
+      events = await fetchEconomicCalendar(from, to);
+    }
+
+    const results = runBacktest(rules, prices, algo.capital, { symbol, events });
 
     // Strip prices from DB save (too large for JSONB), keep trades for display
     const { prices: _prices, ...storable } = results;

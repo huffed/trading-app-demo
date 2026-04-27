@@ -10,7 +10,7 @@ export interface TradingProfileAnswers {
 
 /** Derived algorithm parameters — computed deterministically from wizard answers. */
 export interface DerivedTradingParams {
-  asset_class: "equity" | "crypto" | "forex";
+  asset_class: "equity" | "crypto" | "forex" | "commodity";
   risk_level: "conservative" | "moderate" | "aggressive";
   time_horizon: string;
   user_hints: string;

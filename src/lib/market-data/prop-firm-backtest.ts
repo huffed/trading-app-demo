@@ -7,6 +7,9 @@ export interface SimState {
   peakDrawdownPct: number;
   consecutiveLosses: number;
   maxConsecLosses: number;
+  /** Streak of consecutive losing CALENDAR DAYS (resets on a positive day). */
+  consecutiveLosingDays: number;
+  maxConsecLosingDays: number;
   totalSlippage: number;
   totalCommission: number;
   killTriggered: boolean;
@@ -24,7 +27,7 @@ export interface SimConfig {
 }
 
 export function closeSimPosition(
-  pos: { entryPrice: number; entryDate: string },
+  pos: { entryPrice: number; entryDate: string; notionalValue: number },
   day: string,
   exitPrice: number,
   capital: number,
@@ -33,10 +36,13 @@ export function closeSimPosition(
   trades: BacktestTrade[]
 ) {
   const pnlPct = (exitPrice - pos.entryPrice) / pos.entryPrice;
-  const commission = capital * cfg.posSize * (cfg.commissionPct / 100) * 2;
-  const pnl = Number((capital * cfg.posSize * pnlPct - commission).toFixed(2));
+  // Position notional was sized off equity-at-open, so wins compound naturally
+  // as equity grows and losses shrink positions during drawdowns.
+  const notional = pos.notionalValue;
+  const commission = notional * (cfg.commissionPct / 100) * 2;
+  const pnl = Number((notional * pnlPct - commission).toFixed(2));
   s.totalSlippage +=
-    ((pos.entryPrice + exitPrice) * (cfg.slippageBps / 10000) * capital * cfg.posSize) / exitPrice;
+    ((pos.entryPrice + exitPrice) * (cfg.slippageBps / 10000) * notional) / exitPrice;
   s.totalCommission += commission;
   trades.push({
     entry_date: pos.entryDate,
@@ -69,13 +75,57 @@ export function enforcePropFirm(
   if (pf.max_drawdown > 0 && ddPct >= pf.max_drawdown) {
     s.drawdownBreached = true;
   }
-  if (pf.max_consecutive_losses > 0 && s.consecutiveLosses >= pf.max_consecutive_losses) {
-    s.killTriggered = true;
+  // max_consecutive_losses == 0 disables the kill switch.
+  if (pf.max_consecutive_losses > 0) {
+    const unit = pf.consecutive_loss_unit ?? "trades";
+    const streak = unit === "days" ? s.consecutiveLosingDays : s.consecutiveLosses;
+    if (streak >= pf.max_consecutive_losses) {
+      s.killTriggered = true;
+    }
   }
-  if (pf.daily_loss_limit > 0 && ((s.dailyPnl[day] ?? 0) / capital) * 100 <= -pf.daily_loss_limit) {
-    return true;
+  if (pf.daily_loss_limit > 0) {
+    // Defensive buffer: halt EARLY at `halt_pct%` of DLL so the engine
+    // force-close fires before we actually breach the published limit.
+    // Default 100 = halt at exact DLL (legacy behaviour).
+    const haltPct = (pf.daily_loss_halt_pct ?? 100) / 100;
+    const haltThreshold = -pf.daily_loss_limit * haltPct;
+    if (((s.dailyPnl[day] ?? 0) / capital) * 100 <= haltThreshold) {
+      return true;
+    }
   }
   return dailyHalted;
+}
+
+export function initialSimState(capital: number): SimState {
+  return {
+    equity: capital,
+    peakEquity: capital,
+    peakDrawdownPct: 0,
+    consecutiveLosses: 0,
+    maxConsecLosses: 0,
+    consecutiveLosingDays: 0,
+    maxConsecLosingDays: 0,
+    totalSlippage: 0,
+    totalCommission: 0,
+    killTriggered: false,
+    drawdownBreached: false,
+    dailyPnl: {},
+  };
+}
+
+/**
+ * Called at the moment we cross to a new calendar day. Updates the
+ * losing-days counter from the day that just ended.
+ */
+export function finalizeDay(s: SimState, dayKey: string) {
+  const pnl = s.dailyPnl[dayKey] ?? 0;
+  if (pnl < 0) {
+    s.consecutiveLosingDays += 1;
+    s.maxConsecLosingDays = Math.max(s.maxConsecLosingDays, s.consecutiveLosingDays);
+  } else if (pnl > 0) {
+    s.consecutiveLosingDays = 0;
+  }
+  // Days with exactly 0 pnl (no trades) leave the streak unchanged.
 }
 
 export function applySlippage(price: number, bps: number, isBuy: boolean): number {
@@ -93,7 +143,8 @@ export function buildPropFirmReport(
   peakDrawdownPct: number,
   maxConsecLosses: number,
   killTriggered: boolean,
-  drawdownBreached: boolean
+  drawdownBreached: boolean,
+  maxConsecLosingDays: number = 0
 ): PropFirmReport {
   const totalProfit = trades.reduce((s, t) => s + t.pnl, 0);
   const dailyLosses = Object.values(dailyPnl);
@@ -123,7 +174,9 @@ export function buildPropFirmReport(
     failReasons.push(`Max drawdown exceeded ${pf.max_drawdown}%`);
   }
   if (killTriggered) {
-    failReasons.push(`${maxConsecLosses} consecutive losses triggered kill switch`);
+    const unit = pf.consecutive_loss_unit ?? "trades";
+    const observed = unit === "days" ? maxConsecLosingDays : maxConsecLosses;
+    failReasons.push(`${observed} consecutive losing ${unit} triggered kill switch`);
   }
   if (!consistencyPass) {
     failReasons.push(
