@@ -18,6 +18,8 @@ export interface ScreenedTicker {
   name: string;
   sector: string;
   metrics: BacktestMetrics | null;
+  /** Total return as a percent of starting capital (signed). */
+  return_pct: number;
   analysis: string;
   profitable: boolean;
 }
@@ -115,16 +117,21 @@ export async function seedWatchlist(algorithmId: string): Promise<ActionResult<S
     metricsMap.set(s.ticker, await backtestOne(rules, capital, s.ticker));
   }
 
+  function pct(m: BacktestMetrics | null | undefined): number {
+    if (!m || !capital) return 0;
+    return (m.total_return / capital) * 100;
+  }
+
   // Build summaries for AI analysis
   const summaries: TickerBacktestSummary[] = suggestions.map((s) => {
     const m = metricsMap.get(s.ticker);
     return {
       ticker: s.ticker,
       name: s.name,
-      totalReturn: m?.total_return ?? 0,
+      totalReturn: pct(m),
       winRate: m?.win_rate ?? 0,
       totalTrades: m?.total_trades ?? 0,
-      profitable: (m?.total_return ?? 0) > 0,
+      profitable: pct(m) > 0,
       failed: !m,
     };
   });
@@ -135,20 +142,22 @@ export async function seedWatchlist(algorithmId: string): Promise<ActionResult<S
   // Build results
   const screened: ScreenedTicker[] = suggestions.map((s) => {
     const m = metricsMap.get(s.ticker) ?? null;
+    const returnPct = pct(m);
     return {
       ticker: s.ticker,
       name: s.name,
       sector: s.sector,
       metrics: m,
+      return_pct: Number(returnPct.toFixed(2)),
       analysis: analyses[s.ticker] ?? s.reasoning,
-      profitable: (m?.total_return ?? 0) > 0,
+      profitable: returnPct > 0,
     };
   });
 
   // Sort: profitable first (by return desc), then unprofitable (by return desc)
   screened.sort((a, b) => {
     if (a.profitable !== b.profitable) return a.profitable ? -1 : 1;
-    return (b.metrics?.total_return ?? 0) - (a.metrics?.total_return ?? 0);
+    return b.return_pct - a.return_pct;
   });
 
   // Add profitable to watchlist

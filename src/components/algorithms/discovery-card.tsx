@@ -31,9 +31,13 @@ function TickerRow({ ticker }: { ticker: ScreenedTicker }) {
       </div>
       {m && (
         <div className="flex gap-3 text-xs">
-          <span className={`font-medium tabular-nums ${pnlColorClass(m.total_return)}`}>
-            {m.total_return >= 0 ? "+" : ""}
-            {m.total_return.toFixed(1)}%
+          <span className={`font-medium tabular-nums ${pnlColorClass(ticker.return_pct)}`}>
+            {ticker.return_pct >= 0 ? "+" : ""}
+            {ticker.return_pct.toFixed(2)}%
+          </span>
+          <span className="text-muted-foreground tabular-nums">
+            ${m.total_return >= 0 ? "+" : ""}
+            {m.total_return.toFixed(0)}
           </span>
           <span className="text-muted-foreground tabular-nums">{m.win_rate.toFixed(0)}% win</span>
           <span className="text-muted-foreground tabular-nums">{m.total_trades} trades</span>
