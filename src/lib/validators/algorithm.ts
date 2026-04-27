@@ -110,6 +110,11 @@ const newsVetoSchema = z.object({
   min_impact: z.enum(["low", "medium", "high"]),
 });
 
+const divergenceKillSchema = z.object({
+  max_avg_bps: z.number().min(1).max(500),
+  window_trades: z.number().int().min(2).max(200),
+});
+
 const entryLogicSchema = z.union([
   z.literal("all"),
   z.literal("any"),
@@ -123,13 +128,21 @@ export const algorithmRulesSchema = z.object({
   stop_loss: z.object({ type: z.enum(["percentage", "fixed"]), value: z.number() }),
   take_profit: z.object({ type: z.enum(["percentage", "fixed"]), value: z.number() }),
   position_sizing: z.object({
-    type: z.enum(["percentage_of_capital", "fixed_amount", "fixed_quantity"]),
+    type: z.enum([
+      "percentage_of_capital",
+      "fixed_amount",
+      "fixed_quantity",
+      "lots",
+      "risk_per_trade",
+    ]),
     value: z.number(),
   }),
   max_positions: z.number().int().positive(),
   max_per_ticker: z.number().int().positive().optional(),
+  leverage: z.number().int().min(1).max(500).optional(),
   timeframe: z.string(),
   asset_class: z.string(),
   prop_firm: propFirmSchema.optional(),
   news_veto: newsVetoSchema.optional(),
+  divergence_kill: divergenceKillSchema.optional(),
 });

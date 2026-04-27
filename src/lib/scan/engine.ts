@@ -5,6 +5,7 @@
  * Uses the backtest engine's condition evaluation to guarantee consistency
  * between backtested and live-scanned signals.
  */
+import { pnlInUsd } from "@/lib/constants/markets";
 import { checkConditions, normalize, type Cache } from "@/lib/market-data/backtest-engine";
 import { timeframeToInterval, type BarInterval } from "@/lib/market-data/interval";
 import { getCachedPrices, savePricesToCache } from "@/lib/market-data/price-cache";
@@ -16,6 +17,7 @@ import {
   type TechnicalCondition,
 } from "@/types/algorithm";
 import type { PaperPosition, PositionEvent } from "@/types/position";
+import { maybeHaltOnDailyLoss } from "./daily-halt";
 import { evaluateEntry } from "./entry";
 import { logActivity } from "./helpers";
 import {
@@ -64,10 +66,13 @@ async function manageExistingPosition(
   brokerCtx: BrokerExecutionContext | null
 ): Promise<{ closed: number; updated: number; closeEvent?: PositionEvent }> {
   const currentPrice = livePrice ?? closes[closes.length - 1];
-  const unrealizedPnl =
-    position.side === "long"
-      ? (currentPrice - position.entry_price) * position.quantity
-      : (position.entry_price - currentPrice) * position.quantity;
+  const unrealizedPnl = pnlInUsd(
+    ticker,
+    position.side,
+    position.entry_price,
+    currentPrice,
+    position.quantity
+  );
 
   const exitCheck = checkExitTrigger(position, currentPrice, algo.rules, closes);
 
@@ -234,6 +239,14 @@ async function processTicker(
       result.positions_opened += r.opened;
       if (r.openEvent) {
         result.opened_details.push(r.openEvent);
+        // Keep the in-memory positions array in sync so subsequent tickers
+        // in the same scan see the updated count and respect max_positions.
+        // We only need fields read by the cap checks (ticker + status); the
+        // full row is reloaded on the next scan.
+        positions.push({
+          ticker: r.openEvent.ticker,
+          status: "open",
+        } as PaperPosition);
       }
     }
     result.tickers_scanned++;
@@ -281,6 +294,10 @@ export async function scanAlgorithm(
     event_type: "scan_started",
     details: { tickers_count: tickers.length },
   });
+
+  if (await maybeHaltOnDailyLoss(supabase, userId, algo)) {
+    return result;
+  }
 
   const { data: openPositions } = await supabase
     .from("paper_positions")

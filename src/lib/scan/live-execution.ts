@@ -12,12 +12,15 @@
  */
 import {
   closePosition as metaClose,
+  fetchPosition,
   fetchSymbolSpec,
   notionalToLots,
   placeMarketOrder,
   toBrokerSymbol,
   type MetaApiRegion,
 } from "@/lib/brokers/metaapi";
+import { notionalInUsd } from "@/lib/constants/markets";
+import { checkDivergenceKill, haltAlgorithmForDivergence } from "./divergence";
 import { logActivity } from "./helpers";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -67,6 +70,27 @@ interface EntryArgs {
   stopLossPrice: number;
   takeProfitPrice: number;
   ctx: BrokerExecutionContext;
+  /** Lot-based sizing: pass the raw lot count so we don't round-trip through
+   *  USD notional (which is wrong for JPY crosses where price is in JPY). */
+  lots?: number;
+  /** Optional cumulative divergence kill switch. Evaluated post-fill so the
+   *  freshly-captured broker_fill_price contributes to the rolling average. */
+  divergenceRule?: { max_avg_bps: number; window_trades: number };
+}
+
+/** Halt the algorithm if the rolling-average broker fill divergence has
+ *  crossed the configured threshold. No-op when the rule is absent. */
+async function maybeHaltOnDivergence(
+  supabase: SupabaseClient,
+  userId: string,
+  algorithmId: string,
+  rule: EntryArgs["divergenceRule"]
+): Promise<void> {
+  if (!rule) return;
+  const result = await checkDivergenceKill(supabase, algorithmId, rule);
+  if (result.tripped) {
+    await haltAlgorithmForDivergence(supabase, userId, algorithmId, result, rule);
+  }
 }
 
 /**
@@ -78,12 +102,25 @@ export async function executeLiveEntry(args: EntryArgs): Promise<void> {
   const { supabase, userId, algorithmId, paperPositionId, ticker, side, notionalUsd } = args;
   try {
     const spec = await fetchSymbolSpec(args.ctx.apiToken, args.ctx.accountId, args.ctx.region, ticker);
-    const lots = notionalToLots(notionalUsd, args.currentPrice, spec);
+    let lots: number;
+    if (args.lots != null && args.lots > 0) {
+      // Honour exact lot-sized algorithms — floor to broker volume step so a
+      // backtest-validated size (e.g. 0.125) never gets nudged UP into a
+      // higher-risk regime. Min-volume clamp prevents a 0 deployment.
+      const stepped = Math.floor(args.lots / spec.volumeStep) * spec.volumeStep;
+      lots = Number(
+        Math.min(Math.max(stepped, spec.minVolume), spec.maxVolume).toFixed(4)
+      );
+    } else {
+      lots = notionalToLots(notionalUsd, args.currentPrice, spec);
+    }
     if (lots <= 0) {
       throw new Error(
         `Computed lot size 0 for ${ticker} — minVolume=${spec.minVolume}, notional=${notionalUsd}.`
       );
     }
+    // Intentionally omit clientId — MetaApi's regex rejects hex/UUID-shaped
+    // ids and we already correlate via the orderId/positionId in the response.
     const placed = await placeMarketOrder(args.ctx.apiToken, args.ctx.accountId, args.ctx.region, {
       symbol: toBrokerSymbol(ticker),
       side: side === "long" ? "buy" : "sell",
@@ -91,14 +128,33 @@ export async function executeLiveEntry(args: EntryArgs): Promise<void> {
       stopLoss: args.stopLossPrice,
       takeProfit: args.takeProfitPrice,
       comment: `qt:${algorithmId.slice(0, 8)}`,
-      clientId: paperPositionId,
     });
+    // Best-effort: fetch the freshly-placed position to capture the real
+    // broker fill price. The trade endpoint doesn't include it. Falls back
+    // to our scan price if MetaApi 404s (rare race) so the column is never
+    // null when broker_position_id is set.
+    const realFill = await fetchPosition(
+      args.ctx.apiToken,
+      args.ctx.accountId,
+      args.ctx.region,
+      placed.positionId
+    );
+    const brokerFillPrice = realFill?.openPrice ?? args.currentPrice;
+    // Re-align paper quantity + notional to what actually got placed. Broker
+    // floors lots to volumeStep (e.g. 0.125 → 0.12 on FTMO MT5), so the
+    // paper-side intent (12,500 base units) drifts ~4% above the broker's
+    // real position (12,000) — leading to paper P&L that doesn't match
+    // FTMO's reported P&L. Snap them to the broker's truth.
+    const brokerQuantity = lots * spec.contractSize;
+    const brokerNotional = notionalInUsd(ticker, lots, args.currentPrice);
     await supabase
       .from("paper_positions")
       .update({
         broker_order_id: placed.orderId,
         broker_position_id: placed.positionId,
-        broker_fill_price: args.currentPrice,
+        broker_fill_price: brokerFillPrice,
+        quantity: brokerQuantity,
+        notional_value: brokerNotional,
         broker_error: null,
       })
       .eq("id", paperPositionId);
@@ -114,6 +170,9 @@ export async function executeLiveEntry(args: EntryArgs): Promise<void> {
         side,
       },
     });
+
+    // Cumulative divergence check (extracted for line-count budget).
+    await maybeHaltOnDivergence(supabase, userId, algorithmId, args.divergenceRule);
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Live order failed";
     await supabase

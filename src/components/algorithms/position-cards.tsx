@@ -29,12 +29,9 @@ import {
 } from "@/hooks/use-paper-trading";
 import { EXIT_REASON_LABELS } from "@/lib/constants/algorithm";
 import { getQuantityUnitFor } from "@/lib/constants/markets";
-import { formatCurrency, formatPnl, formatQuantity, pnlColorClass } from "@/lib/utils/pnl";
+import { formatPnl, formatPriceValue, formatQuantity, pnlColorClass } from "@/lib/utils/pnl";
 import type { PaperPosition } from "@/types/position";
-
-function formatPrice(price: number | null): string {
-  return price != null ? formatCurrency(price) : "\u2014";
-}
+import { PriceCellWithBroker } from "./position-price-cell";
 
 function PositionRow({
   pos,
@@ -53,15 +50,24 @@ function PositionRow({
           </span>
         </div>
       </TableCell>
-      <TableCell className="text-right tabular-nums">{formatCurrency(pos.entry_price)}</TableCell>
-      <TableCell className="text-right tabular-nums">{formatPrice(pos.current_price)}</TableCell>
+      <TableCell className="text-right tabular-nums">
+        <PriceCellWithBroker
+          symbol={pos.ticker}
+          paperPrice={pos.entry_price}
+          brokerPrice={pos.broker_fill_price}
+        />
+      </TableCell>
+      <TableCell className="text-right tabular-nums">
+        {formatPriceValue(pos.ticker, pos.current_price)}
+      </TableCell>
       <TableCell
         className={`text-right tabular-nums font-medium ${pnlColorClass(pos.unrealized_pnl)}`}
       >
         {formatPnl(pos.unrealized_pnl)}
       </TableCell>
       <TableCell className="text-right text-xs text-muted-foreground tabular-nums">
-        {formatPrice(pos.stop_loss_price)} / {formatPrice(pos.take_profit_price)}
+        {formatPriceValue(pos.ticker, pos.stop_loss_price)} /{" "}
+        {formatPriceValue(pos.ticker, pos.take_profit_price)}
       </TableCell>
       <TableCell className="text-right">
         <Button size="sm" variant="outline" onClick={() => onClose(pos)}>
@@ -225,9 +231,19 @@ function ClosedPositionContent({
           <TableRow key={pos.id}>
             <TableCell className="font-medium">{pos.ticker}</TableCell>
             <TableCell className="text-right tabular-nums">
-              {formatCurrency(pos.entry_price)}
+              <PriceCellWithBroker
+                symbol={pos.ticker}
+                paperPrice={pos.entry_price}
+                brokerPrice={pos.broker_fill_price}
+              />
             </TableCell>
-            <TableCell className="text-right tabular-nums">{formatPrice(pos.exit_price)}</TableCell>
+            <TableCell className="text-right tabular-nums">
+              <PriceCellWithBroker
+                symbol={pos.ticker}
+                paperPrice={pos.exit_price}
+                brokerPrice={pos.broker_close_price}
+              />
+            </TableCell>
             <TableCell
               className={`text-right tabular-nums font-medium ${pnlColorClass(pos.realized_pnl)}`}
             >

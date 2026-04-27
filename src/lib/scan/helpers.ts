@@ -1,43 +1,74 @@
 /**
  * Scan engine helpers — position sizing, risk price calculation, activity logging.
  */
+import { getContractSize, notionalInUsd, riskToLots } from "@/lib/constants/markets";
 import type { AlgorithmRules } from "@/types/algorithm";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+export interface PositionSizingResult {
+  quantity: number;
+  notionalValue: number;
+  /** Margin required from the account to open this position. For
+   *  percentage/fixed sizing this equals notional (no leverage modelled).
+   *  For lot sizing it's notional / leverage. */
+  marginRequired: number;
+}
+
+/**
+ * Compute notional + margin for a new position. Returns null if the
+ * algorithm doesn't have enough free margin to open it.
+ *
+ * `openPositionsValue` is summed margin (NOT notional) of currently open
+ * positions, so legacy callers passing notional still work for the
+ * non-leveraged paths because margin == notional there.
+ */
 export function calculatePositionSize(
   rules: AlgorithmRules,
   capital: number,
   openPositionsValue: number,
-  currentPrice: number
-): { quantity: number; notionalValue: number } | null {
+  currentPrice: number,
+  symbol?: string
+): PositionSizingResult | null {
   const available = capital - openPositionsValue;
-  if (available <= 0) {
-    return null;
+  if (available <= 0) return null;
+
+  const sizing = rules.position_sizing;
+
+  if (sizing.type === "lots" || sizing.type === "risk_per_trade") {
+    const contractSize = getContractSize(symbol ?? "", rules.asset_class);
+    const leverage = rules.leverage ?? 30;
+    let lots: number;
+    if (sizing.type === "lots") {
+      lots = sizing.value;
+    } else {
+      // risk_per_trade: derive lots from SL distance + capital + cross-rate.
+      // Falls back to 1% SL if a fixed SL was configured (rare for forex).
+      const slPct = rules.stop_loss.type === "percentage" ? rules.stop_loss.value : 1;
+      lots = riskToLots(symbol ?? "", capital, sizing.value, currentPrice, slPct);
+    }
+    if (lots <= 0) return null;
+    const notional = notionalInUsd(symbol ?? "", lots, currentPrice);
+    const marginRequired = notional / leverage;
+    if (marginRequired > available) return null;
+    return { quantity: lots * contractSize, notionalValue: notional, marginRequired };
+  }
+
+  if (sizing.type === "fixed_quantity") {
+    const notional = sizing.value * currentPrice;
+    return { quantity: sizing.value, notionalValue: notional, marginRequired: notional };
   }
 
   let notional: number;
-  switch (rules.position_sizing.type) {
-    case "percentage_of_capital":
-      notional = capital * (rules.position_sizing.value / 100);
-      break;
-    case "fixed_amount":
-      notional = rules.position_sizing.value;
-      break;
-    case "fixed_quantity":
-      return {
-        quantity: rules.position_sizing.value,
-        notionalValue: rules.position_sizing.value * currentPrice,
-      };
+  if (sizing.type === "percentage_of_capital") {
+    notional = capital * (sizing.value / 100);
+  } else {
+    notional = sizing.value; // fixed_amount
   }
 
-  if (notional > available) {
-    return null;
-  }
+  if (notional > available) return null;
   const quantity = notional / currentPrice;
-  if (quantity <= 0) {
-    return null;
-  }
-  return { quantity, notionalValue: notional };
+  if (quantity <= 0) return null;
+  return { quantity, notionalValue: notional, marginRequired: notional };
 }
 
 export function calculateRiskPrices(

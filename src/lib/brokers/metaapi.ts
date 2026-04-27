@@ -94,6 +94,30 @@ export async function fetchPositions(
   return call<MetaApiPosition[]>(region, token, accountId, "/positions");
 }
 
+/**
+ * Fetch a single position by id. Used right after place_market_order to
+ * capture the broker's actual fill price (which the trade endpoint doesn't
+ * include in its response). Returns null if MetaApi can't find the position
+ * — typical race: caller should fall back to "our price" if so.
+ */
+export async function fetchPosition(
+  token: string,
+  accountId: string,
+  region: MetaApiRegion,
+  positionId: string
+): Promise<MetaApiPosition | null> {
+  try {
+    return await call<MetaApiPosition>(
+      region,
+      token,
+      accountId,
+      `/positions/${encodeURIComponent(positionId)}`
+    );
+  } catch {
+    return null;
+  }
+}
+
 export interface MetaApiSnapshot {
   account: MetaApiAccountInfo;
   positions: MetaApiPosition[];
@@ -189,6 +213,9 @@ interface MarketOrderResponse {
   message?: string;
   orderId?: string;
   positionId?: string;
+  /** MetaApi sometimes nests details here on validation failures. */
+  details?: unknown;
+  error?: string;
 }
 
 /**
@@ -228,8 +255,16 @@ export async function placeMarketOrder(
     /* leave data empty */
   }
   if (!res.ok || (data.stringCode && data.stringCode !== "TRADE_RETCODE_DONE")) {
-    const detail = data.message ?? data.stringCode ?? `HTTP ${res.status}`;
-    throw new Error(`Order rejected: ${detail}`);
+    const parts = [
+      data.message,
+      data.stringCode,
+      data.error,
+      data.details ? JSON.stringify(data.details).slice(0, 300) : null,
+      `HTTP ${res.status}`,
+    ].filter(Boolean);
+    const detail = parts.join(" | ") || text.slice(0, 300) || "no body";
+    const sentBody = JSON.stringify({ ...body, _note: "input echoed for diagnosis" }).slice(0, 300);
+    throw new Error(`Order rejected: ${detail} :: sent ${sentBody}`);
   }
   if (!data.orderId || !data.positionId) {
     throw new Error("Order placed but broker returned no order/position id.");

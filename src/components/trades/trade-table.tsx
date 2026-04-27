@@ -25,7 +25,7 @@ import {
   formatPnl,
   formatPnlPercent,
   pnlColorClass,
-  formatCurrency,
+  formatPriceValue,
   formatQuantity,
   calculatePnlPercent,
 } from "@/lib/utils/pnl";
@@ -52,9 +52,11 @@ function TradeRowCells({ trade, onEdit, onDelete }: TradeRowProps) {
         </Badge>
       </TableCell>
       <TableCell className="text-right">{formatQuantity(trade.quantity)}</TableCell>
-      <TableCell className="text-right">{formatCurrency(trade.entry_price)}</TableCell>
       <TableCell className="text-right">
-        {trade.exit_price != null ? formatCurrency(trade.exit_price) : "\u2014"}
+        {formatPriceValue(trade.symbol, trade.entry_price)}
+      </TableCell>
+      <TableCell className="text-right">
+        {formatPriceValue(trade.symbol, trade.exit_price)}
       </TableCell>
       <TableCell className={`text-right font-medium ${pnlColorClass(trade.realized_pnl)}`}>
         {formatPnl(trade.realized_pnl)}

@@ -1,4 +1,5 @@
-import type { PropFirmRules } from "@/types/algorithm";
+import { notionalInUsd, riskToLots } from "@/lib/constants/markets";
+import type { AlgorithmRules, PropFirmRules } from "@/types/algorithm";
 import type { BacktestTrade, PropFirmReport } from "./types";
 
 export interface SimState {
@@ -10,6 +11,9 @@ export interface SimState {
   /** Streak of consecutive losing CALENDAR DAYS (resets on a positive day). */
   consecutiveLosingDays: number;
   maxConsecLosingDays: number;
+  /** Sum of margin currently locked up across all open positions. Only
+   *  meaningful when leverage is in play (position_sizing.type === "lots"). */
+  marginUsed: number;
   totalSlippage: number;
   totalCommission: number;
   killTriggered: boolean;
@@ -27,7 +31,7 @@ export interface SimConfig {
 }
 
 export function closeSimPosition(
-  pos: { entryPrice: number; entryDate: string; notionalValue: number },
+  pos: { entryPrice: number; entryDate: string; notionalValue: number; marginRequired?: number },
   day: string,
   exitPrice: number,
   capital: number,
@@ -44,6 +48,10 @@ export function closeSimPosition(
   s.totalSlippage +=
     ((pos.entryPrice + exitPrice) * (cfg.slippageBps / 10000) * notional) / exitPrice;
   s.totalCommission += commission;
+  // Refund the margin this position was holding (lot-based sizing only).
+  if (pos.marginRequired) {
+    s.marginUsed = Math.max(0, s.marginUsed - pos.marginRequired);
+  }
   trades.push({
     entry_date: pos.entryDate,
     exit_date: day,
@@ -105,6 +113,7 @@ export function initialSimState(capital: number): SimState {
     maxConsecLosses: 0,
     consecutiveLosingDays: 0,
     maxConsecLosingDays: 0,
+    marginUsed: 0,
     totalSlippage: 0,
     totalCommission: 0,
     killTriggered: false,
@@ -131,6 +140,91 @@ export function finalizeDay(s: SimState, dayKey: string) {
 export function applySlippage(price: number, bps: number, isBuy: boolean): number {
   const slip = price * (bps / 10000);
   return isBuy ? price + slip : price - slip;
+}
+
+/**
+ * Size a new position for the backtest engine. Returns notional + margin
+ * required. For percentage/fixed sizing margin == notional (no leverage).
+ * For lot-based sizing notional = lots × contractSize × price and
+ * margin = notional / leverage.
+ */
+export function sizeForBacktest(
+  rules: AlgorithmRules,
+  equity: number,
+  currentPrice: number,
+  symbol: string | undefined,
+  cfg: SimConfig
+): { notional: number; margin: number } {
+  const sizing = rules.position_sizing;
+  if (sizing?.type === "lots" || sizing?.type === "risk_per_trade") {
+    // Both paths produce a lot count. risk_per_trade derives it from SL +
+    // equity so the same algo config produces equivalent % returns on any
+    // capital size — strategy scales automatically.
+    let lots: number;
+    if (sizing.type === "lots") {
+      lots = sizing.value;
+    } else {
+      const slPct = rules.stop_loss.type === "percentage" ? rules.stop_loss.value : 1;
+      lots = riskToLots(symbol ?? "", equity, sizing.value, currentPrice, slPct);
+    }
+    const notional = notionalInUsd(symbol ?? "", lots, currentPrice);
+    return { notional, margin: notional / (rules.leverage ?? 30) };
+  }
+  if (sizing?.type === "fixed_amount") return { notional: sizing.value, margin: sizing.value };
+  if (sizing?.type === "fixed_quantity") {
+    const notional = sizing.value * currentPrice;
+    return { notional, margin: notional };
+  }
+  const notional = equity * cfg.posSize;
+  return { notional, margin: notional };
+}
+
+/**
+ * Compute the exit price for an open position on the current bar. Stops
+ * and TPs fill at the configured level (intra-bar via bar.high/low);
+ * signal-based exits fill at the close. Stops win ties.
+ */
+export function pickBacktestExitPrice(
+  pos: { entryPrice: number },
+  bar: { high: number; low: number },
+  closePrice: number,
+  cfg: SimConfig,
+  signalExitFired: boolean
+): number | null {
+  const stopPrice = pos.entryPrice * (1 - cfg.stopPct);
+  const tpPrice = pos.entryPrice * (1 + cfg.tpPct);
+  if (bar.low <= stopPrice) return applySlippage(stopPrice, cfg.slippageBps, false);
+  if (bar.high >= tpPrice) return applySlippage(tpPrice, cfg.slippageBps, false);
+  if (signalExitFired) return applySlippage(closePrice, cfg.slippageBps, false);
+  return null;
+}
+
+/**
+ * Real prop-firm DLL behaviour: when daily loss hits the limit, the
+ * platform closes ALL open positions automatically. This is the
+ * shared force-close routine for both single-ticker and portfolio
+ * backtests.
+ */
+export function forceCloseAllPositions(
+  positions: {
+    entryPrice: number;
+    entryDate: string;
+    notionalValue: number;
+    marginRequired: number;
+  }[],
+  dayKey: string,
+  closePrice: number,
+  capital: number,
+  cfg: SimConfig,
+  s: SimState,
+  trades: BacktestTrade[]
+): void {
+  if (positions.length === 0) return;
+  const exitPrice = applySlippage(closePrice, cfg.slippageBps, false);
+  for (let p = positions.length - 1; p >= 0; p--) {
+    closeSimPosition(positions[p], dayKey, exitPrice, capital, cfg, s, trades);
+    positions.splice(p, 1);
+  }
 }
 
 export function buildPropFirmReport(

@@ -1,6 +1,7 @@
 /**
  * Entry evaluation — checks if conditions are met and opens a new position.
  */
+import { getContractSize } from "@/lib/constants/markets";
 import { checkConditions, normalize, type Cache } from "@/lib/market-data/backtest-engine";
 import {
   fetchEconomicCalendar,
@@ -39,7 +40,7 @@ async function openPosition(
   brokerCtx: BrokerExecutionContext | null
 ): Promise<{ opened: number; openEvent?: PositionEvent }> {
   const openValue = allOpenPositions.reduce((sum, p) => sum + p.notional_value, 0);
-  const sizing = calculatePositionSize(algo.rules, algo.capital, openValue, currentPrice);
+  const sizing = calculatePositionSize(algo.rules, algo.capital, openValue, currentPrice, ticker);
   if (!sizing) {
     return { opened: 0 };
   }
@@ -81,6 +82,17 @@ async function openPosition(
     .single();
 
   if (!position) return { opened: 0 };
+  // Derive lots for the broker mirror. For "lots" sizing it's the rule
+  // value verbatim. For "risk_per_trade" we back-compute from the sized
+  // quantity (which calculatePositionSize already produced via riskToLots).
+  // Other sizing types don't map to a meaningful lot count → undefined.
+  let lotSizing: number | undefined;
+  if (algo.rules.position_sizing.type === "lots") {
+    lotSizing = algo.rules.position_sizing.value;
+  } else if (algo.rules.position_sizing.type === "risk_per_trade") {
+    const contract = getContractSize(ticker, algo.rules.asset_class);
+    lotSizing = contract > 0 ? sizing.quantity / contract : undefined;
+  }
   await logOpenAndMirror({
     supabase,
     userId,
@@ -93,6 +105,8 @@ async function openPosition(
     stopLossPrice,
     takeProfitPrice,
     brokerCtx,
+    lots: lotSizing,
+    divergenceRule: algo.rules.divergence_kill,
   });
   return {
     opened: 1,
@@ -112,6 +126,11 @@ interface LogAndMirrorArgs {
   stopLossPrice: number;
   takeProfitPrice: number;
   brokerCtx: BrokerExecutionContext | null;
+  /** When the algo uses lot-based sizing, this is the raw lot count.
+   *  Threaded to executeLiveEntry so JPY crosses don't get mis-converted. */
+  lots?: number;
+  /** Optional cumulative divergence kill switch from algo rules. */
+  divergenceRule?: { max_avg_bps: number; window_trades: number };
 }
 
 async function logOpenAndMirror(args: LogAndMirrorArgs): Promise<void> {
@@ -141,6 +160,8 @@ async function logOpenAndMirror(args: LogAndMirrorArgs): Promise<void> {
       stopLossPrice: args.stopLossPrice,
       takeProfitPrice: args.takeProfitPrice,
       ctx: args.brokerCtx,
+      lots: args.lots,
+      divergenceRule: args.divergenceRule,
     });
   }
 }

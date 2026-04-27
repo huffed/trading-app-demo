@@ -33,6 +33,27 @@ const YAHOO_RANGE: Record<BarInterval, { compact: string; full: string; yahooInt
   "1h": { compact: "60d", full: "730d", yahooInterval: "1h" },
 };
 
+// Yahoo's forex pairs use the `=X` suffix (e.g. EURUSD=X), commodities use
+// futures contracts. Stocks pass through unchanged. This is the only reason
+// Yahoo can ever serve as a fallback for our forex/commodity universe — the
+// raw `EUR/JPY` symbol that works for Twelve Data is rejected by Yahoo.
+const COMMODITY_FUTURES: Record<string, string> = {
+  "XAU/USD": "GC=F",
+  "XAG/USD": "SI=F",
+  WTI: "CL=F",
+  BRENT: "BZ=F",
+  NATGAS: "NG=F",
+};
+
+function toYahooSymbol(symbol: string): string {
+  const upper = symbol.toUpperCase();
+  if (COMMODITY_FUTURES[upper]) return COMMODITY_FUTURES[upper];
+  if (/^[A-Z]{3}\/[A-Z]{3}$/.test(upper)) {
+    return upper.replace("/", "") + "=X";
+  }
+  return symbol;
+}
+
 export async function fetchDailyPrices(
   symbol: string,
   outputSize: "compact" | "full" = "compact",
@@ -40,7 +61,8 @@ export async function fetchDailyPrices(
 ): Promise<PriceBar[]> {
   const cfg = YAHOO_RANGE[interval];
   const range = outputSize === "full" ? cfg.full : cfg.compact;
-  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=${range}&interval=${cfg.yahooInterval}`;
+  const yahooSym = toYahooSymbol(symbol);
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSym)}?range=${range}&interval=${cfg.yahooInterval}`;
 
   const res = await fetch(url, {
     headers: { "User-Agent": "Mozilla/5.0" },

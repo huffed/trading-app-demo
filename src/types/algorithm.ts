@@ -56,7 +56,24 @@ export interface TakeProfit {
 }
 
 export interface PositionSizing {
-  type: "percentage_of_capital" | "fixed_amount" | "fixed_quantity";
+  type:
+    | "percentage_of_capital"
+    | "fixed_amount"
+    | "fixed_quantity"
+    | "lots"
+    | "risk_per_trade";
+  /**
+   * Interpretation depends on type:
+   *  - percentage_of_capital: % of equity (e.g. 16 → 16%)
+   *  - fixed_amount: USD notional (e.g. 1000 → $1000 per trade)
+   *  - fixed_quantity: raw units (shares for stocks)
+   *  - lots: lot count (1 = 1 standard lot; 100k forex base or asset-class
+   *    contractSize). Notional = lots × contractSize × price.
+   *  - risk_per_trade: % of capital that hitting the SL would lose (e.g.
+   *    1 → 1% risk). System auto-computes lot size from SL distance + asset
+   *    cross-currency rates. Same algo config produces equivalent % returns
+   *    on any account size — the strategy scales automatically.
+   */
   value: number;
 }
 
@@ -116,10 +133,31 @@ export interface AlgorithmRules {
   max_positions: number;
   /** Pyramiding cap per symbol. Defaults to 1 (no stacking). */
   max_per_ticker?: number;
+  /**
+   * Account leverage ratio for margin calculations. Only matters when
+   * position_sizing.type === "lots". 30 = 30:1 (default), 100 = 100:1
+   * (typical FTMO forex). Backwards compatible: omitted = unlimited
+   * margin (legacy non-leveraged behaviour).
+   */
+  leverage?: number;
   timeframe: string;
   asset_class: string;
   prop_firm?: PropFirmRules;
   news_veto?: NewsVetoRules;
+  /**
+   * Cumulative paper-vs-broker divergence kill switch. Computes the rolling
+   * mean of |broker_fill_price - entry_price| in basis points (bp = 0.01%
+   * of price) across the last N entries with a recorded broker fill. When
+   * the mean exceeds the limit AND we have at least N samples, live trading
+   * is disabled on the algorithm. Backtests assume 10 bp slippage; defaults
+   * are tuned to flag "real fills are materially worse than the model".
+   */
+  divergence_kill?: {
+    /** Average absolute divergence threshold in bps (e.g., 20 = 0.20%). */
+    max_avg_bps: number;
+    /** Window size in trades. Lower = faster reaction, more variance. */
+    window_trades: number;
+  };
 }
 
 // --- Backtest results ---

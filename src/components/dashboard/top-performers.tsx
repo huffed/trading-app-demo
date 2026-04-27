@@ -4,7 +4,7 @@ import { TrendingDown, TrendingUp } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useOpenPositions } from "@/hooks/use-paper-trading";
-import { formatCurrency, formatPnl, formatPnlPercent, pnlColorClass } from "@/lib/utils/pnl";
+import { formatPnl, formatPnlPercent, formatPriceValue, pnlColorClass } from "@/lib/utils/pnl";
 import type { PaperPosition } from "@/types/position";
 
 function PositionRow({ pos }: { pos: PaperPosition }) {
@@ -24,7 +24,7 @@ function PositionRow({ pos }: { pos: PaperPosition }) {
         <div>
           <span className="text-sm font-medium">{pos.ticker}</span>
           <span className="ml-1.5 text-xs text-muted-foreground">
-            {pos.current_price != null ? formatCurrency(pos.current_price) : ""}
+            {pos.current_price != null ? formatPriceValue(pos.ticker, pos.current_price) : ""}
           </span>
         </div>
       </div>

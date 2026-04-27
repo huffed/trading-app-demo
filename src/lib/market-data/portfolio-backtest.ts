@@ -22,6 +22,8 @@ import {
   enforcePropFirm,
   finalizeDay,
   initialSimState,
+  pickBacktestExitPrice,
+  sizeForBacktest,
   type SimConfig,
   type SimState,
 } from "./prop-firm-backtest";
@@ -36,6 +38,7 @@ interface PortfolioPosition {
   entryPrice: number;
   entryDate: string;
   notionalValue: number;
+  marginRequired: number;
   ticker: string;
 }
 
@@ -65,21 +68,6 @@ function buildSimConfig(rules: AlgorithmRules): SimConfig {
     stopPct: (rules.stop_loss?.value ?? DEFAULT_STOP_LOSS_PCT) / 100,
     tpPct: (rules.take_profit?.value ?? DEFAULT_TAKE_PROFIT_PCT) / 100,
   };
-}
-
-function pickExitPrice(
-  pos: PortfolioPosition,
-  bar: PriceBar,
-  closePrice: number,
-  cfg: SimConfig,
-  signalExitFired: boolean
-): number | null {
-  const stopPrice = pos.entryPrice * (1 - cfg.stopPct);
-  const tpPrice = pos.entryPrice * (1 + cfg.tpPct);
-  if (bar.low <= stopPrice) return applySlippage(stopPrice, cfg.slippageBps, false);
-  if (bar.high >= tpPrice) return applySlippage(tpPrice, cfg.slippageBps, false);
-  if (signalExitFired) return applySlippage(closePrice, cfg.slippageBps, false);
-  return null;
 }
 
 function buildTimeline(pricesByTicker: Map<string, PriceBar[]>): string[] {
@@ -148,7 +136,7 @@ function runCloseLoop(
   const bar = state.bars[i];
   for (let p = state.positions.length - 1; p >= 0; p--) {
     const pos = state.positions[p];
-    const exitPrice = pickExitPrice(pos, bar, state.closes[i], cfg, signalExitFired);
+    const exitPrice = pickBacktestExitPrice(pos, bar, state.closes[i], cfg, signalExitFired);
     if (exitPrice !== null) {
       closeSimPosition(pos, dayKey, exitPrice, capital, cfg, s, trades);
       // Tag the just-recorded trade with its ticker for portfolio breakdown.
@@ -225,10 +213,16 @@ function tryOpenEntry(
   };
   if (!canEnter(rules, cfg, gate)) return;
   if (!checkConditions(techEntry, state.cache, state.closes, i, rules.entry_logic)) return;
+  const entryPrice = applySlippage(state.closes[i], cfg.slippageBps, true);
+  const sized = sizeForBacktest(rules, s.equity, entryPrice, ticker, cfg);
+  const freeMargin = s.equity - s.marginUsed;
+  if (sized.margin > freeMargin || sized.notional <= 0) return;
+  s.marginUsed += sized.margin;
   state.positions.push({
-    entryPrice: applySlippage(state.closes[i], cfg.slippageBps, true),
+    entryPrice,
     entryDate: state.bars[i].date,
-    notionalValue: s.equity * cfg.posSize,
+    notionalValue: sized.notional,
+    marginRequired: sized.margin,
     ticker,
   });
 }
