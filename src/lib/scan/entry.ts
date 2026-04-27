@@ -3,6 +3,7 @@
  */
 import { getContractSize } from "@/lib/constants/markets";
 import { checkConditions, normalize, type Cache } from "@/lib/market-data/backtest-engine";
+import { resampleToDaily } from "@/lib/market-data/resample";
 import {
   fetchEconomicCalendar,
   getEventCurrencies,
@@ -231,7 +232,10 @@ async function checkEntryConditions(
 ): Promise<boolean> {
   if (conditions.length === 0) return true;
   const cache: Cache = new Map();
-  const ctx = { cache, closes, bars, i: closes.length - 1 };
+  // Resample intraday bars to D1 for daily_bias-style pattern conditions —
+  // same approach the backtest uses, no separate API fetch needed.
+  const higherTfBars = resampleToDaily(bars);
+  const ctx = { cache, closes, bars, i: closes.length - 1, higherTfBars };
   if (checkConditions(conditions, ctx, logic)) return true;
   await logActivity(supabase, userId, {
     algorithm_id: algoId,

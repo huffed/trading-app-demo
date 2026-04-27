@@ -12,6 +12,7 @@ import { getCachedPrices, savePricesToCache } from "@/lib/market-data/price-cach
 import { fetchDailyPrices } from "@/lib/market-data/prices";
 import { fetchBatchQuotes } from "@/lib/market-data/twelve-data";
 import type { PriceBar } from "@/lib/market-data/types";
+import { resampleToDaily } from "@/lib/market-data/resample";
 import {
   isPatternCondition,
   isTechnicalCondition,
@@ -180,6 +181,7 @@ function checkExitTrigger(
         closes,
         bars,
         i: closes.length - 1,
+        higherTfBars: resampleToDaily(bars),
       })
     ) {
       return "exit_signal";
