@@ -1,7 +1,7 @@
 /**
  * Scan engine helpers — position sizing, risk price calculation, activity logging.
  */
-import { getContractSize, notionalInUsd } from "@/lib/constants/markets";
+import { getContractSize, notionalInUsd, riskToLots } from "@/lib/constants/markets";
 import type { AlgorithmRules } from "@/types/algorithm";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -34,14 +34,22 @@ export function calculatePositionSize(
 
   const sizing = rules.position_sizing;
 
-  if (sizing.type === "lots") {
+  if (sizing.type === "lots" || sizing.type === "risk_per_trade") {
     const contractSize = getContractSize(symbol ?? "", rules.asset_class);
     const leverage = rules.leverage ?? 30;
-    const lots = sizing.value;
-    // Notional in USD respects cross-pair quote currency (EUR/JPY etc.).
+    let lots: number;
+    if (sizing.type === "lots") {
+      lots = sizing.value;
+    } else {
+      // risk_per_trade: derive lots from SL distance + capital + cross-rate.
+      // Falls back to 1% SL if a fixed SL was configured (rare for forex).
+      const slPct = rules.stop_loss.type === "percentage" ? rules.stop_loss.value : 1;
+      lots = riskToLots(symbol ?? "", capital, sizing.value, currentPrice, slPct);
+    }
+    if (lots <= 0) return null;
     const notional = notionalInUsd(symbol ?? "", lots, currentPrice);
     const marginRequired = notional / leverage;
-    if (marginRequired > available || lots <= 0) return null;
+    if (marginRequired > available) return null;
     return { quantity: lots * contractSize, notionalValue: notional, marginRequired };
   }
 

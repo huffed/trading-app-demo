@@ -56,7 +56,12 @@ export interface TakeProfit {
 }
 
 export interface PositionSizing {
-  type: "percentage_of_capital" | "fixed_amount" | "fixed_quantity" | "lots";
+  type:
+    | "percentage_of_capital"
+    | "fixed_amount"
+    | "fixed_quantity"
+    | "lots"
+    | "risk_per_trade";
   /**
    * Interpretation depends on type:
    *  - percentage_of_capital: % of equity (e.g. 16 → 16%)
@@ -64,6 +69,10 @@ export interface PositionSizing {
    *  - fixed_quantity: raw units (shares for stocks)
    *  - lots: lot count (1 = 1 standard lot; 100k forex base or asset-class
    *    contractSize). Notional = lots × contractSize × price.
+   *  - risk_per_trade: % of capital that hitting the SL would lose (e.g.
+   *    1 → 1% risk). System auto-computes lot size from SL distance + asset
+   *    cross-currency rates. Same algo config produces equivalent % returns
+   *    on any account size — the strategy scales automatically.
    */
   value: number;
 }

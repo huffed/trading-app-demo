@@ -1,4 +1,4 @@
-import { notionalInUsd } from "@/lib/constants/markets";
+import { notionalInUsd, riskToLots } from "@/lib/constants/markets";
 import type { AlgorithmRules, PropFirmRules } from "@/types/algorithm";
 import type { BacktestTrade, PropFirmReport } from "./types";
 
@@ -156,12 +156,18 @@ export function sizeForBacktest(
   cfg: SimConfig
 ): { notional: number; margin: number } {
   const sizing = rules.position_sizing;
-  if (sizing?.type === "lots") {
-    // Use the symbol's quote currency to compute notional in USD. This is
-    // critical for cross pairs (EUR/JPY etc.) — naively multiplying
-    // contract × price gives a quote-currency notional that's ~150x bigger
-    // than the actual USD value on JPY pairs.
-    const notional = notionalInUsd(symbol ?? "", sizing.value, currentPrice);
+  if (sizing?.type === "lots" || sizing?.type === "risk_per_trade") {
+    // Both paths produce a lot count. risk_per_trade derives it from SL +
+    // equity so the same algo config produces equivalent % returns on any
+    // capital size — strategy scales automatically.
+    let lots: number;
+    if (sizing.type === "lots") {
+      lots = sizing.value;
+    } else {
+      const slPct = rules.stop_loss.type === "percentage" ? rules.stop_loss.value : 1;
+      lots = riskToLots(symbol ?? "", equity, sizing.value, currentPrice, slPct);
+    }
+    const notional = notionalInUsd(symbol ?? "", lots, currentPrice);
     return { notional, margin: notional / (rules.leverage ?? 30) };
   }
   if (sizing?.type === "fixed_amount") return { notional: sizing.value, margin: sizing.value };

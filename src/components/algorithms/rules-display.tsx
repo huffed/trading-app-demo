@@ -198,6 +198,8 @@ function formatPositionSizing(rules: AlgorithmRules): string {
       const noun = lots === 1 ? "lot" : "lots";
       return `${lots} ${noun} per trade`;
     }
+    case "risk_per_trade":
+      return `${rules.position_sizing.value}% account risk per trade (auto-sized)`;
     default:
       return `${rules.position_sizing.value}`;
   }

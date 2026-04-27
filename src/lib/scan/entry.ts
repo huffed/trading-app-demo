@@ -1,6 +1,7 @@
 /**
  * Entry evaluation — checks if conditions are met and opens a new position.
  */
+import { getContractSize } from "@/lib/constants/markets";
 import { checkConditions, normalize, type Cache } from "@/lib/market-data/backtest-engine";
 import {
   fetchEconomicCalendar,
@@ -81,9 +82,17 @@ async function openPosition(
     .single();
 
   if (!position) return { opened: 0 };
-  const lotSizing = algo.rules.position_sizing.type === "lots"
-    ? algo.rules.position_sizing.value
-    : undefined;
+  // Derive lots for the broker mirror. For "lots" sizing it's the rule
+  // value verbatim. For "risk_per_trade" we back-compute from the sized
+  // quantity (which calculatePositionSize already produced via riskToLots).
+  // Other sizing types don't map to a meaningful lot count → undefined.
+  let lotSizing: number | undefined;
+  if (algo.rules.position_sizing.type === "lots") {
+    lotSizing = algo.rules.position_sizing.value;
+  } else if (algo.rules.position_sizing.type === "risk_per_trade") {
+    const contract = getContractSize(ticker, algo.rules.asset_class);
+    lotSizing = contract > 0 ? sizing.quantity / contract : undefined;
+  }
   await logOpenAndMirror({
     supabase,
     userId,

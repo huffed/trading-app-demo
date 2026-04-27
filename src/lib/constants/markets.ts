@@ -294,6 +294,40 @@ export function notionalInUsd(symbol: string, lots: number, currentPrice: number
 }
 
 /**
+ * Convert "% of capital to risk per trade" into a lot count for a specific
+ * symbol, given the entry price and stop-loss percentage. Solves the math
+ * that lets a single algorithm config produce equivalent % returns on any
+ * account size — lots scale automatically with capital.
+ *
+ *   loss_when_sl_hits_USD = entry × (sl_pct / 100) × quantity × usdRate(quote)
+ *   target_loss_USD       = capital × (risk_pct / 100)
+ *   ⇒ quantity_in_base    = target_loss_USD / (entry × sl_pct/100 × usdRate)
+ *   ⇒ lots                = quantity_in_base / contractSize
+ *
+ * Returns 0 when the math degenerates (zero entry / SL / contract). Caller
+ * is responsible for clamping to broker volumeStep + min/max at place time.
+ */
+export function riskToLots(
+  symbol: string,
+  capital: number,
+  riskPct: number,
+  entryPrice: number,
+  slPct: number
+): number {
+  if (entryPrice <= 0 || slPct <= 0 || riskPct <= 0 || capital <= 0) return 0;
+  const meta = getInstrumentMeta(symbol);
+  const contract = meta?.contractSize ?? 1;
+  const quoteCcy = meta?.quoteCurrency ?? "USD";
+  const slPriceDelta = entryPrice * (slPct / 100);
+  const quoteToUsd = usdRate(quoteCcy);
+  const denom = slPriceDelta * quoteToUsd;
+  if (denom <= 0 || contract <= 0) return 0;
+  const riskUsd = capital * (riskPct / 100);
+  const baseUnits = riskUsd / denom;
+  return baseUnits / contract;
+}
+
+/**
  * Convert an FX/commodity unrealised or realised P&L to USD.
  *
  * The naive `(current - entry) × quantity` formula gives P&L in the QUOTE
