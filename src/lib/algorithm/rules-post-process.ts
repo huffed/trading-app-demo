@@ -71,19 +71,18 @@ export function clampRules(rules: AlgorithmRules, timeHorizon: string): Algorith
       clamped.take_profit.value = Math.round(clamped.take_profit.value * 100);
     }
   }
-  if (clamped.position_sizing && clamped.position_sizing.value < 1) {
-    clamped.position_sizing.value = Math.round(clamped.position_sizing.value * 100);
+  // Decimal-percentage rescue (0.05 → 5) skips lot sizing where < 1 lot is legit.
+  const ps = clamped.position_sizing;
+  if (ps && ps.type !== "lots" && ps.value < 1) {
+    ps.value = Math.round(ps.value * 100);
   }
 
   if (clamped.max_per_ticker == null || clamped.max_per_ticker < 1) {
     clamped.max_per_ticker = isFxOrCommodity ? 3 : 1;
   }
-  // Allow up to 8 stacked positions on forex/commodity for aggressive
-  // pyramiding strategies; equity stays at 3.
+  // FX/commodity allow up to 8 stacked positions; equity stays at 3.
   const cap = isFxOrCommodity ? 8 : 3;
-  if (clamped.max_per_ticker > cap) {
-    clamped.max_per_ticker = cap;
-  }
+  if (clamped.max_per_ticker > cap) clamped.max_per_ticker = cap;
 
   if (clamped.news_veto == null && isFxOrCommodity) {
     clamped.news_veto = {
