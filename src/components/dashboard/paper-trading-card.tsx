@@ -13,7 +13,12 @@ import {
 } from "@/hooks/use-paper-trading";
 import { EXIT_REASON_LABELS } from "@/lib/constants/algorithm";
 import type { ScanResult } from "@/lib/scan/engine";
-import { formatCurrency, formatPnl, formatRelativeTime, pnlColorClass } from "@/lib/utils/pnl";
+import {
+  formatPnl,
+  formatPriceValue,
+  formatRelativeTime,
+  pnlColorClass,
+} from "@/lib/utils/pnl";
 
 function EmptyState() {
   return (
@@ -58,7 +63,7 @@ function DashboardScanSummary({ results }: { results: ScanResult[] }) {
     <div className="mt-3 space-y-1 text-xs">
       {allOpened.map((e, i) => (
         <p key={`o-${i}`} className="text-[var(--profit)]">
-          &#9650; Opened <strong>{e.ticker}</strong> at {formatCurrency(e.price)}
+          &#9650; Opened <strong>{e.ticker}</strong> at {formatPriceValue(e.ticker, e.price)}
         </p>
       ))}
       {allClosed.map((e, i) => (

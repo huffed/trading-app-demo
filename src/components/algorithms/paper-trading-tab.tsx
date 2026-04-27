@@ -10,7 +10,12 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useActivityLog, useTriggerScan } from "@/hooks/use-paper-trading";
 import { ACTIVITY_TYPE_LABELS, EXIT_REASON_LABELS } from "@/lib/constants/algorithm";
 import type { ScanResult } from "@/lib/scan/engine";
-import { formatCurrency, formatPnl, formatRelativeTime, pnlColorClass } from "@/lib/utils/pnl";
+import {
+  formatPnl,
+  formatPriceValue,
+  formatRelativeTime,
+  pnlColorClass,
+} from "@/lib/utils/pnl";
 
 function ScanSummary({ results }: { results: ScanResult[] }) {
   if (results.length === 0) {
@@ -34,7 +39,7 @@ function ScanSummary({ results }: { results: ScanResult[] }) {
         <div key={`o-${i}`} className="flex items-center gap-2 text-[var(--profit)]">
           <span>&#9650;</span>
           <span>
-            Opened <strong>{e.ticker}</strong> at {formatCurrency(e.price)}
+            Opened <strong>{e.ticker}</strong> at {formatPriceValue(e.ticker, e.price)}
           </span>
         </div>
       ))}
@@ -43,7 +48,7 @@ function ScanSummary({ results }: { results: ScanResult[] }) {
         <div key={`c-${i}`} className="flex items-center gap-2">
           <span className="text-muted-foreground">&#9660;</span>
           <span>
-            Closed <strong>{e.ticker}</strong> at {formatCurrency(e.price)}
+            Closed <strong>{e.ticker}</strong> at {formatPriceValue(e.ticker, e.price)}
             {" — "}
             <span className={pnlColorClass(e.pnl)}>{formatPnl(e.pnl)}</span>
             {" — "}
