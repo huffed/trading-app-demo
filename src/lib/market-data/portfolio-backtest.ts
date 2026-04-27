@@ -7,8 +7,10 @@
  * max_per_ticker still caps pyramiding on each individual symbol.
  */
 import {
+  isPatternCondition,
   isTechnicalCondition,
   type AlgorithmRules,
+  type PatternCondition,
   type TechnicalCondition,
 } from "@/types/algorithm";
 import { checkConditions, normalize } from "./backtest-engine";
@@ -120,7 +122,7 @@ function runCloseLoop(
   i: number,
   ticker: string,
   rules: AlgorithmRules,
-  techExit: TechnicalCondition[],
+  techExit: Array<TechnicalCondition | PatternCondition>,
   cfg: SimConfig,
   capital: number,
   s: SimState,
@@ -131,7 +133,12 @@ function runCloseLoop(
   let dailyHalted = dailyHaltedIn;
   const pf = rules.prop_firm;
   const signalExitFired =
-    (techExit.length > 0 && checkConditions(techExit, state.cache, state.closes, i, rules.entry_logic)) ||
+    (techExit.length > 0 &&
+      checkConditions(
+        techExit,
+        { cache: state.cache, closes: state.closes, bars: state.bars, i },
+        rules.entry_logic
+      )) ||
     s.drawdownBreached;
   const bar = state.bars[i];
   for (let p = state.positions.length - 1; p >= 0; p--) {
@@ -196,7 +203,7 @@ function tryOpenEntry(
   i: number,
   ticker: string,
   rules: AlgorithmRules,
-  techEntry: TechnicalCondition[],
+  techEntry: Array<TechnicalCondition | PatternCondition>,
   cfg: SimConfig,
   s: SimState,
   states: Map<string, TickerState>,
@@ -212,7 +219,15 @@ function tryOpenEntry(
     onTickerCount: state.positions.length,
   };
   if (!canEnter(rules, cfg, gate)) return;
-  if (!checkConditions(techEntry, state.cache, state.closes, i, rules.entry_logic)) return;
+  if (
+    !checkConditions(
+      techEntry,
+      { cache: state.cache, closes: state.closes, bars: state.bars, i },
+      rules.entry_logic
+    )
+  ) {
+    return;
+  }
   const entryPrice = applySlippage(state.closes[i], cfg.slippageBps, true);
   const sized = sizeForBacktest(rules, s.equity, entryPrice, ticker, cfg);
   const freeMargin = s.equity - s.marginUsed;
@@ -256,8 +271,12 @@ export function runPortfolioBacktest(
 ): BacktestMetrics {
   const entry = normalize(rules.entry_conditions);
   const exit = normalize(rules.exit_conditions);
-  const techEntry = entry.filter(isTechnicalCondition);
-  const techExit = exit.filter(isTechnicalCondition);
+  const techEntry = entry.filter(
+    (c) => isTechnicalCondition(c) || isPatternCondition(c)
+  ) as Array<TechnicalCondition | PatternCondition>;
+  const techExit = exit.filter(
+    (c) => isTechnicalCondition(c) || isPatternCondition(c)
+  ) as Array<TechnicalCondition | PatternCondition>;
   const sentimentExcluded = entry.length - techEntry.length + (exit.length - techExit.length);
   const mode = sentimentExcluded > 0 ? ("technical_only" as const) : ("full" as const);
 

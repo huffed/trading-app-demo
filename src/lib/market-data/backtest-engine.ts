@@ -1,14 +1,19 @@
 import {
+  isPatternCondition,
   isTechnicalCondition,
   type AlgorithmRules,
   type EntryCondition,
-  type EntryLogic,
   type ExitCondition,
-  type TechnicalCondition,
 } from "@/types/algorithm";
 import { calculateMetrics } from "./backtest-metrics";
+import {
+  checkConditions as checkMixedConditions,
+  type ConditionContext,
+  type EvaluableCondition,
+} from "./condition-evaluator";
 import { buildVetoCheck, type EconomicEvent } from "./economic-calendar";
-import { getValues, isPriceIndicator, type Cache } from "./indicator-registry";
+import { getValues, type Cache } from "./indicator-registry";
+import { evaluateTechnical } from "./technical-evaluator";
 import {
   applySlippage,
   buildPropFirmReport,
@@ -30,92 +35,20 @@ export interface BacktestContext {
   symbol?: string;
   events?: EconomicEvent[];
 }
-function evalPriceComparison(
-  cond: TechnicalCondition,
-  indVals: (number | null)[],
-  closes: number[],
-  cache: Cache,
-  i: number
-): boolean {
-  const ind = indVals[i];
-  if (ind === null) return false;
-  const prevInd = indVals[i - 1] ?? null;
+/** Re-export for legacy import sites. */
+export type { ConditionContext, EvaluableCondition };
 
-  // EMA12 with value=0 → compare against EMA26 (standard crossover signal)
-  if (cond.indicator.toLowerCase() === "ema12") {
-    const ema26Vals = getValues("EMA26", cache, closes);
-    const comp = ema26Vals[i];
-    const prevComp = ema26Vals[i - 1] ?? null;
-    if (comp === null) return false;
-    switch (cond.operator) {
-      case "less_than":
-        return ind < comp;
-      case "greater_than":
-        return ind > comp;
-      case "crosses_above":
-        return prevInd !== null && prevComp !== null && prevInd <= prevComp && ind > comp;
-      case "crosses_below":
-        return prevInd !== null && prevComp !== null && prevInd >= prevComp && ind < comp;
-    }
-  }
-  const price = closes[i];
-  const prevPrice = closes[i - 1] ?? null;
-  switch (cond.operator) {
-    case "less_than":
-      return price < ind;
-    case "greater_than":
-      return price > ind;
-    case "crosses_above":
-      return prevPrice !== null && prevInd !== null && prevPrice <= prevInd && price > ind;
-    case "crosses_below":
-      return prevPrice !== null && prevInd !== null && prevPrice >= prevInd && price < ind;
-    default:
-      return false;
-  }
-}
-
-function evaluateCondition(
-  cond: TechnicalCondition,
-  indVals: (number | null)[],
-  closes: number[],
-  cache: Cache,
-  i: number
-): boolean {
-  const val = indVals[i];
-  if (val === null) return false;
-  if (cond.value === 0 && isPriceIndicator(cond.indicator)) {
-    return evalPriceComparison(cond, indVals, closes, cache, i);
-  }
-  const prev = indVals[i - 1] ?? null;
-  switch (cond.operator) {
-    case "less_than":
-      return val < cond.value;
-    case "greater_than":
-      return val > cond.value;
-    case "crosses_above":
-      return prev !== null && prev <= cond.value && val > cond.value;
-    case "crosses_below":
-      return prev !== null && prev >= cond.value && val < cond.value;
-    default:
-      return false;
-  }
-}
 export function checkConditions(
-  conditions: TechnicalCondition[],
-  cache: Cache,
-  closes: number[],
-  i: number,
-  logic: EntryLogic = "all"
+  conditions: EvaluableCondition[],
+  ctx: ConditionContext,
+  logic?: AlgorithmRules["entry_logic"]
 ): boolean {
-  if (conditions.length === 0) return false;
-  let met = 0;
-  for (const c of conditions) {
-    const vals = getValues(c.indicator, cache, closes);
-    if (evaluateCondition(c, vals, closes, cache, i)) met++;
-  }
-  if (logic === "all") return met === conditions.length;
-  if (logic === "any") return met > 0;
-  return met >= logic.n;
+  return checkMixedConditions(
+    conditions,
+    ctx,
+    (c, c2) => evaluateTechnical(c, getValues(c.indicator, c2.cache, c2.closes), c2.closes, c2.cache, c2.i),
+    logic
+  );
 }
 export function normalize(
   conditions: (EntryCondition | ExitCondition)[]
@@ -149,8 +82,8 @@ function runSimulation(
   prices: PriceBar[],
   capital: number,
   rules: AlgorithmRules,
-  techEntry: TechnicalCondition[],
-  techExit: TechnicalCondition[],
+  entry: EvaluableCondition[],
+  exit: EvaluableCondition[],
   vetoCheck: ((barDate: string) => boolean) | null,
   symbol?: string
 ): { trades: BacktestTrade[]; openPos: OpenPosition | null; state: SimState } {
@@ -179,8 +112,9 @@ function runSimulation(
       currentDayKey = dayKey;
       dailyHalted = false;
     }
+    const ctx: ConditionContext = { cache, closes, bars: prices, i };
     const signalExitFired =
-      (techExit.length > 0 && checkConditions(techExit, cache, closes, i, rules.entry_logic)) ||
+      (exit.length > 0 && checkConditions(exit, ctx, rules.entry_logic)) ||
       s.drawdownBreached;
     for (let p = positions.length - 1; p >= 0; p--) {
       const pos = positions[p];
@@ -200,7 +134,7 @@ function runSimulation(
       !dailyHalted &&
       !vetoed &&
       positions.length < cfg.maxPos &&
-      checkConditions(techEntry, cache, closes, i, rules.entry_logic)
+      checkConditions(entry, ctx, rules.entry_logic)
     ) {
       const entryPrice = applySlippage(closes[i], cfg.slippageBps, true);
       const sized = sizeForBacktest(rules, s.equity, entryPrice, symbol, cfg);
@@ -257,12 +191,17 @@ export function runBacktest(
 ): BacktestMetrics {
   const entry = normalize(rules.entry_conditions);
   const exit = normalize(rules.exit_conditions);
-  const techEntry = entry.filter(isTechnicalCondition);
-  const techExit = exit.filter(isTechnicalCondition);
-  const sentimentExcluded = entry.length - techEntry.length + (exit.length - techExit.length);
+  const evaluableEntry = entry.filter(
+    (c) => isTechnicalCondition(c) || isPatternCondition(c)
+  ) as EvaluableCondition[];
+  const evaluableExit = exit.filter(
+    (c) => isTechnicalCondition(c) || isPatternCondition(c)
+  ) as EvaluableCondition[];
+  const sentimentExcluded =
+    entry.length - evaluableEntry.length + (exit.length - evaluableExit.length);
   const mode = sentimentExcluded > 0 ? ("technical_only" as const) : ("full" as const);
 
-  if (techEntry.length === 0) {
+  if (evaluableEntry.length === 0) {
     return {
       ...calculateMetrics([], capital, prices, null),
       sentiment_conditions_excluded: sentimentExcluded,
@@ -277,8 +216,8 @@ export function runBacktest(
     prices,
     capital,
     rules,
-    techEntry,
-    techExit,
+    evaluableEntry,
+    evaluableExit,
     vetoCheck,
     context?.symbol
   );

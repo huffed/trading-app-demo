@@ -24,8 +24,31 @@ export interface SentimentCondition {
   timeframe: string;
 }
 
-export type EntryCondition = TechnicalCondition | SentimentCondition;
-export type ExitCondition = TechnicalCondition | SentimentCondition;
+/**
+ * ICT/SMC chart-pattern condition. Evaluated by the pattern detector
+ * module (`lib/patterns`). Unlike technical conditions which compute on
+ * an indicator series, patterns are detected directly from the bar OHLC.
+ *
+ * Supported patterns (initial set):
+ *  - liquidity_sweep: pierce of a recent swing high/low + close back inside
+ *  - fvg: 3-bar fair value gap created on the current bar
+ *  - ifvg: a previous FVG that has been filled and is now retesting
+ *  - daily_bias: higher-timeframe trend filter (D1 close vs N-period MA)
+ */
+export interface PatternCondition {
+  type: "pattern";
+  pattern: "liquidity_sweep" | "fvg" | "ifvg" | "daily_bias";
+  /** Required directional alignment. Omit to match any direction. */
+  direction?: "bullish" | "bearish";
+  /** Lookback for swing-based patterns. Default 5. */
+  lookback?: number;
+  /** Period for the daily-bias MA. Default 20. */
+  ma_period?: number;
+  timeframe: string;
+}
+
+export type EntryCondition = TechnicalCondition | SentimentCondition | PatternCondition;
+export type ExitCondition = TechnicalCondition | SentimentCondition | PatternCondition;
 
 /**
  * How multiple entry conditions combine.
@@ -41,6 +64,10 @@ export function isTechnicalCondition(c: EntryCondition | ExitCondition): c is Te
 
 export function isSentimentCondition(c: EntryCondition | ExitCondition): c is SentimentCondition {
   return c.type === "sentiment";
+}
+
+export function isPatternCondition(c: EntryCondition | ExitCondition): c is PatternCondition {
+  return c.type === "pattern";
 }
 
 // --- Risk management & rules ---

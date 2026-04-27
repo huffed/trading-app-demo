@@ -14,11 +14,13 @@ import {
   type PropFirmPreset,
 } from "@/lib/constants/prop-firm";
 import {
+  isPatternCondition,
   isTechnicalCondition,
   type AlgorithmRules,
   type EntryCondition,
   type ExitCondition,
   type PropFirmRules,
+  type SentimentCondition,
 } from "@/types/algorithm";
 import { PropFirmFields } from "./prop-firm-fields";
 
@@ -50,14 +52,34 @@ function ConditionRow({
       </div>
     );
   }
+  if (isPatternCondition(condition)) {
+    return (
+      <div className="flex items-center gap-1.5 text-sm group">
+        <Badge className="text-xs bg-amber-500/10 text-amber-600">pattern</Badge>
+        <span className="text-muted-foreground">
+          {condition.pattern}
+          {condition.direction ? ` (${condition.direction})` : ""}
+        </span>
+        <span className="text-xs text-muted-foreground">({condition.timeframe})</span>
+        <button
+          type="button"
+          onClick={onRemove}
+          className="ml-auto opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive"
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+      </div>
+    );
+  }
+  const sentiment = condition as SentimentCondition;
   return (
     <div className="flex items-center gap-1.5 text-sm group">
       <Badge className="text-xs bg-primary/10 text-primary">sentiment</Badge>
       <span className="text-muted-foreground">
-        {condition.metric} {SENTIMENT_OP_LABELS[condition.operator] ?? condition.operator}{" "}
-        {condition.threshold}
+        {sentiment.metric} {SENTIMENT_OP_LABELS[sentiment.operator] ?? sentiment.operator}{" "}
+        {sentiment.threshold}
       </span>
-      {condition.topics?.map((t) => (
+      {sentiment.topics?.map((t) => (
         <Badge key={t} variant="outline" className="text-xs">
           {t}
         </Badge>
