@@ -17,6 +17,7 @@ import {
   type TechnicalCondition,
 } from "@/types/algorithm";
 import type { PaperPosition, PositionEvent } from "@/types/position";
+import { maybeHaltOnDailyLoss } from "./daily-halt";
 import { evaluateEntry } from "./entry";
 import { logActivity } from "./helpers";
 import {
@@ -293,6 +294,10 @@ export async function scanAlgorithm(
     event_type: "scan_started",
     details: { tickers_count: tickers.length },
   });
+
+  if (await maybeHaltOnDailyLoss(supabase, userId, algo)) {
+    return result;
+  }
 
   const { data: openPositions } = await supabase
     .from("paper_positions")
