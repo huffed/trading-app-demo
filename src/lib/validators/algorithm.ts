@@ -4,12 +4,42 @@ import { assetClasses } from "./trade";
 export const riskLevels = ["conservative", "moderate", "aggressive"] as const;
 export const algorithmStatuses = ["draft", "active", "paused", "archived"] as const;
 
+// Optional manual overrides — when set, applied on top of the AI's generated
+// rules so power users can lock in exact values without giving up the AI's
+// condition selection.
+const overridesSchema = z
+  .object({
+    stop_loss: z.coerce.number().positive().optional(),
+    take_profit: z.coerce.number().positive().optional(),
+    position_size: z.coerce.number().positive().optional(),
+    max_positions: z.coerce.number().int().positive().optional(),
+    max_per_ticker: z.coerce.number().int().positive().optional(),
+  })
+  .optional();
+
+// Forward-declared so it can be reused in algorithmFormSchema before the
+// detailed propFirmSchema appears further down. Kept loose at parse time
+// (the strict schema below validates ranges).
+const propFirmInput = z
+  .object({
+    daily_loss_limit: z.coerce.number(),
+    max_drawdown: z.coerce.number(),
+    profit_target: z.coerce.number(),
+    max_consecutive_losses: z.coerce.number().int(),
+    consistency_rule: z.coerce.number(),
+    slippage_bps: z.coerce.number(),
+    commission_pct: z.coerce.number(),
+  })
+  .optional();
+
 export const algorithmFormSchema = z.object({
   asset_class: z.enum(assetClasses),
   risk_level: z.enum(riskLevels),
   capital: z.coerce.number().positive("Capital must be positive"),
   time_horizon: z.string().min(1, "Time horizon is required"),
   user_hints: z.string().max(2000).optional().or(z.literal("")),
+  overrides: overridesSchema,
+  prop_firm: propFirmInput,
 });
 
 export type AlgorithmFormValues = z.infer<typeof algorithmFormSchema>;

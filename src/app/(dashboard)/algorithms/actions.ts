@@ -160,6 +160,47 @@ async function generateDescription(
   return { name, description: text };
 }
 
+/**
+ * Apply user-supplied prop firm config and numeric overrides on top of the
+ * AI's generated rules. Manual settings always win — the AI gives us a
+ * sensible baseline; the form lets a power user lock in exact values.
+ */
+function applyManualLayers(rules: AlgorithmRules, params: AlgorithmFormValues): AlgorithmRules {
+  const out = structuredClone(rules);
+
+  if (params.prop_firm) {
+    out.prop_firm = params.prop_firm;
+  }
+
+  const o = params.overrides;
+  if (o) {
+    if (o.stop_loss != null) out.stop_loss = { type: "percentage", value: o.stop_loss };
+    if (o.take_profit != null) out.take_profit = { type: "percentage", value: o.take_profit };
+    if (o.position_size != null) {
+      out.position_sizing = { type: "percentage_of_capital", value: o.position_size };
+    }
+    if (o.max_positions != null) out.max_positions = o.max_positions;
+    if (o.max_per_ticker != null) out.max_per_ticker = o.max_per_ticker;
+  }
+
+  return out;
+}
+
+/**
+ * Append a prop-firm context line to user_hints so the strategy text the AI
+ * writes matches the constraints the user picked. The exact numbers are still
+ * enforced by applyManualLayers — this just helps the prose.
+ */
+function withPropFirmContext(values: AlgorithmFormValues): AlgorithmFormValues {
+  if (!values.prop_firm) return values;
+  const pf = values.prop_firm;
+  const context = `Funded/prop-firm constraints: daily loss ${pf.daily_loss_limit}%, max drawdown ${pf.max_drawdown}%, profit target ${pf.profit_target}%. Optimise for steady high-frequency trades within those limits.`;
+  return {
+    ...values,
+    user_hints: values.user_hints ? `${values.user_hints}\n\n${context}` : context,
+  };
+}
+
 export async function generateAlgorithm(
   values: AlgorithmFormValues
 ): Promise<ActionResult<Algorithm>> {
@@ -176,11 +217,15 @@ export async function generateAlgorithm(
 
   const { count } = await supabase.from("trades").select("*", { count: "exact", head: true });
 
+  const promptParams = withPropFirmContext(parsed.data);
+
   try {
     const [rules, { name, description }] = await Promise.all([
-      generateRules(parsed.data, count ?? 0),
-      generateDescription(parsed.data, count ?? 0),
+      generateRules(promptParams, count ?? 0),
+      generateDescription(promptParams, count ?? 0),
     ]);
+
+    const finalRules = applyManualLayers(rules, parsed.data);
 
     const { data, error } = await supabase
       .from("algorithms")
@@ -193,7 +238,7 @@ export async function generateAlgorithm(
         time_horizon: parsed.data.time_horizon,
         capital: parsed.data.capital,
         user_hints: parsed.data.user_hints || null,
-        rules,
+        rules: finalRules,
         status: "draft",
       })
       .select()
