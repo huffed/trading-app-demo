@@ -143,7 +143,14 @@ export function useRunHistoricalBacktest() {
 
 export function useRunPortfolioBacktest() {
   return useMutation({
-    mutationFn: ({ id, period }: { id: string; period: "compact" | "full" }) =>
-      runPortfolioBacktest(id, period),
+    mutationFn: ({
+      id,
+      period,
+      window,
+    }: {
+      id: string;
+      period: "compact" | "full";
+      window?: "1m" | "3m" | "6m" | "1y" | "all";
+    }) => runPortfolioBacktest(id, period, window ?? "all"),
   });
 }
