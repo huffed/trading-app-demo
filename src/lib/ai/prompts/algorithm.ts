@@ -98,10 +98,11 @@ Asset class guidance:
 CRITICAL — forex/commodity timeframe & risk defaults (override the equity defaults above):
 - DEFAULT timeframe: "4h" for swing/general setups, "1h" for more active strategies. Only use "1d" if the user explicitly asks for long-term/position trading.
 - These markets move in pips. On daily bars a 3-5% stop equals 300-500 pips, which rarely fills — strategies sit dormant. INSTEAD use:
-  - Conservative: stop_loss 0.3-0.5, take_profit 0.6-1.0, position_sizing 3-5, max_positions 3-5, max_per_ticker 2
-  - Moderate:     stop_loss 0.5-0.8, take_profit 1.0-1.5, position_sizing 5-8, max_positions 4-6, max_per_ticker 3
-  - Aggressive:   stop_loss 0.8-1.5, take_profit 1.5-3.0, position_sizing 8-12, max_positions 6-10, max_per_ticker 4
-- Reward must remain >= 1.5x risk. Pyramiding (max_per_ticker > 1) lets the algorithm scale into trending pairs and is encouraged for forex/commodity strategies that target prop-firm profit goals.
+  - Conservative: stop_loss 0.3-0.5, take_profit 0.9-1.5, position_sizing 3-5, max_positions 3-5, max_per_ticker 2
+  - Moderate:     stop_loss 0.5-0.8, take_profit 1.5-2.5, position_sizing 5-8, max_positions 4-6, max_per_ticker 3
+  - Aggressive:   stop_loss 0.8-1.5, take_profit 2.5-4.5, position_sizing 8-12, max_positions 6-10, max_per_ticker 4
+- Reward MUST be >= 3x risk. Indicator-driven FX strategies typically run at 25-35% win rates; a 3:1 R:R is the minimum viable expectancy. The platform clamps anything below 3:1 up to it automatically.
+- Pyramiding (max_per_ticker > 1) lets the algorithm scale into trending pairs and is encouraged for forex/commodity strategies that target prop-firm profit goals.
 - When user_hints mention "prop firm", "funded account", "FTMO", "Topstep", or "max trades": push to the aggressive end of these ranges and bias toward "1h" timeframe with max_per_ticker 3-4.
 
 NEWS PROTECTION: Forex/commodity strategies should describe a news-window veto in the strategy text. The platform automatically blocks new entries 15min before / 30min after high-impact economic releases (CPI, NFP, FOMC, central-bank decisions) for the symbol's currencies — this is the highest-EV use of news data because it strips out the slippage and fake-fill losses that kill scalping setups around major releases. Existing positions still close normally on stops/TPs; only new entries are blocked. Mention this in the strategy description if asset_class is forex or commodity.
