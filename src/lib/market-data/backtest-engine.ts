@@ -127,6 +127,27 @@ const DEFAULT_POSITION_SIZE_PCT = 10;
 const DEFAULT_STOP_LOSS_PCT = 5;
 const DEFAULT_TAKE_PROFIT_PCT = 15;
 
+/**
+ * Decide whether and at what price an open position exits this bar.
+ * Stops and take-profits fill at the configured level (intra-bar fill
+ * detected via bar.low / bar.high). Signal-based exits fill at the close.
+ * If both stop and TP touch the same bar we assume the stop fills first.
+ */
+function pickExitPrice(
+  pos: { entryPrice: number },
+  bar: PriceBar,
+  closePrice: number,
+  cfg: SimConfig,
+  signalExitFired: boolean
+): number | null {
+  const stopPrice = pos.entryPrice * (1 - cfg.stopPct);
+  const tpPrice = pos.entryPrice * (1 + cfg.tpPct);
+  if (bar.low <= stopPrice) return applySlippage(stopPrice, cfg.slippageBps, false);
+  if (bar.high >= tpPrice) return applySlippage(tpPrice, cfg.slippageBps, false);
+  if (signalExitFired) return applySlippage(closePrice, cfg.slippageBps, false);
+  return null;
+}
+
 function runSimulation(
   prices: PriceBar[],
   capital: number,
@@ -164,21 +185,19 @@ function runSimulation(
   let dailyHalted = false;
 
   for (let i = 1; i < prices.length; i++) {
-    const day = prices[i].date;
+    const bar = prices[i];
+    const day = bar.date;
     if (day !== currentDay) {
       currentDay = day;
       dailyHalted = false;
     }
+    const signalExitFired =
+      (techExit.length > 0 && checkConditions(techExit, cache, closes, i, rules.entry_logic)) ||
+      s.drawdownBreached;
     for (let p = positions.length - 1; p >= 0; p--) {
       const pos = positions[p];
-      const exitPrice = applySlippage(closes[i], cfg.slippageBps, false);
-      const pnlPct = (exitPrice - pos.entryPrice) / pos.entryPrice;
-      if (
-        pnlPct <= -cfg.stopPct ||
-        pnlPct >= cfg.tpPct ||
-        (techExit.length > 0 && checkConditions(techExit, cache, closes, i)) ||
-        s.drawdownBreached
-      ) {
+      const exitPrice = pickExitPrice(pos, bar, closes[i], cfg, signalExitFired);
+      if (exitPrice !== null) {
         closeSimPosition(pos, day, exitPrice, capital, cfg, s, trades);
         positions.splice(p, 1);
         if (pf) {
