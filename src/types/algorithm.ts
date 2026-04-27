@@ -150,6 +150,9 @@ export interface Algorithm {
   backtest_results: BacktestResults | null;
   status: AlgorithmStatus;
   last_scanned_at: string | null;
+  // Live trading wiring (Phase B)
+  live_trading_enabled?: boolean;
+  broker_connection_id?: string | null;
   created_at: string;
   updated_at: string;
 }

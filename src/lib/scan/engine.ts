@@ -18,6 +18,11 @@ import {
 import type { PaperPosition, PositionEvent } from "@/types/position";
 import { evaluateEntry } from "./entry";
 import { logActivity } from "./helpers";
+import {
+  executeLiveExit,
+  resolveBrokerContext,
+  type BrokerExecutionContext,
+} from "./live-execution";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 // ---- Types ----
@@ -42,6 +47,8 @@ interface AlgorithmWithWatchlist {
   capital: number;
   status: string;
   algorithm_watchlist: { ticker: string; name: string }[];
+  live_trading_enabled?: boolean;
+  broker_connection_id?: string | null;
 }
 
 // ---- Position management ----
@@ -53,7 +60,8 @@ async function manageExistingPosition(
   ticker: string,
   position: PaperPosition,
   closes: number[],
-  livePrice: number | null
+  livePrice: number | null,
+  brokerCtx: BrokerExecutionContext | null
 ): Promise<{ closed: number; updated: number; closeEvent?: PositionEvent }> {
   const currentPrice = livePrice ?? closes[closes.length - 1];
   const unrealizedPnl =
@@ -61,7 +69,6 @@ async function manageExistingPosition(
       ? (currentPrice - position.entry_price) * position.quantity
       : (position.entry_price - currentPrice) * position.quantity;
 
-  // Check stop loss / take profit / exit conditions
   const exitCheck = checkExitTrigger(position, currentPrice, algo.rules, closes);
 
   if (exitCheck) {
@@ -78,6 +85,20 @@ async function manageExistingPosition(
         closed_at: new Date().toISOString(),
       })
       .eq("id", position.id);
+
+    // Mirror to the broker if this position has a real counterpart.
+    if (brokerCtx) {
+      await executeLiveExit({
+        supabase,
+        userId,
+        algorithmId: algo.id,
+        paperPositionId: position.id,
+        ticker,
+        brokerPositionId: position.broker_position_id ?? null,
+        closePrice: currentPrice,
+        ctx: brokerCtx,
+      });
+    }
 
     let eventType = "position_closed";
     if (exitCheck === "stop_loss") {
@@ -100,7 +121,6 @@ async function manageExistingPosition(
     };
   }
 
-  // Just update price
   await supabase
     .from("paper_positions")
     .update({ current_price: currentPrice, unrealized_pnl: unrealizedPnl })
@@ -159,7 +179,8 @@ async function processTicker(
   positions: PaperPosition[],
   result: ScanResult,
   liveQuotes: Map<string, number>,
-  interval: BarInterval
+  interval: BarInterval,
+  brokerCtx: BrokerExecutionContext | null
 ) {
   try {
     let prices = await getCachedPrices(ticker, "compact", interval);
@@ -176,8 +197,6 @@ async function processTicker(
     const closes = prices.map((p) => p.close);
     const livePrice = liveQuotes.get(ticker.toUpperCase()) ?? null;
 
-    // Manage every open position on this ticker independently — each has its
-    // own SL/TP and can close on this scan.
     const existingForTicker = positions.filter((p) => p.ticker === ticker);
     for (const existing of existingForTicker) {
       const r = await manageExistingPosition(
@@ -187,7 +206,8 @@ async function processTicker(
         ticker,
         existing,
         closes,
-        livePrice
+        livePrice,
+        brokerCtx
       );
       result.positions_closed += r.closed;
       result.positions_updated += r.updated;
@@ -196,15 +216,21 @@ async function processTicker(
       }
     }
 
-    // Count what's still open after the management pass, then decide if we
-    // can stack another entry. max_per_ticker (defaults to 1) caps pyramiding;
-    // max_positions remains the algorithm-wide cap.
     const stillOpen = positions.filter((p) => p.status === "open");
     const openOnTicker = stillOpen.filter((p) => p.ticker === ticker).length;
     const maxPerTicker = algo.rules.max_per_ticker ?? 1;
 
     if (stillOpen.length < algo.rules.max_positions && openOnTicker < maxPerTicker) {
-      const r = await evaluateEntry(supabase, userId, algo, ticker, closes, positions, livePrice);
+      const r = await evaluateEntry(
+        supabase,
+        userId,
+        algo,
+        ticker,
+        closes,
+        positions,
+        livePrice,
+        brokerCtx
+      );
       result.positions_opened += r.opened;
       if (r.openEvent) {
         result.opened_details.push(r.openEvent);
@@ -274,8 +300,24 @@ export async function scanAlgorithm(
   }
 
   const interval = timeframeToInterval(algo.rules.timeframe);
+  const brokerCtx = await resolveBrokerContext(
+    supabase,
+    userId,
+    algo.broker_connection_id ?? null,
+    algo.live_trading_enabled ?? false
+  );
   for (const ticker of tickers) {
-    await processTicker(supabase, userId, algo, ticker, positions, result, liveQuotes, interval);
+    await processTicker(
+      supabase,
+      userId,
+      algo,
+      ticker,
+      positions,
+      result,
+      liveQuotes,
+      interval,
+      brokerCtx
+    );
   }
 
   await logActivity(supabase, userId, {

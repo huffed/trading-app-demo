@@ -36,6 +36,13 @@ export interface PaperPosition {
   stop_loss_price: number | null;
   take_profit_price: number | null;
   status: PositionStatus;
+  // Live broker mirror — populated only when algorithm has live trading on.
+  broker_order_id?: string | null;
+  broker_position_id?: string | null;
+  broker_fill_price?: number | null;
+  broker_close_id?: string | null;
+  broker_close_price?: number | null;
+  broker_error?: string | null;
   created_at: string;
   updated_at: string;
 }

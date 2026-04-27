@@ -163,7 +163,14 @@ export async function generateAlgorithm(
 
 export async function updateAlgorithm(
   id: string,
-  updates: { name?: string; description?: string; status?: AlgorithmStatus; rules?: AlgorithmRules }
+  updates: {
+    name?: string;
+    description?: string;
+    status?: AlgorithmStatus;
+    rules?: AlgorithmRules;
+    live_trading_enabled?: boolean;
+    broker_connection_id?: string | null;
+  }
 ): Promise<ActionResult<Algorithm>> {
   const supabase = await createClient();
   const {
