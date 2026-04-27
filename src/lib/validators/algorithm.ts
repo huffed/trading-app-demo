@@ -77,9 +77,19 @@ const sentimentConditionSchema = z.object({
   timeframe: z.string(),
 });
 
+const patternConditionSchema = z.object({
+  type: z.literal("pattern"),
+  pattern: z.enum(["liquidity_sweep", "fvg", "ifvg", "daily_bias"]),
+  direction: z.enum(["bullish", "bearish"]).optional(),
+  lookback: z.number().int().min(1).max(100).optional(),
+  ma_period: z.number().int().min(1).max(500).optional(),
+  timeframe: z.string(),
+});
+
 const conditionSchema = z.discriminatedUnion("type", [
   technicalConditionSchema,
   sentimentConditionSchema,
+  patternConditionSchema,
 ]);
 
 // Legacy conditions (no `type` field) are normalized to "technical"
@@ -101,6 +111,7 @@ const propFirmSchema = z.object({
   consistency_rule: z.number().min(10).max(100),
   slippage_bps: z.number().min(0).max(100),
   commission_pct: z.number().min(0).max(5),
+  spread_bps: z.number().min(0).max(50).optional(),
 });
 
 const newsVetoSchema = z.object({
@@ -142,6 +153,7 @@ export const algorithmRulesSchema = z.object({
   leverage: z.number().int().min(1).max(500).optional(),
   timeframe: z.string(),
   asset_class: z.string(),
+  side: z.enum(["long", "short"]).optional(),
   prop_firm: propFirmSchema.optional(),
   news_veto: newsVetoSchema.optional(),
   divergence_kill: divergenceKillSchema.optional(),

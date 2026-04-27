@@ -23,6 +23,9 @@ export interface SimState {
 
 export interface SimConfig {
   slippageBps: number;
+  /** Bid/ask spread the broker charges per side, in bps. Separate from
+   *  slippage so the user can dial each independently. */
+  spreadBps: number;
   commissionPct: number;
   maxPos: number;
   posSize: number;
@@ -31,7 +34,13 @@ export interface SimConfig {
 }
 
 export function closeSimPosition(
-  pos: { entryPrice: number; entryDate: string; notionalValue: number; marginRequired?: number },
+  pos: {
+    entryPrice: number;
+    entryDate: string;
+    notionalValue: number;
+    marginRequired?: number;
+    side?: "long" | "short";
+  },
   day: string,
   exitPrice: number,
   capital: number,
@@ -39,15 +48,24 @@ export function closeSimPosition(
   s: SimState,
   trades: BacktestTrade[]
 ) {
-  const pnlPct = (exitPrice - pos.entryPrice) / pos.entryPrice;
+  const side = pos.side ?? "long";
+  // Direction-aware percent change: longs profit on price rising, shorts
+  // profit on price falling. Notional × pct is the gross trade pnl.
+  const pnlPct =
+    side === "long"
+      ? (exitPrice - pos.entryPrice) / pos.entryPrice
+      : (pos.entryPrice - exitPrice) / pos.entryPrice;
   // Position notional was sized off equity-at-open, so wins compound naturally
   // as equity grows and losses shrink positions during drawdowns.
   const notional = pos.notionalValue;
   const commission = notional * (cfg.commissionPct / 100) * 2;
-  const pnl = Number((notional * pnlPct - commission).toFixed(2));
+  // Spread is a round-trip cost (paid on entry + exit) deducted directly
+  // from realised pnl. 1 pip on EUR/USD ≈ 1.4 bp; 5 bp ≈ 0.7 pip per side.
+  const spreadCost = notional * (cfg.spreadBps / 10000) * 2;
+  const pnl = Number((notional * pnlPct - commission - spreadCost).toFixed(2));
   s.totalSlippage +=
     ((pos.entryPrice + exitPrice) * (cfg.slippageBps / 10000) * notional) / exitPrice;
-  s.totalCommission += commission;
+  s.totalCommission += commission + spreadCost;
   // Refund the margin this position was holding (lot-based sizing only).
   if (pos.marginRequired) {
     s.marginUsed = Math.max(0, s.marginUsed - pos.marginRequired);
@@ -57,7 +75,7 @@ export function closeSimPosition(
     exit_date: day,
     entry_price: pos.entryPrice,
     exit_price: exitPrice,
-    side: "long",
+    side,
     pnl,
   });
   s.equity += pnl;
@@ -183,14 +201,27 @@ export function sizeForBacktest(
  * Compute the exit price for an open position on the current bar. Stops
  * and TPs fill at the configured level (intra-bar via bar.high/low);
  * signal-based exits fill at the close. Stops win ties.
+ *
+ * Long: SL is below entry, TP is above. Stop hits when bar.low ≤ SL.
+ * Short: SL is above entry, TP is below. Stop hits when bar.high ≥ SL.
  */
 export function pickBacktestExitPrice(
-  pos: { entryPrice: number },
+  pos: { entryPrice: number; side?: "long" | "short" },
   bar: { high: number; low: number },
   closePrice: number,
   cfg: SimConfig,
   signalExitFired: boolean
 ): number | null {
+  const side = pos.side ?? "long";
+  if (side === "short") {
+    const stopPrice = pos.entryPrice * (1 + cfg.stopPct);
+    const tpPrice = pos.entryPrice * (1 - cfg.tpPct);
+    // Stops win ties — checked before TP.
+    if (bar.high >= stopPrice) return applySlippage(stopPrice, cfg.slippageBps, true);
+    if (bar.low <= tpPrice) return applySlippage(tpPrice, cfg.slippageBps, true);
+    if (signalExitFired) return applySlippage(closePrice, cfg.slippageBps, true);
+    return null;
+  }
   const stopPrice = pos.entryPrice * (1 - cfg.stopPct);
   const tpPrice = pos.entryPrice * (1 + cfg.tpPct);
   if (bar.low <= stopPrice) return applySlippage(stopPrice, cfg.slippageBps, false);

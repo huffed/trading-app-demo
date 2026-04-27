@@ -4,6 +4,7 @@ import {
   ArrowDown,
   ArrowUp,
   BarChart3,
+  Layers,
   Newspaper,
   ShieldAlert,
   Target,
@@ -13,10 +14,12 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getQuantityUnit } from "@/lib/constants/markets";
 import {
+  isPatternCondition,
   isTechnicalCondition,
   type AlgorithmRules,
   type EntryCondition,
   type ExitCondition,
+  type PatternCondition,
   type SentimentCondition,
   type TechnicalCondition,
 } from "@/types/algorithm";
@@ -108,6 +111,19 @@ function formatSentimentCondition(c: SentimentCondition): string {
 
 // ---- Components ----
 
+const PATTERN_LABELS: Record<PatternCondition["pattern"], string> = {
+  liquidity_sweep: "Liquidity sweep",
+  fvg: "Fair Value Gap",
+  ifvg: "Inverse FVG (filled, retesting)",
+  daily_bias: "Daily bias",
+};
+
+function formatPatternCondition(c: PatternCondition): string {
+  const label = PATTERN_LABELS[c.pattern] ?? c.pattern;
+  const dir = c.direction ? ` (${c.direction})` : "";
+  return `${label}${dir}`;
+}
+
 function ConditionItem({ condition }: { condition: EntryCondition | ExitCondition }) {
   if (isTechnicalCondition(condition)) {
     return (
@@ -120,15 +136,26 @@ function ConditionItem({ condition }: { condition: EntryCondition | ExitConditio
       </div>
     );
   }
-
+  if (isPatternCondition(condition)) {
+    return (
+      <div className="flex items-start gap-2.5 rounded-md border p-2.5">
+        <Layers className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
+        <div>
+          <p className="text-sm">{formatPatternCondition(condition)}</p>
+          <p className="text-xs text-muted-foreground">{condition.timeframe} timeframe</p>
+        </div>
+      </div>
+    );
+  }
+  const sentiment = condition as SentimentCondition;
   return (
     <div className="flex items-start gap-2.5 rounded-md border p-2.5">
       <Newspaper className="mt-0.5 h-4 w-4 shrink-0 text-purple-500" />
       <div>
-        <p className="text-sm">{formatSentimentCondition(condition)}</p>
-        {condition.topics && condition.topics.length > 0 && (
+        <p className="text-sm">{formatSentimentCondition(sentiment)}</p>
+        {sentiment.topics && sentiment.topics.length > 0 && (
           <div className="mt-1 flex flex-wrap gap-1">
-            {condition.topics.map((t) => (
+            {sentiment.topics.map((t) => (
               <Badge key={t} variant="secondary" className="text-xs">
                 {t}
               </Badge>
@@ -277,10 +304,21 @@ export function RulesDisplay({ rules }: { rules: AlgorithmRules }) {
     );
   }
 
+  const side = rules.side ?? "long";
   return (
     <Card>
-      <CardHeader className="pb-2">
+      <CardHeader className="pb-2 flex flex-row items-center justify-between">
         <CardTitle className="text-sm font-medium">Trading Rules</CardTitle>
+        <Badge
+          variant="secondary"
+          className={
+            side === "long"
+              ? "text-[var(--profit)] bg-[var(--profit)]/10"
+              : "text-[var(--loss)] bg-[var(--loss)]/10"
+          }
+        >
+          {side === "long" ? "LONG bias" : "SHORT bias"}
+        </Badge>
       </CardHeader>
       <CardContent className="space-y-4">
         <ConditionSection

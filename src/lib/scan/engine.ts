@@ -11,9 +11,13 @@ import { timeframeToInterval, type BarInterval } from "@/lib/market-data/interva
 import { getCachedPrices, savePricesToCache } from "@/lib/market-data/price-cache";
 import { fetchDailyPrices } from "@/lib/market-data/prices";
 import { fetchBatchQuotes } from "@/lib/market-data/twelve-data";
+import type { PriceBar } from "@/lib/market-data/types";
+import { resampleToDaily } from "@/lib/market-data/resample";
 import {
+  isPatternCondition,
   isTechnicalCondition,
   type AlgorithmRules,
+  type PatternCondition,
   type TechnicalCondition,
 } from "@/types/algorithm";
 import type { PaperPosition, PositionEvent } from "@/types/position";
@@ -61,6 +65,7 @@ async function manageExistingPosition(
   algo: AlgorithmWithWatchlist,
   ticker: string,
   position: PaperPosition,
+  bars: PriceBar[],
   closes: number[],
   livePrice: number | null,
   brokerCtx: BrokerExecutionContext | null
@@ -74,7 +79,7 @@ async function manageExistingPosition(
     position.quantity
   );
 
-  const exitCheck = checkExitTrigger(position, currentPrice, algo.rules, closes);
+  const exitCheck = checkExitTrigger(position, currentPrice, algo.rules, bars, closes);
 
   if (exitCheck) {
     const realizedPnl = unrealizedPnl;
@@ -137,6 +142,7 @@ function checkExitTrigger(
   position: PaperPosition,
   currentPrice: number,
   rules: AlgorithmRules,
+  bars: PriceBar[],
   closes: number[]
 ): string | null {
   const isLong = position.side === "long";
@@ -161,12 +167,23 @@ function checkExitTrigger(
     }
   }
 
-  // Technical exit conditions
+  // Technical + pattern exit conditions (sentiment exits are evaluated
+  // separately via the live signal pipeline; not handled here).
   const normalizedExit = normalize(rules.exit_conditions);
-  const techExit = normalizedExit.filter(isTechnicalCondition) as TechnicalCondition[];
-  if (techExit.length > 0) {
+  const evaluableExit = normalizedExit.filter(
+    (c) => isTechnicalCondition(c) || isPatternCondition(c)
+  ) as Array<TechnicalCondition | PatternCondition>;
+  if (evaluableExit.length > 0) {
     const cache: Cache = new Map();
-    if (checkConditions(techExit, cache, closes, closes.length - 1)) {
+    if (
+      checkConditions(evaluableExit, {
+        cache,
+        closes,
+        bars,
+        i: closes.length - 1,
+        higherTfBars: resampleToDaily(bars),
+      })
+    ) {
       return "exit_signal";
     }
   }
@@ -210,6 +227,7 @@ async function processTicker(
         algo,
         ticker,
         existing,
+        prices,
         closes,
         livePrice,
         brokerCtx
@@ -231,6 +249,7 @@ async function processTicker(
         userId,
         algo,
         ticker,
+        prices,
         closes,
         positions,
         livePrice,

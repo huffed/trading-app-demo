@@ -7,11 +7,14 @@
  * max_per_ticker still caps pyramiding on each individual symbol.
  */
 import {
+  isPatternCondition,
   isTechnicalCondition,
   type AlgorithmRules,
+  type PatternCondition,
   type TechnicalCondition,
 } from "@/types/algorithm";
 import { checkConditions, normalize } from "./backtest-engine";
+import { resampleToDaily } from "./resample";
 import { calculateMetrics } from "./backtest-metrics";
 import { buildVetoCheck, type EconomicEvent } from "./economic-calendar";
 import { type Cache } from "./indicator-registry";
@@ -40,10 +43,13 @@ interface PortfolioPosition {
   notionalValue: number;
   marginRequired: number;
   ticker: string;
+  side: "long" | "short";
 }
 
 interface TickerState {
   bars: PriceBar[];
+  /** Resampled D1 view of `bars`, used by daily_bias pattern conditions. */
+  higherTfBars: PriceBar[];
   closes: number[];
   cache: Cache;
   positions: PortfolioPosition[];
@@ -62,6 +68,7 @@ function buildSimConfig(rules: AlgorithmRules): SimConfig {
   const pf = rules.prop_firm;
   return {
     slippageBps: pf?.slippage_bps ?? 0,
+    spreadBps: pf?.spread_bps ?? 0,
     commissionPct: pf?.commission_pct ?? 0,
     maxPos: rules.max_positions ?? DEFAULT_MAX_POSITIONS,
     posSize: (rules.position_sizing?.value ?? DEFAULT_POSITION_SIZE_PCT) / 100,
@@ -87,6 +94,7 @@ function initTickerStates(
   for (const [ticker, prices] of pricesByTicker) {
     out.set(ticker, {
       bars: prices,
+      higherTfBars: resampleToDaily(prices),
       closes: prices.map((p) => p.close),
       cache: new Map(),
       positions: [],
@@ -120,7 +128,7 @@ function runCloseLoop(
   i: number,
   ticker: string,
   rules: AlgorithmRules,
-  techExit: TechnicalCondition[],
+  techExit: Array<TechnicalCondition | PatternCondition>,
   cfg: SimConfig,
   capital: number,
   s: SimState,
@@ -131,7 +139,12 @@ function runCloseLoop(
   let dailyHalted = dailyHaltedIn;
   const pf = rules.prop_firm;
   const signalExitFired =
-    (techExit.length > 0 && checkConditions(techExit, state.cache, state.closes, i, rules.entry_logic)) ||
+    (techExit.length > 0 &&
+      checkConditions(
+        techExit,
+        { cache: state.cache, closes: state.closes, bars: state.bars, higherTfBars: state.higherTfBars, i },
+        rules.entry_logic
+      )) ||
     s.drawdownBreached;
   const bar = state.bars[i];
   for (let p = state.positions.length - 1; p >= 0; p--) {
@@ -196,7 +209,7 @@ function tryOpenEntry(
   i: number,
   ticker: string,
   rules: AlgorithmRules,
-  techEntry: TechnicalCondition[],
+  techEntry: Array<TechnicalCondition | PatternCondition>,
   cfg: SimConfig,
   s: SimState,
   states: Map<string, TickerState>,
@@ -212,8 +225,17 @@ function tryOpenEntry(
     onTickerCount: state.positions.length,
   };
   if (!canEnter(rules, cfg, gate)) return;
-  if (!checkConditions(techEntry, state.cache, state.closes, i, rules.entry_logic)) return;
-  const entryPrice = applySlippage(state.closes[i], cfg.slippageBps, true);
+  if (
+    !checkConditions(
+      techEntry,
+      { cache: state.cache, closes: state.closes, bars: state.bars, higherTfBars: state.higherTfBars, i },
+      rules.entry_logic
+    )
+  ) {
+    return;
+  }
+  const side: "long" | "short" = rules.side ?? "long";
+  const entryPrice = applySlippage(state.closes[i], cfg.slippageBps, side === "long");
   const sized = sizeForBacktest(rules, s.equity, entryPrice, ticker, cfg);
   const freeMargin = s.equity - s.marginUsed;
   if (sized.margin > freeMargin || sized.notional <= 0) return;
@@ -224,6 +246,7 @@ function tryOpenEntry(
     notionalValue: sized.notional,
     marginRequired: sized.margin,
     ticker,
+    side,
   });
 }
 
@@ -256,8 +279,12 @@ export function runPortfolioBacktest(
 ): BacktestMetrics {
   const entry = normalize(rules.entry_conditions);
   const exit = normalize(rules.exit_conditions);
-  const techEntry = entry.filter(isTechnicalCondition);
-  const techExit = exit.filter(isTechnicalCondition);
+  const techEntry = entry.filter(
+    (c) => isTechnicalCondition(c) || isPatternCondition(c)
+  ) as Array<TechnicalCondition | PatternCondition>;
+  const techExit = exit.filter(
+    (c) => isTechnicalCondition(c) || isPatternCondition(c)
+  ) as Array<TechnicalCondition | PatternCondition>;
   const sentimentExcluded = entry.length - techEntry.length + (exit.length - techExit.length);
   const mode = sentimentExcluded > 0 ? ("technical_only" as const) : ("full" as const);
 

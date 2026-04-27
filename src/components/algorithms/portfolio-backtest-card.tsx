@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Briefcase, Loader2 } from "lucide-react";
+import { Briefcase, CheckCircle2, Loader2, XCircle } from "lucide-react";
+import { runPortfolioBacktest } from "@/app/(dashboard)/algorithms/backtest-run-actions";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -23,6 +25,33 @@ import { useRunPortfolioBacktest } from "@/hooks/use-algorithms";
 import type { BacktestMetrics } from "@/lib/market-data/types";
 import { pnlColorClass } from "@/lib/utils/pnl";
 import { BacktestResultsDisplay } from "./backtest-results-display";
+
+const WINDOW_LABELS: Record<string, string> = {
+  "1m": "Last 1 month",
+  "3m": "Last 3 months",
+  "6m": "Last 6 months",
+  "1y": "Last 1 year",
+  all: "All available",
+};
+const COMPARE_WINDOWS = ["1m", "3m", "6m", "1y"] as const;
+type Window = (typeof COMPARE_WINDOWS)[number] | "all";
+
+/** Trades below this are too few to draw any conclusion from. */
+const LOW_SAMPLE_THRESHOLD = 30;
+
+/** 95% Wilson confidence interval half-width on a binomial win rate.
+ *  Returns the ± margin in percentage points. */
+function winRateCi(winRatePct: number, n: number): number {
+  if (n <= 0) return 0;
+  const p = winRatePct / 100;
+  const z = 1.96;
+  const denom = 1 + (z * z) / n;
+  const center = p + (z * z) / (2 * n);
+  const margin = z * Math.sqrt((p * (1 - p)) / n + (z * z) / (4 * n * n));
+  const lower = (center - margin) / denom;
+  const upper = (center + margin) / denom;
+  return ((upper - lower) / 2) * 100;
+}
 
 interface PortfolioBacktestCardProps {
   algorithmId: string;
@@ -71,21 +100,129 @@ function PerTickerTable({ rows }: { rows: NonNullable<BacktestMetrics["per_ticke
   );
 }
 
+interface WindowResult {
+  window: Window;
+  metrics: BacktestMetrics | null;
+  loading: boolean;
+  error: string | null;
+}
+
+function ftmoOk(m: BacktestMetrics): boolean {
+  return m.prop_firm_report?.evaluation_result === "pass";
+}
+
+function ComparisonTable({ rows }: { rows: WindowResult[] }) {
+  return (
+    <div className="space-y-2">
+      <h4 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        Window comparison
+      </h4>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Window</TableHead>
+            <TableHead className="text-right">Return</TableHead>
+            <TableHead className="text-right">Max DD</TableHead>
+            <TableHead className="text-right">Win Rate</TableHead>
+            <TableHead className="text-right">Trades</TableHead>
+            <TableHead className="text-right">FTMO</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {rows.map((r) => (
+            <TableRow key={r.window}>
+              <TableCell className="font-medium">{WINDOW_LABELS[r.window]}</TableCell>
+              {r.loading ? (
+                <TableCell colSpan={5} className="text-xs text-muted-foreground">
+                  <Loader2 className="inline h-3 w-3 animate-spin mr-1.5" /> running...
+                </TableCell>
+              ) : r.error ? (
+                <TableCell colSpan={5} className="text-xs text-[var(--loss)]">
+                  {r.error}
+                </TableCell>
+              ) : r.metrics ? (
+                <ComparisonMetrics m={r.metrics} />
+              ) : (
+                <TableCell colSpan={5} className="text-xs text-muted-foreground">
+                  —
+                </TableCell>
+              )}
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
+  );
+}
+
+function FtmoBadge({ m }: { m: BacktestMetrics }) {
+  if (!m.prop_firm_report) return <span className="text-xs text-muted-foreground">—</span>;
+  return ftmoOk(m) ? (
+    <Badge className="bg-[var(--profit)]/15 text-[var(--profit)]">
+      <CheckCircle2 className="mr-1 h-3 w-3" /> Pass
+    </Badge>
+  ) : (
+    <Badge className="bg-[var(--loss)]/15 text-[var(--loss)]">
+      <XCircle className="mr-1 h-3 w-3" /> Fail
+    </Badge>
+  );
+}
+
+function ComparisonMetrics({ m }: { m: BacktestMetrics }) {
+  const ci = winRateCi(m.win_rate, m.total_trades);
+  const lowSample = m.total_trades < LOW_SAMPLE_THRESHOLD;
+  return (
+    <>
+      <TableCell
+        className={`text-right tabular-nums font-medium ${pnlColorClass(m.total_return)}`}
+      >
+        {m.total_return >= 0 ? "+" : "-"}${Math.abs(m.total_return).toFixed(0)}
+      </TableCell>
+      <TableCell className="text-right tabular-nums">{m.max_drawdown.toFixed(2)}%</TableCell>
+      <TableCell className="text-right tabular-nums">
+        <div className="flex flex-col items-end">
+          <span>{m.win_rate.toFixed(1)}%</span>
+          {m.total_trades > 0 && (
+            <span className="text-[10px] text-muted-foreground">±{ci.toFixed(1)}%</span>
+          )}
+        </div>
+      </TableCell>
+      <TableCell className="text-right tabular-nums">
+        <div className="flex flex-col items-end">
+          <span>{m.total_trades}</span>
+          {lowSample && (
+            <Badge variant="outline" className="text-[10px] mt-0.5 border-amber-500/40 text-amber-600">
+              low sample
+            </Badge>
+          )}
+        </div>
+      </TableCell>
+      <TableCell className="text-right">
+        <FtmoBadge m={m} />
+      </TableCell>
+    </>
+  );
+}
+
 export function PortfolioBacktestCard({
   algorithmId,
   timeframe,
 }: PortfolioBacktestCardProps) {
   const intraday = isIntraday(timeframe);
   const [period, setPeriod] = useState<"compact" | "full">(intraday ? "full" : "compact");
+  const [window, setWindow] = useState<Window>("all");
   const [results, setResults] = useState<BacktestMetrics | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [comparison, setComparison] = useState<WindowResult[] | null>(null);
+  const [comparing, setComparing] = useState(false);
   const mutation = useRunPortfolioBacktest();
 
   function handleRun() {
     setError(null);
     setResults(null);
+    setComparison(null);
     mutation.mutate(
-      { id: algorithmId, period },
+      { id: algorithmId, period, window },
       {
         onSuccess: (r) => {
           if (r.success) setResults(r.data as BacktestMetrics);
@@ -94,6 +231,36 @@ export function PortfolioBacktestCard({
         onError: () => setError("Portfolio backtest failed."),
       }
     );
+  }
+
+  async function handleCompare() {
+    setError(null);
+    setResults(null);
+    setComparing(true);
+    const initial: WindowResult[] = COMPARE_WINDOWS.map((w) => ({
+      window: w,
+      metrics: null,
+      loading: true,
+      error: null,
+    }));
+    setComparison(initial);
+    await Promise.all(
+      COMPARE_WINDOWS.map(async (w, idx) => {
+        const r = await runPortfolioBacktest(algorithmId, period, w);
+        setComparison((prev) => {
+          if (!prev) return prev;
+          const next = [...prev];
+          next[idx] = {
+            window: w,
+            loading: false,
+            metrics: r.success ? (r.data as BacktestMetrics) : null,
+            error: r.success ? null : r.error,
+          };
+          return next;
+        });
+      })
+    );
+    setComparing(false);
   }
 
   return (
@@ -106,36 +273,61 @@ export function PortfolioBacktestCard({
       </CardHeader>
       <CardContent className="space-y-3">
         <p className="text-xs text-muted-foreground">
-          Runs the algorithm across every watchlist ticker simultaneously with a single shared
-          capital pool — the same way paper trading will. Combined return is what matters for
-          prop-firm evaluation, not single-pair backtests.
+          Runs the algorithm across every watchlist ticker with a single shared capital pool. Use
+          the window selector for a single date range, or Compare to see how recent vs older data
+          performs side-by-side (regime drift detection).
         </p>
-        <div className="flex items-end gap-2">
-          <div className="space-y-1.5 flex-1">
-            <Select value={period} onValueChange={(v) => setPeriod(v as "compact" | "full")}>
+        <div className="flex flex-wrap items-end gap-2">
+          <div className="space-y-1.5 flex-1 min-w-[160px]">
+            <Select value={window} onValueChange={(v) => setWindow(v as Window)}>
               <SelectTrigger className="w-full">
-                <SelectValue>
-                  {period === "compact" ? "Last 100 bars per ticker" : "Full history per ticker"}
-                </SelectValue>
+                <SelectValue>{WINDOW_LABELS[window]}</SelectValue>
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="compact">Last 100 bars per ticker</SelectItem>
-                <SelectItem value="full">Full history per ticker</SelectItem>
+                {(["all", "1y", "6m", "3m", "1m"] as const).map((w) => (
+                  <SelectItem key={w} value={w}>
+                    {WINDOW_LABELS[w]}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
-          <Button onClick={handleRun} disabled={mutation.isPending}>
+          <div className="space-y-1.5 flex-1 min-w-[160px]">
+            <Select value={period} onValueChange={(v) => setPeriod(v as "compact" | "full")}>
+              <SelectTrigger className="w-full">
+                <SelectValue>
+                  {period === "compact" ? "Compact data" : "Full history fetch"}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="compact">Compact data (last 100 bars)</SelectItem>
+                <SelectItem value="full">Full history fetch</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <Button onClick={handleRun} disabled={mutation.isPending || comparing}>
             {mutation.isPending ? (
               <>
                 <Loader2 className="mr-2 h-3 w-3 animate-spin" />
                 Running...
               </>
             ) : (
-              "Run Portfolio Backtest"
+              "Run"
+            )}
+          </Button>
+          <Button onClick={handleCompare} disabled={mutation.isPending || comparing} variant="outline">
+            {comparing ? (
+              <>
+                <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                Comparing...
+              </>
+            ) : (
+              "Compare windows"
             )}
           </Button>
         </div>
         {error && <p className="text-xs text-[var(--loss)]">{error}</p>}
+        {comparison && <ComparisonTable rows={comparison} />}
         {results && (
           <div className="space-y-4">
             <BacktestResultsDisplay results={results} />

@@ -165,15 +165,49 @@ async function fetchPortfolioCalendar(
   return fetchEconomicCalendar(earliest, latest);
 }
 
+export type BacktestWindow = "1m" | "3m" | "6m" | "1y" | "all";
+
+const WINDOW_MS: Record<Exclude<BacktestWindow, "all">, number> = {
+  "1m": 30 * 24 * 60 * 60 * 1000,
+  "3m": 90 * 24 * 60 * 60 * 1000,
+  "6m": 180 * 24 * 60 * 60 * 1000,
+  "1y": 365 * 24 * 60 * 60 * 1000,
+};
+
+/**
+ * Slice a ticker's bar series to the trailing window measured from its
+ * LAST bar (not "now") — keeps the cutoff stable across runs even when
+ * the cached data is a few hours/days old. Returns the original series
+ * unchanged when window is "all" or when data is shorter than the window.
+ */
+function slicePricesToWindow<T extends { date: string }>(
+  prices: T[],
+  window: BacktestWindow
+): T[] {
+  if (window === "all" || prices.length === 0) return prices;
+  const ms = WINDOW_MS[window];
+  const lastDate = new Date(prices[prices.length - 1].date).getTime();
+  const cutoff = lastDate - ms;
+  const sliced = prices.filter((p) => new Date(p.date).getTime() >= cutoff);
+  return sliced.length >= 30 ? sliced : prices;
+}
+
+type PortfolioPrices = Awaited<ReturnType<typeof fetchPricesForPortfolio>>;
+
 /**
  * Run the algorithm across every ticker in its watchlist simultaneously
  * with a single shared capital pool. Reveals the combined-portfolio return
  * the user would actually experience in paper trading, vs. the per-pair
  * numbers shown by the single-ticker backtest.
+ *
+ * `window` slices the historical data to that trailing range — lets the
+ * caller compare recent performance ("1m") to older performance ("1y") so
+ * regime drift is visible. Defaults to "all" for backwards compatibility.
  */
 export async function runPortfolioBacktest(
   algorithmId: string,
-  outputSize: "compact" | "full"
+  outputSize: "compact" | "full",
+  window: BacktestWindow = "all"
 ): Promise<ActionResult> {
   const { runPortfolioBacktest: runEngine } = await import(
     "@/lib/market-data/portfolio-backtest"
@@ -223,8 +257,13 @@ export async function runPortfolioBacktest(
         error: "No watchlist ticker had enough price data for backtesting.",
       };
     }
-    const events = await fetchPortfolioCalendar(rules, pricesByTicker);
-    return { success: true, data: runEngine(rules, pricesByTicker, algo.capital, events) };
+    // Apply the time-window slice per ticker before handing to the engine.
+    const sliced: PortfolioPrices = new Map();
+    for (const [ticker, prices] of pricesByTicker) {
+      sliced.set(ticker, slicePricesToWindow(prices, window));
+    }
+    const events = await fetchPortfolioCalendar(rules, sliced);
+    return { success: true, data: runEngine(rules, sliced, algo.capital, events) };
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Portfolio backtest failed";
     return { success: false, error: msg };

@@ -3,16 +3,20 @@
  */
 import { getContractSize } from "@/lib/constants/markets";
 import { checkConditions, normalize, type Cache } from "@/lib/market-data/backtest-engine";
+import { resampleToDaily } from "@/lib/market-data/resample";
 import {
   fetchEconomicCalendar,
   getEventCurrencies,
   isWithinVetoWindow,
 } from "@/lib/market-data/economic-calendar";
+import type { PriceBar } from "@/lib/market-data/types";
 import { evaluateLiveSignal, type SignalResult } from "@/lib/signals/evaluate-live";
 import {
+  isPatternCondition,
   isSentimentCondition,
   isTechnicalCondition,
   type AlgorithmRules,
+  type PatternCondition,
   type TechnicalCondition,
 } from "@/types/algorithm";
 import type { PaperPosition, PositionEvent } from "@/types/position";
@@ -28,32 +32,52 @@ interface AlgoContext {
   capital: number;
 }
 
+/** Serialise a fired condition into the entry_reason.conditions_met blob.
+ *  Different condition types carry different fields — caller iterates the
+ *  mixed list and uses this to flatten each one to a uniform shape. */
+function snapshotCondition(c: TechnicalCondition | PatternCondition) {
+  if (c.type === "technical") {
+    return { type: c.type, indicator: c.indicator, operator: c.operator, value: c.value };
+  }
+  return {
+    type: c.type,
+    pattern: c.pattern,
+    direction: c.direction,
+    lookback: c.lookback,
+    ma_period: c.ma_period,
+  };
+}
+
 async function openPosition(
   supabase: SupabaseClient,
   userId: string,
   algo: AlgoContext,
   ticker: string,
   currentPrice: number,
-  techEntry: TechnicalCondition[],
+  conditions: Array<TechnicalCondition | PatternCondition>,
   sentimentResult: SignalResult | undefined,
   allOpenPositions: PaperPosition[],
   brokerCtx: BrokerExecutionContext | null
 ): Promise<{ opened: number; openEvent?: PositionEvent }> {
-  const openValue = allOpenPositions.reduce((sum, p) => sum + p.notional_value, 0);
+  // calculatePositionSize wants MARGIN-used summed, not notional. For
+  // leveraged sizing (lots / risk_per_trade) sum notional / leverage so
+  // 3 forex positions at 1:100 don't appear to consume the whole account.
+  const sizing0 = algo.rules.position_sizing;
+  const isLeveraged = sizing0.type === "lots" || sizing0.type === "risk_per_trade";
+  const lev = algo.rules.leverage ?? 30;
+  const openValue = allOpenPositions.reduce(
+    (sum, p) => sum + (isLeveraged ? p.notional_value / lev : p.notional_value),
+    0
+  );
   const sizing = calculatePositionSize(algo.rules, algo.capital, openValue, currentPrice, ticker);
   if (!sizing) {
     return { opened: 0 };
   }
 
-  const side = "long" as const;
+  const side: "long" | "short" = algo.rules.side ?? "long";
   const { stopLossPrice, takeProfitPrice } = calculateRiskPrices(currentPrice, algo.rules, side);
   const entryReason = {
-    conditions_met: techEntry.map((c) => ({
-      type: c.type,
-      indicator: c.indicator,
-      operator: c.operator,
-      value: c.value,
-    })),
+    conditions_met: conditions.map(snapshotCondition),
     signal_result: sentimentResult
       ? {
           signal: sentimentResult.signal,
@@ -193,11 +217,41 @@ async function checkNewsVeto(
   return { vetoed: true, reason: `${hit.currency} ${hit.event} (${hit.impact} impact)` };
 }
 
+/** Evaluate the entry-condition gate (technical + pattern) and log a
+ *  signal_no_action event when it fails. Returns true to proceed, false
+ *  to short-circuit. Sentiment is checked separately. */
+async function checkEntryConditions(
+  supabase: SupabaseClient,
+  userId: string,
+  algoId: string,
+  ticker: string,
+  conditions: Array<TechnicalCondition | PatternCondition>,
+  bars: PriceBar[],
+  closes: number[],
+  logic: AlgorithmRules["entry_logic"]
+): Promise<boolean> {
+  if (conditions.length === 0) return true;
+  const cache: Cache = new Map();
+  // Resample intraday bars to D1 for daily_bias-style pattern conditions —
+  // same approach the backtest uses, no separate API fetch needed.
+  const higherTfBars = resampleToDaily(bars);
+  const ctx = { cache, closes, bars, i: closes.length - 1, higherTfBars };
+  if (checkConditions(conditions, ctx, logic)) return true;
+  await logActivity(supabase, userId, {
+    algorithm_id: algoId,
+    event_type: "signal_no_action",
+    ticker,
+    details: { reason: "Entry conditions not met" },
+  });
+  return false;
+}
+
 export async function evaluateEntry(
   supabase: SupabaseClient,
   userId: string,
   algo: AlgoContext,
   ticker: string,
+  bars: PriceBar[],
   closes: number[],
   allOpenPositions: PaperPosition[],
   livePrice?: number | null,
@@ -219,19 +273,20 @@ export async function evaluateEntry(
   }
 
   const normalizedEntry = normalize(rules.entry_conditions);
-  const techEntry = normalizedEntry.filter(isTechnicalCondition) as TechnicalCondition[];
-  if (techEntry.length > 0) {
-    const cache: Cache = new Map();
-    if (!checkConditions(techEntry, cache, closes, closes.length - 1, rules.entry_logic)) {
-      await logActivity(supabase, userId, {
-        algorithm_id: algo.id,
-        event_type: "signal_no_action",
-        ticker,
-        details: { reason: "Technical conditions not met" },
-      });
-      return { opened: 0 };
-    }
-  }
+  const evaluableEntry = normalizedEntry.filter(
+    (c) => isTechnicalCondition(c) || isPatternCondition(c)
+  ) as Array<TechnicalCondition | PatternCondition>;
+  const conditionsPass = await checkEntryConditions(
+    supabase,
+    userId,
+    algo.id,
+    ticker,
+    evaluableEntry,
+    bars,
+    closes,
+    rules.entry_logic
+  );
+  if (!conditionsPass) return { opened: 0 };
 
   const sentimentEntry = normalizedEntry.filter(isSentimentCondition);
   let sentimentResult: SignalResult | undefined;
@@ -257,7 +312,7 @@ export async function evaluateEntry(
     event_type: "signal_detected",
     ticker,
     details: {
-      technical_conditions_met: techEntry.length,
+      conditions_met: evaluableEntry.length,
       sentiment_signal: sentimentResult?.signal,
       sentiment_confidence: sentimentResult?.confidence,
     },
@@ -269,7 +324,7 @@ export async function evaluateEntry(
     algo,
     ticker,
     currentPrice,
-    techEntry,
+    evaluableEntry,
     sentimentResult,
     allOpenPositions,
     brokerCtx ?? null
