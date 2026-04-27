@@ -31,6 +31,7 @@ import { EXIT_REASON_LABELS } from "@/lib/constants/algorithm";
 import { getQuantityUnitFor } from "@/lib/constants/markets";
 import { formatCurrency, formatPnl, formatQuantity, pnlColorClass } from "@/lib/utils/pnl";
 import type { PaperPosition } from "@/types/position";
+import { PriceCellWithBroker } from "./position-price-cell";
 
 function formatPrice(price: number | null): string {
   return price != null ? formatCurrency(price) : "\u2014";
@@ -53,7 +54,13 @@ function PositionRow({
           </span>
         </div>
       </TableCell>
-      <TableCell className="text-right tabular-nums">{formatCurrency(pos.entry_price)}</TableCell>
+      <TableCell className="text-right tabular-nums">
+        <PriceCellWithBroker
+          symbol={pos.ticker}
+          paperPrice={pos.entry_price}
+          brokerPrice={pos.broker_fill_price}
+        />
+      </TableCell>
       <TableCell className="text-right tabular-nums">{formatPrice(pos.current_price)}</TableCell>
       <TableCell
         className={`text-right tabular-nums font-medium ${pnlColorClass(pos.unrealized_pnl)}`}
@@ -225,9 +232,19 @@ function ClosedPositionContent({
           <TableRow key={pos.id}>
             <TableCell className="font-medium">{pos.ticker}</TableCell>
             <TableCell className="text-right tabular-nums">
-              {formatCurrency(pos.entry_price)}
+              <PriceCellWithBroker
+                symbol={pos.ticker}
+                paperPrice={pos.entry_price}
+                brokerPrice={pos.broker_fill_price}
+              />
             </TableCell>
-            <TableCell className="text-right tabular-nums">{formatPrice(pos.exit_price)}</TableCell>
+            <TableCell className="text-right tabular-nums">
+              <PriceCellWithBroker
+                symbol={pos.ticker}
+                paperPrice={pos.exit_price}
+                brokerPrice={pos.broker_close_price}
+              />
+            </TableCell>
             <TableCell
               className={`text-right tabular-nums font-medium ${pnlColorClass(pos.realized_pnl)}`}
             >

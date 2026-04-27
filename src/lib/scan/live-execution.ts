@@ -12,6 +12,7 @@
  */
 import {
   closePosition as metaClose,
+  fetchPosition,
   fetchSymbolSpec,
   notionalToLots,
   placeMarketOrder,
@@ -108,12 +109,23 @@ export async function executeLiveEntry(args: EntryArgs): Promise<void> {
       takeProfit: args.takeProfitPrice,
       comment: `qt:${algorithmId.slice(0, 8)}`,
     });
+    // Best-effort: fetch the freshly-placed position to capture the real
+    // broker fill price. The trade endpoint doesn't include it. Falls back
+    // to our scan price if MetaApi 404s (rare race) so the column is never
+    // null when broker_position_id is set.
+    const realFill = await fetchPosition(
+      args.ctx.apiToken,
+      args.ctx.accountId,
+      args.ctx.region,
+      placed.positionId
+    );
+    const brokerFillPrice = realFill?.openPrice ?? args.currentPrice;
     await supabase
       .from("paper_positions")
       .update({
         broker_order_id: placed.orderId,
         broker_position_id: placed.positionId,
-        broker_fill_price: args.currentPrice,
+        broker_fill_price: brokerFillPrice,
         broker_error: null,
       })
       .eq("id", paperPositionId);

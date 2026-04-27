@@ -96,6 +96,36 @@ export function formatQuantity(value: number): string {
   return value % 1 === 0 ? value.toString() : value.toFixed(4);
 }
 
+/**
+ * Render the gap between our paper-side price and the broker's actual fill
+ * as a signed pip count (forex) or percentage (everything else). Returns null
+ * when there's nothing to show (no broker price, identical prices, or both
+ * prices missing). Currency-neutral — operates on raw stored prices, NOT
+ * the display-currency-converted values.
+ */
+export function formatBrokerDivergence(
+  symbol: string,
+  paperPrice: number | null | undefined,
+  brokerPrice: number | null | undefined
+): string | null {
+  if (paperPrice == null || brokerPrice == null) return null;
+  const delta = brokerPrice - paperPrice;
+  if (Math.abs(delta) < 1e-9) return null;
+
+  // JPY-quoted forex pairs use 0.01 per pip; other forex pairs use 0.0001.
+  const upper = symbol.toUpperCase();
+  const isForex = /^[A-Z]{3}\/[A-Z]{3}$/.test(upper);
+  if (isForex) {
+    const pip = upper.endsWith("/JPY") ? 0.01 : 0.0001;
+    const pips = delta / pip;
+    const sign = pips >= 0 ? "+" : "";
+    return `${sign}${pips.toFixed(1)} pips`;
+  }
+  const pct = (delta / paperPrice) * 100;
+  const sign = pct >= 0 ? "+" : "";
+  return `${sign}${pct.toFixed(2)}%`;
+}
+
 export function calculateUnrealizedPnl(
   side: "long" | "short",
   entryPrice: number,

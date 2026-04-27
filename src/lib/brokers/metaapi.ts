@@ -94,6 +94,30 @@ export async function fetchPositions(
   return call<MetaApiPosition[]>(region, token, accountId, "/positions");
 }
 
+/**
+ * Fetch a single position by id. Used right after place_market_order to
+ * capture the broker's actual fill price (which the trade endpoint doesn't
+ * include in its response). Returns null if MetaApi can't find the position
+ * — typical race: caller should fall back to "our price" if so.
+ */
+export async function fetchPosition(
+  token: string,
+  accountId: string,
+  region: MetaApiRegion,
+  positionId: string
+): Promise<MetaApiPosition | null> {
+  try {
+    return await call<MetaApiPosition>(
+      region,
+      token,
+      accountId,
+      `/positions/${encodeURIComponent(positionId)}`
+    );
+  } catch {
+    return null;
+  }
+}
+
 export interface MetaApiSnapshot {
   account: MetaApiAccountInfo;
   positions: MetaApiPosition[];
