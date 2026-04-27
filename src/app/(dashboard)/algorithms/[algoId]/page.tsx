@@ -12,6 +12,7 @@ import {
 } from "@/components/algorithms/algorithm-detail-parts";
 import { AlgorithmEditView } from "@/components/algorithms/algorithm-edit-view";
 import { DiscoveryCard } from "@/components/algorithms/discovery-card";
+import { FtmoComplianceCard } from "@/components/algorithms/ftmo-compliance-card";
 import { PaperTradingTab } from "@/components/algorithms/paper-trading-tab";
 import { StrategyStatsTab } from "@/components/algorithms/strategy-stats-tab";
 import { WatchlistCard } from "@/components/algorithms/watchlist-card";
@@ -65,7 +66,9 @@ function ReadView({
   isBtPending: boolean;
 }) {
   return (
-    <Tabs defaultValue={0}>
+    <div className="space-y-4">
+      <FtmoComplianceCard algorithmId={algo.id} />
+      <Tabs defaultValue={0}>
       <TabsList variant="line">
         <TabsTrigger value={0}>Overview</TabsTrigger>
         <TabsTrigger value={1}>Watchlist</TabsTrigger>
@@ -102,7 +105,8 @@ function ReadView({
       <TabsContent value={4} className="space-y-4 pt-2">
         <StrategyStatsTab algorithmId={algo.id} />
       </TabsContent>
-    </Tabs>
+      </Tabs>
+    </div>
   );
 }
 
