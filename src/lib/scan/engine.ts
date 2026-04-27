@@ -10,9 +10,9 @@ import { checkConditions, normalize, type Cache } from "@/lib/market-data/backte
 import { timeframeToInterval, type BarInterval } from "@/lib/market-data/interval";
 import { getCachedPrices, savePricesToCache } from "@/lib/market-data/price-cache";
 import { fetchDailyPrices } from "@/lib/market-data/prices";
+import { resampleToDaily } from "@/lib/market-data/resample";
 import { fetchBatchQuotes } from "@/lib/market-data/twelve-data";
 import type { PriceBar } from "@/lib/market-data/types";
-import { resampleToDaily } from "@/lib/market-data/resample";
 import {
   isPatternCondition,
   isTechnicalCondition,

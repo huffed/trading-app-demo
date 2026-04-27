@@ -14,9 +14,9 @@ import {
   type TechnicalCondition,
 } from "@/types/algorithm";
 import { resolveSide } from "./auto-side";
-import { checkConditions, normalize } from "./backtest-engine";
-import { resampleToDaily } from "./resample";
+import { checkConditions, collectOtherTimeframes, normalize } from "./backtest-engine";
 import { calculateMetrics } from "./backtest-metrics";
+import { type BarsBundle } from "./condition-evaluator";
 import { buildVetoCheck, type EconomicEvent } from "./economic-calendar";
 import { type Cache } from "./indicator-registry";
 import {
@@ -31,6 +31,7 @@ import {
   type SimConfig,
   type SimState,
 } from "./prop-firm-backtest";
+import { alignBarIndex, resampleTo, resampleToDaily } from "./resample";
 import type {
   BacktestMetrics,
   BacktestTrade,
@@ -51,6 +52,10 @@ interface TickerState {
   bars: PriceBar[];
   /** Resampled D1 view of `bars`, used by daily_bias pattern conditions. */
   higherTfBars: PriceBar[];
+  /** Per-non-primary-timeframe resampled bars + cache. Built once per
+   *  ticker; bar index is realigned each iteration via alignBarIndex. */
+  tfBars: Map<string, PriceBar[]>;
+  tfCaches: Map<string, Cache>;
   closes: number[];
   cache: Cache;
   positions: PortfolioPosition[];
@@ -91,11 +96,27 @@ function initTickerStates(
   pricesByTicker: Map<string, PriceBar[]>,
   events: EconomicEvent[]
 ): Map<string, TickerState> {
+  // Pre-resolve unique non-primary timeframes from the rule's conditions
+  // so each ticker resamples once and reuses across the simulation loop.
+  const primaryTf = rules.timeframe.toLowerCase();
+  const otherTfs = collectOtherTimeframes(
+    rules.entry_conditions,
+    rules.exit_conditions,
+    primaryTf
+  );
   const out = new Map<string, TickerState>();
   for (const [ticker, prices] of pricesByTicker) {
+    const tfBars = new Map<string, PriceBar[]>();
+    const tfCaches = new Map<string, Cache>();
+    for (const tf of otherTfs) {
+      tfBars.set(tf, resampleTo(prices, tf));
+      tfCaches.set(tf, new Map());
+    }
     out.set(ticker, {
       bars: prices,
       higherTfBars: resampleToDaily(prices),
+      tfBars,
+      tfCaches,
       closes: prices.map((p) => p.close),
       cache: new Map(),
       positions: [],
@@ -106,6 +127,28 @@ function initTickerStates(
     });
   }
   return out;
+}
+
+/** Build the per-non-primary-timeframe bundle map for the current bar.
+ *  Each TF's bars are aligned to the primary's "now" via alignBarIndex.
+ *  Returns undefined when the algo has no non-primary timeframes. */
+function buildByTimeframe(
+  state: TickerState,
+  primaryDate: string
+): Map<string, BarsBundle> | undefined {
+  if (state.tfBars.size === 0) return undefined;
+  const out = new Map<string, BarsBundle>();
+  for (const [tf, bars] of state.tfBars) {
+    const idx = alignBarIndex(bars, primaryDate);
+    if (idx < 0) continue;
+    out.set(tf, {
+      bars,
+      closes: bars.map((b) => b.close),
+      cache: state.tfCaches.get(tf)!,
+      i: idx,
+    });
+  }
+  return out.size > 0 ? out : undefined;
 }
 
 /**
@@ -143,7 +186,15 @@ function runCloseLoop(
     (techExit.length > 0 &&
       checkConditions(
         techExit,
-        { cache: state.cache, closes: state.closes, bars: state.bars, higherTfBars: state.higherTfBars, i },
+        {
+        cache: state.cache,
+        closes: state.closes,
+        bars: state.bars,
+        higherTfBars: state.higherTfBars,
+        i,
+        byTimeframe: buildByTimeframe(state, state.bars[i].date),
+        primaryTimeframe: rules.timeframe.toLowerCase(),
+      },
         rules.entry_logic
       )) ||
     s.drawdownBreached;

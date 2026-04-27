@@ -1,19 +1,53 @@
 /**
- * Resample an intraday bar series to daily bars. Used by the backtest
- * engine to compute higher-timeframe context (daily-bias filter) without
- * a separate API fetch — we already have the 1h/4h bars, the D1 view is
- * a deterministic aggregation of them.
+ * Resample an intraday bar series to a coarser timeframe. Used by the
+ * backtest + scan engines to compute higher-timeframe context (daily_bias,
+ * 4h liquidity sweeps from a 1h primary, etc.) without separate API
+ * fetches — we already have the finer bars, the coarser view is a
+ * deterministic aggregation.
  *
- * Date keying uses the calendar day prefix `YYYY-MM-DD` of each bar's
- * timestamp, so it's correct for both daily bars (passes through) and
- * intraday bars regardless of timezone offset (we don't try to model
- * exchange-local trading days).
+ * Date keying for "1d" uses the calendar day prefix `YYYY-MM-DD`, which is
+ * correct for both daily bars (passes through) and intraday bars
+ * regardless of timezone offset.
+ *
+ * For intraday targets ("4h", "1h", etc.) we bucket by floor(timestamp /
+ * bucketSeconds). Source bars finer than the target are aggregated; source
+ * bars coarser than or equal to the target pass through unchanged.
  */
 import type { PriceBar } from "./types";
 
+const TIMEFRAME_SECONDS: Record<string, number> = {
+  "1min": 60,
+  "5min": 5 * 60,
+  "15min": 15 * 60,
+  "30min": 30 * 60,
+  "1h": 60 * 60,
+  "4h": 4 * 60 * 60,
+  "1d": 24 * 60 * 60,
+  "1day": 24 * 60 * 60,
+  "15m": 15 * 60,
+  "30m": 30 * 60,
+  "5m": 5 * 60,
+  "1m": 60,
+};
+
+function timeframeSeconds(tf: string): number {
+  return TIMEFRAME_SECONDS[tf.toLowerCase()] ?? 60 * 60;
+}
+
+function aggregate(group: PriceBar[]): Omit<PriceBar, "date"> {
+  let high = group[0].high;
+  let low = group[0].low;
+  let volume = 0;
+  for (const b of group) {
+    if (b.high > high) high = b.high;
+    if (b.low < low) low = b.low;
+    volume += b.volume;
+  }
+  return { open: group[0].open, high, low, close: group[group.length - 1].close, volume };
+}
+
 export function resampleToDaily(bars: PriceBar[]): PriceBar[] {
   if (bars.length === 0) return bars;
-
   const byDay = new Map<string, PriceBar[]>();
   for (const b of bars) {
     const day = b.date.split(/[ T]/)[0];
@@ -21,26 +55,61 @@ export function resampleToDaily(bars: PriceBar[]): PriceBar[] {
     if (list) list.push(b);
     else byDay.set(day, [b]);
   }
-
   const out: PriceBar[] = [];
   for (const [day, group] of byDay) {
     if (group.length === 0) continue;
-    let high = group[0].high;
-    let low = group[0].low;
-    let volume = 0;
-    for (const b of group) {
-      if (b.high > high) high = b.high;
-      if (b.low < low) low = b.low;
-      volume += b.volume;
-    }
-    out.push({
-      date: day,
-      open: group[0].open,
-      high,
-      low,
-      close: group[group.length - 1].close,
-      volume,
-    });
+    out.push({ date: day, ...aggregate(group) });
   }
   return out.sort((a, b) => a.date.localeCompare(b.date));
+}
+
+/**
+ * Resample to an arbitrary timeframe (e.g. "4h"). Bars are grouped into
+ * buckets of `bucketSeconds` starting at unix epoch — so 4h buckets align
+ * to 00/04/08/... UTC. The bucket's representative date is its start time
+ * formatted "YYYY-MM-DD HH:MM:SS" (matches the engine's intraday format).
+ *
+ * For "1d" target this delegates to resampleToDaily for the canonical
+ * date-only output format.
+ */
+export function resampleTo(bars: PriceBar[], targetTimeframe: string): PriceBar[] {
+  const tf = targetTimeframe.toLowerCase();
+  if (tf === "1d" || tf === "1day") return resampleToDaily(bars);
+  if (bars.length === 0) return bars;
+
+  const bucketSec = timeframeSeconds(tf);
+  const buckets = new Map<number, PriceBar[]>();
+  for (const b of bars) {
+    const ms = new Date(b.date).getTime();
+    if (Number.isNaN(ms)) continue;
+    const bucketStart = Math.floor(ms / 1000 / bucketSec) * bucketSec;
+    const list = buckets.get(bucketStart);
+    if (list) list.push(b);
+    else buckets.set(bucketStart, [b]);
+  }
+
+  const out: PriceBar[] = [];
+  for (const [start, group] of buckets) {
+    if (group.length === 0) continue;
+    const date = new Date(start * 1000).toISOString().replace("T", " ").slice(0, 19);
+    out.push({ date, ...aggregate(group) });
+  }
+  return out.sort((a, b) => a.date.localeCompare(b.date));
+}
+
+/**
+ * Find the index of the latest bar in `bars` whose date is at or before
+ * `asOf`. Used by multi-timeframe routing to align a higher-timeframe
+ * series to the current primary-timeframe bar during backtest replay.
+ *
+ * Returns -1 when no bar qualifies (asOf is before the first bar).
+ */
+export function alignBarIndex(bars: PriceBar[], asOf: string): number {
+  const asOfMs = new Date(asOf).getTime();
+  if (Number.isNaN(asOfMs)) return bars.length - 1;
+  for (let i = bars.length - 1; i >= 0; i--) {
+    const m = new Date(bars[i].date).getTime();
+    if (!Number.isNaN(m) && m <= asOfMs) return i;
+  }
+  return -1;
 }

@@ -10,13 +10,12 @@ import { resolveSide } from "./auto-side";
 import { calculateMetrics } from "./backtest-metrics";
 import {
   checkConditions as checkMixedConditions,
+  type BarsBundle,
   type ConditionContext,
   type EvaluableCondition,
 } from "./condition-evaluator";
-import { resampleToDaily } from "./resample";
 import { buildVetoCheck, type EconomicEvent } from "./economic-calendar";
 import { getValues, type Cache } from "./indicator-registry";
-import { evaluateTechnical } from "./technical-evaluator";
 import {
   applySlippage,
   buildPropFirmReport,
@@ -30,6 +29,8 @@ import {
   type SimConfig,
   type SimState,
 } from "./prop-firm-backtest";
+import { alignBarIndex, resampleTo, resampleToDaily } from "./resample";
+import { evaluateTechnical } from "./technical-evaluator";
 import type { BacktestMetrics, BacktestTrade, OpenPosition, PriceBar } from "./types";
 
 export type { Cache } from "./indicator-registry";
@@ -68,6 +69,25 @@ const DEFAULT_POSITION_SIZE_PCT = 10;
 const DEFAULT_STOP_LOSS_PCT = 5;
 const DEFAULT_TAKE_PROFIT_PCT = 15;
 
+/** Pull every distinct condition timeframe that ISN'T the primary one,
+ *  lowercased + deduped. Used to size the multi-timeframe context map.
+ *  Accepts any condition shape with an optional timeframe field — works
+ *  on EvaluableCondition arrays AND on the broader EntryCondition union
+ *  (sentiment included), since sentiment also has a timeframe field. */
+export function collectOtherTimeframes(
+  entry: { timeframe?: string }[],
+  exit: { timeframe?: string }[],
+  primaryTf: string
+): string[] {
+  const set = new Set<string>();
+  for (const c of [...entry, ...exit]) {
+    if (!c.timeframe) continue;
+    const tf = c.timeframe.toLowerCase();
+    if (tf !== primaryTf) set.add(tf);
+  }
+  return Array.from(set);
+}
+
 function buildSimConfig(rules: AlgorithmRules): SimConfig {
   const pf = rules.prop_firm;
   return {
@@ -98,6 +118,18 @@ function runSimulation(
   // Resample intraday bars to D1 once for any pattern condition that needs
   // higher-timeframe context (daily_bias). Cheap aggregation; pure function.
   const higherTfBars = resampleToDaily(prices);
+  // Multi-timeframe routing: scan the rule for any condition declaring a
+  // non-primary timeframe. Resample once per unique target so all bars are
+  // ready before the simulation loop. Aligned to the primary's "now" each
+  // bar via alignBarIndex.
+  const primaryTf = rules.timeframe.toLowerCase();
+  const otherTfs = collectOtherTimeframes(entry, exit, primaryTf);
+  const tfBars = new Map<string, PriceBar[]>();
+  const tfCaches = new Map<string, Cache>();
+  for (const tf of otherTfs) {
+    tfBars.set(tf, resampleTo(prices, tf));
+    tfCaches.set(tf, new Map());
+  }
   const trades: BacktestTrade[] = [];
   const fixedSide: "long" | "short" | "auto" = rules.side ?? "long";
   const positions: {
@@ -125,6 +157,22 @@ function runSimulation(
     // mode reads the resampled D1 bias and trades whichever direction it
     // points to. Returns null when bias is neutral — entry skipped.
     const resolved = resolveSide(fixedSide, higherTfBars, i);
+    // Build per-timeframe bundles aligned to the primary bar's date.
+    let byTimeframe: Map<string, BarsBundle> | undefined;
+    if (otherTfs.length > 0) {
+      byTimeframe = new Map();
+      for (const tf of otherTfs) {
+        const tfArr = tfBars.get(tf)!;
+        const idx = alignBarIndex(tfArr, prices[i].date);
+        if (idx < 0) continue;
+        byTimeframe.set(tf, {
+          bars: tfArr,
+          closes: tfArr.map((b) => b.close),
+          cache: tfCaches.get(tf)!,
+          i: idx,
+        });
+      }
+    }
     const ctx: ConditionContext = {
       cache,
       closes,
@@ -132,6 +180,8 @@ function runSimulation(
       i,
       higherTfBars,
       directionOverride: resolved?.directionOverride,
+      byTimeframe,
+      primaryTimeframe: primaryTf,
     };
     const signalExitFired =
       (exit.length > 0 && checkConditions(exit, ctx, rules.entry_logic)) ||

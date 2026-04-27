@@ -3,13 +3,19 @@
  */
 import { getContractSize } from "@/lib/constants/markets";
 import { resolveSide } from "@/lib/market-data/auto-side";
-import { checkConditions, normalize, type Cache } from "@/lib/market-data/backtest-engine";
-import { resampleToDaily } from "@/lib/market-data/resample";
+import {
+  checkConditions,
+  collectOtherTimeframes,
+  normalize,
+  type Cache,
+} from "@/lib/market-data/backtest-engine";
+import type { BarsBundle } from "@/lib/market-data/condition-evaluator";
 import {
   fetchEconomicCalendar,
   getEventCurrencies,
   isWithinVetoWindow,
 } from "@/lib/market-data/economic-calendar";
+import { resampleTo, resampleToDaily } from "@/lib/market-data/resample";
 import type { PriceBar } from "@/lib/market-data/types";
 import { evaluateLiveSignal, type SignalResult } from "@/lib/signals/evaluate-live";
 import {
@@ -234,6 +240,7 @@ async function checkEntryConditions(
   conditions: Array<TechnicalCondition | PatternCondition>,
   bars: PriceBar[],
   closes: number[],
+  primaryTimeframe: string,
   logic: AlgorithmRules["entry_logic"],
   directionOverride?: "bullish" | "bearish"
 ): Promise<boolean> {
@@ -242,6 +249,24 @@ async function checkEntryConditions(
   // Resample intraday bars to D1 for daily_bias-style pattern conditions —
   // same approach the backtest uses, no separate API fetch needed.
   const higherTfBars = resampleToDaily(bars);
+  // Multi-timeframe routing: build aligned bundles for any non-primary
+  // timeframe a condition references. Live uses the LATEST bar in each
+  // resampled series — no alignment-by-date needed since "now" is now.
+  const otherTfs = collectOtherTimeframes(conditions, [], primaryTimeframe.toLowerCase());
+  let byTimeframe: Map<string, BarsBundle> | undefined;
+  if (otherTfs.length > 0) {
+    byTimeframe = new Map();
+    for (const tf of otherTfs) {
+      const tfBars = resampleTo(bars, tf);
+      if (tfBars.length === 0) continue;
+      byTimeframe.set(tf, {
+        bars: tfBars,
+        closes: tfBars.map((b) => b.close),
+        cache: new Map(),
+        i: tfBars.length - 1,
+      });
+    }
+  }
   const ctx = {
     cache,
     closes,
@@ -249,6 +274,8 @@ async function checkEntryConditions(
     i: closes.length - 1,
     higherTfBars,
     directionOverride,
+    byTimeframe,
+    primaryTimeframe: primaryTimeframe.toLowerCase(),
   };
   if (checkConditions(conditions, ctx, logic)) return true;
   await logActivity(supabase, userId, {
@@ -312,6 +339,7 @@ export async function evaluateEntry(
     evaluableEntry,
     bars,
     closes,
+    rules.timeframe,
     rules.entry_logic,
     resolved.directionOverride
   );
