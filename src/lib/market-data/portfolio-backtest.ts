@@ -14,6 +14,7 @@ import {
   type TechnicalCondition,
 } from "@/types/algorithm";
 import { checkConditions, normalize } from "./backtest-engine";
+import { resampleToDaily } from "./resample";
 import { calculateMetrics } from "./backtest-metrics";
 import { buildVetoCheck, type EconomicEvent } from "./economic-calendar";
 import { type Cache } from "./indicator-registry";
@@ -46,6 +47,8 @@ interface PortfolioPosition {
 
 interface TickerState {
   bars: PriceBar[];
+  /** Resampled D1 view of `bars`, used by daily_bias pattern conditions. */
+  higherTfBars: PriceBar[];
   closes: number[];
   cache: Cache;
   positions: PortfolioPosition[];
@@ -90,6 +93,7 @@ function initTickerStates(
   for (const [ticker, prices] of pricesByTicker) {
     out.set(ticker, {
       bars: prices,
+      higherTfBars: resampleToDaily(prices),
       closes: prices.map((p) => p.close),
       cache: new Map(),
       positions: [],
@@ -137,7 +141,7 @@ function runCloseLoop(
     (techExit.length > 0 &&
       checkConditions(
         techExit,
-        { cache: state.cache, closes: state.closes, bars: state.bars, i },
+        { cache: state.cache, closes: state.closes, bars: state.bars, higherTfBars: state.higherTfBars, i },
         rules.entry_logic
       )) ||
     s.drawdownBreached;
@@ -223,7 +227,7 @@ function tryOpenEntry(
   if (
     !checkConditions(
       techEntry,
-      { cache: state.cache, closes: state.closes, bars: state.bars, i },
+      { cache: state.cache, closes: state.closes, bars: state.bars, higherTfBars: state.higherTfBars, i },
       rules.entry_logic
     )
   ) {

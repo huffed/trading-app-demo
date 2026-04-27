@@ -12,6 +12,7 @@ import {
   type ConditionContext,
   type EvaluableCondition,
 } from "./condition-evaluator";
+import { resampleToDaily } from "./resample";
 import { buildVetoCheck, type EconomicEvent } from "./economic-calendar";
 import { getValues, type Cache } from "./indicator-registry";
 import { evaluateTechnical } from "./technical-evaluator";
@@ -93,6 +94,9 @@ function runSimulation(
   const cfg = buildSimConfig(rules);
   const closes = prices.map((p) => p.close);
   const cache: Cache = new Map();
+  // Resample intraday bars to D1 once for any pattern condition that needs
+  // higher-timeframe context (daily_bias). Cheap aggregation; pure function.
+  const higherTfBars = resampleToDaily(prices);
   const trades: BacktestTrade[] = [];
   const positions: {
     entryPrice: number;
@@ -114,7 +118,7 @@ function runSimulation(
       currentDayKey = dayKey;
       dailyHalted = false;
     }
-    const ctx: ConditionContext = { cache, closes, bars: prices, i };
+    const ctx: ConditionContext = { cache, closes, bars: prices, i, higherTfBars };
     const signalExitFired =
       (exit.length > 0 && checkConditions(exit, ctx, rules.entry_logic)) ||
       s.drawdownBreached;
