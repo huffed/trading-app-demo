@@ -293,6 +293,32 @@ export function notionalInUsd(symbol: string, lots: number, currentPrice: number
   return baseUnits * usdRate(baseCcy);
 }
 
+/**
+ * Convert an FX/commodity unrealised or realised P&L to USD.
+ *
+ * The naive `(current - entry) × quantity` formula gives P&L in the QUOTE
+ * currency (the currency on the right of the pair). For USD-quoted pairs
+ * (AUD/USD, XAU/USD) that's already USD, but for JPY crosses (EUR/JPY, GBP/JPY)
+ * it's JPY — feeding it back as if it were USD inflates the number ~150×.
+ *
+ * Uses the same USD rate table as `notionalInUsd`, so behaviour is consistent
+ * across sizing and P&L paths.
+ */
+export function pnlInUsd(
+  symbol: string,
+  side: "long" | "short",
+  entryPrice: number,
+  currentPrice: number,
+  quantity: number
+): number {
+  const meta = getInstrumentMeta(symbol);
+  const quoteCcy = meta?.quoteCurrency ?? "USD";
+  const direction = side === "long" ? 1 : -1;
+  const quotePnl = direction * (currentPrice - entryPrice) * quantity;
+  if (quoteCcy === "USD") return quotePnl;
+  return quotePnl * usdRate(quoteCcy);
+}
+
 export function isCurrencyPair(symbol: string): boolean {
   return /^[A-Z]{3}\/[A-Z]{3}$/.test(symbol.toUpperCase());
 }

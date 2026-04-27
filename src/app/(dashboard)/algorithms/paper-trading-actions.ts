@@ -1,9 +1,11 @@
 "use server";
 
+import { pnlInUsd } from "@/lib/constants/markets";
 import { getCachedPrices } from "@/lib/market-data/price-cache";
 import { fetchDailyPrices } from "@/lib/market-data/prices";
 import { fetchBatchQuotes } from "@/lib/market-data/twelve-data";
 import { scanAlgorithm, type ScanResult } from "@/lib/scan/engine";
+import { executeLiveExit, resolveBrokerContext } from "@/lib/scan/live-execution";
 import { closePositionSchema } from "@/lib/validators/position";
 import type { AlgorithmRules } from "@/types/algorithm";
 import type { PaperPosition } from "@/types/position";
@@ -54,6 +56,39 @@ export async function triggerScan(algorithmId?: string): Promise<ActionResult<Sc
   }
 }
 
+async function mirrorManualClose(
+  supabase: Awaited<ReturnType<typeof getAuthedUser>>["supabase"],
+  userId: string,
+  position: PaperPosition & { broker_position_id?: string | null; algorithm_id: string },
+  paperPositionId: string,
+  currentPrice: number
+): Promise<void> {
+  if (!position.broker_position_id) return;
+  const { data: algoMeta } = await supabase
+    .from("algorithms")
+    .select("broker_connection_id, live_trading_enabled")
+    .eq("id", position.algorithm_id)
+    .single();
+  if (!algoMeta) return;
+  const ctx = await resolveBrokerContext(
+    supabase,
+    userId,
+    algoMeta.broker_connection_id ?? null,
+    algoMeta.live_trading_enabled ?? false
+  );
+  if (!ctx) return;
+  await executeLiveExit({
+    supabase,
+    userId,
+    algorithmId: position.algorithm_id,
+    paperPositionId,
+    ticker: position.ticker,
+    brokerPositionId: position.broker_position_id,
+    closePrice: currentPrice,
+    ctx,
+  });
+}
+
 /**
  * Manually close an open position at the current market price.
  */
@@ -88,10 +123,13 @@ export async function closePosition(positionId: string): Promise<ActionResult<Pa
       return { success: false, error: "Could not fetch current price" };
     }
 
-    const realizedPnl =
-      position.side === "long"
-        ? (currentPrice - position.entry_price) * position.quantity
-        : (position.entry_price - currentPrice) * position.quantity;
+    const realizedPnl = pnlInUsd(
+      position.ticker,
+      position.side,
+      position.entry_price,
+      currentPrice,
+      position.quantity
+    );
 
     const { data: updated, error: updateErr } = await supabase
       .from("paper_positions")
@@ -124,6 +162,11 @@ export async function closePosition(positionId: string): Promise<ActionResult<Pa
         exit_reason: "manual",
       },
     });
+
+    // Mirror the close to the broker if this paper position has a real
+    // counterpart. Without this, "Close" in the UI leaves a real MT5
+    // position dangling, blowing the user's risk budget on FTMO.
+    await mirrorManualClose(supabase, user.id, position, positionId, currentPrice);
 
     return { success: true, data: updated as PaperPosition };
   } catch (err) {
@@ -170,10 +213,13 @@ export async function refreshPositionPrices(algorithmId?: string): Promise<Actio
         continue;
       }
 
-      const unrealizedPnl =
-        pos.side === "long"
-          ? (currentPrice - pos.entry_price) * pos.quantity
-          : (pos.entry_price - currentPrice) * pos.quantity;
+      const unrealizedPnl = pnlInUsd(
+        pos.ticker,
+        pos.side,
+        pos.entry_price,
+        currentPrice,
+        pos.quantity
+      );
 
       await supabase
         .from("paper_positions")
