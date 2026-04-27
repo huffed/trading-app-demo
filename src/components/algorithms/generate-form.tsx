@@ -32,6 +32,8 @@ interface GenerateFormProps {
 }
 
 interface BasicFieldState {
+  name: string;
+  setName: (v: string) => void;
   assetClass: string;
   setAssetClass: (v: string) => void;
   riskLevel: string;
@@ -47,6 +49,16 @@ interface BasicFieldState {
 function BasicFields(s: BasicFieldState) {
   return (
     <>
+      <div className="space-y-1.5">
+        <Label htmlFor="algo_name">Name (optional)</Label>
+        <Input
+          id="algo_name"
+          value={s.name}
+          onChange={(e) => s.setName(e.target.value)}
+          placeholder="Leave blank to let the AI name it"
+          maxLength={80}
+        />
+      </div>
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1.5">
           <Label>Asset Class</Label>
@@ -115,6 +127,7 @@ function BasicFields(s: BasicFieldState) {
 }
 
 interface FormState {
+  name: string;
   assetClass: string;
   riskLevel: string;
   capital: string;
@@ -126,6 +139,7 @@ interface FormState {
 }
 
 function useFormState() {
+  const [name, setName] = useState("");
   const [assetClass, setAssetClass] = useState("equity");
   const [riskLevel, setRiskLevel] = useState("moderate");
   const [capital, setCapital] = useState("10000");
@@ -136,6 +150,8 @@ function useFormState() {
   const [propFirmValues, setPropFirmValues] = useState<PropFirmRules | null>(null);
 
   return {
+    name,
+    setName,
     assetClass,
     setAssetClass,
     riskLevel,
@@ -157,6 +173,7 @@ function useFormState() {
 
 function buildSubmitValues(s: FormState): AlgorithmFormValues {
   return {
+    name: s.name.trim() || undefined,
     asset_class: s.assetClass as AlgorithmFormValues["asset_class"],
     risk_level: s.riskLevel as AlgorithmFormValues["risk_level"],
     capital: Number(s.capital),

@@ -33,6 +33,7 @@ const propFirmInput = z
   .optional();
 
 export const algorithmFormSchema = z.object({
+  name: z.string().trim().max(80).optional().or(z.literal("")),
   asset_class: z.enum(assetClasses),
   risk_level: z.enum(riskLevels),
   capital: z.coerce.number().positive("Capital must be positive"),

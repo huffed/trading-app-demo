@@ -226,12 +226,13 @@ export async function generateAlgorithm(
     ]);
 
     const finalRules = applyManualLayers(rules, parsed.data);
+    const finalName = parsed.data.name?.trim() || name;
 
     const { data, error } = await supabase
       .from("algorithms")
       .insert({
         user_id: user.id,
-        name,
+        name: finalName,
         description,
         asset_class: parsed.data.asset_class,
         risk_level: parsed.data.risk_level,
