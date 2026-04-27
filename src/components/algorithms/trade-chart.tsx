@@ -1,7 +1,14 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { ColorType, createChart, CrosshairMode, type IChartApi } from "lightweight-charts";
+import {
+  ColorType,
+  createChart,
+  CrosshairMode,
+  type IChartApi,
+  type Time,
+  type UTCTimestamp,
+} from "lightweight-charts";
 import type { BacktestTrade, PriceBar } from "@/lib/market-data/types";
 
 interface TradeChartProps {
@@ -9,9 +16,27 @@ interface TradeChartProps {
   trades: BacktestTrade[];
 }
 
+const DAILY_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * lightweight-charts only accepts "YYYY-MM-DD" strings for daily bars or
+ * UTC unix-second timestamps for intraday. Twelve Data returns
+ * "2025-08-16 05:00:00" for 1h/4h bars — we have to convert those.
+ */
+function toChartTime(date: string): Time {
+  if (DAILY_DATE.test(date)) return date as Time;
+  // Twelve Data intraday format: "YYYY-MM-DD HH:mm:ss" (UTC implicit).
+  const iso = date.includes("T") ? date : date.replace(" ", "T") + "Z";
+  return Math.floor(new Date(iso).getTime() / 1000) as UTCTimestamp;
+}
+
+function isIntraday(prices: PriceBar[]): boolean {
+  return prices.length > 0 && !DAILY_DATE.test(prices[0].date);
+}
+
 function formatMarkers(trades: BacktestTrade[]) {
   const markers: {
-    time: string;
+    time: Time;
     position: "belowBar" | "aboveBar";
     color: string;
     shape: "arrowUp" | "arrowDown";
@@ -20,14 +45,14 @@ function formatMarkers(trades: BacktestTrade[]) {
 
   for (const t of trades) {
     markers.push({
-      time: t.entry_date,
+      time: toChartTime(t.entry_date),
       position: "belowBar",
       color: "#22c55e",
       shape: "arrowUp",
       text: `Buy $${t.entry_price.toFixed(2)}`,
     });
     markers.push({
-      time: t.exit_date,
+      time: toChartTime(t.exit_date),
       position: "aboveBar",
       color: t.pnl >= 0 ? "#22c55e" : "#ef4444",
       shape: "arrowDown",
@@ -35,7 +60,11 @@ function formatMarkers(trades: BacktestTrade[]) {
     });
   }
 
-  return markers.sort((a, b) => a.time.localeCompare(b.time));
+  return markers.sort((a, b) => {
+    const at = typeof a.time === "number" ? a.time : Date.parse(a.time as string) / 1000;
+    const bt = typeof b.time === "number" ? b.time : Date.parse(b.time as string) / 1000;
+    return at - bt;
+  });
 }
 
 export function TradeChart({ prices, trades }: TradeChartProps) {
@@ -58,7 +87,11 @@ export function TradeChart({ prices, trades }: TradeChartProps) {
       },
       crosshair: { mode: CrosshairMode.Magnet },
       rightPriceScale: { borderVisible: false },
-      timeScale: { borderVisible: false, timeVisible: false },
+      timeScale: {
+        borderVisible: false,
+        timeVisible: isIntraday(prices),
+        secondsVisible: false,
+      },
     });
 
     const candleSeries = chart.addCandlestickSeries({
@@ -72,7 +105,7 @@ export function TradeChart({ prices, trades }: TradeChartProps) {
 
     candleSeries.setData(
       prices.map((p) => ({
-        time: p.date,
+        time: toChartTime(p.date),
         open: p.open,
         high: p.high,
         low: p.low,
@@ -97,7 +130,7 @@ export function TradeChart({ prices, trades }: TradeChartProps) {
 
     volumeSeries.setData(
       prices.map((p) => ({
-        time: p.date,
+        time: toChartTime(p.date),
         value: Number.isFinite(p.volume) ? p.volume : 0,
         color: p.close >= p.open ? "rgba(34,197,94,0.15)" : "rgba(239,68,68,0.15)",
       }))
