@@ -53,6 +53,7 @@ function ReadView({
     | "status"
     | "last_scanned_at"
     | "asset_class"
+    | "time_horizon"
   >;
   backtestError: string | null;
   aiBacktestError: string | null;

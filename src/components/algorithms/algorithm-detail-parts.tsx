@@ -123,7 +123,10 @@ export function BacktestTab({
   isAiPending,
   isBtPending,
 }: {
-  algo: Pick<Algorithm, "id" | "ai_analysis" | "backtest_results" | "asset_class">;
+  algo: Pick<
+    Algorithm,
+    "id" | "ai_analysis" | "backtest_results" | "asset_class" | "time_horizon"
+  >;
   backtestError: string | null;
   aiBacktestError: string | null;
   localBacktestResults: BacktestMetrics | null;
@@ -152,6 +155,7 @@ export function BacktestTab({
       <BacktestForm
         disabled={isBtPending}
         assetClass={algo.asset_class}
+        timeframe={algo.time_horizon}
         onSubmit={(symbol, period) => {
           setResultsVisible(true);
           onRunBacktest(symbol, period);
