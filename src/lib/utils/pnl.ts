@@ -97,6 +97,24 @@ export function formatQuantity(value: number): string {
 }
 
 /**
+ * Format an instrument PRICE for display — never apply the display-currency
+ * converter, never prepend a currency symbol. Exchange rates aren't currency
+ * values; "GBP/JPY 215.808" means "1 GBP = 215.808 JPY", not "£215.81".
+ *
+ * Decimal precision matches broker conventions: 3 dp for JPY-quoted forex
+ * (where 1 pip = 0.01), 5 dp for other forex pairs (1 pip = 0.0001), and
+ * 2 dp for everything else (equities, commodities, crypto).
+ */
+export function formatPriceValue(symbol: string, price: number | null | undefined): string {
+  if (price == null) return "\u2014";
+  const upper = symbol.toUpperCase();
+  if (/^[A-Z]{3}\/[A-Z]{3}$/.test(upper)) {
+    return upper.endsWith("/JPY") ? price.toFixed(3) : price.toFixed(5);
+  }
+  return price.toFixed(2);
+}
+
+/**
  * Render the gap between our paper-side price and the broker's actual fill
  * as a signed pip count (forex) or percentage (everything else). Returns null
  * when there's nothing to show (no broker price, identical prices, or both

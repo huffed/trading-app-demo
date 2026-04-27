@@ -29,13 +29,9 @@ import {
 } from "@/hooks/use-paper-trading";
 import { EXIT_REASON_LABELS } from "@/lib/constants/algorithm";
 import { getQuantityUnitFor } from "@/lib/constants/markets";
-import { formatCurrency, formatPnl, formatQuantity, pnlColorClass } from "@/lib/utils/pnl";
+import { formatPnl, formatPriceValue, formatQuantity, pnlColorClass } from "@/lib/utils/pnl";
 import type { PaperPosition } from "@/types/position";
 import { PriceCellWithBroker } from "./position-price-cell";
-
-function formatPrice(price: number | null): string {
-  return price != null ? formatCurrency(price) : "\u2014";
-}
 
 function PositionRow({
   pos,
@@ -61,14 +57,17 @@ function PositionRow({
           brokerPrice={pos.broker_fill_price}
         />
       </TableCell>
-      <TableCell className="text-right tabular-nums">{formatPrice(pos.current_price)}</TableCell>
+      <TableCell className="text-right tabular-nums">
+        {formatPriceValue(pos.ticker, pos.current_price)}
+      </TableCell>
       <TableCell
         className={`text-right tabular-nums font-medium ${pnlColorClass(pos.unrealized_pnl)}`}
       >
         {formatPnl(pos.unrealized_pnl)}
       </TableCell>
       <TableCell className="text-right text-xs text-muted-foreground tabular-nums">
-        {formatPrice(pos.stop_loss_price)} / {formatPrice(pos.take_profit_price)}
+        {formatPriceValue(pos.ticker, pos.stop_loss_price)} /{" "}
+        {formatPriceValue(pos.ticker, pos.take_profit_price)}
       </TableCell>
       <TableCell className="text-right">
         <Button size="sm" variant="outline" onClick={() => onClose(pos)}>

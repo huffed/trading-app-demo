@@ -1,8 +1,4 @@
-import { formatBrokerDivergence, formatCurrency } from "@/lib/utils/pnl";
-
-function formatPrice(price: number | null): string {
-  return price != null ? formatCurrency(price) : "\u2014";
-}
+import { formatBrokerDivergence, formatPriceValue } from "@/lib/utils/pnl";
 
 /**
  * Render a price cell with an optional broker-fill sublabel underneath
@@ -21,10 +17,10 @@ export function PriceCellWithBroker({
   const divergence = formatBrokerDivergence(symbol, paperPrice, brokerPrice ?? null);
   return (
     <div className="flex flex-col items-end">
-      <span>{formatPrice(paperPrice)}</span>
+      <span>{formatPriceValue(symbol, paperPrice)}</span>
       {brokerPrice != null && divergence && (
         <span className="text-[10px] text-muted-foreground">
-          broker {formatCurrency(brokerPrice)} ({divergence})
+          broker {formatPriceValue(symbol, brokerPrice)} ({divergence})
         </span>
       )}
     </div>
