@@ -7,6 +7,7 @@ import { AiBacktestCard } from "@/components/algorithms/ai-backtest-card";
 import { BacktestForm } from "@/components/algorithms/backtest-form";
 import { BacktestRankingCard } from "@/components/algorithms/backtest-ranking-card";
 import { BacktestResultsDisplay } from "@/components/algorithms/backtest-results-display";
+import { PortfolioBacktestCard } from "@/components/algorithms/portfolio-backtest-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -161,6 +162,7 @@ export function BacktestTab({
           onRunBacktest(symbol, period);
         }}
       />
+      <PortfolioBacktestCard algorithmId={algo.id} timeframe={algo.time_horizon} />
       <BacktestRankingCard algorithmId={algo.id} tickers={watchlistTickers} />
       {backtestError && <p className="text-sm text-destructive">{backtestError}</p>}
       {backtestResults && resultsVisible && (

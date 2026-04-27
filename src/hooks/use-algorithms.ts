@@ -10,6 +10,7 @@ import {
 import {
   runAiBacktest,
   runHistoricalBacktest,
+  runPortfolioBacktest,
 } from "@/app/(dashboard)/algorithms/backtest-run-actions";
 import { createClient } from "@/lib/supabase/client";
 import type { AlgorithmFormValues } from "@/lib/validators/algorithm";
@@ -135,5 +136,12 @@ export function useRunHistoricalBacktest() {
         queryClient.invalidateQueries({ queryKey: ALGORITHMS_KEY });
       }
     },
+  });
+}
+
+export function useRunPortfolioBacktest() {
+  return useMutation({
+    mutationFn: ({ id, period }: { id: string; period: "compact" | "full" }) =>
+      runPortfolioBacktest(id, period),
   });
 }

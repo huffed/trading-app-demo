@@ -23,6 +23,8 @@ export interface BacktestTrade {
   exit_price: number;
   side: "long" | "short";
   pnl: number;
+  /** Set on portfolio backtests so the trade list can show which pair fired. */
+  ticker?: string;
 }
 
 export interface OpenPosition {
@@ -50,6 +52,13 @@ export interface PropFirmReport {
   fail_reasons: string[];
 }
 
+export interface PerTickerSummary {
+  ticker: string;
+  trades: number;
+  return_pct: number;
+  win_rate: number;
+}
+
 export interface BacktestMetrics {
   total_return: number;
   max_drawdown: number;
@@ -63,4 +72,6 @@ export interface BacktestMetrics {
   sentiment_conditions_excluded: number;
   backtest_mode: "full" | "technical_only";
   prop_firm_report?: PropFirmReport;
+  /** Set on portfolio backtests; absent on single-ticker. */
+  per_ticker?: PerTickerSummary[];
 }
