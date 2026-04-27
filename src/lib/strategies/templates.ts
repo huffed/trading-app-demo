@@ -90,7 +90,7 @@ const trendPullback: StrategyTemplate = {
   summary: "Buy minor RSI dips inside a confirmed uptrend (EMA12 > EMA26).",
   description: `Identifies trending markets and waits for the price to pull back without breaking the trend, then re-enters in the direction of the existing move. The win rate is moderate (~40-50%) but the asymmetric risk:reward (3:1+) means a handful of catches funds the strategy.
 
-Best on liquid markets with persistent direction — major forex pairs in clear trends, gold during macro themes, or single stocks with steady drift. Loses in choppy/range-bound conditions, which the news veto and tighter stops mitigate.`,
+Best on liquid markets with persistent direction — major forex pairs in clear trends, gold during macro themes, or single stocks with steady drift. Loses in choppy/range-bound conditions, which the news veto and tighter stops mitigate. Exits are purely stop/TP-driven so winners compound to the full take-profit instead of cutting short on indicator wobbles.`,
   asset_classes: [...FX_OR_COMMODITY, "equity"],
   time_horizons: [...FX_TIMEFRAMES],
   risk_levels: ["conservative", "moderate", "aggressive"],
@@ -98,21 +98,20 @@ Best on liquid markets with persistent direction — major forex pairs in clear 
   build: (ctx) => {
     const stop = pickByRisk(ctx.risk_level, 0.4, 0.6, 1.0);
     const tp = stop * 3;
-    const size = pickByRisk(ctx.risk_level, 4, 6, 9);
+    const size = pickByRisk(ctx.risk_level, 6, 10, 16);
     return fxBaseRules(ctx, {
       entry_conditions: [
         { type: "technical", indicator: "EMA12", operator: "greater_than", value: 0, timeframe: ctx.time_horizon },
         { type: "technical", indicator: "RSI", operator: "less_than", value: 45, timeframe: ctx.time_horizon },
       ],
       entry_logic: "all",
-      exit_conditions: [
-        { type: "technical", indicator: "RSI", operator: "greater_than", value: 60, timeframe: ctx.time_horizon },
-      ],
+      // No signal exit — let TP/stop run so wins capture the full 3:1 R:R.
+      exit_conditions: [],
       stop_loss: { type: "percentage", value: stop },
       take_profit: { type: "percentage", value: tp },
       position_sizing: { type: "percentage_of_capital", value: size },
-      max_positions: pickByRisk(ctx.risk_level, 3, 4, 6),
-      max_per_ticker: pickByRisk(ctx.risk_level, 2, 3, 4),
+      max_positions: pickByRisk(ctx.risk_level, 4, 6, 10),
+      max_per_ticker: pickByRisk(ctx.risk_level, 3, 4, 6),
     });
   },
 };
@@ -201,7 +200,7 @@ const tripleConfirmation: StrategyTemplate = {
   summary: "Three independent bullish signals; fires when 2 of 3 align.",
   description: `Combines a trend filter (EMA12 above EMA26), a momentum filter (RSI above 50), and a volatility expansion filter (price above the upper Bollinger Band). With n-of-m logic the strategy fires when 2 of 3 conditions agree, avoiding the "all three on the same bar" trap that makes single-signal AND strategies dormant.
 
-Designed specifically for forex/commodity 4h scalping with prop-firm constraints. The 2-of-3 firing gets enough trade frequency to hit profit targets; the 3:1 R:R keeps expectancy positive even at sub-30% win rates.`,
+Designed specifically for forex/commodity 4h scalping with prop-firm constraints. The 2-of-3 firing gets enough trade frequency to hit profit targets; the 3:1 R:R keeps expectancy positive even at sub-30% win rates. Exits are purely stop/TP-driven so winners reach the full take-profit.`,
   asset_classes: [...FX_OR_COMMODITY],
   time_horizons: [...FX_TIMEFRAMES],
   risk_levels: ["moderate", "aggressive"],
@@ -209,7 +208,7 @@ Designed specifically for forex/commodity 4h scalping with prop-firm constraints
   build: (ctx) => {
     const stop = pickByRisk(ctx.risk_level, 0.5, 0.7, 1.2);
     const tp = stop * 3;
-    const size = pickByRisk(ctx.risk_level, 5, 7, 10);
+    const size = pickByRisk(ctx.risk_level, 6, 10, 18);
     return fxBaseRules(ctx, {
       entry_conditions: [
         { type: "technical", indicator: "EMA12", operator: "greater_than", value: 0, timeframe: ctx.time_horizon },
@@ -217,14 +216,13 @@ Designed specifically for forex/commodity 4h scalping with prop-firm constraints
         { type: "technical", indicator: "BollingerBands_upper", operator: "greater_than", value: 0, timeframe: ctx.time_horizon },
       ],
       entry_logic: { type: "n_of_m", n: 2 },
-      exit_conditions: [
-        { type: "technical", indicator: "RSI", operator: "less_than", value: 40, timeframe: ctx.time_horizon },
-      ],
+      // Pure R:R-driven exits — TP fires at the configured 3x stop level.
+      exit_conditions: [],
       stop_loss: { type: "percentage", value: stop },
       take_profit: { type: "percentage", value: tp },
       position_sizing: { type: "percentage_of_capital", value: size },
-      max_positions: pickByRisk(ctx.risk_level, 3, 5, 8),
-      max_per_ticker: pickByRisk(ctx.risk_level, 2, 3, 4),
+      max_positions: pickByRisk(ctx.risk_level, 4, 7, 12),
+      max_per_ticker: pickByRisk(ctx.risk_level, 3, 4, 6),
     });
   },
 };
@@ -247,7 +245,7 @@ Works on commodities during macro themes (oil during supply shocks, gold during 
   build: (ctx) => {
     const stop = pickByRisk(ctx.risk_level, 0.6, 1.0, 1.5);
     const tp = stop * 4;
-    const size = pickByRisk(ctx.risk_level, 4, 7, 10);
+    const size = pickByRisk(ctx.risk_level, 6, 10, 16);
     return fxBaseRules(ctx, {
       entry_conditions: [
         { type: "technical", indicator: "BollingerBands_upper", operator: "crosses_above", value: 0, timeframe: ctx.time_horizon },
@@ -259,8 +257,8 @@ Works on commodities during macro themes (oil during supply shocks, gold during 
       stop_loss: { type: "percentage", value: stop },
       take_profit: { type: "percentage", value: tp },
       position_sizing: { type: "percentage_of_capital", value: size },
-      max_positions: pickByRisk(ctx.risk_level, 2, 4, 6),
-      max_per_ticker: pickByRisk(ctx.risk_level, 1, 2, 3),
+      max_positions: pickByRisk(ctx.risk_level, 3, 6, 10),
+      max_per_ticker: pickByRisk(ctx.risk_level, 2, 3, 4),
     });
   },
 };

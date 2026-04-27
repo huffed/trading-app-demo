@@ -168,7 +168,7 @@ function runSimulation(
   const closes = prices.map((p) => p.close);
   const cache: Cache = new Map();
   const trades: BacktestTrade[] = [];
-  const positions: { entryPrice: number; entryDate: string }[] = [];
+  const positions: { entryPrice: number; entryDate: string; notionalValue: number }[] = [];
   const s: SimState = {
     equity: capital,
     peakEquity: capital,
@@ -217,18 +217,19 @@ function runSimulation(
       positions.push({
         entryPrice: applySlippage(closes[i], cfg.slippageBps, true),
         entryDate: day,
+        // Compound: each new position is sized off the running equity at
+        // open time, not the initial capital. Wins grow future positions.
+        notionalValue: s.equity * cfg.posSize,
       });
     }
   }
-  const openPos = getOpenPosition(positions, closes, capital, cfg);
+  const openPos = getOpenPosition(positions, closes);
   return { trades, openPos, state: s };
 }
 
 function getOpenPosition(
-  positions: { entryPrice: number; entryDate: string }[],
-  closes: number[],
-  capital: number,
-  cfg: SimConfig
+  positions: { entryPrice: number; entryDate: string; notionalValue: number }[],
+  closes: number[]
 ): OpenPosition | null {
   if (positions.length === 0) {
     return null;
@@ -241,7 +242,7 @@ function getOpenPosition(
     entry_price: pos.entryPrice,
     current_price: lastPrice,
     side: "long",
-    unrealized_pnl: Number((capital * cfg.posSize * pnlPct).toFixed(2)),
+    unrealized_pnl: Number((pos.notionalValue * pnlPct).toFixed(2)),
     unrealized_pnl_pct: Number((pnlPct * 100).toFixed(2)),
   };
 }

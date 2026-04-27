@@ -78,8 +78,11 @@ export function clampRules(rules: AlgorithmRules, timeHorizon: string): Algorith
   if (clamped.max_per_ticker == null || clamped.max_per_ticker < 1) {
     clamped.max_per_ticker = isFxOrCommodity ? 3 : 1;
   }
-  if (clamped.max_per_ticker > 5) {
-    clamped.max_per_ticker = 5;
+  // Allow up to 8 stacked positions on forex/commodity for aggressive
+  // pyramiding strategies; equity stays at 3.
+  const cap = isFxOrCommodity ? 8 : 3;
+  if (clamped.max_per_ticker > cap) {
+    clamped.max_per_ticker = cap;
   }
 
   if (clamped.news_veto == null && isFxOrCommodity) {

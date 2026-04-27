@@ -24,7 +24,7 @@ export interface SimConfig {
 }
 
 export function closeSimPosition(
-  pos: { entryPrice: number; entryDate: string },
+  pos: { entryPrice: number; entryDate: string; notionalValue: number },
   day: string,
   exitPrice: number,
   capital: number,
@@ -33,10 +33,13 @@ export function closeSimPosition(
   trades: BacktestTrade[]
 ) {
   const pnlPct = (exitPrice - pos.entryPrice) / pos.entryPrice;
-  const commission = capital * cfg.posSize * (cfg.commissionPct / 100) * 2;
-  const pnl = Number((capital * cfg.posSize * pnlPct - commission).toFixed(2));
+  // Position notional was sized off equity-at-open, so wins compound naturally
+  // as equity grows and losses shrink positions during drawdowns.
+  const notional = pos.notionalValue;
+  const commission = notional * (cfg.commissionPct / 100) * 2;
+  const pnl = Number((notional * pnlPct - commission).toFixed(2));
   s.totalSlippage +=
-    ((pos.entryPrice + exitPrice) * (cfg.slippageBps / 10000) * capital * cfg.posSize) / exitPrice;
+    ((pos.entryPrice + exitPrice) * (cfg.slippageBps / 10000) * notional) / exitPrice;
   s.totalCommission += commission;
   trades.push({
     entry_date: pos.entryDate,
