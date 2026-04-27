@@ -3,7 +3,11 @@
 import { useEffect, useState } from "react";
 import { Check, Loader2, User } from "lucide-react";
 import { getExchangeRate, getProfile, updateProfile } from "@/app/(dashboard)/settings/actions";
-import { ApiKeysCard, TradingPreferencesCard } from "@/components/settings/settings-cards";
+import {
+  ApiKeysCard,
+  BrokerConnectionsCard,
+  TradingPreferencesCard,
+} from "@/components/settings/settings-cards";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -252,6 +256,7 @@ export default function SettingsPage() {
       <div className="max-w-2xl space-y-4">
         <GeneralSettings />
         <TradingPreferencesCard />
+        <BrokerConnectionsCard />
         <ApiKeysCard />
       </div>
     </div>
