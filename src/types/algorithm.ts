@@ -135,6 +135,20 @@ export interface AlgorithmRules {
   asset_class: string;
   prop_firm?: PropFirmRules;
   news_veto?: NewsVetoRules;
+  /**
+   * Cumulative paper-vs-broker divergence kill switch. Computes the rolling
+   * mean of |broker_fill_price - entry_price| in basis points (bp = 0.01%
+   * of price) across the last N entries with a recorded broker fill. When
+   * the mean exceeds the limit AND we have at least N samples, live trading
+   * is disabled on the algorithm. Backtests assume 10 bp slippage; defaults
+   * are tuned to flag "real fills are materially worse than the model".
+   */
+  divergence_kill?: {
+    /** Average absolute divergence threshold in bps (e.g., 20 = 0.20%). */
+    max_avg_bps: number;
+    /** Window size in trades. Lower = faster reaction, more variance. */
+    window_trades: number;
+  };
 }
 
 // --- Backtest results ---

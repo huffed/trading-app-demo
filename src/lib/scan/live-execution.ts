@@ -19,6 +19,7 @@ import {
   toBrokerSymbol,
   type MetaApiRegion,
 } from "@/lib/brokers/metaapi";
+import { checkDivergenceKill, haltAlgorithmForDivergence } from "./divergence";
 import { logActivity } from "./helpers";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -71,6 +72,24 @@ interface EntryArgs {
   /** Lot-based sizing: pass the raw lot count so we don't round-trip through
    *  USD notional (which is wrong for JPY crosses where price is in JPY). */
   lots?: number;
+  /** Optional cumulative divergence kill switch. Evaluated post-fill so the
+   *  freshly-captured broker_fill_price contributes to the rolling average. */
+  divergenceRule?: { max_avg_bps: number; window_trades: number };
+}
+
+/** Halt the algorithm if the rolling-average broker fill divergence has
+ *  crossed the configured threshold. No-op when the rule is absent. */
+async function maybeHaltOnDivergence(
+  supabase: SupabaseClient,
+  userId: string,
+  algorithmId: string,
+  rule: EntryArgs["divergenceRule"]
+): Promise<void> {
+  if (!rule) return;
+  const result = await checkDivergenceKill(supabase, algorithmId, rule);
+  if (result.tripped) {
+    await haltAlgorithmForDivergence(supabase, userId, algorithmId, result, rule);
+  }
 }
 
 /**
@@ -141,6 +160,9 @@ export async function executeLiveEntry(args: EntryArgs): Promise<void> {
         side,
       },
     });
+
+    // Cumulative divergence check (extracted for line-count budget).
+    await maybeHaltOnDivergence(supabase, userId, algorithmId, args.divergenceRule);
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Live order failed";
     await supabase

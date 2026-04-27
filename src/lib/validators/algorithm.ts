@@ -110,6 +110,11 @@ const newsVetoSchema = z.object({
   min_impact: z.enum(["low", "medium", "high"]),
 });
 
+const divergenceKillSchema = z.object({
+  max_avg_bps: z.number().min(1).max(500),
+  window_trades: z.number().int().min(2).max(200),
+});
+
 const entryLogicSchema = z.union([
   z.literal("all"),
   z.literal("any"),
@@ -133,4 +138,5 @@ export const algorithmRulesSchema = z.object({
   asset_class: z.string(),
   prop_firm: propFirmSchema.optional(),
   news_veto: newsVetoSchema.optional(),
+  divergence_kill: divergenceKillSchema.optional(),
 });

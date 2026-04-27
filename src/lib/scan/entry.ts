@@ -97,6 +97,7 @@ async function openPosition(
     takeProfitPrice,
     brokerCtx,
     lots: lotSizing,
+    divergenceRule: algo.rules.divergence_kill,
   });
   return {
     opened: 1,
@@ -119,6 +120,8 @@ interface LogAndMirrorArgs {
   /** When the algo uses lot-based sizing, this is the raw lot count.
    *  Threaded to executeLiveEntry so JPY crosses don't get mis-converted. */
   lots?: number;
+  /** Optional cumulative divergence kill switch from algo rules. */
+  divergenceRule?: { max_avg_bps: number; window_trades: number };
 }
 
 async function logOpenAndMirror(args: LogAndMirrorArgs): Promise<void> {
@@ -149,6 +152,7 @@ async function logOpenAndMirror(args: LogAndMirrorArgs): Promise<void> {
       takeProfitPrice: args.takeProfitPrice,
       ctx: args.brokerCtx,
       lots: args.lots,
+      divergenceRule: args.divergenceRule,
     });
   }
 }
