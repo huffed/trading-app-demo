@@ -68,7 +68,8 @@ async function manageExistingPosition(
   bars: PriceBar[],
   closes: number[],
   livePrice: number | null,
-  brokerCtx: BrokerExecutionContext | null
+  brokerCtx: BrokerExecutionContext | null,
+  dailyBars: PriceBar[] | null
 ): Promise<{ closed: number; updated: number; closeEvent?: PositionEvent }> {
   const currentPrice = livePrice ?? closes[closes.length - 1];
   const unrealizedPnl = pnlInUsd(
@@ -79,7 +80,7 @@ async function manageExistingPosition(
     position.quantity
   );
 
-  const exitCheck = checkExitTrigger(position, currentPrice, algo.rules, bars, closes);
+  const exitCheck = checkExitTrigger(position, currentPrice, algo.rules, bars, closes, dailyBars);
 
   if (exitCheck) {
     const realizedPnl = unrealizedPnl;
@@ -143,7 +144,8 @@ function checkExitTrigger(
   currentPrice: number,
   rules: AlgorithmRules,
   bars: PriceBar[],
-  closes: number[]
+  closes: number[],
+  dailyBars: PriceBar[] | null
 ): string | null {
   const isLong = position.side === "long";
 
@@ -181,7 +183,7 @@ function checkExitTrigger(
         closes,
         bars,
         i: closes.length - 1,
-        higherTfBars: resampleToDaily(bars),
+        higherTfBars: dailyBars ?? resampleToDaily(bars),
       })
     ) {
       return "exit_signal";
@@ -216,6 +218,23 @@ async function processTicker(
       return;
     }
 
+    // Fetch a separate compact daily series for higher-timeframe context
+    // (daily_bias, multi-TF conditions). Compact 1h ≈ 100 bars ≈ 4 days,
+    // which resamples to ~4 D1 bars — far short of the 20 detectDailyBias
+    // needs. A dedicated D1 series gives us 100 daily bars, plenty.
+    let dailyBars: PriceBar[] | null = null;
+    if (interval !== "1day") {
+      dailyBars = await getCachedPrices(ticker, "compact", "1day");
+      if (!dailyBars) {
+        try {
+          dailyBars = await fetchDailyPrices(ticker, "compact", "1day");
+          savePricesToCache(ticker, "compact", dailyBars, "1day").catch(() => {});
+        } catch {
+          dailyBars = null;
+        }
+      }
+    }
+
     const closes = prices.map((p) => p.close);
     const livePrice = liveQuotes.get(ticker.toUpperCase()) ?? null;
 
@@ -230,7 +249,8 @@ async function processTicker(
         prices,
         closes,
         livePrice,
-        brokerCtx
+        brokerCtx,
+        dailyBars
       );
       result.positions_closed += r.closed;
       result.positions_updated += r.updated;
@@ -253,7 +273,8 @@ async function processTicker(
         closes,
         positions,
         livePrice,
-        brokerCtx
+        brokerCtx,
+        dailyBars
       );
       result.positions_opened += r.opened;
       if (r.openEvent) {

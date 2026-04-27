@@ -242,13 +242,14 @@ async function checkEntryConditions(
   closes: number[],
   primaryTimeframe: string,
   logic: AlgorithmRules["entry_logic"],
-  directionOverride?: "bullish" | "bearish"
+  directionOverride?: "bullish" | "bearish",
+  dailyBars?: PriceBar[] | null
 ): Promise<boolean> {
   if (conditions.length === 0) return true;
   const cache: Cache = new Map();
-  // Resample intraday bars to D1 for daily_bias-style pattern conditions —
-  // same approach the backtest uses, no separate API fetch needed.
-  const higherTfBars = resampleToDaily(bars);
+  // Prefer the dedicated D1 series when supplied; fall back to resampling
+  // the primary so older callers and missing-cache paths still work.
+  const higherTfBars = dailyBars ?? resampleToDaily(bars);
   // Multi-timeframe routing: build aligned bundles for any non-primary
   // timeframe a condition references. Live uses the LATEST bar in each
   // resampled series — no alignment-by-date needed since "now" is now.
@@ -296,7 +297,8 @@ export async function evaluateEntry(
   closes: number[],
   allOpenPositions: PaperPosition[],
   livePrice?: number | null,
-  brokerCtx?: BrokerExecutionContext | null
+  brokerCtx?: BrokerExecutionContext | null,
+  dailyBars?: PriceBar[] | null
 ): Promise<{ opened: number; openEvent?: PositionEvent }> {
   const rules = algo.rules;
   // Use real-time price for entry, fall back to latest daily close
@@ -315,14 +317,21 @@ export async function evaluateEntry(
 
   // Resolve the active side for this ticker. Auto-side reads D1 bias and
   // returns null when neutral — skip the entry rather than force a guess.
-  const higherTfBars = resampleToDaily(bars);
+  // Prefer the dedicated daily series when caller supplies one; resampling
+  // an intraday compact series usually yields too few D1 bars for the bias
+  // detector's 20-period MA, producing a misleading "neutral" verdict.
+  const higherTfBars = dailyBars ?? resampleToDaily(bars);
   const resolved = resolveSide(rules.side ?? "long", higherTfBars);
   if (resolved === null) {
+    const reason =
+      higherTfBars.length < 20
+        ? `Auto-side: insufficient D1 history (${higherTfBars.length} bars, need 20)`
+        : "Auto-side: D1 bias is neutral";
     await logActivity(supabase, userId, {
       algorithm_id: algo.id,
       event_type: "signal_no_action",
       ticker,
-      details: { reason: "Auto-side: D1 bias is neutral" },
+      details: { reason },
     });
     return { opened: 0 };
   }
@@ -341,7 +350,8 @@ export async function evaluateEntry(
     closes,
     rules.timeframe,
     rules.entry_logic,
-    resolved.directionOverride
+    resolved.directionOverride,
+    higherTfBars
   );
   if (!conditionsPass) return { opened: 0 };
 
