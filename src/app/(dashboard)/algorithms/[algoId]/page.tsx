@@ -13,6 +13,7 @@ import {
 import { AlgorithmEditView } from "@/components/algorithms/algorithm-edit-view";
 import { DiscoveryCard } from "@/components/algorithms/discovery-card";
 import { PaperTradingTab } from "@/components/algorithms/paper-trading-tab";
+import { StrategyStatsTab } from "@/components/algorithms/strategy-stats-tab";
 import { WatchlistCard } from "@/components/algorithms/watchlist-card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -70,6 +71,7 @@ function ReadView({
         <TabsTrigger value={1}>Watchlist</TabsTrigger>
         <TabsTrigger value={2}>Backtest</TabsTrigger>
         <TabsTrigger value={3}>Paper Trading</TabsTrigger>
+        <TabsTrigger value={4}>Strategy Stats</TabsTrigger>
       </TabsList>
       <OverviewTab algo={algo} />
       <TabsContent value={1} className="space-y-4 pt-2">
@@ -96,6 +98,9 @@ function ReadView({
           algorithmStatus={algo.status}
           lastScannedAt={algo.last_scanned_at}
         />
+      </TabsContent>
+      <TabsContent value={4} className="space-y-4 pt-2">
+        <StrategyStatsTab algorithmId={algo.id} />
       </TabsContent>
     </Tabs>
   );
