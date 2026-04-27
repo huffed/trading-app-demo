@@ -111,6 +111,7 @@ const propFirmSchema = z.object({
   consistency_rule: z.number().min(10).max(100),
   slippage_bps: z.number().min(0).max(100),
   commission_pct: z.number().min(0).max(5),
+  spread_bps: z.number().min(0).max(50).optional(),
 });
 
 const newsVetoSchema = z.object({

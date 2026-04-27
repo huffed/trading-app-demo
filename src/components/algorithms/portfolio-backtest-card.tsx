@@ -36,6 +36,23 @@ const WINDOW_LABELS: Record<string, string> = {
 const COMPARE_WINDOWS = ["1m", "3m", "6m", "1y"] as const;
 type Window = (typeof COMPARE_WINDOWS)[number] | "all";
 
+/** Trades below this are too few to draw any conclusion from. */
+const LOW_SAMPLE_THRESHOLD = 30;
+
+/** 95% Wilson confidence interval half-width on a binomial win rate.
+ *  Returns the ± margin in percentage points. */
+function winRateCi(winRatePct: number, n: number): number {
+  if (n <= 0) return 0;
+  const p = winRatePct / 100;
+  const z = 1.96;
+  const denom = 1 + (z * z) / n;
+  const center = p + (z * z) / (2 * n);
+  const margin = z * Math.sqrt((p * (1 - p)) / n + (z * z) / (4 * n * n));
+  const lower = (center - margin) / denom;
+  const upper = (center + margin) / denom;
+  return ((upper - lower) / 2) * 100;
+}
+
 interface PortfolioBacktestCardProps {
   algorithmId: string;
   timeframe?: string;
@@ -138,7 +155,22 @@ function ComparisonTable({ rows }: { rows: WindowResult[] }) {
   );
 }
 
+function FtmoBadge({ m }: { m: BacktestMetrics }) {
+  if (!m.prop_firm_report) return <span className="text-xs text-muted-foreground">—</span>;
+  return ftmoOk(m) ? (
+    <Badge className="bg-[var(--profit)]/15 text-[var(--profit)]">
+      <CheckCircle2 className="mr-1 h-3 w-3" /> Pass
+    </Badge>
+  ) : (
+    <Badge className="bg-[var(--loss)]/15 text-[var(--loss)]">
+      <XCircle className="mr-1 h-3 w-3" /> Fail
+    </Badge>
+  );
+}
+
 function ComparisonMetrics({ m }: { m: BacktestMetrics }) {
+  const ci = winRateCi(m.win_rate, m.total_trades);
+  const lowSample = m.total_trades < LOW_SAMPLE_THRESHOLD;
   return (
     <>
       <TableCell
@@ -147,22 +179,26 @@ function ComparisonMetrics({ m }: { m: BacktestMetrics }) {
         {m.total_return >= 0 ? "+" : "-"}${Math.abs(m.total_return).toFixed(0)}
       </TableCell>
       <TableCell className="text-right tabular-nums">{m.max_drawdown.toFixed(2)}%</TableCell>
-      <TableCell className="text-right tabular-nums">{m.win_rate.toFixed(1)}%</TableCell>
-      <TableCell className="text-right tabular-nums">{m.total_trades}</TableCell>
+      <TableCell className="text-right tabular-nums">
+        <div className="flex flex-col items-end">
+          <span>{m.win_rate.toFixed(1)}%</span>
+          {m.total_trades > 0 && (
+            <span className="text-[10px] text-muted-foreground">±{ci.toFixed(1)}%</span>
+          )}
+        </div>
+      </TableCell>
+      <TableCell className="text-right tabular-nums">
+        <div className="flex flex-col items-end">
+          <span>{m.total_trades}</span>
+          {lowSample && (
+            <Badge variant="outline" className="text-[10px] mt-0.5 border-amber-500/40 text-amber-600">
+              low sample
+            </Badge>
+          )}
+        </div>
+      </TableCell>
       <TableCell className="text-right">
-        {m.prop_firm_report ? (
-          ftmoOk(m) ? (
-            <Badge className="bg-[var(--profit)]/15 text-[var(--profit)]">
-              <CheckCircle2 className="mr-1 h-3 w-3" /> Pass
-            </Badge>
-          ) : (
-            <Badge className="bg-[var(--loss)]/15 text-[var(--loss)]">
-              <XCircle className="mr-1 h-3 w-3" /> Fail
-            </Badge>
-          )
-        ) : (
-          <span className="text-xs text-muted-foreground">—</span>
-        )}
+        <FtmoBadge m={m} />
       </TableCell>
     </>
   );

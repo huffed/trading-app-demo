@@ -23,6 +23,9 @@ export interface SimState {
 
 export interface SimConfig {
   slippageBps: number;
+  /** Bid/ask spread the broker charges per side, in bps. Separate from
+   *  slippage so the user can dial each independently. */
+  spreadBps: number;
   commissionPct: number;
   maxPos: number;
   posSize: number;
@@ -44,10 +47,13 @@ export function closeSimPosition(
   // as equity grows and losses shrink positions during drawdowns.
   const notional = pos.notionalValue;
   const commission = notional * (cfg.commissionPct / 100) * 2;
-  const pnl = Number((notional * pnlPct - commission).toFixed(2));
+  // Spread is a round-trip cost (paid on entry + exit) deducted directly
+  // from realised pnl. 1 pip on EUR/USD ≈ 1.4 bp; 5 bp ≈ 0.7 pip per side.
+  const spreadCost = notional * (cfg.spreadBps / 10000) * 2;
+  const pnl = Number((notional * pnlPct - commission - spreadCost).toFixed(2));
   s.totalSlippage +=
     ((pos.entryPrice + exitPrice) * (cfg.slippageBps / 10000) * notional) / exitPrice;
-  s.totalCommission += commission;
+  s.totalCommission += commission + spreadCost;
   // Refund the margin this position was holding (lot-based sizing only).
   if (pos.marginRequired) {
     s.marginUsed = Math.max(0, s.marginUsed - pos.marginRequired);

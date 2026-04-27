@@ -131,6 +131,14 @@ export interface PropFirmRules {
   consistency_rule: number; // max % of total profit from single day (e.g., 40)
   slippage_bps: number; // basis points per trade (e.g., 10 = 0.1%)
   commission_pct: number; // % per trade (e.g., 0.1)
+  /**
+   * Broker spread cost per side in basis points. Separate from slippage:
+   * spread is the fixed bid/ask gap the broker charges, slippage is the
+   * variable cost from execution conditions. Both are deducted from each
+   * fill. Defaults to 0 to preserve old backtest results; recommended
+   * 3-10 bps for FTMO Demo on majors, higher on JPY crosses.
+   */
+  spread_bps?: number;
 }
 
 /**

@@ -64,6 +64,7 @@ function buildSimConfig(rules: AlgorithmRules): SimConfig {
   const pf = rules.prop_firm;
   return {
     slippageBps: pf?.slippage_bps ?? 0,
+    spreadBps: pf?.spread_bps ?? 0,
     commissionPct: pf?.commission_pct ?? 0,
     maxPos: rules.max_positions ?? DEFAULT_MAX_POSITIONS,
     posSize: (rules.position_sizing?.value ?? DEFAULT_POSITION_SIZE_PCT) / 100,
