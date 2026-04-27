@@ -15,6 +15,7 @@ import {
   closeSimPosition,
   enforcePropFirm,
   finalizeDay,
+  initialSimState,
   type SimConfig,
   type SimState,
 } from "./prop-firm-backtest";
@@ -149,6 +150,23 @@ function pickExitPrice(
   return null;
 }
 
+function forceCloseAll(
+  positions: { entryPrice: number; entryDate: string; notionalValue: number }[],
+  dayKey: string,
+  closePrice: number,
+  capital: number,
+  cfg: SimConfig,
+  s: SimState,
+  trades: BacktestTrade[]
+): void {
+  if (positions.length === 0) return;
+  const exitPrice = applySlippage(closePrice, cfg.slippageBps, false);
+  for (let p = positions.length - 1; p >= 0; p--) {
+    closeSimPosition(positions[p], dayKey, exitPrice, capital, cfg, s, trades);
+    positions.splice(p, 1);
+  }
+}
+
 function buildSimConfig(rules: AlgorithmRules): SimConfig {
   const pf = rules.prop_firm;
   return {
@@ -158,23 +176,6 @@ function buildSimConfig(rules: AlgorithmRules): SimConfig {
     posSize: (rules.position_sizing?.value ?? DEFAULT_POSITION_SIZE_PCT) / 100,
     stopPct: (rules.stop_loss?.value ?? DEFAULT_STOP_LOSS_PCT) / 100,
     tpPct: (rules.take_profit?.value ?? DEFAULT_TAKE_PROFIT_PCT) / 100,
-  };
-}
-
-function initialSimState(capital: number): SimState {
-  return {
-    equity: capital,
-    peakEquity: capital,
-    peakDrawdownPct: 0,
-    consecutiveLosses: 0,
-    maxConsecLosses: 0,
-    consecutiveLosingDays: 0,
-    maxConsecLosingDays: 0,
-    totalSlippage: 0,
-    totalCommission: 0,
-    killTriggered: false,
-    drawdownBreached: false,
-    dailyPnl: {},
   };
 }
 
@@ -215,11 +216,11 @@ function runSimulation(
       if (exitPrice !== null) {
         closeSimPosition(pos, dayKey, exitPrice, capital, cfg, s, trades);
         positions.splice(p, 1);
-        if (pf) {
-          dailyHalted = enforcePropFirm(pf, s, capital, dayKey, dailyHalted);
-        }
+        if (pf) dailyHalted = enforcePropFirm(pf, s, capital, dayKey, dailyHalted);
       }
     }
+    // Real prop-firm behaviour: DLL breach mid-bar force-closes all positions.
+    if (dailyHalted) forceCloseAll(positions, dayKey, closes[i], capital, cfg, s, trades);
     const vetoed = vetoCheck ? vetoCheck(day) : false;
     if (
       !s.killTriggered &&

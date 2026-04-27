@@ -89,6 +89,23 @@ export function enforcePropFirm(
   return dailyHalted;
 }
 
+export function initialSimState(capital: number): SimState {
+  return {
+    equity: capital,
+    peakEquity: capital,
+    peakDrawdownPct: 0,
+    consecutiveLosses: 0,
+    maxConsecLosses: 0,
+    consecutiveLosingDays: 0,
+    maxConsecLosingDays: 0,
+    totalSlippage: 0,
+    totalCommission: 0,
+    killTriggered: false,
+    drawdownBreached: false,
+    dailyPnl: {},
+  };
+}
+
 /**
  * Called at the moment we cross to a new calendar day. Updates the
  * losing-days counter from the day that just ended.
