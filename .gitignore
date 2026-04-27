@@ -41,3 +41,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# editor
+.idea/
+
+# local-only references (CSVs, docs not for the repo)
+/funded\ account\ references/
+from_*_MT*.csv
