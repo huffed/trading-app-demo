@@ -16,6 +16,7 @@ import {
 } from "@/types/algorithm";
 import type { PaperPosition, PositionEvent } from "@/types/position";
 import { calculatePositionSize, calculateRiskPrices, logActivity } from "./helpers";
+import { executeLiveEntry, type BrokerExecutionContext } from "./live-execution";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 interface AlgoContext {
@@ -34,7 +35,8 @@ async function openPosition(
   currentPrice: number,
   techEntry: TechnicalCondition[],
   sentimentResult: SignalResult | undefined,
-  allOpenPositions: PaperPosition[]
+  allOpenPositions: PaperPosition[],
+  brokerCtx: BrokerExecutionContext | null
 ): Promise<{ opened: number; openEvent?: PositionEvent }> {
   const openValue = allOpenPositions.reduce((sum, p) => sum + p.notional_value, 0);
   const sizing = calculatePositionSize(algo.rules, algo.capital, openValue, currentPrice);
@@ -78,26 +80,69 @@ async function openPosition(
     .select("id")
     .single();
 
-  if (position) {
-    await logActivity(supabase, userId, {
-      algorithm_id: algo.id,
-      position_id: position.id,
-      event_type: "position_opened",
-      ticker,
-      details: {
-        entry_price: currentPrice,
-        quantity: sizing.quantity,
-        notional_value: sizing.notionalValue,
-        stop_loss_price: stopLossPrice,
-        take_profit_price: takeProfitPrice,
-      },
+  if (!position) return { opened: 0 };
+  await logOpenAndMirror({
+    supabase,
+    userId,
+    algoId: algo.id,
+    paperPositionId: position.id,
+    ticker,
+    side,
+    sizing,
+    currentPrice,
+    stopLossPrice,
+    takeProfitPrice,
+    brokerCtx,
+  });
+  return {
+    opened: 1,
+    openEvent: { ticker, reason: "entry_signal", pnl: 0, price: currentPrice },
+  };
+}
+
+interface LogAndMirrorArgs {
+  supabase: SupabaseClient;
+  userId: string;
+  algoId: string;
+  paperPositionId: string;
+  ticker: string;
+  side: "long" | "short";
+  sizing: { quantity: number; notionalValue: number };
+  currentPrice: number;
+  stopLossPrice: number;
+  takeProfitPrice: number;
+  brokerCtx: BrokerExecutionContext | null;
+}
+
+async function logOpenAndMirror(args: LogAndMirrorArgs): Promise<void> {
+  await logActivity(args.supabase, args.userId, {
+    algorithm_id: args.algoId,
+    position_id: args.paperPositionId,
+    event_type: "position_opened",
+    ticker: args.ticker,
+    details: {
+      entry_price: args.currentPrice,
+      quantity: args.sizing.quantity,
+      notional_value: args.sizing.notionalValue,
+      stop_loss_price: args.stopLossPrice,
+      take_profit_price: args.takeProfitPrice,
+    },
+  });
+  if (args.brokerCtx) {
+    await executeLiveEntry({
+      supabase: args.supabase,
+      userId: args.userId,
+      algorithmId: args.algoId,
+      paperPositionId: args.paperPositionId,
+      ticker: args.ticker,
+      side: args.side,
+      notionalUsd: args.sizing.notionalValue,
+      currentPrice: args.currentPrice,
+      stopLossPrice: args.stopLossPrice,
+      takeProfitPrice: args.takeProfitPrice,
+      ctx: args.brokerCtx,
     });
-    return {
-      opened: 1,
-      openEvent: { ticker, reason: "entry_signal", pnl: 0, price: currentPrice },
-    };
   }
-  return { opened: 0 };
 }
 
 async function checkNewsVeto(
@@ -134,7 +179,8 @@ export async function evaluateEntry(
   ticker: string,
   closes: number[],
   allOpenPositions: PaperPosition[],
-  livePrice?: number | null
+  livePrice?: number | null,
+  brokerCtx?: BrokerExecutionContext | null
 ): Promise<{ opened: number; openEvent?: PositionEvent }> {
   const rules = algo.rules;
   // Use real-time price for entry, fall back to latest daily close
@@ -204,6 +250,7 @@ export async function evaluateEntry(
     currentPrice,
     techEntry,
     sentimentResult,
-    allOpenPositions
+    allOpenPositions,
+    brokerCtx ?? null
   );
 }

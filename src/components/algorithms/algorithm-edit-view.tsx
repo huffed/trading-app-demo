@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/select";
 import { STATUS_LABELS } from "@/lib/constants/algorithm";
 import type { Algorithm, AlgorithmRules, AlgorithmStatus } from "@/types/algorithm";
+import { LiveTradingSection } from "./live-trading-section";
 import { RulesEditor } from "./rules-editor";
 
 const STATUS_OPTIONS: AlgorithmStatus[] = ["draft", "active", "paused", "archived"];
@@ -24,6 +25,8 @@ interface AlgorithmEditViewProps {
     description: string;
     status: AlgorithmStatus;
     rules: AlgorithmRules;
+    live_trading_enabled: boolean;
+    broker_connection_id: string | null;
   }) => void;
   onCancel: () => void;
   isSaving: boolean;
@@ -88,9 +91,20 @@ export function AlgorithmEditView({
   const [name, setName] = useState(algorithm.name);
   const [description, setDescription] = useState(algorithm.description);
   const [status, setStatus] = useState<AlgorithmStatus>(algorithm.status);
+  const [liveState, setLiveState] = useState({
+    liveEnabled: algorithm.live_trading_enabled ?? false,
+    brokerId: algorithm.broker_connection_id ?? null,
+  });
 
   function handleRulesSave(rules: AlgorithmRules) {
-    onSave({ name, description, status, rules });
+    onSave({
+      name,
+      description,
+      status,
+      rules,
+      live_trading_enabled: liveState.liveEnabled,
+      broker_connection_id: liveState.brokerId,
+    });
   }
 
   return (
@@ -103,6 +117,11 @@ export function AlgorithmEditView({
         status={status}
         setStatus={setStatus}
       />
+      <Card>
+        <CardContent className="p-4">
+          <LiveTradingSection state={liveState} onChange={setLiveState} />
+        </CardContent>
+      </Card>
       <RulesEditor
         rules={algorithm.rules}
         onSave={handleRulesSave}

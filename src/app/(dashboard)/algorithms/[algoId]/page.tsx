@@ -120,6 +120,8 @@ function useAlgoDetailState(algoId: string) {
     description: string;
     status: AlgorithmStatus;
     rules: AlgorithmRules;
+    live_trading_enabled: boolean;
+    broker_connection_id: string | null;
   }) => {
     const rulesChanged = algo && JSON.stringify(updates.rules) !== JSON.stringify(algo.rules);
     updateMutation.mutate(

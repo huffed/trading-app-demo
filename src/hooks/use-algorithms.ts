@@ -84,6 +84,8 @@ export function useUpdateAlgorithm() {
         description?: string;
         status?: AlgorithmStatus;
         rules?: AlgorithmRules;
+        live_trading_enabled?: boolean;
+        broker_connection_id?: string | null;
       };
     }) => updateAlgorithm(id, updates),
     onSuccess: (result) => {

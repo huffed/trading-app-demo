@@ -21,7 +21,9 @@ export async function triggerScan(algorithmId?: string): Promise<ActionResult<Sc
 
     let query = supabase
       .from("algorithms")
-      .select("id, name, description, rules, capital, status, algorithm_watchlist(ticker, name)")
+      .select(
+        "id, name, description, rules, capital, status, live_trading_enabled, broker_connection_id, algorithm_watchlist(ticker, name)"
+      )
       .eq("user_id", user.id)
       .eq("status", "active");
 
