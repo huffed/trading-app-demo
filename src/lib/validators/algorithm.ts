@@ -35,6 +35,7 @@ const propFirmInput = z
     profit_target: z.coerce.number(),
     max_consecutive_losses: z.coerce.number().int().min(0),
     consecutive_loss_unit: z.enum(["trades", "days"]).optional(),
+    daily_loss_halt_pct: z.coerce.number().min(10).max(100).optional(),
     consistency_rule: z.coerce.number(),
     slippage_bps: z.coerce.number(),
     commission_pct: z.coerce.number(),
@@ -96,6 +97,7 @@ const propFirmSchema = z.object({
   // 0 disables the kill switch entirely.
   max_consecutive_losses: z.number().int().min(0).max(50),
   consecutive_loss_unit: z.enum(["trades", "days"]).optional(),
+  daily_loss_halt_pct: z.number().min(10).max(100).optional(),
   consistency_rule: z.number().min(10).max(100),
   slippage_bps: z.number().min(0).max(100),
   commission_pct: z.number().min(0).max(5),

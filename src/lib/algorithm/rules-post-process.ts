@@ -102,6 +102,13 @@ export function clampRules(rules: AlgorithmRules, timeHorizon: string): Algorith
     clamped.prop_firm = { ...clamped.prop_firm, consecutive_loss_unit: "days" };
   }
 
+  // Defensive DLL halt: forex/commodity default to halting at 80% of DLL
+  // so intra-bar overshoot doesn't breach the published limit. Equity
+  // strategies (no pyramiding) leave it at 100 = halt exactly at DLL.
+  if (clamped.prop_firm && isFxOrCommodity && clamped.prop_firm.daily_loss_halt_pct == null) {
+    clamped.prop_firm = { ...clamped.prop_firm, daily_loss_halt_pct: 80 };
+  }
+
   if (clamped.entry_logic == null && isFxOrCommodity && clamped.entry_conditions.length >= 3) {
     clamped.entry_logic = { type: "n_of_m", n: 2 };
   }

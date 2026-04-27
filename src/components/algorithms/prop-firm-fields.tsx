@@ -85,6 +85,13 @@ export function PropFirmFields({
       />
       <LossUnitSelect values={values} onChange={onChange} />
       <NumericOverride
+        label="DLL halt buffer"
+        value={String(values.daily_loss_halt_pct ?? 100)}
+        placeholder="100 = halt at DLL"
+        suffix="% of DLL"
+        onChange={(v) => set("daily_loss_halt_pct", v)}
+      />
+      <NumericOverride
         label="Consistency Rule"
         value={String(values.consistency_rule)}
         placeholder=""

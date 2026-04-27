@@ -76,6 +76,14 @@ export interface PropFirmRules {
    * closing 3 stacked positions doesn't blow 75% of the budget at once.
    */
   consecutive_loss_unit?: "trades" | "days";
+  /**
+   * Defensive halt threshold as a percentage of the daily-loss-limit.
+   * The engine force-closes all positions when daily pnl reaches
+   * `daily_loss_limit * (daily_loss_halt_pct / 100)`. 100 = halt at exact
+   * DLL (no buffer); 80 = halt at 80% of DLL leaving 20% headroom for
+   * intra-bar overshoot. Defaults to 100 for backwards compatibility.
+   */
+  daily_loss_halt_pct?: number;
   consistency_rule: number; // max % of total profit from single day (e.g., 40)
   slippage_bps: number; // basis points per trade (e.g., 10 = 0.1%)
   commission_pct: number; // % per trade (e.g., 0.1)

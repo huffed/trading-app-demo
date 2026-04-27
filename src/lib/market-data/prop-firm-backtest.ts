@@ -83,8 +83,15 @@ export function enforcePropFirm(
       s.killTriggered = true;
     }
   }
-  if (pf.daily_loss_limit > 0 && ((s.dailyPnl[day] ?? 0) / capital) * 100 <= -pf.daily_loss_limit) {
-    return true;
+  if (pf.daily_loss_limit > 0) {
+    // Defensive buffer: halt EARLY at `halt_pct%` of DLL so the engine
+    // force-close fires before we actually breach the published limit.
+    // Default 100 = halt at exact DLL (legacy behaviour).
+    const haltPct = (pf.daily_loss_halt_pct ?? 100) / 100;
+    const haltThreshold = -pf.daily_loss_limit * haltPct;
+    if (((s.dailyPnl[day] ?? 0) / capital) * 100 <= haltThreshold) {
+      return true;
+    }
   }
   return dailyHalted;
 }
