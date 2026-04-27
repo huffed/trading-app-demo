@@ -58,7 +58,16 @@ async function openPosition(
   allOpenPositions: PaperPosition[],
   brokerCtx: BrokerExecutionContext | null
 ): Promise<{ opened: number; openEvent?: PositionEvent }> {
-  const openValue = allOpenPositions.reduce((sum, p) => sum + p.notional_value, 0);
+  // calculatePositionSize wants MARGIN-used summed, not notional. For
+  // leveraged sizing (lots / risk_per_trade) sum notional / leverage so
+  // 3 forex positions at 1:100 don't appear to consume the whole account.
+  const sizing0 = algo.rules.position_sizing;
+  const isLeveraged = sizing0.type === "lots" || sizing0.type === "risk_per_trade";
+  const lev = algo.rules.leverage ?? 30;
+  const openValue = allOpenPositions.reduce(
+    (sum, p) => sum + (isLeveraged ? p.notional_value / lev : p.notional_value),
+    0
+  );
   const sizing = calculatePositionSize(algo.rules, algo.capital, openValue, currentPrice, ticker);
   if (!sizing) {
     return { opened: 0 };

@@ -4,6 +4,7 @@ import {
   type AlgorithmRules,
   type EntryCondition,
   type ExitCondition,
+  type TechnicalCondition,
 } from "@/types/algorithm";
 import { calculateMetrics } from "./backtest-metrics";
 import {
