@@ -27,6 +27,14 @@ export interface SentimentCondition {
 export type EntryCondition = TechnicalCondition | SentimentCondition;
 export type ExitCondition = TechnicalCondition | SentimentCondition;
 
+/**
+ * How multiple entry conditions combine.
+ *  - "all": every condition must fire on the same bar (default, strictest)
+ *  - "any": fires when any one condition is met (loosest)
+ *  - { type: "n_of_m", n }: fires when at least n of the conditions are met
+ */
+export type EntryLogic = "all" | "any" | { type: "n_of_m"; n: number };
+
 export function isTechnicalCondition(c: EntryCondition | ExitCondition): c is TechnicalCondition {
   return c.type === "technical";
 }
@@ -80,6 +88,8 @@ export interface NewsVetoRules {
 
 export interface AlgorithmRules {
   entry_conditions: EntryCondition[];
+  /** Logic combining entry conditions. Defaults to "all" for backwards compat. */
+  entry_logic?: EntryLogic;
   exit_conditions: ExitCondition[];
   stop_loss: StopLoss;
   take_profit: TakeProfit;

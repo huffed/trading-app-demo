@@ -155,7 +155,7 @@ export async function evaluateEntry(
   const techEntry = normalizedEntry.filter(isTechnicalCondition) as TechnicalCondition[];
   if (techEntry.length > 0) {
     const cache: Cache = new Map();
-    if (!checkConditions(techEntry, cache, closes, closes.length - 1)) {
+    if (!checkConditions(techEntry, cache, closes, closes.length - 1, rules.entry_logic)) {
       await logActivity(supabase, userId, {
         algorithm_id: algo.id,
         event_type: "signal_no_action",

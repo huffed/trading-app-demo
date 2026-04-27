@@ -2,12 +2,13 @@ import {
   isTechnicalCondition,
   type AlgorithmRules,
   type EntryCondition,
+  type EntryLogic,
   type ExitCondition,
   type TechnicalCondition,
 } from "@/types/algorithm";
 import { calculateMetrics } from "./backtest-metrics";
 import { buildVetoCheck, type EconomicEvent } from "./economic-calendar";
-import { bollingerBands, ema, macd, rsi, sma } from "./indicators";
+import { getValues, isPriceIndicator, type Cache } from "./indicator-registry";
 import {
   applySlippage,
   buildPropFirmReport,
@@ -18,42 +19,11 @@ import {
 } from "./prop-firm-backtest";
 import type { BacktestMetrics, BacktestTrade, OpenPosition, PriceBar } from "./types";
 
+export type { Cache } from "./indicator-registry";
+
 export interface BacktestContext {
   symbol?: string;
   events?: EconomicEvent[];
-}
-
-export type Cache = Map<string, (number | null)[]>;
-const INDICATOR_REGISTRY: Record<string, (closes: number[]) => (number | null)[]> = {
-  rsi: (c) => rsi(c),
-  sma: (c) => sma(c, 20),
-  sma20: (c) => sma(c, 20),
-  sma50: (c) => sma(c, 50),
-  ema: (c) => ema(c, 12),
-  ema12: (c) => ema(c, 12),
-  ema26: (c) => ema(c, 26),
-  macd: (c) => macd(c),
-  bollingerbands_upper: (c) => bollingerBands(c).upper,
-  bollingerbands_lower: (c) => bollingerBands(c).lower,
-};
-
-function computeIndicator(closes: number[], name: string): (number | null)[] {
-  const fn = INDICATOR_REGISTRY[name.toLowerCase()];
-  if (!fn) {
-    console.warn(`[backtest] Unsupported indicator "${name}" — condition will never trigger`);
-    return closes.map(() => null);
-  }
-  return fn(closes);
-}
-function getValues(name: string, cache: Cache, closes: number[]): (number | null)[] {
-  if (!cache.has(name)) cache.set(name, computeIndicator(closes, name));
-  const vals = cache.get(name);
-  if (!vals) throw new Error(`Indicator "${name}" failed to compute`);
-  return vals;
-}
-function isPriceIndicator(name: string): boolean {
-  const l = name.toLowerCase();
-  return l.startsWith("sma") || l.startsWith("ema") || l.startsWith("bollinger");
 }
 function evalPriceComparison(
   cond: TechnicalCondition,
@@ -129,12 +99,18 @@ export function checkConditions(
   conditions: TechnicalCondition[],
   cache: Cache,
   closes: number[],
-  i: number
+  i: number,
+  logic: EntryLogic = "all"
 ): boolean {
-  return conditions.every((c) => {
+  if (conditions.length === 0) return false;
+  let met = 0;
+  for (const c of conditions) {
     const vals = getValues(c.indicator, cache, closes);
-    return evaluateCondition(c, vals, closes, cache, i);
-  });
+    if (evaluateCondition(c, vals, closes, cache, i)) met++;
+  }
+  if (logic === "all") return met === conditions.length;
+  if (logic === "any") return met > 0;
+  return met >= logic.n;
 }
 export function normalize(
   conditions: (EntryCondition | ExitCondition)[]
@@ -217,7 +193,7 @@ function runSimulation(
       !dailyHalted &&
       !vetoed &&
       positions.length < cfg.maxPos &&
-      checkConditions(techEntry, cache, closes, i)
+      checkConditions(techEntry, cache, closes, i, rules.entry_logic)
     ) {
       positions.push({
         entryPrice: applySlippage(closes[i], cfg.slippageBps, true),

@@ -140,24 +140,42 @@ function ConditionItem({ condition }: { condition: EntryCondition | ExitConditio
   );
 }
 
+function formatEntryLogic(
+  logic: AlgorithmRules["entry_logic"],
+  conditionCount: number
+): string {
+  if (!logic || logic === "all") return `all ${conditionCount} required`;
+  if (logic === "any") return "any one fires";
+  return `${logic.n} of ${conditionCount} required`;
+}
+
 function ConditionSection({
   title,
   icon,
   conditions,
+  logic,
 }: {
   title: string;
   icon: React.ReactNode;
   conditions: (EntryCondition | ExitCondition)[];
+  logic?: AlgorithmRules["entry_logic"];
 }) {
   if (!conditions || conditions.length === 0) {
     return null;
   }
   return (
     <div className="space-y-2">
-      <h4 className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-        {icon}
-        {title}
-      </h4>
+      <div className="flex items-center justify-between">
+        <h4 className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          {icon}
+          {title}
+        </h4>
+        {logic && conditions.length > 1 && (
+          <span className="text-xs text-muted-foreground">
+            {formatEntryLogic(logic, conditions.length)}
+          </span>
+        )}
+      </div>
       {conditions.map((c, i) => (
         <ConditionItem key={i} condition={c} />
       ))}
@@ -255,6 +273,7 @@ export function RulesDisplay({ rules }: { rules: AlgorithmRules }) {
           title="Entry Conditions"
           icon={<ArrowUp className="h-3 w-3" />}
           conditions={rules.entry_conditions}
+          logic={rules.entry_logic}
         />
         <ConditionSection
           title="Exit Conditions"

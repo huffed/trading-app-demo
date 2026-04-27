@@ -107,8 +107,15 @@ const newsVetoSchema = z.object({
   min_impact: z.enum(["low", "medium", "high"]),
 });
 
+const entryLogicSchema = z.union([
+  z.literal("all"),
+  z.literal("any"),
+  z.object({ type: z.literal("n_of_m"), n: z.number().int().positive() }),
+]);
+
 export const algorithmRulesSchema = z.object({
   entry_conditions: z.array(normalizedCondition),
+  entry_logic: entryLogicSchema.optional(),
   exit_conditions: z.array(normalizedCondition),
   stop_loss: z.object({ type: z.enum(["percentage", "fixed"]), value: z.number() }),
   take_profit: z.object({ type: z.enum(["percentage", "fixed"]), value: z.number() }),

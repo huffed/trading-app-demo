@@ -58,6 +58,7 @@ Example sentiment condition:
 ## Full rules schema
 {
   "entry_conditions": [(technical or sentiment condition)],
+  "entry_logic": "all" | "any" | { "type": "n_of_m", "n": integer },  // default "all"
   "exit_conditions": [(technical or sentiment condition)],
   "stop_loss": { "type": "percentage"|"fixed", "value": number },
   "take_profit": { "type": "percentage"|"fixed", "value": number },
@@ -68,11 +69,13 @@ Example sentiment condition:
   "asset_class": string
 }
 
-CRITICAL — Condition limits:
-- Day trading: max 2 entry conditions total
-- Swing / long term: max 2 entry conditions total (e.g., 1 sentiment + 1 technical)
-- NEVER use 3+ entry conditions
+CRITICAL — Condition limits & entry_logic:
+- Day trading (equity/crypto): max 2 entry conditions total, entry_logic "all"
+- Swing / long term: max 2 entry conditions total (e.g., 1 sentiment + 1 technical), entry_logic "all"
+- Forex / commodity: 3 entry conditions, entry_logic { "type": "n_of_m", "n": 2 } so the strategy fires when 2 of 3 align (single ANDed crossovers almost never co-fire and produce zero trades)
 - Exit: 1 condition
+
+When generating 3 conditions for forex/commodity n_of_m logic, design them as INDEPENDENT confirmations of the same directional bias rather than competing strategies. Good 2-of-3 set: trend filter (EMA12 > EMA26) + momentum (RSI > 50) + breakout (price > BollingerBands_upper). Bad: oversold reversion (RSI < 30) + bullish crossover (EMA12 crosses_above) — they almost never co-fire because momentum/reversion conditions point opposite ways.
 
 WHEN TO USE SENTIMENT: If user_hints mention trade history, news, catalysts, hype cycles, sector momentum, or emerging tech — include a sentiment entry condition. A strong pattern: 1 sentiment condition (confirms narrative) + 1 technical condition (confirms price support).
 

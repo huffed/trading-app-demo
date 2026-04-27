@@ -55,6 +55,13 @@ function clampRules(rules: AlgorithmRules, timeHorizon: string): AlgorithmRules 
     const tech = clamped.entry_conditions.filter(isTechnicalCondition);
     const sentiment = clamped.entry_conditions.filter((c) => !isTechnicalCondition(c));
     clamped.entry_conditions = [...tech.slice(0, 1), ...sentiment.slice(0, 1)];
+  } else if (isFxOrCommodity) {
+    // Forex/commodity strategies fire too rarely with strict AND-of-2; allow
+    // up to 3 conditions and combine with n-of-m logic so 2/3 alignment is
+    // enough. Pyramiding + max_positions still bound the open exposure.
+    if (clamped.entry_conditions.length > 3) {
+      clamped.entry_conditions = clamped.entry_conditions.slice(0, 3);
+    }
   } else if (clamped.entry_conditions.length > 2) {
     clamped.entry_conditions = clamped.entry_conditions.slice(0, 2);
   }
@@ -109,6 +116,13 @@ function clampRules(rules: AlgorithmRules, timeHorizon: string): AlgorithmRules 
       block_minutes_after: 30,
       min_impact: "high",
     };
+  }
+
+  // Entry logic default: forex/commodity benefit from n-of-m so the entry
+  // doesn't require every indicator to align on a single bar. Equity stays
+  // on the strict "all" default.
+  if (clamped.entry_logic == null && isFxOrCommodity && clamped.entry_conditions.length >= 3) {
+    clamped.entry_logic = { type: "n_of_m", n: 2 };
   }
 
   return clamped;
