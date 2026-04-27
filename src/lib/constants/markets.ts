@@ -17,6 +17,13 @@ export interface InstrumentMeta {
   /** Units per 1 lot. Forex = 100,000 base currency. Gold = 100 oz.
    *  Silver = 5,000 oz. Crude/Brent = 1,000 barrels. NatGas = 10,000 mmBtu. */
   contractSize: number;
+  /** ISO base currency (the AAA in AAA/BBB). Forex pair base, or USD for
+   *  USD-priced commodities (gold, silver, oil, gas). */
+  baseCurrency: string;
+  /** ISO quote currency (the BBB). USD for most pairs and commodities, JPY
+   *  for yen pairs, etc. Drives notional-to-USD conversion in the
+   *  backtest engine. */
+  quoteCurrency: string;
   description: string;
 }
 
@@ -28,6 +35,8 @@ export const FOREX_PAIRS: InstrumentMeta[] = [
     category: "major",
     pipSize: 0.0001,
     contractSize: 100000,
+    baseCurrency: "EUR",
+    quoteCurrency: "USD",
     description: "Most liquid pair globally. Tight spreads, deep institutional flow.",
   },
   {
@@ -37,6 +46,8 @@ export const FOREX_PAIRS: InstrumentMeta[] = [
     category: "major",
     pipSize: 0.0001,
     contractSize: 100000,
+    baseCurrency: "GBP",
+    quoteCurrency: "USD",
     description: "Volatile London/NY overlap. Sensitive to UK macro and Fed differentials.",
   },
   {
@@ -46,6 +57,8 @@ export const FOREX_PAIRS: InstrumentMeta[] = [
     category: "major",
     pipSize: 0.01,
     contractSize: 100000,
+    baseCurrency: "USD",
+    quoteCurrency: "JPY",
     description: "Risk-on/off bellwether. Moves on rate differentials and BoJ policy.",
   },
   {
@@ -55,6 +68,8 @@ export const FOREX_PAIRS: InstrumentMeta[] = [
     category: "major",
     pipSize: 0.0001,
     contractSize: 100000,
+    baseCurrency: "USD",
+    quoteCurrency: "CHF",
     description: "Safe-haven inverse. Often opposite to EUR/USD.",
   },
   {
@@ -64,6 +79,8 @@ export const FOREX_PAIRS: InstrumentMeta[] = [
     category: "major",
     pipSize: 0.0001,
     contractSize: 100000,
+    baseCurrency: "AUD",
+    quoteCurrency: "USD",
     description: "Commodity currency tied to China demand and iron ore.",
   },
   {
@@ -73,6 +90,8 @@ export const FOREX_PAIRS: InstrumentMeta[] = [
     category: "major",
     pipSize: 0.0001,
     contractSize: 100000,
+    baseCurrency: "USD",
+    quoteCurrency: "CAD",
     description: "Highly correlated with crude oil moves.",
   },
   {
@@ -82,6 +101,8 @@ export const FOREX_PAIRS: InstrumentMeta[] = [
     category: "major",
     pipSize: 0.0001,
     contractSize: 100000,
+    baseCurrency: "NZD",
+    quoteCurrency: "USD",
     description: "Carry-trade favorite, sensitive to RBNZ decisions and dairy prices.",
   },
   {
@@ -91,6 +112,8 @@ export const FOREX_PAIRS: InstrumentMeta[] = [
     category: "minor",
     pipSize: 0.0001,
     contractSize: 100000,
+    baseCurrency: "EUR",
+    quoteCurrency: "GBP",
     description: "Range-bound cross, popular for mean-reversion strategies.",
   },
   {
@@ -100,6 +123,8 @@ export const FOREX_PAIRS: InstrumentMeta[] = [
     category: "minor",
     pipSize: 0.01,
     contractSize: 100000,
+    baseCurrency: "EUR",
+    quoteCurrency: "JPY",
     description: "Volatile cross capturing both EUR and JPY trends.",
   },
   {
@@ -109,6 +134,8 @@ export const FOREX_PAIRS: InstrumentMeta[] = [
     category: "minor",
     pipSize: 0.01,
     contractSize: 100000,
+    baseCurrency: "GBP",
+    quoteCurrency: "JPY",
     description: "Highest-volatility major cross. Big pip ranges, wider stops needed.",
   },
 ];
@@ -121,6 +148,8 @@ export const COMMODITIES: InstrumentMeta[] = [
     category: "metal",
     pipSize: 0.01,
     contractSize: 100,
+    baseCurrency: "XAU",
+    quoteCurrency: "USD",
     description: "Inflation hedge, safe haven. Inversely correlated with USD.",
   },
   {
@@ -130,6 +159,8 @@ export const COMMODITIES: InstrumentMeta[] = [
     category: "metal",
     pipSize: 0.001,
     contractSize: 5000,
+    baseCurrency: "XAG",
+    quoteCurrency: "USD",
     description: "Industrial + monetary metal. More volatile than gold.",
   },
   {
@@ -139,6 +170,8 @@ export const COMMODITIES: InstrumentMeta[] = [
     category: "energy",
     pipSize: 0.01,
     contractSize: 1000,
+    baseCurrency: "USOIL",
+    quoteCurrency: "USD",
     description: "US benchmark crude. Driven by inventory data and OPEC supply.",
   },
   {
@@ -148,6 +181,8 @@ export const COMMODITIES: InstrumentMeta[] = [
     category: "energy",
     pipSize: 0.01,
     contractSize: 1000,
+    baseCurrency: "UKOIL",
+    quoteCurrency: "USD",
     description: "Global oil benchmark. Sensitive to geopolitical risk in EMEA.",
   },
   {
@@ -157,6 +192,8 @@ export const COMMODITIES: InstrumentMeta[] = [
     category: "energy",
     pipSize: 0.001,
     contractSize: 10000,
+    baseCurrency: "NATGAS",
+    quoteCurrency: "USD",
     description: "Highly seasonal. Storage reports drive sharp moves.",
   },
 ];
@@ -196,6 +233,64 @@ export function defaultLeverage(assetClass: string): number {
   if (assetClass === "commodity") return 30;
   if (assetClass === "crypto") return 5;
   return 1;
+}
+
+/**
+ * Approximate USD conversion rates for non-USD currencies. Used to convert
+ * cross-pair notional into account currency for backtest pnl. These are
+ * starting-point heuristics — for real-time accuracy we'd swap in live FX
+ * rates from Twelve Data, but for backtests these get us within ~5% of
+ * the true historical rate which is good enough vs. the 100x bug we're
+ * fixing.
+ */
+const USD_RATES: Record<string, number> = {
+  USD: 1.0,
+  EUR: 1.07,
+  GBP: 1.27,
+  JPY: 0.0067, // 1 JPY ≈ $0.0067 (USD/JPY ≈ 150)
+  CHF: 1.12,
+  AUD: 0.66,
+  CAD: 0.74,
+  NZD: 0.61,
+  CNY: 0.14,
+  XAU: 2400, // Approximate gold price USD/oz
+  XAG: 28, // Silver
+  USOIL: 75,
+  UKOIL: 78,
+  NATGAS: 2.5,
+};
+
+function usdRate(currency: string): number {
+  return USD_RATES[currency.toUpperCase()] ?? 1;
+}
+
+/**
+ * Convert a position's notional from quote-currency terms to USD. The
+ * backtest engine and prop-firm rules all run in account currency (USD
+ * by default), so cross-pair pnl must go through this conversion or
+ * trades on EUR/JPY etc. produce 100-150x inflated pnl swings.
+ *
+ * For XXX/USD pairs (most majors): notional = lots × contract × price
+ * (the price is USD per base, so multiplying gives USD notional).
+ *
+ * For USD/XXX pairs (USD/JPY, USD/CHF, USD/CAD): the BASE is USD, so
+ * notional = lots × contract — the price is irrelevant for sizing.
+ *
+ * For cross pairs (EUR/JPY, GBP/JPY, EUR/GBP): base ≠ USD AND quote ≠
+ * USD. We size off the base currency × current USD rate.
+ */
+export function notionalInUsd(symbol: string, lots: number, currentPrice: number): number {
+  const meta = getInstrumentMeta(symbol);
+  const baseUnits = lots * (meta?.contractSize ?? 1);
+  const baseCcy = meta?.baseCurrency ?? "USD";
+  const quoteCcy = meta?.quoteCurrency ?? "USD";
+
+  // USD-quoted instruments (XXX/USD, XAU/USD, USOIL etc.) — price is in USD
+  if (quoteCcy === "USD") return baseUnits * currentPrice;
+  // USD-base pairs (USD/JPY, USD/CHF, USD/CAD) — base is USD itself
+  if (baseCcy === "USD") return baseUnits;
+  // Cross pairs — convert via base currency's USD rate
+  return baseUnits * usdRate(baseCcy);
 }
 
 export function isCurrencyPair(symbol: string): boolean {

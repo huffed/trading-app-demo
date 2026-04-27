@@ -1,7 +1,7 @@
 /**
  * Scan engine helpers — position sizing, risk price calculation, activity logging.
  */
-import { getContractSize } from "@/lib/constants/markets";
+import { getContractSize, notionalInUsd } from "@/lib/constants/markets";
 import type { AlgorithmRules } from "@/types/algorithm";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -38,7 +38,8 @@ export function calculatePositionSize(
     const contractSize = getContractSize(symbol ?? "", rules.asset_class);
     const leverage = rules.leverage ?? 30;
     const lots = sizing.value;
-    const notional = lots * contractSize * currentPrice;
+    // Notional in USD respects cross-pair quote currency (EUR/JPY etc.).
+    const notional = notionalInUsd(symbol ?? "", lots, currentPrice);
     const marginRequired = notional / leverage;
     if (marginRequired > available || lots <= 0) return null;
     return { quantity: lots * contractSize, notionalValue: notional, marginRequired };

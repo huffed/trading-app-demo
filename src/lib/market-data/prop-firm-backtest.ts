@@ -1,4 +1,4 @@
-import { getContractSize } from "@/lib/constants/markets";
+import { notionalInUsd } from "@/lib/constants/markets";
 import type { AlgorithmRules, PropFirmRules } from "@/types/algorithm";
 import type { BacktestTrade, PropFirmReport } from "./types";
 
@@ -157,8 +157,11 @@ export function sizeForBacktest(
 ): { notional: number; margin: number } {
   const sizing = rules.position_sizing;
   if (sizing?.type === "lots") {
-    const contractSize = getContractSize(symbol ?? "", rules.asset_class);
-    const notional = sizing.value * contractSize * currentPrice;
+    // Use the symbol's quote currency to compute notional in USD. This is
+    // critical for cross pairs (EUR/JPY etc.) — naively multiplying
+    // contract × price gives a quote-currency notional that's ~150x bigger
+    // than the actual USD value on JPY pairs.
+    const notional = notionalInUsd(symbol ?? "", sizing.value, currentPrice);
     return { notional, margin: notional / (rules.leverage ?? 30) };
   }
   if (sizing?.type === "fixed_amount") return { notional: sizing.value, margin: sizing.value };
