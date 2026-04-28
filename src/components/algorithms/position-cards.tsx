@@ -31,6 +31,7 @@ import { EXIT_REASON_LABELS } from "@/lib/constants/algorithm";
 import { getQuantityUnitFor } from "@/lib/constants/markets";
 import { formatPnl, formatPriceValue, formatQuantity, pnlColorClass } from "@/lib/utils/pnl";
 import type { PaperPosition } from "@/types/position";
+import { BrokerErrorBanner, BrokerErrorIcon } from "./broker-error-indicators";
 import { PriceCellWithBroker } from "./position-price-cell";
 
 function PositionRow({
@@ -43,8 +44,9 @@ function PositionRow({
   return (
     <TableRow>
       <TableCell>
-        <div>
+        <div className="flex items-center gap-1.5">
           <span className="font-medium">{pos.ticker}</span>
+          {pos.broker_error && <BrokerErrorIcon message={pos.broker_error} />}
           <span className="ml-1.5 text-xs text-muted-foreground">
             {formatQuantity(pos.quantity)} {getQuantityUnitFor(pos.ticker, pos.quantity)}
           </span>
@@ -153,6 +155,7 @@ export function OpenPositionsCard({ algorithmId }: { algorithmId: string }) {
 
   return (
     <>
+      <BrokerErrorBanner positions={positions} />
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Open Positions ({positions.length})</CardTitle>
