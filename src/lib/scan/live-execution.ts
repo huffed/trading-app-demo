@@ -10,31 +10,23 @@
  * reported algorithm performance and the user's broker statement they
  * can't reconcile later. Better to record both honestly.
  */
-import {
-  closePosition as metaClose,
-  fetchPosition,
-  fetchSymbolSpec,
-  notionalToLots,
-  placeMarketOrder,
-  toBrokerSymbol,
-  type MetaApiRegion,
-} from "@/lib/brokers/metaapi";
+import { notionalToLots } from "@/lib/brokers/metaapi";
+import { getBrokerAdapter } from "@/lib/brokers/registry";
+import type { BrokerAdapter, BrokerConnection } from "@/lib/brokers/types";
 import { notionalInUsd } from "@/lib/constants/markets";
 import { checkDivergenceKill, haltAlgorithmForDivergence } from "./divergence";
 import { logActivity } from "./helpers";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 export interface BrokerExecutionContext {
-  connectionId: string;
-  apiToken: string;
-  accountId: string;
-  region: MetaApiRegion;
+  adapter: BrokerAdapter;
+  conn: BrokerConnection;
 }
 
 /**
  * Resolve the broker context for an algorithm. Returns null if the algo
- * isn't set up for live trading (no connection, or live_trading_enabled
- * is false). Cached lookups would belong here in the future.
+ * isn't set up for live trading, the connection is disabled, or the
+ * provider has no registered adapter.
  */
 export async function resolveBrokerContext(
   supabase: SupabaseClient,
@@ -45,17 +37,16 @@ export async function resolveBrokerContext(
   if (!liveEnabled || !algoBrokerId) return null;
   const { data } = await supabase
     .from("broker_connections")
-    .select("id, api_token, account_id, region, status, provider")
+    .select(
+      "id, user_id, provider, api_token, account_id, region, status, refresh_token, token_expires_at, account_login"
+    )
     .eq("id", algoBrokerId)
     .eq("user_id", userId)
     .single();
-  if (!data || data.provider !== "metaapi" || data.status === "disabled") return null;
-  return {
-    connectionId: data.id as string,
-    apiToken: data.api_token as string,
-    accountId: data.account_id as string,
-    region: (data.region as MetaApiRegion) ?? "london",
-  };
+  if (!data || data.status === "disabled") return null;
+  const adapter = getBrokerAdapter(data.provider as string);
+  if (!adapter) return null;
+  return { adapter, conn: data as BrokerConnection };
 }
 
 interface EntryArgs {
@@ -101,7 +92,8 @@ async function maybeHaltOnDivergence(
 export async function executeLiveEntry(args: EntryArgs): Promise<void> {
   const { supabase, userId, algorithmId, paperPositionId, ticker, side, notionalUsd } = args;
   try {
-    const spec = await fetchSymbolSpec(args.ctx.apiToken, args.ctx.accountId, args.ctx.region, ticker);
+    const { adapter, conn } = args.ctx;
+    const spec = await adapter.fetchSymbolSpec(conn, ticker);
     let lots: number;
     if (args.lots != null && args.lots > 0) {
       // Honour exact lot-sized algorithms — floor to broker volume step so a
@@ -121,8 +113,8 @@ export async function executeLiveEntry(args: EntryArgs): Promise<void> {
     }
     // Intentionally omit clientId — MetaApi's regex rejects hex/UUID-shaped
     // ids and we already correlate via the orderId/positionId in the response.
-    const placed = await placeMarketOrder(args.ctx.apiToken, args.ctx.accountId, args.ctx.region, {
-      symbol: toBrokerSymbol(ticker),
+    const placed = await adapter.placeMarketOrder(conn, {
+      appSymbol: ticker,
       side: side === "long" ? "buy" : "sell",
       volume: lots,
       stopLoss: args.stopLossPrice,
@@ -131,14 +123,9 @@ export async function executeLiveEntry(args: EntryArgs): Promise<void> {
     });
     // Best-effort: fetch the freshly-placed position to capture the real
     // broker fill price. The trade endpoint doesn't include it. Falls back
-    // to our scan price if MetaApi 404s (rare race) so the column is never
-    // null when broker_position_id is set.
-    const realFill = await fetchPosition(
-      args.ctx.apiToken,
-      args.ctx.accountId,
-      args.ctx.region,
-      placed.positionId
-    );
+    // to our scan price if the adapter can't find it (rare race) so the
+    // column is never null when broker_position_id is set.
+    const realFill = await adapter.fetchPosition(conn, placed.positionId);
     const brokerFillPrice = realFill?.openPrice ?? args.currentPrice;
     // Re-align paper quantity + notional to what actually got placed. Broker
     // floors lots to volumeStep (e.g. 0.125 → 0.12 on FTMO MT5), so the
@@ -204,12 +191,8 @@ export async function executeLiveExit(args: ExitArgs): Promise<void> {
   const { supabase, userId, algorithmId, paperPositionId, ticker, brokerPositionId } = args;
   if (!brokerPositionId) return; // Paper position never had a real counterpart.
   try {
-    const closed = await metaClose(
-      args.ctx.apiToken,
-      args.ctx.accountId,
-      args.ctx.region,
-      brokerPositionId
-    );
+    const { adapter, conn } = args.ctx;
+    const closed = await adapter.closePosition(conn, brokerPositionId);
     await supabase
       .from("paper_positions")
       .update({
