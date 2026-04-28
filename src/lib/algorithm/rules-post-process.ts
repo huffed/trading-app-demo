@@ -37,15 +37,23 @@ export function clampRules(rules: AlgorithmRules, timeHorizon: string): Algorith
   const isFxOrCommodity =
     clamped.asset_class === "forex" || clamped.asset_class === "commodity";
 
-  if (isLong) {
+  // The condition-count caps below address the "all-conditions-must-fire"
+  // problem where 5 ANDed conditions on daily bars produces zero trades.
+  // n_of_m and "any" logic don't have that problem — n_of_m fires when n
+  // of m trigger (extra conditions strengthen the signal pool); "any"
+  // fires on the first match. Skip the cap for those.
+  const isAndLogic =
+    clamped.entry_logic === undefined || clamped.entry_logic === "all";
+
+  if (isLong && isAndLogic) {
     const tech = clamped.entry_conditions.filter(isTechnicalCondition);
     const sentiment = clamped.entry_conditions.filter((c) => !isTechnicalCondition(c));
     clamped.entry_conditions = [...tech.slice(0, 1), ...sentiment.slice(0, 1)];
-  } else if (isFxOrCommodity) {
+  } else if (isFxOrCommodity && isAndLogic) {
     if (clamped.entry_conditions.length > 3) {
       clamped.entry_conditions = clamped.entry_conditions.slice(0, 3);
     }
-  } else if (clamped.entry_conditions.length > 2) {
+  } else if (!isFxOrCommodity && !isLong && isAndLogic && clamped.entry_conditions.length > 2) {
     clamped.entry_conditions = clamped.entry_conditions.slice(0, 2);
   }
   if (clamped.exit_conditions.length > 2) {
