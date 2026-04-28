@@ -18,6 +18,10 @@ export function useStrategyStats(algorithmId: string) {
       const r = await getStrategyStats(algorithmId);
       return r.success ? r.data : null;
     },
+    // Aggregated condition / per-pair stats. Updates as positions close,
+    // which can happen multiple times per minute during active scans —
+    // tighter staleTime than the dashboard so users see fresh win-rates
+    // without a manual refresh.
     staleTime: 30_000,
     enabled: !!algorithmId,
   });

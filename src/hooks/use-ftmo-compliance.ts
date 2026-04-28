@@ -18,6 +18,11 @@ export function useFtmoCompliance(algorithmId: string) {
       const r = await getFtmoCompliance(algorithmId);
       return r.success ? r.data : null;
     },
+    // Live FTMO compliance gauge — equity, daily P&L, halt state. Tight
+    // refresh because traders watch this card during open positions; a
+    // stale value can mean trading past the daily-loss limit on screen
+    // before they see the halt fire. 15s stale + 30s background refetch
+    // keeps the panel current without hammering the action.
     refetchInterval: 30_000,
     staleTime: 15_000,
     enabled: !!algorithmId,

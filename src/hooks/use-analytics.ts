@@ -23,6 +23,9 @@ export function useAnalytics() {
 
   const { data, isLoading } = useQuery({
     queryKey: ["analytics"],
+    // Closed trades + closed paper positions — heavier query, but the
+    // analytics page is not realtime. 60s avoids re-running the whole
+    // computation on incidental focus changes.
     staleTime: 60_000,
     queryFn: async () => {
       const supabase = createClient();
