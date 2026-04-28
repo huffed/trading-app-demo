@@ -15,6 +15,7 @@ import {
   getEventCurrencies,
   isWithinVetoWindow,
 } from "@/lib/market-data/economic-calendar";
+import { isWeakTrendByAdx } from "@/lib/market-data/adx-filter";
 import { isRangingByAtr } from "@/lib/market-data/regime-filter";
 import { resampleTo, resampleToDaily } from "@/lib/market-data/resample";
 import type { PriceBar } from "@/lib/market-data/types";
@@ -369,6 +370,20 @@ export async function evaluateEntry(
         event_type: "signal_no_action",
         ticker,
         details: { reason: `Regime filter: ${regime.reason}` },
+      });
+      return { opened: 0 };
+    }
+  }
+
+  // ADX trend-strength gate — skips entries during ranging tape.
+  if (rules.adx_filter?.enabled) {
+    const adx = isWeakTrendByAdx(higherTfBars, higherTfBars.length - 1, rules.adx_filter);
+    if (adx.skip) {
+      await logActivity(supabase, userId, {
+        algorithm_id: algo.id,
+        event_type: "signal_no_action",
+        ticker,
+        details: { reason: `ADX filter: ${adx.reason}` },
       });
       return { opened: 0 };
     }

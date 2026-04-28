@@ -29,6 +29,7 @@ import {
   type SimConfig,
   type SimState,
 } from "./prop-firm-backtest";
+import { isWeakTrendByAdx } from "./adx-filter";
 import { isRangingByAtr } from "./regime-filter";
 import { alignBarIndex, resampleTo, resampleToDaily } from "./resample";
 import { evaluateTechnical } from "./technical-evaluator";
@@ -206,6 +207,17 @@ function runSimulation(
     const regimeBlocked = rules.regime_filter?.enabled
       ? isRangingByAtr(prices, i, rules.regime_filter).skip
       : false;
+    // Trend-strength gate — skip entries when ADX is below the minimum.
+    // Targets the "no real trend" failure mode rather than just low vol.
+    // Aligned to the primary's "now" via alignBarIndex so the check is
+    // causal — never peeks at future D1 bars during replay.
+    let adxBlocked = false;
+    if (rules.adx_filter?.enabled) {
+      const dIdx = alignBarIndex(higherTfBars, prices[i].date);
+      if (dIdx >= 0) {
+        adxBlocked = isWeakTrendByAdx(higherTfBars, dIdx, rules.adx_filter).skip;
+      }
+    }
     if (
       !s.killTriggered &&
       !s.drawdownBreached &&
@@ -213,6 +225,7 @@ function runSimulation(
       !s.entryHaltedToday &&
       !vetoed &&
       !regimeBlocked &&
+      !adxBlocked &&
       resolved !== null &&
       positions.length < cfg.maxPos &&
       checkConditions(entry, ctx, rules.entry_logic)

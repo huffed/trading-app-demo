@@ -230,6 +230,19 @@ export interface AlgorithmRules {
     /** Skip when current ATR is below this percentile (0..1). Default 0.30. */
     percentile_floor?: number;
   };
+  /**
+   * Trend-strength gate using ADX. Skips entries when ADX is below the
+   * minimum threshold — i.e. there's no clear directional trend. ATR-
+   * percentile didn't work because low ATR ≠ ranging; ADX directly
+   * measures whether bulls or bears are in control.
+   */
+  adx_filter?: {
+    enabled: boolean;
+    /** ADX lookback period. Default 14. */
+    adx_period?: number;
+    /** Minimum ADX to allow entries. Default 20 (below = ranging). */
+    min_adx?: number;
+  };
 }
 
 // --- Backtest results ---

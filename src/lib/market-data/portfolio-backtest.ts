@@ -31,6 +31,7 @@ import {
   type SimConfig,
   type SimState,
 } from "./prop-firm-backtest";
+import { isWeakTrendByAdx } from "./adx-filter";
 import { isRangingByAtr } from "./regime-filter";
 import { alignBarIndex, resampleTo, resampleToDaily } from "./resample";
 import type {
@@ -290,6 +291,14 @@ function tryOpenEntry(
     if (dIdx >= 0) {
       const regime = isRangingByAtr(state.higherTfBars, dIdx, rules.regime_filter);
       if (regime.skip) return;
+    }
+  }
+  // ADX trend-strength gate — same D1 alignment as the regime filter.
+  if (rules.adx_filter?.enabled && state.higherTfBars.length > 0) {
+    const dIdx = alignBarIndex(state.higherTfBars, state.bars[i].date);
+    if (dIdx >= 0) {
+      const adx = isWeakTrendByAdx(state.higherTfBars, dIdx, rules.adx_filter);
+      if (adx.skip) return;
     }
   }
   // Resolve active side from rules.side (auto mode reads D1 bias on this

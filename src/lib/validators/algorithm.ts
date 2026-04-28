@@ -134,6 +134,12 @@ const regimeFilterSchema = z.object({
   percentile_floor: z.number().min(0).max(1).optional(),
 });
 
+const adxFilterSchema = z.object({
+  enabled: z.boolean(),
+  adx_period: z.number().int().min(5).max(100).optional(),
+  min_adx: z.number().min(0).max(100).optional(),
+});
+
 const entryLogicSchema = z.union([
   z.literal("all"),
   z.literal("any"),
@@ -166,4 +172,5 @@ export const algorithmRulesSchema = z.object({
   news_veto: newsVetoSchema.optional(),
   divergence_kill: divergenceKillSchema.optional(),
   regime_filter: regimeFilterSchema.optional(),
+  adx_filter: adxFilterSchema.optional(),
 });
