@@ -3,27 +3,11 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  Menu,
-  LayoutDashboard,
-  ArrowLeftRight,
-  BookOpen,
-  Bot,
-  BarChart3,
-  Settings,
-} from "lucide-react";
+import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { NAV_ITEMS } from "@/lib/constants/nav";
 import { cn } from "@/lib/utils";
-
-const navItems = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/trades", label: "Trades", icon: ArrowLeftRight },
-  { href: "/journal", label: "Journal", icon: BookOpen },
-  { href: "/algorithms", label: "Algorithms", icon: Bot },
-  { href: "/analytics", label: "Analytics", icon: BarChart3 },
-  { href: "/settings", label: "Settings", icon: Settings },
-];
 
 export function MobileNav() {
   const pathname = usePathname();
@@ -49,7 +33,7 @@ export function MobileNav() {
           </Link>
         </div>
         <nav className="space-y-1 p-2">
-          {navItems.map((item) => {
+          {NAV_ITEMS.map((item) => {
             const isActive =
               pathname === item.href ||
               (item.href !== "/dashboard" && pathname.startsWith(item.href));

@@ -13,6 +13,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useDashboardStats } from "@/hooks/use-dashboard-stats";
+import { formatShortDate } from "@/lib/utils/date";
 import { formatCurrency } from "@/lib/utils/pnl";
 import type { Trade } from "@/types/trade";
 
@@ -25,7 +26,7 @@ function computeCumulativePnl(trades: Trade[]) {
   return closed.map((t) => {
     cumulative += t.realized_pnl!;
     return {
-      date: new Date(t.exit_date!).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+      date: formatShortDate(t.exit_date!),
       pnl: Number(cumulative.toFixed(2)),
     };
   });

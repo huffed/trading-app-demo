@@ -79,7 +79,7 @@ const sentimentConditionSchema = z.object({
 
 const patternConditionSchema = z.object({
   type: z.literal("pattern"),
-  pattern: z.enum(["liquidity_sweep", "fvg", "ifvg", "daily_bias"]),
+  pattern: z.enum(["liquidity_sweep", "fvg", "ifvg", "daily_bias", "bos", "order_block"]),
   direction: z.enum(["bullish", "bearish"]).optional(),
   lookback: z.number().int().min(1).max(100).optional(),
   ma_period: z.number().int().min(1).max(500).optional(),
@@ -150,6 +150,7 @@ export const algorithmRulesSchema = z.object({
   entry_conditions: z.array(normalizedCondition),
   entry_logic: entryLogicSchema.optional(),
   exit_conditions: z.array(normalizedCondition),
+  exit_logic: entryLogicSchema.optional(),
   stop_loss: z.object({ type: z.enum(["percentage", "fixed"]), value: z.number() }),
   take_profit: z.object({ type: z.enum(["percentage", "fixed"]), value: z.number() }),
   position_sizing: z.object({

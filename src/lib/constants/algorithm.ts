@@ -34,6 +34,12 @@ export const RISK_LEVEL_LABELS: Record<string, string> = {
   aggressive: "Aggressive",
 };
 
+export const RISK_LEVEL_COLORS: Record<string, string> = {
+  conservative: "text-[var(--profit)]",
+  moderate: "text-primary",
+  aggressive: "text-[var(--loss)]",
+};
+
 export const STATUS_LABELS: Record<string, string> = {
   draft: "Draft",
   active: "Active",

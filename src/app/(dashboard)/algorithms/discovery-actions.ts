@@ -2,11 +2,10 @@
 
 import { AI_MODEL, getAIClient } from "@/lib/ai/client";
 import { buildDiscoveryPrompt } from "@/lib/ai/prompts/discovery";
+import { getAuthedUser } from "@/lib/supabase/get-authed-user";
+import { type ActionResult } from "@/lib/types/action-result";
 import type { Algorithm } from "@/types/algorithm";
 import type { DiscoverySuggestion } from "@/types/watchlist";
-import { getAuthedUser } from "./actions";
-
-type ActionResult<T = unknown> = { success: true; data: T } | { success: false; error: string };
 
 function validateSuggestion(s: unknown): s is DiscoverySuggestion {
   if (!s || typeof s !== "object") return false;

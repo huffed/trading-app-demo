@@ -172,6 +172,13 @@ export interface AlgorithmRules {
   /** Logic combining entry conditions. Defaults to "all" for backwards compat. */
   entry_logic?: EntryLogic;
   exit_conditions: ExitCondition[];
+  /**
+   * Logic combining exit conditions. Falls back to entry_logic when
+   * undefined so legacy algos preserve their behaviour. New algos default
+   * to "any" via clampRules — typical exit semantics fire on the first
+   * confirming signal rather than waiting for all to align.
+   */
+  exit_logic?: EntryLogic;
   stop_loss: StopLoss;
   take_profit: TakeProfit;
   position_sizing: PositionSizing;
@@ -276,6 +283,16 @@ export interface Algorithm {
   // Live trading wiring (Phase B)
   live_trading_enabled?: boolean;
   broker_connection_id?: string | null;
+  /** Optional portfolio grouping — when set, the portfolio's halt rules
+   *  apply to this algo. ON DELETE SET NULL on the portfolio. */
+  portfolio_id?: string | null;
+  /** Account leverage ratio used for margin calculations on lots-sized algos.
+   *  Mirrors AlgorithmRules.leverage so backtest + live agree. */
+  leverage?: number;
+  /** Cutoff timestamp for drift / pair-quality calculations. Trades closed
+   *  before this point are excluded so a fix-driven baseline reset doesn't
+   *  poison the rolling metrics. */
+  metrics_reset_at?: string | null;
   created_at: string;
   updated_at: string;
 }

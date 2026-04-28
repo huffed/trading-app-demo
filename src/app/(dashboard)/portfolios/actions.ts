@@ -1,18 +1,8 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
+import { getAuthedUser } from "@/lib/supabase/get-authed-user";
+import { type ActionResult } from "@/lib/types/action-result";
 import type { CreatePortfolioInput, Portfolio } from "@/types/portfolio";
-
-type ActionResult<T = unknown> = { success: true; data: T } | { success: false; error: string };
-
-async function getAuthedUser() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error("Not authenticated");
-  return { supabase, user };
-}
 
 export async function createPortfolio(
   input: CreatePortfolioInput

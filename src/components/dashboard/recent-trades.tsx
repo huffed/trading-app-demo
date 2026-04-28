@@ -2,11 +2,13 @@
 
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
+import { EmptyState } from "@/components/shared/empty-state";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useTradesList } from "@/hooks/use-trades";
+import { formatDate } from "@/lib/utils/date";
 import { formatPnl, pnlColorClass } from "@/lib/utils/pnl";
 
 function TradeRow({
@@ -24,7 +26,7 @@ function TradeRow({
       </div>
       <div className="flex items-center gap-3">
         <span className="text-xs text-muted-foreground">
-          {new Date(trade.entry_date).toLocaleDateString()}
+          {formatDate(trade.entry_date)}
         </span>
         <span className={`text-sm font-medium ${pnlColorClass(trade.realized_pnl)}`}>
           {formatPnl(trade.realized_pnl)}
@@ -34,22 +36,13 @@ function TradeRow({
   );
 }
 
-function EmptyState() {
-  return (
-    <div className="flex flex-col items-center py-8 text-center">
-      <p className="text-sm text-muted-foreground">No trades yet</p>
-      <Button
-        className="mt-3"
-        variant="outline"
-        size="sm"
-        render={<Link href="/trades" />}
-        nativeButton={false}
-      >
-        Add your first trade
-      </Button>
-    </div>
-  );
-}
+const EMPTY = (
+  <EmptyState
+    title="No trades yet"
+    action={{ href: "/trades", label: "Add your first trade", variant: "outline" }}
+    className="py-8"
+  />
+);
 
 export function RecentTrades() {
   const { data, isLoading } = useTradesList({}, 1, 7);
@@ -74,7 +67,7 @@ export function RecentTrades() {
             ))}
           </div>
         )}
-        {!isLoading && trades.length === 0 && <EmptyState />}
+        {!isLoading && trades.length === 0 && EMPTY}
         {!isLoading && trades.length > 0 && (
           <div className="divide-y divide-border">
             {trades.map((trade) => (

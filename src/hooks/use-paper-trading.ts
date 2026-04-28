@@ -162,6 +162,9 @@ export function useActivityLog(filters: ActivityFilters = {}, page = 1, perPage 
 export function usePaperTradingStats() {
   return useQuery({
     queryKey: PAPER_STATS_KEY,
+    // Paper trading rollup — total positions, win-rate, etc. Aligned with
+    // dashboard-stats at 60s so the two cards never disagree on the same
+    // page.
     staleTime: 60_000,
     queryFn: async () => {
       const result = await getPaperTradingStats();

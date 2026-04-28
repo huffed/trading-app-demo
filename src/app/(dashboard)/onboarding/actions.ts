@@ -3,13 +3,12 @@
 import { generateAlgorithm } from "@/app/(dashboard)/algorithms/actions";
 import { seedWatchlist } from "@/app/(dashboard)/algorithms/seed-watchlist-action";
 import { createClient } from "@/lib/supabase/server";
+import { type ActionResult } from "@/lib/types/action-result";
 import { deriveTradingParams } from "@/lib/utils/derive-trading-params";
 import { tradingProfileSchema } from "@/lib/validators/trading-profile";
 import type { TradingProfile, TradingProfileAnswers } from "@/types/trading-profile";
 
-type ActionResult<T = void> = { success: true; data: T } | { success: false; error: string };
-
-export async function completeOnboarding(): Promise<ActionResult> {
+export async function completeOnboarding(): Promise<ActionResult<null>> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -22,7 +21,7 @@ export async function completeOnboarding(): Promise<ActionResult> {
     .eq("id", user.id);
 
   if (error) return { success: false, error: error.message };
-  return { success: true, data: undefined };
+  return { success: true, data: null };
 }
 
 /**

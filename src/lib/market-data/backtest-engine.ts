@@ -1,4 +1,10 @@
 import {
+  DEFAULT_MAX_POSITIONS,
+  DEFAULT_POSITION_SIZE_PCT,
+  DEFAULT_STOP_LOSS_PCT,
+  DEFAULT_TAKE_PROFIT_PCT,
+} from "@/lib/constants/defaults";
+import {
   isPatternCondition,
   isTechnicalCondition,
   type AlgorithmRules,
@@ -6,6 +12,7 @@ import {
   type ExitCondition,
   type TechnicalCondition,
 } from "@/types/algorithm";
+import { isWeakTrendByAdx } from "./adx-filter";
 import { resolveSide } from "./auto-side";
 import { calculateMetrics } from "./backtest-metrics";
 import {
@@ -29,11 +36,11 @@ import {
   type SimConfig,
   type SimState,
 } from "./prop-firm-backtest";
-import { isWeakTrendByAdx } from "./adx-filter";
 import { isRangingByAtr } from "./regime-filter";
 import { alignBarIndex, resampleTo, resampleToDaily } from "./resample";
 import { evaluateTechnical } from "./technical-evaluator";
 import type { BacktestMetrics, BacktestTrade, OpenPosition, PriceBar } from "./types";
+
 
 export type { Cache } from "./indicator-registry";
 
@@ -66,10 +73,6 @@ export function normalize(
     return c;
   });
 }
-const DEFAULT_MAX_POSITIONS = 1;
-const DEFAULT_POSITION_SIZE_PCT = 10;
-const DEFAULT_STOP_LOSS_PCT = 5;
-const DEFAULT_TAKE_PROFIT_PCT = 15;
 
 /** Pull every distinct condition timeframe that ISN'T the primary one,
  *  lowercased + deduped. Used to size the multi-timeframe context map.
@@ -185,8 +188,11 @@ function runSimulation(
       byTimeframe,
       primaryTimeframe: primaryTf,
     };
+    // Exit logic falls back to entry_logic when undefined so existing
+    // algos keep their backtest results stable; new algos get "any" via
+    // clampRules. See AlgorithmRules.exit_logic doc.
     const signalExitFired =
-      (exit.length > 0 && checkConditions(exit, ctx, rules.entry_logic)) ||
+      (exit.length > 0 && checkConditions(exit, ctx, rules.exit_logic ?? rules.entry_logic)) ||
       s.drawdownBreached;
     for (let p = positions.length - 1; p >= 0; p--) {
       const pos = positions[p];

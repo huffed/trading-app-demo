@@ -1,3 +1,4 @@
+import { NextResponse } from "next/server";
 import { z } from "zod";
 import { AI_MODEL, getAIClient } from "@/lib/ai/client";
 import { buildStrategyPrompt } from "@/lib/ai/prompts/algorithm";
@@ -21,20 +22,26 @@ export async function POST(request: Request) {
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return new Response("Unauthorized", { status: 401 });
+    return NextResponse.json({ error: "Unauthorized", code: "unauthorized" }, { status: 401 });
   }
 
   const raw = await request.json();
   const reqParsed = generateRequestSchema.safeParse(raw);
   if (!reqParsed.success) {
-    return new Response(reqParsed.error.issues[0].message, { status: 400 });
+    return NextResponse.json(
+      { error: reqParsed.error.issues[0].message, code: "validation_error" },
+      { status: 400 }
+    );
   }
 
   const { preferences, messages } = reqParsed.data;
 
   const parsed = algorithmFormSchema.safeParse(preferences);
   if (!parsed.success) {
-    return new Response(parsed.error.issues[0].message, { status: 400 });
+    return NextResponse.json(
+      { error: parsed.error.issues[0].message, code: "validation_error" },
+      { status: 400 }
+    );
   }
 
   const { count } = await supabase.from("trades").select("*", { count: "exact", head: true });
@@ -94,7 +101,10 @@ export async function POST(request: Request) {
       headers: { "Content-Type": "text/plain; charset=utf-8" },
     });
   } catch {
-    return new Response("AI is temporarily unavailable.", { status: 503 });
+    return NextResponse.json(
+      { error: "AI is temporarily unavailable.", code: "upstream_unavailable" },
+      { status: 503 }
+    );
   }
 }
 

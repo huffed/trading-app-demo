@@ -5,6 +5,7 @@ import { Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { ENTRY_TYPE_SHORT_LABELS } from "@/lib/constants/journal";
+import { formatDate } from "@/lib/utils/date";
 import type { JournalEntry } from "@/types/journal";
 import { getEmotionDisplay } from "./emotion-picker";
 import { StarRating } from "./star-rating";
@@ -22,7 +23,7 @@ function timeAgo(date: string): string {
   if (hours < 24) return `${hours}h ago`;
   const days = Math.floor(hours / 24);
   if (days < 7) return `${days}d ago`;
-  return new Date(date).toLocaleDateString();
+  return formatDate(date);
 }
 
 export function JournalCard({ entry }: JournalCardProps) {

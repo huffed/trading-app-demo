@@ -2,12 +2,11 @@
 
 import { analyzeJournalEntry } from "@/lib/ai/analyze";
 import { createClient } from "@/lib/supabase/server";
+import { type ActionResult } from "@/lib/types/action-result";
 import { journalFormSchema, type JournalFormValues } from "@/lib/validators/journal";
 import type { JournalEntry } from "@/types/journal";
 import type { Trade } from "@/types/trade";
 import type { SupabaseClient } from "@supabase/supabase-js";
-
-type ActionResult<T = unknown> = { success: true; data: T } | { success: false; error: string };
 
 async function triggerAnalysis(
   supabase: SupabaseClient,
@@ -33,7 +32,7 @@ async function triggerAnalysis(
   return { ...entry, ai_analysis: analysis, ai_analyzed_at: analyzedAt };
 }
 
-export async function createJournalEntry(values: JournalFormValues): Promise<ActionResult> {
+export async function createJournalEntry(values: JournalFormValues): Promise<ActionResult<JournalEntry>> {
   const parsed = journalFormSchema.safeParse(values);
   if (!parsed.success) {
     return { success: false, error: parsed.error.issues[0].message };
@@ -61,13 +60,13 @@ export async function createJournalEntry(values: JournalFormValues): Promise<Act
 
   // AI analysis is best-effort — entry is saved regardless
   const analyzed = await triggerAnalysis(supabase, data as JournalEntry).catch(() => null);
-  return { success: true, data: analyzed ?? data };
+  return { success: true, data: (analyzed ?? data) as JournalEntry };
 }
 
 export async function updateJournalEntry(
   id: string,
   values: Partial<JournalFormValues>
-): Promise<ActionResult> {
+): Promise<ActionResult<JournalEntry>> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -89,10 +88,10 @@ export async function updateJournalEntry(
   if (error) return { success: false, error: error.message };
 
   const analyzed = await triggerAnalysis(supabase, data as JournalEntry).catch(() => null);
-  return { success: true, data: analyzed ?? data };
+  return { success: true, data: (analyzed ?? data) as JournalEntry };
 }
 
-export async function deleteJournalEntry(id: string): Promise<ActionResult> {
+export async function deleteJournalEntry(id: string): Promise<ActionResult<null>> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -109,7 +108,7 @@ export async function deleteJournalEntry(id: string): Promise<ActionResult> {
   return { success: true, data: null };
 }
 
-export async function analyzeJournalEntryAction(entryId: string): Promise<ActionResult> {
+export async function analyzeJournalEntryAction(entryId: string): Promise<ActionResult<JournalEntry>> {
   const supabase = await createClient();
   const {
     data: { user },

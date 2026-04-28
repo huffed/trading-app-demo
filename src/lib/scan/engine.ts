@@ -22,6 +22,7 @@ import {
 } from "@/types/algorithm";
 import type { PaperPosition, PositionEvent } from "@/types/position";
 import { maybeHaltOnDailyLoss } from "./daily-halt";
+import { detectDrift, executeDriftHalt } from "./drift-detector";
 import { evaluateEntry } from "./entry";
 import { logActivity } from "./helpers";
 import {
@@ -29,7 +30,6 @@ import {
   resolveBrokerContext,
   type BrokerExecutionContext,
 } from "./live-execution";
-import { detectDrift, executeDriftHalt } from "./drift-detector";
 import { evaluateAndPrune } from "./pair-quality";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -180,13 +180,17 @@ function checkExitTrigger(
   if (evaluableExit.length > 0) {
     const cache: Cache = new Map();
     if (
-      checkConditions(evaluableExit, {
-        cache,
-        closes,
-        bars,
-        i: closes.length - 1,
-        higherTfBars: dailyBars ?? resampleToDaily(bars),
-      })
+      checkConditions(
+        evaluableExit,
+        {
+          cache,
+          closes,
+          bars,
+          i: closes.length - 1,
+          higherTfBars: dailyBars ?? resampleToDaily(bars),
+        },
+        rules.exit_logic ?? rules.entry_logic
+      )
     ) {
       return "exit_signal";
     }

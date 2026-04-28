@@ -5,6 +5,7 @@ import { X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { useTradesForLinking } from "@/hooks/use-journal";
+import { formatDate } from "@/lib/utils/date";
 import { formatPnl, pnlColorClass } from "@/lib/utils/pnl";
 
 type LinkableTrade = {
@@ -35,7 +36,7 @@ function TradeDropdown({ available, onSelect }: TradeDropdownProps) {
             <span className="font-medium">{trade.symbol}</span>
             <span className="text-xs text-muted-foreground">{trade.side}</span>
             <span className="text-xs text-muted-foreground">
-              {new Date(trade.entry_date).toLocaleDateString()}
+              {formatDate(trade.entry_date)}
             </span>
           </span>
           {trade.realized_pnl != null && (

@@ -2,17 +2,26 @@
  * Live signal evaluation — checks if an algorithm's sentiment conditions
  * are currently met for a given ticker.
  *
- * Flow:
+ * Sentiment evaluation across the codebase:
+ *   - sentiment-evaluator.ts → pure threshold check (sentiment-vs-number).
+ *     Used by both this file and any caller that just wants the
+ *     mechanical verdict.
+ *   - this file → wraps the threshold check with an LLM layer that adds
+ *     qualitative narrative/catalyst assessment, and returns a unified
+ *     buy/hold/no_signal verdict + confidence.
+ *   - backtest-engine.ts → filters sentiment conditions OUT entirely.
+ *     Backtests can't replay historical news, so they signal-flag the
+ *     algo as "technical_only" and the user re-validates live.
+ *
+ * Flow here:
  *   1. Extract sentiment conditions from algorithm rules
  *   2. Check Supabase cache for recent sentiment data (6h TTL)
  *   3. If cache miss, fetch from Alpha Vantage News Sentiment API
- *   4. Run mechanical threshold checks (sentiment score above/below/spike)
- *   5. Send data to LLM for qualitative narrative/catalyst assessment
+ *   4. Mechanical threshold check via evaluateAllSentimentConditions
+ *   5. LLM qualitative assessment (Zod-validated payload)
  *   6. Return combined signal (buy/hold/no_signal) with confidence
- *
- * Note: This only evaluates SENTIMENT conditions. Technical conditions
- * are evaluated in the backtest engine against price data.
  */
+import { z } from "zod";
 import { AI_MODEL, getAIClient } from "@/lib/ai/client";
 import { buildSignalPrompt } from "@/lib/ai/prompts/signal";
 import { fetchNewsSentiment } from "@/lib/market-data/news-sentiment";
@@ -23,6 +32,15 @@ import {
   type AlgorithmRules,
   type SentimentCondition,
 } from "@/types/algorithm";
+
+/** Strict shape for the LLM's JSON response. The model is asked to emit
+ *  this; if it doesn't, we fall back to no_signal rather than coerce
+ *  partial fields and risk firing on garbage. */
+const signalLLMOutputSchema = z.object({
+  signal: z.enum(["buy", "hold", "no_signal"]),
+  confidence: z.number().min(0).max(100),
+  reasoning: z.string().min(1).max(2000),
+});
 
 export interface SignalResult {
   signal: "buy" | "hold" | "no_signal";
@@ -103,26 +121,31 @@ export async function evaluateLiveSignal(
   });
 
   const text = res.choices[0]?.message?.content ?? "{}";
+  const llm = parseLLMSignal(text);
+  return {
+    ...llm,
+    conditions_evaluated: conditionsEvaluated,
+    articles_count: snapshot.aggregate.article_count,
+    avg_sentiment: snapshot.aggregate.avg_sentiment,
+  };
+}
+
+function parseLLMSignal(
+  text: string
+): { signal: SignalResult["signal"]; confidence: number; reasoning: string } {
+  let raw: unknown;
   try {
-    const parsed = JSON.parse(text) as { signal?: string; confidence?: number; reasoning?: string };
-    return {
-      signal: (["buy", "hold", "no_signal"].includes(parsed.signal ?? "")
-        ? parsed.signal
-        : "no_signal") as SignalResult["signal"],
-      confidence: Math.min(100, Math.max(0, parsed.confidence ?? 0)),
-      reasoning: parsed.reasoning ?? "Unable to assess.",
-      conditions_evaluated: conditionsEvaluated,
-      articles_count: snapshot.aggregate.article_count,
-      avg_sentiment: snapshot.aggregate.avg_sentiment,
-    };
+    raw = JSON.parse(text);
   } catch {
+    return { signal: "no_signal", confidence: 0, reasoning: "Failed to parse AI assessment." };
+  }
+  const parsed = signalLLMOutputSchema.safeParse(raw);
+  if (!parsed.success) {
     return {
       signal: "no_signal",
       confidence: 0,
-      reasoning: "Failed to parse AI assessment.",
-      conditions_evaluated: conditionsEvaluated,
-      articles_count: snapshot.aggregate.article_count,
-      avg_sentiment: snapshot.aggregate.avg_sentiment,
+      reasoning: "AI returned an unexpected shape; treating as no signal.",
     };
   }
+  return parsed.data;
 }

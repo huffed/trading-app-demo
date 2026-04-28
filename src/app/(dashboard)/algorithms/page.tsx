@@ -3,29 +3,19 @@
 import Link from "next/link";
 import { Bot, Plus } from "lucide-react";
 import { AlgorithmCard } from "@/components/algorithms/algorithm-card";
+import { EmptyState } from "@/components/shared/empty-state";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAlgorithmsList } from "@/hooks/use-algorithms";
 
-function EmptyState() {
-  return (
-    <div className="flex flex-col items-center justify-center py-16 text-center">
-      <Bot className="h-8 w-8 text-muted-foreground mb-3" />
-      <p className="text-sm text-muted-foreground">No algorithms yet</p>
-      <p className="text-xs text-muted-foreground mt-1">
-        Let AI design a trading strategy based on your preferences.
-      </p>
-      <Button
-        className="mt-4"
-        size="sm"
-        render={<Link href="/algorithms/generate" />}
-        nativeButton={false}
-      >
-        Generate your first algorithm
-      </Button>
-    </div>
-  );
-}
+const EMPTY = (
+  <EmptyState
+    icon={<Bot className="h-8 w-8 text-muted-foreground mb-3" />}
+    title="No algorithms yet"
+    description="Let AI design a trading strategy based on your preferences."
+    action={{ href: "/algorithms/generate", label: "Generate your first algorithm" }}
+  />
+);
 
 export default function AlgorithmsPage() {
   const { data: algorithms, isLoading } = useAlgorithmsList();
@@ -52,7 +42,7 @@ export default function AlgorithmsPage() {
           ))}
         </div>
       )}
-      {!isLoading && (!algorithms || algorithms.length === 0) && <EmptyState />}
+      {!isLoading && (!algorithms || algorithms.length === 0) && EMPTY}
       {!isLoading && algorithms && algorithms.length > 0 && (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {algorithms.map((algo) => (

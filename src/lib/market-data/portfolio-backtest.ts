@@ -7,12 +7,19 @@
  * max_per_ticker still caps pyramiding on each individual symbol.
  */
 import {
+  DEFAULT_MAX_POSITIONS,
+  DEFAULT_POSITION_SIZE_PCT,
+  DEFAULT_STOP_LOSS_PCT,
+  DEFAULT_TAKE_PROFIT_PCT,
+} from "@/lib/constants/defaults";
+import {
   isPatternCondition,
   isTechnicalCondition,
   type AlgorithmRules,
   type PatternCondition,
   type TechnicalCondition,
 } from "@/types/algorithm";
+import { isWeakTrendByAdx } from "./adx-filter";
 import { resolveSide } from "./auto-side";
 import { checkConditions, collectOtherTimeframes, normalize } from "./backtest-engine";
 import { calculateMetrics } from "./backtest-metrics";
@@ -31,7 +38,6 @@ import {
   type SimConfig,
   type SimState,
 } from "./prop-firm-backtest";
-import { isWeakTrendByAdx } from "./adx-filter";
 import { isRangingByAtr } from "./regime-filter";
 import { alignBarIndex, resampleTo, resampleToDaily } from "./resample";
 import type {
@@ -67,10 +73,6 @@ interface TickerState {
   cursor: number;
 }
 
-const DEFAULT_MAX_POSITIONS = 1;
-const DEFAULT_POSITION_SIZE_PCT = 10;
-const DEFAULT_STOP_LOSS_PCT = 5;
-const DEFAULT_TAKE_PROFIT_PCT = 15;
 
 function buildSimConfig(rules: AlgorithmRules): SimConfig {
   const pf = rules.prop_firm;
@@ -197,7 +199,7 @@ function runCloseLoop(
         byTimeframe: buildByTimeframe(state, state.bars[i].date),
         primaryTimeframe: rules.timeframe.toLowerCase(),
       },
-        rules.entry_logic
+        rules.exit_logic ?? rules.entry_logic
       )) ||
     s.drawdownBreached;
   const bar = state.bars[i];

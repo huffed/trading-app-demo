@@ -2,6 +2,15 @@
  * Walk-forward backtest harness — slices the full price history into
  * rolling out-of-sample windows and runs a portfolio backtest on each.
  *
+ * Access: admin-only via /api/admin/walk-forward (Bearer CRON_SECRET).
+ * Surfaced through the readiness-check admin endpoint when validating
+ * an algorithm before live trading. There is no end-user UI by design —
+ * the harness can take minutes to run on a long history, and the
+ * results are most useful as a one-off go/no-go signal rather than
+ * something traders inspect repeatedly. If you want to expose it, add a
+ * card on the algorithm detail page that calls the admin endpoint via
+ * a server action gated on the operator role.
+ *
  * Why: a single 1-year backtest can hide regime-dependent edge. A
  * strategy that works great in trending tape but bleeds in chop will
  * average out to "looks fine" over a long sample, while every
@@ -18,9 +27,9 @@
  * sampling; for strict statistical independence the caller can set
  * stepDays >= testWindowDays.
  */
+import type { AlgorithmRules } from "@/types/algorithm";
 import { runPortfolioBacktest } from "./portfolio-backtest";
 import type { EconomicEvent } from "./economic-calendar";
-import type { AlgorithmRules } from "@/types/algorithm";
 import type { BacktestMetrics, PriceBar } from "./types";
 
 export interface WalkForwardWindow {

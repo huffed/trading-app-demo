@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { Plus, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus } from "lucide-react";
 import { JournalCard } from "@/components/journal/journal-card";
 import { JournalFilters } from "@/components/journal/journal-filters";
+import { EmptyState } from "@/components/shared/empty-state";
+import { Pagination } from "@/components/shared/pagination";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useJournalEntries } from "@/hooks/use-journal";
@@ -28,51 +30,25 @@ function CardGrid({ entries, total, page, totalPages, setPage }: CardGridProps) 
           <JournalCard key={entry.id} entry={entry} />
         ))}
       </div>
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between px-2 py-3">
-          <p className="text-xs text-muted-foreground">
-            {total} entr{total !== 1 ? "ies" : "y"}
-          </p>
-          <div className="flex items-center gap-1">
-            <Button
-              variant="outline"
-              size="icon-xs"
-              disabled={page <= 1}
-              onClick={() => setPage(page - 1)}
-            >
-              <ChevronLeft className="h-3 w-3" />
-            </Button>
-            <span className="px-2 text-xs text-muted-foreground">
-              {page} / {totalPages}
-            </span>
-            <Button
-              variant="outline"
-              size="icon-xs"
-              disabled={page >= totalPages}
-              onClick={() => setPage(page + 1)}
-            >
-              <ChevronRight className="h-3 w-3" />
-            </Button>
-          </div>
-        </div>
-      )}
+      <Pagination
+        page={page}
+        totalPages={totalPages}
+        total={total}
+        setPage={setPage}
+        noun="entry"
+        pluralNoun="entries"
+      />
     </>
   );
 }
 
-function EmptyState() {
-  return (
-    <div className="flex flex-col items-center justify-center py-16 text-center">
-      <p className="text-sm text-muted-foreground">No journal entries yet</p>
-      <p className="text-xs text-muted-foreground mt-1">
-        Start your first entry to begin tracking your trading mindset.
-      </p>
-      <Button className="mt-4" size="sm" render={<Link href="/journal/new" />} nativeButton={false}>
-        Write your first entry
-      </Button>
-    </div>
-  );
-}
+const EMPTY = (
+  <EmptyState
+    title="No journal entries yet"
+    description="Start your first entry to begin tracking your trading mindset."
+    action={{ href: "/journal/new", label: "Write your first entry" }}
+  />
+);
 
 export default function JournalPage() {
   const { filters, page, setPage } = useJournalFilterStore();
@@ -106,7 +82,7 @@ export default function JournalPage() {
           ))}
         </div>
       )}
-      {!isLoading && entries.length === 0 && <EmptyState />}
+      {!isLoading && entries.length === 0 && EMPTY}
       {!isLoading && entries.length > 0 && (
         <CardGrid
           entries={entries}

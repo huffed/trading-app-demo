@@ -10,6 +10,9 @@ const DASHBOARD_KEY = ["dashboard-stats"];
 export function useDashboardStats() {
   return useQuery({
     queryKey: DASHBOARD_KEY,
+    // Trades-summary card on the dashboard. Doesn't need realtime because
+    // P&L deltas show up on the trades page first; 60s is a balance
+    // between freshness and the cost of re-running getTradeStats.
     staleTime: 60_000,
     queryFn: async () => {
       const supabase = createClient();

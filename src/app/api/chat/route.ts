@@ -1,3 +1,4 @@
+import { NextResponse } from "next/server";
 import { z } from "zod";
 import { AI_MODEL, getAIClient } from "@/lib/ai/client";
 import { buildChatSystemPrompt } from "@/lib/ai/prompts/chat";
@@ -21,13 +22,16 @@ export async function POST(request: Request) {
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return new Response("Unauthorized", { status: 401 });
+    return NextResponse.json({ error: "Unauthorized", code: "unauthorized" }, { status: 401 });
   }
 
   const body = await request.json();
   const parsed = chatRequestSchema.safeParse(body);
   if (!parsed.success) {
-    return new Response(parsed.error.issues[0].message, { status: 400 });
+    return NextResponse.json(
+      { error: parsed.error.issues[0].message, code: "validation_error" },
+      { status: 400 }
+    );
   }
 
   const { messages, stats, tradeHistory } = parsed.data;
@@ -79,6 +83,9 @@ export async function POST(request: Request) {
       headers: { "Content-Type": "text/plain; charset=utf-8" },
     });
   } catch {
-    return new Response("AI is temporarily unavailable.", { status: 503 });
+    return NextResponse.json(
+      { error: "AI is temporarily unavailable.", code: "upstream_unavailable" },
+      { status: 503 }
+    );
   }
 }

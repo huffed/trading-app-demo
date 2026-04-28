@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Pencil, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
+import { Pencil, Trash2 } from "lucide-react";
+import { Pagination } from "@/components/shared/pagination";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -21,6 +22,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useTradesList, useDeleteTrade } from "@/hooks/use-trades";
+import { formatDate } from "@/lib/utils/date";
 import {
   formatPnl,
   formatPnlPercent,
@@ -70,7 +72,7 @@ function TradeRowCells({ trade, onEdit, onDelete }: TradeRowProps) {
         </Badge>
       </TableCell>
       <TableCell className="text-muted-foreground">
-        {new Date(trade.entry_date).toLocaleDateString()}
+        {formatDate(trade.entry_date)}
       </TableCell>
       <TableCell className="text-muted-foreground">{trade.strategy ?? "\u2014"}</TableCell>
       <TableCell>
@@ -87,44 +89,6 @@ function TradeRowCells({ trade, onEdit, onDelete }: TradeRowProps) {
   );
 }
 
-interface PaginationProps {
-  page: number;
-  totalPages: number;
-  total: number;
-  setPage: (page: number) => void;
-}
-
-function TablePagination({ page, totalPages, total, setPage }: PaginationProps) {
-  if (totalPages <= 1) return null;
-  return (
-    <div className="flex items-center justify-between px-2 py-3">
-      <p className="text-xs text-muted-foreground">
-        {total} trade{total !== 1 && "s"}
-      </p>
-      <div className="flex items-center gap-1">
-        <Button
-          variant="outline"
-          size="icon-xs"
-          disabled={page <= 1}
-          onClick={() => setPage(page - 1)}
-        >
-          <ChevronLeft className="h-3 w-3" />
-        </Button>
-        <span className="px-2 text-xs text-muted-foreground">
-          {page} / {totalPages}
-        </span>
-        <Button
-          variant="outline"
-          size="icon-xs"
-          disabled={page >= totalPages}
-          onClick={() => setPage(page + 1)}
-        >
-          <ChevronRight className="h-3 w-3" />
-        </Button>
-      </div>
-    </div>
-  );
-}
 
 interface TradeDialogsProps {
   editTrade: Trade | null;
@@ -245,7 +209,7 @@ export function TradeTable() {
           ))}
         </TableBody>
       </Table>
-      <TablePagination page={page} totalPages={totalPages} total={total} setPage={setPage} />
+      <Pagination page={page} totalPages={totalPages} total={total} setPage={setPage} noun="trade" />
       <TradeDialogs
         editTrade={editTrade}
         setEditTrade={setEditTrade}

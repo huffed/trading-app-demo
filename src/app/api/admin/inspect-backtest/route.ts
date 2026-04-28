@@ -8,18 +8,14 @@
  *     "http://localhost:3000/api/admin/inspect-backtest?id=<algo>&window=3m"
  */
 import { NextResponse } from "next/server";
+import { verifyAdminAuth } from "@/lib/api/admin-auth";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
 
 export async function GET(request: Request) {
-  const secret = process.env.CRON_SECRET;
-  if (!secret) {
-    return NextResponse.json({ error: "CRON_SECRET not configured" }, { status: 500 });
-  }
-  if (request.headers.get("authorization") !== `Bearer ${secret}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const authError = verifyAdminAuth(request);
+  if (authError) return authError;
 
   const url = new URL(request.url);
   const algoId = url.searchParams.get("id");

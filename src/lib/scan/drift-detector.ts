@@ -18,8 +18,8 @@
  * Conservative thresholds — better to skip a flagging on a small
  * unlucky run than to halt prematurely.
  */
-import type { SupabaseClient } from "@supabase/supabase-js";
 import type { BacktestResults } from "@/types/algorithm";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 export type DriftSeverity = "none" | "warn" | "halt";
 
