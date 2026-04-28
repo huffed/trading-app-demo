@@ -4,14 +4,13 @@ import { z } from "zod";
 import { getBrokerAdapter } from "@/lib/brokers/registry";
 import type { BrokerConnection as AdapterConn, BrokerPosition } from "@/lib/brokers/types";
 import { createClient } from "@/lib/supabase/server";
+import { type ActionResult } from "@/lib/types/action-result";
 import type {
   BrokerAccountSnapshot,
   BrokerConnection,
   BrokerConnectionView,
   BrokerPositionSummary,
 } from "@/types/broker";
-
-type ActionResult<T = unknown> = { success: true; data: T } | { success: false; error: string };
 
 const inputSchema = z.object({
   label: z.string().trim().min(1).max(80),

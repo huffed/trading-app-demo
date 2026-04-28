@@ -6,6 +6,7 @@ import {
   type ExitCondition,
   type TechnicalCondition,
 } from "@/types/algorithm";
+import { isWeakTrendByAdx } from "./adx-filter";
 import { resolveSide } from "./auto-side";
 import { calculateMetrics } from "./backtest-metrics";
 import {
@@ -29,7 +30,6 @@ import {
   type SimConfig,
   type SimState,
 } from "./prop-firm-backtest";
-import { isWeakTrendByAdx } from "./adx-filter";
 import { isRangingByAtr } from "./regime-filter";
 import { alignBarIndex, resampleTo, resampleToDaily } from "./resample";
 import { evaluateTechnical } from "./technical-evaluator";

@@ -4,10 +4,9 @@ import { runBacktest } from "@/lib/market-data/backtest-engine";
 import { getCachedPrices, savePricesToCache } from "@/lib/market-data/price-cache";
 import { fetchDailyPrices } from "@/lib/market-data/prices";
 import type { BacktestMetrics } from "@/lib/market-data/types";
+import { type ActionResult } from "@/lib/types/action-result";
 import type { AlgorithmRules } from "@/types/algorithm";
 import { getAuthedUser } from "./actions";
-
-type ActionResult<T = unknown> = { success: true; data: T } | { success: false; error: string };
 
 export async function backtestTicker(
   algorithmId: string,

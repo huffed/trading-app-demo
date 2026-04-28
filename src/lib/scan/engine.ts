@@ -22,6 +22,7 @@ import {
 } from "@/types/algorithm";
 import type { PaperPosition, PositionEvent } from "@/types/position";
 import { maybeHaltOnDailyLoss } from "./daily-halt";
+import { detectDrift, executeDriftHalt } from "./drift-detector";
 import { evaluateEntry } from "./entry";
 import { logActivity } from "./helpers";
 import {
@@ -29,7 +30,6 @@ import {
   resolveBrokerContext,
   type BrokerExecutionContext,
 } from "./live-execution";
-import { detectDrift, executeDriftHalt } from "./drift-detector";
 import { evaluateAndPrune } from "./pair-quality";
 import type { SupabaseClient } from "@supabase/supabase-js";
 

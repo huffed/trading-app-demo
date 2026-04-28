@@ -1,9 +1,8 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { type ActionResult } from "@/lib/types/action-result";
 import type { CreatePortfolioInput, Portfolio } from "@/types/portfolio";
-
-type ActionResult<T = unknown> = { success: true; data: T } | { success: false; error: string };
 
 async function getAuthedUser() {
   const supabase = await createClient();

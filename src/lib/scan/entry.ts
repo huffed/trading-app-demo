@@ -2,6 +2,7 @@
  * Entry evaluation — checks if conditions are met and opens a new position.
  */
 import { getContractSize } from "@/lib/constants/markets";
+import { isWeakTrendByAdx } from "@/lib/market-data/adx-filter";
 import { resolveSide } from "@/lib/market-data/auto-side";
 import {
   checkConditions,
@@ -15,7 +16,6 @@ import {
   getEventCurrencies,
   isWithinVetoWindow,
 } from "@/lib/market-data/economic-calendar";
-import { isWeakTrendByAdx } from "@/lib/market-data/adx-filter";
 import { isRangingByAtr } from "@/lib/market-data/regime-filter";
 import { resampleTo, resampleToDaily } from "@/lib/market-data/resample";
 import type { PriceBar } from "@/lib/market-data/types";

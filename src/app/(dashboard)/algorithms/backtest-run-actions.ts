@@ -2,13 +2,20 @@
 
 import { AI_MODEL, getAIClient } from "@/lib/ai/client";
 import { buildAiBacktestPrompt } from "@/lib/ai/prompts/backtest";
+import type { runBacktest } from "@/lib/market-data/backtest-engine";
+import type { runPortfolioBacktest as runPortfolioBacktestEngine } from "@/lib/market-data/portfolio-backtest";
 import { createClient } from "@/lib/supabase/server";
+import { type ActionResult } from "@/lib/types/action-result";
 import type { Algorithm, AlgorithmRules } from "@/types/algorithm";
 import type { Trade } from "@/types/trade";
 
-type ActionResult<T = unknown> = { success: true; data: T } | { success: false; error: string };
 
-export async function runAiBacktest(algorithmId: string): Promise<ActionResult> {
+type BacktestResult = ReturnType<typeof runBacktest>;
+type PortfolioBacktestResult = ReturnType<typeof runPortfolioBacktestEngine>;
+
+export async function runAiBacktest(
+  algorithmId: string
+): Promise<ActionResult<{ ai_analysis: string }>> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -59,7 +66,7 @@ export async function runHistoricalBacktest(
   algorithmId: string,
   symbol: string,
   outputSize: "compact" | "full"
-): Promise<ActionResult> {
+): Promise<ActionResult<BacktestResult>> {
   const { fetchDailyPrices } = await import("@/lib/market-data/prices");
   const { getCachedPrices, savePricesToCache } = await import("@/lib/market-data/price-cache");
   const { runBacktest } = await import("@/lib/market-data/backtest-engine");
@@ -208,7 +215,7 @@ export async function runPortfolioBacktest(
   algorithmId: string,
   outputSize: "compact" | "full",
   window: BacktestWindow = "all"
-): Promise<ActionResult> {
+): Promise<ActionResult<PortfolioBacktestResult>> {
   const { runPortfolioBacktest: runEngine } = await import(
     "@/lib/market-data/portfolio-backtest"
   );

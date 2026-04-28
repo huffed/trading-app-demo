@@ -2,10 +2,9 @@
 
 import { getInstrumentMeta } from "@/lib/constants/markets";
 import { lookupTickerName } from "@/lib/market-data/finnhub";
+import { type ActionResult } from "@/lib/types/action-result";
 import type { WatchlistAddedBy, WatchlistItem } from "@/types/watchlist";
 import { getAuthedUser } from "./actions";
-
-type ActionResult<T = unknown> = { success: true; data: T } | { success: false; error: string };
 
 export async function addWatchlistItem(
   algorithmId: string,

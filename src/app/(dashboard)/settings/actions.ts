@@ -2,8 +2,7 @@
 
 import { fetchExchangeRate } from "@/lib/market-data/twelve-data";
 import { createClient } from "@/lib/supabase/server";
-
-type ActionResult<T = unknown> = { success: true; data: T } | { success: false; error: string };
+import { type ActionResult } from "@/lib/types/action-result";
 
 export async function getProfile(): Promise<
   ActionResult<{

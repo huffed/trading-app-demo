@@ -1,13 +1,12 @@
 "use server";
 
+import { type ActionResult } from "@/lib/types/action-result";
 import type {
   ConditionStatRow,
   PairStatRow,
   StrategyStats,
 } from "@/types/strategy-stats";
 import { getAuthedUser } from "./actions";
-
-type ActionResult<T = unknown> = { success: true; data: T } | { success: false; error: string };
 
 interface ConditionMet {
   type?: string;

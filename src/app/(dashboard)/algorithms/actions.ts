@@ -7,18 +7,19 @@ import {
   clampRules,
   withPropFirmContext,
 } from "@/lib/algorithm/rules-post-process";
+import type { SignalResult } from "@/lib/signals/evaluate-live";
 import {
   buildRulesFromTemplate,
   selectStrategyTemplate,
 } from "@/lib/strategies/selector";
 import { createClient } from "@/lib/supabase/server";
+import { type ActionResult } from "@/lib/types/action-result";
 import {
   algorithmFormSchema,
   algorithmRulesSchema,
   type AlgorithmFormValues,
 } from "@/lib/validators/algorithm";
 import type { Algorithm, AlgorithmRules, AlgorithmStatus } from "@/types/algorithm";
-type ActionResult<T = unknown> = { success: true; data: T } | { success: false; error: string };
 
 export async function getAuthedUser() {
   const supabase = await createClient();
@@ -194,7 +195,7 @@ export async function updateAlgorithm(
   return { success: true, data };
 }
 
-export async function deleteAlgorithm(id: string): Promise<ActionResult> {
+export async function deleteAlgorithm(id: string): Promise<ActionResult<null>> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -210,7 +211,7 @@ export async function deleteAlgorithm(id: string): Promise<ActionResult> {
 export async function updateAlgorithmStatus(
   id: string,
   status: AlgorithmStatus
-): Promise<ActionResult> {
+): Promise<ActionResult<Algorithm>> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -226,10 +227,13 @@ export async function updateAlgorithmStatus(
     .single();
 
   if (error) return { success: false, error: error.message };
-  return { success: true, data };
+  return { success: true, data: data as Algorithm };
 }
 
-export async function runLiveSignal(algorithmId: string, ticker: string): Promise<ActionResult> {
+export async function runLiveSignal(
+  algorithmId: string,
+  ticker: string
+): Promise<ActionResult<SignalResult>> {
   const { evaluateLiveSignal } = await import("@/lib/signals/evaluate-live");
 
   const supabase = await createClient();

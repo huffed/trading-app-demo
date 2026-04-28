@@ -1,11 +1,11 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { type ActionResult } from "@/lib/types/action-result";
 import { tradeFormSchema, type TradeFormValues } from "@/lib/validators/trade";
+import type { Trade } from "@/types/trade";
 
-type ActionResult<T = unknown> = { success: true; data: T } | { success: false; error: string };
-
-export async function createTrade(values: TradeFormValues): Promise<ActionResult> {
+export async function createTrade(values: TradeFormValues): Promise<ActionResult<Trade>> {
   const parsed = tradeFormSchema.safeParse(values);
   if (!parsed.success) {
     return { success: false, error: parsed.error.issues[0].message };
@@ -33,13 +33,13 @@ export async function createTrade(values: TradeFormValues): Promise<ActionResult
     .single();
 
   if (error) return { success: false, error: error.message };
-  return { success: true, data };
+  return { success: true, data: data as Trade };
 }
 
 export async function updateTrade(
   id: string,
   values: Partial<TradeFormValues>
-): Promise<ActionResult> {
+): Promise<ActionResult<Trade>> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -60,10 +60,10 @@ export async function updateTrade(
     .single();
 
   if (error) return { success: false, error: error.message };
-  return { success: true, data };
+  return { success: true, data: data as Trade };
 }
 
-export async function deleteTrade(id: string): Promise<ActionResult> {
+export async function deleteTrade(id: string): Promise<ActionResult<null>> {
   const supabase = await createClient();
   const {
     data: { user },
