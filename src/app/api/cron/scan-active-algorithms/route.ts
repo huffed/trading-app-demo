@@ -90,13 +90,16 @@ export async function GET(request: Request) {
 
   const supabase = createAdminClient();
 
+  // Status=active is the only requirement to scan; live_trading_enabled
+  // gates broker mirroring inside the scan but doesn't gate the scan
+  // itself. That way paper-only algos still run (and accumulate stats
+  // for the drift detector / pair-pruner) when no broker is connected.
   const { data, error } = await supabase
     .from("algorithms")
     .select(
       "id, user_id, name, description, rules, capital, status, live_trading_enabled, broker_connection_id, portfolio_id, algorithm_watchlist(ticker, name, auto_paused)"
     )
-    .eq("status", "active")
-    .eq("live_trading_enabled", true);
+    .eq("status", "active");
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
