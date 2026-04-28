@@ -33,6 +33,8 @@ export const PT = {
   ACCOUNT_AUTH_RES: 2103,
   NEW_ORDER_REQ: 2106,
   CLOSE_POSITION_REQ: 2111,
+  SYMBOLS_LIST_REQ: 2114,
+  SYMBOLS_LIST_RES: 2115,
   SYMBOL_BY_ID_REQ: 2116,
   SYMBOL_BY_ID_RES: 2117,
   TRADER_REQ: 2121,
@@ -146,6 +148,35 @@ export async function fetchTrader(
   const payload = encode("ProtoOATraderReq", { ctidTraderAccountId });
   const res = await client.send(PT.TRADER_REQ, payload, { expectedRes: PT.TRADER_RES });
   return decodeAs<TraderResponse>("ProtoOATraderRes", res.payload);
+}
+
+export interface LightSymbol {
+  symbolId: number;
+  symbolName?: string;
+  enabled?: boolean;
+}
+
+export interface SymbolsListResponse {
+  ctidTraderAccountId: number;
+  symbol: LightSymbol[];
+}
+
+/** Fetch the full list of tradeable symbols on this account. cTrader
+ *  uses numeric symbolIds throughout the trading API; the human-readable
+ *  name (e.g. "EUR/USD") only appears in this list, so resolve once
+ *  per session and cache the name → id mapping. */
+export async function symbolsList(
+  client: CTraderClient,
+  ctidTraderAccountId: number
+): Promise<SymbolsListResponse> {
+  const payload = encode("ProtoOASymbolsListReq", {
+    ctidTraderAccountId,
+    includeArchivedSymbols: false,
+  });
+  const res = await client.send(PT.SYMBOLS_LIST_REQ, payload, {
+    expectedRes: PT.SYMBOLS_LIST_RES,
+  });
+  return decodeAs<SymbolsListResponse>("ProtoOASymbolsListRes", res.payload);
 }
 
 export interface SymbolDetails {

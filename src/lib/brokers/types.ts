@@ -24,6 +24,9 @@ export interface BrokerConnection {
   refresh_token?: string | null;
   token_expires_at?: string | null;
   account_login?: string | null;
+  /** "live" / "demo" for cTrader (drives endpoint selection); MT5 uses
+   *  this for the broker server name (e.g. "FTMO-Demo2"). */
+  server?: string | null;
 }
 
 export interface BrokerAccountInfo {
