@@ -180,13 +180,17 @@ function checkExitTrigger(
   if (evaluableExit.length > 0) {
     const cache: Cache = new Map();
     if (
-      checkConditions(evaluableExit, {
-        cache,
-        closes,
-        bars,
-        i: closes.length - 1,
-        higherTfBars: dailyBars ?? resampleToDaily(bars),
-      })
+      checkConditions(
+        evaluableExit,
+        {
+          cache,
+          closes,
+          bars,
+          i: closes.length - 1,
+          higherTfBars: dailyBars ?? resampleToDaily(bars),
+        },
+        rules.exit_logic ?? rules.entry_logic
+      )
     ) {
       return "exit_signal";
     }

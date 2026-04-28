@@ -333,6 +333,7 @@ export function RulesDisplay({ rules }: { rules: AlgorithmRules }) {
           title="Exit Conditions"
           icon={<ArrowDown className="h-3 w-3" />}
           conditions={rules.exit_conditions}
+          logic={rules.exit_logic ?? rules.entry_logic}
         />
         <div>
           <h4 className="mb-2 flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">

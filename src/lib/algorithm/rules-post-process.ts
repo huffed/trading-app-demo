@@ -112,6 +112,13 @@ export function clampRules(rules: AlgorithmRules, timeHorizon: string): Algorith
     clamped.entry_logic = { type: "n_of_m", n: 2 };
   }
 
+  // Default exit_logic to "any" — exits should fire on the first confirming
+  // signal. Engines fall back to entry_logic when undefined so legacy algos
+  // are unaffected.
+  if (clamped.exit_logic == null && clamped.exit_conditions.length > 0) {
+    clamped.exit_logic = "any";
+  }
+
   // 3:1 R:R minimum for forex/commodity. Indicator-driven FX strategies sit at
   // 25-35% win rate; below 3:1 they have negative expectancy.
   if (

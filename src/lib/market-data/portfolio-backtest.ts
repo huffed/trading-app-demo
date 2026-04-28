@@ -197,7 +197,7 @@ function runCloseLoop(
         byTimeframe: buildByTimeframe(state, state.bars[i].date),
         primaryTimeframe: rules.timeframe.toLowerCase(),
       },
-        rules.entry_logic
+        rules.exit_logic ?? rules.entry_logic
       )) ||
     s.drawdownBreached;
   const bar = state.bars[i];

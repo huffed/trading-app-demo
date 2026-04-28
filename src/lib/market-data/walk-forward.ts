@@ -18,9 +18,9 @@
  * sampling; for strict statistical independence the caller can set
  * stepDays >= testWindowDays.
  */
+import type { AlgorithmRules } from "@/types/algorithm";
 import { runPortfolioBacktest } from "./portfolio-backtest";
 import type { EconomicEvent } from "./economic-calendar";
-import type { AlgorithmRules } from "@/types/algorithm";
 import type { BacktestMetrics, PriceBar } from "./types";
 
 export interface WalkForwardWindow {

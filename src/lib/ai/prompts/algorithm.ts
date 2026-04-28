@@ -81,6 +81,7 @@ Example sentiment condition:
   "entry_conditions": [(technical, sentiment, or pattern condition)],
   "entry_logic": "all" | "any" | { "type": "n_of_m", "n": integer },  // default "all"
   "exit_conditions": [(technical, sentiment, or pattern condition)],
+  "exit_logic": "all" | "any" | { "type": "n_of_m", "n": integer },     // default "any" — fire on first confirming signal
   "stop_loss": { "type": "percentage"|"fixed", "value": number },
   "take_profit": { "type": "percentage"|"fixed", "value": number },
   "position_sizing": { "type": "percentage_of_capital"|"fixed_amount", "value": number },
@@ -96,6 +97,7 @@ CRITICAL — Condition limits & entry_logic:
 - Forex / commodity (technical-style): 3 entry conditions, entry_logic { "type": "n_of_m", "n": 2 } — strategy fires when 2 of 3 align
 - Forex / commodity (pattern-style ICT/SMC): 4-6 entry conditions (1 daily_bias filter + 3-5 pattern triggers across 1h/4h), entry_logic { "type": "n_of_m", "n": 2 } — pattern stacking with confluence
 - Exit: 0 or 1 condition. For pattern strategies, prefer 0 exit conditions and let stop_loss / take_profit do the work — pattern exits whip-saw badly.
+- exit_logic: default to "any" so an exit fires on the first confirming signal. Use "all" only when you genuinely want every exit condition to align before closing (rare).
 
 When generating 3 conditions for forex/commodity n_of_m logic, design them as INDEPENDENT confirmations of the same directional bias rather than competing strategies. Good 2-of-3 set: trend filter (EMA12 > EMA26) + momentum (RSI > 50) + breakout (price > BollingerBands_upper). Bad: oversold reversion (RSI < 30) + bullish crossover (EMA12 crosses_above) — they almost never co-fire because momentum/reversion conditions point opposite ways.
 

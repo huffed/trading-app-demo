@@ -185,8 +185,11 @@ function runSimulation(
       byTimeframe,
       primaryTimeframe: primaryTf,
     };
+    // Exit logic falls back to entry_logic when undefined so existing
+    // algos keep their backtest results stable; new algos get "any" via
+    // clampRules. See AlgorithmRules.exit_logic doc.
     const signalExitFired =
-      (exit.length > 0 && checkConditions(exit, ctx, rules.entry_logic)) ||
+      (exit.length > 0 && checkConditions(exit, ctx, rules.exit_logic ?? rules.entry_logic)) ||
       s.drawdownBreached;
     for (let p = positions.length - 1; p >= 0; p--) {
       const pos = positions[p];

@@ -40,6 +40,8 @@ export async function updateSession(request: NextRequest) {
     "/algorithms",
     "/analytics",
     "/settings",
+    "/portfolios",
+    "/onboarding",
   ];
   const isProtectedRoute = protectedPrefixes.some((p) => request.nextUrl.pathname.startsWith(p));
 

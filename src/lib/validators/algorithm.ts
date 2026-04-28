@@ -150,6 +150,7 @@ export const algorithmRulesSchema = z.object({
   entry_conditions: z.array(normalizedCondition),
   entry_logic: entryLogicSchema.optional(),
   exit_conditions: z.array(normalizedCondition),
+  exit_logic: entryLogicSchema.optional(),
   stop_loss: z.object({ type: z.enum(["percentage", "fixed"]), value: z.number() }),
   take_profit: z.object({ type: z.enum(["percentage", "fixed"]), value: z.number() }),
   position_sizing: z.object({
