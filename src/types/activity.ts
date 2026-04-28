@@ -18,7 +18,8 @@ export type ActivityEventType =
   | "live_order_closed"
   | "live_close_failed"
   | "scan_overdue"
-  | "broker_reconciliation_drift";
+  | "broker_reconciliation_drift"
+  | "manage_tick";
 
 export interface ActivityLogEntry {
   id: string;
