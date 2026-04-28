@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useCreateJournalEntry, useUpdateJournalEntry } from "@/hooks/use-journal";
+import { parseFormWithZod } from "@/lib/utils/zod-form";
 import { journalFormSchema, type JournalFormValues } from "@/lib/validators/journal";
 import type { JournalEntry, JournalEmotion, JournalEntryType } from "@/types/journal";
 import {
@@ -18,21 +19,9 @@ interface JournalFormProps {
 }
 
 function parseFormErrors(form: Record<string, unknown>) {
-  const parsed = journalFormSchema.safeParse(form);
-  if (parsed.success) {
-    return { success: true as const, data: parsed.data as JournalFormValues };
-  }
-  const fieldErrors: Record<string, string> = {};
-  const unmappedErrors: string[] = [];
-  for (const issue of parsed.error.issues) {
-    const key = issue.path[0]?.toString();
-    if (key) {
-      if (!fieldErrors[key]) fieldErrors[key] = issue.message;
-    } else {
-      unmappedErrors.push(issue.message);
-    }
-  }
-  return { success: false as const, fieldErrors, unmappedErrors };
+  return parseFormWithZod(journalFormSchema, form) as ReturnType<
+    typeof parseFormWithZod<JournalFormValues>
+  >;
 }
 
 export function JournalForm({ entry, onSuccess }: JournalFormProps) {

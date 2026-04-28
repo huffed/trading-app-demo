@@ -10,6 +10,7 @@ import {
   STATUS_COLORS,
   STATUS_LABELS,
 } from "@/lib/constants/algorithm";
+import { formatDate } from "@/lib/utils/date";
 import type { Algorithm } from "@/types/algorithm";
 
 export function AlgorithmCard({ algorithm }: { algorithm: Algorithm }) {
@@ -40,7 +41,7 @@ export function AlgorithmCard({ algorithm }: { algorithm: Algorithm }) {
           {preview && <p className="text-xs text-muted-foreground leading-relaxed">{preview}</p>}
           <div className="flex items-center justify-between text-xs text-muted-foreground">
             <span>${algorithm.capital.toLocaleString()}</span>
-            <span>{new Date(algorithm.created_at).toLocaleDateString()}</span>
+            <span>{formatDate(algorithm.created_at)}</span>
           </div>
         </CardContent>
       </Card>

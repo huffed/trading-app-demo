@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useCreateTrade, useUpdateTrade } from "@/hooks/use-trades";
+import { parseFormWithZod } from "@/lib/utils/zod-form";
 import { tradeFormSchema, type TradeFormValues } from "@/lib/validators/trade";
 import type { Trade } from "@/types/trade";
 import {
@@ -41,24 +42,9 @@ function buildInitialState(trade?: Trade): TradeFormState {
 }
 
 function parseForm(form: TradeFormState) {
-  const parsed = tradeFormSchema.safeParse(form);
-  if (parsed.success) {
-    return { success: true as const, data: parsed.data as TradeFormValues };
-  }
-
-  const fieldErrors: Record<string, string> = {};
-  const unmappedErrors: string[] = [];
-  for (const issue of parsed.error.issues) {
-    const key = issue.path[0]?.toString();
-    if (key) {
-      if (!fieldErrors[key]) {
-        fieldErrors[key] = issue.message;
-      }
-    } else {
-      unmappedErrors.push(issue.message);
-    }
-  }
-  return { success: false as const, fieldErrors, unmappedErrors };
+  return parseFormWithZod(tradeFormSchema, form) as ReturnType<
+    typeof parseFormWithZod<TradeFormValues>
+  >;
 }
 
 export function TradeForm({ trade, onSuccess }: TradeFormProps) {

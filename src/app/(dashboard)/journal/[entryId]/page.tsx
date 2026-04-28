@@ -21,6 +21,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { useJournalEntry, useDeleteJournalEntry, useTradesForLinking } from "@/hooks/use-journal";
 import { ENTRY_TYPE_LABELS } from "@/lib/constants/journal";
+import { formatDate } from "@/lib/utils/date";
 import type { JournalEntry } from "@/types/journal";
 
 interface EntryMetaProps {
@@ -117,7 +118,7 @@ function LinkedTradesCard({ linkedTrades }: { linkedTrades: LinkedTrade[] }) {
               <span>
                 <span className="font-medium">{trade.symbol}</span>{" "}
                 <span className="text-muted-foreground">
-                  {trade.side} &middot; {new Date(trade.entry_date).toLocaleDateString()}
+                  {trade.side} &middot; {formatDate(trade.entry_date)}
                 </span>
               </span>
             </div>

@@ -1,5 +1,6 @@
 import type { PaperPosition } from "@/types/position";
 import type { Trade } from "@/types/trade";
+import { formatShortDate } from "./date";
 
 // ---- Types ----
 
@@ -144,7 +145,7 @@ export function computeEquityCurve(trades: Trade[]): EquityPoint[] {
   return closed.map((t) => {
     cumulative += t.realized_pnl;
     return {
-      date: new Date(t.exit_date).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+      date: formatShortDate(t.exit_date),
       equity: Number(cumulative.toFixed(2)),
     };
   });
@@ -161,7 +162,7 @@ export function computeDrawdownSeries(trades: Trade[]): DrawdownPoint[] {
     }
     const ddPct = peak > 0 ? ((equity - peak) / peak) * 100 : 0;
     return {
-      date: new Date(t.exit_date).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+      date: formatShortDate(t.exit_date),
       drawdown: Number(ddPct.toFixed(2)),
     };
   });
