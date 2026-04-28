@@ -1,4 +1,10 @@
 import {
+  DEFAULT_MAX_POSITIONS,
+  DEFAULT_POSITION_SIZE_PCT,
+  DEFAULT_STOP_LOSS_PCT,
+  DEFAULT_TAKE_PROFIT_PCT,
+} from "@/lib/constants/defaults";
+import {
   isPatternCondition,
   isTechnicalCondition,
   type AlgorithmRules,
@@ -35,6 +41,7 @@ import { alignBarIndex, resampleTo, resampleToDaily } from "./resample";
 import { evaluateTechnical } from "./technical-evaluator";
 import type { BacktestMetrics, BacktestTrade, OpenPosition, PriceBar } from "./types";
 
+
 export type { Cache } from "./indicator-registry";
 
 export interface BacktestContext {
@@ -66,10 +73,6 @@ export function normalize(
     return c;
   });
 }
-const DEFAULT_MAX_POSITIONS = 1;
-const DEFAULT_POSITION_SIZE_PCT = 10;
-const DEFAULT_STOP_LOSS_PCT = 5;
-const DEFAULT_TAKE_PROFIT_PCT = 15;
 
 /** Pull every distinct condition timeframe that ISN'T the primary one,
  *  lowercased + deduped. Used to size the multi-timeframe context map.

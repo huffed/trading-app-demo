@@ -3,28 +3,12 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  LayoutDashboard,
-  ArrowLeftRight,
-  BookOpen,
-  Bot,
-  BarChart3,
-  Settings,
-  ChevronLeft,
-} from "lucide-react";
+import { ChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { NAV_ITEMS, type NavItem } from "@/lib/constants/nav";
 import { cn } from "@/lib/utils";
 import { useUIStore } from "@/stores/ui-store";
-
-const navItems = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/trades", label: "Trades", icon: ArrowLeftRight },
-  { href: "/journal", label: "Journal", icon: BookOpen },
-  { href: "/algorithms", label: "Algorithms", icon: Bot },
-  { href: "/analytics", label: "Analytics", icon: BarChart3 },
-  { href: "/settings", label: "Settings", icon: Settings },
-];
 
 function SidebarHeader({ open, onToggle }: { open: boolean; onToggle: () => void }) {
   if (open) {
@@ -60,7 +44,7 @@ function NavItem({
   sidebarOpen,
   onClick,
 }: {
-  item: (typeof navItems)[number];
+  item: NavItem;
   isActive: boolean;
   isLoading: boolean;
   sidebarOpen: boolean;
@@ -116,7 +100,7 @@ export function Sidebar() {
         <SidebarHeader open={sidebarOpen} onToggle={toggleSidebar} />
       </div>
       <nav className="flex-1 space-y-1 p-2">
-        {navItems.map((item) => {
+        {NAV_ITEMS.map((item) => {
           const isActive =
             pathname === item.href ||
             (item.href !== "/dashboard" && pathname.startsWith(item.href));

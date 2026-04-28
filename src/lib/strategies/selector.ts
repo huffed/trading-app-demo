@@ -36,11 +36,15 @@ function buildSelectorMessage(
   values: AlgorithmFormValues,
   candidates: StrategyTemplate[]
 ): string {
+  // Capital is intentionally currency-symbol-free here. Server actions
+  // can't read the user's display-currency preference (a client-only
+  // setting), and template selection is currency-agnostic anyway — the
+  // LLM only needs the magnitude to pick a sensible strategy.
   const lines = [
     `Asset class: ${values.asset_class}`,
     `Risk level: ${values.risk_level}`,
     `Time horizon: ${values.time_horizon}`,
-    `Capital: $${values.capital.toLocaleString()}`,
+    `Capital: ${values.capital.toLocaleString()}`,
   ];
   if (values.user_hints) lines.push(`User hints: ${values.user_hints}`);
   if (values.prop_firm) {

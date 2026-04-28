@@ -5,17 +5,12 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   ASSET_CLASS_LABELS,
+  RISK_LEVEL_COLORS,
   RISK_LEVEL_LABELS,
   STATUS_COLORS,
   STATUS_LABELS,
 } from "@/lib/constants/algorithm";
 import type { Algorithm } from "@/types/algorithm";
-
-const riskColors: Record<string, string> = {
-  conservative: "text-[var(--profit)]",
-  moderate: "text-primary",
-  aggressive: "text-[var(--loss)]",
-};
 
 export function AlgorithmCard({ algorithm }: { algorithm: Algorithm }) {
   const desc = algorithm.description ?? "";
@@ -38,7 +33,7 @@ export function AlgorithmCard({ algorithm }: { algorithm: Algorithm }) {
             <Badge variant="outline" className="text-xs">
               {ASSET_CLASS_LABELS[algorithm.asset_class] ?? algorithm.asset_class}
             </Badge>
-            <span className={`text-xs font-medium ${riskColors[algorithm.risk_level]}`}>
+            <span className={`text-xs font-medium ${RISK_LEVEL_COLORS[algorithm.risk_level]}`}>
               {RISK_LEVEL_LABELS[algorithm.risk_level] ?? algorithm.risk_level}
             </span>
           </div>

@@ -7,6 +7,12 @@
  * max_per_ticker still caps pyramiding on each individual symbol.
  */
 import {
+  DEFAULT_MAX_POSITIONS,
+  DEFAULT_POSITION_SIZE_PCT,
+  DEFAULT_STOP_LOSS_PCT,
+  DEFAULT_TAKE_PROFIT_PCT,
+} from "@/lib/constants/defaults";
+import {
   isPatternCondition,
   isTechnicalCondition,
   type AlgorithmRules,
@@ -67,10 +73,6 @@ interface TickerState {
   cursor: number;
 }
 
-const DEFAULT_MAX_POSITIONS = 1;
-const DEFAULT_POSITION_SIZE_PCT = 10;
-const DEFAULT_STOP_LOSS_PCT = 5;
-const DEFAULT_TAKE_PROFIT_PCT = 15;
 
 function buildSimConfig(rules: AlgorithmRules): SimConfig {
   const pf = rules.prop_firm;
