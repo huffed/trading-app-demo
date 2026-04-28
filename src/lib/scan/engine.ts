@@ -61,10 +61,17 @@ interface AlgorithmWithWatchlist {
 
 // ---- Position management ----
 
-async function manageExistingPosition(
+/** Slim algorithm shape needed by manageExistingPosition — id/name for
+ *  logging and rules for the exit trigger check. The full
+ *  AlgorithmWithWatchlist is a superset, so existing callers still
+ *  satisfy this signature without changes. The manage-positions cron
+ *  uses this directly (no watchlist required). */
+export type AlgoForPositionMgmt = Pick<AlgorithmWithWatchlist, "id" | "name" | "rules">;
+
+export async function manageExistingPosition(
   supabase: SupabaseClient,
   userId: string,
-  algo: AlgorithmWithWatchlist,
+  algo: AlgoForPositionMgmt,
   ticker: string,
   position: PaperPosition,
   bars: PriceBar[],
@@ -141,7 +148,7 @@ async function manageExistingPosition(
   return { closed: 0, updated: 1 };
 }
 
-function checkExitTrigger(
+export function checkExitTrigger(
   position: PaperPosition,
   currentPrice: number,
   rules: AlgorithmRules,
