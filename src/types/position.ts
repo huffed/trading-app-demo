@@ -32,6 +32,13 @@ export interface PaperPosition {
   broker_close_id?: string | null;
   broker_close_price?: number | null;
   broker_error?: string | null;
+  /** Broker-reported unrealized P&L, refreshed by the manage-positions
+   *  cron each ~5min from the broker adapter's fetchPositions call.
+   *  Includes the broker's bid/ask spread, commission, and swap — i.e.
+   *  the actual number the broker dashboard shows. Null when the
+   *  position has no broker mirror or the most recent fetch failed. */
+  broker_unrealized_pnl?: number | null;
+  broker_pnl_synced_at?: string | null;
   created_at: string;
   updated_at: string;
 }
