@@ -9,6 +9,9 @@ export interface WatchlistItem {
   added_by: WatchlistAddedBy;
   notes: string | null;
   backtest_metrics: Record<string, unknown> | null;
+  auto_paused: boolean;
+  auto_paused_at: string | null;
+  auto_paused_reason: string | null;
   created_at: string;
   updated_at: string;
 }

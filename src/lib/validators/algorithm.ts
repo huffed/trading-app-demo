@@ -100,7 +100,7 @@ const normalizedCondition = z.preprocess((val) => {
   return val;
 }, conditionSchema);
 
-const propFirmSchema = z.object({
+export const propFirmRulesSchema = z.object({
   daily_loss_limit: z.number().min(0.5).max(20),
   max_drawdown: z.number().min(1).max(30),
   profit_target: z.number().min(1).max(50),
@@ -169,7 +169,7 @@ export const algorithmRulesSchema = z.object({
   timeframe: z.string(),
   asset_class: z.string(),
   side: z.enum(["long", "short", "auto"]).optional(),
-  prop_firm: propFirmSchema.optional(),
+  prop_firm: propFirmRulesSchema.optional(),
   news_veto: newsVetoSchema.optional(),
   divergence_kill: divergenceKillSchema.optional(),
   regime_filter: regimeFilterSchema.optional(),

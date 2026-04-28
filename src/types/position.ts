@@ -1,20 +1,9 @@
+import type { EntryReason } from "@/lib/validators/position";
+
 export type PositionStatus = "open" | "closed";
 export type ExitReason = "stop_loss" | "take_profit" | "exit_signal" | "manual";
 
-export interface EntryReason {
-  conditions_met: {
-    type: string;
-    indicator?: string;
-    metric?: string;
-    operator: string;
-    value: number;
-  }[];
-  signal_result?: {
-    signal: string;
-    confidence: number;
-    reasoning: string;
-  };
-}
+export type { EntryReason };
 
 export interface PaperPosition {
   id: string;

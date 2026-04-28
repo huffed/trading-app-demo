@@ -2,11 +2,16 @@
 
 import {
   AlertCircle,
+  AlertTriangle,
+  ArrowDownLeft,
+  ArrowUpRight,
   CheckCircle2,
   LogOut,
+  PauseCircle,
   Search,
   ShieldAlert,
   Target,
+  TrendingDown,
   TrendingUp,
   Zap,
 } from "lucide-react";
@@ -28,6 +33,15 @@ const EVENT_ICONS: Record<ActivityEventType, React.ReactNode> = {
   stop_loss_hit: <ShieldAlert className="h-3.5 w-3.5 text-[var(--loss)]" />,
   take_profit_hit: <Target className="h-3.5 w-3.5 text-[var(--profit)]" />,
   error: <AlertCircle className="h-3.5 w-3.5 text-destructive" />,
+  pair_auto_paused: <PauseCircle className="h-3.5 w-3.5 text-yellow-500" />,
+  daily_loss_halt: <ShieldAlert className="h-3.5 w-3.5 text-[var(--loss)]" />,
+  portfolio_halt: <ShieldAlert className="h-3.5 w-3.5 text-[var(--loss)]" />,
+  drift_halt: <TrendingDown className="h-3.5 w-3.5 text-[var(--loss)]" />,
+  divergence_halt: <AlertTriangle className="h-3.5 w-3.5 text-[var(--loss)]" />,
+  live_order_placed: <ArrowUpRight className="h-3.5 w-3.5 text-[var(--profit)]" />,
+  live_order_failed: <AlertCircle className="h-3.5 w-3.5 text-destructive" />,
+  live_order_closed: <ArrowDownLeft className="h-3.5 w-3.5 text-muted-foreground" />,
+  live_close_failed: <AlertCircle className="h-3.5 w-3.5 text-destructive" />,
 };
 
 export function ActivityFeed() {
