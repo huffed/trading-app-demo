@@ -23,10 +23,8 @@ import {
   useAlgorithm,
   useDeleteAlgorithm,
   useRunAiBacktest,
-  useRunHistoricalBacktest,
   useUpdateAlgorithm,
 } from "@/hooks/use-algorithms";
-import type { BacktestMetrics } from "@/lib/market-data/types";
 import {
   isSentimentCondition,
   type Algorithm,
@@ -36,13 +34,9 @@ import {
 
 function ReadView({
   algo,
-  backtestError,
   aiBacktestError,
-  localBacktestResults,
   onRunAiBacktest,
-  onRunBacktest,
   isAiPending,
-  isBtPending,
 }: {
   algo: Pick<
     Algorithm,
@@ -57,13 +51,9 @@ function ReadView({
     | "asset_class"
     | "time_horizon"
   >;
-  backtestError: string | null;
   aiBacktestError: string | null;
-  localBacktestResults: BacktestMetrics | null;
   onRunAiBacktest: () => void;
-  onRunBacktest: (symbol: string, period: string) => void;
   isAiPending: boolean;
-  isBtPending: boolean;
 }) {
   return (
     <div className="space-y-4">
@@ -87,13 +77,9 @@ function ReadView({
       </TabsContent>
       <BacktestTab
         algo={algo}
-        backtestError={backtestError}
         aiBacktestError={aiBacktestError}
-        localBacktestResults={localBacktestResults}
         onRunAiBacktest={onRunAiBacktest}
-        onRunBacktest={onRunBacktest}
         isAiPending={isAiPending}
-        isBtPending={isBtPending}
       />
       <TabsContent value={3} className="space-y-4 pt-2">
         <PaperTradingTab
@@ -116,12 +102,9 @@ function useAlgoDetailState(algoId: string) {
   const deleteMutation = useDeleteAlgorithm();
   const updateMutation = useUpdateAlgorithm();
   const backtestMutation = useRunAiBacktest();
-  const historicalBacktest = useRunHistoricalBacktest();
   const [showDelete, setShowDelete] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const [backtestError, setBacktestError] = useState<string | null>(null);
   const [aiBacktestError, setAiBacktestError] = useState<string | null>(null);
-  const [localBacktestResults, setLocalBacktestResults] = useState<BacktestMetrics | null>(null);
   const [showRerunPrompt, setShowRerunPrompt] = useState(false);
 
   const handleSave = (updates: {
@@ -148,24 +131,6 @@ function useAlgoDetailState(algoId: string) {
     );
   };
 
-  const handleHistoricalBacktest = (symbol: string, period: string) => {
-    setBacktestError(null);
-    setShowRerunPrompt(false);
-    historicalBacktest.mutate(
-      { id: algoId, symbol, period: period as "compact" | "full" },
-      {
-        onSuccess: (r) => {
-          if (!r.success) {
-            setBacktestError(r.error);
-          } else {
-            setLocalBacktestResults(r.data as BacktestMetrics);
-          }
-        },
-        onError: () => setBacktestError("Backtest failed. Check symbol and try again."),
-      }
-    );
-  };
-
   return {
     algo,
     isLoading,
@@ -173,19 +138,15 @@ function useAlgoDetailState(algoId: string) {
     deleteMutation,
     updateMutation,
     backtestMutation,
-    historicalBacktest,
     showDelete,
     setShowDelete,
     isEditing,
     setIsEditing,
-    backtestError,
     aiBacktestError,
     setAiBacktestError,
-    localBacktestResults,
     showRerunPrompt,
     setShowRerunPrompt,
     handleSave,
-    handleHistoricalBacktest,
   };
 }
 
@@ -239,9 +200,7 @@ export default function AlgorithmDetailPage() {
       ) : (
         <ReadView
           algo={algo}
-          backtestError={s.backtestError}
           aiBacktestError={s.aiBacktestError}
-          localBacktestResults={s.localBacktestResults}
           onRunAiBacktest={() => {
             s.setAiBacktestError(null);
             s.backtestMutation.mutate(algo.id, {
@@ -252,9 +211,7 @@ export default function AlgorithmDetailPage() {
               },
             });
           }}
-          onRunBacktest={s.handleHistoricalBacktest}
           isAiPending={s.backtestMutation.isPending}
-          isBtPending={s.historicalBacktest.isPending}
         />
       )}
       <DeleteAlgoDialog

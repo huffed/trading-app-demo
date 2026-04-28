@@ -4,6 +4,13 @@ import { useState } from "react";
 import { Check } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   CAPITAL_PRESETS,
   EXPERIENCE_LABELS,
   GOAL_DESCRIPTIONS,
@@ -14,6 +21,7 @@ import {
   TIME_COMMITMENT_DESCRIPTIONS,
   TIME_COMMITMENT_LABELS,
 } from "@/lib/constants/onboarding";
+import { PROP_FIRM_LABELS, type PropFirmPreset } from "@/lib/constants/prop-firm";
 import type { TradingProfileAnswers } from "@/types/trading-profile";
 
 export function OptionButton({
@@ -226,23 +234,58 @@ export function StepExperience({
   );
 }
 
-export const STEP_CONFIG = [
-  { title: "What's your main goal?", subtitle: "This helps us pick the right strategy for you." },
-  {
-    title: "How do you feel about risk?",
-    subtitle: "There's no wrong answer \u2014 be honest with yourself.",
-  },
-  { title: "How much do you want to start with?", subtitle: "You can always change this later." },
-  {
-    title: "What interests you?",
-    subtitle: "Pick as many as you like \u2014 or let the AI decide.",
-  },
-  {
-    title: "How much time do you want to spend?",
-    subtitle: "This determines how active your strategy will be.",
-  },
-  {
-    title: "How much trading experience do you have?",
-    subtitle: "This helps the AI explain things at the right level.",
-  },
-];
+export function StepFundedAccount({
+  value,
+  onChange,
+}: {
+  value: TradingProfileAnswers["funded_account"];
+  onChange: (v: TradingProfileAnswers["funded_account"]) => void;
+}) {
+  const enabled = value?.enabled ?? false;
+  const preset = value?.preset ?? "ftmo";
+  return (
+    <div className="space-y-3">
+      <div className="space-y-2">
+        <OptionButton
+          selected={!enabled}
+          onClick={() => onChange({ enabled: false, preset: null })}
+          label="No — retail account"
+          description="No prop-firm constraints; use standard risk defaults."
+        />
+        <OptionButton
+          selected={enabled}
+          onClick={() => onChange({ enabled: true, preset })}
+          label="Yes — funded prop-firm account"
+          description="FTMO / Topstep / FundedNext / The5ers — adds daily-loss limit, drawdown, profit target rules to every algorithm."
+        />
+      </div>
+      {enabled && (
+        <div className="space-y-1.5 rounded-md border p-2.5">
+          <p className="text-xs font-medium">Which prop firm?</p>
+          <Select
+            value={preset}
+            onValueChange={(v) =>
+              v && onChange({ enabled: true, preset: v as PropFirmPreset })
+            }
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {(Object.keys(PROP_FIRM_LABELS) as PropFirmPreset[]).map((k) => (
+                <SelectItem key={k} value={k}>
+                  {PROP_FIRM_LABELS[k]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-[11px] text-muted-foreground">
+            Sets your default — change later in Settings → Pro-account preferences.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export { ONBOARDING_STEP_CONFIG as STEP_CONFIG } from "@/lib/constants/onboarding";

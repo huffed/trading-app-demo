@@ -6,6 +6,13 @@ export interface TradingProfileAnswers {
   interests: string[];
   time_commitment: "set_forget" | "check_weekly" | "daily_attention";
   experience_level: "total_beginner" | "know_basics" | "experienced";
+  /** Optional — set when the user is trading a funded prop-firm account.
+   *  Drives profiles.prop_firm_preset on save so future-generated algos
+   *  pick up the right rules.prop_firm shape automatically. */
+  funded_account?: {
+    enabled: boolean;
+    preset: "ftmo" | "topstep" | "funded_next" | "the5ers" | "custom" | null;
+  };
 }
 
 /** Derived algorithm parameters — computed deterministically from wizard answers. */

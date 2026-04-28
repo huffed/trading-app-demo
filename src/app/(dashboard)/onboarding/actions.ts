@@ -46,10 +46,16 @@ export async function saveTradingProfileAndGenerate(
   const parsed = tradingProfileSchema.safeParse(profile);
   if (!parsed.success) return { success: false, error: parsed.error.issues[0].message };
 
-  // Save profile
+  // Save profile + funded-account preset on the same row. The preset is
+  // intentionally set BEFORE algorithm generation so future flows that
+  // read profiles.prop_firm_preset (new-algo defaults, etc.) see the
+  // right value from day one.
+  const propFirmPreset = answers.funded_account?.enabled
+    ? answers.funded_account.preset
+    : null;
   const { error: profileError } = await supabase
     .from("profiles")
-    .update({ trading_profile: parsed.data })
+    .update({ trading_profile: parsed.data, prop_firm_preset: propFirmPreset })
     .eq("id", user.id);
   if (profileError) return { success: false, error: profileError.message };
 

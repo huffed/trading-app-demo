@@ -5,6 +5,21 @@ export const TECHNICAL_OP_LABELS: Record<string, string> = {
   crosses_below: "crosses below",
 };
 
+export const PATTERN_LABELS: Record<string, string> = {
+  liquidity_sweep: "Liquidity sweep",
+  fvg: "Fair Value Gap (FVG)",
+  ifvg: "Inverse FVG",
+  daily_bias: "Daily bias",
+  bos: "Break of Structure (BOS)",
+  order_block: "Order block",
+};
+
+export const PATTERN_DIRECTION_LABELS: Record<string, string> = {
+  any: "Either direction",
+  bullish: "Bullish only",
+  bearish: "Bearish only",
+};
+
 export const SENTIMENT_OP_LABELS: Record<string, string> = {
   above: ">",
   below: "<",

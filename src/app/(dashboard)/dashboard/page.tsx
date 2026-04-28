@@ -1,6 +1,7 @@
 import { ActivityFeed } from "@/components/dashboard/activity-feed";
 import { AssetAllocationChart } from "@/components/dashboard/asset-allocation-chart";
 import { EmotionWidget } from "@/components/dashboard/emotion-widget";
+import { JournalFlagsCard } from "@/components/dashboard/journal-flags-card";
 import { PaperTradingCard } from "@/components/dashboard/paper-trading-card";
 import { PnlChart } from "@/components/dashboard/pnl-chart";
 import { RecentTrades } from "@/components/dashboard/recent-trades";
@@ -28,6 +29,7 @@ export default function DashboardPage() {
         <AssetAllocationChart />
         <EmotionWidget />
       </div>
+      <JournalFlagsCard />
     </div>
   );
 }
