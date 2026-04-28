@@ -88,6 +88,47 @@ async function loadDailyBars(
   return dailyBars;
 }
 
+/**
+ * Refresh broker_unrealized_pnl on every paper position that has a
+ * broker mirror. One fetchPositions call per algo, then map results by
+ * broker_position_id. Best-effort — a broker fetch failure leaves the
+ * cached value stale, which is preferable to nulling out a recent good
+ * value just because one tick had a network blip.
+ */
+async function syncBrokerUnrealizedPnl(
+  supabase: SupabaseClient,
+  brokerCtx: Awaited<ReturnType<typeof resolveBrokerContext>>,
+  positions: PaperPosition[]
+): Promise<void> {
+  if (!brokerCtx) return;
+  const mirrored = positions.filter((p) => p.broker_position_id);
+  if (mirrored.length === 0) return;
+  let brokerPositions: Awaited<ReturnType<typeof brokerCtx.adapter.fetchPositions>>;
+  try {
+    brokerPositions = await brokerCtx.adapter.fetchPositions(brokerCtx.conn);
+  } catch (err) {
+    logger.warn(
+      "manage-positions",
+      "broker fetchPositions failed, leaving broker_unrealized_pnl stale",
+      err instanceof Error ? err.message : err
+    );
+    return;
+  }
+  const byId = new Map(brokerPositions.map((p) => [String(p.id), p]));
+  const syncedAt = new Date().toISOString();
+  for (const paper of mirrored) {
+    const broker = byId.get(String(paper.broker_position_id));
+    if (!broker) continue;
+    await supabase
+      .from("paper_positions")
+      .update({
+        broker_unrealized_pnl: Number(broker.profit ?? 0),
+        broker_pnl_synced_at: syncedAt,
+      })
+      .eq("id", paper.id);
+  }
+}
+
 async function manageAlgorithm(
   supabase: SupabaseClient,
   algo: AlgoForManage,
@@ -118,6 +159,11 @@ async function manageAlgorithm(
     algo.broker_connection_id ?? null,
     algo.live_trading_enabled ?? false
   );
+
+  // Sync broker-reported unrealized P&L before the exit-trigger loop —
+  // fresh-as-possible read for the UI to display, and it has no
+  // side-effects on the exit logic itself.
+  await syncBrokerUnrealizedPnl(supabase, brokerCtx, positions);
 
   for (const ticker of tickers) {
     try {
