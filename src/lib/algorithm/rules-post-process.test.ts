@@ -60,6 +60,78 @@ describe("clampRules — RSI relaxation for long-term", () => {
   });
 });
 
+describe("clampRules — entry condition count caps", () => {
+  function fivePatterns() {
+    return Array.from({ length: 5 }, (_, i) => ({
+      type: "pattern" as const,
+      pattern: "liquidity_sweep" as const,
+      direction: "bullish" as const,
+      lookback: i + 3,
+      timeframe: "1h",
+    }));
+  }
+
+  it("caps forex+all-logic to 3 conditions (rare-fire prevention)", () => {
+    const out = clampRules(
+      baseRules({
+        asset_class: "forex",
+        entry_conditions: fivePatterns(),
+        entry_logic: "all",
+      }),
+      "intraday"
+    );
+    expect(out.entry_conditions).toHaveLength(3);
+  });
+
+  it("preserves all 5 conditions for forex+n_of_m (n controls fire rate, not count)", () => {
+    const out = clampRules(
+      baseRules({
+        asset_class: "forex",
+        entry_conditions: fivePatterns(),
+        entry_logic: { type: "n_of_m", n: 2 },
+      }),
+      "intraday"
+    );
+    expect(out.entry_conditions).toHaveLength(5);
+  });
+
+  it("preserves all 5 conditions for forex+any-logic", () => {
+    const out = clampRules(
+      baseRules({
+        asset_class: "forex",
+        entry_conditions: fivePatterns(),
+        entry_logic: "any",
+      }),
+      "intraday"
+    );
+    expect(out.entry_conditions).toHaveLength(5);
+  });
+
+  it("preserves the n_of_m exemption for long-term equity too", () => {
+    const out = clampRules(
+      baseRules({
+        asset_class: "equity",
+        entry_conditions: fivePatterns(),
+        entry_logic: { type: "n_of_m", n: 2 },
+      }),
+      "long term"
+    );
+    expect(out.entry_conditions).toHaveLength(5);
+  });
+
+  it("still caps long-term equity to 1 tech + 1 sentiment when entry_logic is 'all'", () => {
+    const out = clampRules(
+      baseRules({
+        asset_class: "equity",
+        entry_conditions: fivePatterns(),
+        entry_logic: "all",
+      }),
+      "long term"
+    );
+    expect(out.entry_conditions.length).toBeLessThanOrEqual(2);
+  });
+});
+
 describe("clampRules — position-sizing decimal rescue", () => {
   it("rescues percentage_of_capital expressed as decimal (0.05 → 5)", () => {
     const out = clampRules(
