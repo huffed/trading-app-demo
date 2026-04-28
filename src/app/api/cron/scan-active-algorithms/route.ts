@@ -34,7 +34,7 @@ interface AlgoRow {
   live_trading_enabled: boolean | null;
   broker_connection_id: string | null;
   portfolio_id: string | null;
-  algorithm_watchlist: { ticker: string; name: string }[] | null;
+  algorithm_watchlist: { ticker: string; name: string; auto_paused?: boolean }[] | null;
 }
 
 /**
@@ -93,7 +93,7 @@ export async function GET(request: Request) {
   const { data, error } = await supabase
     .from("algorithms")
     .select(
-      "id, user_id, name, description, rules, capital, status, live_trading_enabled, broker_connection_id, portfolio_id, algorithm_watchlist(ticker, name)"
+      "id, user_id, name, description, rules, capital, status, live_trading_enabled, broker_connection_id, portfolio_id, algorithm_watchlist(ticker, name, auto_paused)"
     )
     .eq("status", "active")
     .eq("live_trading_enabled", true);

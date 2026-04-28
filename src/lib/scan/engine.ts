@@ -29,6 +29,7 @@ import {
   resolveBrokerContext,
   type BrokerExecutionContext,
 } from "./live-execution";
+import { evaluateAndPrune } from "./pair-quality";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 // ---- Types ----
@@ -52,7 +53,7 @@ interface AlgorithmWithWatchlist {
   rules: AlgorithmRules;
   capital: number;
   status: string;
-  algorithm_watchlist: { ticker: string; name: string }[];
+  algorithm_watchlist: { ticker: string; name: string; auto_paused?: boolean }[];
   live_trading_enabled?: boolean;
   broker_connection_id?: string | null;
 }
@@ -324,7 +325,12 @@ export async function scanAlgorithm(
     errors: [],
   };
 
-  const tickers = algo.algorithm_watchlist.map((w) => w.ticker);
+  // Skip auto-paused tickers — the pair-quality evaluator marks pairs
+  // as auto_paused=true when their realised WR drops below the prune
+  // threshold over a meaningful sample. They stay paused until the user
+  // manually re-enables them in the watchlist UI.
+  const activeWatchlist = algo.algorithm_watchlist.filter((w) => !w.auto_paused);
+  const tickers = activeWatchlist.map((w) => w.ticker);
   if (tickers.length === 0) {
     return result;
   }
@@ -388,6 +394,27 @@ export async function scanAlgorithm(
       errors_count: result.errors.length,
     },
   });
+
+  // Re-evaluate pair quality only when something actually changed —
+  // stats don't move on quiet scans, so paying for the query each hour
+  // is wasted. Triggered after closes since that's when win/loss counts
+  // shift (opens don't change realised stats until they close).
+  if (result.positions_closed > 0) {
+    const evals = await evaluateAndPrune(supabase, algo.id);
+    for (const e of evals) {
+      if (e.pruned && e.reason !== "already_paused") {
+        await logActivity(supabase, userId, {
+          algorithm_id: algo.id,
+          event_type: "pair_auto_paused",
+          ticker: e.ticker,
+          details: {
+            reason: e.reason,
+            stats: e.stats,
+          },
+        });
+      }
+    }
+  }
 
   await supabase
     .from("algorithms")
