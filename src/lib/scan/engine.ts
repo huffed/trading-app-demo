@@ -29,6 +29,7 @@ import {
   resolveBrokerContext,
   type BrokerExecutionContext,
 } from "./live-execution";
+import { detectDrift, executeDriftHalt } from "./drift-detector";
 import { evaluateAndPrune } from "./pair-quality";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -412,6 +413,35 @@ export async function scanAlgorithm(
             stats: e.stats,
           },
         });
+      }
+    }
+    // Performance-drift detector — surface (and on severe drift, halt)
+    // when recent live performance has decayed enough vs the backtested
+    // baseline that the strategy's edge looks compromised. Drift halt
+    // disables live_trading_enabled but lets open positions play out
+    // (different from the DLL halt which force-closes everything).
+    const algoRow = await supabase
+      .from("algorithms")
+      .select("backtest_results")
+      .eq("id", algo.id)
+      .single();
+    const baseline = (algoRow.data?.backtest_results ?? null) as
+      | import("@/types/algorithm").BacktestResults
+      | null;
+    const drift = await detectDrift(supabase, algo.id, baseline);
+    if (drift.severity !== "none") {
+      await logActivity(supabase, userId, {
+        algorithm_id: algo.id,
+        event_type: drift.severity === "halt" ? "drift_halt" : "drift_warn",
+        details: {
+          severity: drift.severity,
+          reason: drift.reason,
+          recent: drift.recent,
+          baseline: drift.baseline,
+        },
+      });
+      if (drift.severity === "halt") {
+        await executeDriftHalt(supabase, userId, algo.id, drift);
       }
     }
   }
