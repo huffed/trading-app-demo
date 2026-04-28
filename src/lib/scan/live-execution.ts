@@ -61,6 +61,9 @@ interface EntryArgs {
   stopLossPrice: number;
   takeProfitPrice: number;
   ctx: BrokerExecutionContext;
+  /** Algorithm capital (used as the denominator for the leverage sanity
+   *  check just before order placement). */
+  capital: number;
   /** Lot-based sizing: pass the raw lot count so we don't round-trip through
    *  USD notional (which is wrong for JPY crosses where price is in JPY). */
   lots?: number;
@@ -68,6 +71,13 @@ interface EntryArgs {
    *  freshly-captured broker_fill_price contributes to the rolling average. */
   divergenceRule?: { max_avg_bps: number; window_trades: number };
 }
+
+/** Hard cap on notional/capital ratio. 30 corresponds to typical retail
+ *  forex 30:1 leverage; FTMO allows up to 100:1 but our algos are sized
+ *  for ~1:1 of capital so anything above 30:1 is almost certainly a
+ *  sizing-math bug, not deliberate leverage. The CHF/JPY blow-up sat at
+ *  ~67×; this gate would have caught it. */
+const MAX_NOTIONAL_TO_CAPITAL = 30;
 
 /** Halt the algorithm if the rolling-average broker fill divergence has
  *  crossed the configured threshold. No-op when the rule is absent. */
@@ -109,6 +119,20 @@ export async function executeLiveEntry(args: EntryArgs): Promise<void> {
     if (lots <= 0) {
       throw new Error(
         `Computed lot size 0 for ${ticker} — minVolume=${spec.minVolume}, notional=${notionalUsd}.`
+      );
+    }
+    // Defense-in-depth sanity check: if the implied notional is more
+    // than MAX_NOTIONAL_TO_CAPITAL × capital, refuse to place. The
+    // catalog guard in markets.ts catches missing-meta sizing bugs;
+    // this catches any OTHER way oversized math could slip through
+    // (broker spec returning a contractSize 100× ours, divide-by-zero
+    // recovery returning Infinity, etc.). Independent failure mode.
+    const impliedNotional = notionalInUsd(ticker, lots, args.currentPrice);
+    if (args.capital > 0 && impliedNotional / args.capital > MAX_NOTIONAL_TO_CAPITAL) {
+      throw new Error(
+        `Position-size sanity check failed: ${ticker} lots=${lots.toFixed(4)} → ` +
+          `notional $${impliedNotional.toFixed(0)} = ${(impliedNotional / args.capital).toFixed(1)}× capital ` +
+          `(cap ${MAX_NOTIONAL_TO_CAPITAL}×). Refusing to place — likely sizing-math bug.`
       );
     }
     // Intentionally omit clientId — MetaApi's regex rejects hex/UUID-shaped

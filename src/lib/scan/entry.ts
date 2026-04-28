@@ -136,6 +136,7 @@ async function openPosition(
     supabase,
     userId,
     algoId: algo.id,
+    algoCapital: algo.capital,
     paperPositionId: position.id,
     ticker,
     side,
@@ -157,6 +158,7 @@ interface LogAndMirrorArgs {
   supabase: SupabaseClient;
   userId: string;
   algoId: string;
+  algoCapital: number;
   paperPositionId: string;
   ticker: string;
   side: "long" | "short";
@@ -199,6 +201,7 @@ async function logOpenAndMirror(args: LogAndMirrorArgs): Promise<void> {
       stopLossPrice: args.stopLossPrice,
       takeProfitPrice: args.takeProfitPrice,
       ctx: args.brokerCtx,
+      capital: args.algoCapital,
       lots: args.lots,
       divergenceRule: args.divergenceRule,
     });
