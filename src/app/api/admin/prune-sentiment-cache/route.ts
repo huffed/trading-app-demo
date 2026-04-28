@@ -30,20 +30,22 @@ export async function GET(request: Request) {
   }
 
   const supabase = createAdminClient();
-  // No generated DB types in this repo; cast the rpc handle to teach
-  // TS about the function signature added in migration 00022.
-  const rpc = supabase.rpc as unknown as (
-    fn: "prune_sentiment_cache",
-    args: { retention_days: number }
-  ) => Promise<{ data: number | null; error: { message: string } | null }>;
-  const { data, error } = await rpc("prune_sentiment_cache", { retention_days: days });
+  // No generated DB types in this repo, so the rpc overloads only know
+  // about builtins — cast the args via `as never` to teach TS that this
+  // function accepts our retention_days payload, then narrow `data` on
+  // the way out. Calling the method directly (not via a destructured
+  // reference) preserves the `this` binding that supabase-js needs.
+  const { data, error } = await supabase.rpc(
+    "prune_sentiment_cache",
+    { retention_days: days } as never
+  );
 
   if (error) {
     logger.error("prune-sentiment-cache", "RPC failed", error);
     return NextResponse.json({ error: error.message, code: "rpc_failed" }, { status: 500 });
   }
 
-  const removed = data ?? 0;
+  const removed = (data as number | null) ?? 0;
   logger.info("prune-sentiment-cache", `removed ${removed} rows older than ${days}d`);
   return NextResponse.json({ removed, retention_days: days });
 }
