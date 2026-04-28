@@ -146,6 +146,8 @@ const entryLogicSchema = z.union([
   z.object({ type: z.literal("n_of_m"), n: z.number().int().positive() }),
 ]);
 
+export const algorithmStatusSchema = z.enum(["draft", "active", "paused", "archived"]);
+
 export const algorithmRulesSchema = z.object({
   entry_conditions: z.array(normalizedCondition),
   entry_logic: entryLogicSchema.optional(),
@@ -175,3 +177,20 @@ export const algorithmRulesSchema = z.object({
   regime_filter: regimeFilterSchema.optional(),
   adx_filter: adxFilterSchema.optional(),
 });
+
+/**
+ * Validates the payload accepted by `updateAlgorithm`. Top-level fields are
+ * optional (any subset can be patched) but `rules`, when present, must be a
+ * complete rule set — partial rule updates are rejected because the
+ * downstream backtest/scan engines assume every required field is set.
+ */
+export const algorithmUpdateSchema = z.object({
+  name: z.string().min(1).optional(),
+  description: z.string().optional(),
+  status: algorithmStatusSchema.optional(),
+  rules: algorithmRulesSchema.optional(),
+  live_trading_enabled: z.boolean().optional(),
+  broker_connection_id: z.string().uuid().nullable().optional(),
+});
+
+export type AlgorithmUpdate = z.infer<typeof algorithmUpdateSchema>;

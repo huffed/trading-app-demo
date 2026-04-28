@@ -13,8 +13,11 @@ import {
   runPortfolioBacktest,
 } from "@/app/(dashboard)/algorithms/backtest-run-actions";
 import { createClient } from "@/lib/supabase/client";
-import type { AlgorithmFormValues } from "@/lib/validators/algorithm";
-import type { Algorithm, AlgorithmRules, AlgorithmStatus } from "@/types/algorithm";
+import type {
+  AlgorithmFormValues,
+  AlgorithmUpdate,
+} from "@/lib/validators/algorithm";
+import type { Algorithm, AlgorithmStatus } from "@/types/algorithm";
 
 const ALGORITHMS_KEY = ["algorithms"];
 
@@ -74,20 +77,8 @@ export function useDeleteAlgorithm() {
 export function useUpdateAlgorithm() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({
-      id,
-      updates,
-    }: {
-      id: string;
-      updates: {
-        name?: string;
-        description?: string;
-        status?: AlgorithmStatus;
-        rules?: AlgorithmRules;
-        live_trading_enabled?: boolean;
-        broker_connection_id?: string | null;
-      };
-    }) => updateAlgorithm(id, updates),
+    mutationFn: ({ id, updates }: { id: string; updates: AlgorithmUpdate }) =>
+      updateAlgorithm(id, updates),
     onSuccess: (result) => {
       if (result.success) {
         queryClient.invalidateQueries({ queryKey: ALGORITHMS_KEY });
