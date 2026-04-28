@@ -19,9 +19,11 @@ import {
   type AlgorithmRules,
   type EntryCondition,
   type ExitCondition,
+  type PatternCondition,
   type PropFirmRules,
   type SentimentCondition,
 } from "@/types/algorithm";
+import { PatternConditionForm } from "./pattern-condition-form";
 import { PropFirmFields } from "./prop-firm-fields";
 
 function ConditionRow({
@@ -205,6 +207,14 @@ export function RulesEditor({ rules, onSave, onCancel, isSaving }: RulesEditorPr
     setDraft((d) => ({ ...d, exit_conditions: d.exit_conditions.filter((_, i) => i !== index) }));
   }
 
+  function addEntryPattern(c: PatternCondition) {
+    setDraft((d) => ({ ...d, entry_conditions: [...d.entry_conditions, c] }));
+  }
+
+  function addExitPattern(c: PatternCondition) {
+    setDraft((d) => ({ ...d, exit_conditions: [...d.exit_conditions, c] }));
+  }
+
   function updateRisk(field: "stop_loss" | "take_profit" | "position_sizing", value: number) {
     setDraft((d) => ({ ...d, [field]: { ...d[field], value } }));
   }
@@ -223,6 +233,9 @@ export function RulesEditor({ rules, onSave, onCancel, isSaving }: RulesEditorPr
           {draft.entry_conditions.length === 0 && (
             <p className="text-xs text-muted-foreground">No entry conditions</p>
           )}
+          <div className="pt-1">
+            <PatternConditionForm onAdd={addEntryPattern} />
+          </div>
         </div>
         <div className="space-y-1">
           <h4 className="text-xs font-medium text-muted-foreground">Exit Conditions</h4>
@@ -232,6 +245,9 @@ export function RulesEditor({ rules, onSave, onCancel, isSaving }: RulesEditorPr
           {draft.exit_conditions.length === 0 && (
             <p className="text-xs text-muted-foreground">No exit conditions</p>
           )}
+          <div className="pt-1">
+            <PatternConditionForm onAdd={addExitPattern} />
+          </div>
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
           <NumericField

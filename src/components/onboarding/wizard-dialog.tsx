@@ -11,13 +11,14 @@ import {
   STEP_CONFIG,
   StepCapital,
   StepExperience,
+  StepFundedAccount,
   StepGoal,
   StepInterests,
   StepRisk,
   StepTime,
 } from "./wizard-steps";
 
-const TOTAL_STEPS = 6;
+const TOTAL_STEPS = 7;
 
 interface WizardDialogProps {
   open: boolean;
@@ -91,10 +92,18 @@ function StepContent({
       />
     );
   }
+  if (step === 5) {
+    return (
+      <StepExperience
+        value={answers.experience_level}
+        onChange={(v) => setAnswers((p) => ({ ...p, experience_level: v }))}
+      />
+    );
+  }
   return (
-    <StepExperience
-      value={answers.experience_level}
-      onChange={(v) => setAnswers((p) => ({ ...p, experience_level: v }))}
+    <StepFundedAccount
+      value={answers.funded_account}
+      onChange={(v) => setAnswers((p) => ({ ...p, funded_account: v }))}
     />
   );
 }

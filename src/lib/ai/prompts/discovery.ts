@@ -1,5 +1,10 @@
 import { COMMODITIES, FOREX_PAIRS } from "@/lib/constants/markets";
-import { isTechnicalCondition, isSentimentCondition, type Algorithm } from "@/types/algorithm";
+import {
+  isPatternCondition,
+  isSentimentCondition,
+  isTechnicalCondition,
+  type Algorithm,
+} from "@/types/algorithm";
 
 const EQUITY_DISCOVERY_PROMPT = `You are a stock discovery engine for a trading platform. Given a user's trading profile and algorithm strategy, suggest stocks they should be monitoring.
 
@@ -78,11 +83,25 @@ function summarizeConditions(algo: Algorithm): string {
   const parts: string[] = [];
   const techEntry = algo.rules.entry_conditions.filter(isTechnicalCondition);
   const sentEntry = algo.rules.entry_conditions.filter(isSentimentCondition);
+  const patternEntry = algo.rules.entry_conditions.filter(isPatternCondition);
 
   if (techEntry.length > 0) {
     parts.push(
       "Technical entry: " +
         techEntry.map((c) => `${c.indicator} ${c.operator} ${c.value}`).join(", ")
+    );
+  }
+  if (patternEntry.length > 0) {
+    parts.push(
+      "Pattern entry (ICT/SMC): " +
+        patternEntry
+          .map(
+            (c) =>
+              `${c.pattern}` +
+              (c.direction ? ` [${c.direction} only]` : "") +
+              ` on ${c.timeframe}`
+          )
+          .join(", ")
     );
   }
   if (sentEntry.length > 0) {
@@ -99,11 +118,22 @@ function summarizeConditions(algo: Algorithm): string {
   }
 
   const { stop_loss, take_profit, position_sizing } = algo.rules;
-  if (stop_loss) parts.push(`Stop loss: ${stop_loss.value}%`);
-  if (take_profit) parts.push(`Take profit: ${take_profit.value}%`);
+  if (stop_loss) parts.push(`Stop loss: ${stop_loss.value}${stop_loss.type === "pips" ? " pips" : "%"}`);
+  if (take_profit) parts.push(`Take profit: ${take_profit.value}${take_profit.type === "pips" ? " pips" : "%"}`);
   if (position_sizing) parts.push(`Position size: ${position_sizing.value}% of capital`);
 
   return parts.join("\n");
+}
+
+function patternStrategyHint(algo: Algorithm): string | null {
+  const patterns = algo.rules.entry_conditions.filter(isPatternCondition);
+  if (patterns.length === 0) return null;
+  const hasDirectionFilter = patterns.some((p) => p.direction !== undefined);
+  if (hasDirectionFilter) {
+    const direction = patterns.find((p) => p.direction)?.direction ?? "directional";
+    return `\nIMPORTANT: this algorithm uses ICT/SMC pattern entries with a ${direction}-only direction filter. Pattern strategies are DIRECTIONALLY ASYMMETRIC — a pair that whipsaws in the opposite direction will produce mostly stop-outs even if the indicator setup looks favourable. Prefer instruments with strong ${direction} bias on the daily timeframe.`;
+  }
+  return "\nIMPORTANT: this algorithm uses ICT/SMC pattern entries (no fixed direction filter — auto-side reads daily bias at entry-time). Suggest instruments with clean trending behaviour rather than ranging tape; pattern detection produces noisy signals in compressed-volatility regimes.";
 }
 
 export function buildDiscoveryPrompt(
@@ -125,6 +155,11 @@ export function buildDiscoveryPrompt(
   const conditions = summarizeConditions(algo);
   if (conditions) {
     sections.push(`\nTrading rules:\n${conditions}`);
+  }
+
+  const patternHint = patternStrategyHint(algo);
+  if (patternHint) {
+    sections.push(patternHint);
   }
 
   if (algo.user_hints) {

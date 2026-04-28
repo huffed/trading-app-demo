@@ -7,6 +7,14 @@ export const tradingProfileAnswersSchema = z.object({
   interests: z.array(z.string()).min(1, "Pick at least one interest"),
   time_commitment: z.enum(["set_forget", "check_weekly", "daily_attention"]),
   experience_level: z.enum(["total_beginner", "know_basics", "experienced"]),
+  funded_account: z
+    .object({
+      enabled: z.boolean(),
+      preset: z
+        .enum(["ftmo", "topstep", "funded_next", "the5ers", "custom"])
+        .nullable(),
+    })
+    .optional(),
 });
 
 export const tradingProfileSchema = z.object({

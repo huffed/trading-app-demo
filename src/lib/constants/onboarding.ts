@@ -55,3 +55,28 @@ export const EXPERIENCE_LABELS: Record<string, string> = {
 };
 
 export const CAPITAL_PRESETS = [100, 500, 1_000, 5_000, 10_000] as const;
+
+export const ONBOARDING_STEP_CONFIG = [
+  { title: "What's your main goal?", subtitle: "This helps us pick the right strategy for you." },
+  {
+    title: "How do you feel about risk?",
+    subtitle: "There's no wrong answer \u2014 be honest with yourself.",
+  },
+  { title: "How much do you want to start with?", subtitle: "You can always change this later." },
+  {
+    title: "What interests you?",
+    subtitle: "Pick as many as you like \u2014 or let the AI decide.",
+  },
+  {
+    title: "How much time do you want to spend?",
+    subtitle: "This determines how active your strategy will be.",
+  },
+  {
+    title: "How much trading experience do you have?",
+    subtitle: "This helps the AI explain things at the right level.",
+  },
+  {
+    title: "Are you trading a funded account?",
+    subtitle: "Prop-firm accounts add risk caps that algorithms must respect.",
+  },
+];

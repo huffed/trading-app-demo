@@ -4,7 +4,6 @@ import { useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Pencil, Trash2, X } from "lucide-react";
 import { AiBacktestCard } from "@/components/algorithms/ai-backtest-card";
-import { BacktestForm } from "@/components/algorithms/backtest-form";
 import { BacktestRankingCard } from "@/components/algorithms/backtest-ranking-card";
 import { BacktestResultsDisplay } from "@/components/algorithms/backtest-results-display";
 import { PortfolioBacktestCard } from "@/components/algorithms/portfolio-backtest-card";
@@ -116,25 +115,17 @@ export function OverviewTab({ algo }: { algo: Pick<Algorithm, "description" | "r
 
 export function BacktestTab({
   algo,
-  backtestError,
   aiBacktestError,
-  localBacktestResults,
   onRunAiBacktest,
-  onRunBacktest,
   isAiPending,
-  isBtPending,
 }: {
   algo: Pick<
     Algorithm,
     "id" | "ai_analysis" | "backtest_results" | "asset_class" | "time_horizon"
   >;
-  backtestError: string | null;
   aiBacktestError: string | null;
-  localBacktestResults: BacktestMetrics | null;
   onRunAiBacktest: () => void;
-  onRunBacktest: (symbol: string, period: string) => void;
   isAiPending: boolean;
-  isBtPending: boolean;
 }) {
   const { data: watchlistItems = [] } = useWatchlist(algo.id);
   const watchlistTickers = watchlistItems.map((w) => ({
@@ -143,7 +134,7 @@ export function BacktestTab({
     backtestMetrics: w.backtest_metrics as BacktestMetrics | null,
   }));
   const [resultsVisible, setResultsVisible] = useState(true);
-  const backtestResults = localBacktestResults ?? (algo.backtest_results as BacktestMetrics | null);
+  const backtestResults = algo.backtest_results as BacktestMetrics | null;
 
   return (
     <TabsContent value={2} className="space-y-4 pt-2">
@@ -153,18 +144,8 @@ export function BacktestTab({
         onRunBacktest={onRunAiBacktest}
         isPending={isAiPending}
       />
-      <BacktestForm
-        disabled={isBtPending}
-        assetClass={algo.asset_class}
-        timeframe={algo.time_horizon}
-        onSubmit={(symbol, period) => {
-          setResultsVisible(true);
-          onRunBacktest(symbol, period);
-        }}
-      />
       <PortfolioBacktestCard algorithmId={algo.id} timeframe={algo.time_horizon} />
       <BacktestRankingCard algorithmId={algo.id} tickers={watchlistTickers} />
-      {backtestError && <p className="text-sm text-destructive">{backtestError}</p>}
       {backtestResults && resultsVisible && (
         <div className="relative">
           <Button
