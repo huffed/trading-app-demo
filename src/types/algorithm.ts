@@ -37,7 +37,7 @@ export interface SentimentCondition {
  */
 export interface PatternCondition {
   type: "pattern";
-  pattern: "liquidity_sweep" | "fvg" | "ifvg" | "daily_bias";
+  pattern: "liquidity_sweep" | "fvg" | "ifvg" | "daily_bias" | "bos" | "order_block";
   /** Required directional alignment. Omit to match any direction. */
   direction?: "bullish" | "bearish";
   /** Lookback for swing-based patterns. Default 5. */

@@ -16,9 +16,11 @@
  */
 import type { PriceBar } from "@/lib/market-data/types";
 import type { PatternCondition } from "@/types/algorithm";
+import { detectBos } from "./bos";
 import { detectDailyBias } from "./daily-bias";
 import { detectFvg, scanFvgs } from "./fvg";
 import { detectLiquiditySweep } from "./liquidity-sweep";
+import { detectOrderBlock } from "./order-block";
 
 /**
  * Evaluate a pattern condition against the bar series at index `idx`.
@@ -75,6 +77,20 @@ export function evaluatePatternCondition(
       const r = detectDailyBias(higherTfBars, cond.ma_period ?? 20);
       if (!r.detected || !r.details) return false;
       if (effectiveDir && r.details.bias !== effectiveDir) return false;
+      return true;
+    }
+    case "bos": {
+      const r = detectBos(bars, idx, cond.lookback ?? 5);
+      if (!r.detected || !r.details) return false;
+      if (effectiveDir && r.details.direction !== effectiveDir) return false;
+      return true;
+    }
+    case "order_block": {
+      // OB lookback is broader than swing-style patterns — caller-supplied
+      // `lookback` overrides the default 30-bar zone-search window.
+      const r = detectOrderBlock(bars, idx, { lookback: cond.lookback });
+      if (!r.detected || !r.details) return false;
+      if (effectiveDir && r.details.direction !== effectiveDir) return false;
       return true;
     }
     default:
