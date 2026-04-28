@@ -6,9 +6,9 @@ import { runBacktest } from "@/lib/market-data/backtest-engine";
 import { getCachedPrices, savePricesToCache } from "@/lib/market-data/price-cache";
 import { fetchDailyPrices } from "@/lib/market-data/prices";
 import type { BacktestMetrics } from "@/lib/market-data/types";
+import { getAuthedUser } from "@/lib/supabase/get-authed-user";
 import { type ActionResult } from "@/lib/types/action-result";
 import type { Algorithm, AlgorithmRules } from "@/types/algorithm";
-import { getAuthedUser } from "./actions";
 import { discoverTickers } from "./discovery-actions";
 import { bulkAddWatchlistItems } from "./watchlist-actions";
 

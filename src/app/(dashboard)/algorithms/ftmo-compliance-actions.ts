@@ -1,5 +1,6 @@
 "use server";
 
+import { getAuthedUser } from "@/lib/supabase/get-authed-user";
 import { type ActionResult } from "@/lib/types/action-result";
 import type { AlgorithmRules } from "@/types/algorithm";
 import type {
@@ -8,7 +9,6 @@ import type {
   FtmoCompliance,
   HaltEvent,
 } from "@/types/ftmo-compliance";
-import { getAuthedUser } from "./actions";
 
 interface AlgoRow {
   id: string;

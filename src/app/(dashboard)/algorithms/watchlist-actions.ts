@@ -2,9 +2,9 @@
 
 import { getInstrumentMeta } from "@/lib/constants/markets";
 import { lookupTickerName } from "@/lib/market-data/finnhub";
+import { getAuthedUser } from "@/lib/supabase/get-authed-user";
 import { type ActionResult } from "@/lib/types/action-result";
 import type { WatchlistAddedBy, WatchlistItem } from "@/types/watchlist";
-import { getAuthedUser } from "./actions";
 
 export async function addWatchlistItem(
   algorithmId: string,

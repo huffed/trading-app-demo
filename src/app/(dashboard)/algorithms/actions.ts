@@ -21,18 +21,6 @@ import {
 } from "@/lib/validators/algorithm";
 import type { Algorithm, AlgorithmRules, AlgorithmStatus } from "@/types/algorithm";
 
-export async function getAuthedUser() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    throw new Error("Not authenticated");
-  }
-  return { supabase, user };
-}
-
-
 async function generateRulesFreeForm(
   params: AlgorithmFormValues,
   tradeCount: number

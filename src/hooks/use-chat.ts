@@ -13,59 +13,93 @@
  * The marker text is stripped from the displayed message via stripMarker().
  */
 import { useState } from "react";
+import { z } from "zod";
 import { generateAlgorithm, updateAlgorithm } from "@/app/(dashboard)/algorithms/actions";
 import { seedWatchlist } from "@/app/(dashboard)/algorithms/seed-watchlist-action";
 import { bulkAddWatchlistItems } from "@/app/(dashboard)/algorithms/watchlist-actions";
 import { parseTradeHistoryCsv } from "@/lib/utils/parse-trade-csv";
-import type { AlgorithmFormValues } from "@/lib/validators/algorithm";
+import { algorithmFormSchema, type AlgorithmFormValues } from "@/lib/validators/algorithm";
 import type { ChatMessage } from "@/types/chat";
 
 const ALGO_MARKER = "[CREATE_ALGORITHM]";
 const EDIT_MARKER = "[EDIT_ALGORITHM]";
 
+const editMarkerSchema = z.object({
+  id: z.string().min(1),
+  updates: z.record(z.string(), z.unknown()),
+});
+
+/**
+ * Find the first balanced JSON object in `text` starting at or after `from`.
+ * Tracks string state so braces inside quoted values don't unbalance the
+ * scanner — the previous regex-based approach failed on nested objects
+ * (e.g. updates.rules.entry_conditions[0]) which the LLM emits routinely.
+ */
+function extractFirstJsonObject(text: string, from = 0): { start: number; end: number } | null {
+  let depth = 0;
+  let start = -1;
+  let inString = false;
+  let escape = false;
+  for (let i = from; i < text.length; i++) {
+    const c = text[i];
+    if (escape) {
+      escape = false;
+      continue;
+    }
+    if (inString) {
+      if (c === "\\") escape = true;
+      else if (c === '"') inString = false;
+      continue;
+    }
+    if (c === '"') {
+      inString = true;
+      continue;
+    }
+    if (c === "{") {
+      if (depth === 0) start = i;
+      depth++;
+    } else if (c === "}") {
+      depth--;
+      if (depth === 0 && start !== -1) {
+        return { start, end: i + 1 };
+      }
+    }
+  }
+  return null;
+}
+
+function parseMarkerJson(text: string, marker: string): { json: string; end: number } | null {
+  const idx = text.indexOf(marker);
+  if (idx === -1) return null;
+  const range = extractFirstJsonObject(text, idx + marker.length);
+  if (!range) return null;
+  return { json: text.slice(range.start, range.end), end: range.end };
+}
+
 export function parseAlgorithmMarker(text: string): AlgorithmFormValues | null {
-  const idx = text.indexOf(ALGO_MARKER);
-  if (idx === -1) {
-    return null;
-  }
-  const after = text.substring(idx + ALGO_MARKER.length).trim();
-  const jsonMatch = after.match(/^\{[^}]+\}/);
-  if (!jsonMatch) {
-    return null;
-  }
+  const marker = parseMarkerJson(text, ALGO_MARKER);
+  if (!marker) return null;
+  let raw: unknown;
   try {
-    return JSON.parse(jsonMatch[0]) as AlgorithmFormValues;
+    raw = JSON.parse(marker.json);
   } catch {
     return null;
   }
+  const parsed = algorithmFormSchema.safeParse(raw);
+  return parsed.success ? parsed.data : null;
 }
 
 function parseEditMarker(text: string): { id: string; updates: Record<string, unknown> } | null {
-  const idx = text.indexOf(EDIT_MARKER);
-  if (idx === -1) return null;
-  const after = text.substring(idx + EDIT_MARKER.length).trim();
-  const jsonMatch = after.match(/^\{[\s\S]*?\}(?:\s*\})*\s*$/m);
-  if (!jsonMatch) {
-    const simpleMatch = after.match(/^\{[\s\S]+\}/);
-    if (!simpleMatch) return null;
-    try {
-      const parsed = JSON.parse(simpleMatch[0]) as {
-        id?: string;
-        updates?: Record<string, unknown>;
-      };
-      if (!parsed.id || !parsed.updates) return null;
-      return { id: parsed.id, updates: parsed.updates };
-    } catch {
-      return null;
-    }
-  }
+  const marker = parseMarkerJson(text, EDIT_MARKER);
+  if (!marker) return null;
+  let raw: unknown;
   try {
-    const parsed = JSON.parse(jsonMatch[0]) as { id?: string; updates?: Record<string, unknown> };
-    if (!parsed.id || !parsed.updates) return null;
-    return { id: parsed.id, updates: parsed.updates };
+    raw = JSON.parse(marker.json);
   } catch {
     return null;
   }
+  const parsed = editMarkerSchema.safeParse(raw);
+  return parsed.success ? parsed.data : null;
 }
 
 export function stripMarker(text: string): string {
@@ -73,10 +107,10 @@ export function stripMarker(text: string): string {
   for (const marker of [ALGO_MARKER, EDIT_MARKER]) {
     const idx = result.indexOf(marker);
     if (idx === -1) continue;
-    const before = result.substring(0, idx).trim();
-    const after = result.substring(idx + marker.length).trim();
-    const afterJson = after.replace(/^\{[\s\S]*?\}(?:\s*\})*\s*/m, "").trim();
-    result = [before, afterJson].filter(Boolean).join("\n\n");
+    const range = extractFirstJsonObject(result, idx + marker.length);
+    const before = result.slice(0, idx).trim();
+    const after = range ? result.slice(range.end).trim() : "";
+    result = [before, after].filter(Boolean).join("\n\n");
   }
   return result;
 }

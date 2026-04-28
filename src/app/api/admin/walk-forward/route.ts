@@ -13,17 +13,15 @@
  *     "http://localhost:3000/api/admin/walk-forward?id=<algo>&window_days=60&step_days=30"
  */
 import { NextResponse } from "next/server";
+import { verifyAdminAuth } from "@/lib/api/admin-auth";
 import { runWalkForward, type WalkForwardSummary } from "@/lib/market-data/walk-forward";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
 export async function GET(request: Request) {
-  const secret = process.env.CRON_SECRET;
-  if (!secret) return NextResponse.json({ error: "CRON_SECRET not configured" }, { status: 500 });
-  if (request.headers.get("authorization") !== `Bearer ${secret}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const authError = verifyAdminAuth(request);
+  if (authError) return authError;
 
   const url = new URL(request.url);
   const algoId = url.searchParams.get("id");

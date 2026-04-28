@@ -6,11 +6,11 @@ import { fetchDailyPrices } from "@/lib/market-data/prices";
 import { fetchBatchQuotes } from "@/lib/market-data/twelve-data";
 import { scanAlgorithm, type ScanResult } from "@/lib/scan/engine";
 import { executeLiveExit, resolveBrokerContext } from "@/lib/scan/live-execution";
+import { getAuthedUser } from "@/lib/supabase/get-authed-user";
 import { type ActionResult } from "@/lib/types/action-result";
 import { closePositionSchema } from "@/lib/validators/position";
 import type { AlgorithmRules } from "@/types/algorithm";
 import type { PaperPosition } from "@/types/position";
-import { getAuthedUser } from "./actions";
 
 /**
  * Trigger a scan for one or all active algorithms.

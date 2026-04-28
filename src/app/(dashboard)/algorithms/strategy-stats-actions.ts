@@ -1,12 +1,12 @@
 "use server";
 
+import { getAuthedUser } from "@/lib/supabase/get-authed-user";
 import { type ActionResult } from "@/lib/types/action-result";
 import type {
   ConditionStatRow,
   PairStatRow,
   StrategyStats,
 } from "@/types/strategy-stats";
-import { getAuthedUser } from "./actions";
 
 interface ConditionMet {
   type?: string;

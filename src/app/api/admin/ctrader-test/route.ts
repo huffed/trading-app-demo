@@ -13,6 +13,7 @@
  * framing, or the auth call itself.
  */
 import { NextResponse } from "next/server";
+import { verifyAdminAuth } from "@/lib/api/admin-auth";
 import { CTraderClient, ENDPOINTS } from "@/lib/brokers/ctrader/client";
 import { applicationAuth } from "@/lib/brokers/ctrader/messages";
 
@@ -20,11 +21,8 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 30;
 
 export async function GET(request: Request) {
-  const secret = process.env.CRON_SECRET;
-  if (!secret) return NextResponse.json({ error: "CRON_SECRET not configured" }, { status: 500 });
-  if (request.headers.get("authorization") !== `Bearer ${secret}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const authError = verifyAdminAuth(request);
+  if (authError) return authError;
 
   const clientId = process.env.CTRADER_CLIENT_ID;
   const clientSecret = process.env.CTRADER_CLIENT_SECRET;

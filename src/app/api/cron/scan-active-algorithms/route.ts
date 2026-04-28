@@ -11,6 +11,7 @@
  * land on the right user.
  */
 import { NextResponse } from "next/server";
+import { verifyAdminAuth } from "@/lib/api/admin-auth";
 import { scanAlgorithm, type ScanResult } from "@/lib/scan/engine";
 import {
   checkPortfolioHalt,
@@ -78,15 +79,8 @@ async function applyPortfolioHalts(
 }
 
 export async function GET(request: Request) {
-  const secret = process.env.CRON_SECRET;
-  if (!secret) {
-    return NextResponse.json({ error: "CRON_SECRET not configured" }, { status: 500 });
-  }
-
-  const auth = request.headers.get("authorization");
-  if (auth !== `Bearer ${secret}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const authError = verifyAdminAuth(request);
+  if (authError) return authError;
 
   const supabase = createAdminClient();
 
