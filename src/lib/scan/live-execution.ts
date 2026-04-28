@@ -10,8 +10,8 @@
  * reported algorithm performance and the user's broker statement they
  * can't reconcile later. Better to record both honestly.
  */
-import { notionalToLots } from "@/lib/brokers/metaapi";
 import { getBrokerAdapter } from "@/lib/brokers/registry";
+import { notionalToLots } from "@/lib/brokers/sizing";
 import type { BrokerAdapter, BrokerConnection } from "@/lib/brokers/types";
 import { notionalInUsd } from "@/lib/constants/markets";
 import { checkDivergenceKill, haltAlgorithmForDivergence } from "./divergence";
