@@ -10,7 +10,8 @@
 --      is plenty for the 6-hour read TTL the app uses while keeping the
 --      table small.
 
-create policy if not exists "Users can delete own sentiment cache"
+drop policy if exists "Users can delete own sentiment cache" on public.sentiment_cache;
+create policy "Users can delete own sentiment cache"
   on public.sentiment_cache for delete
   using (auth.uid() = user_id);
 
