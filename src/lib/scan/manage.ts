@@ -1,0 +1,205 @@
+/**
+ * Manage-positions tick — walks every open paper position across active
+ * algorithms and runs the exit-trigger check using a fresh live quote.
+ * Skips entry evaluation entirely so it can run at a higher cadence than
+ * the hourly scan without burning the entry-side compute or quote budget.
+ *
+ * Why this exists separately:
+ *   - Hourly scan is fine for entries — bar-close evaluation aligns with
+ *     bar boundaries on 1h/4h forex strategies.
+ *   - Exits can fire any time inside the bar (price gaps through SL/TP,
+ *     intra-bar signal exit). Waiting 59 minutes for the next scan can
+ *     give back significant P&L.
+ *   - Funded broker accounts have broker-side SL/TP attached at entry, so
+ *     they're already protected on price-based exits. This tick covers
+ *     the gap on (a) paper-only algos and (b) signal-based exits which
+ *     can't be expressed as broker stop orders.
+ *
+ * Cost: scales with the COUNT of open positions, not the watchlist. With
+ * zero open positions this tick is a no-op (single Supabase query and
+ * exit). One batch quote call per algo on the tickers that have open
+ * positions; cached bar reads from Supabase price_cache for the technical
+ * exit conditions.
+ */
+import { logger } from "@/lib/logger";
+import { timeframeToInterval } from "@/lib/market-data/interval";
+import { getCachedPrices, savePricesToCache } from "@/lib/market-data/price-cache";
+import { fetchDailyPrices } from "@/lib/market-data/prices";
+import { fetchBatchQuotes } from "@/lib/market-data/twelve-data";
+import type { PriceBar } from "@/lib/market-data/types";
+import type { AlgorithmRules } from "@/types/algorithm";
+import type { PaperPosition, PositionEvent } from "@/types/position";
+import { manageExistingPosition, type AlgoForPositionMgmt } from "./engine";
+import { resolveBrokerContext } from "./live-execution";
+import type { SupabaseClient } from "@supabase/supabase-js";
+
+export interface ManageResult {
+  algorithm_id: string;
+  algorithm_name: string;
+  positions_inspected: number;
+  positions_closed: number;
+  positions_updated: number;
+  closed_details: PositionEvent[];
+  errors: { ticker: string; error: string }[];
+}
+
+interface AlgoForManage extends AlgoForPositionMgmt {
+  user_id: string;
+  rules: AlgorithmRules;
+  live_trading_enabled?: boolean | null;
+  broker_connection_id?: string | null;
+}
+
+/** Fetch bars for a ticker, hitting the price_cache first. Mirrors what
+ *  processTicker does inside the scan engine. Returns null when there's
+ *  not enough data to evaluate exit conditions safely. */
+async function loadBars(
+  ticker: string,
+  interval: ReturnType<typeof timeframeToInterval>
+): Promise<PriceBar[] | null> {
+  let prices = await getCachedPrices(ticker, "compact", interval);
+  if (!prices) {
+    try {
+      prices = await fetchDailyPrices(ticker, "compact", interval);
+      savePricesToCache(ticker, "compact", prices, interval).catch(() => {});
+    } catch {
+      return null;
+    }
+  }
+  return prices.length >= 10 ? prices : null;
+}
+
+/** Fetch a daily series for higher-timeframe pattern conditions
+ *  (daily_bias). Skipped when the algo's primary TF is already 1day. */
+async function loadDailyBars(
+  ticker: string,
+  interval: ReturnType<typeof timeframeToInterval>
+): Promise<PriceBar[] | null> {
+  if (interval === "1day") return null;
+  let dailyBars = await getCachedPrices(ticker, "compact", "1day");
+  if (!dailyBars) {
+    try {
+      dailyBars = await fetchDailyPrices(ticker, "compact", "1day");
+      savePricesToCache(ticker, "compact", dailyBars, "1day").catch(() => {});
+    } catch {
+      return null;
+    }
+  }
+  return dailyBars;
+}
+
+async function manageAlgorithm(
+  supabase: SupabaseClient,
+  algo: AlgoForManage,
+  positions: PaperPosition[]
+): Promise<ManageResult> {
+  const result: ManageResult = {
+    algorithm_id: algo.id,
+    algorithm_name: algo.name,
+    positions_inspected: positions.length,
+    positions_closed: 0,
+    positions_updated: 0,
+    closed_details: [],
+    errors: [],
+  };
+
+  const tickers = Array.from(new Set(positions.map((p) => p.ticker)));
+  let liveQuotes = new Map<string, number>();
+  try {
+    liveQuotes = await fetchBatchQuotes(tickers);
+  } catch {
+    // Fall back to last bar close inside manageExistingPosition.
+  }
+
+  const interval = timeframeToInterval(algo.rules.timeframe);
+  const brokerCtx = await resolveBrokerContext(
+    supabase,
+    algo.user_id,
+    algo.broker_connection_id ?? null,
+    algo.live_trading_enabled ?? false
+  );
+
+  for (const ticker of tickers) {
+    try {
+      const prices = await loadBars(ticker, interval);
+      if (!prices) {
+        result.errors.push({ ticker, error: "Not enough price data" });
+        continue;
+      }
+      const closes = prices.map((p) => p.close);
+      const dailyBars = await loadDailyBars(ticker, interval);
+      const livePrice = liveQuotes.get(ticker.toUpperCase()) ?? null;
+      const positionsForTicker = positions.filter((p) => p.ticker === ticker);
+
+      for (const position of positionsForTicker) {
+        const r = await manageExistingPosition(
+          supabase,
+          algo.user_id,
+          algo,
+          ticker,
+          position,
+          prices,
+          closes,
+          livePrice,
+          brokerCtx,
+          dailyBars
+        );
+        result.positions_closed += r.closed;
+        result.positions_updated += r.updated;
+        if (r.closeEvent) result.closed_details.push(r.closeEvent);
+      }
+    } catch (err) {
+      result.errors.push({
+        ticker,
+        error: err instanceof Error ? err.message : "Unknown error",
+      });
+    }
+  }
+  return result;
+}
+
+/**
+ * Walk every active algorithm with at least one open paper position and
+ * run the exit-trigger check on each. Returns one ManageResult per algo
+ * (algos with zero open positions are excluded entirely so the response
+ * stays focused on what was actually inspected).
+ */
+export async function manageActiveAlgorithms(
+  supabase: SupabaseClient
+): Promise<ManageResult[]> {
+  // Pull all open positions + their parent algo metadata in one round-trip.
+  const { data, error } = await supabase
+    .from("paper_positions")
+    .select(
+      "*, algorithms!inner(id, user_id, name, rules, status, live_trading_enabled, broker_connection_id)"
+    )
+    .eq("status", "open")
+    .eq("algorithms.status", "active");
+
+  if (error) {
+    logger.error("manage-positions", "Failed to load open positions", error);
+    return [];
+  }
+
+  const rows = (data ?? []) as Array<
+    PaperPosition & {
+      algorithms: AlgoForManage & { status: string };
+    }
+  >;
+
+  // Group positions by algorithm id so we can batch the broker-context
+  // lookup + quote fetch per algo.
+  const byAlgo = new Map<string, { algo: AlgoForManage; positions: PaperPosition[] }>();
+  for (const row of rows) {
+    const algo = row.algorithms;
+    const entry = byAlgo.get(algo.id) ?? { algo, positions: [] };
+    entry.positions.push(row);
+    byAlgo.set(algo.id, entry);
+  }
+
+  const results: ManageResult[] = [];
+  for (const { algo, positions } of byAlgo.values()) {
+    results.push(await manageAlgorithm(supabase, algo, positions));
+  }
+  return results;
+}

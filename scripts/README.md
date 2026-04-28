@@ -18,8 +18,14 @@ operator), but the schedule should be kept in sync with this table.
 
 | Cadence | Script | Endpoint | Log |
 |---|---|---|---|
+| Every 5 min (`*/5 * * * *`) | `manage-cron.sh` | `/api/cron/manage-positions` | `/tmp/quanttrader-manage.log` |
 | Hourly (`0 * * * *`) | `scan-cron.sh` | `/api/cron/scan-active-algorithms` | `/tmp/quanttrader-scan.log` |
 | Daily 04:00 UTC (`0 4 * * *`) | `prune-sentiment-cache-cron.sh` | `/api/admin/prune-sentiment-cache?days=30` | `/tmp/quanttrader-prune.log` |
+
+The hourly scan handles entry evaluation; the 5-minute manage tick only
+walks open paper positions for SL/TP and signal-based exit checks. This
+keeps intraday exit latency at ≤5 minutes without burning quote-API
+budget on tickers with no open positions.
 
 Both scripts are idempotent — running more often than the cadence above
 is safe; the underlying endpoints just do less work.
@@ -43,7 +49,10 @@ crontab -e
 Reference entries (swap `/Users/jack.jones/...` for your repo path):
 
 ```cron
-# Scan active algorithms every hour
+# Manage open positions every 5 minutes — handles intraday SL/TP + signal exits
+*/5 * * * * /Users/jack.jones/Documents/trading-app/demo-1/scripts/manage-cron.sh >> /tmp/quanttrader-manage.log 2>&1
+
+# Scan active algorithms every hour — entry evaluation
 0 * * * * /Users/jack.jones/Documents/trading-app/demo-1/scripts/scan-cron.sh >> /tmp/quanttrader-scan.log 2>&1
 
 # Prune sentiment_cache rows older than 30 days, daily at 04:00 UTC
