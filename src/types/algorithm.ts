@@ -73,12 +73,12 @@ export function isPatternCondition(c: EntryCondition | ExitCondition): c is Patt
 // --- Risk management & rules ---
 
 export interface StopLoss {
-  type: "percentage" | "fixed";
+  type: "percentage" | "fixed" | "pips";
   value: number;
 }
 
 export interface TakeProfit {
-  type: "percentage" | "fixed";
+  type: "percentage" | "fixed" | "pips";
   value: number;
 }
 

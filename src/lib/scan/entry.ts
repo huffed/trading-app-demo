@@ -91,7 +91,12 @@ async function openPosition(
     algo.rules.side === "long" || algo.rules.side === "short"
       ? algo.rules.side
       : "long";
-  const { stopLossPrice, takeProfitPrice } = calculateRiskPrices(currentPrice, algo.rules, side);
+  const { stopLossPrice, takeProfitPrice } = calculateRiskPrices(
+    currentPrice,
+    algo.rules,
+    side,
+    ticker
+  );
   const entryReason = entryReasonSchema.parse({
     conditions_met: conditions.map(snapshotCondition),
     signal_result: sentimentResult

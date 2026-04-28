@@ -73,4 +73,6 @@ export const ACTIVITY_TYPE_LABELS: Record<string, string> = {
   live_order_failed: "Live Order Failed",
   live_order_closed: "Live Order Closed",
   live_close_failed: "Live Close Failed",
+  scan_overdue: "Scan Overdue",
+  broker_reconciliation_drift: "Broker Drift",
 };

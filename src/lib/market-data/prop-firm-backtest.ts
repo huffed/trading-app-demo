@@ -1,5 +1,17 @@
-import { notionalInUsd, riskToLots } from "@/lib/constants/markets";
-import type { AlgorithmRules, PropFirmRules } from "@/types/algorithm";
+import {
+  clampLotsToConstraints,
+  getBacktestVolumeConstraints,
+  notionalInUsd,
+  priceDeltaForRule,
+  riskToLots,
+  ruleAsPctOfEntry,
+} from "@/lib/constants/markets";
+import type {
+  AlgorithmRules,
+  PropFirmRules,
+  StopLoss,
+  TakeProfit,
+} from "@/types/algorithm";
 import type { BacktestTrade, PropFirmReport } from "./types";
 
 export interface SimState {
@@ -35,8 +47,11 @@ export interface SimConfig {
   commissionPct: number;
   maxPos: number;
   posSize: number;
-  stopPct: number;
-  tpPct: number;
+  /** Stop / TP rule in original form. Resolved per-position against the
+   *  entry price + symbol so pip-typed rules produce correct prices on
+   *  forex pairs with different pip sizes (EUR/USD vs USD/JPY). */
+  stopLoss: StopLoss;
+  takeProfit: TakeProfit;
 }
 
 export function closeSimPosition(
@@ -198,9 +213,17 @@ export function sizeForBacktest(
     if (sizing.type === "lots") {
       lots = sizing.value;
     } else {
-      const slPct = rules.stop_loss.type === "percentage" ? rules.stop_loss.value : 1;
+      const slPct = ruleAsPctOfEntry(rules.stop_loss, currentPrice, symbol);
       lots = riskToLots(symbol ?? "", equity, sizing.value, currentPrice, slPct);
     }
+    // Clamp to the same volume step / min / max real brokers enforce so
+    // backtest results don't depend on fractional lots a broker would
+    // reject. Returns 0 when below min — caller treats as "skip entry",
+    // matching live broker rejecting an under-min order.
+    lots = clampLotsToConstraints(
+      lots,
+      getBacktestVolumeConstraints(symbol ?? "", rules.asset_class)
+    );
     const notional = notionalInUsd(symbol ?? "", lots, currentPrice);
     return { notional, margin: notional / (rules.leverage ?? 30) };
   }
@@ -226,20 +249,23 @@ export function pickBacktestExitPrice(
   bar: { high: number; low: number },
   closePrice: number,
   cfg: SimConfig,
-  signalExitFired: boolean
+  signalExitFired: boolean,
+  symbol?: string
 ): number | null {
   const side = pos.side ?? "long";
+  const slDelta = priceDeltaForRule(cfg.stopLoss, pos.entryPrice, symbol);
+  const tpDelta = priceDeltaForRule(cfg.takeProfit, pos.entryPrice, symbol);
   if (side === "short") {
-    const stopPrice = pos.entryPrice * (1 + cfg.stopPct);
-    const tpPrice = pos.entryPrice * (1 - cfg.tpPct);
+    const stopPrice = pos.entryPrice + slDelta;
+    const tpPrice = pos.entryPrice - tpDelta;
     // Stops win ties — checked before TP.
     if (bar.high >= stopPrice) return applySlippage(stopPrice, cfg.slippageBps, true);
     if (bar.low <= tpPrice) return applySlippage(tpPrice, cfg.slippageBps, true);
     if (signalExitFired) return applySlippage(closePrice, cfg.slippageBps, true);
     return null;
   }
-  const stopPrice = pos.entryPrice * (1 - cfg.stopPct);
-  const tpPrice = pos.entryPrice * (1 + cfg.tpPct);
+  const stopPrice = pos.entryPrice - slDelta;
+  const tpPrice = pos.entryPrice + tpDelta;
   if (bar.low <= stopPrice) return applySlippage(stopPrice, cfg.slippageBps, false);
   if (bar.high >= tpPrice) return applySlippage(tpPrice, cfg.slippageBps, false);
   if (signalExitFired) return applySlippage(closePrice, cfg.slippageBps, false);

@@ -82,8 +82,8 @@ function buildSimConfig(rules: AlgorithmRules): SimConfig {
     commissionPct: pf?.commission_pct ?? 0,
     maxPos: rules.max_positions ?? DEFAULT_MAX_POSITIONS,
     posSize: (rules.position_sizing?.value ?? DEFAULT_POSITION_SIZE_PCT) / 100,
-    stopPct: (rules.stop_loss?.value ?? DEFAULT_STOP_LOSS_PCT) / 100,
-    tpPct: (rules.take_profit?.value ?? DEFAULT_TAKE_PROFIT_PCT) / 100,
+    stopLoss: rules.stop_loss ?? { type: "percentage", value: DEFAULT_STOP_LOSS_PCT },
+    takeProfit: rules.take_profit ?? { type: "percentage", value: DEFAULT_TAKE_PROFIT_PCT },
   };
 }
 
@@ -205,7 +205,14 @@ function runCloseLoop(
   const bar = state.bars[i];
   for (let p = state.positions.length - 1; p >= 0; p--) {
     const pos = state.positions[p];
-    const exitPrice = pickBacktestExitPrice(pos, bar, state.closes[i], cfg, signalExitFired);
+    const exitPrice = pickBacktestExitPrice(
+      pos,
+      bar,
+      state.closes[i],
+      cfg,
+      signalExitFired,
+      ticker
+    );
     if (exitPrice !== null) {
       closeSimPosition(pos, dayKey, exitPrice, capital, cfg, s, trades);
       // Tag the just-recorded trade with its ticker for portfolio breakdown.

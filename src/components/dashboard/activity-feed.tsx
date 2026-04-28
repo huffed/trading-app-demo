@@ -6,6 +6,8 @@ import {
   ArrowDownLeft,
   ArrowUpRight,
   CheckCircle2,
+  Clock,
+  GitCompareArrows,
   LogOut,
   PauseCircle,
   Search,
@@ -42,6 +44,8 @@ const EVENT_ICONS: Record<ActivityEventType, React.ReactNode> = {
   live_order_failed: <AlertCircle className="h-3.5 w-3.5 text-destructive" />,
   live_order_closed: <ArrowDownLeft className="h-3.5 w-3.5 text-muted-foreground" />,
   live_close_failed: <AlertCircle className="h-3.5 w-3.5 text-destructive" />,
+  scan_overdue: <Clock className="h-3.5 w-3.5 text-yellow-500" />,
+  broker_reconciliation_drift: <GitCompareArrows className="h-3.5 w-3.5 text-[var(--loss)]" />,
 };
 
 export function ActivityFeed() {

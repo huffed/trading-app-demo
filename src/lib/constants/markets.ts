@@ -434,6 +434,112 @@ export function inferAssetClass(symbol: string, fallback = "equity"): string {
 }
 
 /**
+ * Default broker volume constraints used by the backtest engine. Live
+ * execution always overrides these with the actual `BrokerSymbolSpec`
+ * from the broker — these defaults exist so backtests produce sizes a
+ * typical retail broker would accept, instead of fractional lots that
+ * silently fail at fill time.
+ *
+ * 0.01 step / min on forex+commodity matches MetaApi MT5 + cTrader's
+ * standard micro-lot resolution. maxVolume 100 is far above any
+ * realistic single-position size; it's only here to prevent runaway
+ * sizing bugs.
+ *
+ * Equity/crypto fall back to whole-unit step (1) — most paper-mode
+ * configs we run today use percentage_of_capital sizing on stocks which
+ * doesn't go through this clamp anyway, but the default makes the
+ * fallback explicit.
+ */
+export interface BacktestVolumeConstraints {
+  step: number;
+  min: number;
+  max: number;
+}
+
+export function getBacktestVolumeConstraints(
+  symbol: string,
+  assetClass?: string
+): BacktestVolumeConstraints {
+  const meta = getInstrumentMeta(symbol);
+  const ac = meta?.assetClass ?? assetClass ?? "equity";
+  if (ac === "forex" || ac === "commodity") {
+    return { step: 0.01, min: 0.01, max: 100 };
+  }
+  return { step: 1, min: 1, max: Number.MAX_SAFE_INTEGER };
+}
+
+/**
+ * Floor `lots` to the volume step then clamp into [min, max]. Returns 0
+ * when the floored value is below min — backtest treats that as "skip
+ * this entry", same as live broker rejecting an under-min order.
+ */
+export function clampLotsToConstraints(
+  lots: number,
+  constraints: BacktestVolumeConstraints
+): number {
+  if (lots <= 0) return 0;
+  const stepped = Math.floor(lots / constraints.step) * constraints.step;
+  if (stepped < constraints.min) return 0;
+  return Math.min(stepped, constraints.max);
+}
+
+type StopOrTpRule =
+  | { type: "percentage"; value: number }
+  | { type: "fixed"; value: number }
+  | { type: "pips"; value: number };
+
+/**
+ * Resolve a stop-loss / take-profit rule into the absolute price distance
+ * from entry (always non-negative — caller adds or subtracts based on
+ * side). Centralises pip arithmetic so backtest engines, the live scan
+ * engine, and the prop-firm sim all agree on what "50 pips on EUR/USD"
+ * means for a given entry price.
+ *
+ * - percentage: entryPrice × (value / 100). Same risk-per-pair regardless
+ *   of price level — but pip-equivalent stops vary across pairs.
+ * - fixed:      raw value in price units. Useful for equity / crypto where
+ *   you reason about dollar SL distance directly.
+ * - pips:       value × pipSize from catalog. Uniform pip risk across
+ *   pairs (50 pips on EUR/USD and USD/JPY both move stop by 50 pips of
+ *   their respective pipSize). Falls back to 0.0001 if the symbol isn't
+ *   in the catalog — caller should already be guarded against unknown
+ *   forex symbols at sizing time, this is a defensive default.
+ */
+export function priceDeltaForRule(
+  rule: StopOrTpRule,
+  entryPrice: number,
+  symbol: string | undefined
+): number {
+  switch (rule.type) {
+    case "percentage":
+      return entryPrice * (rule.value / 100);
+    case "fixed":
+      return rule.value;
+    case "pips": {
+      const pipSize = getInstrumentMeta(symbol ?? "")?.pipSize ?? 0.0001;
+      return rule.value * pipSize;
+    }
+  }
+}
+
+/**
+ * Convert any SL/TP rule into the "% of entry price" representation that
+ * `riskToLots` and the older sizing paths expect. Used when sizing a
+ * position before the SL price is materialised — for pip and fixed rules
+ * we compute the equivalent percent at the current entry price so the
+ * lot count comes out right.
+ */
+export function ruleAsPctOfEntry(
+  rule: StopOrTpRule,
+  entryPrice: number,
+  symbol: string | undefined
+): number {
+  if (entryPrice <= 0) return 0;
+  if (rule.type === "percentage") return rule.value;
+  return (priceDeltaForRule(rule, entryPrice, symbol) / entryPrice) * 100;
+}
+
+/**
  * Display unit for position sizing — "shares", "lots", "contracts".
  * Forex uses lots (1 lot = 100,000 base units). Commodities are typically
  * traded as contracts/units depending on instrument; we surface "units" so
