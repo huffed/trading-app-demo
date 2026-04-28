@@ -101,8 +101,8 @@ function buildSimConfig(rules: AlgorithmRules): SimConfig {
     commissionPct: pf?.commission_pct ?? 0,
     maxPos: rules.max_positions ?? DEFAULT_MAX_POSITIONS,
     posSize: (rules.position_sizing?.value ?? DEFAULT_POSITION_SIZE_PCT) / 100,
-    stopPct: (rules.stop_loss?.value ?? DEFAULT_STOP_LOSS_PCT) / 100,
-    tpPct: (rules.take_profit?.value ?? DEFAULT_TAKE_PROFIT_PCT) / 100,
+    stopLoss: rules.stop_loss ?? { type: "percentage", value: DEFAULT_STOP_LOSS_PCT },
+    takeProfit: rules.take_profit ?? { type: "percentage", value: DEFAULT_TAKE_PROFIT_PCT },
   };
 }
 
@@ -196,7 +196,14 @@ function runSimulation(
       s.drawdownBreached;
     for (let p = positions.length - 1; p >= 0; p--) {
       const pos = positions[p];
-      const exitPrice = pickBacktestExitPrice(pos, bar, closes[i], cfg, signalExitFired);
+      const exitPrice = pickBacktestExitPrice(
+        pos,
+        bar,
+        closes[i],
+        cfg,
+        signalExitFired,
+        symbol
+      );
       if (exitPrice !== null) {
         closeSimPosition(pos, dayKey, exitPrice, capital, cfg, s, trades);
         positions.splice(p, 1);

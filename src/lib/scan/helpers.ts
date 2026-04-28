@@ -1,7 +1,13 @@
 /**
  * Scan engine helpers — position sizing, risk price calculation, activity logging.
  */
-import { getContractSize, notionalInUsd, riskToLots } from "@/lib/constants/markets";
+import {
+  getContractSize,
+  notionalInUsd,
+  priceDeltaForRule,
+  riskToLots,
+  ruleAsPctOfEntry,
+} from "@/lib/constants/markets";
 import type { AlgorithmRules } from "@/types/algorithm";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -42,8 +48,9 @@ export function calculatePositionSize(
       lots = sizing.value;
     } else {
       // risk_per_trade: derive lots from SL distance + capital + cross-rate.
-      // Falls back to 1% SL if a fixed SL was configured (rare for forex).
-      const slPct = rules.stop_loss.type === "percentage" ? rules.stop_loss.value : 1;
+      // ruleAsPctOfEntry converts pip / fixed rules into the % representation
+      // riskToLots expects, using the live price.
+      const slPct = ruleAsPctOfEntry(rules.stop_loss, currentPrice, symbol);
       lots = riskToLots(symbol ?? "", capital, sizing.value, currentPrice, slPct);
     }
     if (lots <= 0) return null;
@@ -74,28 +81,21 @@ export function calculatePositionSize(
 export function calculateRiskPrices(
   entryPrice: number,
   rules: AlgorithmRules,
-  side: "long" | "short"
+  side: "long" | "short",
+  symbol?: string
 ): { stopLossPrice: number; takeProfitPrice: number } {
-  const slPct = rules.stop_loss.type === "percentage";
-  const tpPct = rules.take_profit.type === "percentage";
+  const slDelta = priceDeltaForRule(rules.stop_loss, entryPrice, symbol);
+  const tpDelta = priceDeltaForRule(rules.take_profit, entryPrice, symbol);
 
   if (side === "long") {
     return {
-      stopLossPrice: slPct
-        ? entryPrice * (1 - rules.stop_loss.value / 100)
-        : entryPrice - rules.stop_loss.value,
-      takeProfitPrice: tpPct
-        ? entryPrice * (1 + rules.take_profit.value / 100)
-        : entryPrice + rules.take_profit.value,
+      stopLossPrice: entryPrice - slDelta,
+      takeProfitPrice: entryPrice + tpDelta,
     };
   }
   return {
-    stopLossPrice: slPct
-      ? entryPrice * (1 + rules.stop_loss.value / 100)
-      : entryPrice + rules.stop_loss.value,
-    takeProfitPrice: tpPct
-      ? entryPrice * (1 - rules.take_profit.value / 100)
-      : entryPrice - rules.take_profit.value,
+    stopLossPrice: entryPrice + slDelta,
+    takeProfitPrice: entryPrice - tpDelta,
   };
 }
 
