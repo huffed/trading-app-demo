@@ -62,18 +62,27 @@ export async function getPairStats(
 }
 
 /** Same as getPairStats but in one round-trip across all watchlisted
- *  pairs of an algorithm. */
+ *  pairs of an algorithm. Respects the algorithm's metrics_reset_at
+ *  so a known-bad pre-fix trade doesn't poison subsequent stats. */
 export async function getAllPairStats(
   supabase: SupabaseClient,
   algorithmId: string
 ): Promise<Map<string, PairStats>> {
   const out = new Map<string, PairStats>();
-  const { data, error } = await supabase
+  const { data: resetRow } = await supabase
+    .from("algorithms")
+    .select("metrics_reset_at")
+    .eq("id", algorithmId)
+    .single<{ metrics_reset_at: string | null }>();
+  const resetAt = resetRow?.metrics_reset_at ?? null;
+  const query = supabase
     .from("paper_positions")
     .select("ticker, realized_pnl")
     .eq("algorithm_id", algorithmId)
     .eq("status", "closed")
     .not("realized_pnl", "is", null);
+  if (resetAt) query.gte("closed_at", resetAt);
+  const { data, error } = await query;
   if (error || !data) return out;
   const byTicker = new Map<string, PaperRow[]>();
   for (const row of data as PaperRow[]) {

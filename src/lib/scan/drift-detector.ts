@@ -68,7 +68,17 @@ export async function detectDrift(
     return { ...empty, reason: "No backtest baseline saved on the algorithm" };
   }
 
-  const { data } = await supabase
+  // Honour the algorithm's metrics_reset_at so a known-bad trade
+  // (e.g. a sizing-bug blow-up) doesn't keep tripping the drift halt
+  // forever on the corrected algorithm. Single round-trip.
+  const { data: resetRow } = await supabase
+    .from("algorithms")
+    .select("metrics_reset_at")
+    .eq("id", algorithmId)
+    .single<{ metrics_reset_at: string | null }>();
+  const resetAt = resetRow?.metrics_reset_at ?? null;
+
+  const query = supabase
     .from("paper_positions")
     .select("realized_pnl")
     .eq("algorithm_id", algorithmId)
@@ -76,6 +86,8 @@ export async function detectDrift(
     .not("realized_pnl", "is", null)
     .order("closed_at", { ascending: false })
     .limit(config.lookbackTrades);
+  if (resetAt) query.gte("closed_at", resetAt);
+  const { data } = await query;
   const rows = (data ?? []) as ClosedRow[];
   const trades = rows.length;
   if (trades < config.minTrades) {
