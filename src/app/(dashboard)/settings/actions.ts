@@ -4,12 +4,23 @@ import { fetchExchangeRate } from "@/lib/market-data/twelve-data";
 import { createClient } from "@/lib/supabase/server";
 import { type ActionResult } from "@/lib/types/action-result";
 
+export type AutonomyLevel = "paper_only" | "suggest" | "semi_auto" | "full_auto";
+export type PropFirmPresetSetting =
+  | "ftmo"
+  | "topstep"
+  | "funded_next"
+  | "the5ers"
+  | "custom"
+  | null;
+
 export async function getProfile(): Promise<
   ActionResult<{
     full_name: string | null;
     email: string;
     timezone: string;
     default_currency: string;
+    prop_firm_preset: PropFirmPresetSetting;
+    autonomy_level: AutonomyLevel;
   }>
 > {
   const supabase = await createClient();
@@ -22,7 +33,7 @@ export async function getProfile(): Promise<
 
   const { data, error } = await supabase
     .from("profiles")
-    .select("full_name, email, timezone, default_currency")
+    .select("full_name, email, timezone, default_currency, prop_firm_preset, autonomy_level")
     .eq("id", user.id)
     .single();
 
@@ -36,6 +47,8 @@ export async function updateProfile(values: {
   full_name?: string;
   timezone?: string;
   default_currency?: string;
+  prop_firm_preset?: PropFirmPresetSetting;
+  autonomy_level?: AutonomyLevel;
 }): Promise<ActionResult<null>> {
   const supabase = await createClient();
   const {

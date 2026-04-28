@@ -1,6 +1,7 @@
 "use client";
 
-import { AlertTriangle, ShieldCheck, ShieldAlert, Target } from "lucide-react";
+import { useEffect, useState } from "react";
+import { AlertTriangle, Clock, ShieldCheck, ShieldAlert, Target } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -23,7 +24,44 @@ const STATE_LABEL: Record<ComplianceGauge["state"], string> = {
   breach: "Breach",
 };
 
-function GaugeRow({ gauge, profitOriented }: { gauge: ComplianceGauge; profitOriented?: boolean }) {
+/**
+ * Minutes-until-UTC-midnight countdown. Daily-loss limits and the
+ * consecutive-loss soft halt both reset at UTC 00:00 — the operator
+ * watching live needs to know whether a yellow gauge will roll over
+ * in 30 minutes or whether they have 14 hours left to bleed.
+ */
+function useMinutesUntilUtcMidnight(): number {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(id);
+  }, []);
+  const next = new Date(now);
+  next.setUTCHours(24, 0, 0, 0);
+  return Math.max(0, Math.round((next.getTime() - now) / 60_000));
+}
+
+function ResetCountdown() {
+  const minutes = useMinutesUntilUtcMidnight();
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  return (
+    <span className="flex items-center gap-1 text-[10px] text-muted-foreground tabular-nums">
+      <Clock className="h-3 w-3" />
+      Resets in {hours}h {mins.toString().padStart(2, "0")}m
+    </span>
+  );
+}
+
+function GaugeRow({
+  gauge,
+  profitOriented,
+  trailing,
+}: {
+  gauge: ComplianceGauge;
+  profitOriented?: boolean;
+  trailing?: React.ReactNode;
+}) {
   const filled = Math.min((gauge.value_pct / gauge.threshold_pct) * 100, 100);
   const stateLabel = profitOriented && gauge.state === "breach" ? "Met" : STATE_LABEL[gauge.state];
   const stateClass =
@@ -42,7 +80,8 @@ function GaugeRow({ gauge, profitOriented }: { gauge: ComplianceGauge; profitOri
           style={{ width: `${filled}%` }}
         />
       </div>
-      <div className="flex justify-end">
+      <div className="flex items-center justify-between gap-2">
+        {trailing ?? <span />}
         <Badge variant="secondary" className="text-[10px]">
           {stateLabel}
         </Badge>
@@ -144,7 +183,9 @@ export function FtmoComplianceCard({ algorithmId }: { algorithmId: string }) {
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="grid gap-3 sm:grid-cols-3">
-          {data.daily_pnl && <GaugeRow gauge={data.daily_pnl} />}
+          {data.daily_pnl && (
+            <GaugeRow gauge={data.daily_pnl} trailing={<ResetCountdown />} />
+          )}
           {data.drawdown && <GaugeRow gauge={data.drawdown} />}
           {data.profit_target && <GaugeRow gauge={data.profit_target} profitOriented />}
         </div>

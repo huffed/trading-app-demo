@@ -7,7 +7,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { useAddWatchlistItem, useRemoveWatchlistItem, useWatchlist } from "@/hooks/use-watchlist";
+import {
+  useAddWatchlistItem,
+  useRemoveWatchlistItem,
+  useResumeWatchlistItem,
+  useWatchlist,
+} from "@/hooks/use-watchlist";
 import { COMMODITIES, FOREX_PAIRS, type InstrumentMeta } from "@/lib/constants/markets";
 import type { SignalResult } from "@/lib/signals/evaluate-live";
 import type { WatchlistItem } from "@/types/watchlist";
@@ -85,13 +90,17 @@ function WatchlistItems({
   algorithmId,
   hasSentiment,
   onRemove,
+  onResume,
   isRemoving,
+  isResuming,
 }: {
   items: WatchlistItem[];
   algorithmId: string;
   hasSentiment: boolean;
   onRemove: (id: string) => void;
+  onResume: (id: string) => void;
   isRemoving: boolean;
+  isResuming: boolean;
 }) {
   const sig = useSignalState(algorithmId, items);
   const [expandedTicker, setExpandedTicker] = useState<string | null>(null);
@@ -111,7 +120,9 @@ function WatchlistItems({
             }
             onCheck={() => sig.handleCheck(item.ticker)}
             onRemove={() => onRemove(item.id)}
+            onResume={() => onResume(item.id)}
             isRemoving={isRemoving}
+            isResuming={isResuming}
             onToggleDetail={() =>
               setExpandedTicker((p) => (p === item.ticker ? null : item.ticker))
             }
@@ -215,6 +226,7 @@ export function WatchlistCard({
   const { data: items = [], isLoading } = useWatchlist(algorithmId);
   const addMutation = useAddWatchlistItem();
   const removeMutation = useRemoveWatchlistItem();
+  const resumeMutation = useResumeWatchlistItem();
   const [addError, setAddError] = useState<string | null>(null);
 
   function handleAdd(ticker: string) {
@@ -267,7 +279,9 @@ export function WatchlistCard({
             algorithmId={algorithmId}
             hasSentiment={hasSentimentConditions}
             onRemove={(id) => removeMutation.mutate(id)}
+            onResume={(id) => resumeMutation.mutate(id)}
             isRemoving={removeMutation.isPending}
+            isResuming={resumeMutation.isPending}
           />
         )}
       </CardContent>

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Check, Loader2, User } from "lucide-react";
 import { getExchangeRate, getProfile, updateProfile } from "@/app/(dashboard)/settings/actions";
+import { ProAccountCard } from "@/components/settings/pro-account-card";
 import {
   ApiKeysCard,
   BrokerConnectionsCard,
@@ -255,6 +256,7 @@ export default function SettingsPage() {
       </div>
       <div className="max-w-2xl space-y-4">
         <GeneralSettings />
+        <ProAccountCard />
         <TradingPreferencesCard />
         <BrokerConnectionsCard />
         <ApiKeysCard />

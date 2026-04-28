@@ -92,3 +92,29 @@ export async function removeWatchlistItem(id: string): Promise<ActionResult<null
   }
   return { success: true, data: null };
 }
+
+/**
+ * Manually un-pause a watchlist row that was auto-paused by pair-quality
+ * after a poor win-rate run. Pair-quality never re-enables on its own — it
+ * pauses on the way down but waits for the operator to re-evaluate. Lets
+ * the operator give a recovered pair another chance after the underlying
+ * issue (config bug, market regime change, etc.) has been addressed.
+ */
+export async function resumeWatchlistItem(id: string): Promise<ActionResult<WatchlistItem>> {
+  const { supabase, user } = await getAuthedUser();
+  const { data, error } = await supabase
+    .from("algorithm_watchlist")
+    .update({
+      auto_paused: false,
+      auto_paused_at: null,
+      auto_paused_reason: null,
+    })
+    .eq("id", id)
+    .eq("user_id", user.id)
+    .select()
+    .single();
+  if (error) {
+    return { success: false, error: error.message };
+  }
+  return { success: true, data: data as WatchlistItem };
+}

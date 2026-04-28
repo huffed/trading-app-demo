@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { AlertCircle, AlertTriangle, CheckCircle2, Clock, Loader2, Play } from "lucide-react";
+import { AlgoEquityCurveCard } from "@/components/algorithms/algo-equity-curve-card";
 import { ClosedPositionsCard, OpenPositionsCard } from "@/components/algorithms/position-cards";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -212,6 +213,7 @@ export function PaperTradingTab({
         lastScannedAt={lastScannedAt}
       />
       <OpenPositionsCard algorithmId={algorithmId} />
+      <AlgoEquityCurveCard algorithmId={algorithmId} />
       <ClosedPositionsCard algorithmId={algorithmId} />
       <RecentActivity algorithmId={algorithmId} />
     </div>

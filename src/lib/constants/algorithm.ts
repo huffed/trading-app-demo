@@ -19,6 +19,26 @@ export const STATUS_COLORS: Record<string, "default" | "secondary" | "outline"> 
   archived: "secondary",
 };
 
+export const WATCHLIST_ADDED_BY_LABELS: Record<string, string> = {
+  user: "Manual",
+  ai: "AI",
+  csv: "CSV",
+};
+
+export const AUTONOMY_LEVEL_LABELS: Record<string, string> = {
+  paper_only: "Paper only",
+  suggest: "Signals only (no auto-execution)",
+  semi_auto: "Semi-auto (per-trade approval)",
+  full_auto: "Full auto",
+};
+
+export const AUTONOMY_LEVEL_DESCRIPTIONS: Record<string, string> = {
+  paper_only: "Algorithms scan and record paper positions. No real broker orders.",
+  suggest: "Algorithms surface signals; you place every trade by hand.",
+  semi_auto: "Algorithms execute live trades, but with stricter halts and per-trade alerts.",
+  full_auto: "Algorithms execute live trades autonomously, gated only by configured halts.",
+};
+
 export const ASSET_CLASS_LABELS: Record<string, string> = {
   equity: "Stocks",
   option: "Options",

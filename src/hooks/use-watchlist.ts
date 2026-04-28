@@ -5,6 +5,7 @@ import {
   addWatchlistItem,
   bulkAddWatchlistItems,
   removeWatchlistItem,
+  resumeWatchlistItem,
 } from "@/app/(dashboard)/algorithms/watchlist-actions";
 import { createClient } from "@/lib/supabase/client";
 import type { WatchlistAddedBy, WatchlistItem } from "@/types/watchlist";
@@ -75,6 +76,18 @@ export function useRemoveWatchlistItem() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => removeWatchlistItem(id),
+    onSuccess: (result) => {
+      if (result.success) {
+        queryClient.invalidateQueries({ queryKey: WATCHLIST_KEY });
+      }
+    },
+  });
+}
+
+export function useResumeWatchlistItem() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => resumeWatchlistItem(id),
     onSuccess: (result) => {
       if (result.success) {
         queryClient.invalidateQueries({ queryKey: WATCHLIST_KEY });
