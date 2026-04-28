@@ -225,7 +225,16 @@ export function sizeForBacktest(
       getBacktestVolumeConstraints(symbol ?? "", rules.asset_class)
     );
     const notional = notionalInUsd(symbol ?? "", lots, currentPrice);
-    return { notional, margin: notional / (rules.leverage ?? 30) };
+    // Cap effective leverage so backtest doesn't underestimate margin
+    // requirements relative to what a real broker enforces. Prop-firm
+    // accounts top out around 1:30 (FTMO MT5 typical); retail accounts
+    // can go higher (1:100 to 1:500) but the user opts in by setting
+    // rules.leverage explicitly. With prop_firm context the cap is
+    // 30 — anything above is almost certainly a sizing bug given the
+    // operator's known account types.
+    const requested = rules.leverage ?? 30;
+    const effectiveLeverage = rules.prop_firm ? Math.min(requested, 30) : requested;
+    return { notional, margin: notional / effectiveLeverage };
   }
   if (sizing?.type === "fixed_amount") return { notional: sizing.value, margin: sizing.value };
   if (sizing?.type === "fixed_quantity") {
