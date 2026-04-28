@@ -19,6 +19,12 @@ export interface SimState {
   killTriggered: boolean;
   drawdownBreached: boolean;
   dailyPnl: Record<string, number>;
+  /** Soft halt: blocks NEW entries for the rest of the calendar day after
+   *  N consecutive losses. Lets open positions run to their stops/TPs.
+   *  Distinct from dailyHalted (DLL force-close) and killTriggered
+   *  (challenge-fail kill). Resets in finalizeDay so next session opens
+   *  fresh. */
+  entryHaltedToday: boolean;
 }
 
 export interface SimConfig {
@@ -109,6 +115,13 @@ export function enforcePropFirm(
       s.killTriggered = true;
     }
   }
+  // Soft daily halt — separate from the kill switch. Stops new entries
+  // for the rest of the day once N consecutive losing trades fire, but
+  // leaves open positions to play out. Resets in finalizeDay.
+  const softLimit = pf.consecutive_loss_daily_halt ?? 0;
+  if (softLimit > 0 && s.consecutiveLosses >= softLimit) {
+    s.entryHaltedToday = true;
+  }
   if (pf.daily_loss_limit > 0) {
     // Defensive buffer: halt EARLY at `halt_pct%` of DLL so the engine
     // force-close fires before we actually breach the published limit.
@@ -137,6 +150,7 @@ export function initialSimState(capital: number): SimState {
     killTriggered: false,
     drawdownBreached: false,
     dailyPnl: {},
+    entryHaltedToday: false,
   };
 }
 
@@ -153,6 +167,8 @@ export function finalizeDay(s: SimState, dayKey: string) {
     s.consecutiveLosingDays = 0;
   }
   // Days with exactly 0 pnl (no trades) leave the streak unchanged.
+  // Reset the soft entry-halt so tomorrow opens fresh.
+  s.entryHaltedToday = false;
 }
 
 export function applySlippage(price: number, bps: number, isBuy: boolean): number {

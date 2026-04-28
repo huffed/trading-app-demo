@@ -28,6 +28,7 @@ import {
   type TechnicalCondition,
 } from "@/types/algorithm";
 import type { PaperPosition, PositionEvent } from "@/types/position";
+import { checkConsecutiveLossHalt } from "./consec-loss-halt";
 import { calculatePositionSize, calculateRiskPrices, logActivity } from "./helpers";
 import { executeLiveEntry, type BrokerExecutionContext } from "./live-execution";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -314,6 +315,25 @@ export async function evaluateEntry(
       details: { reason: `News veto: ${veto.reason}` },
     });
     return { opened: 0 };
+  }
+
+  // Soft consecutive-loss halt — friend's "3 strikes" discipline rule.
+  // Walks today's closed trades and blocks new entries when N losses
+  // fired in a row. Open positions continue. Resets at next UTC day.
+  const consecHalt = rules.prop_firm?.consecutive_loss_daily_halt ?? 0;
+  if (consecHalt > 0) {
+    const halt = await checkConsecutiveLossHalt(supabase, algo.id, consecHalt);
+    if (halt.tripped) {
+      await logActivity(supabase, userId, {
+        algorithm_id: algo.id,
+        event_type: "signal_no_action",
+        ticker,
+        details: {
+          reason: `Consecutive-loss halt: ${halt.streak}/${halt.threshold} losses today`,
+        },
+      });
+      return { opened: 0 };
+    }
   }
 
   // Resolve the active side for this ticker. Auto-side reads D1 bias and

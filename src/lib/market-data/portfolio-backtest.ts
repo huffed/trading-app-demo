@@ -245,6 +245,7 @@ interface EntryGate {
   killTriggered: boolean;
   drawdownBreached: boolean;
   dailyHalted: boolean;
+  entryHaltedToday: boolean;
   vetoed: boolean;
   totalOpenCount: number;
   onTickerCount: number;
@@ -252,6 +253,7 @@ interface EntryGate {
 
 function canEnter(rules: AlgorithmRules, cfg: SimConfig, gate: EntryGate): boolean {
   if (gate.killTriggered || gate.drawdownBreached || gate.dailyHalted || gate.vetoed) return false;
+  if (gate.entryHaltedToday) return false;
   if (gate.totalOpenCount >= cfg.maxPos) return false;
   const perTickerCap = rules.max_per_ticker ?? 1;
   return gate.onTickerCount < perTickerCap;
@@ -273,6 +275,7 @@ function tryOpenEntry(
     killTriggered: s.killTriggered,
     drawdownBreached: s.drawdownBreached,
     dailyHalted,
+    entryHaltedToday: s.entryHaltedToday,
     vetoed,
     totalOpenCount: totalOpen(states),
     onTickerCount: state.positions.length,

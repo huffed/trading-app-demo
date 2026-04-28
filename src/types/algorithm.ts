@@ -115,6 +115,16 @@ export interface PropFirmRules {
    */
   max_consecutive_losses: number;
   /**
+   * Friend's "3 strikes" rule — soft halt that stops NEW entries for the
+   * rest of the day after this many consecutive losing trades, but lets
+   * existing positions run to their stops/TPs. Resets when the date
+   * rolls over so the algo resumes next session. Different from
+   * `max_consecutive_losses` which permanently kills the algo (intended
+   * as the prop-firm hard safety net, not day-trading discipline).
+   * 0 = disabled. Typical value 3.
+   */
+  consecutive_loss_daily_halt?: number;
+  /**
    * Whether `max_consecutive_losses` counts losing trades or losing days.
    * Pyramiding strategies should usually pick "days" so a single bad bar
    * closing 3 stacked positions doesn't blow 75% of the budget at once.

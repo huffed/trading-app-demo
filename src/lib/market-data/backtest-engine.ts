@@ -210,6 +210,7 @@ function runSimulation(
       !s.killTriggered &&
       !s.drawdownBreached &&
       !dailyHalted &&
+      !s.entryHaltedToday &&
       !vetoed &&
       !regimeBlocked &&
       resolved !== null &&
