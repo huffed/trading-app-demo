@@ -2,16 +2,24 @@
  * Live signal evaluation — checks if an algorithm's sentiment conditions
  * are currently met for a given ticker.
  *
- * Flow:
+ * Sentiment evaluation across the codebase:
+ *   - sentiment-evaluator.ts → pure threshold check (sentiment-vs-number).
+ *     Used by both this file and any caller that just wants the
+ *     mechanical verdict.
+ *   - this file → wraps the threshold check with an LLM layer that adds
+ *     qualitative narrative/catalyst assessment, and returns a unified
+ *     buy/hold/no_signal verdict + confidence.
+ *   - backtest-engine.ts → filters sentiment conditions OUT entirely.
+ *     Backtests can't replay historical news, so they signal-flag the
+ *     algo as "technical_only" and the user re-validates live.
+ *
+ * Flow here:
  *   1. Extract sentiment conditions from algorithm rules
  *   2. Check Supabase cache for recent sentiment data (6h TTL)
  *   3. If cache miss, fetch from Alpha Vantage News Sentiment API
- *   4. Run mechanical threshold checks (sentiment score above/below/spike)
- *   5. Send data to LLM for qualitative narrative/catalyst assessment
+ *   4. Mechanical threshold check via evaluateAllSentimentConditions
+ *   5. LLM qualitative assessment (Zod-validated payload)
  *   6. Return combined signal (buy/hold/no_signal) with confidence
- *
- * Note: This only evaluates SENTIMENT conditions. Technical conditions
- * are evaluated in the backtest engine against price data.
  */
 import { z } from "zod";
 import { AI_MODEL, getAIClient } from "@/lib/ai/client";
