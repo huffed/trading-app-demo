@@ -1,23 +1,46 @@
 # Cron scripts
 
-Self-hosted cron entrypoints. Each script loads `CRON_SECRET` from `.env.local`,
-sends a Bearer-auth request to the local Next.js server, and exits non-zero on
-HTTP failure so the cron daemon can flag it.
+**Production cron runs on the operator's local macOS machine via the system
+`cron` daemon.** Each scheduled script loads `CRON_SECRET` from
+`.env.local`, sends a Bearer-auth request to a locally-running Next.js
+server, and exits non-zero on HTTP failure so cron flags it.
 
-The Next.js server must be running (`pnpm dev` or `pnpm start`) for the URLs to
-resolve. Override the URL with the script's matching env var if you point cron
-at a remote host.
+This is intentional — there's no separate cron host. The trade-off is
+that the Mac and the dev server must be up for any scheduled task to
+fire. Mac sleep, a closed lid without "prevent sleep on AC", or a
+crashed `pnpm dev` all stall the schedule until the next tick.
 
-| Script | Endpoint | Default cadence | Override |
+## Current schedule
+
+The list below mirrors `crontab -l`. The crontab itself isn't checked
+into the repo (the absolute path is `$HOME`-specific, varies per
+operator), but the schedule should be kept in sync with this table.
+
+| Cadence | Script | Endpoint | Log |
 |---|---|---|---|
-| `scan-cron.sh` | `/api/cron/scan-active-algorithms` | hourly | `SCAN_URL` |
-| `prune-sentiment-cache-cron.sh` | `/api/admin/prune-sentiment-cache?days=30` | daily | `PRUNE_URL`, `RETENTION_DAYS` |
+| Hourly (`0 * * * *`) | `scan-cron.sh` | `/api/cron/scan-active-algorithms` | `/tmp/quanttrader-scan.log` |
+| Daily 04:00 UTC (`0 4 * * *`) | `prune-sentiment-cache-cron.sh` | `/api/admin/prune-sentiment-cache?days=30` | `/tmp/quanttrader-prune.log` |
 
-## Wiring to macOS cron
+Both scripts are idempotent — running more often than the cadence above
+is safe; the underlying endpoints just do less work.
+
+## Pre-requisites
+
+- `.env.local` at the repo root with `CRON_SECRET=...` set.
+- A Next.js server running on `localhost:3000` (`pnpm dev` or `pnpm
+  start`). Use `pnpm start` for production cron — it's faster and
+  doesn't recompile on disk changes.
+- macOS Full Disk Access granted to `cron` if the scripts ever read
+  files under protected paths (System Settings → Privacy & Security →
+  Full Disk Access → add `/usr/sbin/cron`).
+
+## Editing the schedule
 
 ```bash
 crontab -e
 ```
+
+Reference entries (swap `/Users/jack.jones/...` for your repo path):
 
 ```cron
 # Scan active algorithms every hour
@@ -27,14 +50,31 @@ crontab -e
 0 4 * * * /Users/jack.jones/Documents/trading-app/demo-1/scripts/prune-sentiment-cache-cron.sh >> /tmp/quanttrader-prune.log 2>&1
 ```
 
-Both scripts are idempotent — running them more often than the cadence above is
-safe; the underlying endpoints just do less work.
+`crontab -l` shows the active list; `crontab -r` removes everything
+(careful — there's no confirmation prompt).
+
+## Verifying a job is running
+
+- Tail the log: `tail -f /tmp/quanttrader-scan.log` (or the prune log).
+- Each successful run prints `http=200 body=...`.
+- Manual smoke test: just run the script directly —
+  `./scripts/scan-cron.sh` and check the exit code.
+
+If the log is silent past the expected tick, check:
+
+1. Is `pnpm dev` / `pnpm start` running? (`curl http://localhost:3000`)
+2. Is `cron` allowed to run? (macOS sometimes pauses the daemon on
+   battery; plug in.)
+3. Does the script run by hand? Run it directly to surface the error.
 
 ## Adding a new cron entrypoint
 
-1. Add the route under `src/app/api/admin/` or `src/app/api/cron/` and gate it
-   with `verifyAdminAuth(request)` from `@/lib/api/admin-auth`.
+1. Add the route under `src/app/api/admin/` or `src/app/api/cron/`.
+   Gate it with `verifyAdminAuth(request)` from `@/lib/api/admin-auth`.
 2. Copy one of the existing scripts and swap the URL / log message.
-3. Document the cadence and override env vars in the table above.
-4. Add the crontab line in your local `crontab -e` (the entry isn't checked
-   into the repo because the absolute path includes `$HOME`).
+   Make it executable: `chmod +x scripts/<new-script>.sh`.
+3. Add a row to the **Current schedule** table above with the cadence,
+   endpoint, and log path.
+4. Add the crontab line via `crontab -e`. Reference it in the
+   **Editing the schedule** snippet so future operators copy the right
+   command on a fresh machine.
