@@ -31,6 +31,7 @@ import {
   type SimConfig,
   type SimState,
 } from "./prop-firm-backtest";
+import { isRangingByAtr } from "./regime-filter";
 import { alignBarIndex, resampleTo, resampleToDaily } from "./resample";
 import type {
   BacktestMetrics,
@@ -277,6 +278,17 @@ function tryOpenEntry(
     onTickerCount: state.positions.length,
   };
   if (!canEnter(rules, cfg, gate)) return;
+  // Volatility-regime gate. Use the resampled D1 series so the
+  // percentile is stable regardless of primary timeframe (1h vs 15m
+  // would otherwise give different verdicts on the same calendar day).
+  if (rules.regime_filter?.enabled && state.higherTfBars.length > 0) {
+    // Align D1 index to the primary bar's date so we don't peek ahead.
+    const dIdx = alignBarIndex(state.higherTfBars, state.bars[i].date);
+    if (dIdx >= 0) {
+      const regime = isRangingByAtr(state.higherTfBars, dIdx, rules.regime_filter);
+      if (regime.skip) return;
+    }
+  }
   // Resolve active side from rules.side (auto mode reads D1 bias on this
   // ticker — different tickers can trade different directions in the
   // same scan when the algo is regime-adaptive).

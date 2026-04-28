@@ -29,6 +29,7 @@ import {
   type SimConfig,
   type SimState,
 } from "./prop-firm-backtest";
+import { isRangingByAtr } from "./regime-filter";
 import { alignBarIndex, resampleTo, resampleToDaily } from "./resample";
 import { evaluateTechnical } from "./technical-evaluator";
 import type { BacktestMetrics, BacktestTrade, OpenPosition, PriceBar } from "./types";
@@ -198,11 +199,19 @@ function runSimulation(
     // Real prop-firm behaviour: DLL breach mid-bar force-closes all positions.
     if (dailyHalted) forceCloseAllPositions(positions, dayKey, closes[i], capital, cfg, s, trades);
     const vetoed = vetoCheck ? vetoCheck(day) : false;
+    // Regime gate — skip entries while ATR is in the bottom percentile
+    // of its lookback window. Choppy/compressed tape historically
+    // whipsaws our pattern strategies before TPs develop. No-op when
+    // rules.regime_filter is absent or disabled.
+    const regimeBlocked = rules.regime_filter?.enabled
+      ? isRangingByAtr(prices, i, rules.regime_filter).skip
+      : false;
     if (
       !s.killTriggered &&
       !s.drawdownBreached &&
       !dailyHalted &&
       !vetoed &&
+      !regimeBlocked &&
       resolved !== null &&
       positions.length < cfg.maxPos &&
       checkConditions(entry, ctx, rules.entry_logic)

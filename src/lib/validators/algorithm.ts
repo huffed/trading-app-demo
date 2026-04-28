@@ -126,6 +126,13 @@ const divergenceKillSchema = z.object({
   window_trades: z.number().int().min(2).max(200),
 });
 
+const regimeFilterSchema = z.object({
+  enabled: z.boolean(),
+  atr_period: z.number().int().min(2).max(200).optional(),
+  lookback_days: z.number().int().min(20).max(500).optional(),
+  percentile_floor: z.number().min(0).max(1).optional(),
+});
+
 const entryLogicSchema = z.union([
   z.literal("all"),
   z.literal("any"),
@@ -157,4 +164,5 @@ export const algorithmRulesSchema = z.object({
   prop_firm: propFirmSchema.optional(),
   news_veto: newsVetoSchema.optional(),
   divergence_kill: divergenceKillSchema.optional(),
+  regime_filter: regimeFilterSchema.optional(),
 });

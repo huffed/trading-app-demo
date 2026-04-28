@@ -204,6 +204,22 @@ export interface AlgorithmRules {
     /** Window size in trades. Lower = faster reaction, more variance. */
     window_trades: number;
   };
+  /**
+   * Volatility-regime gate: skip entries when 20-period ATR drops below
+   * a percentile floor of its recent distribution. Choppy / compressed
+   * tape historically whipsaws our pattern strategies before TPs can
+   * develop — testing 3's Sep/Mar/Feb 0% WR months were all in the
+   * bottom-30th-percentile ATR regime.
+   */
+  regime_filter?: {
+    enabled: boolean;
+    /** Periods for the ATR average. Default 20. */
+    atr_period?: number;
+    /** Lookback bars used to build the percentile distribution. Default 90. */
+    lookback_days?: number;
+    /** Skip when current ATR is below this percentile (0..1). Default 0.30. */
+    percentile_floor?: number;
+  };
 }
 
 // --- Backtest results ---

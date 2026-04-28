@@ -15,6 +15,7 @@ import {
   getEventCurrencies,
   isWithinVetoWindow,
 } from "@/lib/market-data/economic-calendar";
+import { isRangingByAtr } from "@/lib/market-data/regime-filter";
 import { resampleTo, resampleToDaily } from "@/lib/market-data/resample";
 import type { PriceBar } from "@/lib/market-data/types";
 import { evaluateLiveSignal, type SignalResult } from "@/lib/signals/evaluate-live";
@@ -334,6 +335,23 @@ export async function evaluateEntry(
       details: { reason },
     });
     return { opened: 0 };
+  }
+
+  // Regime/volatility gate. Same module the backtest uses, so live and
+  // replay agree on whether a given moment is "tradeable". The check
+  // runs against the daily series so the percentile is stable across
+  // primary-timeframe choices (1h vs 15m won't change the verdict).
+  if (rules.regime_filter?.enabled) {
+    const regime = isRangingByAtr(higherTfBars, higherTfBars.length - 1, rules.regime_filter);
+    if (regime.skip) {
+      await logActivity(supabase, userId, {
+        algorithm_id: algo.id,
+        event_type: "signal_no_action",
+        ticker,
+        details: { reason: `Regime filter: ${regime.reason}` },
+      });
+      return { opened: 0 };
+    }
   }
 
   const normalizedEntry = normalize(rules.entry_conditions);
