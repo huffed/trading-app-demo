@@ -11,4 +11,6 @@ export { detectSwingPoints, lastSwingBefore } from "./swing-points";
 export { detectDailyBias } from "./daily-bias";
 export { detectLiquiditySweep } from "./liquidity-sweep";
 export { detectFvg, fvgFillIndex, scanFvgs } from "./fvg";
+export { detectBos } from "./bos";
+export { detectOrderBlock } from "./order-block";
 export { evaluatePatternCondition } from "./evaluate";

@@ -8,17 +8,9 @@
  * call fails (network, already-closed, etc.) we still mark the paper
  * position closed so analytics + reconciliation stay consistent.
  */
-import {
-  closePosition as metaClose,
-  type MetaApiRegion,
-} from "@/lib/brokers/metaapi";
+import { getBrokerAdapter } from "@/lib/brokers/registry";
+import type { BrokerConnection } from "@/lib/brokers/types";
 import type { SupabaseClient } from "@supabase/supabase-js";
-
-interface BrokerConn {
-  api_token: string;
-  account_id: string;
-  region: MetaApiRegion;
-}
 
 interface PosRow {
   id: string;
@@ -53,14 +45,21 @@ export async function flattenAlgorithmPositions(
     .single();
   const algo = algoRes.data as { broker_connection_id: string | null } | null;
 
-  let conn: BrokerConn | null = null;
+  // Look up the broker connection + adapter once. If the algo isn't
+  // wired to a broker (paper-only) or the provider has no adapter
+  // registered, we still close paper positions but skip the broker call.
+  let conn: BrokerConnection | null = null;
+  let adapter: ReturnType<typeof getBrokerAdapter> = null;
   if (algo?.broker_connection_id) {
     const connRes = await supabase
       .from("broker_connections")
-      .select("api_token, account_id, region")
+      .select(
+        "id, user_id, provider, api_token, account_id, region, refresh_token, token_expires_at, account_login"
+      )
       .eq("id", algo.broker_connection_id)
       .single();
-    conn = connRes.data as unknown as BrokerConn | null;
+    conn = (connRes.data as BrokerConnection | null) ?? null;
+    if (conn) adapter = getBrokerAdapter(conn.provider);
   }
 
   const { data: positions } = await supabase
@@ -74,9 +73,9 @@ export async function flattenAlgorithmPositions(
 
   for (const pos of list) {
     let status = "paper-only";
-    if (pos.broker_position_id && conn) {
+    if (pos.broker_position_id && conn && adapter) {
       try {
-        await metaClose(conn.api_token, conn.account_id, conn.region, pos.broker_position_id);
+        await adapter.closePosition(conn, pos.broker_position_id);
         status = "broker-closed";
       } catch (err) {
         status = `broker-failed: ${err instanceof Error ? err.message : "unknown"}`;

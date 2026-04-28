@@ -39,12 +39,33 @@ BAD examples (NEVER do this):
   { "indicator": "SMA20", ... } — MISSING "type" field
   { "type": "technical", "indicator": "SMA20", "operator": "crosses_above", "value": 50 } — 50 is not valid for SMA
 
-There are TWO condition types. Every condition MUST include a "type" field.
+There are THREE condition types. Every condition MUST include a "type" field.
 
 ## Technical conditions (price-based indicators)
 Schema: { "type": "technical", "indicator": string, "operator": string, "value": number, "timeframe": string }
 Valid indicators: RSI, SMA20, SMA50, EMA12, EMA26, MACD, BollingerBands_upper, BollingerBands_lower
 Valid operators: less_than, greater_than, crosses_above, crosses_below
+
+## Pattern conditions (ICT/SMC chart patterns — use for forex/commodity strategies that hunt structure rather than indicator crossovers)
+Schema: { "type": "pattern", "pattern": string, "direction"?: "bullish"|"bearish", "lookback"?: integer, "ma_period"?: integer, "timeframe": string }
+Valid pattern values:
+  - "daily_bias" — Higher-timeframe trend filter. ma_period defaults 20. Almost always paired with timeframe "1d" — doesn't fire on intraday TFs.
+  - "liquidity_sweep" — Price wicks past a swing high/low then closes back. Bullish sweeps (below recent low) signal a long; bearish (above recent high) signal a short. lookback defaults 5.
+  - "fvg" — Fair Value Gap. A 3-bar imbalance pattern. Bullish FVG = entry trigger long; bearish = entry short.
+  - "ifvg" — Inverse FVG. A previously-filled gap that price retests, now acting in the opposite direction. Use sparingly — high-noise signal.
+  - "bos" — Break of Structure. Close above a recent swing high (bullish) or below a recent swing low (bearish). Trend-continuation. lookback defaults 5.
+  - "order_block" — Last opposing candle before an impulsive move; current bar retesting that zone. lookback defaults 30 (zone-search window).
+
+Direction filter is optional; when omitted matches either direction (combine with rules.side="auto" so the algo trades whichever way the regime points).
+
+Example pattern conditions:
+  { "type": "pattern", "pattern": "daily_bias", "direction": "bullish", "ma_period": 20, "timeframe": "1d" }
+  { "type": "pattern", "pattern": "liquidity_sweep", "lookback": 5, "direction": "bullish", "timeframe": "1h" }
+  { "type": "pattern", "pattern": "fvg", "direction": "bullish", "timeframe": "1h" }
+  { "type": "pattern", "pattern": "bos", "lookback": 5, "direction": "bullish", "timeframe": "1h" }
+  { "type": "pattern", "pattern": "order_block", "direction": "bullish", "timeframe": "1h" }
+
+When to use patterns: structure-based ICT/SMC strategies — typically forex JPY crosses or AUD/USD where pattern entries (sweep + FVG / BOS + OB) outperform pure indicator crossovers. A strong pattern stack: daily_bias filter (1d) + 2-3 entry triggers (1h) + a higher-TF confirm (4h sweep). Use entry_logic n_of_m with n=2 so 2 of the triggers must align.
 
 ## Sentiment conditions (news/social data — use when user mentions catalysts, hype, news, narrative, sector momentum)
 Schema: { "type": "sentiment", "source": "news"|"social", "metric": string, "operator": string, "threshold": number, "topics": string[], "tickers": string[], "timeframe": string }
@@ -57,9 +78,9 @@ Example sentiment condition:
 
 ## Full rules schema
 {
-  "entry_conditions": [(technical or sentiment condition)],
+  "entry_conditions": [(technical, sentiment, or pattern condition)],
   "entry_logic": "all" | "any" | { "type": "n_of_m", "n": integer },  // default "all"
-  "exit_conditions": [(technical or sentiment condition)],
+  "exit_conditions": [(technical, sentiment, or pattern condition)],
   "stop_loss": { "type": "percentage"|"fixed", "value": number },
   "take_profit": { "type": "percentage"|"fixed", "value": number },
   "position_sizing": { "type": "percentage_of_capital"|"fixed_amount", "value": number },
@@ -72,8 +93,9 @@ Example sentiment condition:
 CRITICAL — Condition limits & entry_logic:
 - Day trading (equity/crypto): max 2 entry conditions total, entry_logic "all"
 - Swing / long term: max 2 entry conditions total (e.g., 1 sentiment + 1 technical), entry_logic "all"
-- Forex / commodity: 3 entry conditions, entry_logic { "type": "n_of_m", "n": 2 } so the strategy fires when 2 of 3 align (single ANDed crossovers almost never co-fire and produce zero trades)
-- Exit: 1 condition
+- Forex / commodity (technical-style): 3 entry conditions, entry_logic { "type": "n_of_m", "n": 2 } — strategy fires when 2 of 3 align
+- Forex / commodity (pattern-style ICT/SMC): 4-6 entry conditions (1 daily_bias filter + 3-5 pattern triggers across 1h/4h), entry_logic { "type": "n_of_m", "n": 2 } — pattern stacking with confluence
+- Exit: 0 or 1 condition. For pattern strategies, prefer 0 exit conditions and let stop_loss / take_profit do the work — pattern exits whip-saw badly.
 
 When generating 3 conditions for forex/commodity n_of_m logic, design them as INDEPENDENT confirmations of the same directional bias rather than competing strategies. Good 2-of-3 set: trend filter (EMA12 > EMA26) + momentum (RSI > 50) + breakout (price > BollingerBands_upper). Bad: oversold reversion (RSI < 30) + bullish crossover (EMA12 crosses_above) — they almost never co-fire because momentum/reversion conditions point opposite ways.
 

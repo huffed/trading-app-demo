@@ -116,6 +116,8 @@ const PATTERN_LABELS: Record<PatternCondition["pattern"], string> = {
   fvg: "Fair Value Gap",
   ifvg: "Inverse FVG (filled, retesting)",
   daily_bias: "Daily bias",
+  bos: "Break of structure",
+  order_block: "Order block retest",
 };
 
 function formatPatternCondition(c: PatternCondition): string {

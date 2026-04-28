@@ -138,6 +138,50 @@ export const FOREX_PAIRS: InstrumentMeta[] = [
     quoteCurrency: "JPY",
     description: "Highest-volatility major cross. Big pip ranges, wider stops needed.",
   },
+  {
+    symbol: "CHF/JPY",
+    name: "Swiss Franc / Japanese Yen",
+    assetClass: "forex",
+    category: "minor",
+    pipSize: 0.01,
+    contractSize: 100000,
+    baseCurrency: "CHF",
+    quoteCurrency: "JPY",
+    description: "Safe-haven JPY cross. Calmer than GBP/JPY, useful for trend continuation.",
+  },
+  {
+    symbol: "AUD/JPY",
+    name: "Australian Dollar / Japanese Yen",
+    assetClass: "forex",
+    category: "minor",
+    pipSize: 0.01,
+    contractSize: 100000,
+    baseCurrency: "AUD",
+    quoteCurrency: "JPY",
+    description: "Risk-on barometer. Tracks AUD/USD plus USD/JPY composite flow.",
+  },
+  {
+    symbol: "CAD/JPY",
+    name: "Canadian Dollar / Japanese Yen",
+    assetClass: "forex",
+    category: "minor",
+    pipSize: 0.01,
+    contractSize: 100000,
+    baseCurrency: "CAD",
+    quoteCurrency: "JPY",
+    description: "Oil-correlated yen cross. Reacts to crude moves and BoC/BoJ policy.",
+  },
+  {
+    symbol: "NZD/JPY",
+    name: "New Zealand Dollar / Japanese Yen",
+    assetClass: "forex",
+    category: "minor",
+    pipSize: 0.01,
+    contractSize: 100000,
+    baseCurrency: "NZD",
+    quoteCurrency: "JPY",
+    description: "Carry-trade favourite. Thin liquidity outside Asia hours.",
+  },
 ];
 
 export const COMMODITIES: InstrumentMeta[] = [
@@ -316,6 +360,18 @@ export function riskToLots(
 ): number {
   if (entryPrice <= 0 || slPct <= 0 || riskPct <= 0 || capital <= 0) return 0;
   const meta = getInstrumentMeta(symbol);
+  // Hard guard: an unknown forex pair would silently default quoteCurrency
+  // to USD and produce ~80x oversized lots on JPY-quoted crosses (e.g.
+  // CHF/JPY before it was added to the catalog). Better to refuse than to
+  // place a position the user did not size for. Add the symbol to
+  // FOREX_PAIRS to enable sizing.
+  if (!meta && isCurrencyPair(symbol)) {
+    console.error(
+      `[markets] riskToLots refused: ${symbol} is not in FOREX_PAIRS catalog. ` +
+        `Add an entry with the correct quoteCurrency before trading this pair.`
+    );
+    return 0;
+  }
   const contract = meta?.contractSize ?? 1;
   const quoteCcy = meta?.quoteCurrency ?? "USD";
   const slPriceDelta = entryPrice * (slPct / 100);
@@ -346,6 +402,15 @@ export function pnlInUsd(
   quantity: number
 ): number {
   const meta = getInstrumentMeta(symbol);
+  // Same guard as riskToLots: missing meta on a forex pair would treat the
+  // quote currency as USD and inflate JPY-quoted P&L by ~150x. Log loudly
+  // so the missing catalog entry gets caught instead of corrupting analytics.
+  if (!meta && isCurrencyPair(symbol)) {
+    console.error(
+      `[markets] pnlInUsd called with unknown forex pair ${symbol}. ` +
+        `Add it to FOREX_PAIRS — falling back to raw quote-currency P&L.`
+    );
+  }
   const quoteCcy = meta?.quoteCurrency ?? "USD";
   const direction = side === "long" ? 1 : -1;
   const quotePnl = direction * (currentPrice - entryPrice) * quantity;

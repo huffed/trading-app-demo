@@ -1,7 +1,8 @@
 "use server";
 
 import { z } from "zod";
-import { describeMetaApiError, fetchSnapshot } from "@/lib/brokers/metaapi";
+import { getBrokerAdapter } from "@/lib/brokers/registry";
+import type { BrokerConnection as AdapterConn, BrokerPosition } from "@/lib/brokers/types";
 import { createClient } from "@/lib/supabase/server";
 import type {
   BrokerAccountSnapshot,
@@ -118,13 +119,11 @@ export async function deleteBrokerConnection(id: string): Promise<ActionResult<n
   }
 }
 
-function summarizePositions(
-  positions: import("@/lib/brokers/metaapi").MetaApiPosition[]
-): BrokerPositionSummary[] {
+function summarizePositions(positions: BrokerPosition[]): BrokerPositionSummary[] {
   return positions.map((p) => ({
     id: String(p.id ?? ""),
     symbol: String(p.symbol ?? ""),
-    side: String(p.type ?? "").toUpperCase().includes("SELL") ? "sell" : "buy",
+    side: p.side,
     volume: Number(p.volume ?? 0),
     open_price: Number(p.openPrice ?? 0),
     current_price: p.currentPrice != null ? Number(p.currentPrice) : null,
@@ -153,12 +152,13 @@ export async function syncBrokerConnection(
     if (rowErr || !row) return { success: false, error: "Broker connection not found." };
 
     const conn = row as BrokerConnection;
-    if (conn.provider !== "metaapi") {
-      return { success: false, error: `Provider ${conn.provider} is not yet supported.` };
+    const adapter = getBrokerAdapter(conn.provider);
+    if (!adapter) {
+      return { success: false, error: `Provider ${conn.provider} has no adapter registered yet.` };
     }
 
     try {
-      const snap = await fetchSnapshot(conn.api_token, conn.account_id, conn.region);
+      const snap = await adapter.fetchSnapshot(conn as unknown as AdapterConn);
       const account_snapshot: BrokerAccountSnapshot = {
         balance: Number(snap.account.balance ?? 0),
         equity: Number(snap.account.equity ?? 0),
@@ -189,7 +189,7 @@ export async function syncBrokerConnection(
       if (upErr) return { success: false, error: upErr.message };
       return { success: true, data: toView(updated as BrokerConnection) };
     } catch (apiErr) {
-      const friendly = describeMetaApiError(apiErr);
+      const friendly = adapter.describeError(apiErr);
       await supabase
         .from("broker_connections")
         .update({ status: "error", last_error: friendly })

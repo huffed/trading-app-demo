@@ -37,7 +37,7 @@ export interface SentimentCondition {
  */
 export interface PatternCondition {
   type: "pattern";
-  pattern: "liquidity_sweep" | "fvg" | "ifvg" | "daily_bias";
+  pattern: "liquidity_sweep" | "fvg" | "ifvg" | "daily_bias" | "bos" | "order_block";
   /** Required directional alignment. Omit to match any direction. */
   direction?: "bullish" | "bearish";
   /** Lookback for swing-based patterns. Default 5. */
@@ -115,6 +115,16 @@ export interface PropFirmRules {
    */
   max_consecutive_losses: number;
   /**
+   * Friend's "3 strikes" rule — soft halt that stops NEW entries for the
+   * rest of the day after this many consecutive losing trades, but lets
+   * existing positions run to their stops/TPs. Resets when the date
+   * rolls over so the algo resumes next session. Different from
+   * `max_consecutive_losses` which permanently kills the algo (intended
+   * as the prop-firm hard safety net, not day-trading discipline).
+   * 0 = disabled. Typical value 3.
+   */
+  consecutive_loss_daily_halt?: number;
+  /**
    * Whether `max_consecutive_losses` counts losing trades or losing days.
    * Pyramiding strategies should usually pick "days" so a single bad bar
    * closing 3 stacked positions doesn't blow 75% of the budget at once.
@@ -178,13 +188,16 @@ export interface AlgorithmRules {
   timeframe: string;
   asset_class: string;
   /**
-   * Trade direction the algorithm commits to. Defaults to "long" when
-   * absent (backwards compatible — every existing algo is long-biased).
-   * Pattern conditions' direction filter (`direction: "bullish"` etc.)
-   * is independent: caller is responsible for picking patterns that
-   * align with the chosen side.
+   * Trade direction the algorithm commits to:
+   *  - "long" / "short": fixed bias, default "long".
+   *  - "auto": regime-adaptive — at each entry the engine reads the
+   *    higher-timeframe bias on the ticker and trades that direction.
+   *    Pattern conditions' configured `direction` filter is overridden
+   *    to match the active bias for that bar, so a single algo trades
+   *    longs in bullish regimes and shorts in bearish regimes on the
+   *    same pair without reconfiguration. Skips entry when D1 is neutral.
    */
-  side?: "long" | "short";
+  side?: "long" | "short" | "auto";
   prop_firm?: PropFirmRules;
   news_veto?: NewsVetoRules;
   /**
@@ -200,6 +213,35 @@ export interface AlgorithmRules {
     max_avg_bps: number;
     /** Window size in trades. Lower = faster reaction, more variance. */
     window_trades: number;
+  };
+  /**
+   * Volatility-regime gate: skip entries when 20-period ATR drops below
+   * a percentile floor of its recent distribution. Choppy / compressed
+   * tape historically whipsaws our pattern strategies before TPs can
+   * develop — testing 3's Sep/Mar/Feb 0% WR months were all in the
+   * bottom-30th-percentile ATR regime.
+   */
+  regime_filter?: {
+    enabled: boolean;
+    /** Periods for the ATR average. Default 20. */
+    atr_period?: number;
+    /** Lookback bars used to build the percentile distribution. Default 90. */
+    lookback_days?: number;
+    /** Skip when current ATR is below this percentile (0..1). Default 0.30. */
+    percentile_floor?: number;
+  };
+  /**
+   * Trend-strength gate using ADX. Skips entries when ADX is below the
+   * minimum threshold — i.e. there's no clear directional trend. ATR-
+   * percentile didn't work because low ATR ≠ ranging; ADX directly
+   * measures whether bulls or bears are in control.
+   */
+  adx_filter?: {
+    enabled: boolean;
+    /** ADX lookback period. Default 14. */
+    adx_period?: number;
+    /** Minimum ADX to allow entries. Default 20 (below = ranging). */
+    min_adx?: number;
   };
 }
 

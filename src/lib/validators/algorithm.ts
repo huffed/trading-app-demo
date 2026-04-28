@@ -106,6 +106,7 @@ const propFirmSchema = z.object({
   profit_target: z.number().min(1).max(50),
   // 0 disables the kill switch entirely.
   max_consecutive_losses: z.number().int().min(0).max(50),
+  consecutive_loss_daily_halt: z.number().int().min(0).max(20).optional(),
   consecutive_loss_unit: z.enum(["trades", "days"]).optional(),
   daily_loss_halt_pct: z.number().min(10).max(100).optional(),
   consistency_rule: z.number().min(10).max(100),
@@ -124,6 +125,19 @@ const newsVetoSchema = z.object({
 const divergenceKillSchema = z.object({
   max_avg_bps: z.number().min(1).max(500),
   window_trades: z.number().int().min(2).max(200),
+});
+
+const regimeFilterSchema = z.object({
+  enabled: z.boolean(),
+  atr_period: z.number().int().min(2).max(200).optional(),
+  lookback_days: z.number().int().min(20).max(500).optional(),
+  percentile_floor: z.number().min(0).max(1).optional(),
+});
+
+const adxFilterSchema = z.object({
+  enabled: z.boolean(),
+  adx_period: z.number().int().min(5).max(100).optional(),
+  min_adx: z.number().min(0).max(100).optional(),
 });
 
 const entryLogicSchema = z.union([
@@ -153,8 +167,10 @@ export const algorithmRulesSchema = z.object({
   leverage: z.number().int().min(1).max(500).optional(),
   timeframe: z.string(),
   asset_class: z.string(),
-  side: z.enum(["long", "short"]).optional(),
+  side: z.enum(["long", "short", "auto"]).optional(),
   prop_firm: propFirmSchema.optional(),
   news_veto: newsVetoSchema.optional(),
   divergence_kill: divergenceKillSchema.optional(),
+  regime_filter: regimeFilterSchema.optional(),
+  adx_filter: adxFilterSchema.optional(),
 });

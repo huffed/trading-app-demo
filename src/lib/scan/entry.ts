@@ -2,13 +2,22 @@
  * Entry evaluation — checks if conditions are met and opens a new position.
  */
 import { getContractSize } from "@/lib/constants/markets";
-import { checkConditions, normalize, type Cache } from "@/lib/market-data/backtest-engine";
-import { resampleToDaily } from "@/lib/market-data/resample";
+import { resolveSide } from "@/lib/market-data/auto-side";
+import {
+  checkConditions,
+  collectOtherTimeframes,
+  normalize,
+  type Cache,
+} from "@/lib/market-data/backtest-engine";
+import type { BarsBundle } from "@/lib/market-data/condition-evaluator";
 import {
   fetchEconomicCalendar,
   getEventCurrencies,
   isWithinVetoWindow,
 } from "@/lib/market-data/economic-calendar";
+import { isWeakTrendByAdx } from "@/lib/market-data/adx-filter";
+import { isRangingByAtr } from "@/lib/market-data/regime-filter";
+import { resampleTo, resampleToDaily } from "@/lib/market-data/resample";
 import type { PriceBar } from "@/lib/market-data/types";
 import { evaluateLiveSignal, type SignalResult } from "@/lib/signals/evaluate-live";
 import {
@@ -20,6 +29,7 @@ import {
   type TechnicalCondition,
 } from "@/types/algorithm";
 import type { PaperPosition, PositionEvent } from "@/types/position";
+import { checkConsecutiveLossHalt } from "./consec-loss-halt";
 import { calculatePositionSize, calculateRiskPrices, logActivity } from "./helpers";
 import { executeLiveEntry, type BrokerExecutionContext } from "./live-execution";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -74,7 +84,12 @@ async function openPosition(
     return { opened: 0 };
   }
 
-  const side: "long" | "short" = algo.rules.side ?? "long";
+  // Side is resolved by the caller (evaluateEntry) — at this point it's
+  // a concrete long/short, never "auto". Default to long for legacy callers.
+  const side: "long" | "short" =
+    algo.rules.side === "long" || algo.rules.side === "short"
+      ? algo.rules.side
+      : "long";
   const { stopLossPrice, takeProfitPrice } = calculateRiskPrices(currentPrice, algo.rules, side);
   const entryReason = {
     conditions_met: conditions.map(snapshotCondition),
@@ -121,6 +136,7 @@ async function openPosition(
     supabase,
     userId,
     algoId: algo.id,
+    algoCapital: algo.capital,
     paperPositionId: position.id,
     ticker,
     side,
@@ -142,6 +158,7 @@ interface LogAndMirrorArgs {
   supabase: SupabaseClient;
   userId: string;
   algoId: string;
+  algoCapital: number;
   paperPositionId: string;
   ticker: string;
   side: "long" | "short";
@@ -184,6 +201,7 @@ async function logOpenAndMirror(args: LogAndMirrorArgs): Promise<void> {
       stopLossPrice: args.stopLossPrice,
       takeProfitPrice: args.takeProfitPrice,
       ctx: args.brokerCtx,
+      capital: args.algoCapital,
       lots: args.lots,
       divergenceRule: args.divergenceRule,
     });
@@ -228,14 +246,44 @@ async function checkEntryConditions(
   conditions: Array<TechnicalCondition | PatternCondition>,
   bars: PriceBar[],
   closes: number[],
-  logic: AlgorithmRules["entry_logic"]
+  primaryTimeframe: string,
+  logic: AlgorithmRules["entry_logic"],
+  directionOverride?: "bullish" | "bearish",
+  dailyBars?: PriceBar[] | null
 ): Promise<boolean> {
   if (conditions.length === 0) return true;
   const cache: Cache = new Map();
-  // Resample intraday bars to D1 for daily_bias-style pattern conditions —
-  // same approach the backtest uses, no separate API fetch needed.
-  const higherTfBars = resampleToDaily(bars);
-  const ctx = { cache, closes, bars, i: closes.length - 1, higherTfBars };
+  // Prefer the dedicated D1 series when supplied; fall back to resampling
+  // the primary so older callers and missing-cache paths still work.
+  const higherTfBars = dailyBars ?? resampleToDaily(bars);
+  // Multi-timeframe routing: build aligned bundles for any non-primary
+  // timeframe a condition references. Live uses the LATEST bar in each
+  // resampled series — no alignment-by-date needed since "now" is now.
+  const otherTfs = collectOtherTimeframes(conditions, [], primaryTimeframe.toLowerCase());
+  let byTimeframe: Map<string, BarsBundle> | undefined;
+  if (otherTfs.length > 0) {
+    byTimeframe = new Map();
+    for (const tf of otherTfs) {
+      const tfBars = resampleTo(bars, tf);
+      if (tfBars.length === 0) continue;
+      byTimeframe.set(tf, {
+        bars: tfBars,
+        closes: tfBars.map((b) => b.close),
+        cache: new Map(),
+        i: tfBars.length - 1,
+      });
+    }
+  }
+  const ctx = {
+    cache,
+    closes,
+    bars,
+    i: closes.length - 1,
+    higherTfBars,
+    directionOverride,
+    byTimeframe,
+    primaryTimeframe: primaryTimeframe.toLowerCase(),
+  };
   if (checkConditions(conditions, ctx, logic)) return true;
   await logActivity(supabase, userId, {
     algorithm_id: algoId,
@@ -255,7 +303,8 @@ export async function evaluateEntry(
   closes: number[],
   allOpenPositions: PaperPosition[],
   livePrice?: number | null,
-  brokerCtx?: BrokerExecutionContext | null
+  brokerCtx?: BrokerExecutionContext | null,
+  dailyBars?: PriceBar[] | null
 ): Promise<{ opened: number; openEvent?: PositionEvent }> {
   const rules = algo.rules;
   // Use real-time price for entry, fall back to latest daily close
@@ -272,6 +321,77 @@ export async function evaluateEntry(
     return { opened: 0 };
   }
 
+  // Soft consecutive-loss halt — friend's "3 strikes" discipline rule.
+  // Walks today's closed trades and blocks new entries when N losses
+  // fired in a row. Open positions continue. Resets at next UTC day.
+  const consecHalt = rules.prop_firm?.consecutive_loss_daily_halt ?? 0;
+  if (consecHalt > 0) {
+    const halt = await checkConsecutiveLossHalt(supabase, algo.id, consecHalt);
+    if (halt.tripped) {
+      await logActivity(supabase, userId, {
+        algorithm_id: algo.id,
+        event_type: "signal_no_action",
+        ticker,
+        details: {
+          reason: `Consecutive-loss halt: ${halt.streak}/${halt.threshold} losses today`,
+        },
+      });
+      return { opened: 0 };
+    }
+  }
+
+  // Resolve the active side for this ticker. Auto-side reads D1 bias and
+  // returns null when neutral — skip the entry rather than force a guess.
+  // Prefer the dedicated daily series when caller supplies one; resampling
+  // an intraday compact series usually yields too few D1 bars for the bias
+  // detector's 20-period MA, producing a misleading "neutral" verdict.
+  const higherTfBars = dailyBars ?? resampleToDaily(bars);
+  const resolved = resolveSide(rules.side ?? "long", higherTfBars);
+  if (resolved === null) {
+    const reason =
+      higherTfBars.length < 20
+        ? `Auto-side: insufficient D1 history (${higherTfBars.length} bars, need 20)`
+        : "Auto-side: D1 bias is neutral";
+    await logActivity(supabase, userId, {
+      algorithm_id: algo.id,
+      event_type: "signal_no_action",
+      ticker,
+      details: { reason },
+    });
+    return { opened: 0 };
+  }
+
+  // Regime/volatility gate. Same module the backtest uses, so live and
+  // replay agree on whether a given moment is "tradeable". The check
+  // runs against the daily series so the percentile is stable across
+  // primary-timeframe choices (1h vs 15m won't change the verdict).
+  if (rules.regime_filter?.enabled) {
+    const regime = isRangingByAtr(higherTfBars, higherTfBars.length - 1, rules.regime_filter);
+    if (regime.skip) {
+      await logActivity(supabase, userId, {
+        algorithm_id: algo.id,
+        event_type: "signal_no_action",
+        ticker,
+        details: { reason: `Regime filter: ${regime.reason}` },
+      });
+      return { opened: 0 };
+    }
+  }
+
+  // ADX trend-strength gate — skips entries during ranging tape.
+  if (rules.adx_filter?.enabled) {
+    const adx = isWeakTrendByAdx(higherTfBars, higherTfBars.length - 1, rules.adx_filter);
+    if (adx.skip) {
+      await logActivity(supabase, userId, {
+        algorithm_id: algo.id,
+        event_type: "signal_no_action",
+        ticker,
+        details: { reason: `ADX filter: ${adx.reason}` },
+      });
+      return { opened: 0 };
+    }
+  }
+
   const normalizedEntry = normalize(rules.entry_conditions);
   const evaluableEntry = normalizedEntry.filter(
     (c) => isTechnicalCondition(c) || isPatternCondition(c)
@@ -284,7 +404,10 @@ export async function evaluateEntry(
     evaluableEntry,
     bars,
     closes,
-    rules.entry_logic
+    rules.timeframe,
+    rules.entry_logic,
+    resolved.directionOverride,
+    higherTfBars
   );
   if (!conditionsPass) return { opened: 0 };
 

@@ -10,9 +10,9 @@ import { checkConditions, normalize, type Cache } from "@/lib/market-data/backte
 import { timeframeToInterval, type BarInterval } from "@/lib/market-data/interval";
 import { getCachedPrices, savePricesToCache } from "@/lib/market-data/price-cache";
 import { fetchDailyPrices } from "@/lib/market-data/prices";
+import { resampleToDaily } from "@/lib/market-data/resample";
 import { fetchBatchQuotes } from "@/lib/market-data/twelve-data";
 import type { PriceBar } from "@/lib/market-data/types";
-import { resampleToDaily } from "@/lib/market-data/resample";
 import {
   isPatternCondition,
   isTechnicalCondition,
@@ -29,6 +29,8 @@ import {
   resolveBrokerContext,
   type BrokerExecutionContext,
 } from "./live-execution";
+import { detectDrift, executeDriftHalt } from "./drift-detector";
+import { evaluateAndPrune } from "./pair-quality";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 // ---- Types ----
@@ -52,7 +54,7 @@ interface AlgorithmWithWatchlist {
   rules: AlgorithmRules;
   capital: number;
   status: string;
-  algorithm_watchlist: { ticker: string; name: string }[];
+  algorithm_watchlist: { ticker: string; name: string; auto_paused?: boolean }[];
   live_trading_enabled?: boolean;
   broker_connection_id?: string | null;
 }
@@ -68,7 +70,8 @@ async function manageExistingPosition(
   bars: PriceBar[],
   closes: number[],
   livePrice: number | null,
-  brokerCtx: BrokerExecutionContext | null
+  brokerCtx: BrokerExecutionContext | null,
+  dailyBars: PriceBar[] | null
 ): Promise<{ closed: number; updated: number; closeEvent?: PositionEvent }> {
   const currentPrice = livePrice ?? closes[closes.length - 1];
   const unrealizedPnl = pnlInUsd(
@@ -79,7 +82,7 @@ async function manageExistingPosition(
     position.quantity
   );
 
-  const exitCheck = checkExitTrigger(position, currentPrice, algo.rules, bars, closes);
+  const exitCheck = checkExitTrigger(position, currentPrice, algo.rules, bars, closes, dailyBars);
 
   if (exitCheck) {
     const realizedPnl = unrealizedPnl;
@@ -143,7 +146,8 @@ function checkExitTrigger(
   currentPrice: number,
   rules: AlgorithmRules,
   bars: PriceBar[],
-  closes: number[]
+  closes: number[],
+  dailyBars: PriceBar[] | null
 ): string | null {
   const isLong = position.side === "long";
 
@@ -181,7 +185,7 @@ function checkExitTrigger(
         closes,
         bars,
         i: closes.length - 1,
-        higherTfBars: resampleToDaily(bars),
+        higherTfBars: dailyBars ?? resampleToDaily(bars),
       })
     ) {
       return "exit_signal";
@@ -216,6 +220,23 @@ async function processTicker(
       return;
     }
 
+    // Fetch a separate compact daily series for higher-timeframe context
+    // (daily_bias, multi-TF conditions). Compact 1h ≈ 100 bars ≈ 4 days,
+    // which resamples to ~4 D1 bars — far short of the 20 detectDailyBias
+    // needs. A dedicated D1 series gives us 100 daily bars, plenty.
+    let dailyBars: PriceBar[] | null = null;
+    if (interval !== "1day") {
+      dailyBars = await getCachedPrices(ticker, "compact", "1day");
+      if (!dailyBars) {
+        try {
+          dailyBars = await fetchDailyPrices(ticker, "compact", "1day");
+          savePricesToCache(ticker, "compact", dailyBars, "1day").catch(() => {});
+        } catch {
+          dailyBars = null;
+        }
+      }
+    }
+
     const closes = prices.map((p) => p.close);
     const livePrice = liveQuotes.get(ticker.toUpperCase()) ?? null;
 
@@ -230,7 +251,8 @@ async function processTicker(
         prices,
         closes,
         livePrice,
-        brokerCtx
+        brokerCtx,
+        dailyBars
       );
       result.positions_closed += r.closed;
       result.positions_updated += r.updated;
@@ -253,7 +275,8 @@ async function processTicker(
         closes,
         positions,
         livePrice,
-        brokerCtx
+        brokerCtx,
+        dailyBars
       );
       result.positions_opened += r.opened;
       if (r.openEvent) {
@@ -303,7 +326,12 @@ export async function scanAlgorithm(
     errors: [],
   };
 
-  const tickers = algo.algorithm_watchlist.map((w) => w.ticker);
+  // Skip auto-paused tickers — the pair-quality evaluator marks pairs
+  // as auto_paused=true when their realised WR drops below the prune
+  // threshold over a meaningful sample. They stay paused until the user
+  // manually re-enables them in the watchlist UI.
+  const activeWatchlist = algo.algorithm_watchlist.filter((w) => !w.auto_paused);
+  const tickers = activeWatchlist.map((w) => w.ticker);
   if (tickers.length === 0) {
     return result;
   }
@@ -367,6 +395,56 @@ export async function scanAlgorithm(
       errors_count: result.errors.length,
     },
   });
+
+  // Re-evaluate pair quality only when something actually changed —
+  // stats don't move on quiet scans, so paying for the query each hour
+  // is wasted. Triggered after closes since that's when win/loss counts
+  // shift (opens don't change realised stats until they close).
+  if (result.positions_closed > 0) {
+    const evals = await evaluateAndPrune(supabase, algo.id);
+    for (const e of evals) {
+      if (e.pruned && e.reason !== "already_paused") {
+        await logActivity(supabase, userId, {
+          algorithm_id: algo.id,
+          event_type: "pair_auto_paused",
+          ticker: e.ticker,
+          details: {
+            reason: e.reason,
+            stats: e.stats,
+          },
+        });
+      }
+    }
+    // Performance-drift detector — surface (and on severe drift, halt)
+    // when recent live performance has decayed enough vs the backtested
+    // baseline that the strategy's edge looks compromised. Drift halt
+    // disables live_trading_enabled but lets open positions play out
+    // (different from the DLL halt which force-closes everything).
+    const algoRow = await supabase
+      .from("algorithms")
+      .select("backtest_results")
+      .eq("id", algo.id)
+      .single();
+    const baseline = (algoRow.data?.backtest_results ?? null) as
+      | import("@/types/algorithm").BacktestResults
+      | null;
+    const drift = await detectDrift(supabase, algo.id, baseline);
+    if (drift.severity !== "none") {
+      await logActivity(supabase, userId, {
+        algorithm_id: algo.id,
+        event_type: drift.severity === "halt" ? "drift_halt" : "drift_warn",
+        details: {
+          severity: drift.severity,
+          reason: drift.reason,
+          recent: drift.recent,
+          baseline: drift.baseline,
+        },
+      });
+      if (drift.severity === "halt") {
+        await executeDriftHalt(supabase, userId, algo.id, drift);
+      }
+    }
+  }
 
   await supabase
     .from("algorithms")
