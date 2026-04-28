@@ -30,6 +30,7 @@ import type { PriceBar } from "@/lib/market-data/types";
 import type { AlgorithmRules } from "@/types/algorithm";
 import type { PaperPosition, PositionEvent } from "@/types/position";
 import { manageExistingPosition, type AlgoForPositionMgmt } from "./engine";
+import { logActivity } from "./helpers";
 import { resolveBrokerContext } from "./live-execution";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -201,6 +202,25 @@ async function manageAlgorithm(
       });
     }
   }
+
+  // Heartbeat: one log entry per manage tick that touched ≥1 open
+  // position. Lets the operator confirm the 5-min cron is alive even on
+  // ticks where nothing closed. Skipped when positions_inspected is 0
+  // (manageActiveAlgorithms already filters those out, but defensive).
+  if (positions.length > 0) {
+    await logActivity(supabase, algo.user_id, {
+      algorithm_id: algo.id,
+      event_type: "manage_tick",
+      details: {
+        positions_inspected: result.positions_inspected,
+        positions_closed: result.positions_closed,
+        positions_updated: result.positions_updated,
+        broker_mirrored: positions.filter((p) => p.broker_position_id).length,
+        errors_count: result.errors.length,
+      },
+    });
+  }
+
   return result;
 }
 
