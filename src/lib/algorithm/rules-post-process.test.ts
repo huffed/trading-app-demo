@@ -60,6 +60,38 @@ describe("clampRules — RSI relaxation for long-term", () => {
   });
 });
 
+describe("clampRules — position-sizing decimal rescue", () => {
+  it("rescues percentage_of_capital expressed as decimal (0.05 → 5)", () => {
+    const out = clampRules(
+      baseRules({ position_sizing: { type: "percentage_of_capital", value: 0.05 } }),
+      "swing"
+    );
+    expect(out.position_sizing.value).toBe(5);
+  });
+
+  it("preserves sub-1 risk_per_trade values (0.7% is the FTMO sweet spot, not 70%)", () => {
+    const out = clampRules(
+      baseRules({
+        asset_class: "forex",
+        position_sizing: { type: "risk_per_trade", value: 0.7 },
+      }),
+      "intraday"
+    );
+    expect(out.position_sizing.value).toBe(0.7);
+  });
+
+  it("preserves sub-1 lots values (micro-lots are legit)", () => {
+    const out = clampRules(
+      baseRules({
+        asset_class: "forex",
+        position_sizing: { type: "lots", value: 0.01 },
+      }),
+      "intraday"
+    );
+    expect(out.position_sizing.value).toBe(0.01);
+  });
+});
+
 describe("clampRules — forex/commodity defaults", () => {
   it("auto-sets entry_logic to 2-of-3 when forex has 3+ entry conditions", () => {
     const conditions = Array.from({ length: 3 }, () => ({

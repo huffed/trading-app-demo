@@ -71,9 +71,17 @@ export function clampRules(rules: AlgorithmRules, timeHorizon: string): Algorith
       clamped.take_profit.value = Math.round(clamped.take_profit.value * 100);
     }
   }
-  // Decimal-percentage rescue (0.05 → 5) skips lot sizing where < 1 lot is legit.
+  // Decimal-percentage rescue (0.05 → 5). Only applies to
+  // percentage_of_capital — the LLM occasionally encodes "5%" as 0.05
+  // there. Other sizing types have legitimate sub-1 semantics that this
+  // rescue would silently corrupt:
+  //   - lots: 0.01 is a valid micro-lot
+  //   - risk_per_trade: 0.7% is the FTMO sweet spot (was getting bumped
+  //     to 70% by the old rescue, blowing every backtest)
+  //   - fixed_quantity / fixed_amount: sub-1 is either a real fractional
+  //     share or a meaningless cents value, neither needing rescue
   const ps = clamped.position_sizing;
-  if (ps && ps.type !== "lots" && ps.value < 1) {
+  if (ps && ps.type === "percentage_of_capital" && ps.value < 1) {
     ps.value = Math.round(ps.value * 100);
   }
 
