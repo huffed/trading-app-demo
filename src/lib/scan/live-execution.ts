@@ -14,6 +14,7 @@ import { getBrokerAdapter } from "@/lib/brokers/registry";
 import { notionalToLots } from "@/lib/brokers/sizing";
 import type { BrokerAdapter, BrokerConnection } from "@/lib/brokers/types";
 import { notionalInUsd } from "@/lib/constants/markets";
+import { logger } from "@/lib/logger";
 import { checkDivergenceKill, haltAlgorithmForDivergence } from "./divergence";
 import { logActivity } from "./helpers";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -45,7 +46,16 @@ export async function resolveBrokerContext(
     .single();
   if (!data || data.status === "disabled") return null;
   const adapter = getBrokerAdapter(data.provider as string);
-  if (!adapter) return null;
+  if (!adapter) {
+    // Live trading was requested but the registered provider has no adapter
+    // — without a warning here the algorithm silently falls back to paper-
+    // only and the operator wouldn't know.
+    logger.warn(
+      "live-execution",
+      `live_trading_enabled but no adapter for provider="${data.provider}" (broker_connection_id=${algoBrokerId}). Falling back to paper-only.`
+    );
+    return null;
+  }
   return { adapter, conn: data as BrokerConnection };
 }
 

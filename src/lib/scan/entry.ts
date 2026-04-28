@@ -20,6 +20,7 @@ import { isRangingByAtr } from "@/lib/market-data/regime-filter";
 import { resampleTo, resampleToDaily } from "@/lib/market-data/resample";
 import type { PriceBar } from "@/lib/market-data/types";
 import { evaluateLiveSignal, type SignalResult } from "@/lib/signals/evaluate-live";
+import { entryReasonSchema } from "@/lib/validators/position";
 import {
   isPatternCondition,
   isSentimentCondition,
@@ -91,7 +92,7 @@ async function openPosition(
       ? algo.rules.side
       : "long";
   const { stopLossPrice, takeProfitPrice } = calculateRiskPrices(currentPrice, algo.rules, side);
-  const entryReason = {
+  const entryReason = entryReasonSchema.parse({
     conditions_met: conditions.map(snapshotCondition),
     signal_result: sentimentResult
       ? {
@@ -100,7 +101,7 @@ async function openPosition(
           reasoning: sentimentResult.reasoning,
         }
       : undefined,
-  };
+  });
 
   const { data: position } = await supabase
     .from("paper_positions")

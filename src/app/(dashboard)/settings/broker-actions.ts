@@ -1,7 +1,7 @@
 "use server";
 
 import { z } from "zod";
-import { getBrokerAdapter } from "@/lib/brokers/registry";
+import { getBrokerAdapter, listSupportedProviders } from "@/lib/brokers/registry";
 import type { BrokerConnection as AdapterConn, BrokerPosition } from "@/lib/brokers/types";
 import { createClient } from "@/lib/supabase/server";
 import { type ActionResult } from "@/lib/types/action-result";
@@ -12,9 +12,14 @@ import type {
   BrokerPositionSummary,
 } from "@/types/broker";
 
+// Only providers with a registered adapter can be persisted. The
+// BrokerProvider type still tracks aspirational providers (alpaca, oanda)
+// so other code can refer to them, but accepting one here would create a
+// connection that scan/live-execution silently no-ops on — paper-only
+// trades while the user thinks they're live.
 const inputSchema = z.object({
   label: z.string().trim().min(1).max(80),
-  provider: z.enum(["metaapi", "alpaca", "oanda", "ctrader"]),
+  provider: z.enum(["metaapi", "ctrader"]),
   api_token: z.string().trim().min(8),
   account_id: z.string().trim().min(8),
   region: z.enum(["london", "new-york", "singapore"]).optional().default("london"),
@@ -71,6 +76,17 @@ export async function saveBrokerConnection(input: BrokerInput): Promise<ActionRe
   const parsed = inputSchema.safeParse(input);
   if (!parsed.success) {
     return { success: false, error: parsed.error.issues[0].message };
+  }
+
+  // Defense-in-depth: even if the enum drifts from the registry, refuse to
+  // persist a provider that has no live-execution adapter. The user would
+  // see "active" status without ever seeing a broker fill.
+  if (!getBrokerAdapter(parsed.data.provider)) {
+    const supported = listSupportedProviders().join(", ");
+    return {
+      success: false,
+      error: `Broker provider "${parsed.data.provider}" is not implemented. Supported: ${supported}.`,
+    };
   }
 
   try {

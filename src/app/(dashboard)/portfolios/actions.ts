@@ -2,13 +2,22 @@
 
 import { getAuthedUser } from "@/lib/supabase/get-authed-user";
 import { type ActionResult } from "@/lib/types/action-result";
+import { propFirmRulesSchema } from "@/lib/validators/algorithm";
 import type { CreatePortfolioInput, Portfolio } from "@/types/portfolio";
+
+const partialPropFirmRulesSchema = propFirmRulesSchema.partial();
 
 export async function createPortfolio(
   input: CreatePortfolioInput
 ): Promise<ActionResult<Portfolio>> {
   try {
     const { supabase, user } = await getAuthedUser();
+    const parsedRules = input.prop_firm_rules
+      ? partialPropFirmRulesSchema.safeParse(input.prop_firm_rules)
+      : null;
+    if (parsedRules && !parsedRules.success) {
+      return { success: false, error: `Invalid prop firm rules: ${parsedRules.error.message}` };
+    }
     const { data, error } = await supabase
       .from("portfolios")
       .insert({
@@ -16,7 +25,7 @@ export async function createPortfolio(
         name: input.name.trim(),
         capital: input.capital,
         broker_connection_id: input.broker_connection_id ?? null,
-        prop_firm_rules: input.prop_firm_rules ?? {},
+        prop_firm_rules: parsedRules?.data ?? {},
       })
       .select()
       .single();

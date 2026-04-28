@@ -18,7 +18,12 @@ import { generateAlgorithm, updateAlgorithm } from "@/app/(dashboard)/algorithms
 import { seedWatchlist } from "@/app/(dashboard)/algorithms/seed-watchlist-action";
 import { bulkAddWatchlistItems } from "@/app/(dashboard)/algorithms/watchlist-actions";
 import { parseTradeHistoryCsv } from "@/lib/utils/parse-trade-csv";
-import { algorithmFormSchema, type AlgorithmFormValues } from "@/lib/validators/algorithm";
+import {
+  algorithmFormSchema,
+  algorithmUpdateSchema,
+  type AlgorithmFormValues,
+  type AlgorithmUpdate,
+} from "@/lib/validators/algorithm";
 import type { ChatMessage } from "@/types/chat";
 
 const ALGO_MARKER = "[CREATE_ALGORITHM]";
@@ -26,7 +31,7 @@ const EDIT_MARKER = "[EDIT_ALGORITHM]";
 
 const editMarkerSchema = z.object({
   id: z.string().min(1),
-  updates: z.record(z.string(), z.unknown()),
+  updates: algorithmUpdateSchema,
 });
 
 /**
@@ -89,7 +94,7 @@ export function parseAlgorithmMarker(text: string): AlgorithmFormValues | null {
   return parsed.success ? parsed.data : null;
 }
 
-function parseEditMarker(text: string): { id: string; updates: Record<string, unknown> } | null {
+function parseEditMarker(text: string): { id: string; updates: AlgorithmUpdate } | null {
   const marker = parseMarkerJson(text, EDIT_MARKER);
   if (!marker) return null;
   let raw: unknown;
@@ -183,12 +188,12 @@ async function createAlgorithm(
 }
 
 async function editAlgorithm(
-  data: { id: string; updates: Record<string, unknown> },
+  data: { id: string; updates: AlgorithmUpdate },
   setMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>
 ) {
   setMessages((p) => [...p.slice(0, -1), { role: "assistant", content: "Applying changes..." }]);
   try {
-    const result = await updateAlgorithm(data.id, data.updates);
+    const result = await updateAlgorithm(data.id, data.updates, "chat");
     if (result.success) {
       setMessages((p) => [
         ...p.slice(0, -1),

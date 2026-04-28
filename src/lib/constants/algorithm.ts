@@ -64,4 +64,13 @@ export const ACTIVITY_TYPE_LABELS: Record<string, string> = {
   stop_loss_hit: "Stop Loss Hit",
   take_profit_hit: "Take Profit Hit",
   error: "Error",
+  pair_auto_paused: "Pair Auto-Paused",
+  daily_loss_halt: "Daily Loss Halt",
+  portfolio_halt: "Portfolio Halt",
+  drift_halt: "Drift Halt",
+  divergence_halt: "Divergence Halt",
+  live_order_placed: "Live Order Placed",
+  live_order_failed: "Live Order Failed",
+  live_order_closed: "Live Order Closed",
+  live_close_failed: "Live Close Failed",
 };

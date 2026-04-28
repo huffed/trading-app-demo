@@ -1,4 +1,4 @@
-export type AssetClass = "equity" | "option" | "future" | "forex" | "crypto";
+export type AssetClass = "equity" | "option" | "future" | "forex" | "crypto" | "commodity";
 export type TradeSide = "long" | "short";
 export type TradeStatus = "open" | "closed";
 

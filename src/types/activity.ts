@@ -7,7 +7,16 @@ export type ActivityEventType =
   | "position_closed"
   | "stop_loss_hit"
   | "take_profit_hit"
-  | "error";
+  | "error"
+  | "pair_auto_paused"
+  | "daily_loss_halt"
+  | "portfolio_halt"
+  | "drift_halt"
+  | "divergence_halt"
+  | "live_order_placed"
+  | "live_order_failed"
+  | "live_order_closed"
+  | "live_close_failed";
 
 export interface ActivityLogEntry {
   id: string;
