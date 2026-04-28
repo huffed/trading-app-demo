@@ -155,16 +155,40 @@ export const algorithmRulesSchema = z.object({
   exit_logic: entryLogicSchema.optional(),
   stop_loss: z.object({ type: z.enum(["percentage", "fixed", "pips"]), value: z.number() }),
   take_profit: z.object({ type: z.enum(["percentage", "fixed", "pips"]), value: z.number() }),
-  position_sizing: z.object({
-    type: z.enum([
-      "percentage_of_capital",
-      "fixed_amount",
-      "fixed_quantity",
-      "lots",
-      "risk_per_trade",
-    ]),
-    value: z.number(),
-  }),
+  // Per-type sizing bounds. Catches the "stale form sends 70 thinking
+  // it's 0.7" class of bug — clampRules can't safely rescue a literal
+  // user-submitted value, so reject upstream instead. Numbers chosen so
+  // legitimate aggressive configs still pass:
+  //   - percentage_of_capital: 100% is the structural ceiling
+  //   - risk_per_trade: 5% is well above any sane prop-firm strategy
+  //     (FTMO blew up at 0.7-1%; "aggressive retail" caps at ~2%)
+  //   - lots: FTMO MT5 caps at 50, retail brokers similar
+  //   - fixed_amount / fixed_quantity: bounded by context, not generic
+  position_sizing: z.discriminatedUnion("type", [
+    z.object({
+      type: z.literal("percentage_of_capital"),
+      value: z.number().positive().max(100, "percentage_of_capital cannot exceed 100"),
+    }),
+    z.object({
+      type: z.literal("fixed_amount"),
+      value: z.number().positive(),
+    }),
+    z.object({
+      type: z.literal("fixed_quantity"),
+      value: z.number().positive(),
+    }),
+    z.object({
+      type: z.literal("lots"),
+      value: z.number().positive().max(50, "lots above 50 — broker caps would reject"),
+    }),
+    z.object({
+      type: z.literal("risk_per_trade"),
+      value: z
+        .number()
+        .positive()
+        .max(5, "risk_per_trade above 5% is almost certainly a unit error (e.g. 70 entered for 0.7)"),
+    }),
+  ]),
   max_positions: z.number().int().positive(),
   max_per_ticker: z.number().int().positive().optional(),
   leverage: z.number().int().min(1).max(500).optional(),
