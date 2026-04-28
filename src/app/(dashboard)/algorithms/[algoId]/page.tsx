@@ -14,6 +14,7 @@ import { AlgorithmEditView } from "@/components/algorithms/algorithm-edit-view";
 import { DiscoveryCard } from "@/components/algorithms/discovery-card";
 import { FtmoComplianceCard } from "@/components/algorithms/ftmo-compliance-card";
 import { PaperTradingTab } from "@/components/algorithms/paper-trading-tab";
+import { ReadinessCheckCard } from "@/components/algorithms/readiness-check-card";
 import { StrategyStatsTab } from "@/components/algorithms/strategy-stats-tab";
 import { WatchlistCard } from "@/components/algorithms/watchlist-card";
 import { Button } from "@/components/ui/button";
@@ -58,6 +59,7 @@ function ReadView({
   return (
     <div className="space-y-4">
       <FtmoComplianceCard algorithmId={algo.id} />
+      <ReadinessCheckCard algorithmId={algo.id} />
       <Tabs defaultValue={0}>
       <TabsList variant="line">
         <TabsTrigger value={0}>Overview</TabsTrigger>
