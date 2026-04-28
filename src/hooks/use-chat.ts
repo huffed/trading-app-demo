@@ -161,13 +161,13 @@ async function createAlgorithm(
 
     const seed = await seedWatchlist(result.data.id);
     if (seed.success && seed.data.added > 0) {
-      const profitable = seed.data.tickers.filter((t) => t.profitable);
-      const tickerList = profitable.map((t) => t.ticker).join(", ");
+      const accepted = seed.data.tickers.filter((t) => t.improves_portfolio);
+      const tickerList = accepted.map((t) => t.ticker).join(", ");
       setMessages((p) => [
         ...p.slice(0, -1),
         {
           role: "assistant",
-          content: `Your algorithm "${algoName}" is ready. Screened ${seed.data.tickers.length} tickers — ${seed.data.added} were profitable in backtesting and added to the watchlist: ${tickerList}`,
+          content: `Your algorithm "${algoName}" is ready. Screened ${seed.data.tickers.length} candidates — ${seed.data.added} improved the portfolio backtest and were added to the watchlist: ${tickerList}`,
         },
       ]);
     } else {
