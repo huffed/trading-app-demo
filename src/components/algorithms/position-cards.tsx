@@ -29,9 +29,10 @@ import {
 } from "@/hooks/use-paper-trading";
 import { EXIT_REASON_LABELS } from "@/lib/constants/algorithm";
 import { getQuantityUnitFor } from "@/lib/constants/markets";
-import { formatPnl, formatPriceValue, formatQuantity, pnlColorClass } from "@/lib/utils/pnl";
+import { formatPriceValue, formatQuantity } from "@/lib/utils/pnl";
 import type { PaperPosition } from "@/types/position";
 import { BrokerErrorBanner, BrokerErrorIcon } from "./broker-error-indicators";
+import { PnlCell } from "./position-pnl-cell";
 import { PriceCellWithBroker } from "./position-price-cell";
 
 function PositionRow({
@@ -62,10 +63,8 @@ function PositionRow({
       <TableCell className="text-right tabular-nums">
         {formatPriceValue(pos.ticker, pos.current_price)}
       </TableCell>
-      <TableCell
-        className={`text-right tabular-nums font-medium ${pnlColorClass(pos.unrealized_pnl)}`}
-      >
-        {formatPnl(pos.unrealized_pnl)}
+      <TableCell className="text-right">
+        <PnlCell pos={pos} />
       </TableCell>
       <TableCell className="text-right text-xs text-muted-foreground tabular-nums">
         {formatPriceValue(pos.ticker, pos.stop_loss_price)} /{" "}
@@ -247,10 +246,8 @@ function ClosedPositionContent({
                 brokerPrice={pos.broker_close_price}
               />
             </TableCell>
-            <TableCell
-              className={`text-right tabular-nums font-medium ${pnlColorClass(pos.realized_pnl)}`}
-            >
-              {formatPnl(pos.realized_pnl)}
+            <TableCell className="text-right">
+              <PnlCell pos={pos} />
             </TableCell>
             <TableCell>
               <Badge variant="secondary" className="text-xs">
