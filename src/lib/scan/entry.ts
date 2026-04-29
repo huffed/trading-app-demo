@@ -4,6 +4,7 @@
 import { convictionMultiplier } from "@/lib/algorithm/conviction-sizing";
 import { checkAtrLiquidity } from "@/lib/algorithm/intraday-atr-gate";
 import { checkBrokerSpread, type SpreadGateResult } from "@/lib/algorithm/spread-gate";
+import { checkTimeOfDayFilter } from "@/lib/algorithm/time-of-day-filter";
 import { getContractSize } from "@/lib/constants/markets";
 import { isWeakTrendByAdx } from "@/lib/market-data/adx-filter";
 import { resolveSide } from "@/lib/market-data/auto-side";
@@ -37,6 +38,7 @@ import { checkConsecutiveLossHalt } from "./consec-loss-halt";
 import { checkConsistencyHalt } from "./consistency-halt";
 import { calculatePositionSize, calculateRiskPrices, logActivity } from "./helpers";
 import { executeLiveEntry, type BrokerExecutionContext } from "./live-execution";
+import { getPerHourStats } from "./per-hour-stats";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 interface AlgoContext {
@@ -398,6 +400,33 @@ export async function evaluateEntry(
         ticker,
         details: {
           reason: `Consecutive-loss halt: ${halt.streak}/${halt.threshold} losses today`,
+        },
+      });
+      return { opened: 0 };
+    }
+  }
+
+  // Data-driven time-of-day filter. Reads this algorithm's own per-hour
+  // WR distribution; refuses entries during hours that historically
+  // underperform. No-op when the filter is off OR when the current
+  // hour bucket lacks samples (warm-up period for new algorithms).
+  if (rules.time_filter?.enabled) {
+    const stats = await getPerHourStats(supabase, algo.id, {
+      min_samples: rules.time_filter.min_samples,
+      window_days: rules.time_filter.window_days,
+    });
+    const currentHour = new Date().getUTCHours();
+    const tod = checkTimeOfDayFilter(rules.time_filter, stats.get(currentHour));
+    if (tod.block) {
+      await logActivity(supabase, userId, {
+        algorithm_id: algo.id,
+        event_type: "signal_no_action",
+        ticker,
+        details: {
+          reason: tod.reason ?? "Time-of-day filter triggered",
+          hour_utc: tod.hour,
+          hour_wr_pct: tod.hour_wr_pct,
+          hour_samples: tod.hour_samples,
         },
       });
       return { opened: 0 };

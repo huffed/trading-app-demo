@@ -144,6 +144,20 @@ const adxFilterSchema = z.object({
   min_adx: z.number().min(0).max(100).optional(),
 });
 
+const timeFilterSchema = z.object({
+  enabled: z.boolean(),
+  // 0-100 with sensible bounds. 45 = "above coin flip" default; tighten
+  // as data accumulates. Values < 30 would block almost everything;
+  // > 70 require a strong edge that's rare in real algorithms.
+  min_wr_pct: z.number().min(20).max(80).optional(),
+  // Fewer than 3 samples is statistical noise; more than 50 means the
+  // filter never activates on a moderately-active algorithm.
+  min_samples: z.number().int().min(3).max(50).optional(),
+  // 7-365 days: under a week is too volatile, beyond a year captures
+  // regime shifts we'd rather not weight equally.
+  window_days: z.number().int().min(7).max(365).optional(),
+});
+
 const stagnantExitSchema = z.object({
   enabled: z.boolean(),
   // Bar count override. Bounded so a typo doesn't pin the gate to "never"
@@ -232,6 +246,7 @@ export const algorithmRulesSchema = z.object({
   regime_filter: regimeFilterSchema.optional(),
   adx_filter: adxFilterSchema.optional(),
   stagnant_exit: stagnantExitSchema.optional(),
+  time_filter: timeFilterSchema.optional(),
 });
 
 /**
