@@ -82,12 +82,13 @@ export async function generateAlgorithmFromSearchForUser(
   }
 
   const searchResult = await runCombinatorialSearch(input, loadDefaultPriceCorpus, {
-    // Lower than the engine's default 60: 30 candidates is enough for the
-    // current curated grid (8 templates × 4 parameter combos minus
-    // pattern-only-1h restrictions ≈ 30) and halves the worst-case CPU
-    // budget for the action. The endpoint accepts an override if the
-    // operator wants a wider sweep.
-    max_candidates: 30,
+    // Match the engine's default. The grid now has 13 templates with
+    // conviction variants → ~57 candidates total; 30 truncates the
+    // grid before reaching the data-validated momentum + multi_tf
+    // templates which are ordered last (highest priority) per
+    // grid.ts. Wall-clock is dominated by walk-forward compute; with
+    // a warm price cache 60 candidates ≈ 60-90s.
+    max_candidates: 60,
     top_n: 1,
   });
   if (searchResult.top.length === 0) {
