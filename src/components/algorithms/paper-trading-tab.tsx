@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { AlertCircle, AlertTriangle, CheckCircle2, Clock, Loader2, Play } from "lucide-react";
 import { AlgoEquityCurveCard } from "@/components/algorithms/algo-equity-curve-card";
+import { AlgorithmHealthHeader } from "@/components/algorithms/algorithm-health-header";
 import { ClosedPositionsCard, OpenPositionsCard } from "@/components/algorithms/position-cards";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -200,13 +201,21 @@ export function PaperTradingTab({
   algorithmId,
   algorithmStatus,
   lastScannedAt,
+  liveTradingEnabled,
 }: {
   algorithmId: string;
   algorithmStatus: string;
   lastScannedAt: string | null;
+  liveTradingEnabled: boolean;
 }) {
   return (
     <div className="space-y-4">
+      <AlgorithmHealthHeader
+        algorithmId={algorithmId}
+        algorithmStatus={algorithmStatus}
+        liveTradingEnabled={liveTradingEnabled}
+        lastScannedAt={lastScannedAt}
+      />
       <ScanControls
         algorithmId={algorithmId}
         algorithmStatus={algorithmStatus}
