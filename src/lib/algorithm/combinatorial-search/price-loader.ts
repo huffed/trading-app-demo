@@ -39,15 +39,27 @@ export async function loadDefaultPriceCorpus(
   // "60m" don't double up).
   const byInterval = new Map<string, Map<string, PriceBar[]>>();
   for (const interval of intervals) {
-    const bySymbol = new Map<string, PriceBar[]>();
-    for (const symbol of symbols) {
-      const bars = await fetchOne(symbol, interval);
-      if (bars && bars.length >= MIN_BARS_PER_SYMBOL) {
-        bySymbol.set(symbol, bars);
-      }
-    }
-    byInterval.set(interval, bySymbol);
+    byInterval.set(interval, new Map<string, PriceBar[]>());
   }
+
+  // Twelve Data plan caps us at 8 credits per minute on the time_series
+  // endpoint. A naïve Promise.all over 14 symbols × 3 intervals = 42
+  // fetches blows through that — the API silently 429s and the operator
+  // sees wall-clock dominated by retry backoffs. Cache hits don't count
+  // against the limit, so we only batch when actually fetching.
+  const tasks: Array<{
+    interval: ReturnType<typeof timeframeToInterval>;
+    symbol: string;
+  }> = [];
+  for (const interval of intervals) {
+    for (const symbol of symbols) tasks.push({ interval, symbol });
+  }
+  await fetchRateLimited(tasks, 8, async ({ interval, symbol }) => {
+    const bars = await fetchOne(symbol, interval);
+    if (bars && bars.length >= MIN_BARS_PER_SYMBOL) {
+      byInterval.get(interval)!.set(symbol, bars);
+    }
+  });
 
   // Map back from caller-facing timeframe strings → bar maps. Multiple
   // timeframe strings can resolve to the same interval (e.g. "1h" and
@@ -72,5 +84,37 @@ async function fetchOne(
     return bars;
   } catch {
     return null;
+  }
+}
+
+/**
+ * Rate-limited batch executor. Runs `fn` over `items` in batches of
+ * `perMinute` size, waiting out the remainder of each 60-second window
+ * before starting the next batch. Cache hits inside `fn` are still
+ * eligible for parallel execution within the batch — only actual API
+ * calls draw down the credit budget. The first batch fires immediately;
+ * subsequent batches sleep just enough to respect the floor.
+ *
+ * Safe to call when items.length ≤ perMinute (zero waits issued).
+ * Errors inside `fn` propagate after settling the batch; callers handle
+ * per-item failure inside `fn` (this helper only orchestrates timing).
+ */
+async function fetchRateLimited<T>(
+  items: T[],
+  perMinute: number,
+  fn: (item: T) => Promise<void>
+): Promise<void> {
+  const windowMs = 60_000;
+  for (let i = 0; i < items.length; i += perMinute) {
+    const batch = items.slice(i, i + perMinute);
+    const started = Date.now();
+    await Promise.all(batch.map(fn));
+    const isLastBatch = i + perMinute >= items.length;
+    if (isLastBatch) break;
+    const elapsed = Date.now() - started;
+    const wait = windowMs - elapsed;
+    if (wait > 0) {
+      await new Promise((r) => setTimeout(r, wait));
+    }
   }
 }
