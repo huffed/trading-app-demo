@@ -54,6 +54,18 @@ export function evaluateCandidate(
   const wf = runWalkForward(candidate.rules, tfPrices, input.capital, {
     testWindowDays: windowDays,
     stepDays,
+    // Pre-screen: drop candidates after window 1 when they're clearly
+    // not going to survive the full pass criteria. Windows 2-3 don't
+    // change the verdict for these — net negative AND DD already past
+    // the safety cap means the candidate is failing the dd_safe gate
+    // regardless of how the later windows look. Saves ~30-50% compute
+    // on the rejected candidates.
+    earlyExitPredicate: (latest, all) => {
+      if (all.length !== 1) return false;
+      const negativeReturn = latest.total_return < 0;
+      const ddBlowout = latest.max_drawdown > MAX_WINDOW_DD_PCT;
+      return negativeReturn && ddBlowout;
+    },
   });
   if (wf.total_windows === 0) return null;
 

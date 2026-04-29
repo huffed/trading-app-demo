@@ -62,6 +62,20 @@ export interface WalkForwardOptions {
   testWindowDays: number;
   stepDays: number;
   events?: EconomicEvent[];
+  /**
+   * Optional pre-screen predicate. Called after each completed window;
+   * returning true halts the walk-forward and returns a partial summary
+   * containing only the windows that already ran.
+   *
+   * Used by the combinatorial search engine to drop demonstrably weak
+   * candidates after window 1 (negative return + dangerous DD) without
+   * spending compute on windows 2-3. Caller must interpret a partial
+   * result — `total_windows` will be less than the natural slice count.
+   */
+  earlyExitPredicate?: (
+    latestWindow: WalkForwardWindow,
+    allSoFar: WalkForwardWindow[]
+  ) => boolean;
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -161,7 +175,7 @@ export function runWalkForward(
       continue;
     }
     const result: BacktestMetrics = runPortfolioBacktest(rules, sliced, capital, options.events ?? []);
-    windows.push({
+    const window: WalkForwardWindow = {
       index: i++,
       start: new Date(sliceStart).toISOString().slice(0, 10),
       end: new Date(sliceEnd).toISOString().slice(0, 10),
@@ -169,7 +183,9 @@ export function runWalkForward(
       win_rate: result.win_rate,
       total_return: result.total_return,
       max_drawdown: result.max_drawdown,
-    });
+    };
+    windows.push(window);
+    if (options.earlyExitPredicate?.(window, windows)) break;
   }
 
   return {
