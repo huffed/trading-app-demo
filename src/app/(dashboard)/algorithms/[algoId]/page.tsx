@@ -3,34 +3,29 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
+import { AlgoActivitySection } from "@/components/algorithms/algo-activity-section";
+import { AlgoHistorySection } from "@/components/algorithms/algo-history-section";
+import { AlgoSetupSection } from "@/components/algorithms/algo-setup-section";
+import { AlgoStatusSection } from "@/components/algorithms/algo-status-section";
+import { AlgoTodaySection } from "@/components/algorithms/algo-today-section";
 import {
   AlgoHeader,
-  BacktestTab,
   DeleteAlgoDialog,
-  OverviewTab,
   RerunPrompt,
 } from "@/components/algorithms/algorithm-detail-parts";
 import { AlgorithmEditView } from "@/components/algorithms/algorithm-edit-view";
-import { DiscoveryCard } from "@/components/algorithms/discovery-card";
-import { FtmoComplianceCard } from "@/components/algorithms/ftmo-compliance-card";
-import { PaperTradingTab } from "@/components/algorithms/paper-trading-tab";
-import { ReadinessCheckCard } from "@/components/algorithms/readiness-check-card";
-import { StrategyStatsTab } from "@/components/algorithms/strategy-stats-tab";
-import { WatchlistCard } from "@/components/algorithms/watchlist-card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   useAlgorithm,
   useDeleteAlgorithm,
   useRunAiBacktest,
   useUpdateAlgorithm,
 } from "@/hooks/use-algorithms";
-import {
-  isSentimentCondition,
-  type Algorithm,
-  type AlgorithmRules,
-  type AlgorithmStatus,
+import type {
+  Algorithm,
+  AlgorithmRules,
+  AlgorithmStatus,
 } from "@/types/algorithm";
 
 function ReadView({
@@ -59,43 +54,21 @@ function ReadView({
 }) {
   return (
     <div className="space-y-4">
-      <FtmoComplianceCard algorithmId={algo.id} />
-      <ReadinessCheckCard algorithmId={algo.id} />
-      <Tabs defaultValue={0}>
-      <TabsList variant="line">
-        <TabsTrigger value={0}>Overview</TabsTrigger>
-        <TabsTrigger value={1}>Watchlist</TabsTrigger>
-        <TabsTrigger value={2}>Backtest</TabsTrigger>
-        <TabsTrigger value={3}>Paper Trading</TabsTrigger>
-        <TabsTrigger value={4}>Strategy Stats</TabsTrigger>
-      </TabsList>
-      <OverviewTab algo={algo} />
-      <TabsContent value={1} className="space-y-4 pt-2">
-        <WatchlistCard
-          algorithmId={algo.id}
-          hasSentimentConditions={algo.rules.entry_conditions.some(isSentimentCondition)}
-          assetClass={algo.asset_class}
-        />
-        <DiscoveryCard algorithmId={algo.id} />
-      </TabsContent>
-      <BacktestTab
+      <AlgoStatusSection
+        algorithmId={algo.id}
+        algorithmStatus={algo.status}
+        liveTradingEnabled={algo.live_trading_enabled ?? false}
+        lastScannedAt={algo.last_scanned_at}
+      />
+      <AlgoTodaySection algorithmId={algo.id} />
+      <AlgoHistorySection algorithmId={algo.id} />
+      <AlgoSetupSection
         algo={algo}
         aiBacktestError={aiBacktestError}
         onRunAiBacktest={onRunAiBacktest}
         isAiPending={isAiPending}
       />
-      <TabsContent value={3} className="space-y-4 pt-2">
-        <PaperTradingTab
-          algorithmId={algo.id}
-          algorithmStatus={algo.status}
-          lastScannedAt={algo.last_scanned_at}
-          liveTradingEnabled={algo.live_trading_enabled ?? false}
-        />
-      </TabsContent>
-      <TabsContent value={4} className="space-y-4 pt-2">
-        <StrategyStatsTab algorithmId={algo.id} />
-      </TabsContent>
-      </Tabs>
+      <AlgoActivitySection algorithmId={algo.id} />
     </div>
   );
 }
@@ -160,7 +133,7 @@ export default function AlgorithmDetailPage() {
 
   if (s.isLoading) {
     return (
-      <div className="mx-auto max-w-2xl space-y-4">
+      <div className="mx-auto max-w-5xl space-y-4">
         <Skeleton className="h-8 w-48" />
         <Skeleton className="h-64 w-full" />
       </div>
@@ -185,7 +158,7 @@ export default function AlgorithmDetailPage() {
   const algo = s.algo;
 
   return (
-    <div className="mx-auto max-w-2xl space-y-4">
+    <div className="mx-auto max-w-5xl space-y-4">
       <AlgoHeader
         name={algo.name}
         status={algo.status}
