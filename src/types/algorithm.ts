@@ -72,6 +72,14 @@ export function isPatternCondition(c: EntryCondition | ExitCondition): c is Patt
 
 // --- Risk management & rules ---
 
+export interface SessionFilter {
+  enabled: boolean;
+  /** Inclusive — entries fire from this UTC hour. 0-23. */
+  start_hour_utc: number;
+  /** Exclusive — entries blocked from this UTC hour onward. 1-24. */
+  end_hour_utc: number;
+}
+
 export interface StopLoss {
   type: "percentage" | "fixed" | "pips";
   value: number;
@@ -207,6 +215,18 @@ export interface AlgorithmRules {
   side?: "long" | "short" | "auto";
   prop_firm?: PropFirmRules;
   news_veto?: NewsVetoRules;
+  /**
+   * Session window — block entries outside the configured UTC hours.
+   * Disciplined human FTMO traders typically only trade London + the
+   * London/NY overlap (07-16 UTC) where liquidity is healthy and spreads
+   * tight. The friend-trade analysis showed 84% of entries inside that
+   * window. Trading 24/7 produces entries during low-liquidity periods
+   * (Sunday open, Asian session for non-Asian pairs) that our backtest
+   * doesn't model the cost of properly. start_hour is inclusive,
+   * end_hour is exclusive — `{ start_hour_utc: 7, end_hour_utc: 17 }`
+   * means 07:00:00 through 16:59:59 UTC.
+   */
+  session_filter?: SessionFilter;
   /**
    * Cumulative paper-vs-broker divergence kill switch. Computes the rolling
    * mean of |broker_fill_price - entry_price| in basis points (bp = 0.01%

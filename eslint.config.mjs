@@ -62,8 +62,10 @@ const eslintConfig = defineConfig([
     },
   },
 
-  // Override default ignores of eslint-config-next.
-  globalIgnores([".next/**", "out/**", "build/**", "next-env.d.ts"]),
+  // Override default ignores of eslint-config-next. `scripts/` is one-off
+  // CLI tooling (data analysis, ad-hoc maintenance) — console.log is the
+  // intended output channel there, and the production code rules don't fit.
+  globalIgnores([".next/**", "out/**", "build/**", "next-env.d.ts", "scripts/**"]),
 ]);
 
 export default eslintConfig;

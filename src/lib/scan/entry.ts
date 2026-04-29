@@ -1,6 +1,7 @@
 /**
  * Entry evaluation — checks if conditions are met and opens a new position.
  */
+import { checkSessionFilter } from "@/lib/algorithm/session-filter";
 import { getContractSize } from "@/lib/constants/markets";
 import { isWeakTrendByAdx } from "@/lib/market-data/adx-filter";
 import { resolveSide } from "@/lib/market-data/auto-side";
@@ -315,6 +316,20 @@ export async function evaluateEntry(
   const rules = algo.rules;
   // Use real-time price for entry, fall back to latest daily close
   const currentPrice = livePrice ?? closes[closes.length - 1];
+
+  // Session filter — cheapest gate, runs first. Skip the entry pipeline
+  // entirely if the current UTC hour is outside the configured window.
+  // Friend-trade analysis showed 84% of disciplined entries inside 07-16 UTC.
+  const session = checkSessionFilter(rules.session_filter, new Date());
+  if (session.outside) {
+    await logActivity(supabase, userId, {
+      algorithm_id: algo.id,
+      event_type: "signal_no_action",
+      ticker,
+      details: { reason: session.reason ?? "Outside trading session" },
+    });
+    return { opened: 0 };
+  }
 
   const veto = await checkNewsVeto(rules, ticker);
   if (veto.vetoed) {
