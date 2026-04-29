@@ -9,6 +9,7 @@ import { EXIT_REASON_LABELS } from "@/lib/constants/algorithm";
 import { formatPnl, pnlColorClass } from "@/lib/utils/pnl";
 import type { PaperPosition } from "@/types/position";
 import { PositionActivityPanel } from "./position-activity-panel";
+import { PositionChartPanel } from "./position-chart-panel";
 import { PositionConditionsPanel } from "./position-conditions-panel";
 import { PositionStatsPanel } from "./position-stats-panel";
 
@@ -72,7 +73,7 @@ function CardTrigger({
   );
 }
 
-type PanelKey = "stats" | "conditions" | "activity";
+type PanelKey = "stats" | "conditions" | "activity" | "chart";
 
 function ExpandedBody({
   pos,
@@ -91,6 +92,7 @@ function ExpandedBody({
             <TabsTrigger value="stats">Stats</TabsTrigger>
             <TabsTrigger value="conditions">Conditions</TabsTrigger>
             <TabsTrigger value="activity">Activity</TabsTrigger>
+            <TabsTrigger value="chart">Chart</TabsTrigger>
           </TabsList>
         </div>
         <TabsContent value="stats">
@@ -102,6 +104,7 @@ function ExpandedBody({
         <TabsContent value="activity">
           <PositionActivityPanel pos={pos} />
         </TabsContent>
+        <TabsContent value="chart">{tab === "chart" && <PositionChartPanel pos={pos} />}</TabsContent>
       </Tabs>
       {isOpen && onClose && (
         <div className="flex justify-end px-4 pb-3">
