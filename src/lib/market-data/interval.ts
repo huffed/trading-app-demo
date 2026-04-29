@@ -7,9 +7,12 @@
  * pipeline only handles a small fixed set of intervals.
  */
 
-export type BarInterval = "1h" | "4h" | "1day";
+export type BarInterval = "15min" | "1h" | "4h" | "1day";
 
 const KEYWORD_TO_INTERVAL: Array<[RegExp, BarInterval]> = [
+  // 15-minute intraday — order matters: must run before "1h" matchers so
+  // "15m" / "15min" doesn't accidentally fall through to a broader pattern.
+  [/^15m$|^15min$|^15minutes?$|quarter.?hour/i, "15min"],
   [/^1h$|^1hr$|^60m$|hourly|scalp/i, "1h"],
   [/^4h$|^4hr$|^240m$/i, "4h"],
   [/^1d$|^daily$|swing|long.?term|weekly|monthly|position/i, "1day"],
@@ -23,9 +26,13 @@ export function timeframeToInterval(timeframe: string | undefined): BarInterval 
   return "1day";
 }
 
-/** Bars per calendar day for sizing default-window math. */
+/** Bars per calendar day for sizing default-window math. Forex/CFD markets
+ *  trade ~24h on weekdays, so the count is a true 24h × bars-per-hour for
+ *  intraday intervals; daily bars are 1 per day. */
 export function barsPerDay(interval: BarInterval): number {
   switch (interval) {
+    case "15min":
+      return 96;
     case "1h":
       return 24;
     case "4h":
@@ -38,9 +45,13 @@ export function barsPerDay(interval: BarInterval): number {
 /**
  * Pick the right output_size for a backtest given the bar interval.
  * - 1day: "compact" (100 bars = 100 trading days, plenty)
- * - 4h / 1h: "full" — Twelve Data returns up to 5000 bars (~2 years of 4h,
- *   ~7 months of 1h). Without this, intraday backtests run on ~16 days of
- *   data, which is too small a sample for any conclusion.
+ * - 4h / 1h / 15min: "full" — Twelve Data returns up to 5000 bars (~2 years
+ *   of 4h, ~7 months of 1h, ~52 days of 15min). Without this, intraday
+ *   backtests run on ~16 days of data, which is too small a sample for any
+ *   conclusion. Note: 15min walk-forward windows must be SHORTER than 180
+ *   days because 180d × 96 bars/day = 17,280 bars > 5000-bar API limit;
+ *   the readiness check sets shorter windows automatically when interval
+ *   resolves to 15min.
  */
 export function recommendedOutputSize(interval: BarInterval): "compact" | "full" {
   return interval === "1day" ? "compact" : "full";
@@ -59,5 +70,7 @@ export function minBarsFor(interval: BarInterval): number {
       return 200; // ~33 trading days
     case "1h":
       return 500; // ~21 trading days
+    case "15min":
+      return 1000; // ~10 trading days; ATR(14) + lookback windows + signal warmup
   }
 }

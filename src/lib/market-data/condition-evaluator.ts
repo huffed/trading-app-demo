@@ -77,13 +77,19 @@ function bundleFor(cond: EvaluableCondition, ctx: ConditionContext): BarsBundle 
   );
 }
 
-export function checkConditions(
+/**
+ * Walk the condition list and count how many fire. Used both by the
+ * boolean `checkConditions` (logic combinator) and by conviction-scaled
+ * position sizing which needs to know the *exact* alignment count, not
+ * just whether the threshold was met. Single source of truth so a future
+ * change to the per-condition evaluation never silently desyncs the two
+ * paths.
+ */
+export function countConditionsMet(
   conditions: EvaluableCondition[],
   ctx: ConditionContext,
-  evaluateTechnical: TechnicalEvaluator,
-  logic: EntryLogic = "all"
-): boolean {
-  if (conditions.length === 0) return false;
+  evaluateTechnical: TechnicalEvaluator
+): { met: number; total: number } {
   let met = 0;
   for (const c of conditions) {
     const bundle = bundleFor(c, ctx);
@@ -100,11 +106,23 @@ export function checkConditions(
           ctx.higherTfBars,
           ctx.directionOverride
         )
-      )
-        {met++;}
+      ) {
+        met++;
+      }
     }
   }
-  if (logic === "all") return met === conditions.length;
+  return { met, total: conditions.length };
+}
+
+export function checkConditions(
+  conditions: EvaluableCondition[],
+  ctx: ConditionContext,
+  evaluateTechnical: TechnicalEvaluator,
+  logic: EntryLogic = "all"
+): boolean {
+  if (conditions.length === 0) return false;
+  const { met, total } = countConditionsMet(conditions, ctx, evaluateTechnical);
+  if (logic === "all") return met === total;
   if (logic === "any") return met > 0;
   return met >= logic.n;
 }

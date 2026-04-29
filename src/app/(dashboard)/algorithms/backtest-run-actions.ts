@@ -63,7 +63,7 @@ export async function runAiBacktest(
 async function fetchPricesForPortfolio(
   tickers: string[],
   outputSize: "compact" | "full",
-  interval: "1day" | "4h" | "1h"
+  interval: import("@/lib/market-data/interval").BarInterval
 ): Promise<Map<string, Awaited<ReturnType<typeof import("@/lib/market-data/prices").fetchDailyPrices>>>> {
   const { fetchDailyPrices } = await import("@/lib/market-data/prices");
   const { getCachedPrices, savePricesToCache } = await import("@/lib/market-data/price-cache");
