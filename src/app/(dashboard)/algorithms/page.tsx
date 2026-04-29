@@ -1,14 +1,25 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { Bot, Plus, Telescope } from "lucide-react";
 import { AlgorithmCard } from "@/components/algorithms/algorithm-card";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAlgorithmsList } from "@/hooks/use-algorithms";
+import type { Algorithm, AlgorithmStatus } from "@/types/algorithm";
 
-const EMPTY = (
+type GroupKey = "live" | "draft" | "archived";
+
+const GROUPS: Record<GroupKey, { label: string; statuses: AlgorithmStatus[] }> = {
+  live: { label: "Active", statuses: ["active", "paused"] },
+  draft: { label: "Drafts", statuses: ["draft"] },
+  archived: { label: "Archived", statuses: ["archived"] },
+};
+
+const EMPTY_DEFAULT = (
   <EmptyState
     icon={<Bot className="h-8 w-8 text-muted-foreground mb-3" />}
     title="No algorithms yet"
@@ -17,8 +28,45 @@ const EMPTY = (
   />
 );
 
+function emptyForGroup(group: GroupKey) {
+  if (group === "live") return EMPTY_DEFAULT;
+  return (
+    <EmptyState
+      icon={<Bot className="h-8 w-8 text-muted-foreground mb-3" />}
+      title={group === "draft" ? "No drafts" : "Nothing archived"}
+      description={
+        group === "draft"
+          ? "Algorithms you've started but haven't activated will appear here."
+          : "Algorithms you've archived will appear here. Useful for keeping the active list focused."
+      }
+    />
+  );
+}
+
+function AlgorithmGrid({ algorithms }: { algorithms: Algorithm[] }) {
+  return (
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {algorithms.map((algo) => (
+        <AlgorithmCard key={algo.id} algorithm={algo} />
+      ))}
+    </div>
+  );
+}
+
 export default function AlgorithmsPage() {
   const { data: algorithms, isLoading } = useAlgorithmsList();
+  const [tab, setTab] = useState<GroupKey>("live");
+
+  const grouped: Record<GroupKey, Algorithm[]> = {
+    live: [],
+    draft: [],
+    archived: [],
+  };
+  for (const a of algorithms ?? []) {
+    if (GROUPS.live.statuses.includes(a.status)) grouped.live.push(a);
+    else if (GROUPS.draft.statuses.includes(a.status)) grouped.draft.push(a);
+    else if (GROUPS.archived.statuses.includes(a.status)) grouped.archived.push(a);
+  }
 
   return (
     <div className="space-y-4">
@@ -53,13 +101,27 @@ export default function AlgorithmsPage() {
           ))}
         </div>
       )}
-      {!isLoading && (!algorithms || algorithms.length === 0) && EMPTY}
-      {!isLoading && algorithms && algorithms.length > 0 && (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {algorithms.map((algo) => (
-            <AlgorithmCard key={algo.id} algorithm={algo} />
+
+      {!isLoading && (
+        <Tabs value={tab} onValueChange={(v) => setTab(v as GroupKey)}>
+          <TabsList>
+            {(Object.keys(GROUPS) as GroupKey[]).map((key) => (
+              <TabsTrigger key={key} value={key}>
+                {GROUPS[key].label}
+                <span className="ml-1.5 text-xs text-muted-foreground">
+                  ({grouped[key].length})
+                </span>
+              </TabsTrigger>
+            ))}
+          </TabsList>
+          {(Object.keys(GROUPS) as GroupKey[]).map((key) => (
+            <TabsContent key={key} value={key} className="pt-2">
+              {grouped[key].length === 0 ? emptyForGroup(key) : (
+                <AlgorithmGrid algorithms={grouped[key]} />
+              )}
+            </TabsContent>
           ))}
-        </div>
+        </Tabs>
       )}
     </div>
   );
