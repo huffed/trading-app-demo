@@ -6,12 +6,14 @@ import {
   ComposedChart,
   Line,
   LineChart,
+  ReferenceArea,
   ReferenceDot,
   ReferenceLine,
   Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
+import type { PatternViz } from "@/app/(dashboard)/algorithms/pattern-viz-actions";
 import { formatPriceValue } from "@/lib/utils/pnl";
 import { ChartTooltip } from "./position-chart-controls";
 
@@ -93,6 +95,8 @@ export interface ChartRenderData {
   side: "long" | "short";
   entryLabel: string | null;
   exitLabel: string | null;
+  /** Pattern overlay to render. Null = no overlay. */
+  patternViz?: PatternViz | null;
 }
 
 export function formatTick(iso: string, timeframe: string): string {
@@ -109,6 +113,81 @@ function exitDotColor(data: ChartRenderData): string {
     (data.exitPrice > data.entryPrice && data.side === "long") ||
     (data.exitPrice < data.entryPrice && data.side === "short");
   return profitable ? "var(--profit)" : "var(--loss)";
+}
+
+/**
+ * Render the pattern-specific overlay (momentum window, daily-bias MA
+ * line, etc) on top of the chart. Each pattern kind has its own
+ * trader-style geometry. Implemented as a regular component returning
+ * Recharts primitives — must be rendered INSIDE the chart so axes
+ * and ReferenceArea/ReferenceLine resolve correctly.
+ */
+function PatternOverlay({ data }: { data: ChartRenderData }) {
+  const viz = data.patternViz;
+  if (!viz) return null;
+
+  if (viz.kind === "momentum") {
+    // Find chart points whose date falls inside the lookback window.
+    const start = new Date(viz.start_date).getTime();
+    const end = new Date(viz.end_date).getTime();
+    const inside = data.points.filter((p) => {
+      const t = new Date(p.date).getTime();
+      return t >= start && t <= end;
+    });
+    if (inside.length === 0) return null;
+    const first = inside[0].label;
+    const last = inside[inside.length - 1].label;
+    const fill = viz.direction === "bullish" ? "var(--profit)" : "var(--loss)";
+    return (
+      <ReferenceArea
+        x1={first}
+        x2={last}
+        fill={fill}
+        fillOpacity={0.12}
+        stroke={fill}
+        strokeOpacity={0.4}
+        strokeWidth={1}
+        ifOverflow="extendDomain"
+        label={{
+          value: `${viz.direction} momentum ${viz.signed_size_atr.toFixed(2)} ATR`,
+          position: "insideTopLeft",
+          fontSize: 10,
+          fill,
+        }}
+      />
+    );
+  }
+
+  if (viz.kind === "daily_bias") {
+    // Find each chart point's nearest preceding daily MA value, then
+    // render as a Line in a paired component (here we expose just a
+    // ReferenceLine at the latest MA value as a simple anchor; the
+    // step-line series is added by ChartBody as a separate <Line />).
+    const latest = viz.ma_series.at(-1);
+    if (!latest) return null;
+    const biasColors: Record<string, string> = {
+      bullish: "var(--profit)",
+      bearish: "var(--loss)",
+      neutral: "var(--color-muted-foreground)",
+    };
+    const color = biasColors[viz.bias_at_entry] ?? "var(--color-muted-foreground)";
+    return (
+      <ReferenceLine
+        y={latest.value}
+        stroke={color}
+        strokeWidth={1.5}
+        strokeDasharray="2 4"
+        label={{
+          value: `SMA${viz.ma_period} (${viz.bias_at_entry})`,
+          position: "left",
+          fontSize: 10,
+          fill: color,
+        }}
+      />
+    );
+  }
+
+  return null;
 }
 
 function ChartReferenceMarkers({ data }: { data: ChartRenderData }) {
@@ -196,6 +275,7 @@ export function ChartBody({ data }: { data: ChartRenderData }) {
     return (
       <LineChart data={data.points} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
         <ChartAxes data={data} />
+        <PatternOverlay data={data} />
         <ChartReferenceMarkers data={data} />
         <Line
           type="monotone"
@@ -211,6 +291,7 @@ export function ChartBody({ data }: { data: ChartRenderData }) {
   return (
     <ComposedChart data={data.points} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
       <ChartAxes data={data} />
+      <PatternOverlay data={data} />
       <ChartReferenceMarkers data={data} />
       <Bar
         dataKey={(d: ChartPoint) => [d.low, d.high]}
