@@ -21,6 +21,7 @@ import { detectDailyBias } from "./daily-bias";
 import { detectFvg, scanFvgs } from "./fvg";
 import { detectLiquiditySweep } from "./liquidity-sweep";
 import { detectOrderBlock } from "./order-block";
+import { detectRoundNumberRejection } from "./round-number";
 
 /**
  * Evaluate a pattern condition against the bar series at index `idx`.
@@ -89,6 +90,16 @@ export function evaluatePatternCondition(
       // OB lookback is broader than swing-style patterns — caller-supplied
       // `lookback` overrides the default 30-bar zone-search window.
       const r = detectOrderBlock(bars, idx, { lookback: cond.lookback });
+      if (!r.detected || !r.details) return false;
+      if (effectiveDir && r.details.direction !== effectiveDir) return false;
+      return true;
+    }
+    case "round_number": {
+      // Round-level rejection: bar wicked into a round price (50/100-pip
+      // on majors, $20/$50 on gold, etc.) and closed back inside. Step
+      // is auto-derived from the bar's price magnitude — no per-symbol
+      // catalog entry required, so new tickers just work.
+      const r = detectRoundNumberRejection(bars, idx);
       if (!r.detected || !r.details) return false;
       if (effectiveDir && r.details.direction !== effectiveDir) return false;
       return true;

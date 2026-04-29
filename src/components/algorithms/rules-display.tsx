@@ -118,6 +118,7 @@ const PATTERN_LABELS: Record<PatternCondition["pattern"], string> = {
   daily_bias: "Daily bias",
   bos: "Break of structure",
   order_block: "Order block retest",
+  round_number: "Round-number rejection",
 };
 
 function formatPatternCondition(c: PatternCondition): string {

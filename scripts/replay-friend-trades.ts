@@ -16,6 +16,7 @@ import { detectDailyBias } from "../src/lib/patterns/daily-bias";
 import { detectFvg } from "../src/lib/patterns/fvg";
 import { detectLiquiditySweep } from "../src/lib/patterns/liquidity-sweep";
 import { detectOrderBlock } from "../src/lib/patterns/order-block";
+import { detectRoundNumberRejection } from "../src/lib/patterns/round-number";
 
 // Manual env loader (same pattern as analyze-friend-trades.ts)
 {
@@ -162,6 +163,8 @@ interface PatternHit {
   fvg_bearish: boolean;
   sweep_bullish: boolean;
   sweep_bearish: boolean;
+  round_number_bullish: boolean;
+  round_number_bearish: boolean;
   /** Aligned to the trade's direction: count of patterns that match the
    *  side he was actually trading (buy → bullish patterns, sell → bearish). */
   alignedCount: number;
@@ -206,6 +209,10 @@ function evaluatePatterns(
   const sweepBull = sweepResult.detected && sweepResult.details?.direction === "bullish";
   const sweepBear = sweepResult.detected && sweepResult.details?.direction === "bearish";
 
+  const roundResult = detectRoundNumberRejection(bars, i);
+  const roundBull = roundResult.detected && roundResult.details?.direction === "bullish";
+  const roundBear = roundResult.detected && roundResult.details?.direction === "bearish";
+
   const isBull = direction === "bullish";
   const aligned = [
     isBull ? biasBull : biasBear,
@@ -213,6 +220,7 @@ function evaluatePatterns(
     isBull ? obBull : obBear,
     isBull ? fvgBull : fvgBear,
     isBull ? sweepBull : sweepBear,
+    isBull ? roundBull : roundBear,
   ].filter(Boolean).length;
   const ourTemplate = [
     isBull ? biasBull : biasBear,
@@ -231,6 +239,8 @@ function evaluatePatterns(
     fvg_bearish: fvgBear,
     sweep_bullish: sweepBull,
     sweep_bearish: sweepBear,
+    round_number_bullish: roundBull,
+    round_number_bearish: roundBear,
     alignedCount: aligned,
     ourTemplateAlignedCount: ourTemplate,
   };
@@ -347,7 +357,7 @@ async function main() {
     }).length;
     return (fired / sample.length) * 100;
   }
-  const patterns = ["daily_bias", "bos", "ob", "fvg", "sweep"];
+  const patterns = ["daily_bias", "bos", "ob", "fvg", "sweep", "round_number"];
   console.log(`Pattern             ALL    WINNERS  LOSERS`);
   for (const p of patterns) {
     const a = fireAlignedRate(p, evaluated).toFixed(0);
