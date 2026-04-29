@@ -11,6 +11,10 @@ import {
   runAiBacktest,
   runPortfolioBacktest,
 } from "@/app/(dashboard)/algorithms/backtest-run-actions";
+import {
+  generateAlgorithmFromSearch,
+  type GenerateFromSearchInput,
+} from "@/app/(dashboard)/algorithms/generate-from-search-actions";
 import { createClient } from "@/lib/supabase/client";
 import type {
   AlgorithmFormValues,
@@ -53,6 +57,18 @@ export function useGenerateAlgorithm() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (values: AlgorithmFormValues) => generateAlgorithm(values),
+    onSuccess: (result) => {
+      if (result.success) {
+        queryClient.invalidateQueries({ queryKey: ALGORITHMS_KEY });
+      }
+    },
+  });
+}
+
+export function useGenerateAlgorithmFromSearch() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: GenerateFromSearchInput) => generateAlgorithmFromSearch(input),
     onSuccess: (result) => {
       if (result.success) {
         queryClient.invalidateQueries({ queryKey: ALGORITHMS_KEY });
