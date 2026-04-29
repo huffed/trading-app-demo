@@ -33,6 +33,7 @@ import {
 } from "@/types/algorithm";
 import type { PaperPosition, PositionEvent } from "@/types/position";
 import { checkConsecutiveLossHalt } from "./consec-loss-halt";
+import { checkConsistencyHalt } from "./consistency-halt";
 import { calculatePositionSize, calculateRiskPrices, logActivity } from "./helpers";
 import { executeLiveEntry, type BrokerExecutionContext } from "./live-execution";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -362,6 +363,30 @@ export async function evaluateEntry(
         ticker,
         details: {
           reason: `Consecutive-loss halt: ${halt.streak}/${halt.threshold} losses today`,
+        },
+      });
+      return { opened: 0 };
+    }
+  }
+
+  // FTMO consistency-rule guard. Refuses new entries on a day whose
+  // net profit already accounts for ≥ X% of total accumulated profit
+  // (FTMO's standard challenge: 40%; funded plans: 50%). Stops a
+  // single big day from disqualifying the whole evaluation.
+  const consistencyPct = rules.prop_firm?.consistency_rule ?? 0;
+  if (consistencyPct > 0) {
+    const halt = await checkConsistencyHalt(supabase, algo.id, consistencyPct);
+    if (halt.tripped) {
+      await logActivity(supabase, userId, {
+        algorithm_id: algo.id,
+        event_type: "signal_no_action",
+        ticker,
+        details: {
+          reason: `Consistency halt: today $${halt.today_net.toFixed(0)} = ${(halt.ratio * 100).toFixed(1)}% of total $${halt.total_net.toFixed(0)} (≥ ${(halt.threshold * 100).toFixed(0)}% limit)`,
+          today_net: halt.today_net,
+          total_net: halt.total_net,
+          ratio: halt.ratio,
+          threshold: halt.threshold,
         },
       });
       return { opened: 0 };
