@@ -88,6 +88,7 @@ const patternConditionSchema = z.object({
     "order_block",
     "engulfing",
     "pin_bar",
+    "momentum",
   ]),
   direction: z.enum(["bullish", "bearish"]).optional(),
   lookback: z.number().int().min(1).max(100).optional(),

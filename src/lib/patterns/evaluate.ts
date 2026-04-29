@@ -21,6 +21,7 @@ import { detectDailyBias } from "./daily-bias";
 import { detectEngulfing } from "./engulfing";
 import { detectFvg, scanFvgs } from "./fvg";
 import { detectLiquiditySweep } from "./liquidity-sweep";
+import { detectMomentum } from "./momentum";
 import { detectOrderBlock } from "./order-block";
 import { detectPinBar } from "./pin-bar";
 
@@ -108,6 +109,15 @@ export function evaluatePatternCondition(
       // is a single-bar pattern. Defaults: wick ≥ 2× body, opposite
       // wick ≤ 0.5× dominant wick.
       const r = detectPinBar(bars, idx);
+      if (!r.detected || !r.details) return false;
+      if (effectiveDir && r.details.direction !== effectiveDir) return false;
+      return true;
+    }
+    case "momentum": {
+      // N-bar in-direction net move (ATR-scaled). cond.lookback sets
+      // the bar count; defaults to 3 (matches feature analysis).
+      // No condition-level threshold knob — uses pattern defaults.
+      const r = detectMomentum(bars, idx, { lookback: cond.lookback });
       if (!r.detected || !r.details) return false;
       if (effectiveDir && r.details.direction !== effectiveDir) return false;
       return true;

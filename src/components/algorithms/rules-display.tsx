@@ -120,6 +120,7 @@ const PATTERN_LABELS: Record<PatternCondition["pattern"], string> = {
   order_block: "Order block retest",
   engulfing: "Engulfing candle",
   pin_bar: "Pin bar (rejection)",
+  momentum: "Momentum continuation",
 };
 
 function formatPatternCondition(c: PatternCondition): string {

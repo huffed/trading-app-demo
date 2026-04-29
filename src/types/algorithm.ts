@@ -45,7 +45,8 @@ export interface PatternCondition {
     | "bos"
     | "order_block"
     | "engulfing"
-    | "pin_bar";
+    | "pin_bar"
+    | "momentum";
   /** Required directional alignment. Omit to match any direction. */
   direction?: "bullish" | "bearish";
   /** Lookback for swing-based patterns. Default 5. */
