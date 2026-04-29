@@ -3,7 +3,6 @@
 import {
   Bar,
   CartesianGrid,
-  Cell,
   ComposedChart,
   Line,
   LineChart,
@@ -15,6 +14,57 @@ import {
 } from "recharts";
 import { formatPriceValue } from "@/lib/utils/pnl";
 import { ChartTooltip } from "./position-chart-controls";
+
+interface CandleShapeProps {
+  x?: number;
+  y?: number;
+  width?: number;
+  height?: number;
+  payload?: ChartPoint;
+}
+
+/**
+ * Custom shape for the candle Bar. Recharts groups multiple Bar series
+ * side-by-side by default, so we can't use one Bar for the wick + one
+ * for the body — they'd render next to each other rather than on the
+ * same x. A single Bar with this shape draws both: wick line covering
+ * the full low → high range (Bar's own y/height), and an inset body
+ * rect mapped from open/close via the local pixel-per-price ratio.
+ */
+function CandleShape({ x, y, width, height, payload }: CandleShapeProps) {
+  if (
+    payload == null ||
+    x == null ||
+    y == null ||
+    width == null ||
+    height == null
+  ) {
+    return null;
+  }
+  const { open, high, low, close } = payload;
+  const isBull = close >= open;
+  const color = isBull ? "var(--profit)" : "var(--loss)";
+  const priceRange = high - low;
+  // ppp: pixels-per-price in the bar's local coordinate system.
+  const ppp = priceRange > 0 ? height / priceRange : 0;
+
+  const bodyTopPrice = Math.max(open, close);
+  const bodyBotPrice = Math.min(open, close);
+  // y is the pixel of `high`. Smaller y = higher price (screen coords).
+  const bodyTopY = y + (high - bodyTopPrice) * ppp;
+  const bodyHeight = Math.max(1, (bodyTopPrice - bodyBotPrice) * ppp);
+
+  const cx = x + width / 2;
+  const bodyWidth = Math.max(2, width * 0.7);
+  const bodyX = cx - bodyWidth / 2;
+
+  return (
+    <g>
+      <line x1={cx} y1={y} x2={cx} y2={y + height} stroke={color} strokeWidth={1} />
+      <rect x={bodyX} y={bodyTopY} width={bodyWidth} height={bodyHeight} fill={color} />
+    </g>
+  );
+}
 
 export { ChartHeader } from "./position-chart-controls";
 
@@ -162,20 +212,11 @@ export function ChartBody({ data }: { data: ChartRenderData }) {
     <ComposedChart data={data.points} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
       <ChartAxes data={data} />
       <ChartReferenceMarkers data={data} />
-      <Bar dataKey={(d: ChartPoint) => [d.low, d.high]} barSize={1} isAnimationActive={false}>
-        {data.points.map((p, i) => (
-          <Cell key={`wick-${i}`} fill={p.close >= p.open ? "var(--profit)" : "var(--loss)"} />
-        ))}
-      </Bar>
       <Bar
-        dataKey={(d: ChartPoint) => [Math.min(d.open, d.close), Math.max(d.open, d.close)]}
-        barSize={6}
+        dataKey={(d: ChartPoint) => [d.low, d.high]}
+        shape={CandleShape}
         isAnimationActive={false}
-      >
-        {data.points.map((p, i) => (
-          <Cell key={`body-${i}`} fill={p.close >= p.open ? "var(--profit)" : "var(--loss)"} />
-        ))}
-      </Bar>
+      />
     </ComposedChart>
   );
 }
