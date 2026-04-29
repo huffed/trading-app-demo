@@ -1,76 +1,63 @@
 # QuantTrader
 
-AI-powered trading autopilot. Connect your funded broker account, generate AI trading algorithms, and let them trade automatically — or place trades manually through our UI.
+AI-powered trading autopilot for forex and commodities. Connect a funded broker account, let the AI generate, validate, and execute trading algorithms autonomously.
 
-## Features
+## What's built
 
-- **AI Auto-Trading** - AI-generated algorithms monitor the market and execute trades on your connected broker
-- **Multi-Broker Integration** - Connect funded accounts via API (Alpaca, Binance, Bybit, MetaTrader, cTrader, IBKR)
-- **Manual Trading** - Place trades through our UI, executing on your broker as if it were a native trading platform
-- **Algorithm Backtesting** - Test strategies against real historical market data before going live
-- **Smart Trading Journal** - AI-analyzed journal with sentiment and emotion tracking
-- **Performance Dashboard** - P&L tracking, win rate, risk metrics, charts, and visualizations
-- **AI Chat Assistant** - Ask questions about trading concepts or your performance
-- **Dark-Mode-First UI** - Clean, minimal interface inspired by Perplexity AI
+- **Algorithm engine** — backtest + walk-forward + portfolio backtest across 14 forex pairs and 5 commodities
+- **Adaptive entry gates** — intraday ATR liquidity, broker spread refusal, regime/ADX filter, news veto, consistency rule
+- **Adaptive exit gates** — stop loss, take profit, signal-based exits, stagnant-loser early exit (R-aware)
+- **Discipline** — daily loss halt, R-aware consecutive-loss halt, FTMO consistency-rule guard, divergence kill switch, drift detector, auto pair pruning
+- **Combinatorial search** (Wave 7) — given (capital, monthly_target, prefer/avoid), the system runs a curated grid of strategy templates × parameters and ranks candidates by walk-forward stability
+- **Broker integration** — MetaApi (MT5, including FTMO) live; cTrader Open API ready (KYC pending)
+- **Operator UX** — readiness check, drift detector, paper-positions broker P&L sync, scan + manage cron heartbeats, manual flatten escape hatch
+- **Onboarding** — beginner wizard collects (goal, risk, capital, interests) and auto-generates a first algorithm
 
-## Tech Stack
+## Tech stack
 
-- **Frontend:** Next.js 16 (App Router) + React 19 + TypeScript
-- **UI:** shadcn/ui v4 + Tailwind CSS 4
-- **Backend:** Supabase (Postgres, Auth, Realtime)
-- **AI:** Claude API (Anthropic SDK)
-- **State:** TanStack React Query + Zustand
+| Layer | Technology |
+|---|---|
+| Framework | Next.js 16 (App Router, `src/`) |
+| React | 19 |
+| Language | TypeScript 5 strict |
+| Styling | Tailwind CSS 4 + shadcn/ui base-nova (Base UI, not Radix) |
+| Backend | Supabase (Postgres + Auth + RLS) |
+| Server state | TanStack Query 5 |
+| Client state | Zustand 5 |
+| Validation | Zod 4 |
+| LLM | Groq SDK (`llama-3.3-70b-versatile`) |
+| Market data | Twelve Data → Yahoo → Alpha Vantage (price fallback chain), Finnhub (calendar + tickers) |
+| Brokers | MetaApi MT5 (REST), cTrader Open API (proto over TLS) |
 
-## Getting Started
-
-### Prerequisites
-
-- Node.js 18+
-- pnpm (`npm install -g pnpm`)
-- A [Supabase](https://supabase.com) project
-
-### Setup
+## Setup
 
 ```bash
-# Install dependencies
 pnpm install
-
-# Copy env template and fill in your Supabase credentials
-cp .env.example .env.local
-
-# Run the profiles migration against your Supabase project
-# (paste supabase/migrations/00001_create_profiles.sql into the Supabase SQL editor)
-
-# Start dev server
-pnpm dev
+cp .env.example .env.local   # fill in Supabase + Groq + Twelve Data + Finnhub + Alpha Vantage keys
+pnpm dev                     # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+Migrations live in `supabase/migrations/` and are applied via the Supabase SQL editor or the MCP `apply_migration` tool. See `CLAUDE.md` for the full workflow.
 
-### Scripts
+## Cron / live trading
 
-```bash
-pnpm dev         # Start dev server
-pnpm build       # Production build
-pnpm lint        # ESLint
-pnpm start       # Start production server
-```
+Production cron runs on the operator's local Mac (system `cron` daemon) — see `scripts/README.md`. Schedule:
 
-## Project Status
+| Cadence | Endpoint | Purpose |
+|---|---|---|
+| every 5 min | `/api/cron/manage-positions` | SL/TP + signal-based exits + stagnant gate + broker P&L sync |
+| every hour | `/api/cron/scan-active-algorithms` | Entry evaluation against all active algorithms |
+| daily 04:00 UTC | `/api/admin/prune-sentiment-cache` | Cache hygiene |
 
-**Current:** Dashboard widgets, onboarding, and AI chat assistant
+## Repo & branches
 
-**Roadmap:**
-1. ~~Trade management (manual entry, CSV import, P&L)~~ ✓
-2. ~~Trading journal (rich text, sentiment, AI analysis)~~ ✓
-3. ~~AI integration (Claude API, journal auto-analysis)~~ ✓
-4. ~~Dashboard widgets (charts, stats, recent trades)~~ ✓
-5. ~~AI-guided onboarding & education (tooltips, guided tour, AI chat)~~ ✓
-6. AI algorithm generation (natural language to code, paper trading, backtesting)
-7. Broker integration (API keys, trade sync, order execution from platform)
-8. Advanced analytics (Sharpe ratio, drawdown, heatmaps)
-9. Monetization (Stripe billing, WhatsApp/Teams integration)
+- Repo: https://github.com/huffed/trading-app-demo
+- `main` — production-ready
+- `dev` — integration branch; merge feature PRs here
+- Feature branches: `feat/<short-description>`, off `dev`
+
+`pnpm build` and `pnpm lint` must pass (0 errors) before opening a PR. See `CLAUDE.md` for the full workflow.
 
 ## License
 
-Private
+Private.
