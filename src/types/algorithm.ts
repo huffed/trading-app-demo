@@ -279,6 +279,25 @@ export interface AlgorithmRules {
     min_adx?: number;
   };
   /**
+   * Data-driven time-of-day filter. Refuses entries during hours whose
+   * historical win rate (computed from this algorithm's own closed
+   * paper positions) is below `min_wr_pct`. Empirical — not a clock
+   * window. Falls back to no-op until each hour bucket has ≥
+   * `min_samples` closed trades; new algorithms can trade any hour
+   * during the warm-up period and the filter activates per-hour as
+   * data accumulates.
+   */
+  time_filter?: {
+    enabled: boolean;
+    /** Minimum WR % required to allow entries during an hour. Default 45. */
+    min_wr_pct?: number;
+    /** Min closed trades per hour bucket to count as informative. Default 5. */
+    min_samples?: number;
+    /** Optional days-back window for stats. Older trades may reflect a
+     *  different regime; capping the lookback keeps the filter responsive. */
+    window_days?: number;
+  };
+  /**
    * Stagnant-loser early exit. Closes a position open ≥ N bars that
    * never reached `min_excursion_r` favourable excursion AND is still
    * sitting at or below `min_pnl_r`. Encodes the friend's "cut what
