@@ -120,6 +120,7 @@ function buildSimConfig(rules: AlgorithmRules): SimConfig {
     slippageBps: pf?.slippage_bps ?? 0,
     spreadBps: pf?.spread_bps ?? 0,
     commissionPct: pf?.commission_pct ?? 0,
+    commissionPerLot: pf?.commission_per_lot ?? 0,
     maxPos: rules.max_positions ?? DEFAULT_MAX_POSITIONS,
     posSize: (rules.position_sizing?.value ?? DEFAULT_POSITION_SIZE_PCT) / 100,
     stopLoss: rules.stop_loss ?? { type: "percentage", value: DEFAULT_STOP_LOSS_PCT },
@@ -244,13 +245,13 @@ function runSimulation(
         symbol
       );
       if (exitPrice !== null) {
-        closeSimPosition(pos, dayKey, exitPrice, capital, cfg, s, trades);
+        closeSimPosition(pos, dayKey, exitPrice, capital, cfg, s, trades, symbol);
         positions.splice(p, 1);
         if (pf) dailyHalted = enforcePropFirm(pf, s, capital, dayKey, dailyHalted);
       }
     }
     // Real prop-firm behaviour: DLL breach mid-bar force-closes all positions.
-    if (dailyHalted) forceCloseAllPositions(positions, dayKey, closes[i], capital, cfg, s, trades);
+    if (dailyHalted) forceCloseAllPositions(positions, dayKey, closes[i], capital, cfg, s, trades, symbol);
     const vetoed = vetoCheck ? vetoCheck(day) : false;
     // Regime gate — skip entries while ATR is in the bottom percentile
     // of its lookback window. Choppy/compressed tape historically

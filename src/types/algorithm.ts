@@ -167,6 +167,16 @@ export interface PropFirmRules {
    * 3-10 bps for FTMO Demo on majors, higher on JPY crosses.
    */
   spread_bps?: number;
+  /**
+   * Commission in dollars per lot per round-turn (open + close combined).
+   * Mirrors how prop firms / retail brokers actually charge: FTMO forex
+   * majors are ~$7/lot, gold typically $7-10/lot. Applied additively to
+   * `commission_pct` so an algo can be configured for either or both.
+   * Defaults to 0 (no per-lot commission deducted from backtest pnl).
+   * The backtest engine derives lot count from notional / contractSize,
+   * so symbols without a contractSize entry skip the per-lot fee.
+   */
+  commission_per_lot?: number;
 }
 
 /**

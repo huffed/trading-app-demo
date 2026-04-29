@@ -58,11 +58,11 @@ async function loadBars(
   ticker: string,
   interval: ReturnType<typeof timeframeToInterval>
 ): Promise<PriceBar[] | null> {
-  let prices = await getCachedPrices(ticker, "compact", interval);
+  let prices = await getCachedPrices(ticker, "full", interval);
   if (!prices) {
     try {
-      prices = await fetchDailyPrices(ticker, "compact", interval);
-      savePricesToCache(ticker, "compact", prices, interval).catch(() => {});
+      prices = await fetchDailyPrices(ticker, "full", interval);
+      savePricesToCache(ticker, "full", prices, interval).catch(() => {});
     } catch {
       return null;
     }
@@ -77,11 +77,11 @@ async function loadDailyBars(
   interval: ReturnType<typeof timeframeToInterval>
 ): Promise<PriceBar[] | null> {
   if (interval === "1day") return null;
-  let dailyBars = await getCachedPrices(ticker, "compact", "1day");
+  let dailyBars = await getCachedPrices(ticker, "full", "1day");
   if (!dailyBars) {
     try {
-      dailyBars = await fetchDailyPrices(ticker, "compact", "1day");
-      savePricesToCache(ticker, "compact", dailyBars, "1day").catch(() => {});
+      dailyBars = await fetchDailyPrices(ticker, "full", "1day");
+      savePricesToCache(ticker, "full", dailyBars, "1day").catch(() => {});
     } catch {
       return null;
     }

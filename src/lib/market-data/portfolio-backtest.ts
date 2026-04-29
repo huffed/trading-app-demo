@@ -92,6 +92,7 @@ function buildSimConfig(rules: AlgorithmRules): SimConfig {
     slippageBps: pf?.slippage_bps ?? 0,
     spreadBps: pf?.spread_bps ?? 0,
     commissionPct: pf?.commission_pct ?? 0,
+    commissionPerLot: pf?.commission_per_lot ?? 0,
     maxPos: rules.max_positions ?? DEFAULT_MAX_POSITIONS,
     posSize: (rules.position_sizing?.value ?? DEFAULT_POSITION_SIZE_PCT) / 100,
     stopLoss: rules.stop_loss ?? { type: "percentage", value: DEFAULT_STOP_LOSS_PCT },
@@ -240,7 +241,7 @@ function runCloseLoop(
       ticker
     );
     if (exitPrice !== null) {
-      closeSimPosition(pos, dayKey, exitPrice, capital, cfg, s, trades);
+      closeSimPosition(pos, dayKey, exitPrice, capital, cfg, s, trades, ticker);
       // Tag the just-recorded trade with its ticker for portfolio breakdown.
       const t = trades[trades.length - 1];
       if (t) t.ticker = ticker;
@@ -264,7 +265,7 @@ function forceCloseTicker(
   if (state.positions.length === 0) return;
   const exitPrice = applySlippage(closePrice, cfg.slippageBps, false);
   for (let p = state.positions.length - 1; p >= 0; p--) {
-    closeSimPosition(state.positions[p], dayKey, exitPrice, capital, cfg, s, trades);
+    closeSimPosition(state.positions[p], dayKey, exitPrice, capital, cfg, s, trades, ticker);
     const t = trades[trades.length - 1];
     if (t) t.ticker = ticker;
     state.positions.splice(p, 1);

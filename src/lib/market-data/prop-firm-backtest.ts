@@ -1,6 +1,7 @@
 import {
   clampLotsToConstraints,
   getBacktestVolumeConstraints,
+  getContractSize,
   notionalInUsd,
   priceDeltaForRule,
   riskToLots,
@@ -45,6 +46,12 @@ export interface SimConfig {
    *  slippage so the user can dial each independently. */
   spreadBps: number;
   commissionPct: number;
+  /** Commission in dollars per lot per round-turn (open + close combined).
+   *  How retail / prop-firm brokers actually charge: FTMO forex majors
+   *  ~$7/lot, gold typically $7-10/lot. Applied alongside commissionPct
+   *  — they're additive so an algo can be configured for either or
+   *  both. Defaults to 0 for backwards compat. */
+  commissionPerLot: number;
   maxPos: number;
   posSize: number;
   /** Stop / TP rule in original form. Resolved per-position against the
@@ -67,7 +74,8 @@ export function closeSimPosition(
   capital: number,
   cfg: SimConfig,
   s: SimState,
-  trades: BacktestTrade[]
+  trades: BacktestTrade[],
+  symbol?: string
 ) {
   const side = pos.side ?? "long";
   // Direction-aware percent change: longs profit on price rising, shorts
@@ -79,7 +87,19 @@ export function closeSimPosition(
   // Position notional was sized off equity-at-open, so wins compound naturally
   // as equity grows and losses shrink positions during drawdowns.
   const notional = pos.notionalValue;
-  const commission = notional * (cfg.commissionPct / 100) * 2;
+  const pctCommission = notional * (cfg.commissionPct / 100) * 2;
+  // Per-lot commission: derive lots from notional / (contractSize × entry).
+  // Symbol is optional for legacy callers; without it we skip the lot-
+  // based fee entirely. Forex/commodity routes always pass it.
+  let lotCommission = 0;
+  if (symbol && cfg.commissionPerLot > 0) {
+    const contract = getContractSize(symbol);
+    if (contract > 0 && pos.entryPrice > 0) {
+      const lots = notional / (contract * pos.entryPrice);
+      lotCommission = Math.abs(lots) * cfg.commissionPerLot;
+    }
+  }
+  const commission = pctCommission + lotCommission;
   // Spread is a round-trip cost (paid on entry + exit) deducted directly
   // from realised pnl. 1 pip on EUR/USD ≈ 1.4 bp; 5 bp ≈ 0.7 pip per side.
   const spreadCost = notional * (cfg.spreadBps / 10000) * 2;
@@ -304,18 +324,24 @@ export function forceCloseAllPositions(
     entryDate: string;
     notionalValue: number;
     marginRequired: number;
+    /** Optional per-position ticker — set on the portfolio path so commission-
+     *  per-lot can use the right contract size. Single-ticker callers pass the
+     *  outer symbol via the `symbol` parameter instead. */
+    ticker?: string;
   }[],
   dayKey: string,
   closePrice: number,
   capital: number,
   cfg: SimConfig,
   s: SimState,
-  trades: BacktestTrade[]
+  trades: BacktestTrade[],
+  symbol?: string
 ): void {
   if (positions.length === 0) return;
   const exitPrice = applySlippage(closePrice, cfg.slippageBps, false);
   for (let p = positions.length - 1; p >= 0; p--) {
-    closeSimPosition(positions[p], dayKey, exitPrice, capital, cfg, s, trades);
+    const pos = positions[p];
+    closeSimPosition(pos, dayKey, exitPrice, capital, cfg, s, trades, pos.ticker ?? symbol);
     positions.splice(p, 1);
   }
 }
