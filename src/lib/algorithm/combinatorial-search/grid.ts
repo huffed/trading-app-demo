@@ -155,6 +155,44 @@ const TEMPLATES: Template[] = [
     allowed_timeframes: ["1h"],
     include_tf_conviction_variant: true,
   },
+  // Momentum continuation templates — derived from the direction-split
+  // feature dump (scripts/feature-dump-friend-trades.ts). Solo 1h
+  // momentum cleared 44.7% hit rate / 76.5% WR against the friend's
+  // FTMO trades — the first template to clear the 30% clone-claim
+  // threshold AND beat his 58% baseline. The d1_bias + momentum 2-of-2
+  // variant is also enumerated so walk-forward decides whether the
+  // bias filter helps or hurts on out-of-sample data.
+  //
+  // Both directions: feature dump showed momentum continuation works
+  // for longs AND shorts (long wins +0.18 ATR median, short wins
+  // -0.72 ATR median). Default side stays long here — search engine
+  // can produce a short variant separately, and `auto` routing depends
+  // on D1 bias which the solo template intentionally omits.
+  {
+    name: "momentum_solo",
+    default_side: "long",
+    build: (tf) => ({
+      entry: [
+        { type: "pattern", pattern: "momentum", direction: "bullish", lookback: 3, timeframe: tf },
+      ],
+      logic: "all",
+    }),
+    allowed_timeframes: ["1h", "4h"],
+  },
+  {
+    name: "momentum_with_bias",
+    default_side: "long",
+    build: (tf) => ({
+      entry: [
+        { type: "pattern", pattern: "daily_bias", direction: "bullish", ma_period: 20, timeframe: "1d" },
+        { type: "pattern", pattern: "momentum", direction: "bullish", lookback: 3, timeframe: tf },
+      ],
+      // 2-of-2 — both must fire. Stricter filter; lower hit rate
+      // against the friend's data but cleaner trend alignment.
+      logic: { type: "n_of_m", n: 2 },
+    }),
+    allowed_timeframes: ["1h"],
+  },
 ];
 
 function buildMultiTfEngulfBos(tf: string): { entry: PatternCondition[]; logic: EntryLogic } {
