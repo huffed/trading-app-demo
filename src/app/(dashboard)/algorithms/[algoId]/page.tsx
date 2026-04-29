@@ -51,6 +51,7 @@ function ReadView({
     | "last_scanned_at"
     | "asset_class"
     | "time_horizon"
+    | "live_trading_enabled"
   >;
   aiBacktestError: string | null;
   onRunAiBacktest: () => void;
@@ -88,6 +89,7 @@ function ReadView({
           algorithmId={algo.id}
           algorithmStatus={algo.status}
           lastScannedAt={algo.last_scanned_at}
+          liveTradingEnabled={algo.live_trading_enabled ?? false}
         />
       </TabsContent>
       <TabsContent value={4} className="space-y-4 pt-2">

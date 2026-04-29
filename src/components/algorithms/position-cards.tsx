@@ -22,62 +22,17 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
-  useOpenPositions,
-  useClosedPositions,
-  useClosePosition,
   useAutoRefreshPrices,
+  useClosePosition,
+  useClosedPositions,
+  useOpenPositions,
 } from "@/hooks/use-paper-trading";
 import { EXIT_REASON_LABELS } from "@/lib/constants/algorithm";
-import { getQuantityUnitFor } from "@/lib/constants/markets";
-import { formatPriceValue, formatQuantity } from "@/lib/utils/pnl";
 import type { PaperPosition } from "@/types/position";
-import { BrokerErrorBanner, BrokerErrorIcon } from "./broker-error-indicators";
+import { BrokerErrorBanner } from "./broker-error-indicators";
+import { PositionDetailCard } from "./position-detail-card";
 import { PnlCell } from "./position-pnl-cell";
 import { PriceCellWithBroker } from "./position-price-cell";
-
-function PositionRow({
-  pos,
-  onClose,
-}: {
-  pos: PaperPosition;
-  onClose: (pos: PaperPosition) => void;
-}) {
-  return (
-    <TableRow>
-      <TableCell>
-        <div className="flex items-center gap-1.5">
-          <span className="font-medium">{pos.ticker}</span>
-          {pos.broker_error && <BrokerErrorIcon message={pos.broker_error} />}
-          <span className="ml-1.5 text-xs text-muted-foreground">
-            {formatQuantity(pos.quantity)} {getQuantityUnitFor(pos.ticker, pos.quantity)}
-          </span>
-        </div>
-      </TableCell>
-      <TableCell className="text-right tabular-nums">
-        <PriceCellWithBroker
-          symbol={pos.ticker}
-          paperPrice={pos.entry_price}
-          brokerPrice={pos.broker_fill_price}
-        />
-      </TableCell>
-      <TableCell className="text-right tabular-nums">
-        {formatPriceValue(pos.ticker, pos.current_price)}
-      </TableCell>
-      <TableCell className="text-right">
-        <PnlCell pos={pos} />
-      </TableCell>
-      <TableCell className="text-right text-xs text-muted-foreground tabular-nums">
-        {formatPriceValue(pos.ticker, pos.stop_loss_price)} /{" "}
-        {formatPriceValue(pos.ticker, pos.take_profit_price)}
-      </TableCell>
-      <TableCell className="text-right">
-        <Button size="sm" variant="outline" onClick={() => onClose(pos)}>
-          Close
-        </Button>
-      </TableCell>
-    </TableRow>
-  );
-}
 
 function CloseDialog({
   target,
@@ -160,23 +115,11 @@ export function OpenPositionsCard({ algorithmId }: { algorithmId: string }) {
           <CardTitle className="text-base">Open Positions ({positions.length})</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Ticker</TableHead>
-                <TableHead className="text-right">Entry</TableHead>
-                <TableHead className="text-right">Current</TableHead>
-                <TableHead className="text-right">P&L</TableHead>
-                <TableHead className="text-right">SL / TP</TableHead>
-                <TableHead />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {positions.map((pos) => (
-                <PositionRow key={pos.id} pos={pos} onClose={setCloseTarget} />
-              ))}
-            </TableBody>
-          </Table>
+          <div>
+            {positions.map((pos) => (
+              <PositionDetailCard key={pos.id} pos={pos} onClose={setCloseTarget} />
+            ))}
+          </div>
         </CardContent>
       </Card>
       <CloseDialog
