@@ -30,8 +30,18 @@ const DD_PENALTY_DIVISOR = 5;
 const INSTABILITY_PENALTY_WEIGHT = 0.5;
 
 /** Pass-fail gates. Each predicate is a single readiness criterion;
- *  a candidate must clear all three to be eligible for the top-N. */
-const MIN_GREEN_WINDOW_RATE = 0.7;
+ *  a candidate must clear all three to be eligible for the top-N.
+ *
+ *  Note: the user's `monthly_target_pct` is NOT a gate. The risk
+ *  calibrator (calibrate.ts) scales position sizing to bring the
+ *  achieved return up to the target subject to FTMO-safe caps. The
+ *  search engine's job is to find strategies with positive edge and
+ *  stable behaviour; the calibrator + UI handle the user's target.
+ *  Earlier "passTarget = achieved >= target" gate was empirically too
+ *  strict — on a 3-symbol watchlist with 1.5%/4.5% R:R, no strategy
+ *  hits 10%/month at the search-stage 0.5% base risk. */
+const MIN_GREEN_WINDOW_RATE = 0.6;
+const MIN_POSITIVE_MONTHLY_PCT = 0.05;
 const MAX_MEAN_DD_PCT = 8;
 const MAX_WINDOW_DD_PCT = 10;
 
@@ -73,7 +83,11 @@ export function evaluateCandidate(
   const worstDdPct = wf.windows.reduce((max, w) => Math.max(max, w.max_drawdown), 0);
 
   const passWalkForward = wf.win_rate_of_windows >= MIN_GREEN_WINDOW_RATE;
-  const passTarget = monthlyReturnPct >= input.monthly_target_pct;
+  // `target_met` retains its name for caller back-compat (the field is
+  // surfaced in CandidateResult.pass_criteria) but the criterion is now
+  // "any positive edge above noise", not "hits user's monthly target".
+  // The calibrator handles target scaling.
+  const passTarget = monthlyReturnPct >= MIN_POSITIVE_MONTHLY_PCT;
   const passDd = wf.mean_drawdown <= MAX_MEAN_DD_PCT && worstDdPct <= MAX_WINDOW_DD_PCT;
 
   const score = computeScore(monthlyReturnPct, wf.mean_drawdown, wf.std_return, wf.mean_return);

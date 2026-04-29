@@ -107,25 +107,29 @@ async function main() {
     return;
   }
 
+  // Sort by score descending so the top candidates appear first — same
+  // ordering the search engine surfaces to the caller.
+  focused.sort((a, b) => b.score - a.score);
   console.log(`Focused candidates evaluated: ${focused.length}\n`);
   console.log(
-    "label                                       tf    side    monthly%   wf_green   targetMet   ddSafe   passes"
+    "label                                       tf    side    monthly%   green%   wf_green   ddSafe   passes"
   );
   console.log(
-    "-----------------------------------------------------------------------------------------------------------"
+    "-------------------------------------------------------------------------------------------------------"
   );
   for (const c of focused) {
     const passes =
       c.pass_criteria.walk_forward_green &&
       c.pass_criteria.target_met &&
       c.pass_criteria.dd_safe;
+    const greenPct = (c.walk_forward.win_rate_of_windows * 100).toFixed(0);
     const row = [
       c.label.padEnd(42),
       c.rules.timeframe.padEnd(5),
       (c.rules.side ?? "long").padEnd(7),
       c.monthly_return_pct.toFixed(2).padStart(7),
+      `${greenPct}%`.padStart(5),
       c.pass_criteria.walk_forward_green ? "  YES   " : "  no    ",
-      c.pass_criteria.target_met ? "  YES    " : "  no     ",
       c.pass_criteria.dd_safe ? "  YES  " : "  no   ",
       passes ? "  PASS" : "  FAIL",
     ].join("  ");
