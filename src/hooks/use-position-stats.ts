@@ -1,6 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import { getPositionChartData } from "@/app/(dashboard)/algorithms/position-chart-actions";
 import {
   getPositionEntryContext,
   getPositionEvents,
@@ -69,6 +70,20 @@ export function usePositionEntryContext(positionId: string, enabled: boolean) {
     staleTime: 5 * 60_000,
     queryFn: async () => {
       const r = await getPositionEntryContext(positionId);
+      if (!r.success) throw new Error(r.error);
+      return r.data;
+    },
+  });
+}
+
+/** Bars covering position lifetime + context window for the chart panel. */
+export function usePositionChartData(positionId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ["position-chart-data", positionId],
+    enabled,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const r = await getPositionChartData(positionId);
       if (!r.success) throw new Error(r.error);
       return r.data;
     },
