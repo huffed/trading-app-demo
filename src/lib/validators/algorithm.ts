@@ -79,7 +79,16 @@ const sentimentConditionSchema = z.object({
 
 const patternConditionSchema = z.object({
   type: z.literal("pattern"),
-  pattern: z.enum(["liquidity_sweep", "fvg", "ifvg", "daily_bias", "bos", "order_block"]),
+  pattern: z.enum([
+    "liquidity_sweep",
+    "fvg",
+    "ifvg",
+    "daily_bias",
+    "bos",
+    "order_block",
+    "engulfing",
+    "pin_bar",
+  ]),
   direction: z.enum(["bullish", "bearish"]).optional(),
   lookback: z.number().int().min(1).max(100).optional(),
   ma_period: z.number().int().min(1).max(500).optional(),

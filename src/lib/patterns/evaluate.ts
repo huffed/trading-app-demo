@@ -18,9 +18,11 @@ import type { PriceBar } from "@/lib/market-data/types";
 import type { PatternCondition } from "@/types/algorithm";
 import { detectBos } from "./bos";
 import { detectDailyBias } from "./daily-bias";
+import { detectEngulfing } from "./engulfing";
 import { detectFvg, scanFvgs } from "./fvg";
 import { detectLiquiditySweep } from "./liquidity-sweep";
 import { detectOrderBlock } from "./order-block";
+import { detectPinBar } from "./pin-bar";
 
 /**
  * Evaluate a pattern condition against the bar series at index `idx`.
@@ -89,6 +91,23 @@ export function evaluatePatternCondition(
       // OB lookback is broader than swing-style patterns — caller-supplied
       // `lookback` overrides the default 30-bar zone-search window.
       const r = detectOrderBlock(bars, idx, { lookback: cond.lookback });
+      if (!r.detected || !r.details) return false;
+      if (effectiveDir && r.details.direction !== effectiveDir) return false;
+      return true;
+    }
+    case "engulfing": {
+      // Strict body-engulfing reversal candle. Single-bar lookback —
+      // ignores cond.lookback (the pattern only ever looks at idx-1).
+      const r = detectEngulfing(bars, idx);
+      if (!r.detected || !r.details) return false;
+      if (effectiveDir && r.details.direction !== effectiveDir) return false;
+      return true;
+    }
+    case "pin_bar": {
+      // Long-wick rejection candle. cond.lookback is ignored — pin bar
+      // is a single-bar pattern. Defaults: wick ≥ 2× body, opposite
+      // wick ≤ 0.5× dominant wick.
+      const r = detectPinBar(bars, idx);
       if (!r.detected || !r.details) return false;
       if (effectiveDir && r.details.direction !== effectiveDir) return false;
       return true;
