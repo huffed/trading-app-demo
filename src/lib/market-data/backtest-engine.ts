@@ -1,4 +1,4 @@
-import { checkSessionFilter } from "@/lib/algorithm/session-filter";
+import { checkAtrLiquidity } from "@/lib/algorithm/intraday-atr-gate";
 import {
   DEFAULT_MAX_POSITIONS,
   DEFAULT_POSITION_SIZE_PCT,
@@ -232,13 +232,12 @@ function runSimulation(
         adxBlocked = isWeakTrendByAdx(higherTfBars, dIdx, rules.adx_filter).skip;
       }
     }
-    // Session filter — match live engine. Check the bar's date against
-    // the configured UTC window. Skipped silently in the backtest (no
-    // logActivity) since we just don't open a position on that bar.
-    const sessionBlocked = checkSessionFilter(
-      rules.session_filter,
-      new Date(prices[i].date)
-    ).outside;
+    // Intraday ATR liquidity gate — match live engine. Skips entries
+    // where the most-recent primary-timeframe ATR is below the 20th
+    // percentile of the lookback distribution. Adaptive replacement for
+    // the old clock-time session filter; backtest stays in sync with
+    // live by using the same module on the same bar series.
+    const liquidityBlocked = checkAtrLiquidity(prices, i).skip;
     if (
       !s.killTriggered &&
       !s.drawdownBreached &&
@@ -247,7 +246,7 @@ function runSimulation(
       !vetoed &&
       !regimeBlocked &&
       !adxBlocked &&
-      !sessionBlocked &&
+      !liquidityBlocked &&
       resolved !== null &&
       positions.length < cfg.maxPos &&
       checkConditions(entry, ctx, rules.entry_logic)

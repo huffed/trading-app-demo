@@ -563,6 +563,57 @@ export function getQuantityUnit(symbolOrAssetClass: string): string {
 }
 
 /**
+ * Typical broker spread in pips on FTMO MT5 demo (and similar retail MT5
+ * setups) during the liquid London + London/NY overlap window. Used as
+ * the bootstrap threshold for the live spread gate — refuse entries when
+ * the broker's current spread exceeds `typical × multiplier`.
+ *
+ * Numbers below the median of Q1 2026 FTMO MT5 demo observations on
+ * majors. Conservative (mid-band) so the gate doesn't reject too
+ * aggressively before we have learned thresholds from real samples.
+ *
+ * Once we have ≥ 50 observed spreads per symbol from broker_quote_observations,
+ * the gate switches to a learned per-symbol p90 and ignores this map.
+ *
+ * Symbols not listed return null — the gate falls back to ATR-only
+ * gating for unknown instruments rather than guessing at a threshold.
+ */
+const TYPICAL_SPREAD_PIPS: Record<string, number> = {
+  // Majors — sub-pip during peak hours, widen to 1.0-1.5 mid-session.
+  "EUR/USD": 0.6,
+  "GBP/USD": 0.9,
+  "USD/JPY": 0.7,
+  "USD/CHF": 1.5,
+  "AUD/USD": 0.9,
+  "USD/CAD": 1.5,
+  "NZD/USD": 1.5,
+  // Minors / yen crosses — wider; JPY pairs especially.
+  "EUR/GBP": 1.0,
+  "EUR/JPY": 1.2,
+  "GBP/JPY": 1.8,
+  "CHF/JPY": 2.0,
+  "AUD/JPY": 1.5,
+  "CAD/JPY": 2.0,
+  "NZD/JPY": 2.5,
+  // Metals — quoted in pips of pipSize. Gold pipSize 0.01 → 35 pips ≈ $0.35 spread.
+  "XAU/USD": 35,
+  "XAG/USD": 12,
+  // Energies — 4-5 pips at pipSize 0.01 ≈ $0.04-0.05 spread per barrel.
+  USOIL: 4,
+  UKOIL: 4,
+  NATGAS: 5,
+};
+
+/**
+ * Typical spread (pips) for a symbol, or null when not catalogued.
+ * Caller decides what "null" means — the live spread gate falls back
+ * to ATR-only when no typical is known for the symbol.
+ */
+export function getTypicalSpreadPips(symbol: string): number | null {
+  return TYPICAL_SPREAD_PIPS[symbol.toUpperCase()] ?? null;
+}
+
+/**
  * Pluralized helper for "1 share" / "5 shares".
  */
 export function getQuantityUnitFor(symbolOrAssetClass: string, quantity: number): string {

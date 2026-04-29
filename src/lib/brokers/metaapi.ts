@@ -177,6 +177,35 @@ export async function fetchSymbolSpec(
   );
 }
 
+export interface MetaApiCurrentPrice {
+  symbol: string;
+  bid: number;
+  ask: number;
+  time?: string;
+  brokerTime?: string;
+}
+
+/**
+ * Live bid/ask from MetaApi's current-price endpoint. Returned values are the
+ * broker's actual quotes, including the live bid/ask gap — what the pre-trade
+ * spread gate compares against the catalog typical to refuse bad-execution
+ * moments before they become losing fills.
+ */
+export async function fetchCurrentPrice(
+  token: string,
+  accountId: string,
+  region: MetaApiRegion,
+  appSymbol: string
+): Promise<MetaApiCurrentPrice> {
+  const symbol = toBrokerSymbol(appSymbol);
+  return call<MetaApiCurrentPrice>(
+    region,
+    token,
+    accountId,
+    `/symbols/${encodeURIComponent(symbol)}/current-price`
+  );
+}
+
 // notionalToLots moved to ./sizing.ts so the scan engine can call it
 // without importing a provider-specific module. Re-export here for
 // backwards compat with any external callers.

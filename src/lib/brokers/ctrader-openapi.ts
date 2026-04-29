@@ -133,6 +133,15 @@ export const ctraderOpenApiAdapter: BrokerAdapter = {
     });
   },
 
+  async fetchQuote() {
+    // cTrader exposes spot prices only as a streaming subscription
+    // (ProtoOASubscribeSpotsReq → ProtoOASpotEvent). One-shot quote-on-demand
+    // would require subscribe → wait → unsubscribe, which adds 200-500ms
+    // and complicates the session lifecycle. Returning null lets the
+    // spread gate fall back to ATR-only gating for cTrader accounts.
+    return null;
+  },
+
   async placeMarketOrder(conn, input: MarketOrderInput): Promise<MarketOrderResult> {
     return withCTraderSession(conn, async (s) => {
       const symbolId = requireSymbolId(s, input.appSymbol);

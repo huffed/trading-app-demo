@@ -69,6 +69,20 @@ export interface BrokerSymbolSpec {
   digits: number;
 }
 
+/**
+ * Live bid/ask snapshot. Used by the pre-trade spread gate to refuse
+ * orders when the broker's spread is wider than the symbol's typical
+ * — i.e. illiquid moments where slippage will eat the edge.
+ */
+export interface BrokerQuote {
+  /** Broker-form symbol. */
+  symbol: string;
+  bid: number;
+  ask: number;
+  /** ISO timestamp when the quote was sampled, when the adapter has it. */
+  time?: string;
+}
+
 export interface BrokerSnapshot {
   account: BrokerAccountInfo;
   positions: BrokerPosition[];
@@ -101,6 +115,13 @@ export interface BrokerAdapter {
   fetchPosition(conn: BrokerConnection, positionId: string): Promise<BrokerPosition | null>;
   fetchSnapshot(conn: BrokerConnection): Promise<BrokerSnapshot>;
   fetchSymbolSpec(conn: BrokerConnection, appSymbol: string): Promise<BrokerSymbolSpec>;
+  /**
+   * Live bid/ask for the symbol — returns null when the adapter can't
+   * surface a one-shot quote (e.g. cTrader exposes spots only as a
+   * streaming subscription). Callers must treat null as "spread gate
+   * unavailable for this broker" and fall back to non-quote gating.
+   */
+  fetchQuote(conn: BrokerConnection, appSymbol: string): Promise<BrokerQuote | null>;
   placeMarketOrder(conn: BrokerConnection, input: MarketOrderInput): Promise<MarketOrderResult>;
   closePosition(conn: BrokerConnection, positionId: string): Promise<{ orderId: string }>;
   /** Sanitise raw provider errors for surfacing to the user. Must scrub
