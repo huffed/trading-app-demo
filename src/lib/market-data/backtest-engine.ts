@@ -1,10 +1,12 @@
 import { checkAtrLiquidity } from "@/lib/algorithm/intraday-atr-gate";
+import { checkStagnantExit } from "@/lib/algorithm/stagnant-exit";
 import {
   DEFAULT_MAX_POSITIONS,
   DEFAULT_POSITION_SIZE_PCT,
   DEFAULT_STOP_LOSS_PCT,
   DEFAULT_TAKE_PROFIT_PCT,
 } from "@/lib/constants/defaults";
+import { priceDeltaForRule } from "@/lib/constants/markets";
 import {
   isPatternCondition,
   isTechnicalCondition,
@@ -141,6 +143,10 @@ function runSimulation(
   const positions: {
     entryPrice: number;
     entryDate: string;
+    /** Bar index at which the position was opened. Tracked so the
+     *  stagnant-exit gate can compute MFE / bars-open without scanning
+     *  the whole price series for each position on each bar. */
+    entryBarIndex: number;
     notionalValue: number;
     marginRequired: number;
     side: "long" | "short";
@@ -197,12 +203,26 @@ function runSimulation(
       s.drawdownBreached;
     for (let p = positions.length - 1; p >= 0; p--) {
       const pos = positions[p];
+      // Per-position stagnant gate. Runs at the bar's close (same as
+      // signal exits) so backtest replay matches the live manage cron's
+      // 5-min cadence — both check before SL/TP would have hit.
+      const stagnantFired = rules.stagnant_exit?.enabled
+        ? checkStagnantExit({
+            bars: prices,
+            entryBarIndex: pos.entryBarIndex,
+            currentBarIndex: i,
+            entryPrice: pos.entryPrice,
+            side: pos.side ?? "long",
+            stopDistance: priceDeltaForRule(rules.stop_loss, pos.entryPrice, symbol),
+            config: rules.stagnant_exit,
+          }).exit
+        : false;
       const exitPrice = pickBacktestExitPrice(
         pos,
         bar,
         closes[i],
         cfg,
-        signalExitFired,
+        signalExitFired || stagnantFired,
         symbol
       );
       if (exitPrice !== null) {
@@ -265,6 +285,7 @@ function runSimulation(
         positions.push({
           entryPrice,
           entryDate: day,
+          entryBarIndex: i,
           notionalValue: sized.notional,
           marginRequired: sized.margin,
           side,

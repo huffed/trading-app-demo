@@ -1,7 +1,12 @@
 import type { EntryReason } from "@/lib/validators/position";
 
 export type PositionStatus = "open" | "closed";
-export type ExitReason = "stop_loss" | "take_profit" | "exit_signal" | "manual";
+export type ExitReason =
+  | "stop_loss"
+  | "take_profit"
+  | "exit_signal"
+  | "manual"
+  | "stagnant_no_excursion";
 
 export type { EntryReason };
 

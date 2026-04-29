@@ -140,6 +140,19 @@ const adxFilterSchema = z.object({
   min_adx: z.number().min(0).max(100).optional(),
 });
 
+const stagnantExitSchema = z.object({
+  enabled: z.boolean(),
+  // Bar count override. Bounded so a typo doesn't pin the gate to "never"
+  // (huge max_bars) or "instantly" (max_bars = 1). Auto-derive when omitted.
+  max_bars: z.number().int().min(2).max(50).optional(),
+  // R-units. Range chosen so values like 0.3 / 0.5 / 1.0 all fit but a unit
+  // mistake (50 entered for 0.5) gets rejected.
+  min_excursion_r: z.number().min(0).max(5).optional(),
+  // Allow small positive values for "kill the trade if barely green and
+  // stagnant" plays; bound the negative side to one full stop's worth.
+  min_pnl_r: z.number().min(-1).max(1).optional(),
+});
+
 const entryLogicSchema = z.union([
   z.literal("all"),
   z.literal("any"),
@@ -200,6 +213,7 @@ export const algorithmRulesSchema = z.object({
   divergence_kill: divergenceKillSchema.optional(),
   regime_filter: regimeFilterSchema.optional(),
   adx_filter: adxFilterSchema.optional(),
+  stagnant_exit: stagnantExitSchema.optional(),
 });
 
 /**

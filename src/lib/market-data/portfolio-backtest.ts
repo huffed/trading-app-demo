@@ -7,12 +7,14 @@
  * max_per_ticker still caps pyramiding on each individual symbol.
  */
 import { checkAtrLiquidity } from "@/lib/algorithm/intraday-atr-gate";
+import { checkStagnantExit } from "@/lib/algorithm/stagnant-exit";
 import {
   DEFAULT_MAX_POSITIONS,
   DEFAULT_POSITION_SIZE_PCT,
   DEFAULT_STOP_LOSS_PCT,
   DEFAULT_TAKE_PROFIT_PCT,
 } from "@/lib/constants/defaults";
+import { priceDeltaForRule } from "@/lib/constants/markets";
 import {
   isPatternCondition,
   isTechnicalCondition,
@@ -51,6 +53,9 @@ import type {
 interface PortfolioPosition {
   entryPrice: number;
   entryDate: string;
+  /** Bar index at which the position was opened. Used by the stagnant-exit
+   *  gate to compute MFE / bars-open without scanning the full series. */
+  entryBarIndex: number;
   notionalValue: number;
   marginRequired: number;
   ticker: string;
@@ -206,12 +211,26 @@ function runCloseLoop(
   const bar = state.bars[i];
   for (let p = state.positions.length - 1; p >= 0; p--) {
     const pos = state.positions[p];
+    // Per-position stagnant gate. Same module live uses, so the
+    // backtest cuts losers at the same bar count + MFE thresholds the
+    // manage cron will apply to the real-time positions.
+    const stagnantFired = rules.stagnant_exit?.enabled
+      ? checkStagnantExit({
+          bars: state.bars,
+          entryBarIndex: pos.entryBarIndex,
+          currentBarIndex: i,
+          entryPrice: pos.entryPrice,
+          side: pos.side,
+          stopDistance: priceDeltaForRule(rules.stop_loss, pos.entryPrice, ticker),
+          config: rules.stagnant_exit,
+        }).exit
+      : false;
     const exitPrice = pickBacktestExitPrice(
       pos,
       bar,
       state.closes[i],
       cfg,
-      signalExitFired,
+      signalExitFired || stagnantFired,
       ticker
     );
     if (exitPrice !== null) {
@@ -348,6 +367,7 @@ function tryOpenEntry(
   state.positions.push({
     entryPrice,
     entryDate: state.bars[i].date,
+    entryBarIndex: i,
     notionalValue: sized.notional,
     marginRequired: sized.margin,
     ticker,
