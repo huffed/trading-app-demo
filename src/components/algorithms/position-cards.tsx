@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -14,25 +13,14 @@ import {
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
   useAutoRefreshPrices,
   useClosePosition,
   useClosedPositions,
   useOpenPositions,
 } from "@/hooks/use-paper-trading";
-import { EXIT_REASON_LABELS } from "@/lib/constants/algorithm";
 import type { PaperPosition } from "@/types/position";
 import { BrokerErrorBanner } from "./broker-error-indicators";
 import { PositionDetailCard } from "./position-detail-card";
-import { PnlCell } from "./position-pnl-cell";
-import { PriceCellWithBroker } from "./position-price-cell";
 
 function CloseDialog({
   target,
@@ -161,46 +149,11 @@ function ClosedPositionContent({
     return <p className="p-4 text-sm text-muted-foreground">No closed positions yet.</p>;
   }
   return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>Ticker</TableHead>
-          <TableHead className="text-right">Entry</TableHead>
-          <TableHead className="text-right">Exit</TableHead>
-          <TableHead className="text-right">P&L</TableHead>
-          <TableHead>Reason</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {positions.map((pos) => (
-          <TableRow key={pos.id}>
-            <TableCell className="font-medium">{pos.ticker}</TableCell>
-            <TableCell className="text-right tabular-nums">
-              <PriceCellWithBroker
-                symbol={pos.ticker}
-                paperPrice={pos.entry_price}
-                brokerPrice={pos.broker_fill_price}
-              />
-            </TableCell>
-            <TableCell className="text-right tabular-nums">
-              <PriceCellWithBroker
-                symbol={pos.ticker}
-                paperPrice={pos.exit_price}
-                brokerPrice={pos.broker_close_price}
-              />
-            </TableCell>
-            <TableCell className="text-right">
-              <PnlCell pos={pos} />
-            </TableCell>
-            <TableCell>
-              <Badge variant="secondary" className="text-xs">
-                {EXIT_REASON_LABELS[pos.exit_reason ?? ""] ?? pos.exit_reason}
-              </Badge>
-            </TableCell>
-          </TableRow>
-        ))}
-      </TableBody>
-    </Table>
+    <div>
+      {positions.map((pos) => (
+        <PositionDetailCard key={pos.id} pos={pos} />
+      ))}
+    </div>
   );
 }
 

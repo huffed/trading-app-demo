@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { usePositionLiveQuote, usePositionMaeMfe } from "@/hooks/use-position-stats";
+import { EXIT_REASON_LABELS } from "@/lib/constants/algorithm";
 import { getInstrumentMeta } from "@/lib/constants/markets";
 import { formatPnl, formatPriceValue, pnlColorClass } from "@/lib/utils/pnl";
 import type { PaperPosition } from "@/types/position";
@@ -52,7 +53,10 @@ function StatRow({
 }
 
 function StatsPanel({ pos }: { pos: PaperPosition }) {
-  const { data: quote, isLoading: quoteLoading } = usePositionLiveQuote(pos.id, true);
+  const isOpen = pos.status === "open";
+  // Skip live quote for closed positions — exit price is the relevant
+  // anchor; live bid/ask doesn't tell you anything about the trade.
+  const { data: quote, isLoading: quoteLoading } = usePositionLiveQuote(pos.id, isOpen);
   const { data: maeMfe, isLoading: maeLoading } = usePositionMaeMfe(pos.id, true);
 
   const isLong = pos.side === "long";
@@ -64,7 +68,9 @@ function StatsPanel({ pos }: { pos: PaperPosition }) {
     pos.take_profit_price != null
       ? pipsBetween(pos.ticker, pos.take_profit_price, pos.entry_price)
       : null;
-  const grossPnl = pos.broker_unrealized_pnl ?? pos.unrealized_pnl ?? 0;
+  const grossPnl = isOpen
+    ? pos.broker_unrealized_pnl ?? pos.unrealized_pnl ?? 0
+    : pos.realized_pnl ?? 0;
 
   return (
     <div className="grid gap-x-6 gap-y-3 px-4 py-3 sm:grid-cols-2">
@@ -73,13 +79,22 @@ function StatsPanel({ pos }: { pos: PaperPosition }) {
           Price
         </div>
         <StatRow label="Open" value={formatPriceValue(pos.ticker, pos.entry_price)} />
-        {quoteLoading && !quote && (
+        {!isOpen && (
+          <StatRow
+            label="Close"
+            value={formatPriceValue(
+              pos.ticker,
+              pos.broker_close_price ?? pos.exit_price ?? null
+            )}
+          />
+        )}
+        {isOpen && quoteLoading && !quote && (
           <div className="space-y-1.5">
             <Skeleton className="h-4 w-full" />
             <Skeleton className="h-4 w-full" />
           </div>
         )}
-        {quote && (
+        {isOpen && quote && (
           <>
             <StatRow label="Bid" value={formatPriceValue(pos.ticker, quote.bid)} />
             <StatRow label="Ask" value={formatPriceValue(pos.ticker, quote.ask)} />
@@ -90,7 +105,7 @@ function StatsPanel({ pos }: { pos: PaperPosition }) {
             />
           </>
         )}
-        {!quoteLoading && !quote && (
+        {isOpen && !quoteLoading && !quote && (
           <p className="text-xs text-muted-foreground italic">Live quote unavailable</p>
         )}
       </div>
@@ -145,6 +160,18 @@ function StatsPanel({ pos }: { pos: PaperPosition }) {
             minute: "2-digit",
           })}
         />
+        {!isOpen && pos.closed_at && (
+          <StatRow
+            label="Close"
+            value={new Date(pos.closed_at).toLocaleString(undefined, {
+              year: "numeric",
+              month: "short",
+              day: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+            })}
+          />
+        )}
         <StatRow label="Duration" value={formatDuration(pos.opened_at, pos.closed_at)} />
       </div>
 
@@ -204,13 +231,22 @@ export function PositionDetailCard({
   onClose,
 }: {
   pos: PaperPosition;
-  onClose: (pos: PaperPosition) => void;
+  /** Manual close handler. Omit / no-op for closed positions. */
+  onClose?: (pos: PaperPosition) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const grossPnl = pos.broker_unrealized_pnl ?? pos.unrealized_pnl ?? 0;
+  const isOpen = pos.status === "open";
+  const grossPnl = isOpen
+    ? pos.broker_unrealized_pnl ?? pos.unrealized_pnl ?? 0
+    : pos.realized_pnl ?? 0;
   const sideLabel = pos.side === "long" ? "BUY" : "SELL";
   const sideClass =
-    pos.side === "long" ? "bg-[var(--profit)]/10 text-[var(--profit)]" : "bg-[var(--loss)]/10 text-[var(--loss)]";
+    pos.side === "long"
+      ? "bg-[var(--profit)]/10 text-[var(--profit)]"
+      : "bg-[var(--loss)]/10 text-[var(--loss)]";
+  const exitReasonLabel = !isOpen
+    ? EXIT_REASON_LABELS[pos.exit_reason ?? ""] ?? pos.exit_reason
+    : null;
 
   return (
     <div className="border-b last:border-b-0">
@@ -226,8 +262,13 @@ export function PositionDetailCard({
         <span className={`tabular-nums text-sm ${pnlColorClass(grossPnl)}`}>
           {formatPnl(grossPnl)}
         </span>
+        {exitReasonLabel && (
+          <Badge variant="outline" className="text-[10px] text-muted-foreground">
+            {exitReasonLabel}
+          </Badge>
+        )}
         <span className="ml-auto text-xs text-muted-foreground tabular-nums">
-          {formatDuration(pos.opened_at)}
+          {formatDuration(pos.opened_at, pos.closed_at)}
         </span>
         {expanded ? (
           <ChevronUp className="h-4 w-4 text-muted-foreground" />
@@ -238,11 +279,13 @@ export function PositionDetailCard({
       {expanded && (
         <div className="border-t bg-muted/20">
           <StatsPanel pos={pos} />
-          <div className="flex justify-end px-4 pb-3">
-            <Button size="sm" variant="outline" onClick={() => onClose(pos)}>
-              Close position
-            </Button>
-          </div>
+          {isOpen && onClose && (
+            <div className="flex justify-end px-4 pb-3">
+              <Button size="sm" variant="outline" onClick={() => onClose(pos)}>
+                Close position
+              </Button>
+            </div>
+          )}
         </div>
       )}
     </div>
