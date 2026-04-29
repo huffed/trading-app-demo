@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Bot, Plus } from "lucide-react";
+import { Bot, Plus, Telescope } from "lucide-react";
 import { AlgorithmCard } from "@/components/algorithms/algorithm-card";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Button } from "@/components/ui/button";
@@ -29,10 +29,21 @@ export default function AlgorithmsPage() {
             AI-generated trading strategies and backtesting.
           </p>
         </div>
-        <Button size="sm" render={<Link href="/algorithms/generate" />} nativeButton={false}>
-          <Plus className="mr-1.5 h-3.5 w-3.5" />
-          Generate New
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            render={<Link href="/algorithms/generate-from-search" />}
+            nativeButton={false}
+          >
+            <Telescope className="mr-1.5 h-3.5 w-3.5" />
+            Search-find
+          </Button>
+          <Button size="sm" render={<Link href="/algorithms/generate" />} nativeButton={false}>
+            <Plus className="mr-1.5 h-3.5 w-3.5" />
+            Generate New
+          </Button>
+        </div>
       </div>
 
       {isLoading && (
