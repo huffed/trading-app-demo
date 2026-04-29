@@ -250,6 +250,23 @@ export interface AlgorithmRules {
     /** Minimum ADX to allow entries. Default 20 (below = ranging). */
     min_adx?: number;
   };
+  /**
+   * Stagnant-loser early exit. Closes a position open ≥ N bars that
+   * never reached `min_excursion_r` favourable excursion AND is still
+   * sitting at or below `min_pnl_r`. Encodes the friend's "cut what
+   * isn't working" discipline. `max_bars` is auto-derived from local
+   * ATR when undefined: `clamp(round(SL_distance / ATR(14) * 0.5), 2, 12)`.
+   * The auto formula adapts per timeframe / symbol / volatility regime;
+   * pin a number explicitly only when an algo wants override.
+   */
+  stagnant_exit?: {
+    enabled: boolean;
+    max_bars?: number;
+    /** R-units. Default 0.5. */
+    min_excursion_r?: number;
+    /** R-units. Default 0. */
+    min_pnl_r?: number;
+  };
 }
 
 // --- Backtest results ---

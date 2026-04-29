@@ -5,7 +5,12 @@
  * Uses the backtest engine's condition evaluation to guarantee consistency
  * between backtested and live-scanned signals.
  */
-import { pnlInUsd } from "@/lib/constants/markets";
+import {
+  checkStagnantExit,
+  resolveEntryBarIndex,
+  type StagnantExitResult,
+} from "@/lib/algorithm/stagnant-exit";
+import { pnlInUsd, priceDeltaForRule } from "@/lib/constants/markets";
 import { checkConditions, normalize, type Cache } from "@/lib/market-data/backtest-engine";
 import { timeframeToInterval, type BarInterval } from "@/lib/market-data/interval";
 import { getCachedPrices, savePricesToCache } from "@/lib/market-data/price-cache";
@@ -61,6 +66,34 @@ interface AlgorithmWithWatchlist {
 
 // ---- Position management ----
 
+/** Resolve the stagnant-exit gate for a single open position. Returns
+ *  null when the gate is disabled. Telemetry-rich `StagnantExitResult`
+ *  otherwise — including non-firing decisions — so the caller can log
+ *  MFE / current_r / bars_open even when the trade exits for some
+ *  other reason. The intent of running the gate FIRST is to PREEMPT
+ *  the SL hit on losers that aren't going to recover; recording an
+ *  intra-bar SL fill as the exit_reason would obscure that contribution. */
+function evaluateStagnantExit(
+  position: PaperPosition,
+  rules: AlgorithmRules,
+  ticker: string,
+  bars: PriceBar[]
+): StagnantExitResult | null {
+  if (!rules.stagnant_exit?.enabled) return null;
+  const entryBarIndex = resolveEntryBarIndex(bars, position.opened_at);
+  const stopDistance = priceDeltaForRule(rules.stop_loss, position.entry_price, ticker);
+  return checkStagnantExit({
+    bars,
+    entryBarIndex,
+    currentBarIndex: bars.length - 1,
+    entryPrice: position.entry_price,
+    side: position.side,
+    stopDistance,
+    config: rules.stagnant_exit,
+  });
+}
+
+
 /** Slim algorithm shape needed by manageExistingPosition — id/name for
  *  logging and rules for the exit trigger check. The full
  *  AlgorithmWithWatchlist is a superset, so existing callers still
@@ -89,56 +122,24 @@ export async function manageExistingPosition(
     position.quantity
   );
 
-  const exitCheck = checkExitTrigger(position, currentPrice, algo.rules, bars, closes, dailyBars);
+  const stagnantResult = evaluateStagnantExit(position, algo.rules, ticker, bars);
+  const exitCheck = stagnantResult?.exit
+    ? "stagnant_no_excursion"
+    : checkExitTrigger(position, currentPrice, algo.rules, bars, closes, dailyBars);
 
   if (exitCheck) {
-    const realizedPnl = unrealizedPnl;
-    await supabase
-      .from("paper_positions")
-      .update({
-        current_price: currentPrice,
-        exit_price: currentPrice,
-        unrealized_pnl: 0,
-        realized_pnl: realizedPnl,
-        exit_reason: exitCheck,
-        status: "closed",
-        closed_at: new Date().toISOString(),
-      })
-      .eq("id", position.id);
-
-    // Mirror to the broker if this position has a real counterpart.
-    if (brokerCtx) {
-      await executeLiveExit({
-        supabase,
-        userId,
-        algorithmId: algo.id,
-        paperPositionId: position.id,
-        ticker,
-        brokerPositionId: position.broker_position_id ?? null,
-        closePrice: currentPrice,
-        ctx: brokerCtx,
-      });
-    }
-
-    let eventType = "position_closed";
-    if (exitCheck === "stop_loss") {
-      eventType = "stop_loss_hit";
-    } else if (exitCheck === "take_profit") {
-      eventType = "take_profit_hit";
-    }
-
-    await logActivity(supabase, userId, {
-      algorithm_id: algo.id,
-      position_id: position.id,
-      event_type: eventType,
+    return closePositionForExit({
+      supabase,
+      userId,
+      algo,
       ticker,
-      details: { exit_price: currentPrice, realized_pnl: realizedPnl, exit_reason: exitCheck },
+      position,
+      exitCheck,
+      currentPrice,
+      realizedPnl: unrealizedPnl,
+      stagnantResult,
+      brokerCtx,
     });
-    return {
-      closed: 1,
-      updated: 0,
-      closeEvent: { ticker, reason: exitCheck, pnl: realizedPnl, price: currentPrice },
-    };
   }
 
   await supabase
@@ -146,6 +147,80 @@ export async function manageExistingPosition(
     .update({ current_price: currentPrice, unrealized_pnl: unrealizedPnl })
     .eq("id", position.id);
   return { closed: 0, updated: 1 };
+}
+
+interface CloseExitArgs {
+  supabase: SupabaseClient;
+  userId: string;
+  algo: AlgoForPositionMgmt;
+  ticker: string;
+  position: PaperPosition;
+  exitCheck: string;
+  currentPrice: number;
+  realizedPnl: number;
+  stagnantResult: StagnantExitResult | null;
+  brokerCtx: BrokerExecutionContext | null;
+}
+
+/** Close path — DB update, broker mirror, activity log. Extracted so
+ *  manageExistingPosition stays tight and so the close branch can be
+ *  unit-tested independently of the price-management flow. */
+async function closePositionForExit(
+  a: CloseExitArgs
+): Promise<{ closed: number; updated: number; closeEvent: PositionEvent }> {
+  await a.supabase
+    .from("paper_positions")
+    .update({
+      current_price: a.currentPrice,
+      exit_price: a.currentPrice,
+      unrealized_pnl: 0,
+      realized_pnl: a.realizedPnl,
+      exit_reason: a.exitCheck,
+      status: "closed",
+      closed_at: new Date().toISOString(),
+    })
+    .eq("id", a.position.id);
+
+  if (a.brokerCtx) {
+    await executeLiveExit({
+      supabase: a.supabase,
+      userId: a.userId,
+      algorithmId: a.algo.id,
+      paperPositionId: a.position.id,
+      ticker: a.ticker,
+      brokerPositionId: a.position.broker_position_id ?? null,
+      closePrice: a.currentPrice,
+      ctx: a.brokerCtx,
+    });
+  }
+
+  let eventType = "position_closed";
+  if (a.exitCheck === "stop_loss") eventType = "stop_loss_hit";
+  else if (a.exitCheck === "take_profit") eventType = "take_profit_hit";
+
+  await logActivity(a.supabase, a.userId, {
+    algorithm_id: a.algo.id,
+    position_id: a.position.id,
+    event_type: eventType,
+    ticker: a.ticker,
+    details: {
+      exit_price: a.currentPrice,
+      realized_pnl: a.realizedPnl,
+      exit_reason: a.exitCheck,
+      // Stagnant gate telemetry — present even on non-stagnant exits so
+      // analytics can mine the MFE distribution at exit time.
+      stagnant_bars_open: a.stagnantResult?.bars_open,
+      stagnant_max_bars: a.stagnantResult?.max_bars_threshold,
+      stagnant_mfe_r: a.stagnantResult?.mfe_r,
+      stagnant_current_r: a.stagnantResult?.current_r,
+    },
+  });
+
+  return {
+    closed: 1,
+    updated: 0,
+    closeEvent: { ticker: a.ticker, reason: a.exitCheck, pnl: a.realizedPnl, price: a.currentPrice },
+  };
 }
 
 export function checkExitTrigger(
