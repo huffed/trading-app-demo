@@ -38,6 +38,11 @@ interface Template {
    *  reference D1-bias don't make sense on a 4h primary that already
    *  resamples → empty list = "any timeframe". */
   allowed_timeframes?: string[];
+  /** When true, the grid emits an additional candidate per parameter
+   *  combo with `conviction_scaled + tf_agreement` sizing. Only useful
+   *  for templates with conditions spanning ≥2 timeframes — single-TF
+   *  templates have no agreement signal to scale on. */
+  include_tf_conviction_variant?: boolean;
 }
 
 const TEMPLATES: Template[] = [
@@ -134,18 +139,21 @@ const TEMPLATES: Template[] = [
     default_side: "long",
     build: (tf) => buildMultiTfEngulfBos(tf),
     allowed_timeframes: ["1h"],
+    include_tf_conviction_variant: true,
   },
   {
     name: "multi_tf_pin_fvg",
     default_side: "long",
     build: (tf) => buildMultiTfPinFvg(tf),
     allowed_timeframes: ["1h"],
+    include_tf_conviction_variant: true,
   },
   {
     name: "multi_tf_confluence_5",
     default_side: "long",
     build: (tf) => buildMultiTfConfluence5(tf),
     allowed_timeframes: ["1h"],
+    include_tf_conviction_variant: true,
   },
 ];
 
@@ -261,6 +269,17 @@ export function enumerateCandidates(input: {
         template_name: tmpl.name,
         rules: assembleRules(built, combo, tmpl.default_side, input.capital),
       });
+      if (tmpl.include_tf_conviction_variant) {
+        // Same conditions/SL/TP, swapped sizing. Walk-forward decides
+        // whether the conviction-scaled version edges out flat risk.
+        out.push({
+          label: `${tmpl.name}__${combo.label}__conv`,
+          template_name: tmpl.name,
+          rules: assembleRules(built, combo, tmpl.default_side, input.capital, {
+            sizing: "conviction_tf_agreement",
+          }),
+        });
+      }
     }
   }
   return out;
@@ -274,19 +293,40 @@ export function enumerateCandidates(input: {
  * stagnant, consistency) are baked in so candidates are tested against
  * the same gating that runs live.
  */
+interface AssembleOptions {
+  /** Sizing variant. Default `"risk_per_trade"` (flat). The
+   *  `"conviction_tf_agreement"` variant scales risk with cross-TF
+   *  agreement count; pairs with `convictionMultiplierByTfAgreement`. */
+  sizing?: "risk_per_trade" | "conviction_tf_agreement";
+}
+
 function assembleRules(
   built: { entry: EntryCondition[]; logic: EntryLogic },
   combo: ParameterCombo,
   side: "long" | "short" | "auto",
-  capital: number
+  capital: number,
+  options: AssembleOptions = {}
 ): AlgorithmRules {
+  const positionSizing: AlgorithmRules["position_sizing"] =
+    options.sizing === "conviction_tf_agreement"
+      ? {
+          // Base risk = 0.25%. With max_multiplier = 4, peak risk on a
+          // full-TF-agreement trade is 1.0% — well inside the FTMO-safe
+          // 2% cap, leaving headroom for the calibrator to scale up to
+          // the user's monthly target.
+          type: "conviction_scaled",
+          value: 0.25,
+          max_multiplier: 4,
+          conviction_metric: "tf_agreement",
+        }
+      : { type: "risk_per_trade", value: 0.5 };
   const rules: AlgorithmRules = {
     entry_conditions: built.entry,
     entry_logic: built.logic,
     exit_conditions: [],
     stop_loss: { type: "percentage", value: combo.sl_pct },
     take_profit: { type: "percentage", value: combo.tp_pct },
-    position_sizing: { type: "risk_per_trade", value: 0.5 },
+    position_sizing: positionSizing,
     max_positions: 5,
     max_per_ticker: 1,
     leverage: 30,

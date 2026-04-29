@@ -114,6 +114,50 @@ export function countConditionsMet(
   return { met, total: conditions.length };
 }
 
+/**
+ * Count how many distinct timeframes had ≥1 condition fire.
+ *
+ * Used by `convictionMultiplierByTfAgreement` to size positions on
+ * multi-TF templates. Edge comes from distinct timeframes confirming
+ * the same direction, not from stacking redundant conditions on a
+ * single timeframe — the friend-trade replay showed 1-TF entries were
+ * anti-edge while ≥2-TF agreement was 61.5% WR.
+ *
+ * `totalTfs` is the count of distinct timeframe strings appearing in
+ * the condition list (lowercased, normalised). For single-TF
+ * strategies it returns `{ firedTfs: 0|1, totalTfs: 1 }` — caller
+ * should treat that as "no scaling possible" and fall back to flat
+ * sizing or the condition-count path.
+ */
+export function countTimeframesAgreeing(
+  conditions: EvaluableCondition[],
+  ctx: ConditionContext,
+  evaluateTechnical: TechnicalEvaluator
+): { firedTfs: number; totalTfs: number } {
+  const firedByTf = new Map<string, boolean>();
+  const allTfs = new Set<string>();
+  for (const c of conditions) {
+    const tf = c.timeframe?.toLowerCase() ?? ctx.primaryTimeframe?.toLowerCase() ?? "default";
+    allTfs.add(tf);
+    if (firedByTf.get(tf)) continue; // already fired on this TF
+    const bundle = bundleFor(c, ctx);
+    let fired = false;
+    if (isTechnicalCondition(c)) {
+      fired = evaluateTechnical(c, bundle);
+    } else if (isPatternCondition(c)) {
+      fired = evaluatePatternCondition(
+        c,
+        bundle.bars,
+        bundle.i,
+        ctx.higherTfBars,
+        ctx.directionOverride
+      );
+    }
+    if (fired) firedByTf.set(tf, true);
+  }
+  return { firedTfs: firedByTf.size, totalTfs: allTfs.size };
+}
+
 export function checkConditions(
   conditions: EvaluableCondition[],
   ctx: ConditionContext,

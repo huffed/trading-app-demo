@@ -88,6 +88,7 @@ const patternConditionSchema = z.object({
     "order_block",
     "engulfing",
     "pin_bar",
+    "momentum",
   ]),
   direction: z.enum(["bullish", "bearish"]).optional(),
   lookback: z.number().int().min(1).max(100).optional(),
@@ -241,6 +242,11 @@ export const algorithmRulesSchema = z.object({
       // lots) so a mis-tuned algorithm can't accidentally blow up on a
       // strong-confluence but still-losing day.
       max_multiplier: z.number().min(1).max(8).optional(),
+      // Conviction signal source. "condition_count" = scale with k-above-n
+      // (existing behaviour); "tf_agreement" = scale with distinct
+      // timeframes firing (multi-TF templates). See conviction-sizing.ts
+      // for the curve.
+      conviction_metric: z.enum(["condition_count", "tf_agreement"]).optional(),
     }),
   ]),
   max_positions: z.number().int().positive(),

@@ -1,7 +1,10 @@
 /**
  * Entry evaluation — checks if conditions are met and opens a new position.
  */
-import { convictionMultiplier } from "@/lib/algorithm/conviction-sizing";
+import {
+  convictionMultiplier,
+  convictionMultiplierByTfAgreement,
+} from "@/lib/algorithm/conviction-sizing";
 import { checkAtrLiquidity } from "@/lib/algorithm/intraday-atr-gate";
 import { checkBrokerSpread, type SpreadGateResult } from "@/lib/algorithm/spread-gate";
 import { checkTimeOfDayFilter } from "@/lib/algorithm/time-of-day-filter";
@@ -11,6 +14,7 @@ import { resolveSide } from "@/lib/market-data/auto-side";
 import {
   collectOtherTimeframes,
   countConditionsMet,
+  countTimeframesAgreeing,
   normalize,
   type Cache,
 } from "@/lib/market-data/backtest-engine";
@@ -263,6 +267,24 @@ async function checkNewsVeto(
   return { vetoed: true, reason: `${hit.currency} ${hit.event} (${hit.impact} impact)` };
 }
 
+/**
+ * Resolve the conviction multiplier from the gate result + rule. Same
+ * dispatch logic as backtest-engine's `convictionMultiplierForRules`,
+ * but operates on the already-computed counts so we don't re-evaluate
+ * conditions a second time on the live path.
+ */
+function pickConvictionMultiplier(
+  rules: AlgorithmRules,
+  gate: { met: number; total: number; firedTfs: number; totalTfs: number }
+): number {
+  const sizing = rules.position_sizing;
+  if (sizing.type !== "conviction_scaled") return 1;
+  if (sizing.conviction_metric === "tf_agreement") {
+    return convictionMultiplierByTfAgreement(gate.firedTfs, gate.totalTfs, sizing.max_multiplier);
+  }
+  return convictionMultiplier(rules.entry_logic, gate.met, gate.total, sizing.max_multiplier);
+}
+
 interface EntryConditionResult {
   /** True when the configured logic combinator (all / any / n_of_m) is
    *  satisfied. Caller uses this as the proceed/short-circuit gate. */
@@ -273,6 +295,11 @@ interface EntryConditionResult {
   met: number;
   /** Total evaluable conditions (length of the technical + pattern list). */
   total: number;
+  /** Distinct timeframes with ≥1 firing condition. Used for the
+   *  tf_agreement conviction metric on multi-TF templates. */
+  firedTfs: number;
+  /** Distinct timeframes referenced across the entry condition list. */
+  totalTfs: number;
 }
 
 /** Evaluate the entry-condition gate (technical + pattern) and log a
@@ -292,7 +319,9 @@ async function checkEntryConditions(
   directionOverride?: "bullish" | "bearish",
   dailyBars?: PriceBar[] | null
 ): Promise<EntryConditionResult> {
-  if (conditions.length === 0) return { pass: true, met: 0, total: 0 };
+  if (conditions.length === 0) {
+    return { pass: true, met: 0, total: 0, firedTfs: 0, totalTfs: 0 };
+  }
   const cache: Cache = new Map();
   // Prefer the dedicated D1 series when supplied; fall back to resampling
   // the primary so older callers and missing-cache paths still work.
@@ -326,18 +355,19 @@ async function checkEntryConditions(
     primaryTimeframe: primaryTimeframe.toLowerCase(),
   };
   const { met, total } = countConditionsMet(conditions, ctx);
+  const { firedTfs, totalTfs } = countTimeframesAgreeing(conditions, ctx);
   let pass: boolean;
   if (logic === "all") pass = met === total;
   else if (logic === "any") pass = met > 0;
   else pass = typeof logic === "object" && logic.type === "n_of_m" ? met >= logic.n : met === total;
-  if (pass) return { pass: true, met, total };
+  if (pass) return { pass: true, met, total, firedTfs, totalTfs };
   await logActivity(supabase, userId, {
     algorithm_id: algoId,
     event_type: "signal_no_action",
     ticker,
     details: { reason: "Entry conditions not met", conditions_met: met, conditions_total: total },
   });
-  return { pass: false, met, total };
+  return { pass: false, met, total, firedTfs, totalTfs };
 }
 
 export async function evaluateEntry(
@@ -527,14 +557,7 @@ export async function evaluateEntry(
     higherTfBars
   );
   if (!conditionsResult.pass) return { opened: 0 };
-  const convictionMult = convictionMultiplier(
-    rules.entry_logic,
-    conditionsResult.met,
-    conditionsResult.total,
-    rules.position_sizing.type === "conviction_scaled"
-      ? rules.position_sizing.max_multiplier
-      : undefined
-  );
+  const convictionMult = pickConvictionMultiplier(rules, conditionsResult);
 
   const sentimentEntry = normalizedEntry.filter(isSentimentCondition);
   let sentimentResult: SignalResult | undefined;

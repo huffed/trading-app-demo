@@ -6,7 +6,6 @@
  * max_positions caps the TOTAL number of open positions across all tickers;
  * max_per_ticker still caps pyramiding on each individual symbol.
  */
-import { convictionMultiplier } from "@/lib/algorithm/conviction-sizing";
 import { checkAtrLiquidity } from "@/lib/algorithm/intraday-atr-gate";
 import { checkStagnantExit } from "@/lib/algorithm/stagnant-exit";
 import {
@@ -28,7 +27,7 @@ import { resolveSide } from "./auto-side";
 import {
   checkConditions,
   collectOtherTimeframes,
-  countConditionsMet,
+  convictionMultiplierForRules,
   normalize,
 } from "./backtest-engine";
 import { calculateMetrics } from "./backtest-metrics";
@@ -362,18 +361,11 @@ function tryOpenEntry(
     return;
   }
   const entryPrice = applySlippage(state.closes[i], cfg.slippageBps, side === "long");
-  // Conviction-scaled sizing: count alignment above n_of_m threshold and
-  // scale base risk. Multiplier = 1 for non-conviction sizing types →
-  // flat behaviour preserved.
-  const { met, total } = countConditionsMet(techEntry, entryCtx);
-  const convictionMult = convictionMultiplier(
-    rules.entry_logic,
-    met,
-    total,
-    rules.position_sizing.type === "conviction_scaled"
-      ? rules.position_sizing.max_multiplier
-      : undefined
-  );
+  // Conviction-scaled sizing: dispatch to condition-count or
+  // tf-agreement curve based on rules.position_sizing.conviction_metric.
+  // Multiplier = 1 for non-conviction sizing types → flat behaviour
+  // preserved.
+  const convictionMult = convictionMultiplierForRules(rules, techEntry, entryCtx);
   const sized = sizeForBacktest(rules, s.equity, entryPrice, ticker, cfg, convictionMult);
   const freeMargin = s.equity - s.marginUsed;
   if (sized.margin > freeMargin || sized.notional <= 0) return;

@@ -12,6 +12,9 @@ export const PATTERN_LABELS: Record<string, string> = {
   daily_bias: "Daily bias",
   bos: "Break of Structure (BOS)",
   order_block: "Order block",
+  engulfing: "Engulfing candle",
+  pin_bar: "Pin bar (rejection)",
+  momentum: "Momentum continuation",
 };
 
 export const PATTERN_DIRECTION_LABELS: Record<string, string> = {

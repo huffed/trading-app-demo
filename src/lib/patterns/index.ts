@@ -13,4 +13,7 @@ export { detectLiquiditySweep } from "./liquidity-sweep";
 export { detectFvg, fvgFillIndex, scanFvgs } from "./fvg";
 export { detectBos } from "./bos";
 export { detectOrderBlock } from "./order-block";
+export { detectEngulfing } from "./engulfing";
+export { detectPinBar } from "./pin-bar";
+export { detectMomentum } from "./momentum";
 export { evaluatePatternCondition } from "./evaluate";
