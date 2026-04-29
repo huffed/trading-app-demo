@@ -128,6 +128,19 @@ export interface PositionSizing {
    * but still-losing day.
    */
   max_multiplier?: number;
+  /**
+   * `conviction_scaled` only. Which signal drives the conviction
+   * multiplier. Default `"condition_count"` (current behaviour: scale
+   * with k-above-n_of_m).
+   *
+   * `"tf_agreement"` scales with how many distinct timeframes in the
+   * entry list have ≥1 firing condition. Anchored to multi-TF replay
+   * data: ≥2-TF agreement = 61.5% WR vs 33% on single-TF. Use this on
+   * templates where conditions span multiple timeframes; behaves
+   * identically to `condition_count` for single-TF templates (no
+   * agreement signal possible).
+   */
+  conviction_metric?: "condition_count" | "tf_agreement";
 }
 
 export interface PropFirmRules {

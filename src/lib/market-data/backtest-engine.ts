@@ -1,4 +1,7 @@
-import { convictionMultiplier } from "@/lib/algorithm/conviction-sizing";
+import {
+  convictionMultiplier,
+  convictionMultiplierByTfAgreement,
+} from "@/lib/algorithm/conviction-sizing";
 import { checkAtrLiquidity } from "@/lib/algorithm/intraday-atr-gate";
 import { checkStagnantExit } from "@/lib/algorithm/stagnant-exit";
 import {
@@ -22,6 +25,7 @@ import { calculateMetrics } from "./backtest-metrics";
 import {
   checkConditions as checkMixedConditions,
   countConditionsMet as countMixedConditionsMet,
+  countTimeframesAgreeing as countMixedTfAgreement,
   type BarsBundle,
   type ConditionContext,
   type EvaluableCondition,
@@ -83,6 +87,43 @@ export function countConditionsMet(
   return countMixedConditionsMet(conditions, ctx, (c, c2) =>
     evaluateTechnical(c, getValues(c.indicator, c2.cache, c2.closes), c2.closes, c2.cache, c2.i)
   );
+}
+
+/**
+ * Count distinct timeframes with ≥1 firing condition. Wraps the
+ * underlying counter and injects the technical evaluator. Used for
+ * TF-agreement conviction sizing on multi-TF templates.
+ */
+export function countTimeframesAgreeing(
+  conditions: EvaluableCondition[],
+  ctx: ConditionContext
+): { firedTfs: number; totalTfs: number } {
+  return countMixedTfAgreement(conditions, ctx, (c, c2) =>
+    evaluateTechnical(c, getValues(c.indicator, c2.cache, c2.closes), c2.closes, c2.cache, c2.i)
+  );
+}
+
+/**
+ * Dispatch the right conviction multiplier based on the rule's
+ * `conviction_metric`. Returns 1 (flat) for non-conviction sizing.
+ *
+ * Centralised so the three sizing call sites (single-ticker backtest,
+ * portfolio backtest, live scan) can never disagree on which signal
+ * drives conviction — a desync there silently changes live behaviour.
+ */
+export function convictionMultiplierForRules(
+  rules: AlgorithmRules,
+  conditions: EvaluableCondition[],
+  ctx: ConditionContext
+): number {
+  const sizing = rules.position_sizing;
+  if (sizing.type !== "conviction_scaled") return 1;
+  if (sizing.conviction_metric === "tf_agreement") {
+    const { firedTfs, totalTfs } = countTimeframesAgreeing(conditions, ctx);
+    return convictionMultiplierByTfAgreement(firedTfs, totalTfs, sizing.max_multiplier);
+  }
+  const { met, total } = countConditionsMet(conditions, ctx);
+  return convictionMultiplier(rules.entry_logic, met, total, sizing.max_multiplier);
 }
 export function normalize(
   conditions: (EntryCondition | ExitCondition)[]
@@ -298,15 +339,7 @@ function runSimulation(
       // sizing. Same module / same ctx as the gate above, so the boolean
       // decision and the count can never disagree. Multiplier defaults
       // to 1 for non-conviction sizing — flat behaviour preserved.
-      const { met, total } = countConditionsMet(entry, ctx);
-      const convictionMult = convictionMultiplier(
-        rules.entry_logic,
-        met,
-        total,
-        rules.position_sizing.type === "conviction_scaled"
-          ? rules.position_sizing.max_multiplier
-          : undefined
-      );
+      const convictionMult = convictionMultiplierForRules(rules, entry, ctx);
       const sized = sizeForBacktest(rules, s.equity, entryPrice, symbol, cfg, convictionMult);
       const freeMargin = s.equity - s.marginUsed;
       // Skip the entry if there's not enough free margin (lot sizing only —

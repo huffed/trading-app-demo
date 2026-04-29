@@ -46,3 +46,36 @@ export function convictionMultiplier(
   const span = M - n;
   return 1 + (aboveMin / span) * (maxMultiplier - 1);
 }
+
+/**
+ * Conviction multiplier from cross-timeframe agreement count instead
+ * of raw condition count. Used by multi-TF templates where the edge
+ * comes from distinct timeframes confirming the same signal — not from
+ * stacking redundant conditions on a single timeframe.
+ *
+ * Empirical anchor: friend-trade multi-TF replay showed ≥2-TF
+ * agreement = 61.5% WR vs 33% on single-TF signals (anti-edge).
+ *
+ * Curve:
+ *   firedTfs = 1            → multiplier = 1     (baseline; no boost)
+ *   firedTfs = totalTfs     → multiplier = max_multiplier
+ *   between                 → linear interpolation
+ *
+ * Falls back to multiplier = 1 when totalTfs ≤ 1 (single-TF strategy
+ * has no agreement signal to scale on; caller should be using the
+ * condition-count path instead).
+ *
+ * Independent of entry_logic — the gate decision stays in checkConditions
+ * via n_of_m. This function only sizes a trade that already passed the
+ * gate; it never blocks an entry.
+ */
+export function convictionMultiplierByTfAgreement(
+  firedTfs: number,
+  totalTfs: number,
+  maxMultiplier: number = DEFAULT_MAX_MULTIPLIER
+): number {
+  if (totalTfs <= 1) return 1;
+  const above = Math.max(0, firedTfs - 1);
+  const span = totalTfs - 1;
+  return 1 + (above / span) * (maxMultiplier - 1);
+}
