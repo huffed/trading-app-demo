@@ -90,28 +90,44 @@ export function countConditionsMet(
   ctx: ConditionContext,
   evaluateTechnical: TechnicalEvaluator
 ): { met: number; total: number } {
+  const detail = evaluateConditionsDetailed(conditions, ctx, evaluateTechnical);
+  return { met: detail.met, total: detail.total };
+}
+
+/**
+ * Like `countConditionsMet` but also returns a parallel array of
+ * fired-or-not booleans, one per input condition. Used by the scan
+ * engine to log a per-condition breakdown into the signal_detected
+ * activity_log event so the UI can show ✓/✗ per condition rather
+ * than just the aggregate count.
+ */
+export function evaluateConditionsDetailed(
+  conditions: EvaluableCondition[],
+  ctx: ConditionContext,
+  evaluateTechnical: TechnicalEvaluator
+): { met: number; total: number; fired: boolean[] } {
+  const fired: boolean[] = [];
   let met = 0;
   for (const c of conditions) {
     const bundle = bundleFor(c, ctx);
+    let didFire = false;
     if (isTechnicalCondition(c)) {
-      if (evaluateTechnical(c, bundle)) met++;
+      didFire = evaluateTechnical(c, bundle);
     } else if (isPatternCondition(c)) {
       // daily_bias still uses higherTfBars (resampled D1) regardless of
       // the per-condition routing, since it's the canonical "trend filter".
-      if (
-        evaluatePatternCondition(
-          c,
-          bundle.bars,
-          bundle.i,
-          ctx.higherTfBars,
-          ctx.directionOverride
-        )
-      ) {
-        met++;
-      }
+      didFire = evaluatePatternCondition(
+        c,
+        bundle.bars,
+        bundle.i,
+        ctx.higherTfBars,
+        ctx.directionOverride
+      );
     }
+    fired.push(didFire);
+    if (didFire) met++;
   }
-  return { met, total: conditions.length };
+  return { met, total: conditions.length, fired };
 }
 
 /**

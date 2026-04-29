@@ -13,8 +13,8 @@ import { isWeakTrendByAdx } from "@/lib/market-data/adx-filter";
 import { resolveSide } from "@/lib/market-data/auto-side";
 import {
   collectOtherTimeframes,
-  countConditionsMet,
   countTimeframesAgreeing,
+  evaluateConditionsDetailed,
   normalize,
   type Cache,
 } from "@/lib/market-data/backtest-engine";
@@ -295,6 +295,10 @@ interface EntryConditionResult {
   met: number;
   /** Total evaluable conditions (length of the technical + pattern list). */
   total: number;
+  /** Per-condition fired/not-fired array, parallel to the input
+   *  conditions list. Logged into signal_detected.details so the UI can
+   *  show ✓/✗ per row. */
+  fired: boolean[];
   /** Distinct timeframes with ≥1 firing condition. Used for the
    *  tf_agreement conviction metric on multi-TF templates. */
   firedTfs: number;
@@ -320,7 +324,7 @@ async function checkEntryConditions(
   dailyBars?: PriceBar[] | null
 ): Promise<EntryConditionResult> {
   if (conditions.length === 0) {
-    return { pass: true, met: 0, total: 0, firedTfs: 0, totalTfs: 0 };
+    return { pass: true, met: 0, total: 0, fired: [], firedTfs: 0, totalTfs: 0 };
   }
   const cache: Cache = new Map();
   // Prefer the dedicated D1 series when supplied; fall back to resampling
@@ -354,20 +358,25 @@ async function checkEntryConditions(
     byTimeframe,
     primaryTimeframe: primaryTimeframe.toLowerCase(),
   };
-  const { met, total } = countConditionsMet(conditions, ctx);
+  const { met, total, fired } = evaluateConditionsDetailed(conditions, ctx);
   const { firedTfs, totalTfs } = countTimeframesAgreeing(conditions, ctx);
   let pass: boolean;
   if (logic === "all") pass = met === total;
   else if (logic === "any") pass = met > 0;
   else pass = typeof logic === "object" && logic.type === "n_of_m" ? met >= logic.n : met === total;
-  if (pass) return { pass: true, met, total, firedTfs, totalTfs };
+  if (pass) return { pass: true, met, total, fired, firedTfs, totalTfs };
   await logActivity(supabase, userId, {
     algorithm_id: algoId,
     event_type: "signal_no_action",
     ticker,
-    details: { reason: "Entry conditions not met", conditions_met: met, conditions_total: total },
+    details: {
+      reason: "Entry conditions not met",
+      conditions_met: met,
+      conditions_total: total,
+      conditions_breakdown: fired,
+    },
   });
-  return { pass: false, met, total, firedTfs, totalTfs };
+  return { pass: false, met, total, fired, firedTfs, totalTfs };
 }
 
 export async function evaluateEntry(
@@ -610,7 +619,9 @@ export async function evaluateEntry(
     event_type: "signal_detected",
     ticker,
     details: {
-      conditions_met: evaluableEntry.length,
+      conditions_met: conditionsResult.met,
+      conditions_total: conditionsResult.total,
+      conditions_breakdown: conditionsResult.fired,
       sentiment_signal: sentimentResult?.signal,
       sentiment_confidence: sentimentResult?.confidence,
       // Spread telemetry on every allowed entry too — gives us the
