@@ -191,8 +191,7 @@ function StatsPanel({ pos }: { pos: PaperPosition }) {
         )}
         {maeMfe && (
           <p className="text-[10px] text-muted-foreground italic">
-            From {maeMfe.bars_examined} bars at the algorithm&apos;s timeframe; intraday
-            extremes between bars not captured. Side: {isLong ? "long" : "short"}.
+            {`From ${maeMfe.bars_examined} bars at the algorithm's timeframe; intraday extremes between bars not captured. Side: ${isLong ? "long" : "short"}.`}
           </p>
         )}
       </div>
