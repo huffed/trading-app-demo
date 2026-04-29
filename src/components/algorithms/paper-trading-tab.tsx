@@ -4,6 +4,7 @@ import { useState } from "react";
 import { AlertCircle, AlertTriangle, CheckCircle2, Clock, Loader2, Play } from "lucide-react";
 import { AlgoEquityCurveCard } from "@/components/algorithms/algo-equity-curve-card";
 import { AlgorithmHealthHeader } from "@/components/algorithms/algorithm-health-header";
+import { NearMissFeed } from "@/components/algorithms/near-miss-feed";
 import { ClosedPositionsCard, OpenPositionsCard } from "@/components/algorithms/position-cards";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -224,6 +225,7 @@ export function PaperTradingTab({
       <OpenPositionsCard algorithmId={algorithmId} />
       <AlgoEquityCurveCard algorithmId={algorithmId} />
       <ClosedPositionsCard algorithmId={algorithmId} />
+      <NearMissFeed algorithmId={algorithmId} />
       <RecentActivity algorithmId={algorithmId} />
     </div>
   );
