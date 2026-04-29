@@ -82,6 +82,12 @@ export async function generateAlgorithmFromSearchForUser(
   }
 
   const searchResult = await runCombinatorialSearch(input, loadDefaultPriceCorpus, {
+    // Lower than the engine's default 60: 30 candidates is enough for the
+    // current curated grid (8 templates × 4 parameter combos minus
+    // pattern-only-1h restrictions ≈ 30) and halves the worst-case CPU
+    // budget for the action. The endpoint accepts an override if the
+    // operator wants a wider sweep.
+    max_candidates: 30,
     top_n: 1,
   });
   if (searchResult.top.length === 0) {
