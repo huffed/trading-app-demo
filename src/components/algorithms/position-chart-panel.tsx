@@ -43,20 +43,24 @@ export function PositionChartPanel({ pos }: { pos: PaperPosition }) {
     close: b.close,
   }));
 
-  // Y-axis domain: include all bar lows/highs AND the SL/TP levels so
-  // the reference lines don't fall outside the chart.
+  // Y-axis domain: zoom to the actual price action (bars + entry +
+  // exit). We deliberately DON'T include SL/TP — they're often many
+  // ATRs away (3R targets and beyond) and would squash the candles
+  // into an unreadable thin band. The reference lines clip naturally
+  // when SL/TP fall outside the visible range; FTMO's chart does the
+  // same.
   const yValues = [
     ...data.bars.map((b) => b.low),
     ...data.bars.map((b) => b.high),
     data.entry_price,
   ];
-  if (data.stop_loss_price != null) yValues.push(data.stop_loss_price);
-  if (data.take_profit_price != null) yValues.push(data.take_profit_price);
   if (data.exit_price != null) yValues.push(data.exit_price);
   const yMin = Math.min(...yValues);
   const yMax = Math.max(...yValues);
-  const yPad = (yMax - yMin) * 0.05;
+  const yPad = Math.max((yMax - yMin) * 0.1, (yMax - yMin) * 0.05);
   const yDomain: [number, number] = [yMin - yPad, yMax + yPad];
+  const slClipped = data.stop_loss_price != null && (data.stop_loss_price < yDomain[0] || data.stop_loss_price > yDomain[1]);
+  const tpClipped = data.take_profit_price != null && (data.take_profit_price < yDomain[0] || data.take_profit_price > yDomain[1]);
 
   const entryPoint = data.entry_bar_date
     ? points.find((p) => p.date === data.entry_bar_date)
@@ -71,8 +75,8 @@ export function PositionChartPanel({ pos }: { pos: PaperPosition }) {
     symbol: pos.ticker,
     view,
     entryPrice: data.entry_price,
-    slPrice: data.stop_loss_price,
-    tpPrice: data.take_profit_price,
+    slPrice: slClipped ? null : data.stop_loss_price,
+    tpPrice: tpClipped ? null : data.take_profit_price,
     exitPrice: data.exit_price,
     side: data.side,
     entryLabel: entryPoint?.label ?? null,
@@ -86,6 +90,11 @@ export function PositionChartPanel({ pos }: { pos: PaperPosition }) {
         timeframe={data.timeframe}
         view={view}
         onChange={setView}
+        slClipped={slClipped}
+        tpClipped={tpClipped}
+        slPrice={data.stop_loss_price}
+        tpPrice={data.take_profit_price}
+        symbol={pos.ticker}
       />
       <ResponsiveContainer width="100%" height={260}>
         <ChartBody data={renderData} />
