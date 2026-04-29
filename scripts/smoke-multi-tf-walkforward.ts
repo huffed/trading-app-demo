@@ -98,27 +98,29 @@ async function main() {
   console.log(`  candidates passed    : ${result.candidates_passed}\n`);
 
   const evaluated = result.all_evaluated ?? [];
-  const multiTf = evaluated.filter((c) => c.label.startsWith("multi_tf_"));
+  const focused = evaluated.filter(
+    (c) => c.label.startsWith("multi_tf_") || c.label.startsWith("momentum_")
+  );
 
-  if (multiTf.length === 0) {
-    console.log("No multi_tf_* candidates surfaced — check grid wiring.");
+  if (focused.length === 0) {
+    console.log("No multi_tf_* or momentum_* candidates surfaced — check grid wiring.");
     return;
   }
 
-  console.log(`Multi-TF candidates evaluated: ${multiTf.length}\n`);
+  console.log(`Focused candidates evaluated: ${focused.length}\n`);
   console.log(
-    "label                                tf    side    monthly%   wf_green   targetMet   ddSafe   passes"
+    "label                                       tf    side    monthly%   wf_green   targetMet   ddSafe   passes"
   );
   console.log(
-    "----------------------------------------------------------------------------------------------------"
+    "-----------------------------------------------------------------------------------------------------------"
   );
-  for (const c of multiTf) {
+  for (const c of focused) {
     const passes =
       c.pass_criteria.walk_forward_green &&
       c.pass_criteria.target_met &&
       c.pass_criteria.dd_safe;
     const row = [
-      c.label.padEnd(35),
+      c.label.padEnd(42),
       c.rules.timeframe.padEnd(5),
       (c.rules.side ?? "long").padEnd(7),
       c.monthly_return_pct.toFixed(2).padStart(7),
@@ -131,13 +133,13 @@ async function main() {
   }
   console.log();
 
-  const passing = multiTf.filter(
+  const passing = focused.filter(
     (c) =>
       c.pass_criteria.walk_forward_green &&
       c.pass_criteria.target_met &&
       c.pass_criteria.dd_safe
   );
-  console.log(`Multi-TF passes: ${passing.length} / ${multiTf.length}`);
+  console.log(`Focused passes: ${passing.length} / ${focused.length}`);
   if (passing.length > 0) {
     const top = passing[0];
     console.log("\nTop multi-TF candidate:");
