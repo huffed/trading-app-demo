@@ -38,32 +38,28 @@ export async function loadDefaultPriceCorpus(
   // interval once and re-use across timeframe aliases (so "1h" and
   // "60m" don't double up).
   const byInterval = new Map<string, Map<string, PriceBar[]>>();
-  // Fetch every (symbol, interval) pair in parallel. On cold cache the
-  // serial version was 42 × ~1.5s ≈ 60s for forex universe; parallel
-  // brings that down to roughly the slowest single fetch (~2s).
-  // Twelve Data's free tier is 800 credits/day with no per-second
-  // burst limit on the time_series endpoint, so fan-out is safe.
-  const fetchTasks: Array<Promise<{
-    interval: string;
-    symbol: string;
-    bars: PriceBar[] | null;
-  }>> = [];
-  for (const interval of intervals) {
-    for (const symbol of symbols) {
-      fetchTasks.push(
-        fetchOne(symbol, interval).then((bars) => ({ interval, symbol, bars }))
-      );
-    }
-  }
-  const fetched = await Promise.all(fetchTasks);
   for (const interval of intervals) {
     byInterval.set(interval, new Map<string, PriceBar[]>());
   }
-  for (const { interval, symbol, bars } of fetched) {
+
+  // Twelve Data plan caps us at 8 credits per minute on the time_series
+  // endpoint. A naïve Promise.all over 14 symbols × 3 intervals = 42
+  // fetches blows through that — the API silently 429s and the operator
+  // sees wall-clock dominated by retry backoffs. Cache hits don't count
+  // against the limit, so we only batch when actually fetching.
+  const tasks: Array<{
+    interval: ReturnType<typeof timeframeToInterval>;
+    symbol: string;
+  }> = [];
+  for (const interval of intervals) {
+    for (const symbol of symbols) tasks.push({ interval, symbol });
+  }
+  await fetchRateLimited(tasks, 8, async ({ interval, symbol }) => {
+    const bars = await fetchOne(symbol, interval);
     if (bars && bars.length >= MIN_BARS_PER_SYMBOL) {
       byInterval.get(interval)!.set(symbol, bars);
     }
-  }
+  });
 
   // Map back from caller-facing timeframe strings → bar maps. Multiple
   // timeframe strings can resolve to the same interval (e.g. "1h" and
@@ -88,5 +84,37 @@ async function fetchOne(
     return bars;
   } catch {
     return null;
+  }
+}
+
+/**
+ * Rate-limited batch executor. Runs `fn` over `items` in batches of
+ * `perMinute` size, waiting out the remainder of each 60-second window
+ * before starting the next batch. Cache hits inside `fn` are still
+ * eligible for parallel execution within the batch — only actual API
+ * calls draw down the credit budget. The first batch fires immediately;
+ * subsequent batches sleep just enough to respect the floor.
+ *
+ * Safe to call when items.length ≤ perMinute (zero waits issued).
+ * Errors inside `fn` propagate after settling the batch; callers handle
+ * per-item failure inside `fn` (this helper only orchestrates timing).
+ */
+async function fetchRateLimited<T>(
+  items: T[],
+  perMinute: number,
+  fn: (item: T) => Promise<void>
+): Promise<void> {
+  const windowMs = 60_000;
+  for (let i = 0; i < items.length; i += perMinute) {
+    const batch = items.slice(i, i + perMinute);
+    const started = Date.now();
+    await Promise.all(batch.map(fn));
+    const isLastBatch = i + perMinute >= items.length;
+    if (isLastBatch) break;
+    const elapsed = Date.now() - started;
+    const wait = windowMs - elapsed;
+    if (wait > 0) {
+      await new Promise((r) => setTimeout(r, wait));
+    }
   }
 }
