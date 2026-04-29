@@ -202,19 +202,30 @@ export function sizeForBacktest(
   equity: number,
   currentPrice: number,
   symbol: string | undefined,
-  cfg: SimConfig
+  cfg: SimConfig,
+  convictionMultiplier: number = 1
 ): { notional: number; margin: number } {
   const sizing = rules.position_sizing;
-  if (sizing?.type === "lots" || sizing?.type === "risk_per_trade") {
-    // Both paths produce a lot count. risk_per_trade derives it from SL +
-    // equity so the same algo config produces equivalent % returns on any
-    // capital size — strategy scales automatically.
+  if (
+    sizing?.type === "lots" ||
+    sizing?.type === "risk_per_trade" ||
+    sizing?.type === "conviction_scaled"
+  ) {
+    // All three paths produce a lot count. risk_per_trade and
+    // conviction_scaled derive it from SL + equity so the same algo
+    // config produces equivalent % returns on any capital size —
+    // strategy scales automatically. conviction_scaled additionally
+    // multiplies base risk % by the caller-provided multiplier.
     let lots: number;
     if (sizing.type === "lots") {
       lots = sizing.value;
     } else {
       const slPct = ruleAsPctOfEntry(rules.stop_loss, currentPrice, symbol);
-      lots = riskToLots(symbol ?? "", equity, sizing.value, currentPrice, slPct);
+      const effectiveRiskPct =
+        sizing.type === "conviction_scaled"
+          ? sizing.value * Math.max(1, convictionMultiplier)
+          : sizing.value;
+      lots = riskToLots(symbol ?? "", equity, effectiveRiskPct, currentPrice, slPct);
     }
     // Clamp to the same volume step / min / max real brokers enforce so
     // backtest results don't depend on fractional lots a broker would

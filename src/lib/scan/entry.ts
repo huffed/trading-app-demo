@@ -1,14 +1,15 @@
 /**
  * Entry evaluation — checks if conditions are met and opens a new position.
  */
+import { convictionMultiplier } from "@/lib/algorithm/conviction-sizing";
 import { checkAtrLiquidity } from "@/lib/algorithm/intraday-atr-gate";
 import { checkBrokerSpread, type SpreadGateResult } from "@/lib/algorithm/spread-gate";
 import { getContractSize } from "@/lib/constants/markets";
 import { isWeakTrendByAdx } from "@/lib/market-data/adx-filter";
 import { resolveSide } from "@/lib/market-data/auto-side";
 import {
-  checkConditions,
   collectOtherTimeframes,
+  countConditionsMet,
   normalize,
   type Cache,
 } from "@/lib/market-data/backtest-engine";
@@ -71,19 +72,31 @@ async function openPosition(
   conditions: Array<TechnicalCondition | PatternCondition>,
   sentimentResult: SignalResult | undefined,
   allOpenPositions: PaperPosition[],
-  brokerCtx: BrokerExecutionContext | null
+  brokerCtx: BrokerExecutionContext | null,
+  convictionMult: number = 1
 ): Promise<{ opened: number; openEvent?: PositionEvent }> {
   // calculatePositionSize wants MARGIN-used summed, not notional. For
-  // leveraged sizing (lots / risk_per_trade) sum notional / leverage so
-  // 3 forex positions at 1:100 don't appear to consume the whole account.
+  // leveraged sizing (lots / risk_per_trade / conviction_scaled) sum
+  // notional / leverage so 3 forex positions at 1:100 don't appear to
+  // consume the whole account.
   const sizing0 = algo.rules.position_sizing;
-  const isLeveraged = sizing0.type === "lots" || sizing0.type === "risk_per_trade";
+  const isLeveraged =
+    sizing0.type === "lots" ||
+    sizing0.type === "risk_per_trade" ||
+    sizing0.type === "conviction_scaled";
   const lev = algo.rules.leverage ?? 30;
   const openValue = allOpenPositions.reduce(
     (sum, p) => sum + (isLeveraged ? p.notional_value / lev : p.notional_value),
     0
   );
-  const sizing = calculatePositionSize(algo.rules, algo.capital, openValue, currentPrice, ticker);
+  const sizing = calculatePositionSize(
+    algo.rules,
+    algo.capital,
+    openValue,
+    currentPrice,
+    ticker,
+    convictionMult
+  );
   if (!sizing) {
     return { opened: 0 };
   }
@@ -131,13 +144,17 @@ async function openPosition(
 
   if (!position) return { opened: 0 };
   // Derive lots for the broker mirror. For "lots" sizing it's the rule
-  // value verbatim. For "risk_per_trade" we back-compute from the sized
-  // quantity (which calculatePositionSize already produced via riskToLots).
-  // Other sizing types don't map to a meaningful lot count → undefined.
+  // value verbatim. For "risk_per_trade" / "conviction_scaled" we back-
+  // compute from the sized quantity (which calculatePositionSize already
+  // produced via riskToLots). Other sizing types don't map to a
+  // meaningful lot count → undefined.
   let lotSizing: number | undefined;
   if (algo.rules.position_sizing.type === "lots") {
     lotSizing = algo.rules.position_sizing.value;
-  } else if (algo.rules.position_sizing.type === "risk_per_trade") {
+  } else if (
+    algo.rules.position_sizing.type === "risk_per_trade" ||
+    algo.rules.position_sizing.type === "conviction_scaled"
+  ) {
     const contract = getContractSize(ticker, algo.rules.asset_class);
     lotSizing = contract > 0 ? sizing.quantity / contract : undefined;
   }
@@ -244,9 +261,22 @@ async function checkNewsVeto(
   return { vetoed: true, reason: `${hit.currency} ${hit.event} (${hit.impact} impact)` };
 }
 
+interface EntryConditionResult {
+  /** True when the configured logic combinator (all / any / n_of_m) is
+   *  satisfied. Caller uses this as the proceed/short-circuit gate. */
+  pass: boolean;
+  /** How many conditions actually fired. Threaded into conviction-scaled
+   *  position sizing — more confluence above the n_of_m threshold = more
+   *  size. Same numbers backtest and live use, so replay matches. */
+  met: number;
+  /** Total evaluable conditions (length of the technical + pattern list). */
+  total: number;
+}
+
 /** Evaluate the entry-condition gate (technical + pattern) and log a
- *  signal_no_action event when it fails. Returns true to proceed, false
- *  to short-circuit. Sentiment is checked separately. */
+ *  signal_no_action event when it fails. Returns the gate decision plus
+ *  the alignment count, so the caller can drive conviction-based sizing
+ *  without re-running the same evaluation. Sentiment is checked separately. */
 async function checkEntryConditions(
   supabase: SupabaseClient,
   userId: string,
@@ -259,8 +289,8 @@ async function checkEntryConditions(
   logic: AlgorithmRules["entry_logic"],
   directionOverride?: "bullish" | "bearish",
   dailyBars?: PriceBar[] | null
-): Promise<boolean> {
-  if (conditions.length === 0) return true;
+): Promise<EntryConditionResult> {
+  if (conditions.length === 0) return { pass: true, met: 0, total: 0 };
   const cache: Cache = new Map();
   // Prefer the dedicated D1 series when supplied; fall back to resampling
   // the primary so older callers and missing-cache paths still work.
@@ -293,14 +323,19 @@ async function checkEntryConditions(
     byTimeframe,
     primaryTimeframe: primaryTimeframe.toLowerCase(),
   };
-  if (checkConditions(conditions, ctx, logic)) return true;
+  const { met, total } = countConditionsMet(conditions, ctx);
+  let pass: boolean;
+  if (logic === "all") pass = met === total;
+  else if (logic === "any") pass = met > 0;
+  else pass = typeof logic === "object" && logic.type === "n_of_m" ? met >= logic.n : met === total;
+  if (pass) return { pass: true, met, total };
   await logActivity(supabase, userId, {
     algorithm_id: algoId,
     event_type: "signal_no_action",
     ticker,
-    details: { reason: "Entry conditions not met" },
+    details: { reason: "Entry conditions not met", conditions_met: met, conditions_total: total },
   });
-  return false;
+  return { pass: false, met, total };
 }
 
 export async function evaluateEntry(
@@ -449,7 +484,7 @@ export async function evaluateEntry(
   const evaluableEntry = normalizedEntry.filter(
     (c) => isTechnicalCondition(c) || isPatternCondition(c)
   ) as Array<TechnicalCondition | PatternCondition>;
-  const conditionsPass = await checkEntryConditions(
+  const conditionsResult = await checkEntryConditions(
     supabase,
     userId,
     algo.id,
@@ -462,7 +497,15 @@ export async function evaluateEntry(
     resolved.directionOverride,
     higherTfBars
   );
-  if (!conditionsPass) return { opened: 0 };
+  if (!conditionsResult.pass) return { opened: 0 };
+  const convictionMult = convictionMultiplier(
+    rules.entry_logic,
+    conditionsResult.met,
+    conditionsResult.total,
+    rules.position_sizing.type === "conviction_scaled"
+      ? rules.position_sizing.max_multiplier
+      : undefined
+  );
 
   const sentimentEntry = normalizedEntry.filter(isSentimentCondition);
   let sentimentResult: SignalResult | undefined;
@@ -537,6 +580,7 @@ export async function evaluateEntry(
     evaluableEntry,
     sentimentResult,
     allOpenPositions,
-    brokerCtx ?? null
+    brokerCtx ?? null,
+    convictionMult
   );
 }

@@ -1,3 +1,4 @@
+import { convictionMultiplier } from "@/lib/algorithm/conviction-sizing";
 import { checkAtrLiquidity } from "@/lib/algorithm/intraday-atr-gate";
 import { checkStagnantExit } from "@/lib/algorithm/stagnant-exit";
 import {
@@ -20,6 +21,7 @@ import { resolveSide } from "./auto-side";
 import { calculateMetrics } from "./backtest-metrics";
 import {
   checkConditions as checkMixedConditions,
+  countConditionsMet as countMixedConditionsMet,
   type BarsBundle,
   type ConditionContext,
   type EvaluableCondition,
@@ -64,6 +66,22 @@ export function checkConditions(
     ctx,
     (c, c2) => evaluateTechnical(c, getValues(c.indicator, c2.cache, c2.closes), c2.closes, c2.cache, c2.i),
     logic
+  );
+}
+
+/**
+ * Same evaluation as `checkConditions` but returns the alignment count
+ * (`met` / `total`) instead of just the boolean decision. Used by
+ * conviction-scaled position sizing — more conditions firing above the
+ * n_of_m threshold = larger position. Single source of truth shared
+ * with the live engine via the underlying evaluator.
+ */
+export function countConditionsMet(
+  conditions: EvaluableCondition[],
+  ctx: ConditionContext
+): { met: number; total: number } {
+  return countMixedConditionsMet(conditions, ctx, (c, c2) =>
+    evaluateTechnical(c, getValues(c.indicator, c2.cache, c2.closes), c2.closes, c2.cache, c2.i)
   );
 }
 export function normalize(
@@ -275,7 +293,20 @@ function runSimulation(
       // bid gets you a slightly worse fill, so we still apply it as a cost.
       const side = resolved.side;
       const entryPrice = applySlippage(closes[i], cfg.slippageBps, side === "long");
-      const sized = sizeForBacktest(rules, s.equity, entryPrice, symbol, cfg);
+      // Re-evaluate to get the alignment count for conviction-scaled
+      // sizing. Same module / same ctx as the gate above, so the boolean
+      // decision and the count can never disagree. Multiplier defaults
+      // to 1 for non-conviction sizing — flat behaviour preserved.
+      const { met, total } = countConditionsMet(entry, ctx);
+      const convictionMult = convictionMultiplier(
+        rules.entry_logic,
+        met,
+        total,
+        rules.position_sizing.type === "conviction_scaled"
+          ? rules.position_sizing.max_multiplier
+          : undefined
+      );
+      const sized = sizeForBacktest(rules, s.equity, entryPrice, symbol, cfg, convictionMult);
       const freeMargin = s.equity - s.marginUsed;
       // Skip the entry if there's not enough free margin (lot sizing only —
       // for percentage/fixed sizing margin equals notional and free margin

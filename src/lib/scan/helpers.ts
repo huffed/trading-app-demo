@@ -33,25 +33,35 @@ export function calculatePositionSize(
   capital: number,
   openPositionsValue: number,
   currentPrice: number,
-  symbol?: string
+  symbol?: string,
+  convictionMultiplier: number = 1
 ): PositionSizingResult | null {
   const available = capital - openPositionsValue;
   if (available <= 0) return null;
 
   const sizing = rules.position_sizing;
 
-  if (sizing.type === "lots" || sizing.type === "risk_per_trade") {
+  if (
+    sizing.type === "lots" ||
+    sizing.type === "risk_per_trade" ||
+    sizing.type === "conviction_scaled"
+  ) {
     const contractSize = getContractSize(symbol ?? "", rules.asset_class);
     const leverage = rules.leverage ?? 30;
     let lots: number;
     if (sizing.type === "lots") {
       lots = sizing.value;
     } else {
-      // risk_per_trade: derive lots from SL distance + capital + cross-rate.
-      // ruleAsPctOfEntry converts pip / fixed rules into the % representation
-      // riskToLots expects, using the live price.
+      // risk_per_trade / conviction_scaled: derive lots from SL distance +
+      // capital + cross-rate. conviction_scaled additionally multiplies the
+      // base risk percentage by the caller-provided multiplier (defaults to
+      // 1, equivalent to risk_per_trade behaviour).
       const slPct = ruleAsPctOfEntry(rules.stop_loss, currentPrice, symbol);
-      lots = riskToLots(symbol ?? "", capital, sizing.value, currentPrice, slPct);
+      const effectiveRiskPct =
+        sizing.type === "conviction_scaled"
+          ? sizing.value * Math.max(1, convictionMultiplier)
+          : sizing.value;
+      lots = riskToLots(symbol ?? "", capital, effectiveRiskPct, currentPrice, slPct);
     }
     if (lots <= 0) return null;
     const notional = notionalInUsd(symbol ?? "", lots, currentPrice);

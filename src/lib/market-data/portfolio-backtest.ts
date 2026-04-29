@@ -6,6 +6,7 @@
  * max_positions caps the TOTAL number of open positions across all tickers;
  * max_per_ticker still caps pyramiding on each individual symbol.
  */
+import { convictionMultiplier } from "@/lib/algorithm/conviction-sizing";
 import { checkAtrLiquidity } from "@/lib/algorithm/intraday-atr-gate";
 import { checkStagnantExit } from "@/lib/algorithm/stagnant-exit";
 import {
@@ -24,7 +25,12 @@ import {
 } from "@/types/algorithm";
 import { isWeakTrendByAdx } from "./adx-filter";
 import { resolveSide } from "./auto-side";
-import { checkConditions, collectOtherTimeframes, normalize } from "./backtest-engine";
+import {
+  checkConditions,
+  collectOtherTimeframes,
+  countConditionsMet,
+  normalize,
+} from "./backtest-engine";
 import { calculateMetrics } from "./backtest-metrics";
 import { type BarsBundle } from "./condition-evaluator";
 import { buildVetoCheck, type EconomicEvent } from "./economic-calendar";
@@ -343,24 +349,31 @@ function tryOpenEntry(
   const resolved = resolveSide(rules.side ?? "long", state.higherTfBars, i);
   if (resolved === null) return;
   const side = resolved.side;
-  if (
-    !checkConditions(
-      techEntry,
-      {
-        cache: state.cache,
-        closes: state.closes,
-        bars: state.bars,
-        higherTfBars: state.higherTfBars,
-        i,
-        directionOverride: resolved.directionOverride,
-      },
-      rules.entry_logic
-    )
-  ) {
+  const entryCtx = {
+    cache: state.cache,
+    closes: state.closes,
+    bars: state.bars,
+    higherTfBars: state.higherTfBars,
+    i,
+    directionOverride: resolved.directionOverride,
+  };
+  if (!checkConditions(techEntry, entryCtx, rules.entry_logic)) {
     return;
   }
   const entryPrice = applySlippage(state.closes[i], cfg.slippageBps, side === "long");
-  const sized = sizeForBacktest(rules, s.equity, entryPrice, ticker, cfg);
+  // Conviction-scaled sizing: count alignment above n_of_m threshold and
+  // scale base risk. Multiplier = 1 for non-conviction sizing types →
+  // flat behaviour preserved.
+  const { met, total } = countConditionsMet(techEntry, entryCtx);
+  const convictionMult = convictionMultiplier(
+    rules.entry_logic,
+    met,
+    total,
+    rules.position_sizing.type === "conviction_scaled"
+      ? rules.position_sizing.max_multiplier
+      : undefined
+  );
+  const sized = sizeForBacktest(rules, s.equity, entryPrice, ticker, cfg, convictionMult);
   const freeMargin = s.equity - s.marginUsed;
   if (sized.margin > freeMargin || sized.notional <= 0) return;
   s.marginUsed += sized.margin;

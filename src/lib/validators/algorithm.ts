@@ -201,6 +201,20 @@ export const algorithmRulesSchema = z.object({
         .positive()
         .max(5, "risk_per_trade above 5% is almost certainly a unit error (e.g. 70 entered for 0.7)"),
     }),
+    z.object({
+      type: z.literal("conviction_scaled"),
+      // Same bound as risk_per_trade — `value` is the BASE risk before
+      // multiplier. Effective max is value × max_multiplier; we trust the
+      // multiplier cap to keep peak risk inside FTMO-safe limits.
+      value: z
+        .number()
+        .positive()
+        .max(5, "conviction_scaled base risk above 5% is almost certainly a unit error"),
+      // Multiplier ceiling. Tighter than the friend's 20× range (0.1→2.0
+      // lots) so a mis-tuned algorithm can't accidentally blow up on a
+      // strong-confluence but still-losing day.
+      max_multiplier: z.number().min(1).max(8).optional(),
+    }),
   ]),
   max_positions: z.number().int().positive(),
   max_per_ticker: z.number().int().positive().optional(),

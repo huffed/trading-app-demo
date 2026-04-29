@@ -88,7 +88,8 @@ export interface PositionSizing {
     | "fixed_amount"
     | "fixed_quantity"
     | "lots"
-    | "risk_per_trade";
+    | "risk_per_trade"
+    | "conviction_scaled";
   /**
    * Interpretation depends on type:
    *  - percentage_of_capital: % of equity (e.g. 16 → 16%)
@@ -100,8 +101,25 @@ export interface PositionSizing {
    *    1 → 1% risk). System auto-computes lot size from SL distance + asset
    *    cross-currency rates. Same algo config produces equivalent % returns
    *    on any account size — the strategy scales automatically.
+   *  - conviction_scaled: BASE % risk (same shape as risk_per_trade) that
+   *    gets multiplied by a conviction factor when more entry conditions
+   *    align than the n_of_m threshold requires. Multiplier is linear:
+   *    1× at the bare-minimum n hit, scaling up to `max_multiplier` when
+   *    every condition fires. Encodes the friend's discretionary 20×
+   *    sizing range (0.1 → 2.0 lots) systematically — 70% of his P&L
+   *    came from his highest-conviction trades. Falls back to flat
+   *    risk_per_trade behaviour for `all` / `any` entry_logic where
+   *    "k of M conditions" isn't a meaningful conviction signal.
    */
   value: number;
+  /**
+   * `conviction_scaled` only. Cap on the conviction multiplier. Default 4
+   * — never sizes more than 4× the base risk on a single trade. Friend's
+   * actual range was 20× (0.1 → 2.0 lots) but we cap tighter so a
+   * mis-tuned algorithm can't accidentally blow up on a strong-confluence
+   * but still-losing day.
+   */
+  max_multiplier?: number;
 }
 
 export interface PropFirmRules {
