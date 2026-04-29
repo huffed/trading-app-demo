@@ -1,7 +1,8 @@
 /**
  * Entry evaluation — checks if conditions are met and opens a new position.
  */
-import { checkSessionFilter } from "@/lib/algorithm/session-filter";
+import { checkAtrLiquidity } from "@/lib/algorithm/intraday-atr-gate";
+import { checkBrokerSpread, type SpreadGateResult } from "@/lib/algorithm/spread-gate";
 import { getContractSize } from "@/lib/constants/markets";
 import { isWeakTrendByAdx } from "@/lib/market-data/adx-filter";
 import { resolveSide } from "@/lib/market-data/auto-side";
@@ -317,16 +318,22 @@ export async function evaluateEntry(
   // Use real-time price for entry, fall back to latest daily close
   const currentPrice = livePrice ?? closes[closes.length - 1];
 
-  // Session filter — cheapest gate, runs first. Skip the entry pipeline
-  // entirely if the current UTC hour is outside the configured window.
-  // Friend-trade analysis showed 84% of disciplined entries inside 07-16 UTC.
-  const session = checkSessionFilter(rules.session_filter, new Date());
-  if (session.outside) {
+  // Intraday ATR liquidity gate — adaptive replacement for the old
+  // clock-time session filter. Skips entries when the most-recent
+  // primary-timeframe ATR is unusually compressed (bottom 20% of the
+  // last 200-bar distribution). Same module backtest uses, so live and
+  // replay agree on whether a given moment was tradeable.
+  const liquidity = checkAtrLiquidity(bars, bars.length - 1);
+  if (liquidity.skip) {
     await logActivity(supabase, userId, {
       algorithm_id: algo.id,
       event_type: "signal_no_action",
       ticker,
-      details: { reason: session.reason ?? "Outside trading session" },
+      details: {
+        reason: liquidity.reason ?? "ATR liquidity gate triggered",
+        atr_current: liquidity.atr_current,
+        atr_threshold: liquidity.atr_threshold,
+      },
     });
     return { opened: 0 };
   }
@@ -451,6 +458,33 @@ export async function evaluateEntry(
     }
   }
 
+  // Live broker spread gate — runs ONLY when there's a broker context
+  // (i.e. live trading). Refuses entries when the current bid/ask gap
+  // is wider than catalog typical × multiplier (currently 2.5x). Paper-
+  // only mode skips this gate by definition (no broker = no quote).
+  // Adapters that can't quote (cTrader streaming-only) return "skipped"
+  // and we proceed without the refinement.
+  let spread: SpreadGateResult | null = null;
+  if (brokerCtx) {
+    spread = await checkBrokerSpread(brokerCtx.adapter, brokerCtx.conn, ticker);
+    if (spread.block) {
+      await logActivity(supabase, userId, {
+        algorithm_id: algo.id,
+        event_type: "signal_no_action",
+        ticker,
+        details: {
+          reason: spread.reason ?? "Live spread gate triggered",
+          observed_spread_pips: spread.observed_spread_pips,
+          threshold_pips: spread.threshold_pips,
+          typical_pips: spread.typical_pips,
+          bid: spread.bid,
+          ask: spread.ask,
+        },
+      });
+      return { opened: 0 };
+    }
+  }
+
   await logActivity(supabase, userId, {
     algorithm_id: algo.id,
     event_type: "signal_detected",
@@ -459,6 +493,13 @@ export async function evaluateEntry(
       conditions_met: evaluableEntry.length,
       sentiment_signal: sentimentResult?.signal,
       sentiment_confidence: sentimentResult?.confidence,
+      // Spread telemetry on every allowed entry too — gives us the
+      // distribution needed to switch from catalog × 2.5 to a learned
+      // per-symbol p90 once we have enough samples.
+      observed_spread_pips: spread?.observed_spread_pips,
+      spread_status: spread?.status,
+      atr_current: liquidity.atr_current,
+      atr_threshold: liquidity.atr_threshold,
     },
   });
 

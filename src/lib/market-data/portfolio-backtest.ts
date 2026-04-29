@@ -6,7 +6,7 @@
  * max_positions caps the TOTAL number of open positions across all tickers;
  * max_per_ticker still caps pyramiding on each individual symbol.
  */
-import { checkSessionFilter } from "@/lib/algorithm/session-filter";
+import { checkAtrLiquidity } from "@/lib/algorithm/intraday-atr-gate";
 import {
   DEFAULT_MAX_POSITIONS,
   DEFAULT_POSITION_SIZE_PCT,
@@ -292,9 +292,11 @@ function tryOpenEntry(
     onTickerCount: state.positions.length,
   };
   if (!canEnter(rules, cfg, gate)) return;
-  // Session window gate — match live engine. Skip entries when the bar's
-  // UTC hour is outside the configured window.
-  if (checkSessionFilter(rules.session_filter, new Date(state.bars[i].date)).outside) {
+  // Intraday ATR liquidity gate — match live engine. Skips entries
+  // when the recent primary-timeframe ATR is in the bottom 20% of the
+  // lookback distribution. Adaptive replacement for the clock-time
+  // session filter that was tied to one specific UTC window.
+  if (checkAtrLiquidity(state.bars, i).skip) {
     return;
   }
   // Volatility-regime gate. Use the resampled D1 series so the

@@ -8,6 +8,7 @@ import {
   closePosition,
   describeMetaApiError,
   fetchAccountInfo,
+  fetchCurrentPrice,
   fetchPosition,
   fetchPositions,
   fetchSnapshot,
@@ -76,6 +77,11 @@ export const metaApiMt5Adapter: BrokerAdapter = {
 
   async fetchSymbolSpec(conn, appSymbol) {
     return metaFetchSymbolSpec(conn.api_token, conn.account_id, regionFor(conn), appSymbol);
+  },
+
+  async fetchQuote(conn, appSymbol) {
+    const q = await fetchCurrentPrice(conn.api_token, conn.account_id, regionFor(conn), appSymbol);
+    return { symbol: q.symbol, bid: q.bid, ask: q.ask, time: q.time };
   },
 
   async placeMarketOrder(conn, input: MarketOrderInput): Promise<MarketOrderResult> {
