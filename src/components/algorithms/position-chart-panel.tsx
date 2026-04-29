@@ -2,8 +2,13 @@
 
 import { useState } from "react";
 import { ResponsiveContainer } from "recharts";
+import type { PatternViz } from "@/app/(dashboard)/algorithms/pattern-viz-actions";
+import type { PositionChartData } from "@/app/(dashboard)/algorithms/position-chart-actions";
 import { Skeleton } from "@/components/ui/skeleton";
-import { usePositionChartData } from "@/hooks/use-position-stats";
+import {
+  usePatternVisualization,
+  usePositionChartData,
+} from "@/hooks/use-position-stats";
 import type { PaperPosition } from "@/types/position";
 import {
   ChartBody,
@@ -14,8 +19,84 @@ import {
   formatTick,
 } from "./position-chart-render";
 
-export function PositionChartPanel({ pos }: { pos: PaperPosition }) {
+interface DerivedChart {
+  points: ChartPoint[];
+  yDomain: [number, number];
+  slClipped: boolean;
+  tpClipped: boolean;
+  entryLabel: string | null;
+  exitLabel: string | null;
+}
+
+function deriveChart(data: PositionChartData): DerivedChart {
+  const points: ChartPoint[] = data.bars.map((b) => ({
+    date: b.date,
+    label: formatTick(b.date, data.timeframe),
+    open: b.open,
+    high: b.high,
+    low: b.low,
+    close: b.close,
+  }));
+  const yValues = [
+    ...data.bars.map((b) => b.low),
+    ...data.bars.map((b) => b.high),
+    data.entry_price,
+  ];
+  if (data.exit_price != null) yValues.push(data.exit_price);
+  const yMin = Math.min(...yValues);
+  const yMax = Math.max(...yValues);
+  const yPad = (yMax - yMin) * 0.1;
+  const yDomain: [number, number] = [yMin - yPad, yMax + yPad];
+  const slClipped =
+    data.stop_loss_price != null &&
+    (data.stop_loss_price < yDomain[0] || data.stop_loss_price > yDomain[1]);
+  const tpClipped =
+    data.take_profit_price != null &&
+    (data.take_profit_price < yDomain[0] || data.take_profit_price > yDomain[1]);
+  const entryLabel = data.entry_bar_date
+    ? points.find((p) => p.date === data.entry_bar_date)?.label ?? null
+    : null;
+  const exitLabel = data.exit_bar_date
+    ? points.find((p) => p.date === data.exit_bar_date)?.label ?? null
+    : null;
+  return { points, yDomain, slClipped, tpClipped, entryLabel, exitLabel };
+}
+
+function buildRenderData(
+  data: PositionChartData,
+  derived: DerivedChart,
+  view: ChartView,
+  symbol: string,
+  patternViz: PatternViz | null
+): ChartRenderData {
+  return {
+    points: derived.points,
+    yDomain: derived.yDomain,
+    symbol,
+    view,
+    entryPrice: data.entry_price,
+    slPrice: derived.slClipped ? null : data.stop_loss_price,
+    tpPrice: derived.tpClipped ? null : data.take_profit_price,
+    exitPrice: data.exit_price,
+    side: data.side,
+    entryLabel: derived.entryLabel,
+    exitLabel: derived.exitLabel,
+    patternViz,
+  };
+}
+
+export function PositionChartPanel({
+  pos,
+  selectedConditionIndex,
+}: {
+  pos: PaperPosition;
+  selectedConditionIndex?: number | null;
+}) {
   const { data, isLoading } = usePositionChartData(pos.id, true);
+  const { data: patternViz } = usePatternVisualization(
+    pos.id,
+    selectedConditionIndex ?? null
+  );
   const [view, setView] = useState<ChartView>("line");
 
   if (isLoading && !data) {
@@ -34,54 +115,8 @@ export function PositionChartPanel({ pos }: { pos: PaperPosition }) {
     );
   }
 
-  const points: ChartPoint[] = data.bars.map((b) => ({
-    date: b.date,
-    label: formatTick(b.date, data.timeframe),
-    open: b.open,
-    high: b.high,
-    low: b.low,
-    close: b.close,
-  }));
-
-  // Y-axis domain: zoom to the actual price action (bars + entry +
-  // exit). We deliberately DON'T include SL/TP — they're often many
-  // ATRs away (3R targets and beyond) and would squash the candles
-  // into an unreadable thin band. The reference lines clip naturally
-  // when SL/TP fall outside the visible range; FTMO's chart does the
-  // same.
-  const yValues = [
-    ...data.bars.map((b) => b.low),
-    ...data.bars.map((b) => b.high),
-    data.entry_price,
-  ];
-  if (data.exit_price != null) yValues.push(data.exit_price);
-  const yMin = Math.min(...yValues);
-  const yMax = Math.max(...yValues);
-  const yPad = Math.max((yMax - yMin) * 0.1, (yMax - yMin) * 0.05);
-  const yDomain: [number, number] = [yMin - yPad, yMax + yPad];
-  const slClipped = data.stop_loss_price != null && (data.stop_loss_price < yDomain[0] || data.stop_loss_price > yDomain[1]);
-  const tpClipped = data.take_profit_price != null && (data.take_profit_price < yDomain[0] || data.take_profit_price > yDomain[1]);
-
-  const entryPoint = data.entry_bar_date
-    ? points.find((p) => p.date === data.entry_bar_date)
-    : null;
-  const exitPoint = data.exit_bar_date
-    ? points.find((p) => p.date === data.exit_bar_date)
-    : null;
-
-  const renderData: ChartRenderData = {
-    points,
-    yDomain,
-    symbol: pos.ticker,
-    view,
-    entryPrice: data.entry_price,
-    slPrice: slClipped ? null : data.stop_loss_price,
-    tpPrice: tpClipped ? null : data.take_profit_price,
-    exitPrice: data.exit_price,
-    side: data.side,
-    entryLabel: entryPoint?.label ?? null,
-    exitLabel: exitPoint?.label ?? null,
-  };
+  const derived = deriveChart(data);
+  const renderData = buildRenderData(data, derived, view, pos.ticker, patternViz ?? null);
 
   return (
     <div className="px-4 py-3">
@@ -90,8 +125,8 @@ export function PositionChartPanel({ pos }: { pos: PaperPosition }) {
         timeframe={data.timeframe}
         view={view}
         onChange={setView}
-        slClipped={slClipped}
-        tpClipped={tpClipped}
+        slClipped={derived.slClipped}
+        tpClipped={derived.tpClipped}
         slPrice={data.stop_loss_price}
         tpPrice={data.take_profit_price}
         symbol={pos.ticker}

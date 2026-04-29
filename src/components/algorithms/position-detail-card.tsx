@@ -83,7 +83,16 @@ function ExpandedBody({
   onClose?: (pos: PaperPosition) => void;
 }) {
   const [tab, setTab] = useState<PanelKey>("stats");
+  // Selected condition index drives the chart's pattern overlay. Set
+  // by clicking a row in the Conditions panel; null = no overlay.
+  const [selectedConditionIndex, setSelectedConditionIndex] = useState<number | null>(null);
   const isOpen = pos.status === "open";
+
+  const onSelectCondition = (idx: number) => {
+    setSelectedConditionIndex(idx);
+    setTab("chart");
+  };
+
   return (
     <div className="border-t bg-muted/20">
       <Tabs value={tab} onValueChange={(v) => setTab(v as PanelKey)}>
@@ -99,12 +108,20 @@ function ExpandedBody({
           <PositionStatsPanel pos={pos} />
         </TabsContent>
         <TabsContent value="conditions">
-          <PositionConditionsPanel pos={pos} />
+          <PositionConditionsPanel
+            pos={pos}
+            selectedIndex={selectedConditionIndex}
+            onSelect={onSelectCondition}
+          />
         </TabsContent>
         <TabsContent value="activity">
           <PositionActivityPanel pos={pos} />
         </TabsContent>
-        <TabsContent value="chart">{tab === "chart" && <PositionChartPanel pos={pos} />}</TabsContent>
+        <TabsContent value="chart">
+          {tab === "chart" && (
+            <PositionChartPanel pos={pos} selectedConditionIndex={selectedConditionIndex} />
+          )}
+        </TabsContent>
       </Tabs>
       {isOpen && onClose && (
         <div className="flex justify-end px-4 pb-3">

@@ -1,6 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import { getPatternVisualization } from "@/app/(dashboard)/algorithms/pattern-viz-actions";
 import { getPositionChartData } from "@/app/(dashboard)/algorithms/position-chart-actions";
 import {
   getPositionEntryContext,
@@ -84,6 +85,24 @@ export function usePositionChartData(positionId: string, enabled: boolean) {
     staleTime: 60_000,
     queryFn: async () => {
       const r = await getPositionChartData(positionId);
+      if (!r.success) throw new Error(r.error);
+      return r.data;
+    },
+  });
+}
+
+/** Pattern visualization data for a specific entry condition. */
+export function usePatternVisualization(
+  positionId: string,
+  conditionIndex: number | null
+) {
+  return useQuery({
+    queryKey: ["pattern-viz", positionId, conditionIndex],
+    enabled: conditionIndex != null,
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      if (conditionIndex == null) return null;
+      const r = await getPatternVisualization(positionId, conditionIndex);
       if (!r.success) throw new Error(r.error);
       return r.data;
     },
