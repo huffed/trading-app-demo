@@ -122,7 +122,73 @@ const TEMPLATES: Template[] = [
       logic: "all",
     }),
   },
+  // Multi-TF confluence templates — derived from the friend-trade
+  // multi-TF replay (scripts/multi-tf-friend-replay.ts). His trades
+  // showed 61.5% WR when ≥2 TFs agreed, vs 33% on single-TF signals.
+  // Each template requires an explicit cross-TF mix: daily_bias on 1d
+  // anchors the bias, then 4h + 1h candle / structure patterns
+  // confirm. n_of_m=2 across the {4h, 1h} confirmations replicates
+  // the "2-TF agreement" sweet spot.
+  {
+    name: "multi_tf_engulf_bos",
+    default_side: "long",
+    build: (tf) => buildMultiTfEngulfBos(tf),
+    allowed_timeframes: ["1h"],
+  },
+  {
+    name: "multi_tf_pin_fvg",
+    default_side: "long",
+    build: (tf) => buildMultiTfPinFvg(tf),
+    allowed_timeframes: ["1h"],
+  },
+  {
+    name: "multi_tf_confluence_5",
+    default_side: "long",
+    build: (tf) => buildMultiTfConfluence5(tf),
+    allowed_timeframes: ["1h"],
+  },
 ];
+
+function buildMultiTfEngulfBos(tf: string): { entry: PatternCondition[]; logic: EntryLogic } {
+  return {
+    entry: [
+      { type: "pattern", pattern: "daily_bias", direction: "bullish", ma_period: 20, timeframe: "1d" },
+      { type: "pattern", pattern: "engulfing", direction: "bullish", timeframe: "4h" },
+      { type: "pattern", pattern: "bos", lookback: 5, direction: "bullish", timeframe: tf },
+    ],
+    // 2 of 3 — daily_bias as anchor, then either 4h engulfing OR 1h
+    // BOS confirms. Catches the friend's "context + intraday trigger"
+    // shape without requiring perfect alignment.
+    logic: { type: "n_of_m", n: 2 },
+  };
+}
+
+function buildMultiTfPinFvg(tf: string): { entry: PatternCondition[]; logic: EntryLogic } {
+  return {
+    entry: [
+      { type: "pattern", pattern: "daily_bias", direction: "bullish", ma_period: 20, timeframe: "1d" },
+      { type: "pattern", pattern: "pin_bar", direction: "bullish", timeframe: "4h" },
+      { type: "pattern", pattern: "fvg", direction: "bullish", timeframe: tf },
+    ],
+    logic: { type: "n_of_m", n: 2 },
+  };
+}
+
+function buildMultiTfConfluence5(tf: string): { entry: PatternCondition[]; logic: EntryLogic } {
+  return {
+    entry: [
+      { type: "pattern", pattern: "daily_bias", direction: "bullish", ma_period: 20, timeframe: "1d" },
+      { type: "pattern", pattern: "engulfing", direction: "bullish", timeframe: "4h" },
+      { type: "pattern", pattern: "pin_bar", direction: "bullish", timeframe: "4h" },
+      { type: "pattern", pattern: "bos", lookback: 5, direction: "bullish", timeframe: tf },
+      { type: "pattern", pattern: "liquidity_sweep", lookback: 5, direction: "bullish", timeframe: tf },
+    ],
+    // 3-of-5 — broader confluence across 1d/4h/1h. Higher selectivity
+    // than the 2-of-3 templates above; pairs with conviction_scaled
+    // sizing to reward 4-or-5-of-5 trades when they appear.
+    logic: { type: "n_of_m", n: 3 },
+  };
+}
 
 function buildIctSweepFvg(tf: string): { entry: PatternCondition[]; logic: EntryLogic } {
   return {
