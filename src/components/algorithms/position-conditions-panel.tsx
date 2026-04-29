@@ -1,5 +1,6 @@
 "use client";
 
+import { Check, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { usePositionEntryContext } from "@/hooks/use-position-stats";
@@ -18,9 +19,13 @@ import type { PaperPosition } from "@/types/position";
 function ConditionRow({
   index,
   cond,
+  fired,
 }: {
   index: number;
   cond: EntryCondition;
+  /** Null when the engine didn't emit a per-condition breakdown for
+   *  this entry — older positions or sentiment-only setups. */
+  fired: boolean | null;
 }) {
   const tf = "timeframe" in cond ? cond.timeframe : null;
   let body: React.ReactNode;
@@ -62,8 +67,15 @@ function ConditionRow({
     body = <span className="text-muted-foreground">Unknown condition</span>;
   }
   return (
-    <li className="flex items-baseline gap-2 py-1.5">
+    <li className="flex items-center gap-2 py-1.5 px-3">
       <span className="w-5 text-xs text-muted-foreground tabular-nums">{index + 1}.</span>
+      {fired === true && (
+        <Check className="h-3.5 w-3.5 shrink-0 text-[var(--profit)]" aria-label="fired" />
+      )}
+      {fired === false && (
+        <X className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-label="did not fire" />
+      )}
+      {fired === null && <span className="h-3.5 w-3.5 shrink-0" />}
       <div className="flex-1 text-sm">{body}</div>
       {tf && (
         <Badge variant="outline" className="text-[10px] tabular-nums">
@@ -128,13 +140,24 @@ export function PositionConditionsPanel({ pos }: { pos: PaperPosition }) {
       </div>
       <ul className="divide-y rounded-md border bg-background">
         {ctx.conditions.map((cond, i) => (
-          <ConditionRow key={i} index={i} cond={cond} />
+          <ConditionRow
+            key={i}
+            index={i}
+            cond={cond}
+            fired={ctx.conditions_breakdown ? ctx.conditions_breakdown[i] ?? null : null}
+          />
         ))}
       </ul>
-      {met == null && (
+      {ctx.conditions_breakdown == null && met == null && (
         <p className="text-[10px] text-muted-foreground italic">
-          Per-condition fire/no-fire detail isn&apos;t logged yet — only the aggregate count.
-          Engine update queued.
+          Entry signal not located for this position — likely opened before the engine started
+          logging detailed signal_detected events.
+        </p>
+      )}
+      {ctx.conditions_breakdown == null && met != null && (
+        <p className="text-[10px] text-muted-foreground italic">
+          Per-condition breakdown wasn&apos;t logged for this entry. New positions will record
+          ✓/✗ per condition.
         </p>
       )}
     </div>

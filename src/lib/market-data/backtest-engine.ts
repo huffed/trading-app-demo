@@ -26,6 +26,7 @@ import {
   checkConditions as checkMixedConditions,
   countConditionsMet as countMixedConditionsMet,
   countTimeframesAgreeing as countMixedTfAgreement,
+  evaluateConditionsDetailed as evaluateMixedConditionsDetailed,
   type BarsBundle,
   type ConditionContext,
   type EvaluableCondition,
@@ -85,6 +86,20 @@ export function countConditionsMet(
   ctx: ConditionContext
 ): { met: number; total: number } {
   return countMixedConditionsMet(conditions, ctx, (c, c2) =>
+    evaluateTechnical(c, getValues(c.indicator, c2.cache, c2.closes), c2.closes, c2.cache, c2.i)
+  );
+}
+
+/**
+ * Same as countConditionsMet but exposes the per-condition fired
+ * array so the scan engine can log a structured breakdown into the
+ * signal_detected event.
+ */
+export function evaluateConditionsDetailed(
+  conditions: EvaluableCondition[],
+  ctx: ConditionContext
+): { met: number; total: number; fired: boolean[] } {
+  return evaluateMixedConditionsDetailed(conditions, ctx, (c, c2) =>
     evaluateTechnical(c, getValues(c.indicator, c2.cache, c2.closes), c2.closes, c2.cache, c2.i)
   );
 }

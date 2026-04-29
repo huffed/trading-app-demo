@@ -24,6 +24,10 @@ export interface PositionEntryContext {
   conditions_met: number | null;
   /** Total evaluable conditions at the time of entry. */
   conditions_total: number | null;
+  /** Per-condition fired/not-fired array, parallel to `conditions`.
+   *  Null for older positions logged before the engine emitted the
+   *  breakdown. When non-null, length === conditions.length. */
+  conditions_breakdown: boolean[] | null;
   /** Algorithm's primary timeframe — surfaced because pattern conditions
    *  may reference per-condition timeframes. */
   primary_timeframe: string;
@@ -110,6 +114,13 @@ export async function getPositionEntryContext(
       typeof details?.conditions_total === "number"
         ? (details.conditions_total as number)
         : rules.entry_conditions.length;
+    const breakdownRaw = details?.conditions_breakdown;
+    const conditionsBreakdown =
+      Array.isArray(breakdownRaw) &&
+      breakdownRaw.every((v) => typeof v === "boolean") &&
+      breakdownRaw.length === rules.entry_conditions.length
+        ? (breakdownRaw as boolean[])
+        : null;
 
     return {
       success: true,
@@ -118,6 +129,7 @@ export async function getPositionEntryContext(
         logic: rules.entry_logic,
         conditions_met: conditionsMet,
         conditions_total: conditionsTotal,
+        conditions_breakdown: conditionsBreakdown,
         primary_timeframe: rules.timeframe,
       },
     };
