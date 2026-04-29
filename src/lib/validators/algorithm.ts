@@ -140,6 +140,16 @@ const adxFilterSchema = z.object({
   min_adx: z.number().min(0).max(100).optional(),
 });
 
+const sessionFilterSchema = z
+  .object({
+    enabled: z.boolean(),
+    start_hour_utc: z.number().int().min(0).max(23),
+    end_hour_utc: z.number().int().min(1).max(24),
+  })
+  .refine((s) => !s.enabled || s.start_hour_utc < s.end_hour_utc, {
+    message: "session_filter: start_hour_utc must be less than end_hour_utc when enabled",
+  });
+
 const entryLogicSchema = z.union([
   z.literal("all"),
   z.literal("any"),
@@ -200,6 +210,7 @@ export const algorithmRulesSchema = z.object({
   divergence_kill: divergenceKillSchema.optional(),
   regime_filter: regimeFilterSchema.optional(),
   adx_filter: adxFilterSchema.optional(),
+  session_filter: sessionFilterSchema.optional(),
 });
 
 /**

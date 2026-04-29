@@ -6,6 +6,7 @@
  * max_positions caps the TOTAL number of open positions across all tickers;
  * max_per_ticker still caps pyramiding on each individual symbol.
  */
+import { checkSessionFilter } from "@/lib/algorithm/session-filter";
 import {
   DEFAULT_MAX_POSITIONS,
   DEFAULT_POSITION_SIZE_PCT,
@@ -291,6 +292,11 @@ function tryOpenEntry(
     onTickerCount: state.positions.length,
   };
   if (!canEnter(rules, cfg, gate)) return;
+  // Session window gate — match live engine. Skip entries when the bar's
+  // UTC hour is outside the configured window.
+  if (checkSessionFilter(rules.session_filter, new Date(state.bars[i].date)).outside) {
+    return;
+  }
   // Volatility-regime gate. Use the resampled D1 series so the
   // percentile is stable regardless of primary timeframe (1h vs 15m
   // would otherwise give different verdicts on the same calendar day).
