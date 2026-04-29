@@ -2,6 +2,10 @@
 
 import { useQuery } from "@tanstack/react-query";
 import {
+  getPositionEntryContext,
+  getPositionEvents,
+} from "@/app/(dashboard)/algorithms/position-events-actions";
+import {
   getPositionLiveQuote,
   getPositionMaeMfe,
 } from "@/app/(dashboard)/algorithms/position-stats-actions";
@@ -37,6 +41,34 @@ export function usePositionMaeMfe(positionId: string, enabled: boolean) {
     staleTime: 60_000,
     queryFn: async () => {
       const r = await getPositionMaeMfe(positionId);
+      if (!r.success) throw new Error(r.error);
+      return r.data;
+    },
+  });
+}
+
+/** Activity events tied to this position via position_id. */
+export function usePositionEvents(positionId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ["position-events", positionId],
+    enabled,
+    staleTime: 30_000,
+    queryFn: async () => {
+      const r = await getPositionEvents(positionId);
+      if (!r.success) throw new Error(r.error);
+      return r.data;
+    },
+  });
+}
+
+/** Algorithm's entry condition list + count of conditions fired at entry. */
+export function usePositionEntryContext(positionId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ["position-entry-context", positionId],
+    enabled,
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      const r = await getPositionEntryContext(positionId);
       if (!r.success) throw new Error(r.error);
       return r.data;
     },
