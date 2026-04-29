@@ -113,6 +113,10 @@ export const propFirmRulesSchema = z.object({
   slippage_bps: z.number().min(0).max(100),
   commission_pct: z.number().min(0).max(5),
   spread_bps: z.number().min(0).max(50).optional(),
+  // FTMO majors ~$7/lot, gold $7-10/lot. Cap at 50 to allow exotic
+  // commission models (e.g. some indices) while flagging a unit error
+  // if someone accidentally enters a percentage value here.
+  commission_per_lot: z.number().min(0).max(50).optional(),
 });
 
 const newsVetoSchema = z.object({

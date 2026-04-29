@@ -295,10 +295,10 @@ async function processTicker(
   brokerCtx: BrokerExecutionContext | null
 ) {
   try {
-    let prices = await getCachedPrices(ticker, "compact", interval);
+    let prices = await getCachedPrices(ticker, "full", interval);
     if (!prices) {
-      prices = await fetchDailyPrices(ticker, "compact", interval);
-      savePricesToCache(ticker, "compact", prices, interval).catch(() => {});
+      prices = await fetchDailyPrices(ticker, "full", interval);
+      savePricesToCache(ticker, "full", prices, interval).catch(() => {});
     }
     if (prices.length < 10) {
       result.errors.push({ ticker, error: "Not enough price data" });
@@ -312,11 +312,11 @@ async function processTicker(
     // needs. A dedicated D1 series gives us 100 daily bars, plenty.
     let dailyBars: PriceBar[] | null = null;
     if (interval !== "1day") {
-      dailyBars = await getCachedPrices(ticker, "compact", "1day");
+      dailyBars = await getCachedPrices(ticker, "full", "1day");
       if (!dailyBars) {
         try {
-          dailyBars = await fetchDailyPrices(ticker, "compact", "1day");
-          savePricesToCache(ticker, "compact", dailyBars, "1day").catch(() => {});
+          dailyBars = await fetchDailyPrices(ticker, "full", "1day");
+          savePricesToCache(ticker, "full", dailyBars, "1day").catch(() => {});
         } catch {
           dailyBars = null;
         }

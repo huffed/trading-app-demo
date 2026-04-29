@@ -39,6 +39,15 @@ const DEFAULTS = {
   atrPeriod: 14,
   lookback: 200,
   floorPercentile: 0.2,
+  /** Minimum ATR samples required to make a percentile call. The live
+   *  cron uses 100-bar compact prices; with a 14-bar ATR period that
+   *  yields ~86 valid samples — we want the gate to fire on what's
+   *  available, not silently no-op because the full lookback window
+   *  doesn't fit. 30 is a small but statistically reasonable floor.
+   *  Backtest with full history hits this threshold in ~44 bars (period
+   *  + 30) so early-window backtests still get the gate's protection
+   *  without locking out the first 200+ bars. */
+  minSamples: 30,
 } as const;
 
 export interface AtrLiquidityResult {
@@ -75,7 +84,11 @@ export function checkAtrLiquidity(
   const lookback = options?.lookback ?? DEFAULTS.lookback;
   const floor = options?.floorPercentile ?? DEFAULTS.floorPercentile;
 
-  if (i < period + Math.floor(lookback / 2)) {
+  // Early-bailout: at least period bars + minSamples available so the
+  // ATR series can produce a stable percentile floor. Used to require
+  // period + lookback/2, which broke under live's 100-bar compact
+  // history (lookback=200 → 114-bar requirement).
+  if (i < period + DEFAULTS.minSamples) {
     return { skip: false, atr_current: null, atr_threshold: null, status: "no_data" };
   }
 
@@ -88,7 +101,7 @@ export function checkAtrLiquidity(
   const window = atrSeries
     .slice(Math.max(0, i - lookback), i + 1)
     .filter((v): v is number => v !== null);
-  if (window.length < Math.floor(lookback / 2)) {
+  if (window.length < DEFAULTS.minSamples) {
     return { skip: false, atr_current: current, atr_threshold: null, status: "no_data" };
   }
 
