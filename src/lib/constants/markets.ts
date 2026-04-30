@@ -267,14 +267,18 @@ export function getContractSize(symbol: string, assetClass?: string): number {
 
 /**
  * Sensible default leverage by asset class. Real prop firms vary:
- *  - FTMO: 1:100 forex, 1:30 commodities/indices, 1:5 stocks
+ *  - FTMO: 1:100 forex, 1:50 XAU pairs (since 2026-02-01), 1:5 stocks
  *  - Topstep (futures-only): 1:10-1:30 effective
  *  - Trading 212 retail: 1:30 forex, 1:20 indices
- * 30 is a middle-of-the-road default that fits all and won't blow accounts.
+ * The commodity number tracks FTMO's most-recent published cap on XAU
+ * (Feb 2026 update — XAUUSD Standard 1:30 → 1:50). Other commodities
+ * (oil, gas, silver) typically run at 1:20-1:30; using 1:50 here is a
+ * mild overestimate for non-XAU but harmless because sizing math is
+ * risk-based, not leverage-based.
  */
 export function defaultLeverage(assetClass: string): number {
   if (assetClass === "forex") return 100;
-  if (assetClass === "commodity") return 30;
+  if (assetClass === "commodity") return 50;
   if (assetClass === "crypto") return 5;
   return 1;
 }

@@ -132,6 +132,107 @@ const TEMPLATES: Template[] = [
     build: (tf) => buildIctBosOrderBlock(tf),
     allowed_timeframes: ["1h"],
   },
+  // Gold-specific templates — research-anchored seeds for the XAU/USD
+  // workstream (see `docs/gold-trading-workstream.md`). Each uses at
+  // least one gold-scoped primitive (gold_session_window,
+  // asian_range_break, post_news_window) or a gold-tuned indicator combo
+  // (SMA200 trend filter). Listed after multi-TF/ICT but before bare
+  // indicators so they're prioritised on a gold-restricted search but
+  // can still get cut on a generic forex search.
+  //
+  // The session-window carve-out is data-justified per
+  // `feedback_data_driven_gates`: PR-3 will run the dual-run validator
+  // on each gold candidate to confirm the filter adds measurable edge.
+  {
+    name: "gold_killzone_sweep",
+    default_side: "long",
+    build: (tf) => ({
+      entry: [
+        // NY Killzone time gate — institutional flow window 11-15 UTC.
+        { type: "pattern", pattern: "gold_session_window", session: "ny_killzone", timeframe: tf },
+        { type: "pattern", pattern: "liquidity_sweep", direction: "bullish", lookback: 5, timeframe: tf },
+        { type: "pattern", pattern: "fvg", direction: "bullish", timeframe: tf },
+        { type: "pattern", pattern: "bos", direction: "bullish", lookback: 5, timeframe: tf },
+      ],
+      // All four must fire — session gates entry, three ICT confirmations
+      // align. High-conviction setup, expected low fire rate.
+      logic: "all",
+    }),
+    allowed_timeframes: ["15m"],
+  },
+  {
+    name: "gold_silver_bullet",
+    default_side: "long",
+    build: (tf) => ({
+      entry: [
+        // Tighter ICT Silver Bullet 14-16 UTC window.
+        { type: "pattern", pattern: "gold_session_window", session: "silver_bullet", timeframe: tf },
+        { type: "pattern", pattern: "liquidity_sweep", direction: "bullish", lookback: 5, timeframe: tf },
+        { type: "pattern", pattern: "fvg", direction: "bullish", timeframe: tf },
+      ],
+      logic: "all",
+    }),
+    allowed_timeframes: ["15m"],
+  },
+  {
+    name: "gold_asian_breakout",
+    default_side: "long",
+    build: (tf) => ({
+      entry: [
+        // Bullish break of same-day Asian session high (UTC 00-07).
+        { type: "pattern", pattern: "asian_range_break", direction: "bullish", timeframe: tf },
+        // Momentum confirmation — break must come with directional impulse.
+        { type: "pattern", pattern: "momentum", direction: "bullish", lookback: 3, timeframe: tf },
+      ],
+      logic: "all",
+    }),
+    allowed_timeframes: ["15m"],
+  },
+  {
+    name: "gold_h4_trend_pullback",
+    default_side: "long",
+    build: (tf) => ({
+      entry: [
+        // D1 bullish bias — gold's most-quantified directional anchor.
+        { type: "pattern", pattern: "daily_bias", direction: "bullish", ma_period: 20, timeframe: "1d" },
+        // 4h pin bar — bullish rejection candle on the pullback bar.
+        { type: "pattern", pattern: "pin_bar", direction: "bullish", timeframe: tf },
+        // RSI > 40 — trend-aligned without requiring an oversold dip.
+        { type: "technical", indicator: "RSI", operator: "greater_than", value: 40, timeframe: tf },
+      ],
+      // 2-of-3 — bias + (pin OR RSI). Counter-evidence to the "no long
+      // holds" intuition: tests whether 4h trend-pullback survives
+      // walk-forward on gold despite the user's preference for 15m.
+      logic: { type: "n_of_m", n: 2 },
+    }),
+    allowed_timeframes: ["4h"],
+  },
+  {
+    name: "gold_d1_sma_trend_filter",
+    default_side: "long",
+    build: (tf) => ({
+      entry: [
+        // Long when D1 close crosses above the 200-period SMA. Mirrors
+        // the Quantified Strategies edge — 50yr backtest of gold above
+        // 200d SMA beat buy-and-hold by avoiding the bearish regimes.
+        // value=0 + price-based indicator → backtest engine resolves as
+        // "price crosses above SMA200" (lib/market-data/backtest-engine.ts).
+        { type: "technical", indicator: "SMA200", operator: "crosses_above", value: 0, timeframe: tf },
+      ],
+      logic: "all",
+    }),
+    allowed_timeframes: ["1d"],
+  },
+  // gold_news_fade DEFERRED until backtest news-replay exists. The
+  // template needs `post_news_window` to fire, which requires
+  // `WalkForwardOptions.events` populated with historical Finnhub
+  // releases. Until that infra lands, including the template here
+  // would produce zero candidates in the search (post_news_window
+  // returns false on empty events) and waste a slot in the grid.
+  // Reintroduce as PR-4 once news-replay is wired — the primitive
+  // (post_news_window) is fully built and tested in PR-1; it just
+  // needs the backtest data path. Until then, fade strategies remain
+  // a live-only consideration (operator can build manually).
   // Bare-indicator templates — last in the grid because they have no
   // multi-TF or pattern context. Useful diversification but rarely
   // beat the pattern templates on the friend's universe.
@@ -286,6 +387,17 @@ const PARAMETER_GRID: ParameterCombo[] = [
   { timeframe: "1h", sl_pct: 1.5, tp_pct: 4.5, label: "1h_loose_3R" },
   // 4h timeframe — for trend-follow templates that benefit from larger bars
   { timeframe: "4h", sl_pct: 1.5, tp_pct: 4.5, label: "4h_normal_3R" },
+  // 4h tighter combo — for gold_h4_trend_pullback (counter-evidence to
+  // the 15m-only intuition; SL 0.8% targets the typical H4 pullback depth).
+  { timeframe: "4h", sl_pct: 0.8, tp_pct: 2.0, label: "4h_tight_2R5" },
+  // 15m combos for gold scalp templates. SL bounds match gold's typical
+  // 15m ATR (~$5 / 0.2% on $2400) — 0.3% catches small ATR setups,
+  // 0.5% gives the trade slightly more room. 3R retained.
+  { timeframe: "15m", sl_pct: 0.3, tp_pct: 0.9, label: "15m_tight_3R" },
+  { timeframe: "15m", sl_pct: 0.5, tp_pct: 1.5, label: "15m_normal_3R" },
+  // 1d combo — the SMA200 trend filter template needs daily bars; SL
+  // wide enough to absorb intraday noise inside the trend.
+  { timeframe: "1d", sl_pct: 1.5, tp_pct: 4.5, label: "1d_normal_3R" },
 ];
 
 export interface Candidate {
@@ -313,10 +425,11 @@ export function enumerateCandidates(input: {
       }
       const built = tmpl.build(combo.timeframe);
       if (!built) continue;
+      const isGold = tmpl.name.startsWith("gold_");
       out.push({
         label: `${tmpl.name}__${combo.label}`,
         template_name: tmpl.name,
-        rules: assembleRules(built, combo, tmpl.default_side, input.capital),
+        rules: assembleRules(built, combo, tmpl.default_side, input.capital, { is_gold: isGold }),
       });
       if (tmpl.include_tf_conviction_variant) {
         // Same conditions/SL/TP, swapped sizing. Walk-forward decides
@@ -326,6 +439,7 @@ export function enumerateCandidates(input: {
           template_name: tmpl.name,
           rules: assembleRules(built, combo, tmpl.default_side, input.capital, {
             sizing: "conviction_tf_agreement",
+            is_gold: isGold,
           }),
         });
       }
@@ -347,6 +461,10 @@ interface AssembleOptions {
    *  `"conviction_tf_agreement"` variant scales risk with cross-TF
    *  agreement count; pairs with `convictionMultiplierByTfAgreement`. */
   sizing?: "risk_per_trade" | "conviction_tf_agreement";
+  /** True for gold-specific templates. Sets asset_class to "commodity",
+   *  bumps leverage to FTMO's actual 1:50 cap on XAU pairs, and tightens
+   *  stagnant_exit on 15m candidates to match gold's faster price action. */
+  is_gold?: boolean;
 }
 
 function assembleRules(
@@ -356,6 +474,7 @@ function assembleRules(
   capital: number,
   options: AssembleOptions = {}
 ): AlgorithmRules {
+  const isGold = options.is_gold ?? false;
   const positionSizing: AlgorithmRules["position_sizing"] =
     options.sizing === "conviction_tf_agreement"
       ? {
@@ -369,6 +488,24 @@ function assembleRules(
           conviction_metric: "tf_agreement",
         }
       : { type: "risk_per_trade", value: 0.5 };
+  // Tighter stagnant_exit on 15m candidates — gold's 15m setups should
+  // resolve fast (4h max hold) and we cut deeper into red sooner so spread
+  // drag doesn't compound on stalled scalps. Other timeframes use the
+  // legacy 48-bar / -0.5R defaults that the active forex algo runs.
+  const stagnantExit =
+    combo.timeframe === "15m"
+      ? {
+          enabled: true,
+          max_bars: 16,
+          min_excursion_r: 0.1,
+          min_pnl_r: -0.3,
+        }
+      : {
+          enabled: true,
+          max_bars: 48,
+          min_excursion_r: 0.1,
+          min_pnl_r: -0.5,
+        };
   const rules: AlgorithmRules = {
     entry_conditions: built.entry,
     entry_logic: built.logic,
@@ -378,9 +515,12 @@ function assembleRules(
     position_sizing: positionSizing,
     max_positions: 5,
     max_per_ticker: 1,
-    leverage: 30,
+    // FTMO improved gold leverage to 1:50 on 2026-02-01 (XAUUSD/EUR/AUD).
+    // Forex stays at the conservative 1:30 — well inside FTMO's actual
+    // 1:100 cap but matches the active forex algo's deployed setting.
+    leverage: isGold ? 50 : 30,
     timeframe: combo.timeframe,
-    asset_class: "forex",
+    asset_class: isGold ? "commodity" : "forex",
     side,
     prop_firm: {
       daily_loss_limit: 5,
@@ -404,12 +544,7 @@ function assembleRules(
       adx_period: 14,
       min_adx: 20,
     },
-    stagnant_exit: {
-      enabled: true,
-      max_bars: 48,
-      min_excursion_r: 0.1,
-      min_pnl_r: -0.5,
-    },
+    stagnant_exit: stagnantExit,
   };
   // Capital is used by some downstream sizing math; the search engine
   // doesn't need it here, but caller passes it through so the rule object
