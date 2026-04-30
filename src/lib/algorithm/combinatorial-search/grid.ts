@@ -24,6 +24,7 @@ import type {
   EntryLogic,
   PatternCondition,
 } from "@/types/algorithm";
+import { EXIT_VARIANTS } from "./exit-variants";
 
 interface Template {
   name: string;
@@ -380,6 +381,11 @@ interface ParameterCombo {
   label: string;
 }
 
+// Exit variants live in `./exit-variants.ts` so the per-template flip
+// rules are isolated from the entry-side template definitions, and so
+// this file stays inside the per-function size budget. See
+// `EXIT_VARIANTS` import above.
+
 const PARAMETER_GRID: ParameterCombo[] = [
   // 1h timeframe
   { timeframe: "1h", sl_pct: 0.8, tp_pct: 2.4, label: "1h_tight_3R" },
@@ -409,9 +415,17 @@ export interface Candidate {
 }
 
 /**
- * Cartesian product of templates × parameter combos, post-filtered by
- * each template's `allowed_timeframes`. ~30-40 candidates for the
- * default templates; well within the 60-candidate budget.
+ * 3D cartesian product of templates × parameter combos × exit variants.
+ * Post-filtered by each template's `allowed_timeframes`. With the
+ * default templates × params × 3 exit variants, ~150-250 candidates;
+ * the search runner caps to its `max_candidates` budget (default 300
+ * to fit the full set).
+ *
+ * The 3rd dimension exists because today's "exit conditions help or
+ * hurt is template-specific" empirical finding — bearish-BOS exits
+ * doubled ict_bos_orderblock EV (+0.33R → +0.66R) but destroyed
+ * momentum_solo (+0.25R → -0.33R). Enumerating exit variants per
+ * candidate lets walk-forward pick the empirically best combination.
  */
 export function enumerateCandidates(input: {
   capital: number;
@@ -426,22 +440,37 @@ export function enumerateCandidates(input: {
       const built = tmpl.build(combo.timeframe);
       if (!built) continue;
       const isGold = tmpl.name.startsWith("gold_");
-      out.push({
-        label: `${tmpl.name}__${combo.label}`,
-        template_name: tmpl.name,
-        rules: assembleRules(built, combo, tmpl.default_side, input.capital, { is_gold: isGold }),
-      });
-      if (tmpl.include_tf_conviction_variant) {
-        // Same conditions/SL/TP, swapped sizing. Walk-forward decides
-        // whether the conviction-scaled version edges out flat risk.
+
+      for (const exitVariant of EXIT_VARIANTS) {
+        const exit = exitVariant.build(tmpl.name, combo.timeframe, tmpl.default_side);
+        if (exit === null) continue;
+
+        const labelSuffix = exitVariant.name === "no_exit" ? "" : `__${exitVariant.name}`;
+
         out.push({
-          label: `${tmpl.name}__${combo.label}__conv`,
+          label: `${tmpl.name}__${combo.label}${labelSuffix}`,
           template_name: tmpl.name,
           rules: assembleRules(built, combo, tmpl.default_side, input.capital, {
-            sizing: "conviction_tf_agreement",
             is_gold: isGold,
+            exit_conditions: exit.exit_conditions,
+            exit_logic: exit.exit_logic,
           }),
         });
+        if (tmpl.include_tf_conviction_variant) {
+          // Same conditions/SL/TP/exits, swapped sizing. Walk-forward
+          // decides whether the conviction-scaled version edges out
+          // flat risk under the same exit shape.
+          out.push({
+            label: `${tmpl.name}__${combo.label}__conv${labelSuffix}`,
+            template_name: tmpl.name,
+            rules: assembleRules(built, combo, tmpl.default_side, input.capital, {
+              sizing: "conviction_tf_agreement",
+              is_gold: isGold,
+              exit_conditions: exit.exit_conditions,
+              exit_logic: exit.exit_logic,
+            }),
+          });
+        }
       }
     }
   }
@@ -465,6 +494,12 @@ interface AssembleOptions {
    *  bumps leverage to FTMO's actual 1:50 cap on XAU pairs, and tightens
    *  stagnant_exit on 15m candidates to match gold's faster price action. */
   is_gold?: boolean;
+  /** Exit conditions to bake into the rule. Defaults to none ([] +
+   *  undefined logic) — preserves the legacy 2D-search behaviour for
+   *  any caller that doesn't supply exits. The 3D-enumeration loop
+   *  always sets these explicitly. */
+  exit_conditions?: EntryCondition[];
+  exit_logic?: AlgorithmRules["exit_logic"];
 }
 
 function assembleRules(
@@ -509,7 +544,8 @@ function assembleRules(
   const rules: AlgorithmRules = {
     entry_conditions: built.entry,
     entry_logic: built.logic,
-    exit_conditions: [],
+    exit_conditions: options.exit_conditions ?? [],
+    ...(options.exit_logic !== undefined ? { exit_logic: options.exit_logic } : {}),
     stop_loss: { type: "percentage", value: combo.sl_pct },
     take_profit: { type: "percentage", value: combo.tp_pct },
     position_sizing: positionSizing,

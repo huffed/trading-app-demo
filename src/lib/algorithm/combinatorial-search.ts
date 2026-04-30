@@ -139,7 +139,10 @@ export async function runCombinatorialSearch(
   options: SearchOptions = {}
 ): Promise<SearchResult> {
   const start = Date.now();
-  const maxCandidates = options.max_candidates ?? 60;
+  // Bumped from 60 → 300 for 3D search (templates × params × exits).
+  // With ~14 templates × ~3-4 params × 3 exit variants = 100-200 typical;
+  // 300 leaves headroom for future template additions.
+  const maxCandidates = options.max_candidates ?? 300;
   const topN = options.top_n ?? 5;
 
   const universe = filterUniverse(input);

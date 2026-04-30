@@ -88,6 +88,82 @@ describe("enumerateCandidates — stagnant_exit by timeframe", () => {
   });
 });
 
+describe("enumerateCandidates — 3D search (template × params × exit variants)", () => {
+  it("emits multiple exit variants per (template × param) combo", () => {
+    const candidates = enumerateCandidates(INPUT);
+    const ictBosCandidates = candidates.filter(
+      (c) => c.template_name === "ict_bos_orderblock" && c.rules.timeframe === "1h"
+    );
+    expect(ictBosCandidates.length).toBeGreaterThan(1);
+  });
+
+  it("no_exit variant has empty exit_conditions", () => {
+    const c = enumerateCandidates(INPUT).find(
+      (cand) =>
+        cand.template_name === "ict_bos_orderblock" &&
+        !cand.label.includes("__signal_flip") &&
+        !cand.label.includes("__daily_bias_flip")
+    );
+    expect(c).toBeDefined();
+    expect(c!.rules.exit_conditions).toHaveLength(0);
+  });
+
+  it("signal_flip variant has bearish bos exit for ict_bos_orderblock long entry", () => {
+    const c = enumerateCandidates(INPUT).find((cand) =>
+      cand.label.startsWith("ict_bos_orderblock") && cand.label.endsWith("__signal_flip")
+    );
+    expect(c).toBeDefined();
+    expect(c!.rules.exit_conditions.length).toBeGreaterThan(0);
+    const exit = c!.rules.exit_conditions[0];
+    expect(exit.type).toBe("pattern");
+    if (exit.type === "pattern") {
+      expect(exit.pattern).toBe("bos");
+      expect(exit.direction).toBe("bearish");
+    }
+  });
+
+  it("daily_bias_flip variant has bearish daily_bias exit on long-side templates", () => {
+    const c = enumerateCandidates(INPUT).find((cand) =>
+      cand.label.startsWith("momentum_solo") && cand.label.endsWith("__daily_bias_flip")
+    );
+    expect(c).toBeDefined();
+    const exit = c!.rules.exit_conditions[0];
+    expect(exit.type).toBe("pattern");
+    if (exit.type === "pattern") {
+      expect(exit.pattern).toBe("daily_bias");
+      expect(exit.direction).toBe("bearish");
+      expect(exit.timeframe).toBe("1d");
+    }
+  });
+
+  it("AUTO-side templates skip signal_flip and daily_bias_flip variants", () => {
+    const candidates = enumerateCandidates(INPUT);
+    const smaCrossover = candidates.filter(
+      (c) => c.template_name === "sma_crossover_trend"
+    );
+    expect(smaCrossover.length).toBeGreaterThan(0);
+    for (const c of smaCrossover) {
+      expect(c.label.includes("__signal_flip")).toBe(false);
+      expect(c.label.includes("__daily_bias_flip")).toBe(false);
+    }
+  });
+
+  it("rsi_overbought_fade short-side gets RSI > 80 signal_flip exit", () => {
+    const c = enumerateCandidates(INPUT).find((cand) =>
+      cand.label.startsWith("rsi_overbought_fade") && cand.label.endsWith("__signal_flip")
+    );
+    expect(c).toBeDefined();
+    expect(c!.rules.side).toBe("short");
+    const exit = c!.rules.exit_conditions[0];
+    expect(exit.type).toBe("technical");
+    if (exit.type === "technical") {
+      expect(exit.indicator).toBe("RSI");
+      expect(exit.operator).toBe("greater_than");
+      expect(exit.value).toBe(80);
+    }
+  });
+});
+
 describe("enumerateCandidates — gold template condition shapes", () => {
   it("gold_killzone_sweep emits 4 conditions on 15m with logic=all", () => {
     const c = enumerateCandidates(INPUT).find(
