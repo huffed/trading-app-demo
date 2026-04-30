@@ -88,7 +88,9 @@ Six new templates added to `combinatorial-search/grid.ts`:
 | `gold_asian_breakout` | 15m | `asian_range_break` + `momentum` | `all` | 0.5% / 1.0% |
 | `gold_h4_trend_pullback` | 4h | `daily_bias(20)` + (`pin_bar` OR `engulfing`) + RSI threshold | n_of_m=2 of 3 | 0.8% / 2.0% |
 | `gold_d1_sma_trend_filter` | 1d | `SMA200` price-above (long) / -below (short) | `all` | trail SMA |
-| `gold_news_fade` | 15m | `post_news_window` + engulfing reversal | `all` | reactionary anchor |
+| ~~`gold_news_fade` (DEFERRED to PR-4)~~ | 15m | `post_news_window` + engulfing reversal | `all` | reactionary anchor |
+
+**`gold_news_fade` deferral:** the template requires `WalkForwardOptions.events` to be populated with historical Finnhub releases — currently the search path doesn't pass events, so the template would produce zero candidates and waste a grid slot. The `post_news_window` primitive itself ships in PR-1 (correct, tested). Reintroduce as a PR-4 template once backtest news-replay is wired, or use the primitive directly in a live-only fade strategy.
 
 Grid additions to `PARAMETER_GRID`:
 - `{15m, 0.3%, 0.9%}`
