@@ -121,10 +121,30 @@ const PATTERN_LABELS: Record<PatternCondition["pattern"], string> = {
   engulfing: "Engulfing candle",
   pin_bar: "Pin bar (rejection)",
   momentum: "Momentum continuation",
+  gold_session_window: "Session window",
+  asian_range_break: "Asian range break",
+  post_news_window: "Post-news window",
+};
+
+const SESSION_LABELS: Record<NonNullable<PatternCondition["session"]>, string> = {
+  ny_killzone: "NY Killzone",
+  silver_bullet: "Silver Bullet",
+  london_open: "London Open",
+  asian_session: "Asian Session",
 };
 
 function formatPatternCondition(c: PatternCondition): string {
   const label = PATTERN_LABELS[c.pattern] ?? c.pattern;
+  if (c.pattern === "gold_session_window") {
+    const session = c.session ? SESSION_LABELS[c.session] : "any";
+    return `${label} (${session})`;
+  }
+  if (c.pattern === "post_news_window") {
+    const min = c.min_minutes_after ?? 5;
+    const max = c.max_minutes_after ?? 30;
+    const impact = c.min_impact ?? "high";
+    return `${label} (${min}-${max} min after ${impact}-impact news)`;
+  }
   const dir = c.direction ? ` (${c.direction})` : "";
   return `${label}${dir}`;
 }

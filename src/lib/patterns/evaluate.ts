@@ -14,8 +14,10 @@
  * are computed here from the bar history rather than persisted across
  * scans — keeps the engine deterministic for backtest replay.
  */
+import type { EconomicEvent } from "@/lib/market-data/economic-calendar";
 import type { PriceBar } from "@/lib/market-data/types";
 import type { PatternCondition } from "@/types/algorithm";
+import { detectAsianRangeBreak } from "./asian-range-break";
 import { detectBos } from "./bos";
 import { detectDailyBias } from "./daily-bias";
 import { detectEngulfing } from "./engulfing";
@@ -24,6 +26,24 @@ import { detectLiquiditySweep } from "./liquidity-sweep";
 import { detectMomentum } from "./momentum";
 import { detectOrderBlock } from "./order-block";
 import { detectPinBar } from "./pin-bar";
+import { detectPostNewsWindow } from "./post-news-window";
+import { detectSessionWindow } from "./session-window";
+
+/**
+ * Optional context for patterns that depend on data outside the bar
+ * series (currently only `post_news_window`, which needs a news feed).
+ * Backwards compatible — callers that don't supply context get the
+ * pre-existing behaviour.
+ */
+export interface PatternEvaluationContext {
+  /** Economic events available for `post_news_window` matching. Empty /
+   *  undefined causes that pattern to return false. */
+  news_events?: EconomicEvent[];
+  /** Currencies relevant to the algorithm's symbol — passed to
+   *  `post_news_window` so it only fires on news affecting the traded
+   *  symbol. Typically populated via `getEventCurrencies(symbol)`. */
+  relevant_currencies?: string[];
+}
 
 /**
  * Evaluate a pattern condition against the bar series at index `idx`.
@@ -33,17 +53,39 @@ import { detectPinBar } from "./pin-bar";
  *
  * `directionOverride` (auto-side regime mode) overrides the condition's
  * configured `direction` filter. Pass undefined to use cond.direction.
+ *
+ * `context` carries data needed by news-aware patterns. Pass undefined
+ * for backwards compatibility — only `post_news_window` consults it.
  */
 export function evaluatePatternCondition(
   cond: PatternCondition,
   bars: PriceBar[],
   idx: number,
   higherTfBars?: PriceBar[],
-  directionOverride?: "bullish" | "bearish"
+  directionOverride?: "bullish" | "bearish",
+  context?: PatternEvaluationContext
 ): boolean {
-  // Effective direction filter: override beats configured. Unset means
-  // any direction matches — preserves the original "no filter" behaviour.
   const effectiveDir = directionOverride ?? cond.direction;
+  if (
+    cond.pattern === "gold_session_window" ||
+    cond.pattern === "asian_range_break" ||
+    cond.pattern === "post_news_window"
+  ) {
+    return evaluateGoldOnlyPattern(cond, bars, idx, effectiveDir, context);
+  }
+  return evaluateClassicPattern(cond, bars, idx, higherTfBars, effectiveDir);
+}
+
+/** Classic ICT/SMC pattern dispatch — the original nine patterns. Split
+ *  out so the main `evaluatePatternCondition` stays a thin dispatcher
+ *  between the gold-scoped exception set and the general-purpose set. */
+function evaluateClassicPattern(
+  cond: PatternCondition,
+  bars: PriceBar[],
+  idx: number,
+  higherTfBars: PriceBar[] | undefined,
+  effectiveDir: "bullish" | "bearish" | undefined
+): boolean {
   switch (cond.pattern) {
     case "liquidity_sweep": {
       const r = detectLiquiditySweep(bars, idx, cond.lookback ?? 5);
@@ -58,10 +100,7 @@ export function evaluatePatternCondition(
       return true;
     }
     case "ifvg": {
-      // An IFVG signal: a previously-detected FVG that has been filled
-      // AND the current bar is interacting with the gap zone again. The
-      // gap acts in the inverse direction post-fill (bullish FVG that
-      // got filled → now resistance on retest).
+      // Previously-filled FVG retest — gap acts inverse to its original direction.
       const inventory = scanFvgs(bars.slice(0, idx + 1));
       const filled = inventory.filter((g) => g.filled_at != null && g.filled_at < idx);
       if (filled.length === 0) return false;
@@ -121,6 +160,51 @@ export function evaluatePatternCondition(
       if (!r.detected || !r.details) return false;
       if (effectiveDir && r.details.direction !== effectiveDir) return false;
       return true;
+    }
+    default:
+      return false;
+  }
+}
+
+/** Gold-only pattern dispatch — split out so the main switch stays
+ *  inside the function-size lint budget and the carve-out is visually
+ *  isolated from the general-purpose patterns. */
+function evaluateGoldOnlyPattern(
+  cond: PatternCondition,
+  bars: PriceBar[],
+  idx: number,
+  effectiveDir: "bullish" | "bearish" | undefined,
+  context: PatternEvaluationContext | undefined
+): boolean {
+  switch (cond.pattern) {
+    case "gold_session_window": {
+      // Time gate, not a directional signal — direction filter is
+      // intentionally NOT applied. The session field carries the
+      // window name; without it the condition is degenerate.
+      if (!cond.session) return false;
+      return detectSessionWindow(bars, idx, { session: cond.session }).detected;
+    }
+    case "asian_range_break": {
+      const r = detectAsianRangeBreak(bars, idx);
+      if (!r.detected || !r.details) return false;
+      if (effectiveDir && r.details.direction !== effectiveDir) return false;
+      return true;
+    }
+    case "post_news_window": {
+      // Strict context requirement — refuse to fire without news data
+      // rather than silently approximating. Backtest engines populate
+      // context.news_events from WalkForwardOptions.events; live scan
+      // populates from the economic-calendar fetch.
+      if (!context?.news_events || context.news_events.length === 0) return false;
+      const r = detectPostNewsWindow(bars, idx, {
+        events: context.news_events,
+        min_minutes_after: cond.min_minutes_after,
+        max_minutes_after: cond.max_minutes_after,
+        min_impact: cond.min_impact,
+        relevant_currencies: context.relevant_currencies,
+      });
+      // Time-window detector — direction filter doesn't apply.
+      return r.detected;
     }
     default:
       return false;

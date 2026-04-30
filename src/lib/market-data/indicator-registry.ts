@@ -11,6 +11,10 @@ const INDICATOR_REGISTRY: Record<string, (closes: number[]) => (number | null)[]
   sma: (c) => sma(c, 20),
   sma20: (c) => sma(c, 20),
   sma50: (c) => sma(c, 50),
+  // sma200 — long-term trend filter. Backbone of the published gold
+  // 200d-SMA edge (Quantified Strategies; 50-yr backtest). Used by the
+  // `gold_d1_sma_trend_filter` template in the combinatorial search grid.
+  sma200: (c) => sma(c, 200),
   ema: (c) => ema(c, 12),
   ema12: (c) => ema(c, 12),
   ema26: (c) => ema(c, 26),
