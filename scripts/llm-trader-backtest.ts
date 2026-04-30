@@ -75,7 +75,15 @@ interface ClosedTrade {
   reasoning: string;
 }
 
-const SYSTEM_PROMPT = `You are a gold (XAU/USD) discretionary trader on 4h. Take only HIGH-CONVICTION setups; most bars should be "hold". Align with daily trend. Long on bullish bias + bullish 4h trigger (sweep+reversal, engulfing/pin at level, BOS+retest, pullback to MA/FVG). Short on bearish mirror. Pass when sideways. Strong DXY = headwind for longs. Hold winners through normal pullbacks; exit only on structural thesis break. SL/TP are fixed (1.5%/4.5%); your job is direction + timing.
+const SYSTEM_PROMPT = `You are a gold (XAU/USD) discretionary trader on 4h. Take only HIGH-CONVICTION setups; most bars should be "hold". Align with daily trend. Long on bullish bias + bullish 4h trigger (sweep+reversal, engulfing/pin at level, BOS+retest, pullback to MA/FVG). Short on bearish mirror. Pass when sideways.
+
+Intermarket context (factor in):
+- DXY rising = headwind for gold longs (dollar strength)
+- 10Y yields rising = headwind for gold (real-rate pressure)
+- VIX rising = risk-off = gold tailwind (safe haven flows)
+- Gold-silver ratio rising = gold leading (often late-cycle bullish); falling = silver leading (often broad risk-on)
+
+Hold winners through normal pullbacks; exit only on structural thesis break. SL/TP are fixed (1.5%/4.5%); your job is direction + timing.
 
 Output JSON: {"decision": "enter_long"|"enter_short"|"hold"|"exit", "confidence": 0-100, "reasoning": "1 short sentence"}. "hold" = maintain; "exit" only valid when in a position.`;
 
@@ -154,6 +162,77 @@ function summariseDxy(eurusdBars: PriceBar[], currentTs: string): string {
   return `DXY: 24h ${-c24 >= 0 ? "+" : ""}${(-c24).toFixed(2)}% / 7d ${-c7 >= 0 ? "+" : ""}${(-c7).toFixed(2)}%.`;
 }
 
+interface IntermarketSeries {
+  silver?: PriceBar[];
+  yield10y?: PriceBar[];
+  vix?: PriceBar[];
+}
+
+/** Try to load each intermarket series, return null entries on failure
+ *  (prices.ts fallback chain handles Twelve Data quota outage by falling
+ *  through to Yahoo). Doesn't crash the run if any single ticker can't
+ *  be fetched — the summariser handles missing data gracefully. */
+async function loadIntermarket(): Promise<IntermarketSeries> {
+  const out: IntermarketSeries = {};
+  const tryFetch = async (ticker: string): Promise<PriceBar[] | undefined> => {
+    try {
+      return await fetchDailyPrices(ticker, "full", "1day");
+    } catch (err) {
+      console.log(`  ${ticker}: fetch failed (${err instanceof Error ? err.message.slice(0, 60) : "unknown"})`);
+      return undefined;
+    }
+  };
+  out.silver = await tryFetch("XAG/USD");
+  out.yield10y = await tryFetch("^TNX");
+  out.vix = await tryFetch("^VIX");
+  return out;
+}
+
+function summariseIntermarket(im: IntermarketSeries, goldClose: number, currentTs: string): string {
+  const ts = new Date(currentTs).getTime();
+  const cutoff24h = ts - 24 * 3600 * 1000;
+  const cutoff7d = ts - 7 * 24 * 3600 * 1000;
+  const lookup = (bars: PriceBar[] | undefined, cutoff: number): PriceBar | undefined => {
+    if (!bars) return undefined;
+    return bars.findLast((b) => new Date(b.date).getTime() <= cutoff);
+  };
+  const parts: string[] = [];
+
+  // Gold-silver ratio
+  const slvLatest = lookup(im.silver, ts);
+  const slv7d = lookup(im.silver, cutoff7d);
+  if (slvLatest && slv7d) {
+    const ratioNow = goldClose / slvLatest.close;
+    const ratio7d = goldClose / slv7d.close; // approximation — uses current gold for both, just shows silver direction
+    const slvChange7d = ((slvLatest.close - slv7d.close) / slv7d.close) * 100;
+    parts.push(
+      `XAU/XAG ${ratioNow.toFixed(0)} (silver 7d ${slvChange7d >= 0 ? "+" : ""}${slvChange7d.toFixed(2)}%)`
+    );
+  }
+
+  // 10Y yield
+  const tnxLatest = lookup(im.yield10y, ts);
+  const tnx24h = lookup(im.yield10y, cutoff24h);
+  if (tnxLatest && tnx24h) {
+    const yieldNow = tnxLatest.close;
+    const yieldChange = yieldNow - tnx24h.close;
+    parts.push(
+      `10Y ${yieldNow.toFixed(2)}% (24h ${yieldChange >= 0 ? "+" : ""}${yieldChange.toFixed(2)}pp)`
+    );
+  }
+
+  // VIX
+  const vixLatest = lookup(im.vix, ts);
+  const vix24h = lookup(im.vix, cutoff24h);
+  if (vixLatest && vix24h) {
+    const vixNow = vixLatest.close;
+    const vixChange = ((vixNow - vix24h.close) / vix24h.close) * 100;
+    parts.push(`VIX ${vixNow.toFixed(0)} (24h ${vixChange >= 0 ? "+" : ""}${vixChange.toFixed(1)}%)`);
+  }
+
+  return parts.length > 0 ? `Intermarket: ${parts.join(" | ")}.` : "Intermarket: n/a";
+}
+
 function summarisePosition(position: OpenPosition | null, currentPrice: number): string {
   if (!position) return "FLAT.";
   const pnlPct =
@@ -221,6 +300,12 @@ async function main(): Promise<void> {
   console.log("Loading EUR/USD 4h proxy...");
   const eurusd4h = await fetchDailyPrices("EUR/USD", "full", "4h");
   console.log(`  EUR/USD 4h: ${eurusd4h.length} bars`);
+
+  console.log("Loading intermarket series (silver / yields / VIX)...");
+  const intermarket = await loadIntermarket();
+  console.log(
+    `  silver: ${intermarket.silver?.length ?? 0} bars · 10Y yield: ${intermarket.yield10y?.length ?? 0} bars · VIX: ${intermarket.vix?.length ?? 0} bars`
+  );
   console.log("");
 
   // Slice 4h bars to last N days but keep daily history (need 21 bars for SMA20).
@@ -274,9 +359,10 @@ async function main(): Promise<void> {
     const dailyContext = summariseDailyBias(dailyBars.filter((d) => new Date(d.date).getTime() <= new Date(bar.date).getTime()));
     const recentContext = summariseRecent4h(bars4h, i);
     const dxyContext = summariseDxy(eurusd4h, bar.date);
+    const intermarketContext = summariseIntermarket(intermarket, bar.close, bar.date);
     const positionContext = summarisePosition(position, bar.close);
 
-    const userMessage = `${bar.date.slice(0, 16)}\n${dailyContext}\n${dxyContext}\n${recentContext}\nPosition: ${positionContext}\nDecide.`;
+    const userMessage = `${bar.date.slice(0, 16)}\n${dailyContext}\n${dxyContext}\n${intermarketContext}\n${recentContext}\nPosition: ${positionContext}\nDecide.`;
 
     const decision = await callLLM(client, userMessage);
     llmCallCount++;
