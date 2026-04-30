@@ -7,6 +7,7 @@ import {
 } from "@/lib/algorithm/conviction-sizing";
 import { checkAtrLiquidity } from "@/lib/algorithm/intraday-atr-gate";
 import { checkBrokerSpread, type SpreadGateResult } from "@/lib/algorithm/spread-gate";
+import { computeSlDistance, computeTpDistance } from "@/lib/algorithm/structural-sl";
 import { checkTimeOfDayFilter } from "@/lib/algorithm/time-of-day-filter";
 import { getContractSize } from "@/lib/constants/markets";
 import { isWeakTrendByAdx } from "@/lib/market-data/adx-filter";
@@ -79,7 +80,13 @@ async function openPosition(
   sentimentResult: SignalResult | undefined,
   allOpenPositions: PaperPosition[],
   brokerCtx: BrokerExecutionContext | null,
-  convictionMult: number = 1
+  convictionMult: number = 1,
+  /** Recent bars used to resolve structural SL/TP (swing_anchor /
+   *  rr_multiple rule types). The current bar is bars[bars.length - 1]
+   *  by convention; live entries always evaluate at "now". Optional —
+   *  for percentage / fixed / pips rules the helpers fall through to
+   *  their existing behaviour. */
+  bars?: PriceBar[]
 ): Promise<{ opened: number; openEvent?: PositionEvent }> {
   // calculatePositionSize wants MARGIN-used summed, not notional. For
   // leveraged sizing (lots / risk_per_trade / conviction_scaled) sum
@@ -95,17 +102,6 @@ async function openPosition(
     (sum, p) => sum + (isLeveraged ? p.notional_value / lev : p.notional_value),
     0
   );
-  const sizing = calculatePositionSize(
-    algo.rules,
-    algo.capital,
-    openValue,
-    currentPrice,
-    ticker,
-    convictionMult
-  );
-  if (!sizing) {
-    return { opened: 0 };
-  }
 
   // Side is resolved by the caller (evaluateEntry) — at this point it's
   // a concrete long/short, never "auto". Default to long for legacy callers.
@@ -113,11 +109,41 @@ async function openPosition(
     algo.rules.side === "long" || algo.rules.side === "short"
       ? algo.rules.side
       : "long";
+
+  // Compute SL/TP distances ONCE before sizing — risk_per_trade lots
+  // depend on slDistance, and rr_multiple TP depends on the resolved
+  // SL distance. For non-structural rules the helpers fall through to
+  // priceDeltaForRule via the caller's bars (or skip when bars omitted).
+  const entryIdx = bars && bars.length > 0 ? bars.length - 1 : 0;
+  const slDistance =
+    bars && bars.length > 0
+      ? computeSlDistance(algo.rules.stop_loss, side, currentPrice, ticker, bars, entryIdx)
+      : undefined;
+  const tpDistance =
+    bars && bars.length > 0 && slDistance !== undefined
+      ? computeTpDistance(algo.rules.take_profit, slDistance, currentPrice, ticker)
+      : undefined;
+
+  const sizing = calculatePositionSize(
+    algo.rules,
+    algo.capital,
+    openValue,
+    currentPrice,
+    ticker,
+    convictionMult,
+    slDistance
+  );
+  if (!sizing) {
+    return { opened: 0 };
+  }
+
   const { stopLossPrice, takeProfitPrice } = calculateRiskPrices(
     currentPrice,
     algo.rules,
     side,
-    ticker
+    ticker,
+    slDistance,
+    tpDistance
   );
   const entryReason = entryReasonSchema.parse({
     conditions_met: conditions.map(snapshotCondition),
@@ -700,6 +726,7 @@ export async function evaluateEntry(
     sentimentResult,
     allOpenPositions,
     brokerCtx ?? null,
-    convictionMult
+    convictionMult,
+    bars
   );
 }
