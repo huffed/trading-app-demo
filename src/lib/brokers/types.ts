@@ -107,6 +107,20 @@ export interface MarketOrderResult {
   positionId: string;
 }
 
+/**
+ * Realised close of a broker position — used by the manage cron to
+ * reconcile paper_positions when the broker closed a position outside
+ * our exit logic (e.g. operator clicked close in the broker UI).
+ */
+export interface BrokerClosedDeal {
+  /** Filled close price. */
+  price: number;
+  /** Net realised P&L (profit + swap + commission). */
+  realizedPnl: number;
+  /** ISO timestamp of the close. */
+  closedAt: string;
+}
+
 export interface BrokerAdapter {
   /** Provider tag this adapter handles, matches broker_connections.provider. */
   readonly provider: string;
@@ -124,6 +138,18 @@ export interface BrokerAdapter {
   fetchQuote(conn: BrokerConnection, appSymbol: string): Promise<BrokerQuote | null>;
   placeMarketOrder(conn: BrokerConnection, input: MarketOrderInput): Promise<MarketOrderResult>;
   closePosition(conn: BrokerConnection, positionId: string): Promise<{ orderId: string }>;
+  /**
+   * Look up the realised close of a position the broker no longer reports
+   * as open. Returns null when the broker can't surface a close (cTrader
+   * streams deals, no one-shot history endpoint) or when the position
+   * isn't in the broker's history yet (typical lag <60s after manual
+   * close). Treat null as "can't reconcile right now" — callers should
+   * leave the paper position alone and try again on the next tick.
+   */
+  fetchClosedDealForPosition?(
+    conn: BrokerConnection,
+    positionId: string
+  ): Promise<BrokerClosedDeal | null>;
   /** Sanitise raw provider errors for surfacing to the user. Must scrub
    *  any credentials before returning. */
   describeError(err: unknown): string;

@@ -456,7 +456,17 @@ export async function evaluateEntry(
    *  scan in scanAlgorithm. Optional — null when the filter is not
    *  configured on this algo, OR when the fetch failed (gate becomes
    *  no-op via no_data status). */
-  dxyBars?: PriceBar[] | null
+  dxyBars?: PriceBar[] | null,
+  /** When set, this evaluation is dry-run — the position cap (max_positions
+   *  / max_per_ticker) is full so we wouldn't open even if every gate
+   *  passed. We still run the full gate ladder for telemetry (each gate
+   *  logs signal_no_action with its own reason on failure), but at the
+   *  would-have-opened step we emit a signal_no_action with this reason
+   *  instead of placing the order. Lets the operator see "the strategy
+   *  fired while capped" — without this flag, the cap silently dropped
+   *  every potential entry and the considered feed showed nothing during
+   *  slot-full windows. */
+  cappedReason?: string | null
 ): Promise<{ opened: number; openEvent?: PositionEvent }> {
   const rules = algo.rules;
   // Use real-time price for entry, fall back to latest daily close
@@ -730,6 +740,33 @@ export async function evaluateEntry(
       });
       return { opened: 0 };
     }
+  }
+
+  // Capped path: the strategy's full gate ladder passed and conditions
+  // matched, but max_positions / max_per_ticker is full. Log a near-miss
+  // (instead of signal_detected + openPosition) so the considered feed
+  // shows the entry was viable. Without this branch the cap silently
+  // dropped these — leaving the operator blind during slot-full windows.
+  if (cappedReason) {
+    await logActivity(supabase, userId, {
+      algorithm_id: algo.id,
+      event_type: "signal_no_action",
+      ticker,
+      details: {
+        reason: cappedReason,
+        conditions_met: conditionsResult.met,
+        conditions_total: conditionsResult.total,
+        conditions_breakdown: conditionsResult.fired,
+        sentiment_signal: sentimentResult?.signal,
+        sentiment_confidence: sentimentResult?.confidence,
+        observed_spread_pips: spread?.observed_spread_pips,
+        spread_status: spread?.status,
+        atr_current: liquidity.atr_current,
+        atr_threshold: liquidity.atr_threshold,
+        would_have_entered: true,
+      },
+    });
+    return { opened: 0 };
   }
 
   await logActivity(supabase, userId, {

@@ -21,6 +21,8 @@
  */
 import { readFileSync } from "fs";
 import { createClient } from "@supabase/supabase-js";
+import { getBrokerAdapter } from "../src/lib/brokers/registry";
+import type { BrokerConnection } from "../src/lib/brokers/types";
 
 {
   try {
@@ -44,52 +46,6 @@ interface PaperPosition {
   side: string;
   entry_price: number;
   broker_position_id: string | null;
-}
-
-interface BrokerConnection {
-  id: string;
-  provider: string;
-  api_token: string;
-  account_id: string;
-  region: string;
-}
-
-interface MetaApiDeal {
-  id: string;
-  positionId: string;
-  type: string; // DEAL_TYPE_BUY / DEAL_TYPE_SELL
-  entryType: string; // DEAL_ENTRY_IN / DEAL_ENTRY_OUT
-  symbol: string;
-  volume: number;
-  price: number;
-  profit: number;
-  swap?: number;
-  commission?: number;
-  time: string; // ISO
-}
-
-const REGION_HOSTS: Record<string, string> = {
-  london: "https://mt-client-api-v1.london.agiliumtrade.ai",
-  "new-york": "https://mt-client-api-v1.new-york.agiliumtrade.ai",
-  singapore: "https://mt-client-api-v1.singapore.agiliumtrade.ai",
-};
-
-async function fetchHistoryDealsForPosition(
-  conn: BrokerConnection,
-  brokerPositionId: string
-): Promise<MetaApiDeal[]> {
-  const host = REGION_HOSTS[conn.region] ?? REGION_HOSTS.london;
-  const url = `${host}/users/current/accounts/${encodeURIComponent(
-    conn.account_id
-  )}/history-deals/position/${encodeURIComponent(brokerPositionId)}`;
-  const res = await fetch(url, {
-    headers: { "auth-token": conn.api_token, Accept: "application/json" },
-  });
-  if (!res.ok) {
-    const body = await res.text().catch(() => "");
-    throw new Error(`MetaApi ${res.status}: ${body.slice(0, 300)}`);
-  }
-  return (await res.json()) as MetaApiDeal[];
 }
 
 async function main(): Promise<void> {
@@ -131,13 +87,18 @@ async function main(): Promise<void> {
 
   const { data: connRow, error: connErr } = await supabase
     .from("broker_connections")
-    .select("id, provider, api_token, account_id, region")
+    .select("id, user_id, provider, api_token, account_id, region")
     .eq("id", algoRow.broker_connection_id)
     .single();
   if (connErr || !connRow) throw new Error(`broker_connection not found: ${connErr?.message}`);
   const conn = connRow as BrokerConnection;
-  if (conn.provider !== "metaapi") {
-    throw new Error(`Provider ${conn.provider} not supported by this script.`);
+
+  const adapter = getBrokerAdapter(conn.provider);
+  if (!adapter) throw new Error(`Provider ${conn.provider} not registered.`);
+  if (!adapter.fetchClosedDealForPosition) {
+    throw new Error(
+      `Adapter ${conn.provider} doesn't expose fetchClosedDealForPosition — manual reconciliation not supported.`
+    );
   }
 
   console.log(`Paper position ${paper.id.slice(0, 8)} — ${paper.ticker} ${paper.side}`);
@@ -145,36 +106,22 @@ async function main(): Promise<void> {
   console.log(`  entry_price       : ${paper.entry_price}`);
   console.log(`  broker_position_id: ${paper.broker_position_id}`);
   console.log("");
-  console.log(`Calling MetaApi history-deals for position ${paper.broker_position_id}...`);
+  console.log(`Calling ${conn.provider}.fetchClosedDealForPosition(${paper.broker_position_id})...`);
 
-  const deals = await fetchHistoryDealsForPosition(conn, paper.broker_position_id);
-  if (deals.length === 0) {
-    console.log("MetaApi returned 0 deals. Position may not yet be in history (typical lag <60s).");
-    console.log("Re-run in a minute.");
-    return;
-  }
-
-  console.log(`Got ${deals.length} deal(s) for this position:`);
-  for (const d of deals) {
+  const closed = await adapter.fetchClosedDealForPosition(conn, paper.broker_position_id);
+  if (!closed) {
     console.log(
-      `  ${d.entryType.padEnd(15)} ${d.type} · price=${d.price} · profit=${d.profit} · swap=${d.swap ?? 0} · comm=${d.commission ?? 0} · ${d.time}`
+      "Adapter returned null — position may not yet be in broker history (typical lag <60s) or never closed."
     );
-  }
-
-  const closeDeal = deals.find((d) => d.entryType === "DEAL_ENTRY_OUT");
-  if (!closeDeal) {
-    console.log("No DEAL_ENTRY_OUT found — position likely still open on the broker.");
+    console.log("Re-run in a minute if you confirmed the close on the broker UI.");
     return;
   }
-
-  const realizedPnl =
-    Number(closeDeal.profit) + Number(closeDeal.swap ?? 0) + Number(closeDeal.commission ?? 0);
 
   console.log("");
   console.log("Reconciliation:");
-  console.log(`  exit_price        : ${closeDeal.price}`);
-  console.log(`  realized_pnl      : ${realizedPnl.toFixed(2)} (profit + swap + commission)`);
-  console.log(`  closed_at         : ${closeDeal.time}`);
+  console.log(`  exit_price        : ${closed.price}`);
+  console.log(`  realized_pnl      : ${closed.realizedPnl.toFixed(2)} (profit + swap + commission)`);
+  console.log(`  closed_at         : ${closed.closedAt}`);
   console.log(`  exit_reason       : manual`);
   console.log("");
 
@@ -187,14 +134,15 @@ async function main(): Promise<void> {
     .from("paper_positions")
     .update({
       status: "closed",
-      exit_price: closeDeal.price,
+      exit_price: closed.price,
       exit_reason: "manual",
-      realized_pnl: realizedPnl,
-      broker_close_price: closeDeal.price,
+      realized_pnl: closed.realizedPnl,
+      broker_close_price: closed.price,
       broker_unrealized_pnl: 0,
-      closed_at: closeDeal.time,
+      closed_at: closed.closedAt,
     })
-    .eq("id", paper.id);
+    .eq("id", paper.id)
+    .eq("status", "open");
   if (updErr) throw new Error(`Update failed: ${updErr.message}`);
 
   console.log("Applied. paper_position now status=closed.");

@@ -119,7 +119,16 @@ async function syncBrokerUnrealizedPnl(
   const syncedAt = new Date().toISOString();
   for (const paper of mirrored) {
     const broker = byId.get(String(paper.broker_position_id));
-    if (!broker) continue;
+    if (!broker) {
+      // Broker stopped reporting this position. Either (a) it was closed
+      // outside our exit logic — typically operator clicked close in the
+      // broker UI — or (b) MetaApi has lag and the position will reappear
+      // in a moment. Try to fetch the realised close from the broker's
+      // history; if found, write it back. If not (lag or unsupported
+      // adapter), leave the row alone and retry on the next tick.
+      await reconcileMissingBrokerPosition(supabase, brokerCtx, paper);
+      continue;
+    }
     await supabase
       .from("paper_positions")
       .update({
@@ -128,6 +137,53 @@ async function syncBrokerUnrealizedPnl(
       })
       .eq("id", paper.id);
   }
+}
+
+/**
+ * Try to find the realised close of a paper position whose broker mirror
+ * stopped reporting. Pulled out so the same logic is reusable from
+ * scripts/reconcile-broker-close.ts. No-op when the adapter doesn't
+ * implement fetchClosedDealForPosition (cTrader streams deals only).
+ */
+export async function reconcileMissingBrokerPosition(
+  supabase: SupabaseClient,
+  brokerCtx: NonNullable<Awaited<ReturnType<typeof resolveBrokerContext>>>,
+  paper: PaperPosition
+): Promise<void> {
+  const fetcher = brokerCtx.adapter.fetchClosedDealForPosition;
+  if (!fetcher) return;
+  if (!paper.broker_position_id) return;
+  const closed = await fetcher.call(
+    brokerCtx.adapter,
+    brokerCtx.conn,
+    paper.broker_position_id
+  );
+  if (!closed) return;
+  await supabase
+    .from("paper_positions")
+    .update({
+      status: "closed",
+      exit_price: closed.price,
+      exit_reason: "manual",
+      realized_pnl: closed.realizedPnl,
+      broker_close_price: closed.price,
+      broker_unrealized_pnl: 0,
+      closed_at: closed.closedAt,
+    })
+    .eq("id", paper.id)
+    .eq("status", "open");
+  await logActivity(supabase, paper.user_id, {
+    algorithm_id: paper.algorithm_id,
+    event_type: "live_order_closed",
+    ticker: paper.ticker,
+    details: {
+      reason: "broker-side close reconciled (manage cron)",
+      exit_price: closed.price,
+      realized_pnl: closed.realizedPnl,
+      closed_at: closed.closedAt,
+      broker_position_id: paper.broker_position_id,
+    },
+  });
 }
 
 async function manageAlgorithm(
