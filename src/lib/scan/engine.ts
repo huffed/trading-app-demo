@@ -301,7 +301,8 @@ async function processTicker(
   result: ScanResult,
   liveQuotes: Map<string, number>,
   interval: BarInterval,
-  brokerCtx: BrokerExecutionContext | null
+  brokerCtx: BrokerExecutionContext | null,
+  dxyBars: PriceBar[] | null
 ) {
   try {
     let prices = await getCachedPrices(ticker, "full", interval);
@@ -371,7 +372,8 @@ async function processTicker(
         positions,
         livePrice,
         brokerCtx,
-        dailyBars
+        dailyBars,
+        dxyBars
       );
       result.positions_opened += r.opened;
       if (r.openEvent) {
@@ -465,6 +467,24 @@ export async function scanAlgorithm(
     algo.broker_connection_id ?? null,
     algo.live_trading_enabled ?? false
   );
+
+  // Fetch EUR/USD 1h bars ONCE per scan when the DXY filter is on —
+  // proxy for DXY (Twelve Data has no DXY symbol). Shared across all
+  // tickers in the run; cached via the standard price-cache TTL so
+  // every-15-min scans don't re-fetch the same bars.
+  let dxyBars: PriceBar[] | null = null;
+  if (algo.rules.dxy_filter?.enabled) {
+    dxyBars = await getCachedPrices("EUR/USD", "full", "1h");
+    if (!dxyBars) {
+      try {
+        dxyBars = await fetchDailyPrices("EUR/USD", "full", "1h");
+        savePricesToCache("EUR/USD", "full", dxyBars, "1h").catch(() => {});
+      } catch {
+        dxyBars = null;
+      }
+    }
+  }
+
   for (const ticker of tickers) {
     await processTicker(
       supabase,
@@ -475,7 +495,8 @@ export async function scanAlgorithm(
       result,
       liveQuotes,
       interval,
-      brokerCtx
+      brokerCtx,
+      dxyBars
     );
   }
 

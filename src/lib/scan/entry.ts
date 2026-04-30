@@ -5,6 +5,7 @@ import {
   convictionMultiplier,
   convictionMultiplierByTfAgreement,
 } from "@/lib/algorithm/conviction-sizing";
+import { checkDxyDirection } from "@/lib/algorithm/dxy-filter";
 import { checkAtrLiquidity } from "@/lib/algorithm/intraday-atr-gate";
 import { checkBrokerSpread, type SpreadGateResult } from "@/lib/algorithm/spread-gate";
 import { computeSlDistance, computeTpDistance } from "@/lib/algorithm/structural-sl";
@@ -450,7 +451,12 @@ export async function evaluateEntry(
   allOpenPositions: PaperPosition[],
   livePrice?: number | null,
   brokerCtx?: BrokerExecutionContext | null,
-  dailyBars?: PriceBar[] | null
+  dailyBars?: PriceBar[] | null,
+  /** EUR/USD 1h bars for the DXY directional filter, fetched once per
+   *  scan in scanAlgorithm. Optional — null when the filter is not
+   *  configured on this algo, OR when the fetch failed (gate becomes
+   *  no-op via no_data status). */
+  dxyBars?: PriceBar[] | null
 ): Promise<{ opened: number; openEvent?: PositionEvent }> {
   const rules = algo.rules;
   // Use real-time price for entry, fall back to latest daily close
@@ -597,6 +603,36 @@ export async function evaluateEntry(
       },
     });
     return { opened: 0 };
+  }
+
+  // DXY directional filter. Opt-in per algo via rules.dxy_filter.
+  // Refuses entries whose direction contradicts the dollar-index
+  // direction over the configured lookback. EUR/USD bars are fetched
+  // once per scan in scanAlgorithm and threaded through; null bars
+  // means the filter is off OR the fetch failed (treated as no-op).
+  if (rules.dxy_filter?.enabled && dxyBars && dxyBars.length > 0) {
+    const dxy = checkDxyDirection({
+      side: resolved.side,
+      currentTimestamp: bars[bars.length - 1].date,
+      proxyBars: dxyBars,
+      config: rules.dxy_filter,
+    });
+    if (dxy.block) {
+      await logActivity(supabase, userId, {
+        algorithm_id: algo.id,
+        event_type: "signal_no_action",
+        ticker,
+        details: {
+          reason: dxy.reason ?? "DXY filter blocked",
+          proposed_side: resolved.side,
+          dxy_status: dxy.status,
+          dxy_delta_pips: dxy.delta_pips,
+          dxy_threshold_pips: dxy.threshold_pips,
+          dxy_lookback_hours: dxy.lookback_hours,
+        },
+      });
+      return { opened: 0 };
+    }
   }
 
   // Regime/volatility gate. Same module the backtest uses, so live and
