@@ -211,6 +211,19 @@ const breakevenMoveSchema = z.object({
   trigger_at_r: z.number().min(0.25).max(3).optional(),
 });
 
+const dxyFilterSchema = z.object({
+  enabled: z.boolean(),
+  // Hours: 1h is the smallest sensible window (one bar of the 1h proxy);
+  // 72h captures cross-session bias without going so wide the signal
+  // averages out. Default 12.
+  lookback_hours: z.number().min(1).max(72).optional(),
+  // Pips: 1 = effectively no neutral zone; 200 ≈ huge daily DXY swing.
+  // Default 15 (the value at which exploratory analysis showed cleanest
+  // separation across 4 gold algos).
+  pip_threshold: z.number().min(1).max(200).optional(),
+  block_neutral: z.boolean().optional(),
+});
+
 const entryLogicSchema = z.union([
   z.literal("all"),
   z.literal("any"),
@@ -293,6 +306,7 @@ export const algorithmRulesSchema = z.object({
   stagnant_exit: stagnantExitSchema.optional(),
   trailing_stop: trailingStopSchema.optional(),
   breakeven_move: breakevenMoveSchema.optional(),
+  dxy_filter: dxyFilterSchema.optional(),
   time_filter: timeFilterSchema.optional(),
 });
 

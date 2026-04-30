@@ -397,6 +397,31 @@ export interface AlgorithmRules {
      *  winners but exposes more capital. */
     trigger_at_r?: number;
   };
+  /**
+   * DXY directional filter — refuses gold entries when the dollar index
+   * direction over the lookback window opposes the proposed trade side.
+   * EUR/USD is used as the DXY proxy (Twelve Data has no DXY symbol;
+   * EUR/USD is 57% of the basket and strongly inversely correlated).
+   *
+   * Per-algo, not blanket: empirically validated with material positive
+   * impact on the 15m short gold algo (Algo B) — 86% WR / +$2,124 avg
+   * for DXY-aligned trades vs 28% / -$250 for DXY-against. Signal is
+   * mixed or inverted on the 1h long algos; do not enable elsewhere
+   * without re-running inspect-algo overlay first.
+   */
+  dxy_filter?: {
+    enabled: boolean;
+    /** Hours of EUR/USD direction to evaluate before each candidate
+     *  entry. Default 12. Shorter windows track intraday flow; longer
+     *  windows reflect session-spanning bias. */
+    lookback_hours?: number;
+    /** Minimum |EUR/USD pip change| over the lookback to count as
+     *  directional. Below this counts as neutral. Default 15. */
+    pip_threshold?: number;
+    /** When true, also blocks during neutral DXY direction. Default
+     *  false — only the "against" bucket is blocked. */
+    block_neutral?: boolean;
+  };
 }
 
 // --- Backtest results ---

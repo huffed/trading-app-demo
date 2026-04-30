@@ -132,12 +132,15 @@ async function main(): Promise<void> {
   }
   console.log("");
 
-  // Optional: overlay trailing-stop + breakeven config on the algo's
-  // rules to see the uplift WITHOUT modifying the persisted row.
+  // Optional: overlay trailing-stop + breakeven + DXY-filter config on
+  // the algo's rules to see the uplift WITHOUT modifying the persisted
+  // row.
   const trailingEnabled =
     process.env.TRAILING_ENABLED === "true" || process.env.TRAILING_ENABLED === "1";
   const breakevenEnabled =
     process.env.BREAKEVEN_ENABLED === "true" || process.env.BREAKEVEN_ENABLED === "1";
+  const dxyEnabled =
+    process.env.DXY_FILTER_ENABLED === "true" || process.env.DXY_FILTER_ENABLED === "1";
   const trailingActivateR = process.env.TRAILING_ACTIVATE_R
     ? Number(process.env.TRAILING_ACTIVATE_R)
     : 0.5;
@@ -147,8 +150,16 @@ async function main(): Promise<void> {
   const breakevenTriggerR = process.env.BREAKEVEN_TRIGGER_R
     ? Number(process.env.BREAKEVEN_TRIGGER_R)
     : 1.0;
+  const dxyLookbackHours = process.env.DXY_LOOKBACK_HOURS
+    ? Number(process.env.DXY_LOOKBACK_HOURS)
+    : 12;
+  const dxyPipThreshold = process.env.DXY_PIP_THRESHOLD
+    ? Number(process.env.DXY_PIP_THRESHOLD)
+    : 15;
+  const dxyBlockNeutral =
+    process.env.DXY_BLOCK_NEUTRAL === "true" || process.env.DXY_BLOCK_NEUTRAL === "1";
 
-  const overlayActive = trailingEnabled || breakevenEnabled;
+  const overlayActive = trailingEnabled || breakevenEnabled || dxyEnabled;
   const overlayRules: AlgorithmRules = overlayActive
     ? {
         ...algoRow.rules,
@@ -164,8 +175,31 @@ async function main(): Promise<void> {
         ...(breakevenEnabled
           ? { breakeven_move: { enabled: true, trigger_at_r: breakevenTriggerR } }
           : {}),
+        ...(dxyEnabled
+          ? {
+              dxy_filter: {
+                enabled: true,
+                lookback_hours: dxyLookbackHours,
+                pip_threshold: dxyPipThreshold,
+                block_neutral: dxyBlockNeutral,
+              },
+            }
+          : {}),
       }
     : algoRow.rules;
+
+  // Fetch EUR/USD proxy bars when DXY overlay is enabled. 1h granularity
+  // matches the lookback windows we're testing (4-72h); fetched once
+  // and shared across the simulation.
+  let proxyBars: PriceBar[] | null = null;
+  if (dxyEnabled) {
+    console.log("Fetching EUR/USD 1h bars (DXY proxy)...");
+    proxyBars = await fetchDailyPrices("EUR/USD", "full", "1h");
+    console.log(
+      `  ${proxyBars.length} bars  (${proxyBars[0]?.date} → ${proxyBars[proxyBars.length - 1]?.date})`
+    );
+    console.log("");
+  }
 
   if (overlayActive) {
     console.log("Overlay (NOT persisted to DB):");
@@ -177,19 +211,25 @@ async function main(): Promise<void> {
     if (breakevenEnabled) {
       console.log(`  breakeven_move : trigger_at_r=${breakevenTriggerR}`);
     }
+    if (dxyEnabled) {
+      console.log(
+        `  dxy_filter     : lookback_hours=${dxyLookbackHours}, pip_threshold=${dxyPipThreshold}, block_neutral=${dxyBlockNeutral}`
+      );
+    }
     console.log("");
   }
 
   const start = Date.now();
   // Run baseline (no overlay) for comparison when overlay is active.
   const baseline: BacktestMetrics | null = overlayActive
-    ? runPortfolioBacktest(algoRow.rules, pricesByTicker, Number(algoRow.capital), [])
+    ? runPortfolioBacktest(algoRow.rules, pricesByTicker, Number(algoRow.capital), [], null)
     : null;
   const result = runPortfolioBacktest(
     overlayRules,
     pricesByTicker,
     Number(algoRow.capital),
-    []
+    [],
+    proxyBars
   );
   const duration = ((Date.now() - start) / 1000).toFixed(1);
 

@@ -6,6 +6,7 @@
  * max_positions caps the TOTAL number of open positions across all tickers;
  * max_per_ticker still caps pyramiding on each individual symbol.
  */
+import { checkDxyDirection } from "@/lib/algorithm/dxy-filter";
 import { checkAtrLiquidity } from "@/lib/algorithm/intraday-atr-gate";
 import { checkStagnantExit } from "@/lib/algorithm/stagnant-exit";
 import {
@@ -102,6 +103,10 @@ interface TickerState {
    *  Computed once per ticker so post_news_window can filter to relevant
    *  events without per-bar work. */
   relevantCurrencies: string[];
+  /** Optional DXY proxy bars (EUR/USD 1h) shared across all ticker
+   *  states in a run. Populated only when caller passes proxyBars to
+   *  runPortfolioBacktest AND the algo has dxy_filter configured. */
+  dxyBars: PriceBar[] | null;
   /** Index of the most recently processed bar (for fast lookup as the
    *  unified timeline advances). */
   cursor: number;
@@ -133,7 +138,8 @@ function buildTimeline(pricesByTicker: Map<string, PriceBar[]>): string[] {
 function initTickerStates(
   rules: AlgorithmRules,
   pricesByTicker: Map<string, PriceBar[]>,
-  events: EconomicEvent[]
+  events: EconomicEvent[],
+  proxyBars: PriceBar[] | null
 ): Map<string, TickerState> {
   // Pre-resolve unique non-primary timeframes from the rule's conditions
   // so each ticker resamples once and reuses across the simulation loop.
@@ -164,6 +170,7 @@ function initTickerStates(
         : null,
       newsEvents: events,
       relevantCurrencies: getEventCurrencies(ticker),
+      dxyBars: proxyBars,
       cursor: -1,
     });
   }
@@ -390,6 +397,19 @@ function tryOpenEntry(
   const resolved = resolveSide(rules.side ?? "long", state.higherTfBars, i);
   if (resolved === null) return;
   const side = resolved.side;
+  // DXY directional gate. Opt-in per algo. Skips entries when the
+  // dollar-index direction (via EUR/USD proxy) over the lookback
+  // contradicts the proposed side. Per-algo, not blanket — empirically
+  // validated as material uplift on the 15m short gold algo only.
+  if (rules.dxy_filter?.enabled && state.dxyBars && state.dxyBars.length > 0) {
+    const dxy = checkDxyDirection({
+      side,
+      currentTimestamp: state.bars[i].date,
+      proxyBars: state.dxyBars,
+      config: rules.dxy_filter,
+    });
+    if (dxy.block) return;
+  }
   const entryCtx = {
     cache: state.cache,
     closes: state.closes,
@@ -460,7 +480,12 @@ export function runPortfolioBacktest(
   rules: AlgorithmRules,
   pricesByTicker: Map<string, PriceBar[]>,
   capital: number,
-  events: EconomicEvent[] = []
+  events: EconomicEvent[] = [],
+  /** Optional EUR/USD bars used as DXY proxy for the dxy_filter gate.
+   *  When null AND the algo has dxy_filter enabled, the gate behaves
+   *  as a no-op (logs no_data status). Required when validating the
+   *  filter via inspect-algo overlay. */
+  proxyBars: PriceBar[] | null = null
 ): BacktestMetrics {
   const entry = normalize(rules.entry_conditions);
   const exit = normalize(rules.exit_conditions);
@@ -486,7 +511,7 @@ export function runPortfolioBacktest(
   }
 
   const cfg = buildSimConfig(rules);
-  const states = initTickerStates(rules, pricesByTicker, events);
+  const states = initTickerStates(rules, pricesByTicker, events, proxyBars);
   const timeline = buildTimeline(pricesByTicker);
   const s = initialSimState(capital);
   const trades: BacktestTrade[] = [];
