@@ -182,6 +182,8 @@ async function main(): Promise<void> {
   const capital = Number(process.env.CAPITAL ?? "100000");
   const target = Number(process.env.TARGET ?? "10");
   const topN = Number(process.env.TOP_N ?? "5");
+  const includeEvaluated =
+    process.env.INCLUDE_EVALUATED === "true" || process.env.INCLUDE_EVALUATED === "1";
   const maxCandidates = Number(process.env.MAX_CANDIDATES ?? "80");
   const symbolsArg = process.env.SYMBOLS ?? "XAU/USD";
   const symbols = symbolsArg.split(",").map((s) => s.trim()).filter(Boolean);
@@ -221,6 +223,7 @@ async function main(): Promise<void> {
     {
       max_candidates: maxCandidates,
       top_n: topN,
+      include_evaluated: includeEvaluated,
       ...(windowDays !== undefined ? { walk_forward_window_days: windowDays } : {}),
       ...(stepDays !== undefined ? { walk_forward_step_days: stepDays } : {}),
     }
@@ -237,6 +240,30 @@ async function main(): Promise<void> {
 
   console.log(`Top ${result.top.length} candidates (ranked by score):`);
   for (const c of result.top) printCandidate(c, c.rank);
+
+  if (includeEvaluated && result.all_evaluated) {
+    console.log(`\nFull ranking (all ${result.all_evaluated.length} evaluated, sorted by score):`);
+    result.all_evaluated.forEach((c, i) => {
+      const passMark =
+        c.pass_criteria.walk_forward_green &&
+        c.pass_criteria.target_met &&
+        c.pass_criteria.dd_safe
+          ? "PASS"
+          : "FAIL";
+      const failReasons: string[] = [];
+      if (!c.pass_criteria.walk_forward_green) failReasons.push("wf-green");
+      if (!c.pass_criteria.target_met) failReasons.push("target");
+      if (!c.pass_criteria.dd_safe) failReasons.push("dd");
+      const failTag = failReasons.length > 0 ? ` [${failReasons.join(",")}]` : "";
+      console.log(
+        `  #${String(i + 1).padStart(3)}  ${c.label.padEnd(48)} ` +
+          `score=${c.score.toFixed(2).padStart(7)}  ` +
+          `monthly=${c.monthly_return_pct.toFixed(2).padStart(6)}%  ` +
+          `dd=${c.worst_dd_pct.toFixed(2).padStart(5)}%  ` +
+          `${passMark}${failTag}`
+      );
+    });
+  }
 
   console.log("\nDual-run validation (gold-only filter — earns its keep?):");
   if (!cachedCorpus) {
