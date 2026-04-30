@@ -9,6 +9,12 @@
 import { checkAtrLiquidity } from "@/lib/algorithm/intraday-atr-gate";
 import { checkStagnantExit } from "@/lib/algorithm/stagnant-exit";
 import {
+  initTrailingState,
+  trailingFeaturesEnabled,
+  updateTrailingState,
+  type TrailingState,
+} from "@/lib/algorithm/trailing-stop";
+import {
   DEFAULT_MAX_POSITIONS,
   DEFAULT_POSITION_SIZE_PCT,
   DEFAULT_STOP_LOSS_PCT,
@@ -69,6 +75,11 @@ interface PortfolioPosition {
   marginRequired: number;
   ticker: string;
   side: "long" | "short";
+  /** Trailing-stop / breakeven state. Set when either feature is enabled
+   *  on the rule. Updated each bar via `updateTrailingState`. The
+   *  `currentSlPrice` field overrides the rule-derived SL inside
+   *  `pickBacktestExitPrice` via the `stopPriceOverride` arg. */
+  trailingState?: TrailingState;
 }
 
 interface TickerState {
@@ -231,6 +242,22 @@ function runCloseLoop(
   const bar = state.bars[i];
   for (let p = state.positions.length - 1; p >= 0; p--) {
     const pos = state.positions[p];
+    // Update trailing-stop / breakeven state BEFORE checking SL/TP hits.
+    // The position's `trailingState.currentSlPrice` is what
+    // pickBacktestExitPrice will use for the SL check — see prop-firm-
+    // backtest.ts. MFE updates against bar.high (long) / bar.low (short),
+    // then breakeven + trailing layers ratchet the SL up.
+    if (pos.trailingState) {
+      pos.trailingState = updateTrailingState({
+        side: pos.side,
+        entryPrice: pos.entryPrice,
+        initialSlDistance: priceDeltaForRule(rules.stop_loss, pos.entryPrice, ticker),
+        currentBar: bar,
+        state: pos.trailingState,
+        trailingStop: rules.trailing_stop,
+        breakevenMove: rules.breakeven_move,
+      });
+    }
     // Per-position stagnant gate. Same module live uses, so the
     // backtest cuts losers at the same bar count + MFE thresholds the
     // manage cron will apply to the real-time positions.
@@ -386,6 +413,16 @@ function tryOpenEntry(
   const freeMargin = s.equity - s.marginUsed;
   if (sized.margin > freeMargin || sized.notional <= 0) return;
   s.marginUsed += sized.margin;
+  // Initialise trailing state when either feature is enabled. The
+  // initial SL is computed from the rules.stop_loss rule against the
+  // entry price + symbol — same value pickBacktestExitPrice would use
+  // by default, so behaviour matches when no trail/breakeven fires.
+  let initialTrailingState: TrailingState | undefined;
+  if (trailingFeaturesEnabled(rules)) {
+    const slDistance = priceDeltaForRule(rules.stop_loss, entryPrice, ticker);
+    const initialSlPrice = side === "long" ? entryPrice - slDistance : entryPrice + slDistance;
+    initialTrailingState = initTrailingState({ entryPrice, initialSlPrice });
+  }
   state.positions.push({
     entryPrice,
     entryDate: state.bars[i].date,
@@ -394,6 +431,7 @@ function tryOpenEntry(
     marginRequired: sized.margin,
     ticker,
     side,
+    trailingState: initialTrailingState,
   });
 }
 

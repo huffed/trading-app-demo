@@ -283,9 +283,20 @@ export function sizeForBacktest(
  *
  * Long: SL is below entry, TP is above. Stop hits when bar.low ≤ SL.
  * Short: SL is above entry, TP is below. Stop hits when bar.high ≥ SL.
+ *
+ * If `pos.trailingState.currentSlPrice` is set, the trailing/breakeven-
+ * adjusted SL takes precedence over the rule-derived default. The TP
+ * is still computed from cfg — trailing replaces the lower-bound SL,
+ * not the upper-bound TP. Caller is responsible for updating the
+ * trailing state before invoking (e.g., portfolio-backtest's
+ * runCloseLoop).
  */
 export function pickBacktestExitPrice(
-  pos: { entryPrice: number; side?: "long" | "short" },
+  pos: {
+    entryPrice: number;
+    side?: "long" | "short";
+    trailingState?: { currentSlPrice: number };
+  },
   bar: { high: number; low: number },
   closePrice: number,
   cfg: SimConfig,
@@ -296,7 +307,8 @@ export function pickBacktestExitPrice(
   const slDelta = priceDeltaForRule(cfg.stopLoss, pos.entryPrice, symbol);
   const tpDelta = priceDeltaForRule(cfg.takeProfit, pos.entryPrice, symbol);
   if (side === "short") {
-    const stopPrice = pos.entryPrice + slDelta;
+    const baseStopPrice = pos.entryPrice + slDelta;
+    const stopPrice = pos.trailingState?.currentSlPrice ?? baseStopPrice;
     const tpPrice = pos.entryPrice - tpDelta;
     // Stops win ties — checked before TP.
     if (bar.high >= stopPrice) return applySlippage(stopPrice, cfg.slippageBps, true);
@@ -304,7 +316,8 @@ export function pickBacktestExitPrice(
     if (signalExitFired) return applySlippage(closePrice, cfg.slippageBps, true);
     return null;
   }
-  const stopPrice = pos.entryPrice - slDelta;
+  const baseStopPrice = pos.entryPrice - slDelta;
+  const stopPrice = pos.trailingState?.currentSlPrice ?? baseStopPrice;
   const tpPrice = pos.entryPrice + tpDelta;
   if (bar.low <= stopPrice) return applySlippage(stopPrice, cfg.slippageBps, false);
   if (bar.high >= tpPrice) return applySlippage(tpPrice, cfg.slippageBps, false);
