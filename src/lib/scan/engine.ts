@@ -360,33 +360,45 @@ async function processTicker(
     const stillOpen = positions.filter((p) => p.status === "open");
     const openOnTicker = stillOpen.filter((p) => p.ticker === ticker).length;
     const maxPerTicker = algo.rules.max_per_ticker ?? 1;
+    const totalCapped = stillOpen.length >= algo.rules.max_positions;
+    const tickerCapped = openOnTicker >= maxPerTicker;
+    // Run evaluateEntry even when capped — passing cappedReason makes it
+    // dry-run (full gate ladder runs for telemetry, near-miss logged at
+    // the would-have-opened step instead of placing an order). Without
+    // this the cap silently drops potential entries and the considered
+    // feed shows nothing during slot-full windows.
+    let cappedReason: string | null = null;
+    if (totalCapped) {
+      cappedReason = `Capped: ${stillOpen.length}/${algo.rules.max_positions} positions open`;
+    } else if (tickerCapped) {
+      cappedReason = `Capped: ${openOnTicker}/${maxPerTicker} positions open on ${ticker}`;
+    }
 
-    if (stillOpen.length < algo.rules.max_positions && openOnTicker < maxPerTicker) {
-      const r = await evaluateEntry(
-        supabase,
-        userId,
-        algo,
-        ticker,
-        prices,
-        closes,
-        positions,
-        livePrice,
-        brokerCtx,
-        dailyBars,
-        dxyBars
-      );
-      result.positions_opened += r.opened;
-      if (r.openEvent) {
-        result.opened_details.push(r.openEvent);
-        // Keep the in-memory positions array in sync so subsequent tickers
-        // in the same scan see the updated count and respect max_positions.
-        // We only need fields read by the cap checks (ticker + status); the
-        // full row is reloaded on the next scan.
-        positions.push({
-          ticker: r.openEvent.ticker,
-          status: "open",
-        } as PaperPosition);
-      }
+    const r = await evaluateEntry(
+      supabase,
+      userId,
+      algo,
+      ticker,
+      prices,
+      closes,
+      positions,
+      livePrice,
+      brokerCtx,
+      dailyBars,
+      dxyBars,
+      cappedReason
+    );
+    result.positions_opened += r.opened;
+    if (r.openEvent) {
+      result.opened_details.push(r.openEvent);
+      // Keep the in-memory positions array in sync so subsequent tickers
+      // in the same scan see the updated count and respect max_positions.
+      // We only need fields read by the cap checks (ticker + status); the
+      // full row is reloaded on the next scan.
+      positions.push({
+        ticker: r.openEvent.ticker,
+        status: "open",
+      } as PaperPosition);
     }
     result.tickers_scanned++;
   } catch (err) {

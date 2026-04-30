@@ -9,6 +9,7 @@ import {
   describeMetaApiError,
   fetchAccountInfo,
   fetchCurrentPrice,
+  fetchHistoryDealsForPosition,
   fetchPosition,
   fetchPositions,
   fetchSnapshot,
@@ -20,6 +21,7 @@ import {
 } from "./metaapi";
 import type {
   BrokerAdapter,
+  BrokerClosedDeal,
   BrokerConnection,
   BrokerPosition,
   MarketOrderInput,
@@ -98,6 +100,30 @@ export const metaApiMt5Adapter: BrokerAdapter = {
 
   async closePosition(conn, positionId) {
     return closePosition(conn.api_token, conn.account_id, regionFor(conn), positionId);
+  },
+
+  async fetchClosedDealForPosition(conn, positionId): Promise<BrokerClosedDeal | null> {
+    let deals;
+    try {
+      deals = await fetchHistoryDealsForPosition(
+        conn.api_token,
+        conn.account_id,
+        regionFor(conn),
+        positionId
+      );
+    } catch {
+      // Network failure or 404 — caller treats as "can't reconcile this
+      // tick", will retry on the next manage tick. Don't escalate.
+      return null;
+    }
+    const out = deals.find((d) => d.entryType === "DEAL_ENTRY_OUT");
+    if (!out) return null;
+    return {
+      price: Number(out.price),
+      realizedPnl:
+        Number(out.profit) + Number(out.swap ?? 0) + Number(out.commission ?? 0),
+      closedAt: out.time,
+    };
   },
 
   describeError(err) {

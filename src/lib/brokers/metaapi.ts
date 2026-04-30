@@ -321,6 +321,46 @@ export async function closePosition(
   return { orderId: data.orderId ?? "" };
 }
 
+export interface MetaApiHistoryDeal {
+  id: string;
+  positionId: string;
+  /** DEAL_TYPE_BUY / DEAL_TYPE_SELL — the side of the deal itself, not the
+   *  parent position. A buy that opens a long has type=BUY entry=IN; the
+   *  sell that closes that long has type=SELL entry=OUT. */
+  type: string;
+  /** DEAL_ENTRY_IN / DEAL_ENTRY_OUT — IN opens, OUT closes. */
+  entryType: string;
+  symbol: string;
+  volume: number;
+  price: number;
+  profit: number;
+  swap?: number;
+  commission?: number;
+  /** ISO timestamp when the deal printed. Use this as the position's
+   *  closed_at when entryType=DEAL_ENTRY_OUT. */
+  time: string;
+}
+
+/**
+ * Fetch the deal history for a single broker position. Used to reconcile
+ * paper positions when the broker closes a position outside our exit
+ * logic — typically: operator manually clicked close in the broker UI.
+ * Returns deals chronologically; the DEAL_ENTRY_OUT entry is the close.
+ */
+export async function fetchHistoryDealsForPosition(
+  token: string,
+  accountId: string,
+  region: MetaApiRegion,
+  positionId: string
+): Promise<MetaApiHistoryDeal[]> {
+  return call<MetaApiHistoryDeal[]>(
+    region,
+    token,
+    accountId,
+    `/history-deals/position/${encodeURIComponent(positionId)}`
+  );
+}
+
 /**
  * Translate raw provider errors into user-friendly strings. Avoids
  * surfacing the auth-token in any message that bubbles to the UI.
