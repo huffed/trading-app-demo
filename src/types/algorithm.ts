@@ -357,6 +357,46 @@ export interface AlgorithmRules {
     /** R-units. Default 0. */
     min_pnl_r?: number;
   };
+  /**
+   * Trailing stop — ratchets the SL up (long) / down (short) as price
+   * moves favourably, locking in profit when the trend reverses.
+   * Activates only after the position's MFE (max favourable excursion)
+   * crosses `activate_at_r` to avoid stopping out on noise. Once
+   * active, SL trails at `trail_distance_r` behind the current price.
+   * Never backsteps — only ratchets in the favourable direction.
+   *
+   * Solves the "TP never fires" structural issue with our 1h algos:
+   * backtest data shows the 3.6% TP on 1h gold momentum has 0% hit rate
+   * over hundreds of trades. Trailing stops let the position ride a
+   * sustained move and lock in profit when momentum exhausts, instead
+   * of waiting for a fixed TP that never gets reached.
+   */
+  trailing_stop?: {
+    enabled: boolean;
+    /** R-units of favourable excursion before the trailing stop arms.
+     *  Default 0.5 — half the SL distance. Below this, the position
+     *  uses its original SL untouched. */
+    activate_at_r?: number;
+    /** R-units the trailing SL sits behind the current price once
+     *  armed. Default 1.0 — same magnitude as the original SL distance.
+     *  Larger = lets winners run further; smaller = locks in faster. */
+    trail_distance_r?: number;
+  };
+  /**
+   * Breakeven SL move — once the position's MFE crosses `trigger_at_r`,
+   * the SL ratchets up (long) / down (short) to the entry price.
+   * Removes the original loss potential; subsequent SL hits realise
+   * zero or near-zero P&L. Pairs with trailing_stop: breakeven first,
+   * then trail behind further favourable moves.
+   */
+  breakeven_move?: {
+    enabled: boolean;
+    /** R-units of favourable excursion that triggers the SL move to
+     *  entry. Default 1.0 — full R favourable. Tighter (0.5) is more
+     *  defensive but cuts more recoveries; looser (1.5) preserves more
+     *  winners but exposes more capital. */
+    trigger_at_r?: number;
+  };
 }
 
 // --- Backtest results ---

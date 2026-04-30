@@ -17,7 +17,7 @@ import { createClient } from "@supabase/supabase-js";
 import { runPortfolioBacktest } from "../src/lib/market-data/portfolio-backtest";
 import { fetchDailyPrices } from "../src/lib/market-data/prices";
 import { timeframeToInterval, type BarInterval } from "../src/lib/market-data/interval";
-import type { BacktestTrade, PriceBar } from "../src/lib/market-data/types";
+import type { BacktestMetrics, BacktestTrade, PriceBar } from "../src/lib/market-data/types";
 import type { AlgorithmRules } from "../src/types/algorithm";
 
 // Manual env loader.
@@ -132,8 +132,65 @@ async function main(): Promise<void> {
   }
   console.log("");
 
+  // Optional: overlay trailing-stop + breakeven config on the algo's
+  // rules to see the uplift WITHOUT modifying the persisted row.
+  const trailingEnabled =
+    process.env.TRAILING_ENABLED === "true" || process.env.TRAILING_ENABLED === "1";
+  const breakevenEnabled =
+    process.env.BREAKEVEN_ENABLED === "true" || process.env.BREAKEVEN_ENABLED === "1";
+  const trailingActivateR = process.env.TRAILING_ACTIVATE_R
+    ? Number(process.env.TRAILING_ACTIVATE_R)
+    : 0.5;
+  const trailingDistanceR = process.env.TRAILING_DISTANCE_R
+    ? Number(process.env.TRAILING_DISTANCE_R)
+    : 1.0;
+  const breakevenTriggerR = process.env.BREAKEVEN_TRIGGER_R
+    ? Number(process.env.BREAKEVEN_TRIGGER_R)
+    : 1.0;
+
+  const overlayActive = trailingEnabled || breakevenEnabled;
+  const overlayRules: AlgorithmRules = overlayActive
+    ? {
+        ...algoRow.rules,
+        ...(trailingEnabled
+          ? {
+              trailing_stop: {
+                enabled: true,
+                activate_at_r: trailingActivateR,
+                trail_distance_r: trailingDistanceR,
+              },
+            }
+          : {}),
+        ...(breakevenEnabled
+          ? { breakeven_move: { enabled: true, trigger_at_r: breakevenTriggerR } }
+          : {}),
+      }
+    : algoRow.rules;
+
+  if (overlayActive) {
+    console.log("Overlay (NOT persisted to DB):");
+    if (trailingEnabled) {
+      console.log(
+        `  trailing_stop  : activate_at_r=${trailingActivateR}, trail_distance_r=${trailingDistanceR}`
+      );
+    }
+    if (breakevenEnabled) {
+      console.log(`  breakeven_move : trigger_at_r=${breakevenTriggerR}`);
+    }
+    console.log("");
+  }
+
   const start = Date.now();
-  const result = runPortfolioBacktest(algoRow.rules, pricesByTicker, Number(algoRow.capital), []);
+  // Run baseline (no overlay) for comparison when overlay is active.
+  const baseline: BacktestMetrics | null = overlayActive
+    ? runPortfolioBacktest(algoRow.rules, pricesByTicker, Number(algoRow.capital), [])
+    : null;
+  const result = runPortfolioBacktest(
+    overlayRules,
+    pricesByTicker,
+    Number(algoRow.capital),
+    []
+  );
   const duration = ((Date.now() - start) / 1000).toFixed(1);
 
   const trades: ClassifiedTrade[] = result.trades.map((t) => ({
@@ -143,9 +200,24 @@ async function main(): Promise<void> {
   }));
 
   console.log(`Backtest complete in ${duration}s`);
-  console.log(
-    `  total_trades : ${result.total_trades}  (win_rate ${result.win_rate.toFixed(1)}%, total_return $${result.total_return.toFixed(2)}, max_dd ${result.max_drawdown.toFixed(2)}%)`
-  );
+  if (baseline) {
+    console.log(
+      `  baseline      : ${baseline.total_trades}t · WR ${baseline.win_rate.toFixed(1)}% · $${baseline.total_return.toFixed(0)} · DD ${baseline.max_drawdown.toFixed(2)}%`
+    );
+    console.log(
+      `  with overlay  : ${result.total_trades}t · WR ${result.win_rate.toFixed(1)}% · $${result.total_return.toFixed(0)} · DD ${result.max_drawdown.toFixed(2)}%`
+    );
+    const dReturn = result.total_return - baseline.total_return;
+    const dDd = result.max_drawdown - baseline.max_drawdown;
+    const dWr = result.win_rate - baseline.win_rate;
+    console.log(
+      `  diff          : WR ${dWr >= 0 ? "+" : ""}${dWr.toFixed(1)}pp · ${dReturn >= 0 ? "+" : ""}$${dReturn.toFixed(0)} return · ${dDd >= 0 ? "+" : ""}${dDd.toFixed(2)}pp DD`
+    );
+  } else {
+    console.log(
+      `  total_trades : ${result.total_trades}  (win_rate ${result.win_rate.toFixed(1)}%, total_return $${result.total_return.toFixed(2)}, max_dd ${result.max_drawdown.toFixed(2)}%)`
+    );
+  }
   console.log("");
 
   // Exit-reason breakdown

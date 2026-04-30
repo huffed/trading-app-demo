@@ -193,6 +193,24 @@ const stagnantExitSchema = z.object({
   min_pnl_r: z.number().min(-1).max(1).optional(),
 });
 
+const trailingStopSchema = z.object({
+  enabled: z.boolean(),
+  // R-units. 0 = arm immediately at entry (rare; usually want breathing
+  // room). 5 = wait for big move before trailing — useful for trend-
+  // followers. Default 0.5.
+  activate_at_r: z.number().min(0).max(5).optional(),
+  // R-units. 0.25 = very tight (locks in fast, exits on noise). 5 = wide
+  // trail (lets winners run, gives back more on reversal). Default 1.0.
+  trail_distance_r: z.number().min(0.25).max(5).optional(),
+});
+
+const breakevenMoveSchema = z.object({
+  enabled: z.boolean(),
+  // R-units. 0.5 = aggressive (cuts more recoveries). 3 = lax (breakeven
+  // becomes redundant with trailing at high R). Default 1.0.
+  trigger_at_r: z.number().min(0.25).max(3).optional(),
+});
+
 const entryLogicSchema = z.union([
   z.literal("all"),
   z.literal("any"),
@@ -273,6 +291,8 @@ export const algorithmRulesSchema = z.object({
   regime_filter: regimeFilterSchema.optional(),
   adx_filter: adxFilterSchema.optional(),
   stagnant_exit: stagnantExitSchema.optional(),
+  trailing_stop: trailingStopSchema.optional(),
+  breakeven_move: breakevenMoveSchema.optional(),
   time_filter: timeFilterSchema.optional(),
 });
 
