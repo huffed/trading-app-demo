@@ -296,6 +296,11 @@ export function pickBacktestExitPrice(
     entryPrice: number;
     side?: "long" | "short";
     trailingState?: { currentSlPrice: number };
+    /** Entry-time ATR captured by the engine when the rule is
+     *  atr_multiple — used so SL/TP distance uses entry volatility,
+     *  not the current bar's. Undefined for other rule types. */
+    slAtr?: number;
+    tpAtr?: number;
   },
   bar: { high: number; low: number },
   closePrice: number,
@@ -304,8 +309,8 @@ export function pickBacktestExitPrice(
   symbol?: string
 ): number | null {
   const side = pos.side ?? "long";
-  const slDelta = priceDeltaForRule(cfg.stopLoss, pos.entryPrice, symbol);
-  const tpDelta = priceDeltaForRule(cfg.takeProfit, pos.entryPrice, symbol);
+  const slDelta = priceDeltaForRule(cfg.stopLoss, pos.entryPrice, symbol, pos.slAtr);
+  const tpDelta = priceDeltaForRule(cfg.takeProfit, pos.entryPrice, symbol, pos.tpAtr);
   if (side === "short") {
     const baseStopPrice = pos.entryPrice + slDelta;
     const stopPrice = pos.trailingState?.currentSlPrice ?? baseStopPrice;

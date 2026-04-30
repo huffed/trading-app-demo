@@ -490,7 +490,8 @@ export function clampLotsToConstraints(
 type StopOrTpRule =
   | { type: "percentage"; value: number }
   | { type: "fixed"; value: number }
-  | { type: "pips"; value: number };
+  | { type: "pips"; value: number }
+  | { type: "atr_multiple"; value: number; atr_period?: number };
 
 /**
  * Resolve a stop-loss / take-profit rule into the absolute price distance
@@ -512,7 +513,12 @@ type StopOrTpRule =
 export function priceDeltaForRule(
   rule: StopOrTpRule,
   entryPrice: number,
-  symbol: string | undefined
+  symbol: string | undefined,
+  /** ATR value at entry — required when rule.type === "atr_multiple",
+   *  ignored otherwise. Caller computes per-bar ATR (typically via
+   *  computeAtr from regime-filter.ts) so the resulting SL/TP distance
+   *  adapts to the instrument's current volatility regime. */
+  atrValue?: number
 ): number {
   switch (rule.type) {
     case "percentage":
@@ -523,6 +529,13 @@ export function priceDeltaForRule(
       const pipSize = getInstrumentMeta(symbol ?? "")?.pipSize ?? 0.0001;
       return rule.value * pipSize;
     }
+    case "atr_multiple":
+      // Defensive: when ATR is unavailable (insufficient bars), fall back
+      // to a 1% conservative default. Callers should always pass atrValue
+      // for atr_multiple rules; this branch exists so a missing ATR
+      // doesn't produce a zero-distance SL that would never trigger.
+      if (atrValue == null || atrValue <= 0) return entryPrice * 0.01;
+      return rule.value * atrValue;
   }
 }
 
@@ -536,11 +549,12 @@ export function priceDeltaForRule(
 export function ruleAsPctOfEntry(
   rule: StopOrTpRule,
   entryPrice: number,
-  symbol: string | undefined
+  symbol: string | undefined,
+  atrValue?: number
 ): number {
   if (entryPrice <= 0) return 0;
   if (rule.type === "percentage") return rule.value;
-  return (priceDeltaForRule(rule, entryPrice, symbol) / entryPrice) * 100;
+  return (priceDeltaForRule(rule, entryPrice, symbol, atrValue) / entryPrice) * 100;
 }
 
 /**

@@ -92,10 +92,14 @@ export function calculateRiskPrices(
   entryPrice: number,
   rules: AlgorithmRules,
   side: "long" | "short",
-  symbol?: string
+  symbol?: string,
+  /** ATR for the SL rule (only used when rule.type === "atr_multiple"). */
+  slAtr?: number,
+  /** ATR for the TP rule (only used when rule.type === "atr_multiple"). */
+  tpAtr?: number
 ): { stopLossPrice: number; takeProfitPrice: number } {
-  const slDelta = priceDeltaForRule(rules.stop_loss, entryPrice, symbol);
-  const tpDelta = priceDeltaForRule(rules.take_profit, entryPrice, symbol);
+  const slDelta = priceDeltaForRule(rules.stop_loss, entryPrice, symbol, slAtr);
+  const tpDelta = priceDeltaForRule(rules.take_profit, entryPrice, symbol, tpAtr);
 
   if (side === "long") {
     return {

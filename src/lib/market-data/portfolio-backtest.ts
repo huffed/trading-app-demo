@@ -6,6 +6,7 @@
  * max_positions caps the TOTAL number of open positions across all tickers;
  * max_per_ticker still caps pyramiding on each individual symbol.
  */
+import { atrForRule } from "@/lib/algorithm/atr-helper";
 import { checkDxyDirection } from "@/lib/algorithm/dxy-filter";
 import { checkAtrLiquidity } from "@/lib/algorithm/intraday-atr-gate";
 import { checkStagnantExit } from "@/lib/algorithm/stagnant-exit";
@@ -81,6 +82,12 @@ interface PortfolioPosition {
    *  `currentSlPrice` field overrides the rule-derived SL inside
    *  `pickBacktestExitPrice` via the `stopPriceOverride` arg. */
   trailingState?: TrailingState;
+  /** ATR(period) at the entry bar — captured ONCE so atr_multiple SL/TP
+   *  rules use the entry-time volatility for all subsequent distance
+   *  calculations (stagnant gate, trailing init, post-entry inspections).
+   *  Undefined for non-atr_multiple rules. */
+  slAtr?: number;
+  tpAtr?: number;
 }
 
 interface TickerState {
@@ -258,7 +265,7 @@ function runCloseLoop(
       pos.trailingState = updateTrailingState({
         side: pos.side,
         entryPrice: pos.entryPrice,
-        initialSlDistance: priceDeltaForRule(rules.stop_loss, pos.entryPrice, ticker),
+        initialSlDistance: priceDeltaForRule(rules.stop_loss, pos.entryPrice, ticker, pos.slAtr),
         currentBar: bar,
         state: pos.trailingState,
         trailingStop: rules.trailing_stop,
@@ -275,7 +282,7 @@ function runCloseLoop(
           currentBarIndex: i,
           entryPrice: pos.entryPrice,
           side: pos.side,
-          stopDistance: priceDeltaForRule(rules.stop_loss, pos.entryPrice, ticker),
+          stopDistance: priceDeltaForRule(rules.stop_loss, pos.entryPrice, ticker, pos.slAtr),
           config: rules.stagnant_exit,
         }).exit
       : false;
@@ -433,13 +440,20 @@ function tryOpenEntry(
   const freeMargin = s.equity - s.marginUsed;
   if (sized.margin > freeMargin || sized.notional <= 0) return;
   s.marginUsed += sized.margin;
+  // Capture ATR ONCE at the entry bar — atr_multiple SL/TP rules need
+  // the entry-time volatility to compute distances. Storing the value
+  // on the position means subsequent bars (trailing update, stagnant
+  // gate, exit-price detection) use the same number, regardless of
+  // where ATR has drifted to.
+  const slAtr = atrForRule(rules.stop_loss, state.bars, i);
+  const tpAtr = atrForRule(rules.take_profit, state.bars, i);
   // Initialise trailing state when either feature is enabled. The
   // initial SL is computed from the rules.stop_loss rule against the
   // entry price + symbol — same value pickBacktestExitPrice would use
   // by default, so behaviour matches when no trail/breakeven fires.
   let initialTrailingState: TrailingState | undefined;
   if (trailingFeaturesEnabled(rules)) {
-    const slDistance = priceDeltaForRule(rules.stop_loss, entryPrice, ticker);
+    const slDistance = priceDeltaForRule(rules.stop_loss, entryPrice, ticker, slAtr);
     const initialSlPrice = side === "long" ? entryPrice - slDistance : entryPrice + slDistance;
     initialTrailingState = initTrailingState({ entryPrice, initialSlPrice });
   }
@@ -452,6 +466,8 @@ function tryOpenEntry(
     ticker,
     side,
     trailingState: initialTrailingState,
+    slAtr,
+    tpAtr,
   });
 }
 

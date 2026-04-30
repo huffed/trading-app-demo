@@ -237,8 +237,19 @@ export const algorithmRulesSchema = z.object({
   entry_logic: entryLogicSchema.optional(),
   exit_conditions: z.array(normalizedCondition),
   exit_logic: entryLogicSchema.optional(),
-  stop_loss: z.object({ type: z.enum(["percentage", "fixed", "pips"]), value: z.number() }),
-  take_profit: z.object({ type: z.enum(["percentage", "fixed", "pips"]), value: z.number() }),
+  stop_loss: z.object({
+    type: z.enum(["percentage", "fixed", "pips", "atr_multiple"]),
+    value: z.number(),
+    // Bounded so a typo doesn't put SL at "ATR × 100" miles from entry
+    // or "ATR × 0.05" inside normal noise. 0.5-5× ATR covers everything
+    // from very tight scalping (0.5×) to swing (5×).
+    atr_period: z.number().int().min(2).max(200).optional(),
+  }),
+  take_profit: z.object({
+    type: z.enum(["percentage", "fixed", "pips", "atr_multiple"]),
+    value: z.number(),
+    atr_period: z.number().int().min(2).max(200).optional(),
+  }),
   // Per-type sizing bounds. Catches the "stale form sends 70 thinking
   // it's 0.7" class of bug — clampRules can't safely rescue a literal
   // user-submitted value, so reject upstream instead. Numbers chosen so

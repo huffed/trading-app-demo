@@ -103,13 +103,18 @@ export function isPatternCondition(c: EntryCondition | ExitCondition): c is Patt
 // --- Risk management & rules ---
 
 export interface StopLoss {
-  type: "percentage" | "fixed" | "pips";
+  type: "percentage" | "fixed" | "pips" | "atr_multiple";
+  /** For atr_multiple: the multiplier (e.g., 1.5 = 1.5×ATR). For other
+   *  types: the percent / dollar amount / pip count. */
   value: number;
+  /** ATR lookback period when type is "atr_multiple". Default 14. */
+  atr_period?: number;
 }
 
 export interface TakeProfit {
-  type: "percentage" | "fixed" | "pips";
+  type: "percentage" | "fixed" | "pips" | "atr_multiple";
   value: number;
+  atr_period?: number;
 }
 
 export interface PositionSizing {

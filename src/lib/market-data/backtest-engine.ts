@@ -10,6 +10,7 @@ import {
   DEFAULT_STOP_LOSS_PCT,
   DEFAULT_TAKE_PROFIT_PCT,
 } from "@/lib/constants/defaults";
+import { atrForRule } from "@/lib/algorithm/atr-helper";
 import { priceDeltaForRule } from "@/lib/constants/markets";
 import {
   isPatternCondition,
@@ -225,6 +226,11 @@ function runSimulation(
     notionalValue: number;
     marginRequired: number;
     side: "long" | "short";
+    /** Entry-time ATR for atr_multiple SL/TP rules; undefined for
+     *  other rule types. Captured at entry so distance math stays
+     *  fixed across the position's life. */
+    slAtr?: number;
+    tpAtr?: number;
   }[] = [];
   const s = initialSimState(capital);
   let currentDayKey = "";
@@ -288,7 +294,7 @@ function runSimulation(
             currentBarIndex: i,
             entryPrice: pos.entryPrice,
             side: pos.side ?? "long",
-            stopDistance: priceDeltaForRule(rules.stop_loss, pos.entryPrice, symbol),
+            stopDistance: priceDeltaForRule(rules.stop_loss, pos.entryPrice, symbol, pos.slAtr),
             config: rules.stagnant_exit,
           }).exit
         : false;
@@ -369,6 +375,8 @@ function runSimulation(
           notionalValue: sized.notional,
           marginRequired: sized.margin,
           side,
+          slAtr: atrForRule(rules.stop_loss, prices, i),
+          tpAtr: atrForRule(rules.take_profit, prices, i),
         });
       }
     }
