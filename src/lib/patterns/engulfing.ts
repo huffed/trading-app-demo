@@ -3,10 +3,10 @@
  * bar's body fully engulfs the previous bar's body AND closes in the
  * opposite direction.
  *
- * Why this matters: friend-trade replay (multi-tf-friend-replay.ts)
- * showed engulfing fires on 21% of his 4h trade entries (his trade
- * direction) — a real signal he's evidently reading. Wasn't in our
- * production pattern system; this module adds it.
+ * Why this matters: friend-trade replay analysis showed engulfing fires
+ * on 21% of his 4h trade entries (his trade direction) — a real signal
+ * he's evidently reading. Wasn't in our production pattern system;
+ * this module adds it.
  *
  * Bullish engulfing: previous bar bearish (close < open) + current bar
  *   bullish (close > open) + current body engulfs previous body

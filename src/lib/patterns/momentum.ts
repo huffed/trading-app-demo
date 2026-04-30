@@ -3,9 +3,9 @@
  * IN the named trade direction by at least `min_size_atr` (cumulative,
  * in ATR units).
  *
- * Why this matters: feature dump split by trade direction
- * (scripts/feature-dump-friend-trades.ts) flipped the original "pullback
- * trader" hypothesis. His wins enter ON momentum, not against it:
+ * Why this matters: a feature dump split by trade direction flipped
+ * the original "pullback trader" hypothesis. His wins enter ON
+ * momentum, not against it:
  *   long wins  : 3-bar impulse median +0.18 ATR (mean +0.25)
  *   short wins : 3-bar impulse median -0.72 ATR (mean -0.82)
  * Both directions favour continuation. Earlier combined-direction
