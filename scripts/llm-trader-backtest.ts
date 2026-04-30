@@ -21,8 +21,17 @@
  *   pnpm dlx tsx scripts/llm-trader-backtest.ts
  *
  * Env (optional):
+ *   TIMEFRAME=4h    primary timeframe — 4h / 1h / 30m / 15m (default 4h).
+ *                   4h is resampled from cached 1h. 1h/30m/15m fetched
+ *                   directly (Twelve Data or Yahoo).
  *   SLICE_DAYS=60   how many days back to replay (default 60)
  *   CAPITAL=100000  starting capital (default $100K)
+ *
+ * Token cost per 60-day run (estimate, ~530 tokens/call after compression):
+ *   4h  =  360 calls = ~190K tokens (within Groq free 100K? close — clamp to 30d)
+ *   1h  = 1440 calls = ~760K tokens (Dev tier required)
+ *   30m = 2880 calls = ~1.5M tokens (Dev tier required)
+ *   15m = 5760 calls = ~3M tokens (Dev tier or higher)
  */
 import { readFileSync } from "fs";
 import { z } from "zod";
@@ -122,7 +131,7 @@ function computeAtr(bars: PriceBar[], period: number, idx: number): number {
   return count > 0 ? sum / count : 0;
 }
 
-function summariseRecent4h(bars: PriceBar[], idx: number): string {
+function summariseRecentBars(bars: PriceBar[], idx: number, tfLabel: string): string {
   const start = Math.max(0, idx - 19);
   const window = bars.slice(start, idx + 1);
   const cur = window[window.length - 1];
@@ -142,7 +151,7 @@ function summariseRecent4h(bars: PriceBar[], idx: number): string {
   const distHi = ((swingHigh - cur.close) / cur.close) * 100;
   const distLo = ((cur.close - swingLow) / cur.close) * 100;
   return (
-    `4h: cur ${cur.close.toFixed(0)}, 20-bar range ${swingLow.toFixed(0)}-${swingHigh.toFixed(0)} ` +
+    `${tfLabel}: cur ${cur.close.toFixed(0)}, 20-bar range ${swingLow.toFixed(0)}-${swingHigh.toFixed(0)} ` +
     `(dist hi ${distHi.toFixed(1)}% / lo ${distLo.toFixed(1)}%), 3-bar mom ${mom3 >= 0 ? "+" : ""}${mom3.toFixed(2)}%, ATR14 ${atr14.toFixed(1)}.\n` +
     `Last 3 bars: ${last3Lines.join(" | ")}`
   );
@@ -289,12 +298,33 @@ function pad(s: string, n: number): string {
 async function main(): Promise<void> {
   const sliceDays = Number(process.env.SLICE_DAYS ?? "60");
   const capital = Number(process.env.CAPITAL ?? "100000");
+  const timeframe = (process.env.TIMEFRAME ?? "4h").toLowerCase();
+  // BarInterval supports "15min" | "1h" | "4h" | "1day". For 4h and 30m
+  // we fetch a finer interval and resample via resampleTo. For 1h and
+  // 15m we fetch directly.
+  let fetchInterval: "15min" | "1h" | "4h";
+  let needsResample: false | "4h" | "30m";
+  if (timeframe === "4h") {
+    fetchInterval = "1h";
+    needsResample = "4h";
+  } else if (timeframe === "1h") {
+    fetchInterval = "1h";
+    needsResample = false;
+  } else if (timeframe === "30m") {
+    fetchInterval = "15min";
+    needsResample = "30m";
+  } else if (timeframe === "15m") {
+    fetchInterval = "15min";
+    needsResample = false;
+  } else {
+    throw new Error(`Unsupported TIMEFRAME=${timeframe}. Use 4h / 1h / 30m / 15m.`);
+  }
 
-  console.log("Loading XAU/USD 4h corpus...");
-  const hourly = await fetchDailyPrices("XAU/USD", "full", "1h");
-  const bars4h = resampleTo(hourly, "4h");
+  console.log(`Loading XAU/USD ${timeframe} corpus (fetched at ${fetchInterval}${needsResample ? `, resampled to ${needsResample}` : ""})...`);
+  const fetched = await fetchDailyPrices("XAU/USD", "full", fetchInterval);
+  const bars = needsResample ? resampleTo(fetched, needsResample) : fetched;
   const dailyBars = await fetchDailyPrices("XAU/USD", "full", "1day");
-  console.log(`  4h corpus: ${bars4h.length} bars`);
+  console.log(`  ${timeframe} corpus: ${bars.length} bars`);
   console.log(`  daily corpus: ${dailyBars.length} bars`);
 
   console.log("Loading EUR/USD 4h proxy...");
@@ -310,11 +340,19 @@ async function main(): Promise<void> {
 
   // Slice 4h bars to last N days but keep daily history (need 21 bars for SMA20).
   const cutoffMs = Date.now() - sliceDays * 24 * 3600 * 1000;
-  const start4hIdx = bars4h.findIndex((b) => new Date(b.date).getTime() >= cutoffMs);
-  if (start4hIdx === -1) throw new Error("no 4h bars in slice window");
+  const startIdx = bars.findIndex((b) => new Date(b.date).getTime() >= cutoffMs);
+  if (startIdx === -1) throw new Error(`no ${timeframe} bars in slice window`);
 
-  const numBars = bars4h.length - start4hIdx;
-  console.log(`Replaying ${numBars} 4h bars (last ${sliceDays} days)...`);
+  const numBars = bars.length - startIdx;
+  // ~530 tokens/call rough estimate post-compression (~430 input + ~100 output)
+  const estTokens = numBars * 530;
+  console.log(`Replaying ${numBars} ${timeframe} bars (last ${sliceDays} days)...`);
+  console.log(
+    `  Estimated token cost: ~${(estTokens / 1000).toFixed(0)}K tokens (Groq free 100K/day, Dev 6M/day)`
+  );
+  if (estTokens > 100_000) {
+    console.log(`  ⚠ Over free-tier daily quota — will hit rate limit partway. Use Dev tier or shorter slice.`);
+  }
   console.log("");
 
   const client = getAIClient();
@@ -326,8 +364,8 @@ async function main(): Promise<void> {
   let llmCallCount = 0;
   let llmFailureCount = 0;
 
-  for (let i = start4hIdx; i < bars4h.length; i++) {
-    const bar = bars4h[i];
+  for (let i = startIdx; i < bars.length; i++) {
+    const bar = bars[i];
 
     // 1) Check for SL/TP fill on the current bar (if in position).
     if (position) {
@@ -357,7 +395,7 @@ async function main(): Promise<void> {
 
     // 2) Ask LLM for the next decision based on this bar's close.
     const dailyContext = summariseDailyBias(dailyBars.filter((d) => new Date(d.date).getTime() <= new Date(bar.date).getTime()));
-    const recentContext = summariseRecent4h(bars4h, i);
+    const recentContext = summariseRecentBars(bars, i, timeframe);
     const dxyContext = summariseDxy(eurusd4h, bar.date);
     const intermarketContext = summariseIntermarket(intermarket, bar.close, bar.date);
     const positionContext = summarisePosition(position, bar.close);
@@ -422,16 +460,16 @@ async function main(): Promise<void> {
     }
 
     // Live progress
-    if ((i - start4hIdx + 1) % 20 === 0) {
+    if ((i - startIdx + 1) % 20 === 0) {
       console.log(
-        `  ${i - start4hIdx + 1}/${numBars} bars · cash $${cash.toFixed(0)} · ${closedTrades.length} closed · ${llmCallCount} LLM calls (${llmFailureCount} fails)`
+        `  ${i - startIdx + 1}/${numBars} bars · cash $${cash.toFixed(0)} · ${closedTrades.length} closed · ${llmCallCount} LLM calls (${llmFailureCount} fails)`
       );
     }
   }
 
   // Close any remaining position at the last close.
   if (position) {
-    const lastBar = bars4h[bars4h.length - 1];
+    const lastBar = bars[bars.length - 1];
     const exitPrice = lastBar.close;
     const pnl =
       position.side === "long"
@@ -446,7 +484,7 @@ async function main(): Promise<void> {
       exit_date: lastBar.date,
       realized_pnl: pnl,
       exit_reason: "llm_exit",
-      hold_bars: bars4h.length - 1 - position.entry_index,
+      hold_bars: bars.length - 1 - position.entry_index,
       reasoning: "(force-close at end of window)",
     });
   }
