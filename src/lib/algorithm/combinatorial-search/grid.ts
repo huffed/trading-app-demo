@@ -26,6 +26,25 @@ import type {
 } from "@/types/algorithm";
 import { EXIT_VARIANTS } from "./exit-variants";
 
+/**
+ * Parameter-sweep variant of a base template. Each variant produces a
+ * separate candidate per (param-combo × exit-variant) so the 4D search
+ * tests RSI thresholds, momentum lookbacks, MA periods, etc.
+ *
+ * The default (un-swept) variant is implicit: the template's `build`
+ * is always emitted as candidate name `${tmpl.name}__${combo}__${exit}`.
+ * Explicit `param_variants` add `${tmpl.name}__${variantName}__${combo}__${exit}`
+ * candidates on top.
+ */
+interface ParamVariant {
+  /** Variant suffix in candidate labels (e.g. "rsi65", "lb5", "ma50").
+   *  Distinguishes from the un-suffixed default variant. */
+  name: string;
+  /** Replaces the template's default `build` for this variant. Same
+   *  shape: takes primary timeframe → entry conditions + logic. */
+  build: (tf: string) => { entry: EntryCondition[]; logic: EntryLogic } | null;
+}
+
 interface Template {
   name: string;
   /** Entry conditions, parametrised by primary timeframe. The factory
@@ -44,6 +63,11 @@ interface Template {
    *  for templates with conditions spanning ≥2 timeframes — single-TF
    *  templates have no agreement signal to scale on. */
   include_tf_conviction_variant?: boolean;
+  /** Optional parameter sweeps. Each variant adds a separate candidate
+   *  per (combo × exit). Used for tunable thresholds (RSI 65/70/75,
+   *  momentum lookback 2/3/5/8, MA period 20/50, etc.). The default
+   *  build is always emitted; these are additive. */
+  param_variants?: ParamVariant[];
 }
 
 // Template order matters: candidates are enumerated in this order and
@@ -75,6 +99,38 @@ const TEMPLATES: Template[] = [
       logic: "all",
     }),
     allowed_timeframes: ["1h", "4h"],
+    // Sweep momentum lookback. Default (lookback=3) goes through the
+    // normal path; these variants test alternative bar-count windows
+    // for the same in-direction-net-move signal.
+    param_variants: [
+      {
+        name: "lb2",
+        build: (tf) => ({
+          entry: [
+            { type: "pattern", pattern: "momentum", direction: "bullish", lookback: 2, timeframe: tf },
+          ],
+          logic: "all",
+        }),
+      },
+      {
+        name: "lb5",
+        build: (tf) => ({
+          entry: [
+            { type: "pattern", pattern: "momentum", direction: "bullish", lookback: 5, timeframe: tf },
+          ],
+          logic: "all",
+        }),
+      },
+      {
+        name: "lb8",
+        build: (tf) => ({
+          entry: [
+            { type: "pattern", pattern: "momentum", direction: "bullish", lookback: 8, timeframe: tf },
+          ],
+          logic: "all",
+        }),
+      },
+    ],
   },
   {
     name: "momentum_with_bias",
@@ -246,6 +302,28 @@ const TEMPLATES: Template[] = [
       ],
       logic: "all",
     }),
+    // RSI threshold sweep. 30 is the default oversold line; tighter
+    // (25) catches deeper extremes only, looser (35) trades more often.
+    param_variants: [
+      {
+        name: "rsi25",
+        build: (tf) => ({
+          entry: [
+            { type: "technical", indicator: "RSI", operator: "less_than", value: 25, timeframe: tf },
+          ],
+          logic: "all",
+        }),
+      },
+      {
+        name: "rsi35",
+        build: (tf) => ({
+          entry: [
+            { type: "technical", indicator: "RSI", operator: "less_than", value: 35, timeframe: tf },
+          ],
+          logic: "all",
+        }),
+      },
+    ],
   },
   {
     name: "rsi_overbought_fade",
@@ -256,6 +334,38 @@ const TEMPLATES: Template[] = [
       ],
       logic: "all",
     }),
+    // RSI threshold sweep — Candidate B's family. 70 is the default
+    // overbought line. Tighter (75/80) reduces signal frequency but
+    // higher quality; looser (65) trades more often.
+    param_variants: [
+      {
+        name: "rsi65",
+        build: (tf) => ({
+          entry: [
+            { type: "technical", indicator: "RSI", operator: "greater_than", value: 65, timeframe: tf },
+          ],
+          logic: "all",
+        }),
+      },
+      {
+        name: "rsi75",
+        build: (tf) => ({
+          entry: [
+            { type: "technical", indicator: "RSI", operator: "greater_than", value: 75, timeframe: tf },
+          ],
+          logic: "all",
+        }),
+      },
+      {
+        name: "rsi80",
+        build: (tf) => ({
+          entry: [
+            { type: "technical", indicator: "RSI", operator: "greater_than", value: 80, timeframe: tf },
+          ],
+          logic: "all",
+        }),
+      },
+    ],
   },
   {
     name: "sma_crossover_trend",
@@ -437,39 +547,51 @@ export function enumerateCandidates(input: {
       if (tmpl.allowed_timeframes && !tmpl.allowed_timeframes.includes(combo.timeframe)) {
         continue;
       }
-      const built = tmpl.build(combo.timeframe);
-      if (!built) continue;
-      const isGold = tmpl.name.startsWith("gold_");
+      // Iterate over all template variants: default + any parameter
+      // sweeps defined on the template. Default builds with no suffix;
+      // sweep variants get their `name` suffix appended.
+      const variantBuilds: Array<{ suffix: string; build: typeof tmpl.build }> = [
+        { suffix: "", build: tmpl.build },
+        ...(tmpl.param_variants ?? []).map((v) => ({
+          suffix: `__${v.name}`,
+          build: v.build,
+        })),
+      ];
 
-      for (const exitVariant of EXIT_VARIANTS) {
-        const exit = exitVariant.build(tmpl.name, combo.timeframe, tmpl.default_side);
-        if (exit === null) continue;
+      for (const variantBuild of variantBuilds) {
+        const built = variantBuild.build(combo.timeframe);
+        if (!built) continue;
+        const variantTag = variantBuild.suffix;
+        const isGold = tmpl.name.startsWith("gold_");
 
-        const labelSuffix = exitVariant.name === "no_exit" ? "" : `__${exitVariant.name}`;
+          for (const exitVariant of EXIT_VARIANTS) {
+          const exit = exitVariant.build(tmpl.name, combo.timeframe, tmpl.default_side);
+          if (exit === null) continue;
 
-        out.push({
-          label: `${tmpl.name}__${combo.label}${labelSuffix}`,
-          template_name: tmpl.name,
-          rules: assembleRules(built, combo, tmpl.default_side, input.capital, {
-            is_gold: isGold,
-            exit_conditions: exit.exit_conditions,
-            exit_logic: exit.exit_logic,
-          }),
-        });
-        if (tmpl.include_tf_conviction_variant) {
-          // Same conditions/SL/TP/exits, swapped sizing. Walk-forward
-          // decides whether the conviction-scaled version edges out
-          // flat risk under the same exit shape.
+          const exitSuffix = exitVariant.name === "no_exit" ? "" : `__${exitVariant.name}`;
+
           out.push({
-            label: `${tmpl.name}__${combo.label}__conv${labelSuffix}`,
+            label: `${tmpl.name}${variantTag}__${combo.label}${exitSuffix}`,
             template_name: tmpl.name,
             rules: assembleRules(built, combo, tmpl.default_side, input.capital, {
-              sizing: "conviction_tf_agreement",
               is_gold: isGold,
               exit_conditions: exit.exit_conditions,
               exit_logic: exit.exit_logic,
             }),
           });
+          if (tmpl.include_tf_conviction_variant) {
+            // Same conditions/SL/TP/exits, swapped sizing.
+            out.push({
+              label: `${tmpl.name}${variantTag}__${combo.label}__conv${exitSuffix}`,
+              template_name: tmpl.name,
+              rules: assembleRules(built, combo, tmpl.default_side, input.capital, {
+                sizing: "conviction_tf_agreement",
+                is_gold: isGold,
+                exit_conditions: exit.exit_conditions,
+                exit_logic: exit.exit_logic,
+              }),
+            });
+          }
         }
       }
     }
