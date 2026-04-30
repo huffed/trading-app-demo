@@ -383,7 +383,9 @@ async function main(): Promise<void> {
   const capital = Number(process.env.CAPITAL ?? "100000");
   const target = Number(process.env.TARGET ?? "10");
   const topN = Number(process.env.TOP_N ?? "10");
-  const maxCandidates = Number(process.env.MAX_CANDIDATES ?? "80");
+  // Bumped 80 → 500 to fit the 4D search space (templates × param
+  // variants × params × exits). Override via MAX_CANDIDATES env.
+  const maxCandidates = Number(process.env.MAX_CANDIDATES ?? "500");
   const symbols = (process.env.SYMBOLS ?? "XAU/USD")
     .split(",")
     .map((s) => s.trim())

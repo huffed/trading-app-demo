@@ -164,6 +164,61 @@ describe("enumerateCandidates — 3D search (template × params × exit variants
   });
 });
 
+describe("enumerateCandidates — 4D parameter sweeps", () => {
+  it("emits rsi_overbought_fade variants for RSI thresholds 65/70/75/80", () => {
+    const candidates = enumerateCandidates(INPUT);
+    const labels = candidates.map((c) => c.label);
+    // Default variant has no suffix (RSI 70).
+    expect(labels.some((l) => l === "rsi_overbought_fade__15m_normal_3R")).toBe(true);
+    // Sweep variants: rsi65, rsi75, rsi80.
+    expect(labels.some((l) => l.startsWith("rsi_overbought_fade__rsi65__"))).toBe(true);
+    expect(labels.some((l) => l.startsWith("rsi_overbought_fade__rsi75__"))).toBe(true);
+    expect(labels.some((l) => l.startsWith("rsi_overbought_fade__rsi80__"))).toBe(true);
+  });
+
+  it("RSI 65 variant has RSI > 65 entry condition", () => {
+    const c = enumerateCandidates(INPUT).find(
+      (cand) => cand.label.startsWith("rsi_overbought_fade__rsi65__") && !cand.label.includes("signal_flip") && !cand.label.includes("daily_bias_flip")
+    );
+    expect(c).toBeDefined();
+    const cond = c!.rules.entry_conditions[0];
+    expect(cond.type).toBe("technical");
+    if (cond.type === "technical") {
+      expect(cond.indicator).toBe("RSI");
+      expect(cond.value).toBe(65);
+    }
+  });
+
+  it("emits momentum_solo lookback variants (lb2, lb5, lb8)", () => {
+    const labels = enumerateCandidates(INPUT).map((c) => c.label);
+    expect(labels.some((l) => l.startsWith("momentum_solo__lb2__"))).toBe(true);
+    expect(labels.some((l) => l.startsWith("momentum_solo__lb5__"))).toBe(true);
+    expect(labels.some((l) => l.startsWith("momentum_solo__lb8__"))).toBe(true);
+  });
+
+  it("momentum lookback variant carries through to entry condition", () => {
+    const c = enumerateCandidates(INPUT).find(
+      (cand) => cand.label.startsWith("momentum_solo__lb5__") && !cand.label.includes("__signal_flip") && !cand.label.includes("__daily_bias_flip")
+    );
+    expect(c).toBeDefined();
+    const cond = c!.rules.entry_conditions[0];
+    expect(cond.type).toBe("pattern");
+    if (cond.type === "pattern") {
+      expect(cond.pattern).toBe("momentum");
+      expect(cond.lookback).toBe(5);
+    }
+  });
+
+  it("template_name stays the base name even for parameter variants (preserves exit-variant lookup)", () => {
+    const c = enumerateCandidates(INPUT).find((cand) =>
+      cand.label.startsWith("rsi_overbought_fade__rsi65__")
+    );
+    expect(c).toBeDefined();
+    // template_name lets exit-variants.ts match by base name regardless of param suffix.
+    expect(c!.template_name).toBe("rsi_overbought_fade");
+  });
+});
+
 describe("enumerateCandidates — gold template condition shapes", () => {
   it("gold_killzone_sweep emits 4 conditions on 15m with logic=all", () => {
     const c = enumerateCandidates(INPUT).find(

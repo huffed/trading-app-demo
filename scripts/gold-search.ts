@@ -184,7 +184,9 @@ async function main(): Promise<void> {
   const topN = Number(process.env.TOP_N ?? "5");
   const includeEvaluated =
     process.env.INCLUDE_EVALUATED === "true" || process.env.INCLUDE_EVALUATED === "1";
-  const maxCandidates = Number(process.env.MAX_CANDIDATES ?? "80");
+  // Bumped 80 → 500 for the 4D space (templates × variants × params × exits).
+  // 4D search emits ~300-500 candidates depending on enabled sweeps.
+  const maxCandidates = Number(process.env.MAX_CANDIDATES ?? "500");
   const symbolsArg = process.env.SYMBOLS ?? "XAU/USD";
   const symbols = symbolsArg.split(",").map((s) => s.trim()).filter(Boolean);
   // Walk-forward window/step default to per-candidate scaling (15m
