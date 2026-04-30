@@ -81,7 +81,16 @@ function evaluateStagnantExit(
 ): StagnantExitResult | null {
   if (!rules.stagnant_exit?.enabled) return null;
   const entryBarIndex = resolveEntryBarIndex(bars, position.opened_at);
-  const stopDistance = priceDeltaForRule(rules.stop_loss, position.entry_price, ticker);
+  // Derive stopDistance from the persisted SL price when available — it
+  // captures the entry-time decision (including structural / rr_multiple
+  // distances that can't be recomputed from the rule alone). Falls back
+  // to priceDeltaForRule for legacy positions opened before stop_loss_price
+  // was persisted, AND for the percentage / fixed / pips rules where the
+  // recomputation is deterministic.
+  const stopDistance =
+    position.stop_loss_price != null
+      ? Math.abs(position.entry_price - position.stop_loss_price)
+      : priceDeltaForRule(rules.stop_loss, position.entry_price, ticker);
   return checkStagnantExit({
     bars,
     entryBarIndex,

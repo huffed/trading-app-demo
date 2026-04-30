@@ -34,7 +34,13 @@ export function calculatePositionSize(
   openPositionsValue: number,
   currentPrice: number,
   symbol?: string,
-  convictionMultiplier: number = 1
+  convictionMultiplier: number = 1,
+  /** Pre-computed SL distance in price units. Required for structural
+   *  rule types (swing_anchor / rr_multiple) whose distance can't be
+   *  derived from the rule + entry price alone. For percentage / fixed
+   *  / pips rules, omitting this is fine — the function falls back to
+   *  ruleAsPctOfEntry which handles those types deterministically. */
+  slDistanceOverride?: number
 ): PositionSizingResult | null {
   const available = capital - openPositionsValue;
   if (available <= 0) return null;
@@ -56,7 +62,10 @@ export function calculatePositionSize(
       // capital + cross-rate. conviction_scaled additionally multiplies the
       // base risk percentage by the caller-provided multiplier (defaults to
       // 1, equivalent to risk_per_trade behaviour).
-      const slPct = ruleAsPctOfEntry(rules.stop_loss, currentPrice, symbol);
+      const slPct =
+        slDistanceOverride !== undefined && currentPrice > 0
+          ? (slDistanceOverride / currentPrice) * 100
+          : ruleAsPctOfEntry(rules.stop_loss, currentPrice, symbol);
       const effectiveRiskPct =
         sizing.type === "conviction_scaled"
           ? sizing.value * Math.max(1, convictionMultiplier)
@@ -92,10 +101,17 @@ export function calculateRiskPrices(
   entryPrice: number,
   rules: AlgorithmRules,
   side: "long" | "short",
-  symbol?: string
+  symbol?: string,
+  /** Pre-computed SL/TP distances in price units. When provided, used
+   *  directly to set SL/TP prices. Required for structural rule types
+   *  (swing_anchor / rr_multiple) whose distance can't be derived from
+   *  the rule alone. For percentage / fixed / pips rules, callers can
+   *  omit and the function recomputes via priceDeltaForRule. */
+  slDistance?: number,
+  tpDistance?: number
 ): { stopLossPrice: number; takeProfitPrice: number } {
-  const slDelta = priceDeltaForRule(rules.stop_loss, entryPrice, symbol);
-  const tpDelta = priceDeltaForRule(rules.take_profit, entryPrice, symbol);
+  const slDelta = slDistance ?? priceDeltaForRule(rules.stop_loss, entryPrice, symbol);
+  const tpDelta = tpDistance ?? priceDeltaForRule(rules.take_profit, entryPrice, symbol);
 
   if (side === "long") {
     return {
