@@ -428,8 +428,26 @@ export interface AlgorithmRules {
     /** Minimum |EUR/USD pip change| over the lookback to count as
      *  directional. Below this counts as neutral. Default 15. */
     pip_threshold?: number;
-    /** When true, also blocks during neutral DXY direction. Default
-     *  false — only the "against" bucket is blocked. */
+    /**
+     * Which buckets the filter blocks. Three options correspond to
+     * three observed empirical patterns on gold long-corpus inspect runs:
+     *  - "block_against": classic — block trades fighting the dollar
+     *    direction. Validated for Algo B (15m short, 86% WR aligned vs
+     *    28% against).
+     *  - "block_neutral_only": risk-reduction mode. On Algo D's long
+     *    corpus (XAU/USD 1h momentum), block_against destroys ~$6K
+     *    expectancy with no WR change — against-DXY entries carry
+     *    positive EV (likely mean-reversion). Blocking only the neutral
+     *    mid-range preserves return and reduces max DD ~1.5pp at the
+     *    12h × 15pip default and ~3pp at 24h × 30pip.
+     *  - "block_against_and_neutral": most aggressive — only allow
+     *    strongly-DXY-aligned entries.
+     * Default "block_against" preserves PR-95 behaviour when unset.
+     */
+    mode?: "block_against" | "block_neutral_only" | "block_against_and_neutral";
+    /** Legacy — when true and `mode` is unset, behaves as
+     *  "block_against_and_neutral". Kept for backwards compatibility
+     *  with rules persisted before mode was added. */
     block_neutral?: boolean;
   };
 }

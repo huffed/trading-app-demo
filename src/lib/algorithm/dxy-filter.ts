@@ -31,7 +31,11 @@ export interface DxyFilterResult {
   delta_pips?: number;
   threshold_pips?: number;
   lookback_hours?: number;
-  status: "blocked" | "aligned" | "neutral" | "no_data";
+  /** Bucket the trade fell into. "blocked" means the bucket triggered
+   *  the filter (per `mode`); the other values are pass-through buckets
+   *  surfaced for telemetry. "against" is now a pass-through state for
+   *  block_neutral_only mode where we keep both directional buckets. */
+  status: "blocked" | "aligned" | "against" | "neutral" | "no_data";
 }
 
 export interface CheckDxyArgs {
@@ -72,7 +76,12 @@ export function checkDxyDirection(args: CheckDxyArgs): DxyFilterResult {
   }
   const lookbackHours = config.lookback_hours ?? DEFAULT_LOOKBACK_HOURS;
   const pipThreshold = config.pip_threshold ?? DEFAULT_PIP_THRESHOLD;
-  const blockNeutral = config.block_neutral ?? false;
+  // mode = which buckets to block. Defaults to "block_against" so an
+  // un-set mode preserves the original PR-95 behaviour. block_neutral
+  // is the legacy boolean knob — when true and mode is unset, behaves
+  // as "block_against_and_neutral". mode wins when both are set.
+  const mode =
+    config.mode ?? (config.block_neutral ? "block_against_and_neutral" : "block_against");
 
   const ts = new Date(currentTimestamp).getTime();
   const lookbackTs = ts - lookbackHours * 3600 * 1000;
@@ -94,24 +103,38 @@ export function checkDxyDirection(args: CheckDxyArgs): DxyFilterResult {
     lookback_hours: lookbackHours,
   };
 
-  if (isNeutral) {
-    if (blockNeutral) {
-      return {
-        ...telemetry,
-        block: true,
-        status: "blocked",
-        reason: `DXY neutral (|EUR/USD ${deltaPips.toFixed(1)}| < ${pipThreshold}pip threshold over ${lookbackHours}h)`,
-      };
-    }
-    return { ...telemetry, block: false, status: "neutral" };
+  // Classify the bucket first; THEN decide block based on mode. Cleaner
+  // than nested branches and makes adding new modes trivial.
+  const bucket: "aligned" | "against" | "neutral" = isNeutral
+    ? "neutral"
+    : aligned
+      ? "aligned"
+      : "against";
+
+  let block = false;
+  if (mode === "block_against") {
+    block = bucket === "against";
+  } else if (mode === "block_neutral_only") {
+    // Inverted-signal mode (Algo D) — keep both aligned AND against
+    // (the strong-direction buckets), block only the choppy mid-range
+    // where the signal is undifferentiated.
+    block = bucket === "neutral";
+  } else {
+    // block_against_and_neutral
+    block = bucket === "against" || bucket === "neutral";
   }
-  if (aligned) {
-    return { ...telemetry, block: false, status: "aligned" };
+
+  if (!block) {
+    return { ...telemetry, block: false, status: bucket };
   }
+  const reason =
+    bucket === "neutral"
+      ? `DXY neutral (|EUR/USD ${deltaPips.toFixed(1)}| < ${pipThreshold}pip over ${lookbackHours}h, mode=${mode})`
+      : `DXY against ${side} gold (EUR/USD ${deltaPips > 0 ? "+" : ""}${deltaPips.toFixed(1)} pips over ${lookbackHours}h, mode=${mode})`;
   return {
     ...telemetry,
     block: true,
     status: "blocked",
-    reason: `DXY against ${side} gold (EUR/USD ${deltaPips > 0 ? "+" : ""}${deltaPips.toFixed(1)} pips over ${lookbackHours}h)`,
+    reason,
   };
 }

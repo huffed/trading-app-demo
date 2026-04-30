@@ -221,6 +221,11 @@ const dxyFilterSchema = z.object({
   // Default 15 (the value at which exploratory analysis showed cleanest
   // separation across 4 gold algos).
   pip_threshold: z.number().min(1).max(200).optional(),
+  // mode = which bucket(s) to block. See type doc in algorithm.ts for
+  // the empirical rationale. Defaults to "block_against" when unset.
+  mode: z
+    .enum(["block_against", "block_neutral_only", "block_against_and_neutral"])
+    .optional(),
   block_neutral: z.boolean().optional(),
 });
 

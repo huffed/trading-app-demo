@@ -158,6 +158,11 @@ async function main(): Promise<void> {
     : 15;
   const dxyBlockNeutral =
     process.env.DXY_BLOCK_NEUTRAL === "true" || process.env.DXY_BLOCK_NEUTRAL === "1";
+  const dxyMode = (process.env.DXY_MODE ?? undefined) as
+    | "block_against"
+    | "block_neutral_only"
+    | "block_against_and_neutral"
+    | undefined;
 
   const overlayActive = trailingEnabled || breakevenEnabled || dxyEnabled;
   const overlayRules: AlgorithmRules = overlayActive
@@ -182,6 +187,7 @@ async function main(): Promise<void> {
                 lookback_hours: dxyLookbackHours,
                 pip_threshold: dxyPipThreshold,
                 block_neutral: dxyBlockNeutral,
+                ...(dxyMode ? { mode: dxyMode } : {}),
               },
             }
           : {}),
@@ -213,7 +219,7 @@ async function main(): Promise<void> {
     }
     if (dxyEnabled) {
       console.log(
-        `  dxy_filter     : lookback_hours=${dxyLookbackHours}, pip_threshold=${dxyPipThreshold}, block_neutral=${dxyBlockNeutral}`
+        `  dxy_filter     : lookback_hours=${dxyLookbackHours}, pip_threshold=${dxyPipThreshold}, block_neutral=${dxyBlockNeutral}, mode=${dxyMode ?? "(default block_against)"}`
       );
     }
     console.log("");
