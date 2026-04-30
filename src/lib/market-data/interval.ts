@@ -74,3 +74,45 @@ export function minBarsFor(interval: BarInterval): number {
       return 1000; // ~10 trading days; ATR(14) + lookback windows + signal warmup
   }
 }
+
+/**
+ * Default walk-forward window + step sizes tuned to each timeframe.
+ *
+ * The fixed-180-day default that was hard-coded everywhere is wrong for
+ * intraday strategies: a 15min algo evaluated on a 180-day window
+ * needs 17,280 bars (180 × 96), which exceeds Twelve Data's 5,000-bar
+ * cap and silently kills the candidate (zero windows ⇒ no result).
+ * Conversely, on a 1d trend-follower, 180 days is too short for
+ * regime sampling — only ~180 bars and zero meaningful drawdowns.
+ *
+ * Numbers chosen so each window has at least ~720 bars (decent for
+ * indicator warmup + a few entries) and at most ~3000 bars (avoids
+ * blowing through the 5k API cap). Step is roughly window/4 so
+ * adjacent windows share ~75% of bars, which gives stability sampling
+ * without sacrificing too many degrees of freedom.
+ */
+export function defaultWalkForwardWindowDays(timeframe: string | undefined): number {
+  switch (timeframeToInterval(timeframe)) {
+    case "15min":
+      return 30; // 30 × 96 = 2880 bars; fits 5k cap × multiple windows
+    case "1h":
+      return 90; // 90 × 24 = 2160 bars
+    case "4h":
+      return 180; // 180 × 6 = 1080 bars (matches the legacy hard-coded default)
+    case "1day":
+      return 365; // 365 bars; captures one full annual cycle
+  }
+}
+
+export function defaultWalkForwardStepDays(timeframe: string | undefined): number {
+  switch (timeframeToInterval(timeframe)) {
+    case "15min":
+      return 7;
+    case "1h":
+      return 21;
+    case "4h":
+      return 30;
+    case "1day":
+      return 60;
+  }
+}

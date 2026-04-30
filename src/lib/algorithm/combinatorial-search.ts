@@ -27,6 +27,10 @@
  *                      driven rule emission with search-driven selection.
  *   PR-C:              UI — "show me 3 candidates" / pick + create.
  */
+import {
+  defaultWalkForwardStepDays,
+  defaultWalkForwardWindowDays,
+} from "@/lib/market-data/interval";
 import type { WalkForwardSummary } from "@/lib/market-data/walk-forward";
 import type { AlgorithmRules } from "@/types/algorithm";
 import { evaluateCandidate } from "./combinatorial-search/evaluator";
@@ -137,8 +141,6 @@ export async function runCombinatorialSearch(
   const start = Date.now();
   const maxCandidates = options.max_candidates ?? 60;
   const topN = options.top_n ?? 5;
-  const windowDays = options.walk_forward_window_days ?? 180;
-  const stepDays = options.walk_forward_step_days ?? 30;
 
   const universe = filterUniverse(input);
   if (universe.length === 0) {
@@ -157,7 +159,24 @@ export async function runCombinatorialSearch(
 
   const evaluated: CandidateResult[] = [];
   for (const cand of candidates) {
-    const result = evaluateCandidate(cand, priceCorpus, input, windowDays, stepDays);
+    // Walk-forward window scales with the candidate's primary timeframe
+    // so a 15m gold scalp template doesn't get evaluated on a 180-day
+    // window (which would exceed the 5k-bar API cap), and a 1d trend
+    // template doesn't get evaluated on a 30-day window (too few bars
+    // for stable sampling). Caller can still force a fixed window via
+    // SearchOptions for diagnostic runs.
+    const tf = cand.rules.timeframe;
+    const candWindowDays =
+      options.walk_forward_window_days ?? defaultWalkForwardWindowDays(tf);
+    const candStepDays =
+      options.walk_forward_step_days ?? defaultWalkForwardStepDays(tf);
+    const result = evaluateCandidate(
+      cand,
+      priceCorpus,
+      input,
+      candWindowDays,
+      candStepDays
+    );
     if (result) evaluated.push(result);
   }
 
