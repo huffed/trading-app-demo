@@ -146,7 +146,7 @@ If the dual-run shows the session filter doesn't actually move walk-forward resu
 
 ## Open questions
 
-1. **Capital allocation when gold deploys live.** Run gold at full $100K alongside the forex algo (shared capital pool, with the divergence kill switch + position-size sanity gate as floors)? Or open a second FTMO broker connection / fresh challenge for gold? Recommend: same broker connection, shared capital — the position-size sanity gate (30× notional) and FTMO 5% daily loss limit already cap exposure.
+1. ~~**Capital allocation when gold deploys live.** Run gold at full $100K alongside the forex algo (shared capital pool, with the divergence kill switch + position-size sanity gate as floors)? Or open a second FTMO broker connection / fresh challenge for gold? Recommend: same broker connection, shared capital — the position-size sanity gate (30× notional) and FTMO 5% daily loss limit already cap exposure.~~ **Resolved 2026-04-30:** shared $100K pool on the existing FTMO MetaApi broker connection. Operator confirmed. Both algos compete for the same FTMO 5% DLL budget — that's the design intent (no algo can blow the account on its own).
 
 2. **Should the news fade template be live-only?** `post_news_window` requires a real news calendar (Finnhub via existing `economic-calendar.ts`). In backtest, we'd need to replay the same news data on historical bars. If that's not built, the template is live-only and skips backtest scoring. Recommend: surface it as live-only initially, add backtest news-replay as PR-4 work if it becomes the top live performer.
 
