@@ -19,13 +19,25 @@ operator), but the schedule should be kept in sync with this table.
 | Cadence | Script | Endpoint | Log |
 |---|---|---|---|
 | Every 5 min (`*/5 * * * *`) | `manage-cron.sh` | `/api/cron/manage-positions` | `/tmp/quanttrader-manage.log` |
-| Hourly (`0 * * * *`) | `scan-cron.sh` | `/api/cron/scan-active-algorithms` | `/tmp/quanttrader-scan.log` |
+| **Every 15 min (`*/15 * * * *`)** | `scan-cron.sh` | `/api/cron/scan-active-algorithms` | `/tmp/quanttrader-scan.log` |
 | Daily 04:00 UTC (`0 4 * * *`) | `prune-sentiment-cache-cron.sh` | `/api/admin/prune-sentiment-cache?days=30` | `/tmp/quanttrader-prune.log` |
 
-The hourly scan handles entry evaluation; the 5-minute manage tick only
-walks open paper positions for SL/TP and signal-based exit checks. This
-keeps intraday exit latency at ≤5 minutes without burning quote-API
-budget on tickers with no open positions.
+The 15-min scan cadence aligns with bar-close moments for the active
+gold algos (15m primary timeframe on Candidate B; 1h primary timeframe
+on C/D/E). At `*/15 * * * *` the cron fires at `:00 :15 :30 :45` past
+each hour, catching every 15m bar close within seconds AND every 1h
+bar close at exactly `:00`. Previously the scan ran hourly (`0 * * *
+*`) which meant 15m signals were missed entirely (3 of every 4 bars)
+and 1h signals had up to 60 min latency to entry.
+
+When 4h or 1d primary-timeframe algos go live in future, add separate
+cron entries aligned to those bar-close times rather than scanning at
+finer granularity than needed (saves price-cache misses).
+
+The 5-minute manage tick still walks open paper positions for SL/TP
+and signal-based exit checks. This keeps intraday exit latency at ≤5
+minutes without burning quote-API budget on tickers with no open
+positions.
 
 Both scripts are idempotent — running more often than the cadence above
 is safe; the underlying endpoints just do less work.
@@ -52,8 +64,9 @@ Reference entries (swap `/Users/jack.jones/...` for your repo path):
 # Manage open positions every 5 minutes — handles intraday SL/TP + signal exits
 */5 * * * * /Users/jack.jones/Documents/trading-app/demo-1/scripts/manage-cron.sh >> /tmp/quanttrader-manage.log 2>&1
 
-# Scan active algorithms every hour — entry evaluation
-0 * * * * /Users/jack.jones/Documents/trading-app/demo-1/scripts/scan-cron.sh >> /tmp/quanttrader-scan.log 2>&1
+# Scan active algorithms every 15 minutes — entry evaluation aligned to
+# 15m and 1h bar closes (00, 15, 30, 45 past each hour)
+*/15 * * * * /Users/jack.jones/Documents/trading-app/demo-1/scripts/scan-cron.sh >> /tmp/quanttrader-scan.log 2>&1
 
 # Prune sentiment_cache rows older than 30 days, daily at 04:00 UTC
 0 4 * * * /Users/jack.jones/Documents/trading-app/demo-1/scripts/prune-sentiment-cache-cron.sh >> /tmp/quanttrader-prune.log 2>&1
