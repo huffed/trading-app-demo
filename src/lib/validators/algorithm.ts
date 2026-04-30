@@ -89,10 +89,22 @@ const patternConditionSchema = z.object({
     "engulfing",
     "pin_bar",
     "momentum",
+    "gold_session_window",
+    "asian_range_break",
+    "post_news_window",
   ]),
   direction: z.enum(["bullish", "bearish"]).optional(),
   lookback: z.number().int().min(1).max(100).optional(),
   ma_period: z.number().int().min(1).max(500).optional(),
+  // gold_session_window only
+  session: z
+    .enum(["ny_killzone", "silver_bullet", "london_open", "asian_session"])
+    .optional(),
+  // post_news_window only — bounds chosen so a 12-hour misconfig fails
+  // safely rather than firing for half a trading day.
+  min_minutes_after: z.number().int().min(0).max(720).optional(),
+  max_minutes_after: z.number().int().min(0).max(720).optional(),
+  min_impact: z.enum(["low", "medium", "high"]).optional(),
   timeframe: z.string(),
 });
 

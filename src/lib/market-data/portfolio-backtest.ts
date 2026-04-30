@@ -32,7 +32,11 @@ import {
 } from "./backtest-engine";
 import { calculateMetrics } from "./backtest-metrics";
 import { type BarsBundle } from "./condition-evaluator";
-import { buildVetoCheck, type EconomicEvent } from "./economic-calendar";
+import {
+  buildVetoCheck,
+  getEventCurrencies,
+  type EconomicEvent,
+} from "./economic-calendar";
 import { type Cache } from "./indicator-registry";
 import {
   applySlippage,
@@ -79,6 +83,14 @@ interface TickerState {
   cache: Cache;
   positions: PortfolioPosition[];
   vetoCheck: ((barDate: string) => boolean) | null;
+  /** Economic events in scope for this ticker — passed verbatim to
+   *  pattern conditions like `post_news_window`. Same array across all
+   *  tickers (events are global), kept on state for entryCtx assembly. */
+  newsEvents: EconomicEvent[];
+  /** Currencies whose news affects this ticker (via getEventCurrencies).
+   *  Computed once per ticker so post_news_window can filter to relevant
+   *  events without per-bar work. */
+  relevantCurrencies: string[];
   /** Index of the most recently processed bar (for fast lookup as the
    *  unified timeline advances). */
   cursor: number;
@@ -139,6 +151,8 @@ function initTickerStates(
       vetoCheck: rules.news_veto?.enabled
         ? buildVetoCheck({ symbol: ticker, events, veto: rules.news_veto })
         : null,
+      newsEvents: events,
+      relevantCurrencies: getEventCurrencies(ticker),
       cursor: -1,
     });
   }
@@ -356,6 +370,8 @@ function tryOpenEntry(
     higherTfBars: state.higherTfBars,
     i,
     directionOverride: resolved.directionOverride,
+    news_events: state.newsEvents,
+    relevant_currencies: state.relevantCurrencies,
   };
   if (!checkConditions(techEntry, entryCtx, rules.entry_logic)) {
     return;

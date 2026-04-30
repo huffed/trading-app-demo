@@ -16,4 +16,21 @@ export { detectOrderBlock } from "./order-block";
 export { detectEngulfing } from "./engulfing";
 export { detectPinBar } from "./pin-bar";
 export { detectMomentum } from "./momentum";
-export { evaluatePatternCondition } from "./evaluate";
+export {
+  detectSessionWindow,
+  SESSION_WINDOWS,
+  SESSION_WINDOW_NAMES,
+} from "./session-window";
+export type {
+  SessionWindowName,
+  SessionWindowDetails,
+  SessionWindowOptions,
+} from "./session-window";
+export { detectAsianRangeBreak } from "./asian-range-break";
+export type { AsianRangeBreakDetails } from "./asian-range-break";
+export { detectPostNewsWindow } from "./post-news-window";
+export type {
+  PostNewsWindowDetails,
+  PostNewsWindowOptions,
+} from "./post-news-window";
+export { evaluatePatternCondition, type PatternEvaluationContext } from "./evaluate";

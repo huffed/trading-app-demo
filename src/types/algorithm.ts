@@ -34,6 +34,16 @@ export interface SentimentCondition {
  *  - fvg: 3-bar fair value gap created on the current bar
  *  - ifvg: a previous FVG that has been filled and is now retesting
  *  - daily_bias: higher-timeframe trend filter (D1 close vs N-period MA)
+ *
+ * Gold-only primitives (gated by dual-run validation — see
+ * `lib/algorithm/dual-run-validator.ts` and `feedback_data_driven_gates`):
+ *  - gold_session_window: bar UTC hour falls inside a named institutional
+ *    session window (ny_killzone, silver_bullet, london_open, asian_session)
+ *  - asian_range_break: directional break of the same-day Asian session
+ *    (UTC 00:00-07:00) high/low with close confirmation
+ *  - post_news_window: bar timestamp is X-Y minutes AFTER a high-impact
+ *    economic release (positive signal — distinct from the news veto
+ *    which BLOCKS trading 2 min ± news)
  */
 export interface PatternCondition {
   type: "pattern";
@@ -46,13 +56,24 @@ export interface PatternCondition {
     | "order_block"
     | "engulfing"
     | "pin_bar"
-    | "momentum";
+    | "momentum"
+    | "gold_session_window"
+    | "asian_range_break"
+    | "post_news_window";
   /** Required directional alignment. Omit to match any direction. */
   direction?: "bullish" | "bearish";
   /** Lookback for swing-based patterns. Default 5. */
   lookback?: number;
   /** Period for the daily-bias MA. Default 20. */
   ma_period?: number;
+  /** `gold_session_window` only. Named institutional flow window. */
+  session?: "ny_killzone" | "silver_bullet" | "london_open" | "asian_session";
+  /** `post_news_window` only. Inclusive lower bound, minutes after release. Default 5. */
+  min_minutes_after?: number;
+  /** `post_news_window` only. Exclusive upper bound, minutes after release. Default 30. */
+  max_minutes_after?: number;
+  /** `post_news_window` only. Minimum event impact to react to. Default "high". */
+  min_impact?: "low" | "medium" | "high";
   timeframe: string;
 }
 

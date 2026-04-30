@@ -21,6 +21,7 @@ import {
   type PatternCondition,
   type TechnicalCondition,
 } from "@/types/algorithm";
+import type { EconomicEvent } from "./economic-calendar";
 import type { Cache } from "./indicator-registry";
 import type { PriceBar } from "./types";
 
@@ -54,6 +55,15 @@ export interface ConditionContext {
   /** Timeframe label of the primary bundle. When a condition's
    *  `timeframe` matches this, no map lookup happens. */
   primaryTimeframe?: string;
+  /** Economic events relevant to this algorithm's symbol. Consumed by
+   *  the `post_news_window` pattern; passed through verbatim from
+   *  WalkForwardOptions / live scan. Empty / undefined means the
+   *  pattern can't fire — by design. */
+  news_events?: EconomicEvent[];
+  /** Currencies whose news affects this algorithm's symbol — populated
+   *  via `getEventCurrencies(symbol)`. Used by `post_news_window` to
+   *  filter events to those relevant to the traded instrument. */
+  relevant_currencies?: string[];
 }
 
 type TechnicalEvaluator = (
@@ -121,7 +131,8 @@ export function evaluateConditionsDetailed(
         bundle.bars,
         bundle.i,
         ctx.higherTfBars,
-        ctx.directionOverride
+        ctx.directionOverride,
+        { news_events: ctx.news_events, relevant_currencies: ctx.relevant_currencies }
       );
     }
     fired.push(didFire);
@@ -166,7 +177,8 @@ export function countTimeframesAgreeing(
         bundle.bars,
         bundle.i,
         ctx.higherTfBars,
-        ctx.directionOverride
+        ctx.directionOverride,
+        { news_events: ctx.news_events, relevant_currencies: ctx.relevant_currencies }
       );
     }
     if (fired) firedByTf.set(tf, true);
