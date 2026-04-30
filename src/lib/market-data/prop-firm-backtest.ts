@@ -223,7 +223,13 @@ export function sizeForBacktest(
   currentPrice: number,
   symbol: string | undefined,
   cfg: SimConfig,
-  convictionMultiplier: number = 1
+  convictionMultiplier: number = 1,
+  /** Pre-computed SL distance in price units. Required for structural
+   *  rule types (swing_anchor / rr_multiple) whose distance can't be
+   *  derived from the rule + entry price alone. For percentage / fixed
+   *  / pips rules, omitting this is fine — the function falls back to
+   *  ruleAsPctOfEntry which handles those types deterministically. */
+  slDistanceOverride?: number
 ): { notional: number; margin: number } {
   const sizing = rules.position_sizing;
   if (
@@ -240,7 +246,10 @@ export function sizeForBacktest(
     if (sizing.type === "lots") {
       lots = sizing.value;
     } else {
-      const slPct = ruleAsPctOfEntry(rules.stop_loss, currentPrice, symbol);
+      const slPct =
+        slDistanceOverride !== undefined && currentPrice > 0
+          ? (slDistanceOverride / currentPrice) * 100
+          : ruleAsPctOfEntry(rules.stop_loss, currentPrice, symbol);
       const effectiveRiskPct =
         sizing.type === "conviction_scaled"
           ? sizing.value * Math.max(1, convictionMultiplier)
@@ -296,6 +305,14 @@ export function pickBacktestExitPrice(
     entryPrice: number;
     side?: "long" | "short";
     trailingState?: { currentSlPrice: number };
+    /** SL distance captured at entry. Stored on the position so the
+     *  intra-bar SL/TP check uses the entry-bar resolved value, even
+     *  for swing_anchor / rr_multiple rules that depend on entry-time
+     *  context (recent bars, computed SL distance). When omitted (legacy
+     *  callers, single-ticker engine before structural-SL), falls back
+     *  to recomputing via priceDeltaForRule with the cfg rules. */
+    slDistance?: number;
+    tpDistance?: number;
   },
   bar: { high: number; low: number },
   closePrice: number,
@@ -304,8 +321,8 @@ export function pickBacktestExitPrice(
   symbol?: string
 ): number | null {
   const side = pos.side ?? "long";
-  const slDelta = priceDeltaForRule(cfg.stopLoss, pos.entryPrice, symbol);
-  const tpDelta = priceDeltaForRule(cfg.takeProfit, pos.entryPrice, symbol);
+  const slDelta = pos.slDistance ?? priceDeltaForRule(cfg.stopLoss, pos.entryPrice, symbol);
+  const tpDelta = pos.tpDistance ?? priceDeltaForRule(cfg.takeProfit, pos.entryPrice, symbol);
   if (side === "short") {
     const baseStopPrice = pos.entryPrice + slDelta;
     const stopPrice = pos.trailingState?.currentSlPrice ?? baseStopPrice;

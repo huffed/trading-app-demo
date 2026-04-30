@@ -237,8 +237,19 @@ export const algorithmRulesSchema = z.object({
   entry_logic: entryLogicSchema.optional(),
   exit_conditions: z.array(normalizedCondition),
   exit_logic: entryLogicSchema.optional(),
-  stop_loss: z.object({ type: z.enum(["percentage", "fixed", "pips"]), value: z.number() }),
-  take_profit: z.object({ type: z.enum(["percentage", "fixed", "pips"]), value: z.number() }),
+  stop_loss: z.object({
+    type: z.enum(["percentage", "fixed", "pips", "swing_anchor"]),
+    value: z.number(),
+    // swing_anchor: lookback range covers very tight (3 bars) through
+    // multi-day swing (50 bars); buffer ATR period uses the same bounds
+    // as regime/intraday-atr gates for consistency.
+    lookback: z.number().int().min(3).max(50).optional(),
+    atr_period: z.number().int().min(2).max(200).optional(),
+  }),
+  take_profit: z.object({
+    type: z.enum(["percentage", "fixed", "pips", "rr_multiple"]),
+    value: z.number(),
+  }),
   // Per-type sizing bounds. Catches the "stale form sends 70 thinking
   // it's 0.7" class of bug — clampRules can't safely rescue a literal
   // user-submitted value, so reject upstream instead. Numbers chosen so
