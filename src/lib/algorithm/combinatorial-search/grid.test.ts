@@ -3,11 +3,9 @@ import { enumerateCandidates } from "./grid";
 
 const INPUT = { capital: 100000, monthly_target_pct: 10 };
 
-describe("enumerateCandidates — gold templates", () => {
-  const candidates = enumerateCandidates(INPUT);
-
+describe("enumerateCandidates — gold template emission", () => {
   it("emits all six gold templates", () => {
-    const names = new Set(candidates.map((c) => c.template_name));
+    const names = new Set(enumerateCandidates(INPUT).map((c) => c.template_name));
     expect(names.has("gold_killzone_sweep")).toBe(true);
     expect(names.has("gold_silver_bullet")).toBe(true);
     expect(names.has("gold_asian_breakout")).toBe(true);
@@ -16,80 +14,12 @@ describe("enumerateCandidates — gold templates", () => {
     expect(names.has("gold_news_fade")).toBe(true);
   });
 
-  it("gold candidates have asset_class=commodity and leverage=50", () => {
-    const goldCandidates = candidates.filter((c) => c.template_name.startsWith("gold_"));
-    expect(goldCandidates.length).toBeGreaterThan(0);
-    for (const c of goldCandidates) {
-      expect(c.rules.asset_class).toBe("commodity");
-      expect(c.rules.leverage).toBe(50);
-    }
-  });
-
-  it("non-gold candidates retain asset_class=forex and leverage=30", () => {
-    const forexCandidates = candidates.filter((c) => !c.template_name.startsWith("gold_"));
-    for (const c of forexCandidates) {
-      expect(c.rules.asset_class).toBe("forex");
-      expect(c.rules.leverage).toBe(30);
-    }
-  });
-
-  it("15m candidates use tightened stagnant_exit (max_bars=16, min_pnl_r=-0.3)", () => {
-    const candidates15m = candidates.filter((c) => c.rules.timeframe === "15m");
-    expect(candidates15m.length).toBeGreaterThan(0);
-    for (const c of candidates15m) {
-      expect(c.rules.stagnant_exit?.max_bars).toBe(16);
-      expect(c.rules.stagnant_exit?.min_pnl_r).toBe(-0.3);
-    }
-  });
-
-  it("non-15m candidates retain default stagnant_exit (max_bars=48, min_pnl_r=-0.5)", () => {
-    const candidatesOther = candidates.filter((c) => c.rules.timeframe !== "15m");
-    expect(candidatesOther.length).toBeGreaterThan(0);
-    for (const c of candidatesOther) {
-      expect(c.rules.stagnant_exit?.max_bars).toBe(48);
-      expect(c.rules.stagnant_exit?.min_pnl_r).toBe(-0.5);
-    }
-  });
-
-  it("gold_killzone_sweep emits 4 conditions (session + sweep + fvg + bos) on 15m", () => {
-    const c = candidates.find((cand) => cand.template_name === "gold_killzone_sweep");
-    expect(c).toBeDefined();
-    expect(c!.rules.timeframe).toBe("15m");
-    expect(c!.rules.entry_conditions).toHaveLength(4);
-    expect(c!.rules.entry_logic).toBe("all");
-  });
-
-  it("gold_d1_sma_trend_filter uses SMA200 on 1d", () => {
-    const c = candidates.find((cand) => cand.template_name === "gold_d1_sma_trend_filter");
-    expect(c).toBeDefined();
-    expect(c!.rules.timeframe).toBe("1d");
-    const cond = c!.rules.entry_conditions[0];
-    expect(cond.type).toBe("technical");
-    if (cond.type === "technical") {
-      expect(cond.indicator).toBe("SMA200");
-    }
-  });
-
-  it("gold_news_fade has post_news_window with 5-30 min window and high impact", () => {
-    const c = candidates.find((cand) => cand.template_name === "gold_news_fade");
-    expect(c).toBeDefined();
-    const newsCond = c!.rules.entry_conditions.find(
-      (cond) => cond.type === "pattern" && cond.pattern === "post_news_window"
+  it("preserves all forex templates by name", () => {
+    const forexNames = new Set(
+      enumerateCandidates(INPUT)
+        .filter((c) => !c.template_name.startsWith("gold_"))
+        .map((c) => c.template_name)
     );
-    expect(newsCond).toBeDefined();
-    if (newsCond && newsCond.type === "pattern") {
-      expect(newsCond.min_minutes_after).toBe(5);
-      expect(newsCond.max_minutes_after).toBe(30);
-      expect(newsCond.min_impact).toBe("high");
-    }
-  });
-
-  it("forex templates remain unchanged in count and shape", () => {
-    // Sanity: ensure the gold additions didn't displace existing templates.
-    const forexTemplateNames = new Set(
-      candidates.filter((c) => !c.template_name.startsWith("gold_")).map((c) => c.template_name)
-    );
-    // From the original grid.ts header — these must all still be present.
     const expected = [
       "momentum_solo",
       "momentum_with_bias",
@@ -106,7 +36,89 @@ describe("enumerateCandidates — gold templates", () => {
       "macd_zero_cross",
     ];
     for (const name of expected) {
-      expect(forexTemplateNames.has(name)).toBe(true);
+      expect(forexNames.has(name)).toBe(true);
+    }
+  });
+});
+
+describe("enumerateCandidates — gold vs forex rule shape", () => {
+  it("gold candidates have asset_class=commodity and leverage=50", () => {
+    const goldCandidates = enumerateCandidates(INPUT).filter((c) =>
+      c.template_name.startsWith("gold_")
+    );
+    expect(goldCandidates.length).toBeGreaterThan(0);
+    for (const c of goldCandidates) {
+      expect(c.rules.asset_class).toBe("commodity");
+      expect(c.rules.leverage).toBe(50);
+    }
+  });
+
+  it("forex candidates retain asset_class=forex and leverage=30", () => {
+    const forexCandidates = enumerateCandidates(INPUT).filter(
+      (c) => !c.template_name.startsWith("gold_")
+    );
+    for (const c of forexCandidates) {
+      expect(c.rules.asset_class).toBe("forex");
+      expect(c.rules.leverage).toBe(30);
+    }
+  });
+});
+
+describe("enumerateCandidates — stagnant_exit by timeframe", () => {
+  it("15m candidates use tightened stagnant_exit (max_bars=16, min_pnl_r=-0.3)", () => {
+    const candidates15m = enumerateCandidates(INPUT).filter((c) => c.rules.timeframe === "15m");
+    expect(candidates15m.length).toBeGreaterThan(0);
+    for (const c of candidates15m) {
+      expect(c.rules.stagnant_exit?.max_bars).toBe(16);
+      expect(c.rules.stagnant_exit?.min_pnl_r).toBe(-0.3);
+    }
+  });
+
+  it("non-15m candidates retain default stagnant_exit (max_bars=48, min_pnl_r=-0.5)", () => {
+    const candidatesOther = enumerateCandidates(INPUT).filter((c) => c.rules.timeframe !== "15m");
+    expect(candidatesOther.length).toBeGreaterThan(0);
+    for (const c of candidatesOther) {
+      expect(c.rules.stagnant_exit?.max_bars).toBe(48);
+      expect(c.rules.stagnant_exit?.min_pnl_r).toBe(-0.5);
+    }
+  });
+});
+
+describe("enumerateCandidates — gold template condition shapes", () => {
+  it("gold_killzone_sweep emits 4 conditions on 15m with logic=all", () => {
+    const c = enumerateCandidates(INPUT).find(
+      (cand) => cand.template_name === "gold_killzone_sweep"
+    );
+    expect(c).toBeDefined();
+    expect(c!.rules.timeframe).toBe("15m");
+    expect(c!.rules.entry_conditions).toHaveLength(4);
+    expect(c!.rules.entry_logic).toBe("all");
+  });
+
+  it("gold_d1_sma_trend_filter uses SMA200 on 1d", () => {
+    const c = enumerateCandidates(INPUT).find(
+      (cand) => cand.template_name === "gold_d1_sma_trend_filter"
+    );
+    expect(c).toBeDefined();
+    expect(c!.rules.timeframe).toBe("1d");
+    const cond = c!.rules.entry_conditions[0];
+    expect(cond.type).toBe("technical");
+    if (cond.type === "technical") {
+      expect(cond.indicator).toBe("SMA200");
+    }
+  });
+
+  it("gold_news_fade has post_news_window with 5-30 min window and high impact", () => {
+    const c = enumerateCandidates(INPUT).find((cand) => cand.template_name === "gold_news_fade");
+    expect(c).toBeDefined();
+    const newsCond = c!.rules.entry_conditions.find(
+      (cond) => cond.type === "pattern" && cond.pattern === "post_news_window"
+    );
+    expect(newsCond).toBeDefined();
+    if (newsCond && newsCond.type === "pattern") {
+      expect(newsCond.min_minutes_after).toBe(5);
+      expect(newsCond.max_minutes_after).toBe(30);
+      expect(newsCond.min_impact).toBe("high");
     }
   });
 });
