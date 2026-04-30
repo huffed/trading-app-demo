@@ -4,14 +4,18 @@ import { enumerateCandidates } from "./grid";
 const INPUT = { capital: 100000, monthly_target_pct: 10 };
 
 describe("enumerateCandidates — gold template emission", () => {
-  it("emits all six gold templates", () => {
+  it("emits all five gold templates", () => {
     const names = new Set(enumerateCandidates(INPUT).map((c) => c.template_name));
     expect(names.has("gold_killzone_sweep")).toBe(true);
     expect(names.has("gold_silver_bullet")).toBe(true);
     expect(names.has("gold_asian_breakout")).toBe(true);
     expect(names.has("gold_h4_trend_pullback")).toBe(true);
     expect(names.has("gold_d1_sma_trend_filter")).toBe(true);
-    expect(names.has("gold_news_fade")).toBe(true);
+  });
+
+  it("does NOT include gold_news_fade — deferred until backtest news-replay exists", () => {
+    const names = new Set(enumerateCandidates(INPUT).map((c) => c.template_name));
+    expect(names.has("gold_news_fade")).toBe(false);
   });
 
   it("preserves all forex templates by name", () => {
@@ -108,17 +112,4 @@ describe("enumerateCandidates — gold template condition shapes", () => {
     }
   });
 
-  it("gold_news_fade has post_news_window with 5-30 min window and high impact", () => {
-    const c = enumerateCandidates(INPUT).find((cand) => cand.template_name === "gold_news_fade");
-    expect(c).toBeDefined();
-    const newsCond = c!.rules.entry_conditions.find(
-      (cond) => cond.type === "pattern" && cond.pattern === "post_news_window"
-    );
-    expect(newsCond).toBeDefined();
-    if (newsCond && newsCond.type === "pattern") {
-      expect(newsCond.min_minutes_after).toBe(5);
-      expect(newsCond.max_minutes_after).toBe(30);
-      expect(newsCond.min_impact).toBe("high");
-    }
-  });
 });

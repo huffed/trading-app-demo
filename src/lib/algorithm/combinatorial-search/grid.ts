@@ -223,28 +223,16 @@ const TEMPLATES: Template[] = [
     }),
     allowed_timeframes: ["1d"],
   },
-  {
-    name: "gold_news_fade",
-    default_side: "long",
-    build: (tf) => ({
-      entry: [
-        // 5-30 min after a high-impact USD release — fade window.
-        // Currency filter is set per-ticker via getEventCurrencies().
-        {
-          type: "pattern",
-          pattern: "post_news_window",
-          min_minutes_after: 5,
-          max_minutes_after: 30,
-          min_impact: "high",
-          timeframe: tf,
-        },
-        // Bullish engulfing on the reaction bar — the reversal signal.
-        { type: "pattern", pattern: "engulfing", direction: "bullish", timeframe: tf },
-      ],
-      logic: "all",
-    }),
-    allowed_timeframes: ["15m"],
-  },
+  // gold_news_fade DEFERRED until backtest news-replay exists. The
+  // template needs `post_news_window` to fire, which requires
+  // `WalkForwardOptions.events` populated with historical Finnhub
+  // releases. Until that infra lands, including the template here
+  // would produce zero candidates in the search (post_news_window
+  // returns false on empty events) and waste a slot in the grid.
+  // Reintroduce as PR-4 once news-replay is wired — the primitive
+  // (post_news_window) is fully built and tested in PR-1; it just
+  // needs the backtest data path. Until then, fade strategies remain
+  // a live-only consideration (operator can build manually).
   // Bare-indicator templates — last in the grid because they have no
   // multi-TF or pattern context. Useful diversification but rarely
   // beat the pattern templates on the friend's universe.
