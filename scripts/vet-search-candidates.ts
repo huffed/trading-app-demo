@@ -313,20 +313,20 @@ function vetCandidate(
     };
   }
 
-  // Pass 1: no exit conditions (search-emitted rules as-is).
-  const noExits = snapshotFromBacktest(candidate.rules, tfPrices, capital);
+  // Pass 1: rules WITHOUT any exit conditions (force exit_conditions=[]).
+  // Used as a control to compare against the search-emitted variant.
+  const noExits = snapshotFromBacktest(
+    { ...candidate.rules, exit_conditions: [] },
+    tfPrices,
+    capital
+  );
 
-  // Pass 2: with default signal-class exit conditions.
-  const exits = defaultExitConditionsFor(templateName, candidate.rules.timeframe, side);
-  const rulesWithExits: AlgorithmRules = {
-    ...candidate.rules,
-    exit_conditions: exits.exit_conditions,
-    exit_logic: exits.exit_logic ?? candidate.rules.exit_logic,
-  };
-  const withExits =
-    exits.exit_conditions.length > 0
-      ? snapshotFromBacktest(rulesWithExits, tfPrices, capital)
-      : noExits;
+  // Pass 2: rules as the SEARCH emitted them. With 3D search, the
+  // emitted rules already include the search's chosen exit variant
+  // (no_exit / signal_flip / daily_bias_flip) baked in. Don't overlay
+  // anything — the candidate is what the search said.
+  const withExits = snapshotFromBacktest(candidate.rules, tfPrices, capital);
+  const exitCount = candidate.rules.exit_conditions.length;
 
   // Verdict uses the WITH-exits snapshot — that's how the algo would deploy.
   const fail_reasons: string[] = [];
@@ -347,7 +347,7 @@ function vetCandidate(
     search_green_pct: candidate.walk_forward.win_rate_of_windows * 100,
     no_exits: noExits,
     with_exits: withExits,
-    exits_applied: exits.exit_conditions.length,
+    exits_applied: exitCount,
     verdict_with_exits: fail_reasons.length === 0 ? "PASS" : "FAIL",
     fail_reasons,
   };
