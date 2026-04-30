@@ -240,6 +240,41 @@ async function logOpenAndMirror(args: LogAndMirrorArgs): Promise<void> {
   }
 }
 
+/** Refuse a new entry when any sibling algorithm (same user, different
+ *  algorithm_id) already holds an OPEN position on the same ticker in
+ *  the OPPOSITE direction. Two algos opening opposing positions on one
+ *  instrument cancel out economically — the operator pays the spread
+ *  twice while net exposure is zero. Diagnosed from 2026-04-30 live
+ *  gold trades where Algo B opened SHORT XAU/USD and Algo D opened
+ *  LONG XAU/USD 11 seconds apart. */
+async function checkDirectionConflict(
+  supabase: SupabaseClient,
+  userId: string,
+  algoId: string,
+  ticker: string,
+  proposedSide: "long" | "short"
+): Promise<
+  | { block: false }
+  | { block: true; reason: string; conflicting_algorithm_ids: string[] }
+> {
+  const opposite: "long" | "short" = proposedSide === "long" ? "short" : "long";
+  const { data, error } = await supabase
+    .from("paper_positions")
+    .select("algorithm_id")
+    .eq("user_id", userId)
+    .eq("ticker", ticker)
+    .eq("status", "open")
+    .eq("side", opposite)
+    .neq("algorithm_id", algoId);
+  if (error || !data || data.length === 0) return { block: false };
+  const ids = Array.from(new Set(data.map((p) => p.algorithm_id as string)));
+  return {
+    block: true,
+    reason: `Direction conflict: ${ids.length} sibling algo(s) hold opposing ${opposite} on ${ticker}`,
+    conflicting_algorithm_ids: ids,
+  };
+}
+
 async function checkNewsVeto(
   rules: AlgorithmRules,
   ticker: string
@@ -513,6 +548,27 @@ export async function evaluateEntry(
       event_type: "signal_no_action",
       ticker,
       details: { reason },
+    });
+    return { opened: 0 };
+  }
+
+  const conflict = await checkDirectionConflict(
+    supabase,
+    userId,
+    algo.id,
+    ticker,
+    resolved.side
+  );
+  if (conflict.block) {
+    await logActivity(supabase, userId, {
+      algorithm_id: algo.id,
+      event_type: "signal_no_action",
+      ticker,
+      details: {
+        reason: conflict.reason,
+        proposed_side: resolved.side,
+        conflicting_algorithm_ids: conflict.conflicting_algorithm_ids,
+      },
     });
     return { opened: 0 };
   }
