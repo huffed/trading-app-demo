@@ -28,7 +28,12 @@ import { readFileSync } from "fs";
 import { runCombinatorialSearch } from "../src/lib/algorithm/combinatorial-search";
 import { calibrateRiskToTarget } from "../src/lib/algorithm/combinatorial-search/calibrate";
 import { dualRunGoldFilter } from "../src/lib/algorithm/dual-run-validator";
-import { timeframeToInterval, type BarInterval } from "../src/lib/market-data/interval";
+import {
+  defaultWalkForwardStepDays,
+  defaultWalkForwardWindowDays,
+  timeframeToInterval,
+  type BarInterval,
+} from "../src/lib/market-data/interval";
 import { fetchDailyPrices } from "../src/lib/market-data/prices";
 import type { PriceBar } from "../src/lib/market-data/types";
 import { algorithmRulesSchema } from "../src/lib/validators/algorithm";
@@ -114,17 +119,24 @@ async function runDualRunForCandidate(
   candidate: CandidateResult,
   corpus: Map<string, Map<string, PriceBar[]>>,
   capital: number,
-  windowDays: number,
-  stepDays: number
+  windowDaysOverride: number | undefined,
+  stepDaysOverride: number | undefined
 ): Promise<void> {
   const tfPrices = corpus.get(candidate.rules.timeframe);
   if (!tfPrices || tfPrices.size === 0) {
     console.log(`    Dual-run skipped — no corpus for timeframe ${candidate.rules.timeframe}`);
     return;
   }
+  // Match the search engine's per-candidate window scaling — same
+  // candidate gets evaluated on the same window shape with vs without
+  // the gold-only filter, otherwise the edge-diff comparison is apples
+  // to oranges.
+  const tf = candidate.rules.timeframe;
+  const testWindowDays = windowDaysOverride ?? defaultWalkForwardWindowDays(tf);
+  const stepDays = stepDaysOverride ?? defaultWalkForwardStepDays(tf);
 
   const result = dualRunGoldFilter(candidate.rules, tfPrices, capital, {
-    testWindowDays: windowDays,
+    testWindowDays,
     stepDays,
   });
 
@@ -173,8 +185,14 @@ async function main(): Promise<void> {
   const maxCandidates = Number(process.env.MAX_CANDIDATES ?? "80");
   const symbolsArg = process.env.SYMBOLS ?? "XAU/USD";
   const symbols = symbolsArg.split(",").map((s) => s.trim()).filter(Boolean);
-  const windowDays = Number(process.env.WALK_FORWARD_WINDOW_DAYS ?? "180");
-  const stepDays = Number(process.env.WALK_FORWARD_STEP_DAYS ?? "30");
+  // Walk-forward window/step default to per-candidate scaling (15m
+  // candidates get 30d windows, 1h gets 90d, 4h gets 180d, 1d gets
+  // 365d). Set WALK_FORWARD_WINDOW_DAYS / WALK_FORWARD_STEP_DAYS env
+  // vars to force a fixed window across all candidates (diagnostic).
+  const windowDaysOverride = process.env.WALK_FORWARD_WINDOW_DAYS;
+  const stepDaysOverride = process.env.WALK_FORWARD_STEP_DAYS;
+  const windowDays = windowDaysOverride ? Number(windowDaysOverride) : undefined;
+  const stepDays = stepDaysOverride ? Number(stepDaysOverride) : undefined;
 
   console.log("Gold combinatorial search runner");
   console.log(`  capital            : $${capital.toLocaleString()}`);
@@ -182,7 +200,13 @@ async function main(): Promise<void> {
   console.log(`  symbols            : ${symbols.join(", ")}`);
   console.log(`  max_candidates     : ${maxCandidates}`);
   console.log(`  top_n              : ${topN}`);
-  console.log(`  walk_forward       : ${windowDays}d window, ${stepDays}d step\n`);
+  console.log(
+    `  walk_forward       : ${
+      windowDays !== undefined
+        ? `${windowDays}d window (forced), ${stepDays ?? "default"}d step`
+        : "per-timeframe defaults (15m=30d, 1h=90d, 4h=180d, 1d=365d)"
+    }\n`
+  );
 
   console.log("Fetching prices...");
   const start = Date.now();
@@ -197,8 +221,8 @@ async function main(): Promise<void> {
     {
       max_candidates: maxCandidates,
       top_n: topN,
-      walk_forward_window_days: windowDays,
-      walk_forward_step_days: stepDays,
+      ...(windowDays !== undefined ? { walk_forward_window_days: windowDays } : {}),
+      ...(stepDays !== undefined ? { walk_forward_step_days: stepDays } : {}),
     }
   );
 
