@@ -9,6 +9,7 @@
 import { checkDxyDirection } from "@/lib/algorithm/dxy-filter";
 import { checkAtrLiquidity } from "@/lib/algorithm/intraday-atr-gate";
 import { checkStagnantExit } from "@/lib/algorithm/stagnant-exit";
+import { computeSlDistance, computeTpDistance } from "@/lib/algorithm/structural-sl";
 import {
   initTrailingState,
   trailingFeaturesEnabled,
@@ -21,7 +22,6 @@ import {
   DEFAULT_STOP_LOSS_PCT,
   DEFAULT_TAKE_PROFIT_PCT,
 } from "@/lib/constants/defaults";
-import { priceDeltaForRule } from "@/lib/constants/markets";
 import {
   isPatternCondition,
   isTechnicalCondition,
@@ -76,6 +76,14 @@ interface PortfolioPosition {
   marginRequired: number;
   ticker: string;
   side: "long" | "short";
+  /** SL / TP distances in price units, captured ONCE at entry. Stored
+   *  rather than recomputed because swing_anchor and rr_multiple depend
+   *  on entry-bar context (recent bars / resolved SL distance) that
+   *  shouldn't drift across the position's life. Subsequent calls
+   *  (trailing init, stagnant gate, exit-price detection) read these
+   *  fields directly. */
+  slDistance: number;
+  tpDistance: number;
   /** Trailing-stop / breakeven state. Set when either feature is enabled
    *  on the rule. Updated each bar via `updateTrailingState`. The
    *  `currentSlPrice` field overrides the rule-derived SL inside
@@ -258,7 +266,7 @@ function runCloseLoop(
       pos.trailingState = updateTrailingState({
         side: pos.side,
         entryPrice: pos.entryPrice,
-        initialSlDistance: priceDeltaForRule(rules.stop_loss, pos.entryPrice, ticker),
+        initialSlDistance: pos.slDistance,
         currentBar: bar,
         state: pos.trailingState,
         trailingStop: rules.trailing_stop,
@@ -275,7 +283,7 @@ function runCloseLoop(
           currentBarIndex: i,
           entryPrice: pos.entryPrice,
           side: pos.side,
-          stopDistance: priceDeltaForRule(rules.stop_loss, pos.entryPrice, ticker),
+          stopDistance: pos.slDistance,
           config: rules.stagnant_exit,
         }).exit
       : false;
@@ -429,17 +437,29 @@ function tryOpenEntry(
   // Multiplier = 1 for non-conviction sizing types → flat behaviour
   // preserved.
   const convictionMult = convictionMultiplierForRules(rules, techEntry, entryCtx);
-  const sized = sizeForBacktest(rules, s.equity, entryPrice, ticker, cfg, convictionMult);
+  // Capture SL/TP distances ONCE at entry. swing_anchor reads recent
+  // bars to find the swing extreme; rr_multiple needs the resolved SL
+  // distance. Both are stored on the position so post-entry calls
+  // (trailing, stagnant, exit, sizing) read directly without recomputing.
+  // Computed BEFORE sizing because risk_per_trade sizing needs the SL
+  // distance to derive lot count.
+  const slDistance = computeSlDistance(rules.stop_loss, side, entryPrice, ticker, state.bars, i);
+  const tpDistance = computeTpDistance(rules.take_profit, slDistance, entryPrice, ticker);
+  const sized = sizeForBacktest(
+    rules,
+    s.equity,
+    entryPrice,
+    ticker,
+    cfg,
+    convictionMult,
+    slDistance
+  );
   const freeMargin = s.equity - s.marginUsed;
   if (sized.margin > freeMargin || sized.notional <= 0) return;
   s.marginUsed += sized.margin;
-  // Initialise trailing state when either feature is enabled. The
-  // initial SL is computed from the rules.stop_loss rule against the
-  // entry price + symbol — same value pickBacktestExitPrice would use
-  // by default, so behaviour matches when no trail/breakeven fires.
+  // Initialise trailing state when either feature is enabled.
   let initialTrailingState: TrailingState | undefined;
   if (trailingFeaturesEnabled(rules)) {
-    const slDistance = priceDeltaForRule(rules.stop_loss, entryPrice, ticker);
     const initialSlPrice = side === "long" ? entryPrice - slDistance : entryPrice + slDistance;
     initialTrailingState = initTrailingState({ entryPrice, initialSlPrice });
   }
@@ -451,6 +471,8 @@ function tryOpenEntry(
     marginRequired: sized.margin,
     ticker,
     side,
+    slDistance,
+    tpDistance,
     trailingState: initialTrailingState,
   });
 }

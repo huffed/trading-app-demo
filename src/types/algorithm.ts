@@ -103,12 +103,22 @@ export function isPatternCondition(c: EntryCondition | ExitCondition): c is Patt
 // --- Risk management & rules ---
 
 export interface StopLoss {
-  type: "percentage" | "fixed" | "pips";
+  type: "percentage" | "fixed" | "pips" | "swing_anchor";
+  /** For percentage/fixed/pips: the SL distance in those units. For
+   *  swing_anchor: the ATR-multiple of the buffer added beyond the
+   *  swing low/high (0 = SL exactly at the swing; 0.25 = SL is
+   *  0.25×ATR beyond it). */
   value: number;
+  /** swing_anchor only — bars to scan back for the swing extreme. Default 8. */
+  lookback?: number;
+  /** swing_anchor only — ATR period for the buffer calculation. Default 14. */
+  atr_period?: number;
 }
 
 export interface TakeProfit {
-  type: "percentage" | "fixed" | "pips";
+  type: "percentage" | "fixed" | "pips" | "rr_multiple";
+  /** For percentage/fixed/pips: the TP distance in those units. For
+   *  rr_multiple: the RR ratio (e.g. 2 = TP at 2× SL distance). */
   value: number;
 }
 

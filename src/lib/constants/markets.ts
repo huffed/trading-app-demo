@@ -490,7 +490,9 @@ export function clampLotsToConstraints(
 type StopOrTpRule =
   | { type: "percentage"; value: number }
   | { type: "fixed"; value: number }
-  | { type: "pips"; value: number };
+  | { type: "pips"; value: number }
+  | { type: "swing_anchor"; value: number; lookback?: number; atr_period?: number }
+  | { type: "rr_multiple"; value: number };
 
 /**
  * Resolve a stop-loss / take-profit rule into the absolute price distance
@@ -523,6 +525,15 @@ export function priceDeltaForRule(
       const pipSize = getInstrumentMeta(symbol ?? "")?.pipSize ?? 0.0001;
       return rule.value * pipSize;
     }
+    case "swing_anchor":
+    case "rr_multiple":
+      // These rule types depend on context priceDeltaForRule doesn't have
+      // (bars/idx for swing_anchor, the resolved SL distance for
+      // rr_multiple). Callers should route them through the helpers in
+      // lib/algorithm/structural-sl.ts and never reach this branch.
+      throw new Error(
+        `priceDeltaForRule called with type "${rule.type}" — use computeSlDistance / computeTpDistance instead`
+      );
   }
 }
 
