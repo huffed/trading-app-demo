@@ -77,8 +77,8 @@ interface Template {
 // trades, then multi_tf, then ICT, then bare indicators.
 const TEMPLATES: Template[] = [
   // Momentum continuation templates — derived from the direction-split
-  // feature dump (scripts/feature-dump-friend-trades.ts). Solo 1h
-  // momentum cleared 44.7% hit rate / 76.5% WR against the friend's
+  // feature dump of friend-trade history. Solo 1h momentum cleared
+  // 44.7% hit rate / 76.5% WR against the friend's
   // FTMO trades — the first template to clear the 30% clone-claim
   // threshold AND beat his 58% baseline. The d1_bias + momentum 2-of-2
   // variant is also enumerated so walk-forward decides whether the
@@ -146,9 +146,9 @@ const TEMPLATES: Template[] = [
     }),
     allowed_timeframes: ["1h"],
   },
-  // Multi-TF confluence templates — derived from the friend-trade
-  // multi-TF replay (scripts/multi-tf-friend-replay.ts). His trades
-  // showed 61.5% WR when ≥2 TFs agreed, vs 33% on single-TF signals.
+  // Multi-TF confluence templates — derived from a friend-trade
+  // multi-TF replay analysis. His trades showed 61.5% WR when ≥2 TFs
+  // agreed, vs 33% on single-TF signals.
   // Each template requires an explicit cross-TF mix: daily_bias on 1d
   // anchors the bias, then 4h + 1h candle / structure patterns
   // confirm. n_of_m=2 across the {4h, 1h} confirmations replicates

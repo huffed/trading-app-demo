@@ -22,17 +22,18 @@ operator), but the schedule should be kept in sync with this table.
 | **Every 15 min (`*/15 * * * *`)** | `scan-cron.sh` | `/api/cron/scan-active-algorithms` | `/tmp/quanttrader-scan.log` |
 | Daily 04:00 UTC (`0 4 * * *`) | `prune-sentiment-cache-cron.sh` | `/api/admin/prune-sentiment-cache?days=30` | `/tmp/quanttrader-prune.log` |
 
-The 15-min scan cadence aligns with bar-close moments for the active
-gold algos (15m primary timeframe on Candidate B; 1h primary timeframe
-on C/D/E). At `*/15 * * * *` the cron fires at `:00 :15 :30 :45` past
-each hour, catching every 15m bar close within seconds AND every 1h
-bar close at exactly `:00`. Previously the scan ran hourly (`0 * * *
-*`) which meant 15m signals were missed entirely (3 of every 4 bars)
-and 1h signals had up to 60 min latency to entry.
+The 15-min scan cadence is chosen to align with bar-close moments
+across 15m, 1h, and 4h primary timeframes simultaneously. At `*/15 * *
+* *` the cron fires at `:00 :15 :30 :45` past each hour, catching
+every 15m bar close within seconds AND every 1h bar close at exactly
+`:00`. Previously the scan ran hourly (`0 * * * *`) which meant 15m
+signals were missed entirely (3 of every 4 bars) and 1h signals had up
+to 60 min latency to entry.
 
-When 4h or 1d primary-timeframe algos go live in future, add separate
-cron entries aligned to those bar-close times rather than scanning at
-finer granularity than needed (saves price-cache misses).
+When 1d primary-timeframe algos go live, add a separate daily cron
+entry aligned to the daily bar close (00:00 UTC for forex/gold)
+rather than scanning at finer granularity than needed (saves
+price-cache misses).
 
 The 5-minute manage tick still walks open paper positions for SL/TP
 and signal-based exit checks. This keeps intraday exit latency at ≤5
@@ -100,3 +101,21 @@ If the log is silent past the expected tick, check:
 4. Add the crontab line via `crontab -e`. Reference it in the
    **Editing the schedule** snippet so future operators copy the right
    command on a fresh machine.
+
+## Operator / research tooling
+
+Non-cron scripts live alongside. Each takes `ALGO_ID` and other env
+vars where applicable (`pnpm dlx tsx scripts/<name>.ts`). Run from the
+repo root.
+
+| Script | Purpose |
+|---|---|
+| `inspect-algo.ts` | Generalised backtest re-runner for any algorithm. Optional overlay of trailing stop / breakeven / DXY filter via env vars. Used to validate persisted rules against a fresh corpus. |
+| `sweep-dxy-params.ts` | Sweeps DXY filter (lookback × pip_threshold × mode) on an algo's corpus. Output ranks by lowest DD with controlled return drag. |
+| `sweep-sl-tp-variants.ts` | Sweeps structural SL/TP (swing_anchor × buffer × rr_multiple) via walk-forward. Used to find regime-adaptive SL/TP configs. |
+| `rebuild-gold-stack.ts` | Multi-window validator. Tests strategy candidates against full walk-forward + last 6mo + last 60d. Used when our methodology needed a recency check after deploys disagreed with current regime. |
+| `reconcile-broker-close.ts` | Operational fallback when a broker-side close isn't auto-reconciled by the manage cron. Reads MetaApi history-deals, writes the close back to `paper_positions`. |
+| `replay-friend-trades.ts` | Replays a CSV of a real trader's trades and scores how often our pattern primitives reproduce their entries (≥30% overlap is the bar before claiming "clone"). Canonical replay tool. |
+| `gold-search.ts` | Combinatorial search runner restricted to the gold (XAU/USD) universe. |
+| `vet-search-candidates.ts` | Vet candidates emitted by `gold-search` against the long-corpus inspect harness before activation. |
+| `dryrun-generate-from-search.ts` | Dry-run wrapper around the algorithm-generation flow seeded from search output. Inspect generated rules without writing the algorithms row. |

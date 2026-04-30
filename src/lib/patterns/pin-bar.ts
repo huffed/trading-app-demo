@@ -3,9 +3,9 @@
  * a price level, with the body closing in the opposite half of the
  * range.
  *
- * Why this matters: friend-trade replay (multi-tf-friend-replay.ts)
- * showed pin bar fires on 13% of his 4h entries (direction-aligned)
- * vs 8% on 1h. He's clearly reading rejection-wick price action.
+ * Why this matters: friend-trade replay analysis showed pin bar fires
+ * on 13% of his 4h entries (direction-aligned) vs 8% on 1h. He's
+ * clearly reading rejection-wick price action.
  *
  * Bullish pin bar: lower wick ≥ wick_to_body_ratio × body, body in
  *   upper half of range, upper wick small. Rejection of lower prices.
