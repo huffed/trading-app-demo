@@ -52,3 +52,7 @@ friend-features.csv
 
 # LLM-trader backtest audit trails — written per-run, not for the repo
 scripts/llm-trader-decisions-*.jsonl
+scripts/llm-trader-trades-*.jsonl
+scripts/llm-trader-wf-summary-*.json
+scripts/llm-trader-wf-trades-*.jsonl
+scripts/wf-run-*.log

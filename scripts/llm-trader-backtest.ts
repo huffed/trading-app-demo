@@ -63,7 +63,13 @@ const decisionSchema = z.object({
 
 type Decision = z.infer<typeof decisionSchema>;
 
-interface OpenPosition {
+// Daily-structure regime tag derived from HH/LH price action. Primary
+// signal for adaptation diagnostics — we want to know whether the LLM
+// behaves differently in HH vs LH vs transition windows, and whether
+// regime flips during a trade correlate with outcome.
+export type Regime = "HH" | "LH" | "RANGING" | "n/a";
+
+export interface OpenPosition {
   side: "long" | "short";
   entry_price: number;
   entry_index: number;
@@ -72,9 +78,10 @@ interface OpenPosition {
   target_price: number;
   notional: number;
   entry_reasoning: string;
+  entry_regime: Regime;
 }
 
-interface ClosedTrade {
+export interface ClosedTrade {
   side: "long" | "short";
   entry_price: number;
   exit_price: number;
@@ -85,6 +92,24 @@ interface ClosedTrade {
   hold_bars: number;
   entry_reasoning: string;
   exit_reasoning: string;
+  // Outcome attribution (Layer 1 learning loop) — populated on close.
+  entry_regime: Regime;
+  exit_regime: Regime;
+  regime_flipped_during_trade: boolean;
+  // R-multiple: realised P&L expressed as multiples of risk (entry-to-SL
+  // distance). +1.0 = full TP at 1:3 RR is +3.0, full SL is -1.0. Lets
+  // us aggregate across position sizes / windows on a common scale.
+  r_multiple: number;
+}
+
+export interface DecisionLogEntry {
+  bar_date: string;
+  bar_close: number;
+  regime: Regime;
+  decision: string;
+  confidence: number;
+  reasoning: string;
+  had_position: string;
 }
 
 const SYSTEM_PROMPT = `You are a gold (XAU/USD) discretionary trader on 4h. Take only HIGH-CONVICTION setups; most bars should be "hold".
@@ -139,8 +164,8 @@ Output JSON: {"decision": "enter_long"|"enter_short"|"hold"|"exit", "confidence"
 const SL_PCT = 0.015;
 const TP_PCT = 0.045;
 
-function summariseDailyBias(dailyBars: PriceBar[]): string {
-  if (dailyBars.length < 21) return "daily: n/a";
+export function summariseDailyBias(dailyBars: PriceBar[]): { summary: string; regime: Regime } {
+  if (dailyBars.length < 21) return { summary: "daily: n/a", regime: "n/a" };
   const recent = dailyBars.slice(-14);
   const last = dailyBars[dailyBars.length - 1];
   const sma20 = dailyBars.slice(-20).reduce((s, b) => s + b.close, 0) / 20;
@@ -155,16 +180,17 @@ function summariseDailyBias(dailyBars: PriceBar[]): string {
   // disagree (one trending, the other ranging). Conservative tag.
   const last3Low = Math.min(...recent.slice(-3).map((b) => b.low));
   const prev3Low = Math.min(...recent.slice(-7, -3).map((b) => b.low));
-  let structure: "HH" | "LH" | "RANGING";
-  if (last3High > prev3High && last3Low > prev3Low) structure = "HH";
-  else if (last3High < prev3High && last3Low < prev3Low) structure = "LH";
-  else structure = "RANGING";
+  let regime: Regime;
+  if (last3High > prev3High && last3Low > prev3Low) regime = "HH";
+  else if (last3High < prev3High && last3Low < prev3Low) regime = "LH";
+  else regime = "RANGING";
   // Lead with structure (the primary regime indicator per the prompt
   // hierarchy). Present SMA20 as raw data, not a "(bullish/bearish)" label,
   // so the LLM applies the hierarchy explicitly rather than anchoring on
   // the indicator alone.
   const smaPct = ((last.close - sma20) / sma20) * 100;
-  return `D1 structure: ${structure}. Close ${last.close.toFixed(0)} (${smaPct >= 0 ? "+" : ""}${smaPct.toFixed(2)}% vs SMA20 ${sma20.toFixed(0)}). 14d ${greenDays}G/${14 - greenDays}R. Range ${low14.toFixed(0)}-${high14.toFixed(0)}.`;
+  const summary = `D1 structure: ${regime}. Close ${last.close.toFixed(0)} (${smaPct >= 0 ? "+" : ""}${smaPct.toFixed(2)}% vs SMA20 ${sma20.toFixed(0)}). 14d ${greenDays}G/${14 - greenDays}R. Range ${low14.toFixed(0)}-${high14.toFixed(0)}.`;
+  return { summary, regime };
 }
 
 function computeAtr(bars: PriceBar[], period: number, idx: number): number {
@@ -303,14 +329,26 @@ function summarisePosition(position: OpenPosition | null, currentPrice: number):
   return `${position.side.toUpperCase()} from ${position.entry_price.toFixed(0)}, cur ${currentPrice.toFixed(0)}, P&L ${pnlPct >= 0 ? "+" : ""}${pnlPct.toFixed(2)}%, SL ${position.stop_price.toFixed(0)}/TP ${position.target_price.toFixed(0)}.`;
 }
 
-type Provider = "groq" | "anthropic";
+export type Provider = "groq" | "anthropic";
 
-interface ProviderClients {
+export interface ProviderClients {
   groq?: ReturnType<typeof getAIClient>;
   anthropic?: Anthropic;
 }
 
-const ANTHROPIC_MODEL = "claude-haiku-4-5-20251001";
+export const ANTHROPIC_MODEL = "claude-haiku-4-5-20251001";
+
+export function createClients(provider: Provider): ProviderClients {
+  const clients: ProviderClients = {};
+  if (provider === "groq") clients.groq = getAIClient();
+  if (provider === "anthropic") {
+    if (!process.env.ANTHROPIC_API_KEY) {
+      throw new Error("ANTHROPIC_API_KEY env var required for anthropic provider");
+    }
+    clients.anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  }
+  return clients;
+}
 
 /** Robust JSON extractor — Anthropic occasionally prefaces JSON with
  *  prose despite the prompt, so we strip to the first { ... } block. */
@@ -400,24 +438,198 @@ function findExitOnNextBar(
   return { triggered: false };
 }
 
+/** R-multiple: realised P&L expressed as multiples of risk (entry-to-SL
+ *  distance). For a long taken at 4000 with SL 3940 (60 pts risk), an
+ *  exit at 4180 = +3R. Lets per-trade outcomes aggregate on a common
+ *  scale across position sizes / capital values / windows. */
+export function computeRMultiple(
+  side: "long" | "short",
+  entryPrice: number,
+  stopPrice: number,
+  exitPrice: number
+): number {
+  const risk = side === "long" ? entryPrice - stopPrice : stopPrice - entryPrice;
+  if (risk <= 0) return 0; // defensive — bad SL placement
+  const move = side === "long" ? exitPrice - entryPrice : entryPrice - exitPrice;
+  return move / risk;
+}
+
+export interface RegimeStats {
+  regime: Regime;
+  count: number;
+  wins: number;
+  win_rate_pct: number;
+  mean_r: number;
+  sum_pnl: number;
+  long_count: number;
+  long_wins: number;
+  short_count: number;
+  short_wins: number;
+}
+
+/** Per-entry-regime trade stats. Tells us whether the LLM's edge holds
+ *  symmetrically across regimes or is concentrated in (e.g.) HH-longs.
+ *  Group key is `entry_regime` — what regime the LLM was looking at when
+ *  it pulled the trigger. */
+export function aggregateByRegime(trades: ClosedTrade[]): RegimeStats[] {
+  const groups = new Map<Regime, ClosedTrade[]>();
+  for (const t of trades) {
+    const arr = groups.get(t.entry_regime) ?? [];
+    arr.push(t);
+    groups.set(t.entry_regime, arr);
+  }
+  const out: RegimeStats[] = [];
+  for (const [regime, arr] of groups) {
+    const wins = arr.filter((t) => t.realized_pnl > 0);
+    const longs = arr.filter((t) => t.side === "long");
+    const shorts = arr.filter((t) => t.side === "short");
+    out.push({
+      regime,
+      count: arr.length,
+      wins: wins.length,
+      win_rate_pct: arr.length === 0 ? 0 : (wins.length / arr.length) * 100,
+      mean_r: arr.length === 0 ? 0 : arr.reduce((s, t) => s + t.r_multiple, 0) / arr.length,
+      sum_pnl: arr.reduce((s, t) => s + t.realized_pnl, 0),
+      long_count: longs.length,
+      long_wins: longs.filter((t) => t.realized_pnl > 0).length,
+      short_count: shorts.length,
+      short_wins: shorts.filter((t) => t.realized_pnl > 0).length,
+    });
+  }
+  // Sort by count desc so the most-active regime shows first.
+  out.sort((a, b) => b.count - a.count);
+  return out;
+}
+
+export interface FlipCohortStats {
+  flipped: { count: number; wins: number; mean_r: number; sum_pnl: number };
+  not_flipped: { count: number; wins: number; mean_r: number; sum_pnl: number };
+}
+
+/** "Did the regime flip during the trade?" cohort. Directly tests the
+ *  v1 prompt's regime-flip-exit logic — the LLM is told to exit
+ *  HH-while-long when regime turns LH. If the prompt is working,
+ *  flipped trades should still net positive (the exit caught the turn);
+ *  if it's broken, flipped trades will be much worse than non-flipped. */
+export function aggregateByRegimeFlip(trades: ClosedTrade[]): FlipCohortStats {
+  const flipped = trades.filter((t) => t.regime_flipped_during_trade);
+  const notFlipped = trades.filter((t) => !t.regime_flipped_during_trade);
+  const summarise = (arr: ClosedTrade[]) => ({
+    count: arr.length,
+    wins: arr.filter((t) => t.realized_pnl > 0).length,
+    mean_r: arr.length === 0 ? 0 : arr.reduce((s, t) => s + t.r_multiple, 0) / arr.length,
+    sum_pnl: arr.reduce((s, t) => s + t.realized_pnl, 0),
+  });
+  return { flipped: summarise(flipped), not_flipped: summarise(notFlipped) };
+}
+
+/** What did the LLM choose at each regime? Tells us whether it's biasing
+ *  decisions correctly: HH should be enter_long-heavy, LH should be
+ *  enter_short-heavy. If LH bars are mostly enter_long, the prompt's
+ *  regime-priority hierarchy is broken. */
+export function aggregateDecisionsByRegime(
+  decisions: DecisionLogEntry[]
+): Record<string, Record<string, number>> {
+  const out: Record<string, Record<string, number>> = {};
+  for (const d of decisions) {
+    const key = d.regime;
+    if (!out[key]) out[key] = {};
+    out[key][d.decision] = (out[key][d.decision] ?? 0) + 1;
+  }
+  return out;
+}
+
+export function printRegimeReport(
+  trades: ClosedTrade[],
+  decisions: DecisionLogEntry[]
+): void {
+  const regimeStats = aggregateByRegime(trades);
+  const flipStats = aggregateByRegimeFlip(trades);
+  const decisionStats = aggregateDecisionsByRegime(decisions);
+
+  console.log("Per-regime trade stats (entry-regime):");
+  console.log(
+    `  ${pad("regime", 10)}${pad("trades", 8)}${pad("WR", 8)}${pad("mean_R", 9)}${pad("$pnl", 10)}${pad("long(W/T)", 12)}${pad("short(W/T)", 12)}`
+  );
+  for (const s of regimeStats) {
+    console.log(
+      `  ${pad(s.regime, 10)}${pad(s.count.toString(), 8)}${pad(`${s.win_rate_pct.toFixed(0)}%`, 8)}${pad(s.mean_r.toFixed(2), 9)}${pad(`$${s.sum_pnl.toFixed(0)}`, 10)}${pad(`${s.long_wins}/${s.long_count}`, 12)}${pad(`${s.short_wins}/${s.short_count}`, 12)}`
+    );
+  }
+  console.log("");
+
+  console.log("Regime-flip cohort (did regime change between entry and exit?):");
+  const fmtCohort = (label: string, c: { count: number; wins: number; mean_r: number; sum_pnl: number }) => {
+    const wr = c.count === 0 ? 0 : (c.wins / c.count) * 100;
+    console.log(
+      `  ${pad(label, 16)}${pad(c.count.toString(), 8)}${pad(`${wr.toFixed(0)}%`, 8)}${pad(c.mean_r.toFixed(2), 9)}${pad(`$${c.sum_pnl.toFixed(0)}`, 10)}`
+    );
+  };
+  console.log(`  ${pad("cohort", 16)}${pad("trades", 8)}${pad("WR", 8)}${pad("mean_R", 9)}${pad("$pnl", 10)}`);
+  fmtCohort("flipped", flipStats.flipped);
+  fmtCohort("not_flipped", flipStats.not_flipped);
+  console.log("");
+
+  console.log("LLM decisions per regime (does the regime hierarchy hold?):");
+  console.log(
+    `  ${pad("regime", 10)}${pad("enter_long", 12)}${pad("enter_short", 13)}${pad("hold", 8)}${pad("exit", 8)}`
+  );
+  for (const [regime, dist] of Object.entries(decisionStats)) {
+    console.log(
+      `  ${pad(regime, 10)}${pad((dist.enter_long ?? 0).toString(), 12)}${pad((dist.enter_short ?? 0).toString(), 13)}${pad((dist.hold ?? 0).toString(), 8)}${pad((dist.exit ?? 0).toString(), 8)}`
+    );
+  }
+  console.log("");
+}
+
 function pad(s: string, n: number): string {
   return s.length >= n ? s : s + " ".repeat(n - s.length);
 }
 
-async function main(): Promise<void> {
-  const sliceDays = Number(process.env.SLICE_DAYS ?? "60");
-  const capital = Number(process.env.CAPITAL ?? "100000");
-  const timeframe = (process.env.TIMEFRAME ?? "4h").toLowerCase();
-  // SLICE_END_DATE optional: end the slice at this date instead of "now".
-  // Lets us replay arbitrary historical windows for cross-regime validation
-  // (e.g. test that the LLM-trader's edge isn't lucky for the most-recent
-  // 60d). Format: YYYY-MM-DD.
-  const sliceEndStr = process.env.SLICE_END_DATE;
-  const sliceEndMs = sliceEndStr ? new Date(`${sliceEndStr}T23:59:59Z`).getTime() : Date.now();
-  if (Number.isNaN(sliceEndMs)) throw new Error(`Invalid SLICE_END_DATE=${sliceEndStr}`);
-  // BarInterval supports "15min" | "1h" | "4h" | "1day". For 4h and 30m
-  // we fetch a finer interval and resample via resampleTo. For 1h and
-  // 15m we fetch directly.
+// ---------------------------------------------------------------------------
+// Reusable building blocks (Corpus + runWindow) — used by both the CLI
+// single-window mode below and the walk-forward orchestrator. Loading the
+// XAU/USD corpus is the expensive part (Twelve Data + intermarket fetches);
+// keeping it separate lets the WF script load once and run N windows.
+// ---------------------------------------------------------------------------
+
+export type Timeframe = "4h" | "1h" | "30m" | "15m";
+
+export interface Corpus {
+  bars: PriceBar[];
+  dailyBars: PriceBar[];
+  eurusd4h: PriceBar[];
+  intermarket: IntermarketSeries;
+  timeframe: Timeframe;
+}
+
+export interface WindowOptions {
+  corpus: Corpus;
+  /** Window end as unix ms; window covers (sliceEndMs − sliceDays·24h, sliceEndMs]. */
+  sliceEndMs: number;
+  sliceDays: number;
+  capital: number;
+  provider: Provider;
+  clients: ProviderClients;
+  /** Suppress per-bar progress logs (the WF orchestrator prints its own). */
+  silent?: boolean;
+}
+
+export interface WindowResult {
+  trades: ClosedTrade[];
+  decisions: DecisionLogEntry[];
+  finalCash: number;
+  capital: number;
+  maxDrawdown: number;
+  llmCalls: number;
+  llmFailures: number;
+  startDate: string;
+  endDate: string;
+  numBars: number;
+  windowLabel: string;
+}
+
+export async function loadCorpus(timeframe: Timeframe): Promise<Corpus> {
   let fetchInterval: "15min" | "1h" | "4h";
   let needsResample: false | "4h" | "30m";
   if (timeframe === "4h") {
@@ -429,14 +641,14 @@ async function main(): Promise<void> {
   } else if (timeframe === "30m") {
     fetchInterval = "15min";
     needsResample = "30m";
-  } else if (timeframe === "15m") {
+  } else {
     fetchInterval = "15min";
     needsResample = false;
-  } else {
-    throw new Error(`Unsupported TIMEFRAME=${timeframe}. Use 4h / 1h / 30m / 15m.`);
   }
 
-  console.log(`Loading XAU/USD ${timeframe} corpus (fetched at ${fetchInterval}${needsResample ? `, resampled to ${needsResample}` : ""})...`);
+  console.log(
+    `Loading XAU/USD ${timeframe} corpus (fetched at ${fetchInterval}${needsResample ? `, resampled to ${needsResample}` : ""})...`
+  );
   const fetched = await fetchDailyPrices("XAU/USD", "full", fetchInterval);
   const bars = needsResample ? resampleTo(fetched, needsResample) : fetched;
   const dailyBars = await fetchDailyPrices("XAU/USD", "full", "1day");
@@ -454,50 +666,35 @@ async function main(): Promise<void> {
   );
   console.log("");
 
-  // Slice bars to [end - sliceDays, end]. End defaults to "now" but can be
-  // overridden via SLICE_END_DATE for historical-window validation.
+  return { bars, dailyBars, eurusd4h, intermarket, timeframe };
+}
+
+export async function runWindow(opts: WindowOptions): Promise<WindowResult> {
+  const { corpus, sliceEndMs, sliceDays, capital, provider, clients, silent = false } = opts;
+  const { bars, dailyBars, eurusd4h, intermarket, timeframe } = corpus;
+
+  // Slice bars to (sliceEndMs − sliceDays, sliceEndMs].
   const cutoffMs = sliceEndMs - sliceDays * 24 * 3600 * 1000;
   const startIdx = bars.findIndex((b) => new Date(b.date).getTime() >= cutoffMs);
   if (startIdx === -1) throw new Error(`no ${timeframe} bars in slice window`);
   const endIdxExclusive = bars.findIndex((b) => new Date(b.date).getTime() > sliceEndMs);
   const lastIdx = endIdxExclusive === -1 ? bars.length : endIdxExclusive;
   const numBars = lastIdx - startIdx;
-  if (numBars <= 0) throw new Error(`empty slice — check SLICE_END_DATE / SLICE_DAYS`);
-  // ~530 tokens/call rough estimate post-compression (~430 input + ~100 output)
-  const estTokens = numBars * 530;
-  const windowLabel = sliceEndStr ? `${sliceEndStr} − ${sliceDays}d` : `last ${sliceDays} days`;
-  console.log(`Replaying ${numBars} ${timeframe} bars (${windowLabel}: ${bars[startIdx]?.date.slice(0,10)} → ${bars[lastIdx-1]?.date.slice(0,10)})...`);
-  console.log(
-    `  Estimated token cost: ~${(estTokens / 1000).toFixed(0)}K tokens (Groq free 100K/day, Dev 6M/day)`
-  );
-  if (estTokens > 100_000) {
-    console.log(`  ⚠ Over free-tier daily quota — will hit rate limit partway. Use Dev tier or shorter slice.`);
-  }
-  console.log("");
+  if (numBars <= 0) throw new Error(`empty slice — sliceEndMs / sliceDays produced no bars`);
 
-  const provider: Provider = (process.env.PROVIDER ?? "groq").toLowerCase() as Provider;
-  if (provider !== "groq" && provider !== "anthropic") {
-    throw new Error(`Unsupported PROVIDER=${provider}. Use groq or anthropic.`);
+  const sliceEndDate = new Date(sliceEndMs).toISOString().slice(0, 10);
+  const windowLabel = `${sliceEndDate} − ${sliceDays}d`;
+  const startDate = bars[startIdx]?.date ?? "";
+  const endDate = bars[lastIdx - 1]?.date ?? "";
+
+  if (!silent) {
+    console.log(
+      `Replaying ${numBars} ${timeframe} bars (${windowLabel}: ${startDate.slice(0, 10)} → ${endDate.slice(0, 10)})...`
+    );
   }
-  console.log(`Using provider: ${provider} (model: ${provider === "anthropic" ? ANTHROPIC_MODEL : AI_MODEL})`);
-  console.log("");
-  const clients: ProviderClients = {};
-  if (provider === "groq") clients.groq = getAIClient();
-  if (provider === "anthropic") {
-    if (!process.env.ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY env var required for anthropic provider");
-    clients.anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-  }
+
   const closedTrades: ClosedTrade[] = [];
-  // Full per-bar decision audit trail (every LLM response, including holds).
-  // Written to scripts/llm-trader-decisions.jsonl at end of run.
-  const decisionLog: Array<{
-    bar_date: string;
-    bar_close: number;
-    decision: string;
-    confidence: number;
-    reasoning: string;
-    had_position: string;
-  }> = [];
+  const decisionLog: DecisionLogEntry[] = [];
   let position: OpenPosition | null = null;
   let cash = capital;
   let equityHigh = capital;
@@ -507,6 +704,14 @@ async function main(): Promise<void> {
 
   for (let i = startIdx; i < lastIdx; i++) {
     const bar = bars[i];
+
+    // Compute daily bias + regime ONCE per bar — used by both intra-bar
+    // SL/TP exit attribution AND the LLM context. Threading it through
+    // prevents the gnarly "regime at SL fill" attribution edge case.
+    const dailyBiasResult = summariseDailyBias(
+      dailyBars.filter((d) => new Date(d.date).getTime() <= new Date(bar.date).getTime())
+    );
+    const regime: Regime = dailyBiasResult.regime;
 
     // 1) Check for SL/TP fill on the current bar (if in position).
     if (position) {
@@ -528,6 +733,10 @@ async function main(): Promise<void> {
           hold_bars: i - position.entry_index,
           entry_reasoning: position.entry_reasoning,
           exit_reasoning: "(price exit — SL/TP fill)",
+          entry_regime: position.entry_regime,
+          exit_regime: regime,
+          regime_flipped_during_trade: regime !== position.entry_regime,
+          r_multiple: computeRMultiple(position.side, position.entry_price, position.stop_price, exit.exit_price),
         });
         equityHigh = Math.max(equityHigh, cash);
         maxDrawdown = Math.max(maxDrawdown, ((equityHigh - cash) / equityHigh) * 100);
@@ -536,7 +745,7 @@ async function main(): Promise<void> {
     }
 
     // 2) Ask LLM for the next decision based on this bar's close.
-    const dailyContext = summariseDailyBias(dailyBars.filter((d) => new Date(d.date).getTime() <= new Date(bar.date).getTime()));
+    const dailyContext = dailyBiasResult.summary;
     const recentContext = summariseRecentBars(bars, i, timeframe);
     const dxyContext = summariseDxy(eurusd4h, bar.date);
     const intermarketContext = summariseIntermarket(intermarket, bar.close, bar.date);
@@ -551,10 +760,10 @@ async function main(): Promise<void> {
       continue;
     }
 
-    // Append to decision log (every bar, even holds — full audit trail)
     decisionLog.push({
       bar_date: bar.date,
       bar_close: bar.close,
+      regime,
       decision: decision.decision,
       confidence: decision.confidence,
       reasoning: decision.reasoning,
@@ -565,7 +774,7 @@ async function main(): Promise<void> {
     if (decision.decision === "enter_long" && !position) {
       const stop = bar.close * (1 - SL_PCT);
       const target = bar.close * (1 + TP_PCT);
-      const notional = capital * 0.5; // 50% notional, simple sizing for MVP
+      const notional = capital * 0.5;
       position = {
         side: "long",
         entry_price: bar.close,
@@ -575,6 +784,7 @@ async function main(): Promise<void> {
         target_price: target,
         notional,
         entry_reasoning: decision.reasoning,
+        entry_regime: regime,
       };
     } else if (decision.decision === "enter_short" && !position) {
       const stop = bar.close * (1 + SL_PCT);
@@ -589,6 +799,7 @@ async function main(): Promise<void> {
         target_price: target,
         notional,
         entry_reasoning: decision.reasoning,
+        entry_regime: regime,
       };
     } else if (decision.decision === "exit" && position) {
       const exitPrice = bar.close;
@@ -608,21 +819,25 @@ async function main(): Promise<void> {
         hold_bars: i - position.entry_index,
         entry_reasoning: position.entry_reasoning,
         exit_reasoning: decision.reasoning,
+        entry_regime: position.entry_regime,
+        exit_regime: regime,
+        regime_flipped_during_trade: regime !== position.entry_regime,
+        r_multiple: computeRMultiple(position.side, position.entry_price, position.stop_price, exitPrice),
       });
       equityHigh = Math.max(equityHigh, cash);
       maxDrawdown = Math.max(maxDrawdown, ((equityHigh - cash) / equityHigh) * 100);
       position = null;
     }
 
-    // Live progress
-    if ((i - startIdx + 1) % 20 === 0) {
+    // Live progress (suppressed for WF orchestrator runs).
+    if (!silent && (i - startIdx + 1) % 20 === 0) {
       console.log(
         `  ${i - startIdx + 1}/${numBars} bars · cash $${cash.toFixed(0)} · ${closedTrades.length} closed · ${llmCallCount} LLM calls (${llmFailureCount} fails)`
       );
     }
   }
 
-  // Close any remaining position at the last close.
+  // Force-close any remaining position at the last bar's close.
   if (position) {
     const lastBar = bars[lastIdx - 1];
     const exitPrice = lastBar.close;
@@ -631,6 +846,9 @@ async function main(): Promise<void> {
         ? (exitPrice - position.entry_price) * (position.notional / position.entry_price)
         : (position.entry_price - exitPrice) * (position.notional / position.entry_price);
     cash += pnl;
+    const lastBarRegime = summariseDailyBias(
+      dailyBars.filter((d) => new Date(d.date).getTime() <= new Date(lastBar.date).getTime())
+    ).regime;
     closedTrades.push({
       side: position.side,
       entry_price: position.entry_price,
@@ -642,50 +860,142 @@ async function main(): Promise<void> {
       hold_bars: lastIdx - 1 - position.entry_index,
       entry_reasoning: position.entry_reasoning,
       exit_reasoning: "(force-close at end of window)",
+      entry_regime: position.entry_regime,
+      exit_regime: lastBarRegime,
+      regime_flipped_during_trade: lastBarRegime !== position.entry_regime,
+      r_multiple: computeRMultiple(position.side, position.entry_price, position.stop_price, exitPrice),
     });
+    equityHigh = Math.max(equityHigh, cash);
+    maxDrawdown = Math.max(maxDrawdown, ((equityHigh - cash) / equityHigh) * 100);
+    position = null;
   }
+
+  return {
+    trades: closedTrades,
+    decisions: decisionLog,
+    finalCash: cash,
+    capital,
+    maxDrawdown,
+    llmCalls: llmCallCount,
+    llmFailures: llmFailureCount,
+    startDate,
+    endDate,
+    numBars,
+    windowLabel,
+  };
+}
+
+/** Print the same end-of-run summary the original CLI produced. Used by
+ *  single-window mode; the WF orchestrator has its own across-window
+ *  aggregator. */
+export function printWindowSummary(result: WindowResult): void {
+  const { trades, decisions, capital, finalCash, maxDrawdown, llmCalls, llmFailures } = result;
+  const totalPnl = finalCash - capital;
+  const wins = trades.filter((t) => t.realized_pnl > 0);
+  const wr = trades.length === 0 ? 0 : (wins.length / trades.length) * 100;
+  const avgHold = trades.reduce((s, t) => s + t.hold_bars, 0) / Math.max(trades.length, 1);
 
   console.log("");
   console.log("===== Backtest complete =====");
-  const wins = closedTrades.filter((t) => t.realized_pnl > 0);
-  const losses = closedTrades.filter((t) => t.realized_pnl <= 0);
-  const totalPnl = closedTrades.reduce((s, t) => s + t.realized_pnl, 0);
-  const wr = closedTrades.length === 0 ? 0 : (wins.length / closedTrades.length) * 100;
-  const avgHold = closedTrades.reduce((s, t) => s + t.hold_bars, 0) / Math.max(closedTrades.length, 1);
-  console.log(`Trades         : ${closedTrades.length}`);
+  console.log(`Trades         : ${trades.length}`);
   console.log(`Win rate       : ${wr.toFixed(1)}%`);
   console.log(`Total P&L      : $${totalPnl.toFixed(0)} (${((totalPnl / capital) * 100).toFixed(2)}%)`);
   console.log(`Max drawdown   : ${maxDrawdown.toFixed(2)}%`);
-  console.log(`Avg hold       : ${avgHold.toFixed(1)} 4h bars (${(avgHold * 4).toFixed(1)}h)`);
-  console.log(`LLM calls      : ${llmCallCount} (${llmFailureCount} fails)`);
+  console.log(`Avg hold       : ${avgHold.toFixed(1)} bars`);
+  console.log(`LLM calls      : ${llmCalls} (${llmFailures} fails)`);
   console.log("");
 
   console.log("Trade log (last 15):");
-  for (const t of closedTrades.slice(-15)) {
+  for (const t of trades.slice(-15)) {
+    const flipMarker = t.regime_flipped_during_trade ? "↻" : " ";
     console.log(
-      `  ${t.entry_date.slice(0, 16)} → ${t.exit_date.slice(0, 16)}  ${t.side}  $${t.realized_pnl.toFixed(0)}  ${t.hold_bars}b  ${t.exit_reason}`
+      `  ${t.entry_date.slice(0, 16)} → ${t.exit_date.slice(0, 16)}  ${t.side}  $${t.realized_pnl.toFixed(0)}  ${t.r_multiple >= 0 ? "+" : ""}${t.r_multiple.toFixed(2)}R  ${flipMarker}${t.entry_regime}→${t.exit_regime}  ${t.hold_bars}b  ${t.exit_reason}`
     );
     console.log(`    entry: ${t.entry_reasoning.slice(0, 200)}`);
     console.log(`    exit : ${t.exit_reasoning.slice(0, 200)}`);
   }
   console.log("");
 
-  // Decision distribution diagnostic — what % of bars LLM chose each action
   const dist: Record<string, number> = {};
-  for (const d of decisionLog) dist[d.decision] = (dist[d.decision] ?? 0) + 1;
+  for (const d of decisions) dist[d.decision] = (dist[d.decision] ?? 0) + 1;
   console.log("Decision distribution:");
   for (const [k, v] of Object.entries(dist)) {
-    console.log(`  ${k.padEnd(14)} ${v} (${((v / decisionLog.length) * 100).toFixed(1)}%)`);
+    console.log(`  ${k.padEnd(14)} ${v} (${((v / decisions.length) * 100).toFixed(1)}%)`);
   }
   console.log("");
 
-  // Save full audit trail
-  const logPath = `scripts/llm-trader-decisions-${provider}-${timeframe}-${sliceDays}d.jsonl`;
-  writeFileSync(logPath, decisionLog.map((d) => JSON.stringify(d)).join("\n"));
-  console.log(`Decision audit trail: ${logPath} (${decisionLog.length} entries)`);
+  // Per-regime / regime-flip / decisions-per-regime breakdown — Layer 1
+  // attribution for the learning loop.
+  printRegimeReport(trades, decisions);
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+async function main(): Promise<void> {
+  const sliceDays = Number(process.env.SLICE_DAYS ?? "60");
+  const capital = Number(process.env.CAPITAL ?? "100000");
+  const timeframeRaw = (process.env.TIMEFRAME ?? "4h").toLowerCase();
+  if (
+    timeframeRaw !== "4h" &&
+    timeframeRaw !== "1h" &&
+    timeframeRaw !== "30m" &&
+    timeframeRaw !== "15m"
+  ) {
+    throw new Error(`Unsupported TIMEFRAME=${timeframeRaw}. Use 4h / 1h / 30m / 15m.`);
+  }
+  const timeframe: Timeframe = timeframeRaw;
+  // SLICE_END_DATE optional: end the slice at this date instead of "now".
+  const sliceEndStr = process.env.SLICE_END_DATE;
+  const sliceEndMs = sliceEndStr ? new Date(`${sliceEndStr}T23:59:59Z`).getTime() : Date.now();
+  if (Number.isNaN(sliceEndMs)) throw new Error(`Invalid SLICE_END_DATE=${sliceEndStr}`);
+
+  const provider: Provider = (process.env.PROVIDER ?? "groq").toLowerCase() as Provider;
+  if (provider !== "groq" && provider !== "anthropic") {
+    throw new Error(`Unsupported PROVIDER=${provider}. Use groq or anthropic.`);
+  }
+
+  const corpus = await loadCorpus(timeframe);
+  const tfHoursPerBar = timeframe === "4h" ? 4 : timeframe === "1h" ? 1 : timeframe === "30m" ? 0.5 : 0.25;
+  const numBarsHint = Math.round((sliceDays * 24) / tfHoursPerBar);
+  const estTokens = numBarsHint * 530;
+  const windowLabel = sliceEndStr ? `${sliceEndStr} − ${sliceDays}d` : `last ${sliceDays} days`;
+  console.log(
+    `Window: ${windowLabel} · est ~${(estTokens / 1000).toFixed(0)}K tokens (Groq free 100K/day, Dev 6M/day)`
+  );
+  if (estTokens > 100_000 && provider === "groq") {
+    console.log("  ⚠ Over Groq free-tier daily quota — will hit rate limit partway. Use Dev tier or shorter slice.");
+  }
+  console.log(`Provider: ${provider} (model: ${provider === "anthropic" ? ANTHROPIC_MODEL : AI_MODEL})`);
+  console.log("");
+
+  const clients = createClients(provider);
+
+  const result = await runWindow({
+    corpus,
+    sliceEndMs,
+    sliceDays,
+    capital,
+    provider,
+    clients,
+  });
+
+  printWindowSummary(result);
+
+  // Save full audit trail (existing CLI behavior preserved).
+  const decisionLogPath = `scripts/llm-trader-decisions-${provider}-${timeframe}-${sliceDays}d.jsonl`;
+  writeFileSync(decisionLogPath, result.decisions.map((d) => JSON.stringify(d)).join("\n"));
+  console.log(`Decision audit trail: ${decisionLogPath} (${result.decisions.length} entries)`);
+
+  const tradeLogPath = `scripts/llm-trader-trades-${provider}-${timeframe}-${sliceDays}d.jsonl`;
+  writeFileSync(tradeLogPath, result.trades.map((t) => JSON.stringify(t)).join("\n"));
+  console.log(`Trade log: ${tradeLogPath} (${result.trades.length} entries)`);
+}
+
+// Only execute main when this file is run directly (not when imported by
+// scripts/llm-trader-walk-forward.ts). tsx leaves require.main set on the
+// entry script; this guard keeps imports side-effect-free.
+const isEntryScript = process.argv[1]?.endsWith("llm-trader-backtest.ts");
+if (isEntryScript) {
+  main().catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+}
