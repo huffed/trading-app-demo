@@ -113,11 +113,16 @@ function consecLossStreakOnDate(closed: ClosedTrade[], dateUTC: string): number 
 
 /** FTMO consistency halt — refuse new entries on a day whose net profit
  *  is at or above (consistency_rule / 100) of total accumulated profit.
- *  Mirrors production's checkConsistencyHalt. */
+ *  Mirrors production's checkConsistencyHalt, including the explicit
+ *  disabled-when-zero short-circuit (without it, threshold=0 trips on
+ *  every winning day — the rule is OFF when consistency_rule is 0). */
 function consistencyHaltState(
   closed: ClosedTrade[],
   dateUTC: string
 ): { ratio: number; tripped: boolean } {
+  if (PRODUCTION_GATES.prop_firm.consistency_rule === 0) {
+    return { ratio: 0, tripped: false };
+  }
   const today = closed.filter((t) => t.exit_date.slice(0, 10) === dateUTC);
   const todayNet = today.reduce((s, t) => s + t.realized_pnl, 0);
   const totalNet = closed.reduce((s, t) => s + t.realized_pnl, 0);
