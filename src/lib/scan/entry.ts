@@ -44,6 +44,7 @@ import { checkConsecutiveLossHalt } from "./consec-loss-halt";
 import { checkConsistencyHalt } from "./consistency-halt";
 import { calculatePositionSize, calculateRiskPrices, logActivity } from "./helpers";
 import { executeLiveEntry, type BrokerExecutionContext } from "./live-execution";
+import { linkLlmDecisionToPosition, recordLlmDecision } from "./llm-trader-audit";
 import { evaluateLlmTrader, isBarCloseScan, type LlmTraderContext } from "./llm-trader";
 import { getPerHourStats } from "./per-hour-stats";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -89,7 +90,7 @@ async function openPosition(
    *  for percentage / fixed / pips rules the helpers fall through to
    *  their existing behaviour. */
   bars?: PriceBar[]
-): Promise<{ opened: number; openEvent?: PositionEvent }> {
+): Promise<{ opened: number; openEvent?: PositionEvent; paperPositionId?: string }> {
   // calculatePositionSize wants MARGIN-used summed, not notional. For
   // leveraged sizing (lots / risk_per_trade / conviction_scaled) sum
   // notional / leverage so 3 forex positions at 1:100 don't appear to
@@ -211,6 +212,7 @@ async function openPosition(
   return {
     opened: 1,
     openEvent: { ticker, reason: "entry_signal", pnl: 0, price: currentPrice },
+    paperPositionId: position.id,
   };
 }
 
@@ -958,7 +960,8 @@ async function evaluateLlmTraderEntry(
       : null,
     timeframe: rules.timeframe,
   };
-  const decision = await evaluateLlmTrader(llmConfig, ctx);
+  const evaluation = await evaluateLlmTrader(llmConfig, ctx);
+  const decision = evaluation.decision;
   if (!decision) {
     await logActivity(supabase, userId, {
       algorithm_id: algo.id,
@@ -968,6 +971,20 @@ async function evaluateLlmTraderEntry(
     });
     return { opened: 0 };
   }
+
+  // Audit-log the decision (best-effort; never blocks trade flow). For
+  // entry decisions, paper_position_id is linked back after openPosition
+  // succeeds. For hold/exit, the row stays unlinked.
+  const hadPosition: "flat" | "long" | "short" =
+    currentPosition ? (currentPosition.side as "long" | "short") : "flat";
+  const decisionId = await recordLlmDecision(supabase, {
+    algorithmId: algo.id,
+    userId,
+    barDate: ctx.currentTimestamp,
+    evaluation,
+    hadPosition,
+    source: "live",
+  });
 
   // ---- Decision dispatch ----
 
@@ -1086,7 +1103,7 @@ async function evaluateLlmTraderEntry(
     ...algo,
     rules: { ...algo.rules, side: llmSide },
   };
-  return openPosition(
+  const opened = await openPosition(
     supabase,
     userId,
     algoForOpen,
@@ -1099,4 +1116,10 @@ async function evaluateLlmTraderEntry(
     1,
     bars
   );
+  // Link the decision row to the resulting paper_positions row so the
+  // close path can backfill the trade outcome onto this decision.
+  if (decisionId && opened.paperPositionId) {
+    await linkLlmDecisionToPosition(supabase, decisionId, opened.paperPositionId);
+  }
+  return opened;
 }

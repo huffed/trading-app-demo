@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { AlgoActivitySection } from "@/components/algorithms/algo-activity-section";
 import { AlgoHistorySection } from "@/components/algorithms/algo-history-section";
+import { AlgoLlmDecisionsSection } from "@/components/algorithms/algo-llm-decisions-section";
 import { AlgoSetupSection } from "@/components/algorithms/algo-setup-section";
 import { AlgoStatusSection } from "@/components/algorithms/algo-status-section";
 import { AlgoTodaySection } from "@/components/algorithms/algo-today-section";
@@ -62,6 +63,9 @@ function ReadView({
       />
       <AlgoTodaySection algorithmId={algo.id} />
       <AlgoHistorySection algorithmId={algo.id} />
+      {algo.rules?.llm_trader?.enabled && (
+        <AlgoLlmDecisionsSection algorithmId={algo.id} />
+      )}
       <AlgoSetupSection
         algo={algo}
         aiBacktestError={aiBacktestError}

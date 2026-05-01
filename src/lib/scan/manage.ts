@@ -32,6 +32,7 @@ import type { PaperPosition, PositionEvent } from "@/types/position";
 import { manageExistingPosition, type AlgoForPositionMgmt } from "./engine";
 import { logActivity } from "./helpers";
 import { resolveBrokerContext } from "./live-execution";
+import { backfillClosedTradeOutcomes } from "./llm-trader-audit";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 export interface ManageResult {
@@ -323,5 +324,17 @@ export async function manageActiveAlgorithms(
   for (const { algo, positions } of byAlgo.values()) {
     results.push(await manageAlgorithm(supabase, algo, positions));
   }
+
+  // Backfill trade_outcome on llm_decisions rows linked to positions that
+  // have closed since the last tick. Idempotent + best-effort — never
+  // blocks the manage cycle on audit-table updates.
+  try {
+    await backfillClosedTradeOutcomes(supabase);
+  } catch (err) {
+    logger.warn("manage-positions", "trade outcome backfill failed", {
+      error: err instanceof Error ? err.message : "unknown",
+    });
+  }
+
   return results;
 }
