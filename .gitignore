@@ -55,4 +55,5 @@ scripts/llm-trader-decisions-*.jsonl
 scripts/llm-trader-trades-*.jsonl
 scripts/llm-trader-wf-summary-*.json
 scripts/llm-trader-wf-trades-*.jsonl
+scripts/llm-trader-wf-decisions-*.jsonl
 scripts/wf-run-*.log

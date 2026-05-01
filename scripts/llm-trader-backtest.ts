@@ -40,6 +40,11 @@ import { AI_MODEL, getAIClient } from "../src/lib/ai/client";
 import { fetchDailyPrices } from "../src/lib/market-data/prices";
 import { resampleTo } from "../src/lib/market-data/resample";
 import type { PriceBar } from "../src/lib/market-data/types";
+import {
+  DEFAULT_PROMPT_VERSION,
+  type PromptVersion,
+  getPrompt,
+} from "../src/lib/scan/llm-trader-prompts";
 
 {
   try {
@@ -111,55 +116,6 @@ export interface DecisionLogEntry {
   reasoning: string;
   had_position: string;
 }
-
-const SYSTEM_PROMPT = `You are a gold (XAU/USD) discretionary trader on 4h. Take only HIGH-CONVICTION setups; most bars should be "hold".
-
-BIAS HIERARCHY — apply in strict priority order:
-1. RECENT STRUCTURE (HH = bullish regime; LH = bearish regime; RANGING = neutral). Structure is the PRIMARY regime indicator. It leads everything else.
-2. Close vs SMA20 = secondary confluence ONLY. If structure conflicts with SMA20, STRUCTURE WINS. SMA20 is slow and lagging — it confirms the regime after the fact, it does not define it.
-3. Intermarket (DXY / 10Y yield / VIX / silver) = modifiers that affect setup quality, NEVER primary direction.
-
-REGIME RULES — these are absolute, not heuristics:
-- LH regime: only SHORT setups are valid. Do not take longs even if close > SMA20 — that's a counter-trend trade against falling structure.
-- HH regime: only LONG setups are valid. Do not take shorts even if close < SMA20.
-- RANGING regime: hold by default. Fades at range extremes are the only valid setups.
-
-If you find yourself wanting to take a trade against the structure regime, the answer is "hold". Wait for the regime to flip.
-
-REGIME-FLIP EXIT (applies when in a position):
-- Long position + regime flips from HH to LH → EXIT at this bar's close. Do not wait for SL. The regime flip IS the exit signal.
-- Short position + regime flips from LH to HH → EXIT at this bar's close. Same rule.
-- Long/short + regime goes to RANGING → hold but reduce conviction; consider exit if 4h shows clear thesis breakdown.
-The regime is your edge. When it flips, your edge is gone — get out.
-
-Triggers — once regime is established, look for ANY of these (don't wait for perfect confirmation; if structure aligns and you see one of these, take the trade):
-
-Long triggers (HH regime ONLY):
-- Sweep of recent swing low + bullish reversal candle
-- Bullish engulfing or pin bar at structural support
-- Bullish BOS + retest of breakout level
-- Pullback into 4h SMA20 / FVG / OB and stalling
-- Rally retracement to 20-bar mid + 3-bar bullish momentum confirming up
-
-Short triggers (LH regime ONLY) — be willing to take these even without perfect pattern confirmation:
-- Rally of >0.5% into the upper third of the 20-bar range (count this as a valid short setup, the rejection-from-resistance is implied by the regime)
-- Sweep of recent 4h swing high + close back below it
-- Bearish engulfing, pin bar, or three black crows at swing high
-- Bearish BOS + retest of broken support as resistance
-- Rally into 4h SMA20 from below (especially if 20-bar mid acts as resistance)
-- Rally into recent swing high (within 1.5% of 20-bar high) in any LH bar with weakening momentum or confluent intermarket headwinds (rising DXY / rising 10Y / rising VIX)
-
-Calibration: a "rally into resistance during LH regime" with EITHER a structural rejection sign OR confluent intermarket headwinds is sufficient. Do not wait for textbook-perfect engulfing patterns — those are rare. The regime is the edge; the trigger is just the entry timing.
-
-Intermarket guidance:
-- DXY rising = gold headwind (worse for longs, better for shorts)
-- 10Y yields rising = gold headwind
-- VIX rising = risk-off = gold tailwind (safe haven flows)
-- Gold/silver ratio rising = gold leading; falling = silver leading
-
-Hold winners through normal pullbacks; exit only on STRUCTURAL thesis break (e.g., HH→LH flip while long, or LH→HH while short — see Regime-Flip Exit above). SL/TP are fixed (1.5%/4.5%); your job is direction + timing.
-
-Output JSON: {"decision": "enter_long"|"enter_short"|"hold"|"exit", "confidence": 0-100, "reasoning": "1 short sentence"}. "hold" = maintain; "exit" only valid when in a position.`;
 
 const SL_PCT = 0.015;
 const TP_PCT = 0.045;
@@ -374,12 +330,13 @@ function extractJson(text: string): unknown {
 
 async function callGroq(
   client: ReturnType<typeof getAIClient>,
+  systemPrompt: string,
   context: string
 ): Promise<Decision | null> {
   const res = await client.chat.completions.create({
     model: AI_MODEL,
     messages: [
-      { role: "system", content: SYSTEM_PROMPT },
+      { role: "system", content: systemPrompt },
       { role: "user", content: context },
     ],
     response_format: { type: "json_object" },
@@ -392,11 +349,15 @@ async function callGroq(
   return parsed.success ? parsed.data : null;
 }
 
-async function callAnthropic(client: Anthropic, context: string): Promise<Decision | null> {
+async function callAnthropic(
+  client: Anthropic,
+  systemPrompt: string,
+  context: string
+): Promise<Decision | null> {
   const res = await client.messages.create({
     model: ANTHROPIC_MODEL,
     max_tokens: 200,
-    system: SYSTEM_PROMPT,
+    system: systemPrompt,
     messages: [{ role: "user", content: context }],
   });
   const block = res.content[0];
@@ -409,15 +370,16 @@ async function callAnthropic(client: Anthropic, context: string): Promise<Decisi
 async function callLLM(
   provider: Provider,
   clients: ProviderClients,
+  systemPrompt: string,
   context: string
 ): Promise<Decision | null> {
   try {
     if (provider === "anthropic") {
       if (!clients.anthropic) throw new Error("anthropic client not initialised");
-      return await callAnthropic(clients.anthropic, context);
+      return await callAnthropic(clients.anthropic, systemPrompt, context);
     }
     if (!clients.groq) throw new Error("groq client not initialised");
-    return await callGroq(clients.groq, context);
+    return await callGroq(clients.groq, systemPrompt, context);
   } catch (err) {
     console.error("LLM call failed:", err instanceof Error ? err.message : err);
     return null;
@@ -611,6 +573,9 @@ export interface WindowOptions {
   capital: number;
   provider: Provider;
   clients: ProviderClients;
+  /** Prompt version to use. Defaults to DEFAULT_PROMPT_VERSION (v2 currently).
+   *  Pass "v1" to reproduce the validated baseline. */
+  promptVersion?: PromptVersion;
   /** Suppress per-bar progress logs (the WF orchestrator prints its own). */
   silent?: boolean;
 }
@@ -627,6 +592,7 @@ export interface WindowResult {
   endDate: string;
   numBars: number;
   windowLabel: string;
+  promptVersion: PromptVersion;
 }
 
 export async function loadCorpus(timeframe: Timeframe): Promise<Corpus> {
@@ -670,8 +636,18 @@ export async function loadCorpus(timeframe: Timeframe): Promise<Corpus> {
 }
 
 export async function runWindow(opts: WindowOptions): Promise<WindowResult> {
-  const { corpus, sliceEndMs, sliceDays, capital, provider, clients, silent = false } = opts;
+  const {
+    corpus,
+    sliceEndMs,
+    sliceDays,
+    capital,
+    provider,
+    clients,
+    promptVersion = DEFAULT_PROMPT_VERSION,
+    silent = false,
+  } = opts;
   const { bars, dailyBars, eurusd4h, intermarket, timeframe } = corpus;
+  const systemPrompt = getPrompt(promptVersion);
 
   // Slice bars to (sliceEndMs − sliceDays, sliceEndMs].
   const cutoffMs = sliceEndMs - sliceDays * 24 * 3600 * 1000;
@@ -753,7 +729,7 @@ export async function runWindow(opts: WindowOptions): Promise<WindowResult> {
 
     const userMessage = `${bar.date.slice(0, 16)}\n${dailyContext}\n${dxyContext}\n${intermarketContext}\n${recentContext}\nPosition: ${positionContext}\nDecide.`;
 
-    const decision = await callLLM(provider, clients, userMessage);
+    const decision = await callLLM(provider, clients, systemPrompt, userMessage);
     llmCallCount++;
     if (!decision) {
       llmFailureCount++;
@@ -882,6 +858,7 @@ export async function runWindow(opts: WindowOptions): Promise<WindowResult> {
     endDate,
     numBars,
     windowLabel,
+    promptVersion,
   };
 }
 
@@ -952,6 +929,12 @@ async function main(): Promise<void> {
     throw new Error(`Unsupported PROVIDER=${provider}. Use groq or anthropic.`);
   }
 
+  const promptVersionRaw = (process.env.PROMPT_VERSION ?? DEFAULT_PROMPT_VERSION).toLowerCase();
+  if (promptVersionRaw !== "v1" && promptVersionRaw !== "v2") {
+    throw new Error(`Unsupported PROMPT_VERSION=${promptVersionRaw}. Use v1 or v2.`);
+  }
+  const promptVersion: PromptVersion = promptVersionRaw;
+
   const corpus = await loadCorpus(timeframe);
   const tfHoursPerBar = timeframe === "4h" ? 4 : timeframe === "1h" ? 1 : timeframe === "30m" ? 0.5 : 0.25;
   const numBarsHint = Math.round((sliceDays * 24) / tfHoursPerBar);
@@ -964,6 +947,7 @@ async function main(): Promise<void> {
     console.log("  ⚠ Over Groq free-tier daily quota — will hit rate limit partway. Use Dev tier or shorter slice.");
   }
   console.log(`Provider: ${provider} (model: ${provider === "anthropic" ? ANTHROPIC_MODEL : AI_MODEL})`);
+  console.log(`Prompt:   ${promptVersion}`);
   console.log("");
 
   const clients = createClients(provider);
@@ -975,16 +959,18 @@ async function main(): Promise<void> {
     capital,
     provider,
     clients,
+    promptVersion,
   });
 
   printWindowSummary(result);
 
-  // Save full audit trail (existing CLI behavior preserved).
-  const decisionLogPath = `scripts/llm-trader-decisions-${provider}-${timeframe}-${sliceDays}d.jsonl`;
+  // Save full audit trail (existing CLI behavior preserved). File names
+  // include the prompt version so v1 vs v2 runs don't overwrite each other.
+  const decisionLogPath = `scripts/llm-trader-decisions-${provider}-${timeframe}-${sliceDays}d-${promptVersion}.jsonl`;
   writeFileSync(decisionLogPath, result.decisions.map((d) => JSON.stringify(d)).join("\n"));
   console.log(`Decision audit trail: ${decisionLogPath} (${result.decisions.length} entries)`);
 
-  const tradeLogPath = `scripts/llm-trader-trades-${provider}-${timeframe}-${sliceDays}d.jsonl`;
+  const tradeLogPath = `scripts/llm-trader-trades-${provider}-${timeframe}-${sliceDays}d-${promptVersion}.jsonl`;
   writeFileSync(tradeLogPath, result.trades.map((t) => JSON.stringify(t)).join("\n"));
   console.log(`Trade log: ${tradeLogPath} (${result.trades.length} entries)`);
 }
