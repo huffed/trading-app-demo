@@ -37,6 +37,14 @@ import { readFileSync, writeFileSync } from "fs";
 import { z } from "zod";
 import Anthropic from "@anthropic-ai/sdk";
 import { AI_MODEL, getAIClient } from "../src/lib/ai/client";
+import { checkAtrLiquidity } from "../src/lib/algorithm/intraday-atr-gate";
+import { checkStagnantExit } from "../src/lib/algorithm/stagnant-exit";
+import {
+  type EconomicEvent,
+  fetchEconomicCalendar,
+  getEventCurrencies,
+  isWithinVetoWindow,
+} from "../src/lib/market-data/economic-calendar";
 import { fetchDailyPrices } from "../src/lib/market-data/prices";
 import { resampleTo } from "../src/lib/market-data/resample";
 import type { PriceBar } from "../src/lib/market-data/types";
@@ -45,6 +53,75 @@ import {
   type PromptVersion,
   getPrompt,
 } from "../src/lib/scan/llm-trader-prompts";
+
+/** Production gate config — mirrors the deployed algorithm's rules so
+ *  the backtest exercises exactly what live would. Tracks the deployed
+ *  Gold LLM-Trader v1 row's rules (see scripts/deploy-llm-trader.ts).
+ *  Deviations from this would mean backtest stats overstate live. */
+const PRODUCTION_GATES = {
+  stagnant_exit: {
+    enabled: true,
+    max_bars: 48,
+    min_pnl_r: -0.5,
+    min_excursion_r: 0.1,
+  },
+  prop_firm: {
+    consistency_rule: 40,
+    consecutive_loss_daily_halt: 3,
+    max_consecutive_losses: 0,
+    daily_loss_limit: 5,
+  },
+  news_veto: {
+    enabled: true,
+    min_impact: "high" as const,
+    block_minutes_before: 5,
+    block_minutes_after: 15,
+  },
+} as const;
+
+/** Significant-loss cutoff for the consec-loss halt. Mirrors production
+ *  (see src/lib/scan/consec-loss-halt.ts SIGNIFICANT_LOSS_R_THRESHOLD). */
+const SIGNIFICANT_LOSS_R_THRESHOLD = 0.5;
+
+/** A loss only counts toward the consec-streak if its magnitude is at
+ *  least 0.5R. Mirrors `isSignificantLoss` in production — keeps tiny
+ *  stagnant-cut nips from falsely tripping the halt. */
+function isSignificantLossTrade(t: ClosedTrade): boolean {
+  if (t.realized_pnl >= 0) return false;
+  return Math.abs(t.r_multiple) >= SIGNIFICANT_LOSS_R_THRESHOLD;
+}
+
+/** Walk today's closed trades from most-recent backwards, count how many
+ *  consecutive significant losses sit at the end. Wins/break-evens
+ *  terminate immediately; micro losses (< 0.5R) are skipped without
+ *  resetting. Returns the active streak length for `dateUTC`. */
+function consecLossStreakOnDate(closed: ClosedTrade[], dateUTC: string): number {
+  const today = closed.filter((t) => t.exit_date.slice(0, 10) === dateUTC);
+  let streak = 0;
+  for (let i = today.length - 1; i >= 0; i--) {
+    const t = today[i];
+    if (t.realized_pnl >= 0) break;
+    if (!isSignificantLossTrade(t)) continue;
+    streak++;
+  }
+  return streak;
+}
+
+/** FTMO consistency halt — refuse new entries on a day whose net profit
+ *  is at or above (consistency_rule / 100) of total accumulated profit.
+ *  Mirrors production's checkConsistencyHalt. */
+function consistencyHaltState(
+  closed: ClosedTrade[],
+  dateUTC: string
+): { ratio: number; tripped: boolean } {
+  const today = closed.filter((t) => t.exit_date.slice(0, 10) === dateUTC);
+  const todayNet = today.reduce((s, t) => s + t.realized_pnl, 0);
+  const totalNet = closed.reduce((s, t) => s + t.realized_pnl, 0);
+  if (totalNet <= 0 || todayNet <= 0) return { ratio: 0, tripped: false };
+  const ratio = todayNet / totalNet;
+  const threshold = PRODUCTION_GATES.prop_firm.consistency_rule / 100;
+  return { ratio, tripped: ratio >= threshold };
+}
 
 {
   try {
@@ -576,8 +653,24 @@ export interface WindowOptions {
   /** Prompt version to use. Defaults to DEFAULT_PROMPT_VERSION (v2 currently).
    *  Pass "v1" to reproduce the validated baseline. */
   promptVersion?: PromptVersion;
+  /** Pre-fetched economic events covering the slice range. When absent,
+   *  runWindow fetches its own (uses Finnhub's in-memory cache). The WF
+   *  orchestrator pre-fetches across the full grid to avoid 6 separate
+   *  Finnhub round-trips. */
+  economicEvents?: EconomicEvent[];
   /** Suppress per-bar progress logs (the WF orchestrator prints its own). */
   silent?: boolean;
+}
+
+/** Aggregate gate refusal counts. Tracks how often each production gate
+ *  refused entries the LLM otherwise wanted to take, so the comparison
+ *  output shows the cost of each gate. */
+export interface GateRefusals {
+  atr_liquidity: number;
+  news_veto: number;
+  consec_loss_halt: number;
+  ftmo_consistency_halt: number;
+  stagnant_exits: number;
 }
 
 export interface WindowResult {
@@ -593,6 +686,7 @@ export interface WindowResult {
   numBars: number;
   windowLabel: string;
   promptVersion: PromptVersion;
+  gateRefusals: GateRefusals;
 }
 
 export async function loadCorpus(timeframe: Timeframe): Promise<Corpus> {
@@ -649,6 +743,22 @@ export async function runWindow(opts: WindowOptions): Promise<WindowResult> {
   const { bars, dailyBars, eurusd4h, intermarket, timeframe } = corpus;
   const systemPrompt = getPrompt(promptVersion);
 
+  // News veto setup. Fetch events once for this slice if not pre-fetched.
+  // XAU/USD → ["USD"]. The veto blocks 5 min before / 15 min after every
+  // high-impact USD release.
+  const newsCurrencies = getEventCurrencies("XAU/USD");
+  let newsEvents: EconomicEvent[] = opts.economicEvents ?? [];
+  if (newsEvents.length === 0 && PRODUCTION_GATES.news_veto.enabled) {
+    const sliceStartMs = sliceEndMs - sliceDays * 24 * 3600 * 1000;
+    newsEvents = await fetchEconomicCalendar(
+      new Date(sliceStartMs),
+      new Date(sliceEndMs)
+    );
+    if (!silent) {
+      console.log(`  News calendar: ${newsEvents.length} events for window`);
+    }
+  }
+
   // Slice bars to (sliceEndMs − sliceDays, sliceEndMs].
   const cutoffMs = sliceEndMs - sliceDays * 24 * 3600 * 1000;
   const startIdx = bars.findIndex((b) => new Date(b.date).getTime() >= cutoffMs);
@@ -677,6 +787,13 @@ export async function runWindow(opts: WindowOptions): Promise<WindowResult> {
   let maxDrawdown = 0;
   let llmCallCount = 0;
   let llmFailureCount = 0;
+  const gateRefusals: GateRefusals = {
+    atr_liquidity: 0,
+    news_veto: 0,
+    consec_loss_halt: 0,
+    ftmo_consistency_halt: 0,
+    stagnant_exits: 0,
+  };
 
   for (let i = startIdx; i < lastIdx; i++) {
     const bar = bars[i];
@@ -688,6 +805,49 @@ export async function runWindow(opts: WindowOptions): Promise<WindowResult> {
       dailyBars.filter((d) => new Date(d.date).getTime() <= new Date(bar.date).getTime())
     );
     const regime: Regime = dailyBiasResult.regime;
+
+    // 0) Stagnant exit check — runs BEFORE SL/TP check, mirroring
+    //    production's manageExistingPosition order. Cuts deeply-stuck
+    //    losers at small loss rather than waiting for SL.
+    if (position) {
+      const stagCheck = checkStagnantExit({
+        bars,
+        entryBarIndex: position.entry_index,
+        currentBarIndex: i,
+        entryPrice: position.entry_price,
+        side: position.side,
+        stopDistance: Math.abs(position.entry_price - position.stop_price),
+        config: PRODUCTION_GATES.stagnant_exit,
+      });
+      if (stagCheck.exit) {
+        const exitPrice = bar.close;
+        const pnl =
+          position.side === "long"
+            ? (exitPrice - position.entry_price) * (position.notional / position.entry_price)
+            : (position.entry_price - exitPrice) * (position.notional / position.entry_price);
+        cash += pnl;
+        closedTrades.push({
+          side: position.side,
+          entry_price: position.entry_price,
+          exit_price: exitPrice,
+          entry_date: position.entry_date,
+          exit_date: bar.date,
+          realized_pnl: pnl,
+          exit_reason: "llm_exit", // production uses 'stagnant_no_excursion'; backtest enum is narrower — keep llm_exit + reason text
+          hold_bars: i - position.entry_index,
+          entry_reasoning: position.entry_reasoning,
+          exit_reasoning: `(stagnant exit — ${stagCheck.reason ?? "deeply stuck"})`,
+          entry_regime: position.entry_regime,
+          exit_regime: regime,
+          regime_flipped_during_trade: regime !== position.entry_regime,
+          r_multiple: computeRMultiple(position.side, position.entry_price, position.stop_price, exitPrice),
+        });
+        equityHigh = Math.max(equityHigh, cash);
+        maxDrawdown = Math.max(maxDrawdown, ((equityHigh - cash) / equityHigh) * 100);
+        position = null;
+        gateRefusals.stagnant_exits++;
+      }
+    }
 
     // 1) Check for SL/TP fill on the current bar (if in position).
     if (position) {
@@ -746,8 +906,57 @@ export async function runWindow(opts: WindowOptions): Promise<WindowResult> {
       had_position: position ? position.side : "flat",
     });
 
-    // 3) Apply decision.
-    if (decision.decision === "enter_long" && !position) {
+    // 3) Apply decision. Production gates run BEFORE the open in this
+    //    order: ATR liquidity → news veto → consec-loss halt →
+    //    FTMO consistency halt → (LLM call already done) → spread gate
+    //    (live-only). Mirrors evaluateLlmTraderEntry's gate ladder.
+    const isEntry =
+      decision.decision === "enter_long" || decision.decision === "enter_short";
+    let entryBlockedReason: string | null = null;
+    if (isEntry && !position) {
+      // ATR liquidity
+      const atrCheck = checkAtrLiquidity(bars, i);
+      if (atrCheck.skip) {
+        entryBlockedReason = `atr_liquidity: ${atrCheck.reason ?? "below percentile"}`;
+        gateRefusals.atr_liquidity++;
+      }
+      // News veto — refuse entries within 5min before / 15min after
+      // tier-1 USD releases. Same gate as production for XAU/USD.
+      if (!entryBlockedReason && PRODUCTION_GATES.news_veto.enabled && newsEvents.length > 0) {
+        const blockingEvent = isWithinVetoWindow(
+          new Date(bar.date),
+          newsEvents,
+          newsCurrencies,
+          PRODUCTION_GATES.news_veto.block_minutes_before,
+          PRODUCTION_GATES.news_veto.block_minutes_after,
+          PRODUCTION_GATES.news_veto.min_impact
+        );
+        if (blockingEvent) {
+          entryBlockedReason = `news_veto: within window of ${blockingEvent.currency} ${blockingEvent.event} at ${blockingEvent.time}`;
+          gateRefusals.news_veto++;
+        }
+      }
+      // Consec-loss halt — 3 strikes/day
+      if (!entryBlockedReason) {
+        const todayUtc = bar.date.slice(0, 10);
+        const streak = consecLossStreakOnDate(closedTrades, todayUtc);
+        if (streak >= PRODUCTION_GATES.prop_firm.consecutive_loss_daily_halt) {
+          entryBlockedReason = `consec_loss_halt: ${streak} consecutive ≥0.5R losses today`;
+          gateRefusals.consec_loss_halt++;
+        }
+      }
+      // FTMO consistency halt — 40% rule
+      if (!entryBlockedReason) {
+        const todayUtc = bar.date.slice(0, 10);
+        const cst = consistencyHaltState(closedTrades, todayUtc);
+        if (cst.tripped) {
+          entryBlockedReason = `ftmo_consistency_halt: today/total = ${(cst.ratio * 100).toFixed(0)}% ≥ ${PRODUCTION_GATES.prop_firm.consistency_rule}%`;
+          gateRefusals.ftmo_consistency_halt++;
+        }
+      }
+    }
+
+    if (decision.decision === "enter_long" && !position && !entryBlockedReason) {
       const stop = bar.close * (1 - SL_PCT);
       const target = bar.close * (1 + TP_PCT);
       const notional = capital * 0.5;
@@ -762,7 +971,7 @@ export async function runWindow(opts: WindowOptions): Promise<WindowResult> {
         entry_reasoning: decision.reasoning,
         entry_regime: regime,
       };
-    } else if (decision.decision === "enter_short" && !position) {
+    } else if (decision.decision === "enter_short" && !position && !entryBlockedReason) {
       const stop = bar.close * (1 + SL_PCT);
       const target = bar.close * (1 - TP_PCT);
       const notional = capital * 0.5;
@@ -859,6 +1068,7 @@ export async function runWindow(opts: WindowOptions): Promise<WindowResult> {
     numBars,
     windowLabel,
     promptVersion,
+    gateRefusals,
   };
 }
 
