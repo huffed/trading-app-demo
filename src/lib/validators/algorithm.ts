@@ -229,6 +229,14 @@ const dxyFilterSchema = z.object({
   block_neutral: z.boolean().optional(),
 });
 
+const llmTraderSchema = z.object({
+  enabled: z.boolean(),
+  provider: z.enum(["anthropic", "groq"]),
+  model: z.string().optional(),
+  prompt_version: z.literal("v1").optional(),
+  dry_run: z.boolean().optional(),
+});
+
 const entryLogicSchema = z.union([
   z.literal("all"),
   z.literal("any"),
@@ -323,6 +331,7 @@ export const algorithmRulesSchema = z.object({
   trailing_stop: trailingStopSchema.optional(),
   breakeven_move: breakevenMoveSchema.optional(),
   dxy_filter: dxyFilterSchema.optional(),
+  llm_trader: llmTraderSchema.optional(),
   time_filter: timeFilterSchema.optional(),
 });
 

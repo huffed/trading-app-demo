@@ -44,6 +44,7 @@ import { checkConsecutiveLossHalt } from "./consec-loss-halt";
 import { checkConsistencyHalt } from "./consistency-halt";
 import { calculatePositionSize, calculateRiskPrices, logActivity } from "./helpers";
 import { executeLiveEntry, type BrokerExecutionContext } from "./live-execution";
+import { evaluateLlmTrader, type LlmTraderContext } from "./llm-trader";
 import { getPerHourStats } from "./per-hour-stats";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -469,6 +470,28 @@ export async function evaluateEntry(
   cappedReason?: string | null
 ): Promise<{ opened: number; openEvent?: PositionEvent }> {
   const rules = algo.rules;
+
+  // LLM-trader path — discretionary AI replaces pattern-detect + threshold.
+  // Validated on Anthropic Haiku 4.5 across 3 historical 60d windows
+  // (20 trades · 65% WR · +20.2% · 0.75% peak DD). See llm-trader.ts +
+  // commit 2bea3f3 for the full prompt + iteration history.
+  if (rules.llm_trader?.enabled) {
+    return evaluateLlmTraderEntry(
+      supabase,
+      userId,
+      algo,
+      ticker,
+      bars,
+      closes,
+      allOpenPositions,
+      livePrice,
+      brokerCtx,
+      dailyBars,
+      dxyBars,
+      cappedReason
+    );
+  }
+
   // Use real-time price for entry, fall back to latest daily close
   const currentPrice = livePrice ?? closes[closes.length - 1];
 
@@ -800,6 +823,271 @@ export async function evaluateEntry(
     allOpenPositions,
     brokerCtx ?? null,
     convictionMult,
+    bars
+  );
+}
+
+/**
+ * LLM-trader entry path — siblings of evaluateEntry. Replaces the
+ * pattern-detect + threshold pipeline (entry_conditions check + sentiment)
+ * with an LLM call that determines direction (long/short/hold/exit)
+ * from rich market context.
+ *
+ * Defensive pre-gates that still apply on top: intraday ATR liquidity,
+ * news veto, R-aware consec-loss halt, time-of-day filter (if enabled),
+ * FTMO consistency halt (live), broker spread gate (live), position-size
+ * sanity gate (in openPosition).
+ *
+ * Strategy-specific filters skipped: dxy_filter, regime_filter, adx_filter
+ * — the LLM already considers DXY / regime / trend in its prompt context,
+ * applying the gates would be double-counting. The user can re-enable
+ * via rules if they want stricter behaviour.
+ */
+async function evaluateLlmTraderEntry(
+  supabase: SupabaseClient,
+  userId: string,
+  algo: AlgoContext,
+  ticker: string,
+  bars: PriceBar[],
+  closes: number[],
+  allOpenPositions: PaperPosition[],
+  livePrice?: number | null,
+  brokerCtx?: BrokerExecutionContext | null,
+  dailyBars?: PriceBar[] | null,
+  dxyBars?: PriceBar[] | null,
+  cappedReason?: string | null
+): Promise<{ opened: number; openEvent?: PositionEvent }> {
+  const rules = algo.rules;
+  const llmConfig = rules.llm_trader;
+  if (!llmConfig?.enabled) return { opened: 0 };
+  const currentPrice = livePrice ?? closes[closes.length - 1];
+
+  // ---- Defensive pre-gates (mirror evaluateEntry) ----
+
+  const liquidity = checkAtrLiquidity(bars, bars.length - 1);
+  if (liquidity.skip) {
+    await logActivity(supabase, userId, {
+      algorithm_id: algo.id,
+      event_type: "signal_no_action",
+      ticker,
+      details: {
+        reason: liquidity.reason ?? "ATR liquidity gate triggered",
+        source: "llm_trader",
+        atr_current: liquidity.atr_current,
+        atr_threshold: liquidity.atr_threshold,
+      },
+    });
+    return { opened: 0 };
+  }
+
+  const veto = await checkNewsVeto(rules, ticker);
+  if (veto.vetoed) {
+    await logActivity(supabase, userId, {
+      algorithm_id: algo.id,
+      event_type: "signal_no_action",
+      ticker,
+      details: { reason: `News veto: ${veto.reason}`, source: "llm_trader" },
+    });
+    return { opened: 0 };
+  }
+
+  const consecHalt = rules.prop_firm?.consecutive_loss_daily_halt ?? 0;
+  if (consecHalt > 0) {
+    const halt = await checkConsecutiveLossHalt(supabase, algo.id, consecHalt);
+    if (halt.tripped) {
+      await logActivity(supabase, userId, {
+        algorithm_id: algo.id,
+        event_type: "signal_no_action",
+        ticker,
+        details: {
+          reason: `Consecutive-loss halt: ${halt.streak}/${halt.threshold} losses today`,
+          source: "llm_trader",
+        },
+      });
+      return { opened: 0 };
+    }
+  }
+
+  const consistencyPct = rules.prop_firm?.consistency_rule ?? 0;
+  if (consistencyPct > 0 && brokerCtx) {
+    const halt = await checkConsistencyHalt(supabase, algo.id, consistencyPct);
+    if (halt.tripped) {
+      await logActivity(supabase, userId, {
+        algorithm_id: algo.id,
+        event_type: "signal_no_action",
+        ticker,
+        details: {
+          reason: `Consistency halt: today $${halt.today_net.toFixed(0)} = ${(halt.ratio * 100).toFixed(1)}% of total $${halt.total_net.toFixed(0)} (≥ ${(halt.threshold * 100).toFixed(0)}% limit)`,
+          source: "llm_trader",
+        },
+      });
+      return { opened: 0 };
+    }
+  }
+
+  // ---- LLM call ----
+
+  const currentPosition =
+    allOpenPositions.find((p) => p.algorithm_id === algo.id && p.ticker === ticker) ?? null;
+  const ctx: LlmTraderContext = {
+    currentTimestamp: bars[bars.length - 1].date,
+    bars,
+    dailyBars: dailyBars ?? [],
+    dxyBars,
+    position: currentPosition
+      ? {
+          side: currentPosition.side,
+          entryPrice: Number(currentPosition.entry_price),
+          entryDate: currentPosition.opened_at,
+          stopPrice: currentPosition.stop_loss_price
+            ? Number(currentPosition.stop_loss_price)
+            : undefined,
+          targetPrice: currentPosition.take_profit_price
+            ? Number(currentPosition.take_profit_price)
+            : undefined,
+        }
+      : null,
+    timeframe: rules.timeframe,
+  };
+  const decision = await evaluateLlmTrader(llmConfig, ctx);
+  if (!decision) {
+    await logActivity(supabase, userId, {
+      algorithm_id: algo.id,
+      event_type: "signal_no_action",
+      ticker,
+      details: { reason: "LLM call failed (after retry)", source: "llm_trader" },
+    });
+    return { opened: 0 };
+  }
+
+  // ---- Decision dispatch ----
+
+  // Hold: log only when not capped (cap path handles its own logging)
+  if (decision.decision === "hold") {
+    if (!cappedReason) {
+      await logActivity(supabase, userId, {
+        algorithm_id: algo.id,
+        event_type: "signal_no_action",
+        ticker,
+        details: {
+          reason: "LLM decision: hold",
+          source: "llm_trader",
+          confidence: decision.confidence,
+          llm_reasoning: decision.reasoning,
+        },
+      });
+    }
+    return { opened: 0 };
+  }
+
+  // Exit: handled by manage-positions tick (TODO — wire LLM into manage flow);
+  // entry path is no-op for exit decisions.
+  if (decision.decision === "exit") {
+    await logActivity(supabase, userId, {
+      algorithm_id: algo.id,
+      event_type: "signal_no_action",
+      ticker,
+      details: {
+        reason: "LLM decision: exit (manage tick will action)",
+        source: "llm_trader",
+        confidence: decision.confidence,
+        llm_reasoning: decision.reasoning,
+      },
+    });
+    return { opened: 0 };
+  }
+
+  // enter_long / enter_short
+  const llmSide: "long" | "short" =
+    decision.decision === "enter_long" ? "long" : "short";
+
+  // Capped: log near-miss with LLM reasoning, don't open
+  if (cappedReason) {
+    await logActivity(supabase, userId, {
+      algorithm_id: algo.id,
+      event_type: "signal_no_action",
+      ticker,
+      details: {
+        reason: cappedReason,
+        source: "llm_trader",
+        would_have_entered_side: llmSide,
+        confidence: decision.confidence,
+        llm_reasoning: decision.reasoning,
+        would_have_entered: true,
+      },
+    });
+    return { opened: 0 };
+  }
+
+  // Dry-run: log but don't open
+  if (llmConfig.dry_run) {
+    await logActivity(supabase, userId, {
+      algorithm_id: algo.id,
+      event_type: "signal_no_action",
+      ticker,
+      details: {
+        reason: "dry_run mode — would have entered",
+        source: "llm_trader",
+        would_have_entered_side: llmSide,
+        confidence: decision.confidence,
+        llm_reasoning: decision.reasoning,
+      },
+    });
+    return { opened: 0 };
+  }
+
+  // Spread gate (live only)
+  if (brokerCtx) {
+    const spread = await checkBrokerSpread(brokerCtx.adapter, brokerCtx.conn, ticker);
+    if (spread.block) {
+      await logActivity(supabase, userId, {
+        algorithm_id: algo.id,
+        event_type: "signal_no_action",
+        ticker,
+        details: {
+          reason: spread.reason ?? "Live spread gate triggered",
+          source: "llm_trader",
+          observed_spread_pips: spread.observed_spread_pips,
+          threshold_pips: spread.threshold_pips,
+        },
+      });
+      return { opened: 0 };
+    }
+  }
+
+  // Log the decision as a real signal_detected with full LLM trace
+  await logActivity(supabase, userId, {
+    algorithm_id: algo.id,
+    event_type: "signal_detected",
+    ticker,
+    details: {
+      source: "llm_trader",
+      direction: llmSide,
+      confidence: decision.confidence,
+      llm_reasoning: decision.reasoning,
+      atr_current: liquidity.atr_current,
+      atr_threshold: liquidity.atr_threshold,
+    },
+  });
+
+  // Open with LLM-determined side. We override rules.side temporarily so
+  // openPosition's side resolution picks up the LLM's call. Other fields
+  // unchanged — sizing, SL/TP, sanity gates all run as normal.
+  const algoForOpen: AlgoContext = {
+    ...algo,
+    rules: { ...algo.rules, side: llmSide },
+  };
+  return openPosition(
+    supabase,
+    userId,
+    algoForOpen,
+    ticker,
+    currentPrice,
+    [],
+    undefined,
+    allOpenPositions,
+    brokerCtx ?? null,
+    1,
     bars
   );
 }

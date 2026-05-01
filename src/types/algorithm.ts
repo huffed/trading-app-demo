@@ -450,6 +450,42 @@ export interface AlgorithmRules {
      *  with rules persisted before mode was added. */
     block_neutral?: boolean;
   };
+
+  /**
+   * LLM-trader mode — discretionary AI trader instead of pattern-detect +
+   * threshold. When enabled, the scan engine bypasses entry_conditions /
+   * exit_conditions evaluation and routes the decision to an LLM call
+   * with rich market context (daily bias, recent bars, intermarket).
+   *
+   * Validated on Anthropic Haiku 4.5 across three non-overlapping 60d
+   * historical windows: 20 trades, 65% WR, +$20,217 (+20.2%), 0.75% peak
+   * DD on XAU/USD 4h. See `feat/llm-trader-mvp` branch + project memory
+   * `project_current_state.md` for full validation evidence.
+   *
+   * Other adaptive gates (intraday ATR, regime, ADX, news veto, consec-
+   * loss halt, FTMO consistency, drift detector, position-size sanity)
+   * still apply on top of LLM decisions — the LLM determines direction
+   * and timing, the gates determine whether to honour or refuse the
+   * decision.
+   */
+  llm_trader?: {
+    enabled: boolean;
+    /** Which provider to use. anthropic = Haiku (validated baseline);
+     *  groq = llama (cheaper but exhibited cliché-matching in early
+     *  tests, may improve with prompt iteration). */
+    provider: "anthropic" | "groq";
+    /** Override the default model. Anthropic default = claude-haiku-4-5;
+     *  groq default = llama-3.3-70b-versatile. */
+    model?: string;
+    /** Prompt version tag. "v1" = the validated structure-first +
+     *  loose-trigger + regime-flip-exit prompt from commit 2bea3f3. */
+    prompt_version?: "v1";
+    /** Dry-run: log the LLM's decision to activity_log but do NOT
+     *  actually open/close positions. Used for the first 1-2 cycles of
+     *  live deployment to verify the LLM behaves sensibly on real-time
+     *  data before trusting it with capital. Default false (live). */
+    dry_run?: boolean;
+  };
 }
 
 // --- Backtest results ---
