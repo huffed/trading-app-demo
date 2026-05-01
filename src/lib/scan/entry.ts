@@ -44,7 +44,7 @@ import { checkConsecutiveLossHalt } from "./consec-loss-halt";
 import { checkConsistencyHalt } from "./consistency-halt";
 import { calculatePositionSize, calculateRiskPrices, logActivity } from "./helpers";
 import { executeLiveEntry, type BrokerExecutionContext } from "./live-execution";
-import { evaluateLlmTrader, type LlmTraderContext } from "./llm-trader";
+import { evaluateLlmTrader, isBarCloseScan, type LlmTraderContext } from "./llm-trader";
 import { getPerHourStats } from "./per-hour-stats";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -861,6 +861,15 @@ async function evaluateLlmTraderEntry(
   const llmConfig = rules.llm_trader;
   if (!llmConfig?.enabled) return { opened: 0 };
   const currentPrice = livePrice ?? closes[closes.length - 1];
+
+  // Bar-close gate: only call the LLM at primary-TF bar-close moments.
+  // The scan-cron fires every 15 min but mid-bar calls would feed the
+  // LLM partial-bar context, diverging from how the backtest evaluated.
+  // For 4h algos this means the LLM fires ~6 times/day (00/04/08/12/16/20
+  // UTC); intermediate scan ticks silently skip.
+  if (!isBarCloseScan(rules.timeframe)) {
+    return { opened: 0 };
+  }
 
   // ---- Defensive pre-gates (mirror evaluateEntry) ----
 

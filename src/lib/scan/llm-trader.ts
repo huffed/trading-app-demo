@@ -331,6 +331,44 @@ async function callGroq(
   return parsed.success ? parsed.data : null;
 }
 
+/**
+ * Check whether the current wall-clock time is at a bar-close moment for
+ * the given primary timeframe. The scan-cron runs every 15 min, but the
+ * LLM should only evaluate at primary-TF bar-close to match how the
+ * backtest harness evaluated. Otherwise live calls happen mid-bar with
+ * partial data — the LLM's context is half-formed, decisions diverge
+ * from backtest.
+ *
+ * Returns true if "now" is within the first 15 minutes after a bar-close
+ * boundary for the timeframe. Forex/gold markets close at UTC midnight
+ * so daily uses 00:00 UTC.
+ */
+export function isBarCloseScan(timeframe: string, now: Date = new Date()): boolean {
+  const minute = now.getUTCMinutes();
+  const hour = now.getUTCHours();
+  const tf = timeframe.toLowerCase();
+  switch (tf) {
+    case "4h":
+      // 4h bars close at 00:00, 04:00, 08:00, 12:00, 16:00, 20:00 UTC
+      return minute < 15 && hour % 4 === 0;
+    case "1h":
+      // Hourly bars close every :00
+      return minute < 15;
+    case "30m":
+      return minute < 15 || (minute >= 30 && minute < 45);
+    case "15m":
+      // Every quarter-hour
+      return true;
+    case "1d":
+    case "1day":
+      // Daily bar closes at 00:00 UTC
+      return minute < 15 && hour === 0;
+    default:
+      // Unknown TF — let the LLM run, no harm done
+      return true;
+  }
+}
+
 /** Top-level entry — caller passes the context, gets back a decision (or
  *  null on failure). One-shot retry on transient errors built in. */
 export async function evaluateLlmTrader(
