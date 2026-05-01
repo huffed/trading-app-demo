@@ -7,6 +7,9 @@
  * Checks:
  *  1. Walk-forward stability — at least N windows, ≥ X% green, mean
  *     return ≥ FTMO target × (window/180), worst-window DD ≤ Y%.
+ *     For LLM-trader algos, the standard WF engine fires zero trades
+ *     (entry_conditions are empty by design), so we read a cached WF
+ *     result populated by scripts/llm-trader-walk-forward.ts instead.
  *  2. Pair quality — no watchlisted pair sits at <30% WR / 8+ trades
  *     (the auto-pair-pruning trigger). Already-pruned pairs note them
  *     as a positive signal.
@@ -74,6 +77,23 @@ interface WalkForwardSummary {
   mean_drawdown: number;
   win_rate_of_windows: number;
   windows: { total_return: number; max_drawdown: number }[];
+}
+
+/** Cache shape written by `scripts/llm-trader-walk-forward.ts` to
+ *  `algorithms.llm_walk_forward_cache` when ALGO_ID is provided. The
+ *  `summary` block matches `WalkForwardSummary` exactly so we can pass
+ *  it straight to `walkForwardCheck` without translation. */
+interface LlmWalkForwardCache {
+  generated_at: string;
+  provider: string;
+  model: string;
+  prompt_version: string;
+  timeframe: string;
+  window_days: number;
+  window_count: number;
+  end_date: string;
+  capital: number;
+  summary: WalkForwardSummary;
 }
 
 function walkForwardCheck(
@@ -228,6 +248,20 @@ interface ReadinessOptions {
   stepDays?: number;
 }
 
+/** Build the walk-forward summary for an LLM-trader algorithm by reading
+ *  its cached WF result. Returns null if no cache present (caller emits
+ *  a "needs WF run" caution). The cache is populated by
+ *  `scripts/llm-trader-walk-forward.ts` with ALGO_ID set. */
+function llmWalkForwardSummary(
+  cache: LlmWalkForwardCache | null
+): { wf: WalkForwardSummary; effectiveWindowDays: number } | null {
+  if (!cache) return null;
+  return {
+    wf: cache.summary,
+    effectiveWindowDays: cache.window_days,
+  };
+}
+
 /**
  * Run all readiness checks against an algorithm. The supabase client is
  * the caller's responsibility — admin-client for the cron path, session-
@@ -245,7 +279,13 @@ export async function runReadinessCheck(
 
   const algoRes = await supabase.from("algorithms").select("*").eq("id", algorithmId).single();
   const algo = algoRes.data as
-    | { rules: AlgorithmRules; capital: number; user_id: string; name: string }
+    | {
+        rules: AlgorithmRules;
+        capital: number;
+        user_id: string;
+        name: string;
+        llm_walk_forward_cache: LlmWalkForwardCache | null;
+      }
     | null;
   if (algoRes.error || !algo) return { ok: false, error: "Algorithm not found" };
 
@@ -255,25 +295,59 @@ export async function runReadinessCheck(
     .eq("algorithm_id", algorithmId);
   const tickers = ((wlRes.data ?? []) as { ticker: string }[]).map((r) => r.ticker.toUpperCase());
 
-  const interval = timeframeToInterval(algo.rules.timeframe);
-  const pricesByTicker = new Map<string, Awaited<ReturnType<typeof fetchDailyPrices>>>();
-  for (const ticker of tickers) {
-    let prices = await getCachedPrices(ticker, "full", interval);
-    if (!prices) {
-      try {
-        prices = await fetchDailyPrices(ticker, "full", interval);
-        savePricesToCache(ticker, "full", prices, interval).catch(() => {});
-      } catch {
-        continue;
-      }
+  // Walk-forward dispatch: standard pattern-based path OR cached LLM-trader
+  // WF. LLM-trader algos have empty entry_conditions so the standard
+  // runWalkForward fires zero trades — we use the cached LLM WF instead,
+  // populated by scripts/llm-trader-walk-forward.ts.
+  const isLlmTrader = algo.rules.llm_trader?.enabled === true;
+  let wf: WalkForwardSummary;
+  let effectiveWindowDays = windowDays;
+  let wfCheck: ReadinessCheckResult;
+
+  if (isLlmTrader) {
+    const llm = llmWalkForwardSummary(algo.llm_walk_forward_cache);
+    if (!llm) {
+      wf = {
+        total_windows: 0,
+        mean_win_rate: 0,
+        mean_return: 0,
+        mean_drawdown: 0,
+        win_rate_of_windows: 0,
+        windows: [],
+      };
+      wfCheck = {
+        name: "walk_forward_stability",
+        severity: "caution",
+        reason:
+          "LLM-trader has no cached walk-forward result. Run `ALGO_ID=<id> pnpm dlx tsx scripts/llm-trader-walk-forward.ts` to populate the cache, then re-run readiness.",
+        evidence: { llm_trader: true, cache_present: false },
+      };
+    } else {
+      wf = llm.wf;
+      effectiveWindowDays = llm.effectiveWindowDays;
+      wfCheck = walkForwardCheck(wf, algo.capital, effectiveWindowDays);
     }
-    if (prices && prices.length >= 30) pricesByTicker.set(ticker, prices);
+  } else {
+    const interval = timeframeToInterval(algo.rules.timeframe);
+    const pricesByTicker = new Map<string, Awaited<ReturnType<typeof fetchDailyPrices>>>();
+    for (const ticker of tickers) {
+      let prices = await getCachedPrices(ticker, "full", interval);
+      if (!prices) {
+        try {
+          prices = await fetchDailyPrices(ticker, "full", interval);
+          savePricesToCache(ticker, "full", prices, interval).catch(() => {});
+        } catch {
+          continue;
+        }
+      }
+      if (prices && prices.length >= 30) pricesByTicker.set(ticker, prices);
+    }
+    wf = runWalkForward(algo.rules, pricesByTicker, algo.capital, {
+      testWindowDays: windowDays,
+      stepDays,
+    });
+    wfCheck = walkForwardCheck(wf, algo.capital, windowDays);
   }
-  const wf = runWalkForward(algo.rules, pricesByTicker, algo.capital, {
-    testWindowDays: windowDays,
-    stepDays,
-  });
-  const wfCheck = walkForwardCheck(wf, algo.capital, windowDays);
 
   const pairStatsMap = await getAllPairStats(supabase, algorithmId);
   const pairStats = Array.from(pairStatsMap.values());
