@@ -57,7 +57,11 @@ import {
 /** Production gate config — mirrors the deployed algorithm's rules so
  *  the backtest exercises exactly what live would. Tracks the deployed
  *  Gold LLM-Trader v1 row's rules (see scripts/deploy-llm-trader.ts).
- *  Deviations from this would mean backtest stats overstate live. */
+ *  Deviations from this would mean backtest stats overstate live.
+ *
+ *  Operator path: FTMO 2-step challenge (no consistency rule). Set
+ *  consistency_rule = 0 to disable. If switching back to 1-step, set
+ *  to 40 (and update the deployed algo's rules.prop_firm to match). */
 const PRODUCTION_GATES = {
   stagnant_exit: {
     enabled: true,
@@ -66,7 +70,7 @@ const PRODUCTION_GATES = {
     min_excursion_r: 0.1,
   },
   prop_firm: {
-    consistency_rule: 40,
+    consistency_rule: 0, // 2-step path — no best-day rule
     consecutive_loss_daily_halt: 3,
     max_consecutive_losses: 0,
     daily_loss_limit: 5,
