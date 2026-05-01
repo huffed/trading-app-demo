@@ -49,8 +49,26 @@ function NoTradesExplanation() {
   );
 }
 
+/** `backtest_results` is JSONB on the algorithm row, so any field can be
+ *  absent depending on which engine produced the row (single-ticker
+ *  backtest, portfolio backtest, LLM-trader walk-forward summary, hand-
+ *  populated baselines for drift detection). The component must render
+ *  without crashing on any subset of fields. Numeric fields fall back to
+ *  0; the dash-marker ("—") is reserved for fields that are
+ *  deliberately not computable from the source (e.g. Sharpe on a row
+ *  populated only with aggregate WF stats). */
+function format(n: number | undefined | null, suffix: string, decimals = 2): string {
+  if (n == null || !Number.isFinite(n)) return "—";
+  return `${n.toFixed(decimals)}${suffix}`;
+}
+
 export function BacktestResultsDisplay({ results, symbol }: BacktestResultsDisplayProps) {
-  const noTrades = results.total_trades === 0;
+  const totalTrades = results.total_trades ?? 0;
+  const noTrades = totalTrades === 0;
+  const totalReturn = results.total_return ?? 0;
+  const equityCurve = results.equity_curve ?? [];
+  const prices = results.prices ?? [];
+  const trades = results.trades ?? [];
 
   return (
     <Card>
@@ -63,13 +81,13 @@ export function BacktestResultsDisplay({ results, symbol }: BacktestResultsDispl
         <div className="grid grid-cols-3 gap-4 sm:grid-cols-5">
           <StatItem
             label="Total Return"
-            value={`$${results.total_return.toFixed(2)}`}
-            colorValue={results.total_return}
+            value={`$${totalReturn.toFixed(2)}`}
+            colorValue={totalReturn}
           />
-          <StatItem label="Max Drawdown" value={`${results.max_drawdown}%`} />
-          <StatItem label="Sharpe Ratio" value={results.sharpe_ratio.toString()} />
-          <StatItem label="Win Rate" value={`${results.win_rate}%`} />
-          <StatItem label="Total Trades" value={results.total_trades.toString()} />
+          <StatItem label="Max Drawdown" value={format(results.max_drawdown, "%")} />
+          <StatItem label="Sharpe Ratio" value={format(results.sharpe_ratio, "", 2)} />
+          <StatItem label="Win Rate" value={format(results.win_rate, "%", 1)} />
+          <StatItem label="Total Trades" value={totalTrades.toString()} />
         </div>
         {results.open_position && (
           <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 space-y-1">
@@ -92,11 +110,9 @@ export function BacktestResultsDisplay({ results, symbol }: BacktestResultsDispl
         )}
         {results.prop_firm_report && <PropFirmReportCard report={results.prop_firm_report} />}
         {noTrades && !results.open_position && <NoTradesExplanation />}
-        {!noTrades && results.prices?.length > 0 && (
-          <TradeChart prices={results.prices} trades={results.trades ?? []} />
-        )}
-        {!noTrades && (!results.prices || results.prices.length === 0) && (
-          <EquityCurveChart data={results.equity_curve} />
+        {!noTrades && prices.length > 0 && <TradeChart prices={prices} trades={trades} />}
+        {!noTrades && prices.length === 0 && equityCurve.length >= 2 && (
+          <EquityCurveChart data={equityCurve} />
         )}
       </CardContent>
     </Card>
