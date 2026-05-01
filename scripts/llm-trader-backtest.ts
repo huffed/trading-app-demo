@@ -33,8 +33,9 @@
  *   30m = 2880 calls = ~1.5M tokens (Dev tier required)
  *   15m = 5760 calls = ~3M tokens (Dev tier or higher)
  */
-import { readFileSync } from "fs";
+import { readFileSync, writeFileSync } from "fs";
 import { z } from "zod";
+import Anthropic from "@anthropic-ai/sdk";
 import { AI_MODEL, getAIClient } from "../src/lib/ai/client";
 import { fetchDailyPrices } from "../src/lib/market-data/prices";
 import { resampleTo } from "../src/lib/market-data/resample";
@@ -70,6 +71,7 @@ interface OpenPosition {
   stop_price: number;
   target_price: number;
   notional: number;
+  entry_reasoning: string;
 }
 
 interface ClosedTrade {
@@ -81,18 +83,56 @@ interface ClosedTrade {
   realized_pnl: number;
   exit_reason: "stop_loss" | "take_profit" | "llm_exit";
   hold_bars: number;
-  reasoning: string;
+  entry_reasoning: string;
+  exit_reasoning: string;
 }
 
-const SYSTEM_PROMPT = `You are a gold (XAU/USD) discretionary trader on 4h. Take only HIGH-CONVICTION setups; most bars should be "hold". Align with daily trend. Long on bullish bias + bullish 4h trigger (sweep+reversal, engulfing/pin at level, BOS+retest, pullback to MA/FVG). Short on bearish mirror. Pass when sideways.
+const SYSTEM_PROMPT = `You are a gold (XAU/USD) discretionary trader on 4h. Take only HIGH-CONVICTION setups; most bars should be "hold".
 
-Intermarket context (factor in):
-- DXY rising = headwind for gold longs (dollar strength)
-- 10Y yields rising = headwind for gold (real-rate pressure)
+BIAS HIERARCHY — apply in strict priority order:
+1. RECENT STRUCTURE (HH = bullish regime; LH = bearish regime; RANGING = neutral). Structure is the PRIMARY regime indicator. It leads everything else.
+2. Close vs SMA20 = secondary confluence ONLY. If structure conflicts with SMA20, STRUCTURE WINS. SMA20 is slow and lagging — it confirms the regime after the fact, it does not define it.
+3. Intermarket (DXY / 10Y yield / VIX / silver) = modifiers that affect setup quality, NEVER primary direction.
+
+REGIME RULES — these are absolute, not heuristics:
+- LH regime: only SHORT setups are valid. Do not take longs even if close > SMA20 — that's a counter-trend trade against falling structure.
+- HH regime: only LONG setups are valid. Do not take shorts even if close < SMA20.
+- RANGING regime: hold by default. Fades at range extremes are the only valid setups.
+
+If you find yourself wanting to take a trade against the structure regime, the answer is "hold". Wait for the regime to flip.
+
+REGIME-FLIP EXIT (applies when in a position):
+- Long position + regime flips from HH to LH → EXIT at this bar's close. Do not wait for SL. The regime flip IS the exit signal.
+- Short position + regime flips from LH to HH → EXIT at this bar's close. Same rule.
+- Long/short + regime goes to RANGING → hold but reduce conviction; consider exit if 4h shows clear thesis breakdown.
+The regime is your edge. When it flips, your edge is gone — get out.
+
+Triggers — once regime is established, look for ANY of these (don't wait for perfect confirmation; if structure aligns and you see one of these, take the trade):
+
+Long triggers (HH regime ONLY):
+- Sweep of recent swing low + bullish reversal candle
+- Bullish engulfing or pin bar at structural support
+- Bullish BOS + retest of breakout level
+- Pullback into 4h SMA20 / FVG / OB and stalling
+- Rally retracement to 20-bar mid + 3-bar bullish momentum confirming up
+
+Short triggers (LH regime ONLY) — be willing to take these even without perfect pattern confirmation:
+- Rally of >0.5% into the upper third of the 20-bar range (count this as a valid short setup, the rejection-from-resistance is implied by the regime)
+- Sweep of recent 4h swing high + close back below it
+- Bearish engulfing, pin bar, or three black crows at swing high
+- Bearish BOS + retest of broken support as resistance
+- Rally into 4h SMA20 from below (especially if 20-bar mid acts as resistance)
+- Rally into recent swing high (within 1.5% of 20-bar high) in any LH bar with weakening momentum or confluent intermarket headwinds (rising DXY / rising 10Y / rising VIX)
+
+Calibration: a "rally into resistance during LH regime" with EITHER a structural rejection sign OR confluent intermarket headwinds is sufficient. Do not wait for textbook-perfect engulfing patterns — those are rare. The regime is the edge; the trigger is just the entry timing.
+
+Intermarket guidance:
+- DXY rising = gold headwind (worse for longs, better for shorts)
+- 10Y yields rising = gold headwind
 - VIX rising = risk-off = gold tailwind (safe haven flows)
-- Gold-silver ratio rising = gold leading (often late-cycle bullish); falling = silver leading (often broad risk-on)
+- Gold/silver ratio rising = gold leading; falling = silver leading
 
-Hold winners through normal pullbacks; exit only on structural thesis break. SL/TP are fixed (1.5%/4.5%); your job is direction + timing.
+Hold winners through normal pullbacks; exit only on STRUCTURAL thesis break (e.g., HH→LH flip while long, or LH→HH while short — see Regime-Flip Exit above). SL/TP are fixed (1.5%/4.5%); your job is direction + timing.
 
 Output JSON: {"decision": "enter_long"|"enter_short"|"hold"|"exit", "confidence": 0-100, "reasoning": "1 short sentence"}. "hold" = maintain; "exit" only valid when in a position.`;
 
@@ -108,11 +148,23 @@ function summariseDailyBias(dailyBars: PriceBar[]): string {
   const high14 = Math.max(...recent.map((b) => b.high));
   const low14 = Math.min(...recent.map((b) => b.low));
   // Recent structural read: are we making higher highs (HH) or lower highs (LH)?
+  // Compare highest of last 3 daily bars to highest of the 4 bars before that.
   const last3High = Math.max(...recent.slice(-3).map((b) => b.high));
   const prev3High = Math.max(...recent.slice(-7, -3).map((b) => b.high));
-  const structure = last3High > prev3High ? "HH" : "LH";
-  const above = last.close > sma20 ? "above" : "below";
-  return `D1: close ${last.close.toFixed(0)} ${above} SMA20 ${sma20.toFixed(0)}, 14d ${greenDays}G/${14 - greenDays}R, range ${low14.toFixed(0)}-${high14.toFixed(0)}, structure ${structure}.`;
+  // Also compare lows for a more complete picture; ranging if highs and lows
+  // disagree (one trending, the other ranging). Conservative tag.
+  const last3Low = Math.min(...recent.slice(-3).map((b) => b.low));
+  const prev3Low = Math.min(...recent.slice(-7, -3).map((b) => b.low));
+  let structure: "HH" | "LH" | "RANGING";
+  if (last3High > prev3High && last3Low > prev3Low) structure = "HH";
+  else if (last3High < prev3High && last3Low < prev3Low) structure = "LH";
+  else structure = "RANGING";
+  // Lead with structure (the primary regime indicator per the prompt
+  // hierarchy). Present SMA20 as raw data, not a "(bullish/bearish)" label,
+  // so the LLM applies the hierarchy explicitly rather than anchoring on
+  // the indicator alone.
+  const smaPct = ((last.close - sma20) / sma20) * 100;
+  return `D1 structure: ${structure}. Close ${last.close.toFixed(0)} (${smaPct >= 0 ? "+" : ""}${smaPct.toFixed(2)}% vs SMA20 ${sma20.toFixed(0)}). 14d ${greenDays}G/${14 - greenDays}R. Range ${low14.toFixed(0)}-${high14.toFixed(0)}.`;
 }
 
 function computeAtr(bars: PriceBar[], period: number, idx: number): number {
@@ -251,26 +303,83 @@ function summarisePosition(position: OpenPosition | null, currentPrice: number):
   return `${position.side.toUpperCase()} from ${position.entry_price.toFixed(0)}, cur ${currentPrice.toFixed(0)}, P&L ${pnlPct >= 0 ? "+" : ""}${pnlPct.toFixed(2)}%, SL ${position.stop_price.toFixed(0)}/TP ${position.target_price.toFixed(0)}.`;
 }
 
-async function callLLM(
+type Provider = "groq" | "anthropic";
+
+interface ProviderClients {
+  groq?: ReturnType<typeof getAIClient>;
+  anthropic?: Anthropic;
+}
+
+const ANTHROPIC_MODEL = "claude-haiku-4-5-20251001";
+
+/** Robust JSON extractor — Anthropic occasionally prefaces JSON with
+ *  prose despite the prompt, so we strip to the first { ... } block. */
+function extractJson(text: string): unknown {
+  const trimmed = text.trim();
+  // Direct JSON
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    /* fall through */
+  }
+  // First {...} block
+  const match = trimmed.match(/\{[\s\S]*\}/);
+  if (match) {
+    try {
+      return JSON.parse(match[0]);
+    } catch {
+      /* give up */
+    }
+  }
+  return null;
+}
+
+async function callGroq(
   client: ReturnType<typeof getAIClient>,
   context: string
 ): Promise<Decision | null> {
+  const res = await client.chat.completions.create({
+    model: AI_MODEL,
+    messages: [
+      { role: "system", content: SYSTEM_PROMPT },
+      { role: "user", content: context },
+    ],
+    response_format: { type: "json_object" },
+    max_tokens: 128,
+    temperature: 0.2,
+  });
+  const text = res.choices[0]?.message?.content ?? "{}";
+  const raw = extractJson(text);
+  const parsed = decisionSchema.safeParse(raw);
+  return parsed.success ? parsed.data : null;
+}
+
+async function callAnthropic(client: Anthropic, context: string): Promise<Decision | null> {
+  const res = await client.messages.create({
+    model: ANTHROPIC_MODEL,
+    max_tokens: 200,
+    system: SYSTEM_PROMPT,
+    messages: [{ role: "user", content: context }],
+  });
+  const block = res.content[0];
+  const text = block && block.type === "text" ? block.text : "{}";
+  const raw = extractJson(text);
+  const parsed = decisionSchema.safeParse(raw);
+  return parsed.success ? parsed.data : null;
+}
+
+async function callLLM(
+  provider: Provider,
+  clients: ProviderClients,
+  context: string
+): Promise<Decision | null> {
   try {
-    const res = await client.chat.completions.create({
-      model: AI_MODEL,
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: context },
-      ],
-      response_format: { type: "json_object" },
-      max_tokens: 128,
-      temperature: 0.2,
-    });
-    const text = res.choices[0]?.message?.content ?? "{}";
-    const raw = JSON.parse(text);
-    const parsed = decisionSchema.safeParse(raw);
-    if (!parsed.success) return null;
-    return parsed.data;
+    if (provider === "anthropic") {
+      if (!clients.anthropic) throw new Error("anthropic client not initialised");
+      return await callAnthropic(clients.anthropic, context);
+    }
+    if (!clients.groq) throw new Error("groq client not initialised");
+    return await callGroq(clients.groq, context);
   } catch (err) {
     console.error("LLM call failed:", err instanceof Error ? err.message : err);
     return null;
@@ -299,6 +408,13 @@ async function main(): Promise<void> {
   const sliceDays = Number(process.env.SLICE_DAYS ?? "60");
   const capital = Number(process.env.CAPITAL ?? "100000");
   const timeframe = (process.env.TIMEFRAME ?? "4h").toLowerCase();
+  // SLICE_END_DATE optional: end the slice at this date instead of "now".
+  // Lets us replay arbitrary historical windows for cross-regime validation
+  // (e.g. test that the LLM-trader's edge isn't lucky for the most-recent
+  // 60d). Format: YYYY-MM-DD.
+  const sliceEndStr = process.env.SLICE_END_DATE;
+  const sliceEndMs = sliceEndStr ? new Date(`${sliceEndStr}T23:59:59Z`).getTime() : Date.now();
+  if (Number.isNaN(sliceEndMs)) throw new Error(`Invalid SLICE_END_DATE=${sliceEndStr}`);
   // BarInterval supports "15min" | "1h" | "4h" | "1day". For 4h and 30m
   // we fetch a finer interval and resample via resampleTo. For 1h and
   // 15m we fetch directly.
@@ -338,15 +454,19 @@ async function main(): Promise<void> {
   );
   console.log("");
 
-  // Slice 4h bars to last N days but keep daily history (need 21 bars for SMA20).
-  const cutoffMs = Date.now() - sliceDays * 24 * 3600 * 1000;
+  // Slice bars to [end - sliceDays, end]. End defaults to "now" but can be
+  // overridden via SLICE_END_DATE for historical-window validation.
+  const cutoffMs = sliceEndMs - sliceDays * 24 * 3600 * 1000;
   const startIdx = bars.findIndex((b) => new Date(b.date).getTime() >= cutoffMs);
   if (startIdx === -1) throw new Error(`no ${timeframe} bars in slice window`);
-
-  const numBars = bars.length - startIdx;
+  const endIdxExclusive = bars.findIndex((b) => new Date(b.date).getTime() > sliceEndMs);
+  const lastIdx = endIdxExclusive === -1 ? bars.length : endIdxExclusive;
+  const numBars = lastIdx - startIdx;
+  if (numBars <= 0) throw new Error(`empty slice — check SLICE_END_DATE / SLICE_DAYS`);
   // ~530 tokens/call rough estimate post-compression (~430 input + ~100 output)
   const estTokens = numBars * 530;
-  console.log(`Replaying ${numBars} ${timeframe} bars (last ${sliceDays} days)...`);
+  const windowLabel = sliceEndStr ? `${sliceEndStr} − ${sliceDays}d` : `last ${sliceDays} days`;
+  console.log(`Replaying ${numBars} ${timeframe} bars (${windowLabel}: ${bars[startIdx]?.date.slice(0,10)} → ${bars[lastIdx-1]?.date.slice(0,10)})...`);
   console.log(
     `  Estimated token cost: ~${(estTokens / 1000).toFixed(0)}K tokens (Groq free 100K/day, Dev 6M/day)`
   );
@@ -355,8 +475,29 @@ async function main(): Promise<void> {
   }
   console.log("");
 
-  const client = getAIClient();
+  const provider: Provider = (process.env.PROVIDER ?? "groq").toLowerCase() as Provider;
+  if (provider !== "groq" && provider !== "anthropic") {
+    throw new Error(`Unsupported PROVIDER=${provider}. Use groq or anthropic.`);
+  }
+  console.log(`Using provider: ${provider} (model: ${provider === "anthropic" ? ANTHROPIC_MODEL : AI_MODEL})`);
+  console.log("");
+  const clients: ProviderClients = {};
+  if (provider === "groq") clients.groq = getAIClient();
+  if (provider === "anthropic") {
+    if (!process.env.ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY env var required for anthropic provider");
+    clients.anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  }
   const closedTrades: ClosedTrade[] = [];
+  // Full per-bar decision audit trail (every LLM response, including holds).
+  // Written to scripts/llm-trader-decisions.jsonl at end of run.
+  const decisionLog: Array<{
+    bar_date: string;
+    bar_close: number;
+    decision: string;
+    confidence: number;
+    reasoning: string;
+    had_position: string;
+  }> = [];
   let position: OpenPosition | null = null;
   let cash = capital;
   let equityHigh = capital;
@@ -364,7 +505,7 @@ async function main(): Promise<void> {
   let llmCallCount = 0;
   let llmFailureCount = 0;
 
-  for (let i = startIdx; i < bars.length; i++) {
+  for (let i = startIdx; i < lastIdx; i++) {
     const bar = bars[i];
 
     // 1) Check for SL/TP fill on the current bar (if in position).
@@ -385,7 +526,8 @@ async function main(): Promise<void> {
           realized_pnl: pnl,
           exit_reason: exit.reason,
           hold_bars: i - position.entry_index,
-          reasoning: "(price exit)",
+          entry_reasoning: position.entry_reasoning,
+          exit_reasoning: "(price exit — SL/TP fill)",
         });
         equityHigh = Math.max(equityHigh, cash);
         maxDrawdown = Math.max(maxDrawdown, ((equityHigh - cash) / equityHigh) * 100);
@@ -402,12 +544,22 @@ async function main(): Promise<void> {
 
     const userMessage = `${bar.date.slice(0, 16)}\n${dailyContext}\n${dxyContext}\n${intermarketContext}\n${recentContext}\nPosition: ${positionContext}\nDecide.`;
 
-    const decision = await callLLM(client, userMessage);
+    const decision = await callLLM(provider, clients, userMessage);
     llmCallCount++;
     if (!decision) {
       llmFailureCount++;
       continue;
     }
+
+    // Append to decision log (every bar, even holds — full audit trail)
+    decisionLog.push({
+      bar_date: bar.date,
+      bar_close: bar.close,
+      decision: decision.decision,
+      confidence: decision.confidence,
+      reasoning: decision.reasoning,
+      had_position: position ? position.side : "flat",
+    });
 
     // 3) Apply decision.
     if (decision.decision === "enter_long" && !position) {
@@ -422,6 +574,7 @@ async function main(): Promise<void> {
         stop_price: stop,
         target_price: target,
         notional,
+        entry_reasoning: decision.reasoning,
       };
     } else if (decision.decision === "enter_short" && !position) {
       const stop = bar.close * (1 + SL_PCT);
@@ -435,6 +588,7 @@ async function main(): Promise<void> {
         stop_price: stop,
         target_price: target,
         notional,
+        entry_reasoning: decision.reasoning,
       };
     } else if (decision.decision === "exit" && position) {
       const exitPrice = bar.close;
@@ -452,7 +606,8 @@ async function main(): Promise<void> {
         realized_pnl: pnl,
         exit_reason: "llm_exit",
         hold_bars: i - position.entry_index,
-        reasoning: decision.reasoning,
+        entry_reasoning: position.entry_reasoning,
+        exit_reasoning: decision.reasoning,
       });
       equityHigh = Math.max(equityHigh, cash);
       maxDrawdown = Math.max(maxDrawdown, ((equityHigh - cash) / equityHigh) * 100);
@@ -469,7 +624,7 @@ async function main(): Promise<void> {
 
   // Close any remaining position at the last close.
   if (position) {
-    const lastBar = bars[bars.length - 1];
+    const lastBar = bars[lastIdx - 1];
     const exitPrice = lastBar.close;
     const pnl =
       position.side === "long"
@@ -484,8 +639,9 @@ async function main(): Promise<void> {
       exit_date: lastBar.date,
       realized_pnl: pnl,
       exit_reason: "llm_exit",
-      hold_bars: bars.length - 1 - position.entry_index,
-      reasoning: "(force-close at end of window)",
+      hold_bars: lastIdx - 1 - position.entry_index,
+      entry_reasoning: position.entry_reasoning,
+      exit_reasoning: "(force-close at end of window)",
     });
   }
 
@@ -505,20 +661,28 @@ async function main(): Promise<void> {
   console.log("");
 
   console.log("Trade log (last 15):");
-  console.log(
-    pad("entry", 19) + pad("exit", 19) + pad("side", 7) + pad("$pnl", 9) + pad("hold", 6) + pad("reason", 14) + "why"
-  );
   for (const t of closedTrades.slice(-15)) {
     console.log(
-      pad(t.entry_date.slice(0, 16), 19) +
-        pad(t.exit_date.slice(0, 16), 19) +
-        pad(t.side, 7) +
-        pad(`$${t.realized_pnl.toFixed(0)}`, 9) +
-        pad(`${t.hold_bars}b`, 6) +
-        pad(t.exit_reason, 14) +
-        t.reasoning.slice(0, 80)
+      `  ${t.entry_date.slice(0, 16)} → ${t.exit_date.slice(0, 16)}  ${t.side}  $${t.realized_pnl.toFixed(0)}  ${t.hold_bars}b  ${t.exit_reason}`
     );
+    console.log(`    entry: ${t.entry_reasoning.slice(0, 200)}`);
+    console.log(`    exit : ${t.exit_reasoning.slice(0, 200)}`);
   }
+  console.log("");
+
+  // Decision distribution diagnostic — what % of bars LLM chose each action
+  const dist: Record<string, number> = {};
+  for (const d of decisionLog) dist[d.decision] = (dist[d.decision] ?? 0) + 1;
+  console.log("Decision distribution:");
+  for (const [k, v] of Object.entries(dist)) {
+    console.log(`  ${k.padEnd(14)} ${v} (${((v / decisionLog.length) * 100).toFixed(1)}%)`);
+  }
+  console.log("");
+
+  // Save full audit trail
+  const logPath = `scripts/llm-trader-decisions-${provider}-${timeframe}-${sliceDays}d.jsonl`;
+  writeFileSync(logPath, decisionLog.map((d) => JSON.stringify(d)).join("\n"));
+  console.log(`Decision audit trail: ${logPath} (${decisionLog.length} entries)`);
 }
 
 main().catch((err) => {
