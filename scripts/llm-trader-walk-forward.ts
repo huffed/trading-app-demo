@@ -42,8 +42,15 @@
  *   END_DATE=2026-04-30        (default: now — most recent window ends here,
  *                               earlier windows step back from this date)
  *   CAPITAL=100000             (default: $100K)
+ *   ALGO_ID=<uuid>             (optional — when set, also writes the WF
+ *                               summary to the algorithm's
+ *                               `llm_walk_forward_cache` column so
+ *                               runReadinessCheck can use it without
+ *                               re-running the LLM. Without ALGO_ID the
+ *                               script only writes local JSON files.)
  */
 import { readFileSync, writeFileSync } from "fs";
+import { createClient } from "@supabase/supabase-js";
 import {
   type Corpus,
   type Provider,
@@ -347,6 +354,95 @@ async function main(): Promise<void> {
   const tradesPath = `scripts/llm-trader-wf-trades-${provider}-${timeframe}-${windowCount}x${windowDays}d-${stamp}.jsonl`;
   writeFileSync(tradesPath, allTrades.map((t) => JSON.stringify(t)).join("\n"));
   console.log(`Combined trade log saved: ${tradesPath} (${allTrades.length} trades)`);
+
+  // Build the readiness-cache shape — maps directly to the
+  // WalkForwardSummary that runReadinessCheck consumes. The walkForwardCheck
+  // function in src/lib/scan/readiness-check.ts reads .summary.* directly.
+  const meanDdPerWindow = results.length === 0 ? 0 : results.reduce((s, r) => s + r.maxDrawdown, 0) / results.length;
+  const cacheDoc = {
+    generated_at: new Date().toISOString(),
+    provider,
+    model: provider === "anthropic" ? ANTHROPIC_MODEL : AI_MODEL,
+    prompt_version: "v1" as const,
+    timeframe,
+    window_days: windowDays,
+    window_count: windowCount,
+    end_date: endDateStr ?? new Date(endDateMs).toISOString().slice(0, 10),
+    capital,
+    summary: {
+      total_windows: agg.windows,
+      mean_win_rate: agg.mean_win_rate_pct,
+      mean_return: agg.mean_return_per_window,
+      mean_drawdown: meanDdPerWindow,
+      win_rate_of_windows: agg.green_pct / 100,
+      windows: results.map((r) => ({
+        total_return: r.finalCash - r.capital,
+        max_drawdown: r.maxDrawdown,
+      })),
+    },
+  };
+
+  // If ALGO_ID is set, also upload the cache to the algorithm's row so
+  // runReadinessCheck can read it without re-running the LLM. Skipped
+  // silently if no ALGO_ID — the local JSON file is enough for ad-hoc
+  // analysis.
+  const algoId = process.env.ALGO_ID;
+  if (algoId) {
+    await uploadCacheToAlgorithm(algoId, cacheDoc);
+  } else {
+    console.log("");
+    console.log("(No ALGO_ID set — cache not uploaded. To populate the readiness check,");
+    console.log(" re-run with ALGO_ID=<uuid> or write the cache from the saved summary file.)");
+  }
+}
+
+interface CacheDoc {
+  generated_at: string;
+  provider: Provider;
+  model: string;
+  prompt_version: "v1";
+  timeframe: Timeframe;
+  window_days: number;
+  window_count: number;
+  end_date: string;
+  capital: number;
+  summary: {
+    total_windows: number;
+    mean_win_rate: number;
+    mean_return: number;
+    mean_drawdown: number;
+    win_rate_of_windows: number;
+    windows: { total_return: number; max_drawdown: number }[];
+  };
+}
+
+async function uploadCacheToAlgorithm(algoId: string, cache: CacheDoc): Promise<void> {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !serviceKey) {
+    console.error(
+      "ALGO_ID set but NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY missing in env. Cache NOT uploaded."
+    );
+    return;
+  }
+  const supabase = createClient(supabaseUrl, serviceKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  const { data, error } = await supabase
+    .from("algorithms")
+    .update({ llm_walk_forward_cache: cache })
+    .eq("id", algoId)
+    .select("id, name")
+    .single();
+  if (error || !data) {
+    console.error(`Failed to upload WF cache to algorithm ${algoId}: ${error?.message ?? "unknown"}`);
+    return;
+  }
+  const row = data as { id: string; name: string };
+  console.log("");
+  console.log(`WF cache uploaded to algorithm "${row.name}" (${row.id.slice(0, 8)}).`);
+  console.log(`  ${cache.summary.total_windows} windows · ${cache.summary.mean_win_rate.toFixed(1)}% mean WR · ${(cache.summary.win_rate_of_windows * 100).toFixed(0)}% green · mean DD ${cache.summary.mean_drawdown.toFixed(2)}%`);
+  console.log("Readiness check (/api/admin/readiness-check?id=...) will now use these stats for walk_forward_stability.");
 }
 
 main().catch((err) => {
