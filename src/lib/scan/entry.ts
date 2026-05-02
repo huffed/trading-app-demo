@@ -10,7 +10,7 @@ import { checkAtrLiquidity } from "@/lib/algorithm/intraday-atr-gate";
 import { checkBrokerSpread, type SpreadGateResult } from "@/lib/algorithm/spread-gate";
 import { computeSlDistance, computeTpDistance } from "@/lib/algorithm/structural-sl";
 import { checkTimeOfDayFilter } from "@/lib/algorithm/time-of-day-filter";
-import { getContractSize } from "@/lib/constants/markets";
+import { getContractSize, pnlInUsd } from "@/lib/constants/markets";
 import { isWeakTrendByAdx } from "@/lib/market-data/adx-filter";
 import { resolveSide } from "@/lib/market-data/auto-side";
 import {
@@ -43,7 +43,7 @@ import type { PaperPosition, PositionEvent } from "@/types/position";
 import { checkConsecutiveLossHalt } from "./consec-loss-halt";
 import { checkConsistencyHalt } from "./consistency-halt";
 import { calculatePositionSize, calculateRiskPrices, logActivity } from "./helpers";
-import { executeLiveEntry, type BrokerExecutionContext } from "./live-execution";
+import { executeLiveEntry, executeLiveExit, type BrokerExecutionContext } from "./live-execution";
 import { linkLlmDecisionToPosition, recordLlmDecision } from "./llm-trader-audit";
 import { evaluateLlmTrader, isBarCloseScan, type LlmTraderContext } from "./llm-trader";
 import { getPerHourStats } from "./per-hour-stats";
@@ -1006,16 +1006,74 @@ async function evaluateLlmTraderEntry(
     return { opened: 0 };
   }
 
-  // Exit: handled by manage-positions tick (TODO — wire LLM into manage flow);
-  // entry path is no-op for exit decisions.
+  // Exit: close the position at this bar's close. Mirrors backtest
+  // behaviour — the LLM's "exit" decision is a regime-flip / thesis-
+  // breakdown signal that's the algo's edge for catching turns before
+  // SL fires. Without this branch, "exit" was a logged no-op and
+  // positions ran to SL/TP, costing an estimated $1-3K per 8mo window
+  // on the regime-flip cohort. (Previously TODO'd to manage tick;
+  // simpler to action here where we already have currentPosition.)
   if (decision.decision === "exit") {
+    if (!currentPosition) {
+      // LLM said exit but we're flat — no-op + log. Shouldn't happen
+      // (the prompt instructs "exit only valid when in a position")
+      // but defensive.
+      await logActivity(supabase, userId, {
+        algorithm_id: algo.id,
+        event_type: "signal_no_action",
+        ticker,
+        details: {
+          reason: "LLM decision: exit but no open position",
+          source: "llm_trader",
+          confidence: decision.confidence,
+          llm_reasoning: decision.reasoning,
+        },
+      });
+      return { opened: 0 };
+    }
+    const exitPrice = currentPrice;
+    const realizedPnl = pnlInUsd(
+      ticker,
+      currentPosition.side as "long" | "short",
+      Number(currentPosition.entry_price),
+      exitPrice,
+      Number(currentPosition.quantity)
+    );
+    await supabase
+      .from("paper_positions")
+      .update({
+        current_price: exitPrice,
+        exit_price: exitPrice,
+        unrealized_pnl: 0,
+        realized_pnl: realizedPnl,
+        exit_reason: "exit_signal",
+        status: "closed",
+        closed_at: new Date().toISOString(),
+      })
+      .eq("id", currentPosition.id);
+    if (brokerCtx) {
+      await executeLiveExit({
+        supabase,
+        userId,
+        algorithmId: algo.id,
+        paperPositionId: currentPosition.id,
+        ticker,
+        brokerPositionId: currentPosition.broker_position_id ?? null,
+        closePrice: exitPrice,
+        ctx: brokerCtx,
+      });
+    }
     await logActivity(supabase, userId, {
       algorithm_id: algo.id,
-      event_type: "signal_no_action",
+      position_id: currentPosition.id,
+      event_type: "position_closed",
       ticker,
       details: {
-        reason: "LLM decision: exit (manage tick will action)",
+        reason: "LLM decision: exit",
         source: "llm_trader",
+        exit_price: exitPrice,
+        realized_pnl: realizedPnl,
+        exit_reason: "exit_signal",
         confidence: decision.confidence,
         llm_reasoning: decision.reasoning,
       },
