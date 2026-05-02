@@ -48,7 +48,10 @@ import type { AlgorithmRules } from "../src/types/algorithm";
   }
 }
 
-const DEFAULT_BROKER_CONNECTION_ID = "1bc8dd11-49b6-49ed-861b-d5760a9ae90d";
+// Current $100K FTMO Demo trial (broker `9a79809e-...`). Per-account
+// $50K deploys override via BROKER_CONNECTION_ID env var per
+// project_scaling_plan.
+const DEFAULT_BROKER_CONNECTION_ID = "9a79809e-e6eb-44dd-b0a2-6bf18de3bb7a";
 const DEFAULT_ALGO_NAME = "Gold LLM-Trader v1";
 const DEFAULT_CAPITAL = 100_000;
 const TICKER = "XAU/USD";
@@ -102,7 +105,9 @@ function buildRules(): AlgorithmRules {
     llm_trader: {
       enabled: true,
       provider: "anthropic",
-      prompt_version: "v1",
+      // v2 reframes the →RANGING regime-flip exit; validated 2026-05-01:
+      // 5/6 windows green / +25.4% / 0.76% DD vs v1's +15.8% / 2.25% DD.
+      prompt_version: "v2",
       dry_run: process.env.DRY_RUN_LLM !== "false",
     },
     // dxy_filter / regime_filter / adx_filter intentionally OFF — the
