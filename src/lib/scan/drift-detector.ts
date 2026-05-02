@@ -12,11 +12,13 @@
  * Heuristic:
  *   - Need at least minTrades closed live trades to evaluate.
  *   - "warn" when recent WR is ≥ 15 pp below backtest baseline.
- *   - "halt" when recent WR is ≥ 25 pp below baseline OR recent net
+ *   - "halt" when recent WR is ≥ 20 pp below baseline OR recent net
  *     P&L is negative while backtest baseline was positive.
  *
- * Conservative thresholds — better to skip a flagging on a small
- * unlucky run than to halt prematurely.
+ * Threshold tightened from 25pp → 20pp (2026-05-02) per operator
+ * preference for stricter circuit breaker. Effect: v1 (60% baseline)
+ * halts at <40% live WR; Intraday (30% baseline) halts at <10% live
+ * WR. The sign-flip rule provides additional protection for both.
  */
 import type { BacktestResults } from "@/types/algorithm";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -37,7 +39,7 @@ interface ClosedRow {
 const DEFAULT_MIN_TRADES = 10;
 const DEFAULT_LOOKBACK_TRADES = 25;
 const WARN_WR_DROP_PP = 15;
-const HALT_WR_DROP_PP = 25;
+const HALT_WR_DROP_PP = 20;
 
 export interface DriftConfig {
   minTrades: number;
