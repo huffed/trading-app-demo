@@ -250,8 +250,81 @@ export interface DecisionLogEntry {
   had_position: string;
 }
 
-const SL_PCT = 0.015;
-const TP_PCT = 0.045;
+/** SL/TP profile — controlled by env vars so the same harness can test
+ *  fixed-% (legacy v1/v2) AND structural placement (v3 short-term swing).
+ *  Defaults preserve old behavior (1.5% / 4.5% / 3:1 RR).
+ *
+ *  SL:
+ *    SL_TYPE=percentage|swing_anchor (default: percentage)
+ *    SL_VALUE=<number> — for percentage: SL distance as fraction (0.015
+ *      = 1.5%); for swing_anchor: ATR-buffer multiplier added beyond the
+ *      structural swing (0.25 = 25% of ATR)
+ *    SL_LOOKBACK=<int> — swing_anchor only, default 8
+ *  TP:
+ *    TP_TYPE=percentage|rr_multiple (default: percentage)
+ *    TP_VALUE=<number> — for percentage: TP distance as fraction (0.045
+ *      = 4.5%); for rr_multiple: RR ratio (3 = TP at 3× SL distance) */
+const SL_TYPE = (process.env.SL_TYPE ?? "percentage") as "percentage" | "swing_anchor";
+const SL_VALUE = Number(process.env.SL_VALUE ?? (SL_TYPE === "swing_anchor" ? "0.25" : "0.015"));
+const SL_LOOKBACK = Number(process.env.SL_LOOKBACK ?? "8");
+const TP_TYPE = (process.env.TP_TYPE ?? "percentage") as "percentage" | "rr_multiple";
+const TP_VALUE = Number(process.env.TP_VALUE ?? (TP_TYPE === "rr_multiple" ? "3" : "0.045"));
+
+// Legacy constants — only used in fallback paths if SL_TYPE/TP_TYPE are
+// percentage. Real path is `computeSlForBacktest` / `computeTpForBacktest`.
+const SL_PCT = SL_TYPE === "percentage" ? SL_VALUE : 0.015;
+const TP_PCT = TP_TYPE === "percentage" ? TP_VALUE : 0.045;
+
+/** Compute SL distance for the backtest's entry. For "percentage" returns
+ *  entryPrice × SL_VALUE. For "swing_anchor" looks back SL_LOOKBACK bars
+ *  to find the swing low (long) or high (short), then adds an ATR buffer
+ *  of SL_VALUE × ATR(14) so the SL sits just past the structural level. */
+function computeSlForBacktest(
+  bars: PriceBar[],
+  entryIdx: number,
+  side: "long" | "short",
+  entryPrice: number
+): number {
+  if (SL_TYPE === "percentage") return entryPrice * SL_VALUE;
+  // swing_anchor
+  const start = Math.max(0, entryIdx - SL_LOOKBACK);
+  let level: number;
+  if (side === "long") {
+    let lowest = Infinity;
+    for (let j = start; j <= entryIdx; j++) lowest = Math.min(lowest, bars[j].low);
+    level = lowest;
+  } else {
+    let highest = -Infinity;
+    for (let j = start; j <= entryIdx; j++) highest = Math.max(highest, bars[j].high);
+    level = highest;
+  }
+  const baseDistance = side === "long" ? entryPrice - level : level - entryPrice;
+  if (SL_VALUE <= 0 || baseDistance <= 0) return Math.max(baseDistance, 0);
+  // Inline ATR(14) computation — mirrors src/lib/algorithm/structural-sl.ts
+  // intent. Avoids the production dependency since this script is standalone.
+  const atrPeriod = 14;
+  const atrStart = Math.max(1, entryIdx - atrPeriod + 1);
+  let trSum = 0;
+  let trCount = 0;
+  for (let i = atrStart; i <= entryIdx; i++) {
+    const tr = Math.max(
+      bars[i].high - bars[i].low,
+      Math.abs(bars[i].high - bars[i - 1].close),
+      Math.abs(bars[i].low - bars[i - 1].close)
+    );
+    trSum += tr;
+    trCount++;
+  }
+  const atr = trCount > 0 ? trSum / trCount : 0;
+  return baseDistance + SL_VALUE * atr;
+}
+
+/** Compute TP distance for the backtest's entry. For "percentage" returns
+ *  entryPrice × TP_VALUE. For "rr_multiple" returns slDistance × TP_VALUE. */
+function computeTpForBacktest(slDistance: number, entryPrice: number): number {
+  if (TP_TYPE === "percentage") return entryPrice * TP_VALUE;
+  return slDistance * TP_VALUE;
+}
 
 export function summariseDailyBias(dailyBars: PriceBar[]): { summary: string; regime: Regime } {
   if (dailyBars.length < 21) return { summary: "daily: n/a", regime: "n/a" };
@@ -714,6 +787,11 @@ export interface WindowOptions {
    *  orchestrator pre-fetches across the full grid to avoid 6 separate
    *  Finnhub round-trips. */
   economicEvents?: EconomicEvent[];
+  /** Stop the replay loop after N closed trades have accumulated.
+   *  Useful for early evaluation of a new prompt version (e.g. "give me
+   *  40 trades and stop") without committing to the full window cost.
+   *  When unset, runs through all bars in the slice. */
+  maxTrades?: number;
   /** Suppress per-bar progress logs (the WF orchestrator prints its own). */
   silent?: boolean;
 }
@@ -797,6 +875,7 @@ export async function runWindow(opts: WindowOptions): Promise<WindowResult> {
     provider,
     clients,
     promptVersion = DEFAULT_PROMPT_VERSION,
+    maxTrades,
     silent = false,
   } = opts;
   const { bars, dailyBars, eurusd4h, intermarket, timeframe } = corpus;
@@ -855,6 +934,15 @@ export async function runWindow(opts: WindowOptions): Promise<WindowResult> {
   };
 
   for (let i = startIdx; i < lastIdx; i++) {
+    // Early-stop: if maxTrades is set and we've hit it, break out of the
+    // replay loop. Force-close path below will close any remaining open
+    // position so the trade log is consistent.
+    if (maxTrades && closedTrades.length >= maxTrades) {
+      if (!silent) {
+        console.log(`  Reached maxTrades=${maxTrades} at bar ${i - startIdx}/${numBars} — stopping early.`);
+      }
+      break;
+    }
     const bar = bars[i];
 
     // Compute daily bias + regime ONCE per bar — used by both intra-bar
@@ -1016,8 +1104,10 @@ export async function runWindow(opts: WindowOptions): Promise<WindowResult> {
     }
 
     if (decision.decision === "enter_long" && !position && !entryBlockedReason) {
-      const stop = bar.close * (1 - SL_PCT);
-      const target = bar.close * (1 + TP_PCT);
+      const slDistance = computeSlForBacktest(bars, i, "long", bar.close);
+      const tpDistance = computeTpForBacktest(slDistance, bar.close);
+      const stop = bar.close - slDistance;
+      const target = bar.close + tpDistance;
       const notional = capital * 0.5;
       position = {
         side: "long",
@@ -1031,8 +1121,10 @@ export async function runWindow(opts: WindowOptions): Promise<WindowResult> {
         entry_regime: regime,
       };
     } else if (decision.decision === "enter_short" && !position && !entryBlockedReason) {
-      const stop = bar.close * (1 + SL_PCT);
-      const target = bar.close * (1 - TP_PCT);
+      const slDistance = computeSlForBacktest(bars, i, "short", bar.close);
+      const tpDistance = computeTpForBacktest(slDistance, bar.close);
+      const stop = bar.close + slDistance;
+      const target = bar.close - tpDistance;
       const notional = capital * 0.5;
       position = {
         side: "short",
@@ -1204,6 +1296,11 @@ async function main(): Promise<void> {
   }
   const promptVersion: PromptVersion = promptVersionRaw;
 
+  const maxTrades = process.env.MAX_TRADES ? Number(process.env.MAX_TRADES) : undefined;
+  if (maxTrades !== undefined && (Number.isNaN(maxTrades) || maxTrades <= 0)) {
+    throw new Error(`Invalid MAX_TRADES=${process.env.MAX_TRADES}`);
+  }
+
   const corpus = await loadCorpus(timeframe);
   const tfHoursPerBar = timeframe === "4h" ? 4 : timeframe === "1h" ? 1 : timeframe === "30m" ? 0.5 : 0.25;
   const numBarsHint = Math.round((sliceDays * 24) / tfHoursPerBar);
@@ -1217,6 +1314,9 @@ async function main(): Promise<void> {
   }
   console.log(`Provider: ${provider} (model: ${provider === "anthropic" ? ANTHROPIC_MODEL : AI_MODEL})`);
   console.log(`Prompt:   ${promptVersion}`);
+  console.log(
+    `SL/TP:    ${SL_TYPE}=${SL_VALUE}${SL_TYPE === "swing_anchor" ? ` lookback=${SL_LOOKBACK}` : ""} / ${TP_TYPE}=${TP_VALUE}`
+  );
   console.log("");
 
   const clients = createClients(provider);
@@ -1229,6 +1329,7 @@ async function main(): Promise<void> {
     provider,
     clients,
     promptVersion,
+    maxTrades,
   });
 
   printWindowSummary(result);
