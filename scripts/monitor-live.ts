@@ -110,9 +110,12 @@ async function main(): Promise<void> {
   console.log(HORIZONTAL_RULE);
   console.log(`  Last scan_completed:  ${fmtTs(lastScan?.created_at ?? null)}`);
   console.log(`  Last manage_tick:     ${fmtTs(lastManage?.created_at ?? null)}`);
+  console.log(`    (manage_tick only logged when ≥1 open position exists; absence = no positions, not dead cron)`);
   if (lastScan?.created_at) {
     const ageMin = Math.round((Date.now() - new Date(lastScan.created_at).getTime()) / 60000);
-    if (ageMin > 30) console.log(`  ⚠  Scan stale: ${ageMin}m since last scan_completed`);
+    if (ageMin > 30) console.log(`  ⚠  Scan stale: ${ageMin}m since last scan_completed (cron should fire every 15m)`);
+  } else {
+    console.log(`  ⚠  No scan_completed events found — scan cron may be dead`);
   }
 
   // 2. Active algos
