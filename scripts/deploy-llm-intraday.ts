@@ -65,7 +65,10 @@ import type { AlgorithmRules } from "../src/types/algorithm";
   }
 }
 
-const DEFAULT_BROKER_CONNECTION_ID = "1bc8dd11-49b6-49ed-861b-d5760a9ae90d";
+// Current $100K FTMO Demo trial (broker `9a79809e-...`). Per-account
+// $50K deploys override via BROKER_CONNECTION_ID env var per
+// project_scaling_plan.
+const DEFAULT_BROKER_CONNECTION_ID = "9a79809e-e6eb-44dd-b0a2-6bf18de3bb7a";
 const DEFAULT_ALGO_NAME = "Gold LLM-Intraday v1";
 const DEFAULT_CAPITAL = 100_000;
 const DEFAULT_RISK_PER_TRADE = 1.0;
