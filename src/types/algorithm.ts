@@ -482,8 +482,11 @@ export interface AlgorithmRules {
      *    HH→RANGING transitions: 2/2 losers (the iteration target).
      *  - "v2": v1 + reframed →RANGING transition. Default action becomes
      *    EXIT; LLM may override only with an articulated structural reason.
+     *  - "v3": scalper variant for 30m / 15m. Loosened triggers, lower
+     *    conviction threshold, session-time awareness, framed for 0.5%
+     *    SL / 1.5% TP. Use with TIMEFRAME=30m or 15m algos.
      *  Defaults to v2 in production when unspecified. */
-    prompt_version?: "v1" | "v2";
+    prompt_version?: "v1" | "v2" | "v3";
     /** Dry-run: log the LLM's decision to activity_log but do NOT
      *  actually open/close positions. Used for the first 1-2 cycles of
      *  live deployment to verify the LLM behaves sensibly on real-time

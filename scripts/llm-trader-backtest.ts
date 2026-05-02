@@ -1199,8 +1199,8 @@ async function main(): Promise<void> {
   }
 
   const promptVersionRaw = (process.env.PROMPT_VERSION ?? DEFAULT_PROMPT_VERSION).toLowerCase();
-  if (promptVersionRaw !== "v1" && promptVersionRaw !== "v2") {
-    throw new Error(`Unsupported PROMPT_VERSION=${promptVersionRaw}. Use v1 or v2.`);
+  if (promptVersionRaw !== "v1" && promptVersionRaw !== "v2" && promptVersionRaw !== "v3") {
+    throw new Error(`Unsupported PROMPT_VERSION=${promptVersionRaw}. Use v1, v2, or v3.`);
   }
   const promptVersion: PromptVersion = promptVersionRaw;
 
