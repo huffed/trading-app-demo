@@ -26,8 +26,8 @@ import {
   type TechnicalCondition,
 } from "@/types/algorithm";
 import type { PaperPosition, PositionEvent } from "@/types/position";
-import { maybeHaltOnDailyLoss } from "./daily-halt";
-import { detectDrift, executeDriftHalt } from "./drift-detector";
+import { maybeHaltOnDailyLoss, maybeWarnOnDailyLoss } from "./daily-halt";
+import { DEFAULT_DRIFT_CONFIG, detectDrift, executeDriftHalt } from "./drift-detector";
 import { evaluateEntry } from "./entry";
 import { logActivity } from "./helpers";
 import {
@@ -454,6 +454,9 @@ export async function scanAlgorithm(
   if (await maybeHaltOnDailyLoss(supabase, userId, algo)) {
     return result;
   }
+  // Soft warning at 40% of way to DLL — gives operator a heads-up
+  // window before automated halt fires. Idempotent per UTC day.
+  await maybeWarnOnDailyLoss(supabase, userId, algo);
 
   const { data: openPositions } = await supabase
     .from("paper_positions")
@@ -556,7 +559,11 @@ export async function scanAlgorithm(
     const baseline = (algoRow.data?.backtest_results ?? null) as
       | import("@/types/algorithm").BacktestResults
       | null;
-    const drift = await detectDrift(supabase, algo.id, baseline);
+    const driftConfig = {
+      ...DEFAULT_DRIFT_CONFIG,
+      minLiveWrPct: algo.rules.drift?.min_live_wr_pct,
+    };
+    const drift = await detectDrift(supabase, algo.id, baseline, driftConfig);
     if (drift.severity !== "none") {
       await logActivity(supabase, userId, {
         algorithm_id: algo.id,
