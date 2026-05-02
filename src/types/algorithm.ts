@@ -477,9 +477,13 @@ export interface AlgorithmRules {
     /** Override the default model. Anthropic default = claude-haiku-4-5;
      *  groq default = llama-3.3-70b-versatile. */
     model?: string;
-    /** Prompt version tag. "v1" = the validated structure-first +
-     *  loose-trigger + regime-flip-exit prompt from commit 2bea3f3. */
-    prompt_version?: "v1";
+    /** Prompt version tag.
+     *  - "v1": frozen baseline. Validated 5/6 WF green / 57% WR / +15.8%.
+     *    HH→RANGING transitions: 2/2 losers (the iteration target).
+     *  - "v2": v1 + reframed →RANGING transition. Default action becomes
+     *    EXIT; LLM may override only with an articulated structural reason.
+     *  Defaults to v2 in production when unspecified. */
+    prompt_version?: "v1" | "v2";
     /** Dry-run: log the LLM's decision to activity_log but do NOT
      *  actually open/close positions. Used for the first 1-2 cycles of
      *  live deployment to verify the LLM behaves sensibly on real-time

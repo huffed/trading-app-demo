@@ -27,7 +27,12 @@ import { z } from "zod";
 import { ANTHROPIC_HAIKU_MODEL, getAnthropicClient } from "@/lib/ai/anthropic-client";
 import { AI_MODEL, getAIClient } from "@/lib/ai/client";
 import type { PriceBar } from "@/lib/market-data/types";
+import { DEFAULT_PROMPT_VERSION, getPrompt } from "@/lib/scan/llm-trader-prompts";
 import type { AlgorithmRules } from "@/types/algorithm";
+
+// Re-export for backward compatibility with any external callers /
+// scripts that import the V1 constant directly.
+export { LLM_TRADER_PROMPT_V1 } from "@/lib/scan/llm-trader-prompts";
 
 export interface LlmTraderDecision {
   decision: "enter_long" | "enter_short" | "hold" | "exit";
@@ -68,61 +73,6 @@ const decisionSchema = z.object({
   confidence: z.number().min(0).max(100),
   reasoning: z.string().min(1).max(2000),
 });
-
-/** Validated v1 prompt — see commit 2bea3f3 for the full iteration history.
- *  Three things this prompt does that the original didn't:
- *    1. Bias hierarchy explicit (structure > SMA20 > intermarket)
- *    2. Looser short triggers in LH regime (rallies into upper third are valid)
- *    3. Regime-flip exit rule (LH-while-long → exit at next close)
- */
-export const LLM_TRADER_PROMPT_V1 = `You are a gold (XAU/USD) discretionary trader on 4h. Take only HIGH-CONVICTION setups; most bars should be "hold".
-
-BIAS HIERARCHY — apply in strict priority order:
-1. RECENT STRUCTURE (HH = bullish regime; LH = bearish regime; RANGING = neutral). Structure is the PRIMARY regime indicator. It leads everything else.
-2. Close vs SMA20 = secondary confluence ONLY. If structure conflicts with SMA20, STRUCTURE WINS. SMA20 is slow and lagging — it confirms the regime after the fact, it does not define it.
-3. Intermarket (DXY / 10Y yield / VIX / silver) = modifiers that affect setup quality, NEVER primary direction.
-
-REGIME RULES — these are absolute, not heuristics:
-- LH regime: only SHORT setups are valid. Do not take longs even if close > SMA20 — that's a counter-trend trade against falling structure.
-- HH regime: only LONG setups are valid. Do not take shorts even if close < SMA20.
-- RANGING regime: hold by default. Fades at range extremes are the only valid setups.
-
-If you find yourself wanting to take a trade against the structure regime, the answer is "hold". Wait for the regime to flip.
-
-REGIME-FLIP EXIT (applies when in a position):
-- Long position + regime flips from HH to LH → EXIT at this bar's close. Do not wait for SL. The regime flip IS the exit signal.
-- Short position + regime flips from LH to HH → EXIT at this bar's close. Same rule.
-- Long/short + regime goes to RANGING → hold but reduce conviction; consider exit if 4h shows clear thesis breakdown.
-The regime is your edge. When it flips, your edge is gone — get out.
-
-Triggers — once regime is established, look for ANY of these (don't wait for perfect confirmation; if structure aligns and you see one of these, take the trade):
-
-Long triggers (HH regime ONLY):
-- Sweep of recent swing low + bullish reversal candle
-- Bullish engulfing or pin bar at structural support
-- Bullish BOS + retest of breakout level
-- Pullback into 4h SMA20 / FVG / OB and stalling
-- Rally retracement to 20-bar mid + 3-bar bullish momentum confirming up
-
-Short triggers (LH regime ONLY) — be willing to take these even without perfect pattern confirmation:
-- Rally of >0.5% into the upper third of the 20-bar range (count this as a valid short setup, the rejection-from-resistance is implied by the regime)
-- Sweep of recent 4h swing high + close back below it
-- Bearish engulfing, pin bar, or three black crows at swing high
-- Bearish BOS + retest of broken support as resistance
-- Rally into 4h SMA20 from below (especially if 20-bar mid acts as resistance)
-- Rally into recent swing high (within 1.5% of 20-bar high) in any LH bar with weakening momentum or confluent intermarket headwinds (rising DXY / rising 10Y / rising VIX)
-
-Calibration: a "rally into resistance during LH regime" with EITHER a structural rejection sign OR confluent intermarket headwinds is sufficient. Do not wait for textbook-perfect engulfing patterns — those are rare. The regime is the edge; the trigger is just the entry timing.
-
-Intermarket guidance:
-- DXY rising = gold headwind (worse for longs, better for shorts)
-- 10Y yields rising = gold headwind
-- VIX rising = risk-off = gold tailwind (safe haven flows)
-- Gold/silver ratio rising = gold leading; falling = silver leading
-
-Hold winners through normal pullbacks; exit only on STRUCTURAL thesis break (e.g., HH→LH flip while long, or LH→HH while short — see Regime-Flip Exit above). SL/TP are fixed (1.5%/4.5%); your job is direction + timing.
-
-Output JSON: {"decision": "enter_long"|"enter_short"|"hold"|"exit", "confidence": 0-100, "reasoning": "1 short sentence"}. "hold" = maintain; "exit" only valid when in a position.`;
 
 // ---------------------------------------------------------------------------
 // Context builders — port from scripts/llm-trader-backtest.ts. Compressed to
@@ -295,12 +245,13 @@ function extractJson(text: string): unknown {
 async function callAnthropic(
   client: Anthropic,
   model: string,
+  systemPrompt: string,
   context: string
 ): Promise<LlmTraderDecision | null> {
   const res = await client.messages.create({
     model,
     max_tokens: 200,
-    system: LLM_TRADER_PROMPT_V1,
+    system: systemPrompt,
     messages: [{ role: "user", content: context }],
   });
   const block = res.content[0];
@@ -313,12 +264,13 @@ async function callAnthropic(
 async function callGroq(
   client: ReturnType<typeof getAIClient>,
   model: string,
+  systemPrompt: string,
   context: string
 ): Promise<LlmTraderDecision | null> {
   const res = await client.chat.completions.create({
     model,
     messages: [
-      { role: "system", content: LLM_TRADER_PROMPT_V1 },
+      { role: "system", content: systemPrompt },
       { role: "user", content: context },
     ],
     response_format: { type: "json_object" },
@@ -377,15 +329,18 @@ export async function evaluateLlmTrader(
 ): Promise<LlmTraderDecision | null> {
   const userMessage = buildLlmTraderContext(ctx);
   const provider = config.provider;
+  // prompt_version is optional in the schema; fall back to current default
+  // when absent so old algorithm rows keep working without a migration.
+  const systemPrompt = getPrompt(config.prompt_version ?? DEFAULT_PROMPT_VERSION);
   const tryOnce = async (): Promise<LlmTraderDecision | null> => {
     if (provider === "anthropic") {
       const client = getAnthropicClient();
       const model = config.model ?? ANTHROPIC_HAIKU_MODEL;
-      return await callAnthropic(client, model, userMessage);
+      return await callAnthropic(client, model, systemPrompt, userMessage);
     }
     const client = getAIClient();
     const model = config.model ?? AI_MODEL;
-    return await callGroq(client, model, userMessage);
+    return await callGroq(client, model, systemPrompt, userMessage);
   };
   try {
     const first = await tryOnce();

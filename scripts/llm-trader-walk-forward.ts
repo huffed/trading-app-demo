@@ -42,6 +42,8 @@
  *   END_DATE=2026-04-30        (default: now — most recent window ends here,
  *                               earlier windows step back from this date)
  *   CAPITAL=100000             (default: $100K)
+ *   PROMPT_VERSION=v2          (default: v2 — current production. Use v1
+ *                               to reproduce the validated baseline.)
  *   ALGO_ID=<uuid>             (optional — when set, also writes the WF
  *                               summary to the algorithm's
  *                               `llm_walk_forward_cache` column so
@@ -65,6 +67,10 @@ import {
   runWindow,
 } from "./llm-trader-backtest";
 import { AI_MODEL } from "../src/lib/ai/client";
+import {
+  DEFAULT_PROMPT_VERSION,
+  type PromptVersion,
+} from "../src/lib/scan/llm-trader-prompts";
 
 {
   try {
@@ -213,12 +219,19 @@ async function main(): Promise<void> {
   const endDateMs = endDateStr ? new Date(`${endDateStr}T23:59:59Z`).getTime() : Date.now();
   if (Number.isNaN(endDateMs)) throw new Error(`Invalid END_DATE=${endDateStr}`);
 
+  const promptVersionRaw = (process.env.PROMPT_VERSION ?? DEFAULT_PROMPT_VERSION).toLowerCase();
+  if (promptVersionRaw !== "v1" && promptVersionRaw !== "v2") {
+    throw new Error(`Unsupported PROMPT_VERSION=${promptVersionRaw}. Use v1 or v2.`);
+  }
+  const promptVersion: PromptVersion = promptVersionRaw;
+
   const grid = buildWindowGrid(endDateMs, windowDays, windowCount);
 
   console.log("===== LLM-trader walk-forward =====");
   console.log(
     `Provider: ${provider} (model: ${provider === "anthropic" ? ANTHROPIC_MODEL : AI_MODEL})`
   );
+  console.log(`Prompt:    ${promptVersion}`);
   console.log(`Timeframe: ${timeframe}`);
   console.log(`Capital per window: $${capital.toLocaleString()}`);
   console.log(`Windows: ${windowCount} × ${windowDays}d (non-overlapping, ending ${grid[grid.length - 1].sliceEndDate})`);
@@ -258,6 +271,7 @@ async function main(): Promise<void> {
       capital,
       provider,
       clients,
+      promptVersion,
       silent: true,
     });
     const elapsedSec = Math.round((Date.now() - t0) / 1000);
@@ -320,12 +334,15 @@ async function main(): Promise<void> {
   }
   console.log("");
 
-  // Persist combined audit + summary for later inspection.
+  // Persist combined audit + summary for later inspection. Filename
+  // includes prompt_version so v1 vs v2 runs don't collide.
   const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
-  const summaryPath = `scripts/llm-trader-wf-summary-${provider}-${timeframe}-${windowCount}x${windowDays}d-${stamp}.json`;
+  const fileBase = `${provider}-${timeframe}-${windowCount}x${windowDays}d-${promptVersion}-${stamp}`;
+  const summaryPath = `scripts/llm-trader-wf-summary-${fileBase}.json`;
   const summaryDoc = {
     provider,
     model: provider === "anthropic" ? ANTHROPIC_MODEL : AI_MODEL,
+    prompt_version: promptVersion,
     timeframe,
     window_days: windowDays,
     window_count: windowCount,
@@ -351,9 +368,19 @@ async function main(): Promise<void> {
   writeFileSync(summaryPath, JSON.stringify(summaryDoc, null, 2));
   console.log(`Walk-forward summary saved: ${summaryPath}`);
 
-  const tradesPath = `scripts/llm-trader-wf-trades-${provider}-${timeframe}-${windowCount}x${windowDays}d-${stamp}.jsonl`;
+  const tradesPath = `scripts/llm-trader-wf-trades-${fileBase}.jsonl`;
   writeFileSync(tradesPath, allTrades.map((t) => JSON.stringify(t)).join("\n"));
   console.log(`Combined trade log saved: ${tradesPath} (${allTrades.length} trades)`);
+
+  // Per-window decision audit logs — full per-bar LLM responses for each
+  // window. Lets us investigate "did the LLM see the regime flip" without
+  // re-running. One JSONL per window so they're easy to pull individually.
+  for (const r of results) {
+    const winStamp = r.endDate.slice(0, 10);
+    const decPath = `scripts/llm-trader-wf-decisions-${provider}-${timeframe}-${windowDays}d-${promptVersion}-${winStamp}.jsonl`;
+    writeFileSync(decPath, r.decisions.map((d) => JSON.stringify(d)).join("\n"));
+  }
+  console.log(`Per-window decision logs saved: scripts/llm-trader-wf-decisions-...-${promptVersion}-<window-end>.jsonl (${results.length} files)`);
 
   // Build the readiness-cache shape — maps directly to the
   // WalkForwardSummary that runReadinessCheck consumes. The walkForwardCheck
@@ -363,7 +390,7 @@ async function main(): Promise<void> {
     generated_at: new Date().toISOString(),
     provider,
     model: provider === "anthropic" ? ANTHROPIC_MODEL : AI_MODEL,
-    prompt_version: "v1" as const,
+    prompt_version: promptVersion,
     timeframe,
     window_days: windowDays,
     window_count: windowCount,
@@ -400,7 +427,7 @@ interface CacheDoc {
   generated_at: string;
   provider: Provider;
   model: string;
-  prompt_version: "v1";
+  prompt_version: PromptVersion;
   timeframe: Timeframe;
   window_days: number;
   window_count: number;
