@@ -204,6 +204,15 @@ const trailingStopSchema = z.object({
   trail_distance_r: z.number().min(0.25).max(5).optional(),
 });
 
+const driftSchema = z.object({
+  // Optional absolute floor on live WR (percent). Drift detector halts
+  // when recent WR drops below this regardless of baseline. For R-
+  // asymmetric strategies (low WR + high RR), set just below breakeven
+  // WR to halt before going negative-EV. Bounds chosen so a unit error
+  // (5 entered for 0.05 or 80 entered for breakeven) fails validation.
+  min_live_wr_pct: z.number().min(5).max(80).optional(),
+});
+
 const breakevenMoveSchema = z.object({
   enabled: z.boolean(),
   // R-units. 0.5 = aggressive (cuts more recoveries). 3 = lax (breakeven
@@ -333,6 +342,7 @@ export const algorithmRulesSchema = z.object({
   dxy_filter: dxyFilterSchema.optional(),
   llm_trader: llmTraderSchema.optional(),
   time_filter: timeFilterSchema.optional(),
+  drift: driftSchema.optional(),
 });
 
 /**

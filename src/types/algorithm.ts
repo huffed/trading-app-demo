@@ -497,6 +497,23 @@ export interface AlgorithmRules {
      *  data before trusting it with capital. Default false (live). */
     dry_run?: boolean;
   };
+  /**
+   * Drift detector overrides. Tier 1 of Phase 7 learning loop. Drift
+   * detector by default halts when recent live WR drops ≥20pp below
+   * backtest baseline. For R-asymmetric strategies (low backtest WR
+   * + high RR) this rule alone lets the algo bleed past breakeven —
+   * set `min_live_wr_pct` as an absolute floor.
+   *
+   * Example: Intraday's 30% baseline with 3:1 RR has breakeven at
+   * ~25% WR. Set min_live_wr_pct=22 to halt before going negative-EV
+   * (rather than the default <10% drift threshold which is below
+   * breakeven by ~15pp).
+   */
+  drift?: {
+    /** Absolute floor on live WR (percent). Halt fires when recent WR
+     *  drops below this regardless of baseline. Bounds: 5-80. */
+    min_live_wr_pct?: number;
+  };
 }
 
 // --- Backtest results ---

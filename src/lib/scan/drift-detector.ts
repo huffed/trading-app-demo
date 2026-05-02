@@ -44,6 +44,13 @@ const HALT_WR_DROP_PP = 20;
 export interface DriftConfig {
   minTrades: number;
   lookbackTrades: number;
+  /** Optional absolute floor on live WR (percent). Halt fires when
+   *  recent WR drops below this regardless of baseline. Useful for
+   *  R-asymmetric strategies (low backtest WR + high RR) where the
+   *  20pp-drop rule alone would let the algo bleed past breakeven.
+   *  Example: Intraday's 30% baseline with 3:1 RR has breakeven at
+   *  ~25% WR — set floor to 22% to halt before going negative-EV. */
+  minLiveWrPct?: number;
 }
 
 export const DEFAULT_DRIFT_CONFIG: DriftConfig = {
@@ -111,6 +118,17 @@ export async function detectDrift(
   const baseWr = baseline.win_rate;
   const wrDrop = baseWr - recentWr;
 
+  // Halt: absolute WR floor (R-aware, optional) — checked first because
+  // it's the strictest. For strategies with low backtest WR + high RR,
+  // the 20pp-drop rule alone would let the algo bleed past breakeven.
+  if (config.minLiveWrPct !== undefined && recentWr < config.minLiveWrPct) {
+    return {
+      severity: "halt",
+      reason: `WR floor breached: recent ${recentWr.toFixed(0)}% < floor ${config.minLiveWrPct}% over ${trades} trades`,
+      recent: { trades, win_rate: recentWr, net_pnl: netPnl },
+      baseline: { win_rate: baseWr, total_return: baseline.total_return },
+    };
+  }
   // Halt: severe WR drop OR sign flip on net P&L vs backtest direction.
   if (wrDrop >= HALT_WR_DROP_PP) {
     return {

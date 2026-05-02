@@ -138,3 +138,56 @@ export async function maybeHaltOnDailyLoss(
   await executeDailyHalt(supabase, userId, algo.id, check);
   return true;
 }
+
+/**
+ * Soft warning at 40% of daily-loss threshold (e.g. -2% on a 5% DLL).
+ * Logs once per UTC day per algo via idempotency check on activity_log.
+ * Doesn't take any action — operator surfaces the warning in the
+ * dashboard / monitoring script and decides whether to manually pause.
+ *
+ * Pairs with the hard halt (which fires at the full DLL): warning gives
+ * the operator a heads-up window before automated action.
+ */
+const DLL_WARN_PCT = 40; // warn at 40% of way to DLL
+export async function maybeWarnOnDailyLoss(
+  supabase: SupabaseClient,
+  userId: string,
+  algo: { id: string; capital: number; rules: AlgorithmRules }
+): Promise<boolean> {
+  const pf = algo.rules.prop_firm;
+  if (!pf?.daily_loss_limit) return false;
+  const check = await checkDailyLossHalt(
+    supabase,
+    algo.id,
+    algo.capital,
+    pf.daily_loss_limit,
+    DLL_WARN_PCT
+  );
+  if (!check.tripped) return false; // not at warn threshold yet
+
+  // Idempotency: don't spam warnings every scan tick. One per algo per UTC day.
+  const startOfDay = new Date();
+  startOfDay.setUTCHours(0, 0, 0, 0);
+  const { data: existing } = await supabase
+    .from("activity_log")
+    .select("id")
+    .eq("algorithm_id", algo.id)
+    .eq("event_type", "dll_warning")
+    .gte("created_at", startOfDay.toISOString())
+    .limit(1);
+  if (existing && existing.length > 0) return false;
+
+  await logActivity(supabase, userId, {
+    algorithm_id: algo.id,
+    event_type: "dll_warning",
+    details: {
+      todays_pnl_pct: Number(check.todaysPnlPct.toFixed(3)),
+      warn_threshold_pct: Number(check.thresholdPct.toFixed(3)),
+      halt_threshold_pct: -pf.daily_loss_limit * ((pf.daily_loss_halt_pct ?? 100) / 100),
+      realized: Number(check.realized.toFixed(2)),
+      unrealized: Number(check.unrealized.toFixed(2)),
+      message: `Algo ${algo.id.slice(0, 8)} hit ${check.todaysPnlPct.toFixed(2)}% intraday — ${DLL_WARN_PCT}% of way to DLL halt. Operator review.`,
+    },
+  });
+  return true;
+}
