@@ -35,7 +35,7 @@ import type { AlgorithmRules } from "@/types/algorithm";
 export { LLM_TRADER_PROMPT_V1 } from "@/lib/scan/llm-trader-prompts";
 
 export interface LlmTraderDecision {
-  decision: "enter_long" | "enter_short" | "hold" | "exit";
+  decision: "enter_long" | "enter_short" | "hold" | "exit" | "move_be";
   confidence: number;
   reasoning: string;
 }
@@ -87,7 +87,7 @@ export interface LlmTraderContext {
 }
 
 const decisionSchema = z.object({
-  decision: z.enum(["enter_long", "enter_short", "hold", "exit"]),
+  decision: z.enum(["enter_long", "enter_short", "hold", "exit", "move_be"]),
   confidence: z.number().min(0).max(100),
   reasoning: z.string().min(1).max(2000),
 });

@@ -228,8 +228,13 @@ async function main(): Promise<void> {
   if (Number.isNaN(endDateMs)) throw new Error(`Invalid END_DATE=${endDateStr}`);
 
   const promptVersionRaw = (process.env.PROMPT_VERSION ?? DEFAULT_PROMPT_VERSION).toLowerCase();
-  if (promptVersionRaw !== "v1" && promptVersionRaw !== "v2" && promptVersionRaw !== "v3") {
-    throw new Error(`Unsupported PROMPT_VERSION=${promptVersionRaw}. Use v1, v2, or v3.`);
+  if (
+    promptVersionRaw !== "v1" &&
+    promptVersionRaw !== "v2" &&
+    promptVersionRaw !== "v3" &&
+    promptVersionRaw !== "v4"
+  ) {
+    throw new Error(`Unsupported PROMPT_VERSION=${promptVersionRaw}. Use v1, v2, v3, or v4.`);
   }
   const promptVersion: PromptVersion = promptVersionRaw;
 

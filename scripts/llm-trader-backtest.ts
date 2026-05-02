@@ -194,7 +194,7 @@ function consistencyHaltState(
 }
 
 const decisionSchema = z.object({
-  decision: z.enum(["enter_long", "enter_short", "hold", "exit"]),
+  decision: z.enum(["enter_long", "enter_short", "hold", "exit", "move_be"]),
   confidence: z.number().min(0).max(100),
   reasoning: z.string().min(1).max(2000),
 });
@@ -1137,6 +1137,21 @@ export async function runWindow(opts: WindowOptions): Promise<WindowResult> {
         entry_reasoning: decision.reasoning,
         entry_regime: regime,
       };
+    } else if (decision.decision === "move_be" && position) {
+      // LLM-judged break-even: lock in profit by moving SL to entry
+      // price. Only valid when in a profitable position with current
+      // P&L >= +1R favorable. Trade continues; subsequent bars'
+      // SL/TP fill check uses the new (entry-price) SL.
+      const slDistance = Math.abs(position.entry_price - position.stop_price);
+      const currentPnlR =
+        position.side === "long"
+          ? (bar.close - position.entry_price) / slDistance
+          : (position.entry_price - bar.close) / slDistance;
+      if (currentPnlR >= 1.0) {
+        position.stop_price = position.entry_price;
+        position.entry_reasoning = `${position.entry_reasoning} | BE moved at ${bar.date.slice(0, 16)} (+${currentPnlR.toFixed(2)}R): ${decision.reasoning}`;
+      }
+      // No close — just SL adjustment.
     } else if (decision.decision === "exit" && position) {
       const exitPrice = bar.close;
       const pnl =
@@ -1291,8 +1306,13 @@ async function main(): Promise<void> {
   }
 
   const promptVersionRaw = (process.env.PROMPT_VERSION ?? DEFAULT_PROMPT_VERSION).toLowerCase();
-  if (promptVersionRaw !== "v1" && promptVersionRaw !== "v2" && promptVersionRaw !== "v3") {
-    throw new Error(`Unsupported PROMPT_VERSION=${promptVersionRaw}. Use v1, v2, or v3.`);
+  if (
+    promptVersionRaw !== "v1" &&
+    promptVersionRaw !== "v2" &&
+    promptVersionRaw !== "v3" &&
+    promptVersionRaw !== "v4"
+  ) {
+    throw new Error(`Unsupported PROMPT_VERSION=${promptVersionRaw}. Use v1, v2, v3, or v4.`);
   }
   const promptVersion: PromptVersion = promptVersionRaw;
 
