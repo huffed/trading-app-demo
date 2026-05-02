@@ -1006,6 +1006,95 @@ async function evaluateLlmTraderEntry(
     return { opened: 0 };
   }
 
+  // Move-to-break-even: LLM-judged decision (v4+ prompts only) that
+  // locks in profit by moving SL to entry price. Only valid when in a
+  // profitable position with current P&L >= +1R favorable. The trade
+  // continues; broker's wider SL stays as safety net. Manage tick will
+  // close the position when our (now-tighter) SL is hit, OR LLM may
+  // emit "exit" later, OR TP fires.
+  if (decision.decision === "move_be") {
+    if (!currentPosition) {
+      await logActivity(supabase, userId, {
+        algorithm_id: algo.id,
+        event_type: "signal_no_action",
+        ticker,
+        details: {
+          reason: "LLM decision: move_be but no open position",
+          source: "llm_trader",
+          confidence: decision.confidence,
+          llm_reasoning: decision.reasoning,
+        },
+      });
+      return { opened: 0 };
+    }
+    const entryPrice = Number(currentPosition.entry_price);
+    const stopPrice = currentPosition.stop_loss_price
+      ? Number(currentPosition.stop_loss_price)
+      : null;
+    if (!stopPrice) {
+      await logActivity(supabase, userId, {
+        algorithm_id: algo.id,
+        position_id: currentPosition.id,
+        event_type: "signal_no_action",
+        ticker,
+        details: {
+          reason: "LLM decision: move_be but no stop_loss_price set on position",
+          source: "llm_trader",
+          confidence: decision.confidence,
+          llm_reasoning: decision.reasoning,
+        },
+      });
+      return { opened: 0 };
+    }
+    const slDistance = Math.abs(entryPrice - stopPrice);
+    const currentPnlR =
+      currentPosition.side === "long"
+        ? (currentPrice - entryPrice) / slDistance
+        : (entryPrice - currentPrice) / slDistance;
+    if (currentPnlR < 1.0) {
+      // LLM tried to move BE without being at +1R favorable. Defensive:
+      // log + ignore. Don't trust LLM's pnl estimate; verify against
+      // actual price.
+      await logActivity(supabase, userId, {
+        algorithm_id: algo.id,
+        position_id: currentPosition.id,
+        event_type: "signal_no_action",
+        ticker,
+        details: {
+          reason: `LLM decision: move_be but only +${currentPnlR.toFixed(2)}R favorable (need +1R)`,
+          source: "llm_trader",
+          confidence: decision.confidence,
+          llm_reasoning: decision.reasoning,
+        },
+      });
+      return { opened: 0 };
+    }
+    // Update SL to entry price. Broker's wider SL stays as safety net;
+    // our tighter logical SL gets caught by manage tick when price
+    // crosses.
+    await supabase
+      .from("paper_positions")
+      .update({ stop_loss_price: entryPrice })
+      .eq("id", currentPosition.id);
+    await logActivity(supabase, userId, {
+      algorithm_id: algo.id,
+      position_id: currentPosition.id,
+      event_type: "signal_no_action",
+      ticker,
+      details: {
+        reason: `LLM moved SL to break-even at +${currentPnlR.toFixed(2)}R`,
+        source: "llm_trader",
+        action: "move_sl_to_be",
+        old_stop_loss: stopPrice,
+        new_stop_loss: entryPrice,
+        current_pnl_r: currentPnlR,
+        confidence: decision.confidence,
+        llm_reasoning: decision.reasoning,
+      },
+    });
+    return { opened: 0 };
+  }
+
   // Exit: close the position at this bar's close. Mirrors backtest
   // behaviour — the LLM's "exit" decision is a regime-flip / thesis-
   // breakdown signal that's the algo's edge for catching turns before
