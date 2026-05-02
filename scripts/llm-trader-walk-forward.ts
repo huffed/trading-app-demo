@@ -50,6 +50,13 @@
  *                               runReadinessCheck can use it without
  *                               re-running the LLM. Without ALGO_ID the
  *                               script only writes local JSON files.)
+ *   PERSIST_DECISIONS_TO_DB=1  (optional, requires ALGO_ID — when set,
+ *                               every per-bar decision is also written
+ *                               to the `llm_decisions` table with
+ *                               source='walk_forward'. The algorithm
+ *                               detail page's Decisions section then
+ *                               surfaces backtest decisions for review
+ *                               with the same UI as live decisions.)
  */
 import { readFileSync, writeFileSync } from "fs";
 import { createClient } from "@supabase/supabase-js";
@@ -67,6 +74,7 @@ import {
   runWindow,
 } from "./llm-trader-backtest";
 import { AI_MODEL } from "../src/lib/ai/client";
+import { fetchEconomicCalendar } from "../src/lib/market-data/economic-calendar";
 import {
   DEFAULT_PROMPT_VERSION,
   type PromptVersion,
@@ -256,6 +264,23 @@ async function main(): Promise<void> {
   const corpus: Corpus = await loadCorpus(timeframe);
   const clients = createClients(provider);
 
+  // Pre-fetch the economic calendar once across the full grid range so
+  // each window doesn't hit Finnhub separately. Production-fidelity
+  // backtest gate; news veto refuses entries inside ±15min windows of
+  // tier-1 USD releases.
+  const gridStartMs =
+    grid[0].sliceEndMs - windowDays * 24 * 3600 * 1000;
+  const gridEndMs = grid[grid.length - 1].sliceEndMs;
+  console.log(
+    `Pre-fetching economic calendar for ${new Date(gridStartMs).toISOString().slice(0, 10)} → ${new Date(gridEndMs).toISOString().slice(0, 10)}...`
+  );
+  const economicEvents = await fetchEconomicCalendar(
+    new Date(gridStartMs),
+    new Date(gridEndMs)
+  );
+  console.log(`  ${economicEvents.length} events loaded`);
+  console.log("");
+
   // Run each window sequentially (LLM calls are I/O-bound but parallelism
   // would slam rate limits; sequential is the safer default).
   const results: WindowResult[] = [];
@@ -272,15 +297,27 @@ async function main(): Promise<void> {
       provider,
       clients,
       promptVersion,
+      economicEvents,
       silent: true,
     });
     const elapsedSec = Math.round((Date.now() - t0) / 1000);
     const wins = result.trades.filter((t) => t.realized_pnl > 0).length;
     const wr = result.trades.length === 0 ? 0 : (wins / result.trades.length) * 100;
     const ret = result.finalCash - result.capital;
+    const gr = result.gateRefusals;
+    const totalRefused =
+      gr.atr_liquidity +
+      gr.news_veto +
+      gr.consec_loss_halt +
+      gr.ftmo_consistency_halt;
     console.log(
       `  ${result.trades.length} trades · ${wr.toFixed(0)}% WR · $${ret.toFixed(0)} (${((ret / capital) * 100).toFixed(2)}%) · DD ${result.maxDrawdown.toFixed(2)}% · ${result.llmCalls} LLM calls (${result.llmFailures} fails) · ${elapsedSec}s`
     );
+    if (totalRefused > 0 || gr.stagnant_exits > 0) {
+      console.log(
+        `    Gates: atr=${gr.atr_liquidity} news=${gr.news_veto} consec=${gr.consec_loss_halt} ftmo=${gr.ftmo_consistency_halt} · stagnant_exits=${gr.stagnant_exits}`
+      );
+    }
     results.push(result);
   }
   console.log("");
@@ -360,7 +397,25 @@ async function main(): Promise<void> {
       max_drawdown_pct: r.maxDrawdown,
       llm_calls: r.llmCalls,
       llm_failures: r.llmFailures,
+      gate_refusals: r.gateRefusals,
     })),
+    aggregate_gate_refusals: results.reduce(
+      (acc, r) => ({
+        atr_liquidity: acc.atr_liquidity + r.gateRefusals.atr_liquidity,
+        news_veto: acc.news_veto + r.gateRefusals.news_veto,
+        consec_loss_halt: acc.consec_loss_halt + r.gateRefusals.consec_loss_halt,
+        ftmo_consistency_halt:
+          acc.ftmo_consistency_halt + r.gateRefusals.ftmo_consistency_halt,
+        stagnant_exits: acc.stagnant_exits + r.gateRefusals.stagnant_exits,
+      }),
+      {
+        atr_liquidity: 0,
+        news_veto: 0,
+        consec_loss_halt: 0,
+        ftmo_consistency_halt: 0,
+        stagnant_exits: 0,
+      }
+    ),
     by_regime: regimeStats,
     flip_cohort: flip,
     decisions_by_regime: decisionStats,
@@ -416,11 +471,81 @@ async function main(): Promise<void> {
   const algoId = process.env.ALGO_ID;
   if (algoId) {
     await uploadCacheToAlgorithm(algoId, cacheDoc);
+    if (process.env.PERSIST_DECISIONS_TO_DB === "1") {
+      await persistDecisionsToDb(algoId, results, promptVersion, provider, cacheDoc.model);
+    }
   } else {
     console.log("");
     console.log("(No ALGO_ID set — cache not uploaded. To populate the readiness check,");
     console.log(" re-run with ALGO_ID=<uuid> or write the cache from the saved summary file.)");
   }
+}
+
+/** Persist per-bar decisions from each WF window into the llm_decisions
+ *  table with source='walk_forward'. The algorithm detail page's
+ *  Decisions section then shows backtest decisions alongside live ones,
+ *  using the same UI for review. */
+async function persistDecisionsToDb(
+  algoId: string,
+  results: WindowResult[],
+  promptVersion: PromptVersion,
+  provider: Provider,
+  model: string
+): Promise<void> {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !serviceKey) {
+    console.error("PERSIST_DECISIONS_TO_DB set but Supabase env missing. Skipping.");
+    return;
+  }
+  const supabase = createClient(supabaseUrl, serviceKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+
+  // Resolve user_id from the algorithm row (RLS scopes decisions by user_id).
+  const { data: algoRow, error: algoErr } = await supabase
+    .from("algorithms")
+    .select("user_id, name")
+    .eq("id", algoId)
+    .single();
+  if (algoErr || !algoRow) {
+    console.error(`PERSIST_DECISIONS_TO_DB: algorithm ${algoId} not found:`, algoErr?.message);
+    return;
+  }
+  const userId = (algoRow as { user_id: string }).user_id;
+
+  const totalDecisions = results.reduce((s, r) => s + r.decisions.length, 0);
+  console.log("");
+  console.log(`Persisting ${totalDecisions} decisions to llm_decisions table (source=walk_forward)...`);
+
+  let inserted = 0;
+  for (const r of results) {
+    const rows = r.decisions.map((d) => ({
+      user_id: userId,
+      algorithm_id: algoId,
+      bar_date: d.bar_date,
+      prompt_version: promptVersion,
+      provider,
+      model,
+      regime: d.regime,
+      decision: d.decision,
+      confidence: d.confidence,
+      reasoning: d.reasoning,
+      context: { backtest_window: r.windowLabel },
+      had_position: d.had_position === "long" || d.had_position === "short" ? d.had_position : "flat",
+      paper_position_id: null,
+      trade_outcome: null,
+      source: "walk_forward",
+    }));
+    if (rows.length === 0) continue;
+    const { error } = await supabase.from("llm_decisions").insert(rows);
+    if (error) {
+      console.error(`Window ${r.windowLabel}: insert failed: ${error.message}`);
+      continue;
+    }
+    inserted += rows.length;
+  }
+  console.log(`  ${inserted}/${totalDecisions} decisions persisted.`);
 }
 
 interface CacheDoc {

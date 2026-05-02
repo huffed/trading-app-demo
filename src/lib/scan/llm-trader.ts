@@ -40,6 +40,24 @@ export interface LlmTraderDecision {
   reasoning: string;
 }
 
+/** D1-structure regime tag derived from HH/LH price action. The same
+ *  tag the LLM sees in its daily-bias context line. Threaded out so
+ *  the audit log can record what regime drove each decision without
+ *  re-deriving it. */
+export type Regime = "HH" | "LH" | "RANGING" | "n/a";
+
+/** Full evaluation result. Returns the LLM decision (null on retry-
+ *  exhausted failure), the regime as the LLM saw it, and the exact
+ *  user message that was sent — useful for the decision audit log. */
+export interface LlmTraderEvaluation {
+  decision: LlmTraderDecision | null;
+  regime: Regime;
+  userMessage: string;
+  promptVersion: string;
+  provider: "anthropic" | "groq";
+  model: string;
+}
+
 export interface LlmTraderContext {
   /** ISO timestamp of the bar being evaluated. */
   currentTimestamp: string;
@@ -79,8 +97,8 @@ const decisionSchema = z.object({
 // ~530 tokens/call (vs ~1400 in the verbose version that was too cliché-prone).
 // ---------------------------------------------------------------------------
 
-function summariseDailyBias(dailyBars: PriceBar[]): string {
-  if (dailyBars.length < 21) return "daily: n/a";
+function summariseDailyBias(dailyBars: PriceBar[]): { summary: string; regime: Regime } {
+  if (dailyBars.length < 21) return { summary: "daily: n/a", regime: "n/a" };
   const recent = dailyBars.slice(-14);
   const last = dailyBars[dailyBars.length - 1];
   const sma20 = dailyBars.slice(-20).reduce((s, b) => s + b.close, 0) / 20;
@@ -91,12 +109,13 @@ function summariseDailyBias(dailyBars: PriceBar[]): string {
   const prev3High = Math.max(...recent.slice(-7, -3).map((b) => b.high));
   const last3Low = Math.min(...recent.slice(-3).map((b) => b.low));
   const prev3Low = Math.min(...recent.slice(-7, -3).map((b) => b.low));
-  let structure: "HH" | "LH" | "RANGING";
-  if (last3High > prev3High && last3Low > prev3Low) structure = "HH";
-  else if (last3High < prev3High && last3Low < prev3Low) structure = "LH";
-  else structure = "RANGING";
+  let regime: Regime;
+  if (last3High > prev3High && last3Low > prev3Low) regime = "HH";
+  else if (last3High < prev3High && last3Low < prev3Low) regime = "LH";
+  else regime = "RANGING";
   const smaPct = ((last.close - sma20) / sma20) * 100;
-  return `D1 structure: ${structure}. Close ${last.close.toFixed(0)} (${smaPct >= 0 ? "+" : ""}${smaPct.toFixed(2)}% vs SMA20 ${sma20.toFixed(0)}). 14d ${greenDays}G/${14 - greenDays}R. Range ${low14.toFixed(0)}-${high14.toFixed(0)}.`;
+  const summary = `D1 structure: ${regime}. Close ${last.close.toFixed(0)} (${smaPct >= 0 ? "+" : ""}${smaPct.toFixed(2)}% vs SMA20 ${sma20.toFixed(0)}). 14d ${greenDays}G/${14 - greenDays}R. Range ${low14.toFixed(0)}-${high14.toFixed(0)}.`;
+  return { summary, regime };
 }
 
 function computeAtr(bars: PriceBar[], period: number, idx: number): number {
@@ -207,19 +226,25 @@ function summarisePosition(position: LlmTraderContext["position"], currentPrice:
   return `${position.side.toUpperCase()} from ${position.entryPrice.toFixed(0)}, cur ${currentPrice.toFixed(0)}, P&L ${pnlPct >= 0 ? "+" : ""}${pnlPct.toFixed(2)}%, ${sl}/${tp}.`;
 }
 
-/** Build the user-message context string. ~430 tokens typical. */
-export function buildLlmTraderContext(ctx: LlmTraderContext): string {
+/** Build the user-message context string + capture the regime tag.
+ *  ~430 tokens typical. Regime is returned alongside so the audit log
+ *  can record it without re-deriving. */
+export function buildLlmTraderContext(ctx: LlmTraderContext): {
+  userMessage: string;
+  regime: Regime;
+} {
   const idx = ctx.bars.length - 1;
   const cur = ctx.bars[idx];
   const dailyBefore = ctx.dailyBars.filter(
     (d) => new Date(d.date).getTime() <= new Date(ctx.currentTimestamp).getTime()
   );
-  const dailyContext = summariseDailyBias(dailyBefore);
+  const { summary: dailyContext, regime } = summariseDailyBias(dailyBefore);
   const recentContext = summariseRecentBars(ctx.bars, idx, ctx.timeframe);
   const dxyContext = summariseDxy(ctx.dxyBars, ctx.currentTimestamp);
   const intermarketContext = summariseIntermarket(ctx.intermarket, cur.close, ctx.currentTimestamp);
   const positionContext = summarisePosition(ctx.position ?? null, cur.close);
-  return `${ctx.currentTimestamp.slice(0, 16)}\n${dailyContext}\n${dxyContext}\n${intermarketContext}\n${recentContext}\nPosition: ${positionContext}\nDecide.`;
+  const userMessage = `${ctx.currentTimestamp.slice(0, 16)}\n${dailyContext}\n${dxyContext}\n${intermarketContext}\n${recentContext}\nPosition: ${positionContext}\nDecide.`;
+  return { userMessage, regime };
 }
 
 function extractJson(text: string): unknown {
@@ -321,38 +346,46 @@ export function isBarCloseScan(timeframe: string, now: Date = new Date()): boole
   }
 }
 
-/** Top-level entry — caller passes the context, gets back a decision (or
- *  null on failure). One-shot retry on transient errors built in. */
+/** Top-level entry — caller passes the context, gets back the decision
+ *  + provenance + regime. The provenance + regime + userMessage feed
+ *  into the audit log without entry.ts having to re-derive any of them.
+ *  One-shot retry on transient errors built in; decision is null when
+ *  both attempts fail. */
 export async function evaluateLlmTrader(
   config: NonNullable<AlgorithmRules["llm_trader"]>,
   ctx: LlmTraderContext
-): Promise<LlmTraderDecision | null> {
-  const userMessage = buildLlmTraderContext(ctx);
+): Promise<LlmTraderEvaluation> {
+  const { userMessage, regime } = buildLlmTraderContext(ctx);
   const provider = config.provider;
-  // prompt_version is optional in the schema; fall back to current default
-  // when absent so old algorithm rows keep working without a migration.
-  const systemPrompt = getPrompt(config.prompt_version ?? DEFAULT_PROMPT_VERSION);
+  const promptVersion = config.prompt_version ?? DEFAULT_PROMPT_VERSION;
+  const systemPrompt = getPrompt(promptVersion);
+  const model =
+    config.model ?? (provider === "anthropic" ? ANTHROPIC_HAIKU_MODEL : AI_MODEL);
+
   const tryOnce = async (): Promise<LlmTraderDecision | null> => {
     if (provider === "anthropic") {
       const client = getAnthropicClient();
-      const model = config.model ?? ANTHROPIC_HAIKU_MODEL;
       return await callAnthropic(client, model, systemPrompt, userMessage);
     }
     const client = getAIClient();
-    const model = config.model ?? AI_MODEL;
     return await callGroq(client, model, systemPrompt, userMessage);
   };
+
+  let decision: LlmTraderDecision | null = null;
   try {
-    const first = await tryOnce();
-    if (first) return first;
+    decision = await tryOnce();
   } catch {
     /* fall through to retry */
   }
-  // One retry on transient failure (rate-limit / network blip)
-  await new Promise((r) => setTimeout(r, 1500));
-  try {
-    return await tryOnce();
-  } catch {
-    return null;
+  if (!decision) {
+    // One retry on transient failure (rate-limit / network blip)
+    await new Promise((r) => setTimeout(r, 1500));
+    try {
+      decision = await tryOnce();
+    } catch {
+      decision = null;
+    }
   }
+
+  return { decision, regime, userMessage, promptVersion, provider, model };
 }
