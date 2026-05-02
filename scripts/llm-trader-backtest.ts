@@ -36,6 +36,7 @@
 import { readFileSync, writeFileSync } from "fs";
 import { z } from "zod";
 import Anthropic from "@anthropic-ai/sdk";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { AI_MODEL, getAIClient } from "../src/lib/ai/client";
 import { checkAtrLiquidity } from "../src/lib/algorithm/intraday-atr-gate";
 import { checkStagnantExit } from "../src/lib/algorithm/stagnant-exit";
@@ -45,9 +46,55 @@ import {
   getEventCurrencies,
   isWithinVetoWindow,
 } from "../src/lib/market-data/economic-calendar";
+import type { BarInterval } from "../src/lib/market-data/interval";
 import { fetchDailyPrices } from "../src/lib/market-data/prices";
 import { resampleTo } from "../src/lib/market-data/resample";
 import type { PriceBar } from "../src/lib/market-data/types";
+
+/** Read the full Supabase `price_cache` row for a ticker+interval pair,
+ *  ignoring TTL. The cache has 2.4yr of XAU/USD 1h bars; provider calls
+ *  via Twelve Data cap at 5000 bars (~7mo) regardless of outputsize=full,
+ *  so for any historical-window WF we have to source from the persistent
+ *  cache. Production's getCachedPrices uses the server (cookie-bound)
+ *  Supabase client which doesn't work in a Node script — we duplicate
+ *  the read with a service-role client here.
+ *  Returns null on miss; caller should fall back to fetchDailyPrices. */
+async function loadFullCachedBars(
+  ticker: string,
+  interval: BarInterval
+): Promise<PriceBar[] | null> {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !serviceKey) return null;
+  const supabase = createSupabaseClient(supabaseUrl, serviceKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  // Pick the row with the largest bar_count so we always grab the most
+  // historically-deep cache entry available. Multiple rows can exist
+  // (different output_size keys); we want the deepest.
+  const { data, error } = await supabase
+    .from("price_cache")
+    .select("bars, bar_count, fetched_at")
+    .eq("ticker", ticker.toUpperCase())
+    .eq("interval", interval)
+    .order("bar_count", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error || !data) return null;
+  return (data as { bars: PriceBar[] }).bars ?? null;
+}
+
+/** Wrapper: prefer the Supabase cache (full historical depth) and fall
+ *  back to the provider chain if the cache is empty or stale. Used by
+ *  loadCorpus to source 1h primary, daily, and EUR/USD 4h bars. */
+async function fetchOrCachedFull(
+  ticker: string,
+  interval: BarInterval
+): Promise<PriceBar[]> {
+  const cached = await loadFullCachedBars(ticker, interval);
+  if (cached && cached.length > 0) return cached;
+  return await fetchDailyPrices(ticker, "full", interval);
+}
 import {
   DEFAULT_PROMPT_VERSION,
   type PromptVersion,
@@ -718,14 +765,17 @@ export async function loadCorpus(timeframe: Timeframe): Promise<Corpus> {
   console.log(
     `Loading XAU/USD ${timeframe} corpus (fetched at ${fetchInterval}${needsResample ? `, resampled to ${needsResample}` : ""})...`
   );
-  const fetched = await fetchDailyPrices("XAU/USD", "full", fetchInterval);
+  // Prefer Supabase cache for historical depth — Twelve Data caps at
+  // 5000 bars per call which limits live fetches to ~7mo on 1h. The
+  // cache has 2.4yr of XAU/USD 1h bars from prior accumulated fetches.
+  const fetched = await fetchOrCachedFull("XAU/USD", fetchInterval);
   const bars = needsResample ? resampleTo(fetched, needsResample) : fetched;
-  const dailyBars = await fetchDailyPrices("XAU/USD", "full", "1day");
-  console.log(`  ${timeframe} corpus: ${bars.length} bars`);
+  const dailyBars = await fetchOrCachedFull("XAU/USD", "1day");
+  console.log(`  ${timeframe} corpus: ${bars.length} bars (${bars[0]?.date.slice(0, 10) ?? "?"} → ${bars[bars.length - 1]?.date.slice(0, 10) ?? "?"})`);
   console.log(`  daily corpus: ${dailyBars.length} bars`);
 
   console.log("Loading EUR/USD 4h proxy...");
-  const eurusd4h = await fetchDailyPrices("EUR/USD", "full", "4h");
+  const eurusd4h = await fetchOrCachedFull("EUR/USD", "4h");
   console.log(`  EUR/USD 4h: ${eurusd4h.length} bars`);
 
   console.log("Loading intermarket series (silver / yields / VIX)...");
