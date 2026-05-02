@@ -488,9 +488,16 @@ export interface AlgorithmRules {
      *  - "v4": short-term swing variant for 30m. v3 reframed as "let
      *    winners run" + adds "move_be" decision (LLM-judged break-even
      *    SL move) + framed for STRUCTURAL SL/TP (swing_anchor + rr_multiple
-     *    in algo rules), not fixed %.
+     *    in algo rules), not fixed %. EMPIRICALLY REJECTED 2026-05-02:
+     *    LLM over-used move_be (32.8% of decisions), capped winners.
+     *  - "v5": tightened-discipline v3 from 30d backtest analysis.
+     *    Hard-blocks RANGING entries, anti-chase rule for HH-long,
+     *    strict 3-criteria exit rule, session discipline (raise bar
+     *    in Late US/Asia). For structural SL/TP. Single decision (no
+     *    move_be). Designed to fix v3's biggest leak: over-exiting
+     *    on 30m structure noise.
      *  Defaults to v2 in production when unspecified. */
-    prompt_version?: "v1" | "v2" | "v3" | "v4";
+    prompt_version?: "v1" | "v2" | "v3" | "v4" | "v5";
     /** Dry-run: log the LLM's decision to activity_log but do NOT
      *  actually open/close positions. Used for the first 1-2 cycles of
      *  live deployment to verify the LLM behaves sensibly on real-time

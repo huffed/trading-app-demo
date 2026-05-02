@@ -79,7 +79,7 @@ const TICKER = "XAU/USD";
 function buildRules(opts: {
   riskPerTrade: number;
   maxPositions: number;
-  promptVersion: "v1" | "v2" | "v3" | "v4";
+  promptVersion: "v1" | "v2" | "v3" | "v4" | "v5";
 }): AlgorithmRules {
   return {
     asset_class: "commodity",
@@ -157,11 +157,12 @@ async function main(): Promise<void> {
     promptVersionRaw !== "v1" &&
     promptVersionRaw !== "v2" &&
     promptVersionRaw !== "v3" &&
-    promptVersionRaw !== "v4"
+    promptVersionRaw !== "v4" &&
+    promptVersionRaw !== "v5"
   ) {
-    throw new Error(`Unsupported PROMPT_VERSION=${promptVersionRaw}. Use v1, v2, v3, or v4.`);
+    throw new Error(`Unsupported PROMPT_VERSION=${promptVersionRaw}. Use v1, v2, v3, v4, or v5.`);
   }
-  const promptVersion: "v1" | "v2" | "v3" | "v4" = promptVersionRaw;
+  const promptVersion: "v1" | "v2" | "v3" | "v4" | "v5" = promptVersionRaw;
 
   // Sanity bounds — match validator's risk_per_trade max (5%) and
   // catch obvious unit errors before insertion.
