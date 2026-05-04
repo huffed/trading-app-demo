@@ -4,7 +4,17 @@ import type { PriceBar } from "./types";
 
 // Daily bars refresh once per market day, intraday bars far more often.
 // Tighter TTL on intraday so live signals don't act on stale data.
-const DAILY_TTL_HOURS = 23;
+//
+// Daily TTL extended 2026-05-04 from 23h → 7d. Rationale: 23h forced
+// a re-fetch every weekend (cache invalid after Friday close + weekend),
+// and when fetch fails (rate limit / API hiccup) the engine falls back
+// to resampleToDaily(timeframe_bars) which produces <21 daily bars on
+// 30m algos, breaking regime detection. 7-day TTL means slightly stale
+// daily structure (acceptable for 14-bar regime calc) but cache always
+// hits, eliminating the weekly cache-miss + fetch-fail cascade. Real
+// fix is incremental cache refresh (only fetch the new daily bars and
+// append) — queued as follow-up.
+const DAILY_TTL_HOURS = 24 * 7;
 const INTRADAY_TTL_HOURS = 1;
 
 export async function getCachedPrices(
