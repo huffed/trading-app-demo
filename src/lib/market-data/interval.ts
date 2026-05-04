@@ -7,12 +7,17 @@
  * pipeline only handles a small fixed set of intervals.
  */
 
-export type BarInterval = "15min" | "1h" | "4h" | "1day";
+export type BarInterval = "15min" | "30min" | "1h" | "4h" | "1day";
 
 const KEYWORD_TO_INTERVAL: Array<[RegExp, BarInterval]> = [
   // 15-minute intraday — order matters: must run before "1h" matchers so
   // "15m" / "15min" doesn't accidentally fall through to a broader pattern.
   [/^15m$|^15min$|^15minutes?$|quarter.?hour/i, "15min"],
+  // 30-minute intraday — must run before 1h matchers ("30m" should NOT
+  // match "60m" pattern). Added 2026-05-04 after Intraday algo was
+  // discovered to be silently falling through to "1day" fallback,
+  // operating on daily bars instead of 30m. See feedback memory.
+  [/^30m$|^30min$|^30minutes?$|half.?hour/i, "30min"],
   [/^1h$|^1hr$|^60m$|hourly|scalp/i, "1h"],
   [/^4h$|^4hr$|^240m$/i, "4h"],
   [/^1d$|^daily$|swing|long.?term|weekly|monthly|position/i, "1day"],
@@ -33,6 +38,8 @@ export function barsPerDay(interval: BarInterval): number {
   switch (interval) {
     case "15min":
       return 96;
+    case "30min":
+      return 48;
     case "1h":
       return 24;
     case "4h":
@@ -70,6 +77,8 @@ export function minBarsFor(interval: BarInterval): number {
       return 200; // ~33 trading days
     case "1h":
       return 500; // ~21 trading days
+    case "30min":
+      return 720; // ~15 trading days × 48 bars/day
     case "15min":
       return 1000; // ~10 trading days; ATR(14) + lookback windows + signal warmup
   }
@@ -95,6 +104,8 @@ export function defaultWalkForwardWindowDays(timeframe: string | undefined): num
   switch (timeframeToInterval(timeframe)) {
     case "15min":
       return 30; // 30 × 96 = 2880 bars; fits 5k cap × multiple windows
+    case "30min":
+      return 60; // 60 × 48 = 2880 bars; same target density as 15min
     case "1h":
       return 90; // 90 × 24 = 2160 bars
     case "4h":
@@ -108,6 +119,8 @@ export function defaultWalkForwardStepDays(timeframe: string | undefined): numbe
   switch (timeframeToInterval(timeframe)) {
     case "15min":
       return 7;
+    case "30min":
+      return 14;
     case "1h":
       return 21;
     case "4h":
