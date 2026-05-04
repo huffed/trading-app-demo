@@ -31,6 +31,7 @@ const YAHOO_RANGE: Record<BarInterval, { compact: string; full: string; yahooInt
   "1day": { compact: "6mo", full: "5y", yahooInterval: "1d" },
   "4h": { compact: "60d", full: "60d", yahooInterval: "1h" }, // Yahoo has no 4h — caller resamples upstream if needed
   "1h": { compact: "60d", full: "730d", yahooInterval: "1h" },
+  "30min": { compact: "30d", full: "60d", yahooInterval: "30m" },
   "15min": { compact: "30d", full: "60d", yahooInterval: "15m" },
 };
 
