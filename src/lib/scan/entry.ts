@@ -1270,10 +1270,9 @@ async function evaluateLlmTraderEntry(
   // sweep-of-low LH-shorts in the same window went 3/4 winners. The
   // losing cohort is "fading resistance with a tight stop"; the winning
   // cohort is "continuation through support". Block only the losing
-  // signature. Mirror analysis for HH-longs is queued as a separate gate.
-  // Threshold (0.30%) splits the cohort cleanly: all 4 losers ≤0.21%
-  // from high, the upper-half winner (Trade 26 in beyr1223h) was 0.34%
-  // from high.
+  // signature. Threshold (0.30%) splits the cohort cleanly: all 4 losers
+  // ≤0.21% from high, the upper-half winner (Trade 26 in beyr1223h) was
+  // 0.34% from high.
   if (llmSide === "short" && evaluation.regime === "LH") {
     const lookback = Math.min(20, bars.length);
     const window = bars.slice(-lookback);
@@ -1290,6 +1289,40 @@ async function evaluateLlmTraderEntry(
           regime: evaluation.regime,
           range_high: rangeHigh,
           dist_from_high_pct: distFromHigh * 100,
+          confidence: decision.confidence,
+          llm_reasoning: decision.reasoning,
+          would_have_entered_side: llmSide,
+        },
+      });
+      return { opened: 0 };
+    }
+  }
+
+  // HH-long lower-range gate. Mirror of LH-short upper-range gate (#136).
+  // Empirical finding from beyr1223h 30d backtest: HH-long entries more
+  // than 0.30% above the 20-bar low went 0/11 (15 losses overall in this
+  // cohort, with 2 winners both within 0.30% of low — ranges 0.15% / 0.27%).
+  // The losing pattern is "chase momentum into upper range without a
+  // pullback to support"; the winning pattern is "pullback into recent
+  // structural support". HH-longs in chop are the worst-performing cohort
+  // in the v3 prompt — 11.8% WR / -$2,811 P&L on 17 trades — so a tight
+  // gate here has high leverage.
+  if (llmSide === "long" && evaluation.regime === "HH") {
+    const lookback = Math.min(20, bars.length);
+    const window = bars.slice(-lookback);
+    const rangeLow = Math.min(...window.map((b) => b.low));
+    const distFromLow = (currentPrice - rangeLow) / currentPrice;
+    if (distFromLow > 0.003) {
+      await logActivity(supabase, userId, {
+        algorithm_id: algo.id,
+        event_type: "signal_no_action",
+        ticker,
+        details: {
+          reason: `HH-long lower-range gate: entry ${currentPrice.toFixed(2)} is ${(distFromLow * 100).toFixed(2)}% above 20-bar low ${rangeLow.toFixed(2)} (threshold 0.30%) — 0/11 historical WR in this signature`,
+          source: "llm_trader",
+          regime: evaluation.regime,
+          range_low: rangeLow,
+          dist_from_low_pct: distFromLow * 100,
           confidence: decision.confidence,
           llm_reasoning: decision.reasoning,
           would_have_entered_side: llmSide,
