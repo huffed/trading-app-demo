@@ -10,6 +10,7 @@
  * three algos at \$700 risk each could collectively breach FTMO's 5%
  * DLL even though no single algo crossed its own threshold.
  */
+import { getTodayAnchor } from "@/lib/utils/date";
 import type { Portfolio } from "@/types/portfolio";
 import { flattenAlgorithmPositions } from "./flatten";
 import { logActivity } from "./helpers";
@@ -31,12 +32,6 @@ export interface PortfolioHaltResult {
   algos_in_portfolio: number;
 }
 
-function startOfTodayUtcIso(): string {
-  const d = new Date();
-  d.setUTCHours(0, 0, 0, 0);
-  return d.toISOString();
-}
-
 /**
  * Measure today's combined P&L across every algorithm in a portfolio.
  * Returns null when the portfolio has no DLL configured.
@@ -50,7 +45,7 @@ export async function checkPortfolioHalt(
   if (!pf?.daily_loss_limit) return null;
   if (algoIds.length === 0) return null;
 
-  const startIso = startOfTodayUtcIso();
+  const startIso = getTodayAnchor().utcIso;
 
   const [closedTodayRes, openRes] = await Promise.all([
     supabase

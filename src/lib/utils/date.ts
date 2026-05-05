@@ -32,3 +32,25 @@ export function formatLongDate(input: string | Date | null | undefined): string 
   if (!input) return "—";
   return LONG_DATE_FMT.format(new Date(input));
 }
+
+export interface TodayAnchor {
+  /** UTC midnight as ISO 8601 timestamp — for `closed_at >= ...` queries. */
+  utcIso: string;
+  /** UTC date as YYYY-MM-DD — for `String.startsWith()` filters on
+   *  ISO timestamps (e.g. `exit_date.startsWith(today)`). */
+  utcDate: string;
+}
+
+/**
+ * Single source of truth for "today" semantics. Two callers had identical
+ * `startOfTodayUtcIso()` copy-pastes (FTMO compliance + portfolio halt)
+ * and a third re-derived a UTC date string inline — this consolidates
+ * all three. UTC-anchored matches FTMO's day boundary; if user-local
+ * "today" is ever needed, add a `localDate` field rather than swapping.
+ */
+export function getTodayAnchor(): TodayAnchor {
+  const d = new Date();
+  d.setUTCHours(0, 0, 0, 0);
+  const utcIso = d.toISOString();
+  return { utcIso, utcDate: utcIso.slice(0, 10) };
+}

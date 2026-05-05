@@ -1,6 +1,9 @@
 import type { PaperPosition } from "@/types/position";
 import type { Trade } from "@/types/trade";
 import { formatShortDate } from "./date";
+import { computeEquityCurve as computeEquityCurveGeneric } from "./equity-curve";
+
+export type { EquityPoint } from "./equity-curve";
 
 // ---- Types ----
 
@@ -16,11 +19,6 @@ export interface AnalyticsMetrics {
   totalPnl: number;
   winRate: number;
   totalTrades: number;
-}
-
-export interface EquityPoint {
-  date: string;
-  equity: number;
 }
 
 export interface DrawdownPoint {
@@ -139,16 +137,13 @@ export function computeMetrics(trades: Trade[]): AnalyticsMetrics {
   };
 }
 
-export function computeEquityCurve(trades: Trade[]): EquityPoint[] {
-  const closed = getClosedTrades(trades);
-  let cumulative = 0;
-  return closed.map((t) => {
-    cumulative += t.realized_pnl;
-    return {
-      date: formatShortDate(t.exit_date),
-      equity: Number(cumulative.toFixed(2)),
-    };
-  });
+export function computeEquityCurve(trades: Trade[]) {
+  return computeEquityCurveGeneric(
+    getClosedTrades(trades).map((t) => ({
+      realized_pnl: t.realized_pnl,
+      closed_at: t.exit_date ?? "",
+    }))
+  );
 }
 
 export function computeDrawdownSeries(trades: Trade[]): DrawdownPoint[] {
