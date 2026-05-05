@@ -887,22 +887,29 @@ async function evaluateLlmTraderEntry(
     return { opened: 0 };
   }
 
-  // Dead-hour gate (Asia early-morning chop window). Cross-run analysis
-  // of two 30d backtests showed 04:00 + 05:00 UTC entries went 0 wins
-  // in 7 attempts (sum -4.22R), and the first live trade (2026-05-05
-  // 05:00 UTC) lost -1R as an extension of the same pattern. Other Asia
-  // hours (e.g. 01:00 UTC) had legitimate winners across runs, so we
-  // surgically block 04-05 UTC instead of the broader Asia session.
-  // Sample is small but pattern is consistent across runs; revisit if
-  // ≥3 live trades in this window land winners.
+  // Dead-hour gate — empirically blocks two specific UTC hours.
+  //
+  // Originally calibrated as "04-05 UTC Asia early-morning chop" against
+  // backtests where Twelve Data returned XAU/USD bars in Sydney local
+  // time (UTC+10) but the code parsed them as UTC. Sydney 04-05 is
+  // actually 18-19 UTC the previous day — i.e. London close, not
+  // Asia chop. The empirical evidence (0/7 WR across two 30d backtests
+  // + a -1R live loss on 2026-05-05) was sound; just labeled wrong.
+  //
+  // Now that Twelve Data is fetched with `timezone=UTC`, bar timestamps
+  // are honest UTC. The hour comparison shifts to 18, 19 to preserve
+  // the same real-world hours that were validated. Revisit calibration
+  // (proper analysis on UTC-stamped bars) when there's a reason to —
+  // Asia chop may or may not be a real concern that the original
+  // analysis would have caught had timezones been correct.
   const utcHour = new Date(bars[bars.length - 1].date).getUTCHours();
-  if (utcHour === 4 || utcHour === 5) {
+  if (utcHour === 18 || utcHour === 19) {
     await logActivity(supabase, userId, {
       algorithm_id: algo.id,
       event_type: "signal_no_action",
       ticker,
       details: {
-        reason: `Dead-hour gate: ${utcHour}:00 UTC has 0/7 historic WR across two 30d backtests + first live loss`,
+        reason: `Dead-hour gate: ${utcHour}:00 UTC (London close) — 0/7 historic WR across two 30d backtests + first live loss; calibration was on Sydney-time bars (now corrected) so block hours are 18-19 UTC, originally labeled 04-05`,
         source: "llm_trader",
         utc_hour: utcHour,
       },

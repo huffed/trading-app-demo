@@ -147,7 +147,12 @@ export async function fetchDailyPrices(
   if (!apiKey) throw new Error("TWELVE_DATA_API_KEY is not set");
 
   const size = outputSize === "full" ? 5000 : 100;
-  const url = `${BASE_URL}/time_series?symbol=${encodeURIComponent(symbol)}&interval=${interval}&outputsize=${size}&apikey=${apiKey}`;
+  // `timezone=UTC` is essential — Twelve Data's default timezone for
+  // forex / commodity symbols (XAU/USD specifically) returns timestamps
+  // in the exchange's local time (Sydney UTC+10 for gold), without any
+  // offset suffix. The code parses these as UTC, so every bar appears
+  // 10 hours in the future. Forcing UTC keeps `bars[i].date` honest.
+  const url = `${BASE_URL}/time_series?symbol=${encodeURIComponent(symbol)}&interval=${interval}&outputsize=${size}&timezone=UTC&apikey=${apiKey}`;
 
   const res = await fetch(url);
   if (!res.ok) throw new Error(`Twelve Data request failed: ${res.status}`);
