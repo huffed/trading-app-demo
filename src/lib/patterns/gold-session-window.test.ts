@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { PriceBar } from "@/lib/market-data/types";
-import { detectSessionWindow, SESSION_WINDOWS } from "./session-window";
+import { detectSessionWindow, SESSION_WINDOWS } from "./gold-session-window";
 
 function bar(date: string, close = 1.0): PriceBar {
   return { date, open: close, high: close + 0.001, low: close - 0.001, close, volume: 0 };
