@@ -1224,6 +1224,30 @@ async function evaluateLlmTraderEntry(
   const llmSide: "long" | "short" =
     decision.decision === "enter_long" ? "long" : "short";
 
+  // RANGING regime block. Empirical finding (beyr1223h 30d): RANGING
+  // regime entries went 0/4, -$2,217 cumulative, 0% WR. v3 prompt has
+  // a soft "RANGING block" rule but the LLM doesn't reliably follow it
+  // — it still emits enter_long / enter_short ~3% of bars in RANGING.
+  // Hard-block at the gate level. When market structure is ambiguous
+  // (neither HH nor LH on D1), neither direction has positive expected
+  // value in this prompt + setup combo. Hold or wait for regime shift.
+  if (evaluation.regime === "RANGING") {
+    await logActivity(supabase, userId, {
+      algorithm_id: algo.id,
+      event_type: "signal_no_action",
+      ticker,
+      details: {
+        reason: "RANGING regime block: 0/4 historical WR (-$2,217 in beyr1223h 30d). Chop regime has structurally negative EV for v3 prompt — hold and wait for regime shift.",
+        source: "llm_trader",
+        regime: evaluation.regime,
+        confidence: decision.confidence,
+        llm_reasoning: decision.reasoning,
+        would_have_entered_side: llmSide,
+      },
+    });
+    return { opened: 0 };
+  }
+
   // Capped: log near-miss with LLM reasoning, don't open
   if (cappedReason) {
     await logActivity(supabase, userId, {

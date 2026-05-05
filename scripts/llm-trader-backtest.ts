@@ -816,6 +816,7 @@ export interface GateRefusals {
   consec_loss_halt: number;
   ftmo_consistency_halt: number;
   stagnant_exits: number;
+  ranging_regime: number;
 }
 
 export interface WindowResult {
@@ -958,6 +959,7 @@ export async function runWindow(opts: WindowOptions): Promise<WindowResult> {
     consec_loss_halt: 0,
     ftmo_consistency_halt: 0,
     stagnant_exits: 0,
+    ranging_regime: 0,
   };
 
   for (let i = startIdx; i < lastIdx; i++) {
@@ -1088,11 +1090,19 @@ export async function runWindow(opts: WindowOptions): Promise<WindowResult> {
       decision.decision === "enter_long" || decision.decision === "enter_short";
     let entryBlockedReason: string | null = null;
     if (isEntry && !position) {
+      // RANGING regime block — mirrors src/lib/scan/entry.ts. Empirical
+      // finding (beyr1223h 30d): 4/4 RANGING entries lost (-$2,217).
+      if (regime === "RANGING") {
+        entryBlockedReason = `ranging_regime: 0/4 historical WR for RANGING entries`;
+        gateRefusals.ranging_regime++;
+      }
       // ATR liquidity
-      const atrCheck = checkAtrLiquidity(bars, i);
-      if (atrCheck.skip) {
-        entryBlockedReason = `atr_liquidity: ${atrCheck.reason ?? "below percentile"}`;
-        gateRefusals.atr_liquidity++;
+      if (!entryBlockedReason) {
+        const atrCheck = checkAtrLiquidity(bars, i);
+        if (atrCheck.skip) {
+          entryBlockedReason = `atr_liquidity: ${atrCheck.reason ?? "below percentile"}`;
+          gateRefusals.atr_liquidity++;
+        }
       }
       // News veto — refuse entries within 5min before / 15min after
       // tier-1 USD releases. Same gate as production for XAU/USD.
