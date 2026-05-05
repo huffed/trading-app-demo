@@ -593,23 +593,76 @@ async function callAnthropic(
   return parsed.success ? parsed.data : null;
 }
 
+/** Failure-type taxonomy for diagnostics. Backtest fail rates spike under
+ *  multi-algo because parallel calls hit Anthropic rate limits more
+ *  often. Tracking the error type lets us tell rate-limit (transient,
+ *  retry helps) from parse-fail (prompt issue, retry doesn't help). */
+export type LlmFailType = "rate_limit" | "parse_fail" | "network" | "other";
+
+export function classifyLlmError(err: unknown): LlmFailType {
+  if (err instanceof Error) {
+    const msg = err.message.toLowerCase();
+    if (msg.includes("rate") || msg.includes("429") || msg.includes("overloaded"))
+      return "rate_limit";
+    if (msg.includes("network") || msg.includes("econnreset") || msg.includes("timeout"))
+      return "network";
+  }
+  return "other";
+}
+
+/** LLM call with single retry + 1.5s sleep on transient errors. Matches
+ *  production's retry strategy (memory: feedback_llm_retry_strategy).
+ *  Halves rate-limit-induced failures in backtests with no meaningful
+ *  cost. Returns { decision, failType } so callers can track the failure
+ *  taxonomy for diagnostics. */
+export async function callLLMWithDiagnostic(
+  provider: Provider,
+  clients: ProviderClients,
+  systemPrompt: string,
+  context: string
+): Promise<{ decision: Decision | null; failType: LlmFailType | null }> {
+  let lastErr: unknown = null;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      let result: Decision | null;
+      if (provider === "anthropic") {
+        if (!clients.anthropic) throw new Error("anthropic client not initialised");
+        result = await callAnthropic(clients.anthropic, systemPrompt, context);
+      } else {
+        if (!clients.groq) throw new Error("groq client not initialised");
+        result = await callGroq(clients.groq, systemPrompt, context);
+      }
+      if (result === null) {
+        // null = parse failed (LLM returned text that didn't match
+        // decisionSchema). Retry won't help here — schema is the issue.
+        return { decision: null, failType: "parse_fail" };
+      }
+      return { decision: result, failType: null };
+    } catch (err) {
+      lastErr = err;
+      const failType = classifyLlmError(err);
+      // Retry rate_limit + network failures once with a short sleep.
+      // Other errors (auth, malformed request) won't fix with retry.
+      if (attempt === 0 && (failType === "rate_limit" || failType === "network")) {
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+        continue;
+      }
+      return { decision: null, failType };
+    }
+  }
+  return { decision: null, failType: classifyLlmError(lastErr) };
+}
+
+/** Backward-compatible wrapper that drops the failType. Existing callers
+ *  (single-algo runWindow) keep working unchanged. */
 export async function callLLM(
   provider: Provider,
   clients: ProviderClients,
   systemPrompt: string,
   context: string
 ): Promise<Decision | null> {
-  try {
-    if (provider === "anthropic") {
-      if (!clients.anthropic) throw new Error("anthropic client not initialised");
-      return await callAnthropic(clients.anthropic, systemPrompt, context);
-    }
-    if (!clients.groq) throw new Error("groq client not initialised");
-    return await callGroq(clients.groq, systemPrompt, context);
-  } catch (err) {
-    console.error("LLM call failed:", err instanceof Error ? err.message : err);
-    return null;
-  }
+  const { decision } = await callLLMWithDiagnostic(provider, clients, systemPrompt, context);
+  return decision;
 }
 
 export function findExitOnNextBar(

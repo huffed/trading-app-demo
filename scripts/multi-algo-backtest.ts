@@ -47,7 +47,8 @@ import {
   ANTHROPIC_MODEL,
   loadCorpus,
   createClients,
-  callLLM,
+  callLLMWithDiagnostic,
+  type LlmFailType,
   computeSlForBacktest,
   computeTpForBacktest,
   summariseDailyBias,
@@ -132,6 +133,9 @@ export interface SharedState {
   combinedDllTrippedToday: string | null;
   llmCalls: number;
   llmFailures: number;
+  /** Per-algo call/fail stats. Surfaces "v3 prompt parse-fails more than
+   *  v2" patterns invisible in the global counter. */
+  perAlgoStats: Map<string, { calls: number; fails: number; failsByType: Map<LlmFailType, number> }>;
 }
 
 export function newSharedState(capital: number): SharedState {
@@ -145,6 +149,7 @@ export function newSharedState(capital: number): SharedState {
     combinedDllTrippedToday: null,
     llmCalls: 0,
     llmFailures: 0,
+    perAlgoStats: new Map(),
   };
 }
 
@@ -245,11 +250,28 @@ async function processAlgoAtBar(
   const systemPrompt = getPrompt(algo.promptVersion);
 
   state.llmCalls++;
-  const decision = await callLLM(provider, clients, systemPrompt, userMessage);
+  const algoStats = state.perAlgoStats.get(algo.algoId) ?? {
+    calls: 0,
+    fails: 0,
+    failsByType: new Map<LlmFailType, number>(),
+  };
+  algoStats.calls++;
+  const { decision, failType } = await callLLMWithDiagnostic(
+    provider,
+    clients,
+    systemPrompt,
+    userMessage
+  );
   if (!decision) {
     state.llmFailures++;
+    algoStats.fails++;
+    if (failType) {
+      algoStats.failsByType.set(failType, (algoStats.failsByType.get(failType) ?? 0) + 1);
+    }
+    state.perAlgoStats.set(algo.algoId, algoStats);
     return;
   }
+  state.perAlgoStats.set(algo.algoId, algoStats);
 
   // Apply decision against shared state
   if ((decision.decision === "enter_long" || decision.decision === "enter_short") && !currentPos) {
@@ -459,6 +481,21 @@ async function main(): Promise<void> {
   const finalPct = (finalPnl / capital) * 100;
   console.log(`Final cash    : $${Math.round(state.cash).toLocaleString()} (${finalPnl >= 0 ? "+" : ""}$${Math.round(finalPnl).toLocaleString()}, ${finalPct >= 0 ? "+" : ""}${finalPct.toFixed(2)}%)`);
   console.log(`LLM calls     : ${state.llmCalls} (${state.llmFailures} fails, ${(100 * state.llmFailures / Math.max(state.llmCalls, 1)).toFixed(1)}%)`);
+
+  // Per-algo fail-type breakdown — diagnostic for distinguishing
+  // rate-limit (transient, retry helps) from parse-fail (prompt issue).
+  console.log("\nPer-algo LLM diagnostics:");
+  for (const algo of DEFAULT_CONFIGS) {
+    const s = state.perAlgoStats.get(algo.algoId);
+    if (!s) continue;
+    const failPct = (100 * s.fails) / Math.max(s.calls, 1);
+    const failBreakdown = Array.from(s.failsByType.entries())
+      .map(([type, n]) => `${type}=${n}`)
+      .join(" · ");
+    console.log(
+      `  ${algo.label}: ${s.calls} calls · ${s.fails} fails (${failPct.toFixed(1)}%) ${failBreakdown ? `· ${failBreakdown}` : ""}`
+    );
+  }
 
   console.log("\nPer-algo breakdown:");
   for (const algo of DEFAULT_CONFIGS) {
