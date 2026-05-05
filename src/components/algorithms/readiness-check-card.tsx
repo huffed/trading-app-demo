@@ -5,7 +5,7 @@ import { AlertCircle, AlertTriangle, CheckCircle2, Loader2, ShieldCheck } from "
 import { runAlgorithmReadinessCheck } from "@/app/(dashboard)/algorithms/readiness-actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Surface } from "@/components/ui/surface";
 import type {
   ReadinessCheckResult,
   ReadinessReport,
@@ -119,27 +119,24 @@ export function ReadinessCheckCard({ algorithmId }: { algorithmId: string }) {
   }
 
   return (
-    <Card>
-      <CardHeader className="pb-2 flex flex-row items-center justify-between">
-        <CardTitle className="text-sm font-medium flex items-center gap-1.5">
-          <ShieldCheck className="h-4 w-4" />
-          Readiness check
-        </CardTitle>
+    <Surface elevation="low" className="p-4">
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5">
+          <ShieldCheck className="h-4 w-4 text-muted-foreground" />
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">Readiness check</p>
+        </div>
         <Button size="xs" onClick={handleRun} disabled={loading}>
           <RunButtonLabel loading={loading} hasReport={report !== null} />
         </Button>
-      </CardHeader>
-      <CardContent>
-        {!report && !loading && !error && (
-          <p className="text-xs text-muted-foreground">
-            Aggregate verdict before flipping live trading. Walk-forward stability + pair quality
-            + side symmetry + FTMO fit. Worst severity wins. Takes 5-30s depending on watchlist
-            size.
-          </p>
-        )}
-        {error && <p className="text-xs text-[var(--loss)]">{error}</p>}
-        {report && <ResultBody report={report} />}
-      </CardContent>
-    </Card>
+      </div>
+      {!report && !loading && !error && (
+        <p className="text-xs text-muted-foreground">
+          Aggregate verdict before flipping live trading. Walk-forward stability + pair quality +
+          side symmetry + FTMO fit. Worst severity wins. Takes 5-30s depending on watchlist size.
+        </p>
+      )}
+      {error && <p className="text-xs text-[var(--loss)]">{error}</p>}
+      {report && <ResultBody report={report} />}
+    </Surface>
   );
 }

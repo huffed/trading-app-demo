@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import { AlertTriangle, Clock, ShieldCheck, ShieldAlert, Target } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Surface } from "@/components/ui/surface";
 import { useFtmoCompliance } from "@/hooks/use-ftmo-compliance";
 import { formatRelativeTime } from "@/lib/utils/pnl";
 import type {
@@ -174,14 +174,12 @@ export function FtmoComplianceCard({ algorithmId }: { algorithmId: string }) {
   if (!data || !data.has_prop_firm) return null;
 
   return (
-    <Card>
-      <CardHeader className="pb-2">
-        <CardTitle className="flex items-center gap-1.5 text-base">
-          <Target className="h-4 w-4" />
-          FTMO Compliance
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3">
+    <Surface elevation="low" className="p-4">
+      <div className="mb-3 flex items-center gap-1.5">
+        <Target className="h-4 w-4 text-muted-foreground" />
+        <p className="text-xs uppercase tracking-wide text-muted-foreground">FTMO compliance</p>
+      </div>
+      <div className="space-y-3">
         <div className="grid gap-3 sm:grid-cols-3">
           {data.daily_pnl && (
             <GaugeRow gauge={data.daily_pnl} trailing={<ResetCountdown />} />
@@ -191,7 +189,7 @@ export function FtmoComplianceCard({ algorithmId }: { algorithmId: string }) {
         </div>
         {data.divergence && <DivergenceRow d={data.divergence} />}
         <HaltsList events={data.recent_halts} />
-      </CardContent>
-    </Card>
+      </div>
+    </Surface>
   );
 }
