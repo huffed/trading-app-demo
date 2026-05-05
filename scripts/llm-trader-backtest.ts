@@ -118,7 +118,7 @@ const PRODUCTION_GATES = {
   },
   prop_firm: {
     consistency_rule: 0, // 2-step path — no best-day rule
-    consecutive_loss_daily_halt: 3,
+    consecutive_loss_daily_halt: 2,
     max_consecutive_losses: 0,
     daily_loss_limit: 5,
   },
@@ -131,11 +131,13 @@ const PRODUCTION_GATES = {
 } as const;
 
 /** Significant-loss cutoff for the consec-loss halt. Mirrors production
- *  (see src/lib/scan/consec-loss-halt.ts SIGNIFICANT_LOSS_R_THRESHOLD). */
-const SIGNIFICANT_LOSS_R_THRESHOLD = 0.5;
+ *  (see src/lib/scan/consec-loss-halt.ts SIGNIFICANT_LOSS_R_THRESHOLD).
+ *  Lowered 0.5 → 0.25 (2026-05-05) to catch mid-magnitude llm_exit
+ *  losses that were silently skipped under the old threshold. */
+const SIGNIFICANT_LOSS_R_THRESHOLD = 0.25;
 
 /** A loss only counts toward the consec-streak if its magnitude is at
- *  least 0.5R. Mirrors `isSignificantLoss` in production — keeps tiny
+ *  least 0.25R. Mirrors `isSignificantLoss` in production — keeps tiny
  *  stagnant-cut nips from falsely tripping the halt. */
 function isSignificantLossTrade(t: ClosedTrade): boolean {
   if (t.realized_pnl >= 0) return false;
