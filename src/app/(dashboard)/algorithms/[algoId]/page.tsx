@@ -3,7 +3,6 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { AlgoActivityPanel } from "@/components/algorithms/algo-activity-panel";
 import { AlgoEquityHero } from "@/components/algorithms/algo-equity-hero";
 import { AlgoInspectorRail } from "@/components/algorithms/algo-inspector-rail";
 import { AlgoKpiStrip } from "@/components/algorithms/algo-kpi-strip";
@@ -50,15 +49,10 @@ function ReadView({
         backtestResults={(algo.backtest_results as BacktestMetrics | null) ?? null}
         lastScannedAt={algo.last_scanned_at}
       />
-      <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-12">
+      <div className="mt-6 space-y-4">
         <AlgoEquityHero algorithmId={algo.id} />
-        <div className="lg:col-span-7">
-          <OpenPositionsCard algorithmId={algo.id} />
-        </div>
-        <AlgoActivityPanel algorithmId={algo.id} />
-        <div className="lg:col-span-12">
-          <ClosedPositionsCard algorithmId={algo.id} />
-        </div>
+        <OpenPositionsCard algorithmId={algo.id} />
+        <ClosedPositionsCard algorithmId={algo.id} />
       </div>
       {algo.rules?.llm_trader?.enabled && (
         <div className="mt-4">

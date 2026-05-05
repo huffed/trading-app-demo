@@ -21,6 +21,7 @@ import { useTriggerScan } from "@/hooks/use-paper-trading";
 import { EXIT_REASON_LABELS } from "@/lib/constants/algorithm";
 import type { ScanResult } from "@/lib/scan/engine";
 import { formatPnl, formatPriceValue, pnlColorClass } from "@/lib/utils/pnl";
+import { AlgoActivityPanel } from "./algo-activity-panel";
 import { FtmoComplianceCard } from "./ftmo-compliance-card";
 import { ReadinessCheckCard } from "./readiness-check-card";
 
@@ -109,6 +110,7 @@ export function AlgoInspectorRail({
       <ScanPanel algorithmId={algorithmId} isActive={algorithmStatus === "active"} />
       <FtmoComplianceCard algorithmId={algorithmId} />
       <ReadinessCheckCard algorithmId={algorithmId} />
+      <AlgoActivityPanel algorithmId={algorithmId} />
     </div>
   );
 }

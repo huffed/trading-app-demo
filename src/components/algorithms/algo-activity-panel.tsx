@@ -62,7 +62,7 @@ export function AlgoActivityPanel({ algorithmId }: { algorithmId: string }) {
   const entries = data?.entries ?? [];
 
   return (
-    <Surface elevation="mid" className="p-5 lg:col-span-5">
+    <Surface elevation="mid" className="p-5">
       <div className="mb-3 flex items-center gap-2">
         <Activity className="h-4 w-4 text-muted-foreground" />
         <p className="text-xs uppercase tracking-wide text-muted-foreground">Activity log</p>
