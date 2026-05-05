@@ -264,6 +264,19 @@ function extractJson(text: string): unknown {
   } catch {
     /* fall through */
   }
+  // Strip ```json ... ``` wrapper. Anthropic Haiku frequently wraps JSON
+  // in fenced code blocks even when the prompt says "Output JSON: {...}".
+  // Match handles both completed (```json...```) and truncated (```json...
+  // EOF) responses.
+  const fenceMatch = trimmed.match(/```(?:json)?\s*([\s\S]*?)(?:```|$)/);
+  if (fenceMatch) {
+    const inner = fenceMatch[1].trim();
+    try {
+      return JSON.parse(inner);
+    } catch {
+      /* fall through to greedy match */
+    }
+  }
   const match = trimmed.match(/\{[\s\S]*\}/);
   if (match) {
     try {
@@ -283,9 +296,13 @@ async function callAnthropic(
   systemPrompt: string,
   context: string
 ): Promise<LlmTraderDecision | null> {
+  // max_tokens raised 200 → 600 after backtest fail-dump diagnosis
+  // (2026-05-05) revealed Haiku's verbose markdown analyses + ```json
+  // wrappers were running out of token budget mid-response. Live was
+  // silently dropping ~10-20% of decisions for the same reason.
   const res = await client.messages.create({
     model,
-    max_tokens: 200,
+    max_tokens: 600,
     system: systemPrompt,
     messages: [{ role: "user", content: context }],
   });
@@ -309,7 +326,7 @@ async function callGroq(
       { role: "user", content: context },
     ],
     response_format: { type: "json_object" },
-    max_tokens: 200,
+    max_tokens: 600,
     temperature: 0.2,
   });
   const text = res.choices[0]?.message?.content ?? "{}";
