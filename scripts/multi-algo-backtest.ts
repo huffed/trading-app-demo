@@ -61,6 +61,7 @@ import {
 } from "./llm-trader-backtest";
 import { getPrompt, type PromptVersion } from "../src/lib/scan/llm-trader-prompts";
 import { AI_MODEL } from "../src/lib/ai/client";
+import { resampleTo, alignBarIndex } from "../src/lib/market-data/resample";
 
 {
   try {
@@ -228,7 +229,12 @@ async function processAlgoAtBar(
   windowBarIdx: number,
   globalBarIdx: number,
   provider: Provider,
-  clients: ProviderClients
+  clients: ProviderClients,
+  // Per-algo native-TF bar series. v1 (4h) gets 4h-resampled bars;
+  // Intraday (30m) gets the raw 30m corpus. Without this, v1's context
+  // builder receives 30m bars but the prompt says "4h trader" — causing
+  // 50% parse-fail (LLM confused by TF mismatch).
+  algoBars: PriceBar[]
 ): Promise<void> {
   const bar = windowBars[windowBarIdx];
   // Find this algo's open position (if any). Multi-algo means each algo
@@ -241,7 +247,14 @@ async function processAlgoAtBar(
     (d) => new Date(d.date).getTime() <= new Date(bar.date).getTime()
   );
   const { summary: dailyContext, regime } = summariseDailyBias(dailyBefore);
-  const recentContext = summariseRecentBars(corpus.bars, globalBarIdx, algo.timeframe);
+  // Use the algo's NATIVE-TF bars + correctly aligned index for the
+  // recent-bars context. Otherwise v1 (4h prompt) sees 30m bars and
+  // the LLM produces malformed output.
+  const algoBarIdx = alignBarIndex(algoBars, bar.date);
+  const recentContext =
+    algoBarIdx >= 0
+      ? summariseRecentBars(algoBars, algoBarIdx, algo.timeframe)
+      : "";
   const dxyContext = summariseDxy(corpus.eurusd4h, bar.date);
   const intermarketContext = summariseIntermarket(corpus.intermarket, bar.close, bar.date);
   const positionContext = summarisePosition(currentPos, bar.close);
@@ -395,6 +408,16 @@ async function main(): Promise<void> {
   const state = newSharedState(capital);
   const clients = createClients(provider);
 
+  // Pre-resample to each algo's native timeframe ONCE. v1 (4h) gets 4h
+  // bars; Intraday (30m) gets the raw 30m corpus. Critical fix from
+  // smoke test 1 — without this, v1's parse-fail rate was 50% because
+  // it received 30m bars in a context labelled "4h trader."
+  const algoBarsByTf = new Map<string, PriceBar[]>();
+  algoBarsByTf.set("30m", corpus.bars);
+  algoBarsByTf.set("4h", resampleTo(corpus.bars, "4h"));
+  console.log(`  resampled bars: 30m=${corpus.bars.length}, 4h=${algoBarsByTf.get("4h")?.length ?? 0}`);
+  console.log("");
+
   console.log(`Replaying ${numBars} bars with ${DEFAULT_CONFIGS.length} algos in parallel...`);
 
   for (let bi = startIdx; bi < lastIdx; bi++) {
@@ -408,6 +431,7 @@ async function main(): Promise<void> {
     // 2. For each algo that fires at this bar, process its decision
     for (const algo of DEFAULT_CONFIGS) {
       if (!shouldFireAt(algo, bar.date)) continue;
+      const algoBars = algoBarsByTf.get(algo.timeframe) ?? corpus.bars;
       await processAlgoAtBar(
         algo,
         state,
@@ -416,7 +440,8 @@ async function main(): Promise<void> {
         bi,
         bi,
         provider,
-        clients
+        clients,
+        algoBars
       );
     }
 
