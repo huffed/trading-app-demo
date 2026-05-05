@@ -2,6 +2,7 @@
 
 import { getAuthedUser } from "@/lib/supabase/get-authed-user";
 import { type ActionResult } from "@/lib/types/action-result";
+import { getTodayAnchor } from "@/lib/utils/date";
 import type { AlgorithmRules } from "@/types/algorithm";
 import type {
   ComplianceGauge,
@@ -40,12 +41,6 @@ function gaugeState(valuePct: number, thresholdPct: number): ComplianceGauge["st
   if (used >= 1) return "breach";
   if (used >= 0.8) return "warn";
   return "ok";
-}
-
-function startOfTodayUtcIso(): string {
-  const d = new Date();
-  d.setUTCHours(0, 0, 0, 0);
-  return d.toISOString();
 }
 
 interface AggregateInputs {
@@ -99,7 +94,7 @@ async function fetchComplianceData(
   userId: string,
   algorithmId: string
 ) {
-  const startIso = startOfTodayUtcIso();
+  const startIso = getTodayAnchor().utcIso;
   return Promise.all([
     supabase
       .from("paper_positions")

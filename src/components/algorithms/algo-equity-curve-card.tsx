@@ -4,6 +4,7 @@ import { TrendingUp } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useClosedPositionsWindow } from "@/hooks/use-paper-trading";
+import { computeEquityCurve } from "@/lib/utils/equity-curve";
 import { formatPnl, pnlColorClass } from "@/lib/utils/pnl";
 import { EquityCurveChart } from "./equity-curve-chart";
 
@@ -46,14 +47,12 @@ function CurveBody({
 export function AlgoEquityCurveCard({ algorithmId, days = 30 }: AlgoEquityCurveCardProps) {
   const { data: positions = [], isLoading } = useClosedPositionsWindow(algorithmId, days);
 
-  const chartData = positions
-    .filter((p) => p.closed_at && p.realized_pnl != null)
-    .reduce<{ date: string; value: number }[]>((acc, p) => {
-      const prev = acc.length > 0 ? acc[acc.length - 1].value : 0;
-      const closedAt = p.closed_at as string;
-      acc.push({ date: closedAt.slice(5, 10), value: prev + (p.realized_pnl ?? 0) });
-      return acc;
-    }, []);
+  const chartData = computeEquityCurve(
+    positions.map((p) => ({
+      realized_pnl: p.realized_pnl ?? 0,
+      closed_at: p.closed_at ?? "",
+    }))
+  );
 
   const totalPnl = chartData.length > 0 ? chartData[chartData.length - 1].value : 0;
   const tradeCount = chartData.length;

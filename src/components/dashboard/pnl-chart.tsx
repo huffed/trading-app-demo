@@ -13,24 +13,9 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useDashboardStats } from "@/hooks/use-dashboard-stats";
-import { formatShortDate } from "@/lib/utils/date";
+import { computeEquityCurve } from "@/lib/utils/equity-curve";
 import { formatCurrency } from "@/lib/utils/pnl";
 import type { Trade } from "@/types/trade";
-
-function computeCumulativePnl(trades: Trade[]) {
-  const closed = trades
-    .filter((t) => t.status === "closed" && t.exit_date && t.realized_pnl != null)
-    .sort((a, b) => new Date(a.exit_date!).getTime() - new Date(b.exit_date!).getTime());
-
-  let cumulative = 0;
-  return closed.map((t) => {
-    cumulative += t.realized_pnl!;
-    return {
-      date: formatShortDate(t.exit_date!),
-      pnl: Number(cumulative.toFixed(2)),
-    };
-  });
-}
 
 function ChartEmpty() {
   return (
@@ -40,7 +25,7 @@ function ChartEmpty() {
   );
 }
 
-function PnlAreaChart({ data }: { data: { date: string; pnl: number }[] }) {
+function PnlAreaChart({ data }: { data: { date: string; value: number }[] }) {
   return (
     <ResponsiveContainer width="100%" height={200}>
       <AreaChart data={data} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
@@ -75,7 +60,7 @@ function PnlAreaChart({ data }: { data: { date: string; pnl: number }[] }) {
         />
         <Area
           type="monotone"
-          dataKey="pnl"
+          dataKey="value"
           stroke="var(--color-chart-1)"
           fill="url(#pnlGradient)"
           strokeWidth={2}
@@ -86,7 +71,18 @@ function PnlAreaChart({ data }: { data: { date: string; pnl: number }[] }) {
 }
 
 function PnlContent({ trades }: { trades: Trade[] }) {
-  const chartData = useMemo(() => computeCumulativePnl(trades), [trades]);
+  const chartData = useMemo(
+    () =>
+      computeEquityCurve(
+        trades
+          .filter((t) => t.status === "closed")
+          .map((t) => ({
+            realized_pnl: t.realized_pnl ?? 0,
+            closed_at: t.exit_date ?? "",
+          }))
+      ),
+    [trades]
+  );
   if (chartData.length === 0) return <ChartEmpty />;
   return <PnlAreaChart data={chartData} />;
 }

@@ -1,4 +1,5 @@
 import type { Trade } from "@/types/trade";
+import { getTodayAnchor } from "./date";
 
 // ---- Currency configuration ----
 
@@ -184,7 +185,7 @@ export function getTradeStats(trades: Trade[]) {
   const totalPnl = closed.reduce((sum, t) => sum + (t.realized_pnl ?? 0), 0);
 
   // Today's P&L
-  const today = new Date().toISOString().slice(0, 10);
+  const today = getTodayAnchor().utcDate;
   const todayPnl = closed
     .filter((t) => t.exit_date?.startsWith(today))
     .reduce((sum, t) => sum + (t.realized_pnl ?? 0), 0);
