@@ -302,7 +302,8 @@ async function processTicker(
   liveQuotes: Map<string, number>,
   interval: BarInterval,
   brokerCtx: BrokerExecutionContext | null,
-  dxyBars: PriceBar[] | null
+  dxyBars: PriceBar[] | null,
+  force: boolean
 ) {
   try {
     let prices = await getCachedPrices(ticker, "full", interval);
@@ -386,7 +387,8 @@ async function processTicker(
       brokerCtx,
       dailyBars,
       dxyBars,
-      cappedReason
+      cappedReason,
+      force
     );
     result.positions_opened += r.opened;
     if (r.openEvent) {
@@ -421,8 +423,10 @@ async function processTicker(
 export async function scanAlgorithm(
   supabase: SupabaseClient,
   userId: string,
-  algo: AlgorithmWithWatchlist
+  algo: AlgorithmWithWatchlist,
+  options: { force?: boolean } = {}
 ): Promise<ScanResult> {
+  const force = options.force ?? false;
   const result: ScanResult = {
     algorithm_id: algo.id,
     algorithm_name: algo.name,
@@ -511,7 +515,8 @@ export async function scanAlgorithm(
       liveQuotes,
       interval,
       brokerCtx,
-      dxyBars
+      dxyBars,
+      force
     );
   }
 

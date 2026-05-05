@@ -470,7 +470,14 @@ export async function evaluateEntry(
    *  fired while capped" — without this flag, the cap silently dropped
    *  every potential entry and the considered feed showed nothing during
    *  slot-full windows. */
-  cappedReason?: string | null
+  cappedReason?: string | null,
+  /** Operator-triggered scans (the "Scan now" button) bypass the cron-
+   *  alignment bar-close gate so the LLM evaluates immediately on the
+   *  most recent bars. Cron-driven scans pass false (default) so the
+   *  bar-close timing matches how the backtest harness evaluated. Other
+   *  defensive gates (ATR liquidity, news veto, halt checks, etc.) are
+   *  unaffected — those are real protections, not timing artifacts. */
+  force = false
 ): Promise<{ opened: number; openEvent?: PositionEvent }> {
   const rules = algo.rules;
 
@@ -491,7 +498,8 @@ export async function evaluateEntry(
       brokerCtx,
       dailyBars,
       dxyBars,
-      cappedReason
+      cappedReason,
+      force
     );
   }
 
@@ -858,7 +866,8 @@ async function evaluateLlmTraderEntry(
   brokerCtx?: BrokerExecutionContext | null,
   dailyBars?: PriceBar[] | null,
   dxyBars?: PriceBar[] | null,
-  cappedReason?: string | null
+  cappedReason?: string | null,
+  force = false
 ): Promise<{ opened: number; openEvent?: PositionEvent }> {
   const rules = algo.rules;
   const llmConfig = rules.llm_trader;
@@ -870,7 +879,11 @@ async function evaluateLlmTraderEntry(
   // LLM partial-bar context, diverging from how the backtest evaluated.
   // For 4h algos this means the LLM fires ~6 times/day (00/04/08/12/16/20
   // UTC); intermediate scan ticks silently skip.
-  if (!isBarCloseScan(rules.timeframe)) {
+  //
+  // Operator-triggered "Scan now" passes force=true to bypass — the
+  // explicit click is the operator asking for a snapshot evaluation
+  // even mid-bar; the silent-skip behaviour was confusing on the UI.
+  if (!force && !isBarCloseScan(rules.timeframe)) {
     return { opened: 0 };
   }
 
