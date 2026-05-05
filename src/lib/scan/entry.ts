@@ -46,6 +46,7 @@ import { calculatePositionSize, calculateRiskPrices, logActivity } from "./helpe
 import { executeLiveEntry, executeLiveExit, type BrokerExecutionContext } from "./live-execution";
 import { linkLlmDecisionToPosition, recordLlmDecision } from "./llm-trader-audit";
 import { evaluateLlmTrader, isBarCloseScan, type LlmTraderContext } from "./llm-trader";
+import { summariseRecentOutcomes } from "./llm-trader-reflection";
 import { getPerHourStats } from "./per-hour-stats";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -940,6 +941,11 @@ async function evaluateLlmTraderEntry(
 
   const currentPosition =
     allOpenPositions.find((p) => p.algorithm_id === algo.id && p.ticker === ticker) ?? null;
+  // Layer 3 in-context reflection — pass the algo's recent track record
+  // into the LLM context. Self-gates: returns null when <10 closed trades
+  // exist, so it's silently omitted during the warm-up phase. Activates
+  // automatically as trades accumulate.
+  const recentOutcomes = await summariseRecentOutcomes(supabase, algo.id);
   const ctx: LlmTraderContext = {
     currentTimestamp: bars[bars.length - 1].date,
     bars,
@@ -959,6 +965,7 @@ async function evaluateLlmTraderEntry(
         }
       : null,
     timeframe: rules.timeframe,
+    recentOutcomes,
   };
   const evaluation = await evaluateLlmTrader(llmConfig, ctx);
   const decision = evaluation.decision;
