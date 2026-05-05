@@ -542,7 +542,19 @@ function extractJson(text: string): unknown {
   } catch {
     /* fall through */
   }
-  // First {...} block
+  // Strip ```json ... ``` wrapper (Anthropic Haiku frequently does this).
+  // Match ```json or ``` followed by content followed by ``` (or EOF
+  // for truncated responses).
+  const fenceMatch = trimmed.match(/```(?:json)?\s*([\s\S]*?)(?:```|$)/);
+  if (fenceMatch) {
+    const inner = fenceMatch[1].trim();
+    try {
+      return JSON.parse(inner);
+    } catch {
+      /* fall through to greedy match */
+    }
+  }
+  // Greedy first {...} block — handles markdown analysis with embedded JSON
   const match = trimmed.match(/\{[\s\S]*\}/);
   if (match) {
     try {
@@ -580,9 +592,15 @@ async function callAnthropic(
   systemPrompt: string,
   context: string
 ): Promise<{ decision: Decision | null; rawText: string }> {
+  // max_tokens raised 200 → 600 after fail-dump diagnosis revealed that
+  // Haiku's verbose markdown analyses + ```json wrappers were running
+  // out of token budget mid-response, leaving JSON incomplete and
+  // unparseable. 600 covers ~95% of observed responses without
+  // appreciably increasing cost (only matters for unusually long
+  // outputs which are rare).
   const res = await client.messages.create({
     model: ANTHROPIC_MODEL,
-    max_tokens: 200,
+    max_tokens: 600,
     system: systemPrompt,
     messages: [{ role: "user", content: context }],
   });
