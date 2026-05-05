@@ -41,14 +41,18 @@ export interface ConsecLossHaltResult {
 }
 
 /** Significant-loss cutoff. Losses below this fraction of the trade's
- *  full-stop value (1R) don't count toward the streak. 0.5 = half a
- *  stop. Picked over 0.3 (too lenient — micro $40 cuts could still
- *  trip) and 0.7 (too strict — partial trail hits at -$80 wouldn't
- *  count, defeating the rule). */
-const SIGNIFICANT_LOSS_R_THRESHOLD = 0.5;
+ *  full-stop value (1R) don't count toward the streak. 0.25 = quarter
+ *  of a stop. Lowered from 0.5 (2026-05-05) after beyr1223h analysis
+ *  showed bleed days had clusters of 0.3-0.5R llm_exit losses that
+ *  were skipped under the old 0.5R threshold but still represented
+ *  real damage (e.g. 04-09 had three losses 0.72R / 0.44R / 1R; the
+ *  middle one was skipped, never reaching the 3-strike count even
+ *  though the day was clearly bleeding). True micro stagnant-cut nips
+ *  (≤ 0.05R) still don't count. */
+const SIGNIFICANT_LOSS_R_THRESHOLD = 0.25;
 
 /** True when a closed trade is a "significant" loss — pnl is negative
- *  AND its magnitude is ≥ 0.5R. Falls back to "any loss" when the SL
+ *  AND its magnitude is ≥ 0.25R. Falls back to "any loss" when the SL
  *  fields are missing (very old rows, manual closes), so we never
  *  silently drop a real bad trade just because we couldn't compute R. */
 function isSignificantLoss(row: ClosedRow): boolean {
