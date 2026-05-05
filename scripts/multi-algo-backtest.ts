@@ -248,9 +248,17 @@ async function processAlgoAtBar(
   );
   const { summary: dailyContext, regime } = summariseDailyBias(dailyBefore);
   // Use the algo's NATIVE-TF bars + correctly aligned index for the
-  // recent-bars context. Otherwise v1 (4h prompt) sees 30m bars and
-  // the LLM produces malformed output.
-  const algoBarIdx = alignBarIndex(algoBars, bar.date);
+  // recent-bars context. Critical: pick the JUST-CLOSED bar, not a
+  // partial bar still forming. When 30m bar at 08:00 closes, v1's
+  // 4h bar labelled "08:00" only contains 30 min of data so far
+  // (the 08:00→12:00 4h period just started). v1 should see the 4h
+  // bar at 04:00 (which just closed). alignBarIndex returns date ≤
+  // asOf — for higher-TF algos we shift asOf back 1ms to exclude
+  // the partial bar. No-op for 30m algo on 30m corpus.
+  const asOfMs = new Date(bar.date).getTime();
+  const asOfStrict =
+    algo.timeframe === "4h" ? new Date(asOfMs - 1).toISOString() : bar.date;
+  const algoBarIdx = alignBarIndex(algoBars, asOfStrict);
   const recentContext =
     algoBarIdx >= 0
       ? summariseRecentBars(algoBars, algoBarIdx, algo.timeframe)
