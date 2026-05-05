@@ -20,12 +20,12 @@ export {
   detectSessionWindow,
   SESSION_WINDOWS,
   SESSION_WINDOW_NAMES,
-} from "./session-window";
+} from "./gold-session-window";
 export type {
   SessionWindowName,
   SessionWindowDetails,
   SessionWindowOptions,
-} from "./session-window";
+} from "./gold-session-window";
 export { detectAsianRangeBreak } from "./asian-range-break";
 export type { AsianRangeBreakDetails } from "./asian-range-break";
 export { detectPostNewsWindow } from "./post-news-window";

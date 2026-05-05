@@ -1,7 +1,7 @@
 /**
- * Session-time window detector — fires when the current bar's UTC hour
+ * Gold session-time window detector — fires when the current bar's UTC hour
  * falls inside a named institutional session window. Gold-specific
- * primitive (scoped naming): the carve-out is justified by dual-run
+ * primitive (file-scoped naming): the carve-out is justified by dual-run
  * validation (`lib/algorithm/dual-run-validator.ts`) producing measured
  * edge differential against the same template without the filter.
  *

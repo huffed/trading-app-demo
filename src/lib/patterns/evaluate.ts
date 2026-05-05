@@ -27,7 +27,7 @@ import { detectMomentum } from "./momentum";
 import { detectOrderBlock } from "./order-block";
 import { detectPinBar } from "./pin-bar";
 import { detectPostNewsWindow } from "./post-news-window";
-import { detectSessionWindow } from "./session-window";
+import { detectSessionWindow } from "./gold-session-window";
 
 /**
  * Optional context for patterns that depend on data outside the bar
