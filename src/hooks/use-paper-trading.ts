@@ -142,7 +142,8 @@ export function useClosePosition() {
 export function useTriggerScan() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (algorithmId?: string) => triggerScan(algorithmId),
+    mutationFn: (input: { algorithmId?: string; force?: boolean } = {}) =>
+      triggerScan(input.algorithmId, { force: input.force }),
     onSuccess: (result) => {
       if (result.success) {
         queryClient.invalidateQueries({ queryKey: POSITIONS_KEY });

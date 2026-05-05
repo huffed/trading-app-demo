@@ -59,12 +59,17 @@ function ScanPanel({ algorithmId, isActive }: { algorithmId: string; isActive: b
   function handleScan() {
     setResults(null);
     setError(null);
-    scanMutation.mutate(algorithmId, {
-      onSuccess: (r) => {
-        if (r.success) setResults(r.data);
-        else setError(r.error);
-      },
-    });
+    // force=true bypasses the LLM-trader bar-close gate — operator
+    // explicitly asked for an evaluation, run it now even mid-bar.
+    scanMutation.mutate(
+      { algorithmId, force: true },
+      {
+        onSuccess: (r) => {
+          if (r.success) setResults(r.data);
+          else setError(r.error);
+        },
+      }
+    );
   }
 
   return (

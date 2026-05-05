@@ -88,11 +88,16 @@ function ScanPanel() {
 
   function handleScan() {
     setResults(null);
-    scanMutation.mutate(undefined, {
-      onSuccess: (r) => {
-        if (r.success) setResults(r.data);
-      },
-    });
+    // force=true bypasses the LLM-trader bar-close gate — operator
+    // explicitly asked for an evaluation, run it now even mid-bar.
+    scanMutation.mutate(
+      { force: true },
+      {
+        onSuccess: (r) => {
+          if (r.success) setResults(r.data);
+        },
+      }
+    );
   }
 
   return (

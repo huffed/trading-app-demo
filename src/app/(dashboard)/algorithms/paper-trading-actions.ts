@@ -14,10 +14,18 @@ import type { AlgorithmRules } from "@/types/algorithm";
 import type { PaperPosition } from "@/types/position";
 
 /**
- * Trigger a scan for one or all active algorithms.
- * Evaluates watchlist tickers against algorithm conditions and opens/closes positions.
+ * Trigger a scan for one or all active algorithms. Evaluates watchlist
+ * tickers against algorithm conditions and opens/closes positions.
+ *
+ * Operator-triggered scans pass `force: true` to bypass the LLM-trader
+ * bar-close gate (the cron is timed to align with bar closes; a manual
+ * click is almost always mid-bar and would otherwise silent-skip the
+ * LLM call). Cron callers omit `force` so cron timing matches backtest.
  */
-export async function triggerScan(algorithmId?: string): Promise<ActionResult<ScanResult[]>> {
+export async function triggerScan(
+  algorithmId?: string,
+  options: { force?: boolean } = {}
+): Promise<ActionResult<ScanResult[]>> {
   try {
     const { supabase, user } = await getAuthedUser();
 
@@ -41,11 +49,16 @@ export async function triggerScan(algorithmId?: string): Promise<ActionResult<Sc
 
     const results: ScanResult[] = [];
     for (const algo of algorithms) {
-      const result = await scanAlgorithm(supabase, user.id, {
-        ...algo,
-        rules: algo.rules as AlgorithmRules,
-        algorithm_watchlist: algo.algorithm_watchlist ?? [],
-      });
+      const result = await scanAlgorithm(
+        supabase,
+        user.id,
+        {
+          ...algo,
+          rules: algo.rules as AlgorithmRules,
+          algorithm_watchlist: algo.algorithm_watchlist ?? [],
+        },
+        { force: options.force }
+      );
       results.push(result);
     }
 
