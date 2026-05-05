@@ -160,12 +160,28 @@ export async function reconcileMissingBrokerPosition(
     paper.broker_position_id
   );
   if (!closed) return;
+
+  // Classify the exit by comparing close price against SL/TP targets.
+  // Without this, every broker-side close (incl. SL/TP fills) was tagged
+  // "manual", polluting per-exit-reason stats and the drift detector's
+  // future per-cohort analysis. Tolerance = 0.1% of close price (catches
+  // typical broker fill slippage; rare false-positive when an operator
+  // manually closes at almost exactly the SL/TP price).
+  const slPrice = paper.stop_loss_price ? Number(paper.stop_loss_price) : null;
+  const tpPrice = paper.take_profit_price ? Number(paper.take_profit_price) : null;
+  const tolerance = closed.price * 0.001;
+  const matchesTarget = (target: number | null): boolean =>
+    target != null && target > 0 && Math.abs(target - closed.price) <= tolerance;
+  let exitReason: "stop_loss" | "take_profit" | "manual" = "manual";
+  if (matchesTarget(slPrice)) exitReason = "stop_loss";
+  else if (matchesTarget(tpPrice)) exitReason = "take_profit";
+
   await supabase
     .from("paper_positions")
     .update({
       status: "closed",
       exit_price: closed.price,
-      exit_reason: "manual",
+      exit_reason: exitReason,
       realized_pnl: closed.realizedPnl,
       broker_close_price: closed.price,
       broker_unrealized_pnl: 0,
@@ -178,11 +194,14 @@ export async function reconcileMissingBrokerPosition(
     event_type: "live_order_closed",
     ticker: paper.ticker,
     details: {
-      reason: "broker-side close reconciled (manage cron)",
+      reason: `broker-side close reconciled (manage cron) — classified as ${exitReason}`,
       exit_price: closed.price,
+      sl_price: slPrice,
+      tp_price: tpPrice,
       realized_pnl: closed.realizedPnl,
       closed_at: closed.closedAt,
       broker_position_id: paper.broker_position_id,
+      exit_reason: exitReason,
     },
   });
 }
