@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -12,6 +11,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Surface } from "@/components/ui/surface";
 import {
   useAutoRefreshPrices,
   useClosePosition,
@@ -60,6 +60,17 @@ function CloseDialog({
   );
 }
 
+function OpenHeader({ count }: { count: number }) {
+  return (
+    <div className="mb-3 flex items-center justify-between">
+      <p className="text-xs uppercase tracking-wide text-muted-foreground">Open positions</p>
+      {count > 0 && (
+        <span className="font-mono text-xs tabular-nums text-muted-foreground">{count}</span>
+      )}
+    </div>
+  );
+}
+
 export function OpenPositionsCard({ algorithmId }: { algorithmId: string }) {
   const { data: positions, isLoading } = useOpenPositions(algorithmId);
   const closeMutation = useClosePosition();
@@ -69,47 +80,35 @@ export function OpenPositionsCard({ algorithmId }: { algorithmId: string }) {
 
   if (isLoading) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Open Positions</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Skeleton className="h-24 w-full" />
-        </CardContent>
-      </Card>
+      <Surface elevation="mid" className="p-5">
+        <OpenHeader count={0} />
+        <Skeleton className="h-24 w-full" />
+      </Surface>
     );
   }
 
   if (!positions || positions.length === 0) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Open Positions</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground">
-            No open positions. Run a scan to evaluate entry conditions.
-          </p>
-        </CardContent>
-      </Card>
+      <Surface elevation="mid" className="p-5">
+        <OpenHeader count={0} />
+        <p className="py-6 text-center text-sm text-muted-foreground">
+          No open positions. Run a scan to evaluate entry conditions.
+        </p>
+      </Surface>
     );
   }
 
   return (
     <>
       <BrokerErrorBanner positions={positions} />
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Open Positions ({positions.length})</CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          <div>
-            {positions.map((pos) => (
-              <PositionDetailCard key={pos.id} pos={pos} onClose={setCloseTarget} />
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+      <Surface elevation="mid" className="p-5">
+        <OpenHeader count={positions.length} />
+        <div className="-mx-5">
+          {positions.map((pos) => (
+            <PositionDetailCard key={pos.id} pos={pos} onClose={setCloseTarget} />
+          ))}
+        </div>
+      </Surface>
       <CloseDialog
         target={closeTarget}
         onClose={() => setCloseTarget(null)}
@@ -170,23 +169,28 @@ export function ClosedPositionsCard({ algorithmId }: { algorithmId: string }) {
         className="w-full justify-between text-muted-foreground"
         onClick={() => setExpanded(true)}
       >
-        <span>Closed Positions ({total})</span>
+        <span>Closed positions ({total})</span>
         <ChevronDown className="h-4 w-4" />
       </Button>
     );
   }
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle className="text-base">Closed Positions ({total})</CardTitle>
-        <Button size="icon-sm" variant="ghost" onClick={() => setExpanded(false)}>
-          <ChevronUp className="h-4 w-4" />
-        </Button>
-      </CardHeader>
-      <CardContent className="p-0">
+    <Surface elevation="mid" className="p-5">
+      <div className="mb-3 flex items-center justify-between">
+        <p className="text-xs uppercase tracking-wide text-muted-foreground">
+          Closed positions
+        </p>
+        <div className="flex items-center gap-2">
+          <span className="font-mono text-xs tabular-nums text-muted-foreground">{total}</span>
+          <Button size="icon-sm" variant="ghost" onClick={() => setExpanded(false)}>
+            <ChevronUp className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+      <div className="-mx-5">
         <ClosedPositionContent positions={positions} isLoading={isLoading} />
-      </CardContent>
-    </Card>
+      </div>
+    </Surface>
   );
 }
