@@ -38,6 +38,14 @@ export interface LlmTraderDecision {
   decision: "enter_long" | "enter_short" | "hold" | "exit" | "move_be";
   confidence: number;
   reasoning: string;
+  /** Tier B: optional LLM-emitted SL/TP prices. Validated by entry.ts
+   *  before use; rejection causes fall-through to rule-based placement. */
+  stop_loss_price?: number;
+  take_profit_price?: number;
+  /** Optional explanation for the chosen levels (e.g. "SL above 14:30
+   *  swing high 4787, TP at yesterday's low 4514"). Captured in the
+   *  audit log for post-hoc review of LLM judgment. */
+  level_rationale?: string;
 }
 
 /** D1-structure regime tag derived from HH/LH price action. The same
@@ -96,6 +104,14 @@ const decisionSchema = z.object({
   decision: z.enum(["enter_long", "enter_short", "hold", "exit", "move_be"]),
   confidence: z.number().min(0).max(100),
   reasoning: z.string().min(1).max(2000),
+  // Tier B (LLM-discretionary SL/TP). Both optional — if omitted, the
+  // production code falls back to rule-based placement (swing_anchor SL +
+  // adaptive rr_multiple TP). Caller validates direction sanity, RR ≥ 1.5,
+  // SL ≤ 2%, TP ≤ 2.5×daily-ATR before using; rejected levels also fall
+  // through to the rule-based path so safety is never bypassed.
+  stop_loss_price: z.number().positive().optional(),
+  take_profit_price: z.number().positive().optional(),
+  level_rationale: z.string().max(500).optional(),
 });
 
 // ---------------------------------------------------------------------------

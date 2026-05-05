@@ -63,6 +63,94 @@ interface AlgoContext {
   capital: number;
 }
 
+/** Validated LLM-emitted SL/TP levels. When non-null, openPosition uses
+ *  these prices directly instead of computing distances via the rule
+ *  set. Both fields independently optional. */
+interface ValidatedLlmLevels {
+  slPrice: number | null;
+  tpPrice: number | null;
+  /** Reason for rejection if validation failed; logged for review. Never
+   *  set alongside non-null prices. */
+  rejection?: string;
+}
+
+/** Validate LLM-emitted SL/TP prices against safety bounds. Rejection
+ *  causes fall-through to rule-based placement (the safety bounds can
+ *  never be bypassed by what the LLM emits — only nominated by it).
+ *
+ *  Bounds:
+ *  - Direction sanity: SL on the loss side, TP on the profit side
+ *  - RR ≥ 1.5 (when both SL and TP are emitted)
+ *  - SL distance ≤ 2% from entry (no ridiculous stops)
+ *  - TP distance ≤ 2.5 × daily-ATR (catch hallucinated targets)
+ *
+ *  All bounds derived from feedback_discretionary_tp_vs_shrink_intervention.md
+ *  + structural-sl.ts AdaptiveTpContext defaults. */
+function validateLlmLevels(
+  decision: { stop_loss_price?: number; take_profit_price?: number },
+  side: "long" | "short",
+  entryPrice: number,
+  dailyAtr: number
+): ValidatedLlmLevels {
+  const sl = decision.stop_loss_price;
+  const tp = decision.take_profit_price;
+  if (sl === undefined && tp === undefined) {
+    return { slPrice: null, tpPrice: null };
+  }
+
+  if (side === "long") {
+    if (sl !== undefined && sl >= entryPrice) {
+      return { slPrice: null, tpPrice: null, rejection: `long SL ${sl} not below entry ${entryPrice}` };
+    }
+    if (tp !== undefined && tp <= entryPrice) {
+      return { slPrice: null, tpPrice: null, rejection: `long TP ${tp} not above entry ${entryPrice}` };
+    }
+  } else {
+    if (sl !== undefined && sl <= entryPrice) {
+      return { slPrice: null, tpPrice: null, rejection: `short SL ${sl} not above entry ${entryPrice}` };
+    }
+    if (tp !== undefined && tp >= entryPrice) {
+      return { slPrice: null, tpPrice: null, rejection: `short TP ${tp} not below entry ${entryPrice}` };
+    }
+  }
+
+  if (sl !== undefined) {
+    const slPct = Math.abs(entryPrice - sl) / entryPrice;
+    if (slPct > 0.02) {
+      return {
+        slPrice: null,
+        tpPrice: null,
+        rejection: `SL distance ${(slPct * 100).toFixed(2)}% > 2% bound`,
+      };
+    }
+  }
+
+  if (tp !== undefined && dailyAtr > 0) {
+    const tpDistance = Math.abs(entryPrice - tp);
+    if (tpDistance > 2.5 * dailyAtr) {
+      return {
+        slPrice: null,
+        tpPrice: null,
+        rejection: `TP distance ${tpDistance.toFixed(2)} > 2.5×ATR ${(2.5 * dailyAtr).toFixed(2)}`,
+      };
+    }
+  }
+
+  if (sl !== undefined && tp !== undefined) {
+    const slDist = Math.abs(entryPrice - sl);
+    const tpDist = Math.abs(entryPrice - tp);
+    if (slDist > 0 && tpDist / slDist < 1.5) {
+      return {
+        slPrice: null,
+        tpPrice: null,
+        rejection: `RR ${(tpDist / slDist).toFixed(2)} < 1.5 minimum`,
+      };
+    }
+  }
+
+  return { slPrice: sl ?? null, tpPrice: tp ?? null };
+}
+
 /** Serialise a fired condition into the entry_reason.conditions_met blob.
  *  Different condition types carry different fields — caller iterates the
  *  mixed list and uses this to flatten each one to a uniform shape. */
@@ -100,7 +188,13 @@ async function openPosition(
    *  awareness tightens the resolved TP distance. Pattern-based
    *  callers omit this; LLM-trader callers compute it from
    *  `evaluation.regime` + dailyBars and pass through. */
-  adaptiveTpCtx?: AdaptiveTpContext
+  adaptiveTpCtx?: AdaptiveTpContext,
+  /** LLM-emitted SL/TP prices (Tier B). When validated and non-null,
+   *  these prices override the rule-based distances. Either field
+   *  individually optional — only the present one overrides; the
+   *  other still falls through to rule-based. Caller MUST validate
+   *  via validateLlmLevels before passing in. */
+  llmLevels?: ValidatedLlmLevels
 ): Promise<{ opened: number; openEvent?: PositionEvent; paperPositionId?: string }> {
   // calculatePositionSize wants MARGIN-used summed, not notional. For
   // leveraged sizing (lots / risk_per_trade / conviction_scaled) sum
@@ -128,20 +222,29 @@ async function openPosition(
   // depend on slDistance, and rr_multiple TP depends on the resolved
   // SL distance. For non-structural rules the helpers fall through to
   // priceDeltaForRule via the caller's bars (or skip when bars omitted).
+  //
+  // Tier B override: when llmLevels is present and validated, use the
+  // LLM-emitted prices to derive distances. Sizing and risk_prices
+  // calculation downstream still go through the same path — only the
+  // distance source changes.
   const entryIdx = bars && bars.length > 0 ? bars.length - 1 : 0;
   const slDistance =
     bars && bars.length > 0
-      ? computeSlDistance(algo.rules.stop_loss, side, currentPrice, ticker, bars, entryIdx)
+      ? llmLevels?.slPrice != null
+        ? Math.abs(currentPrice - llmLevels.slPrice)
+        : computeSlDistance(algo.rules.stop_loss, side, currentPrice, ticker, bars, entryIdx)
       : undefined;
   const tpDistance =
     bars && bars.length > 0 && slDistance !== undefined
-      ? computeTpDistance(
-          algo.rules.take_profit,
-          slDistance,
-          currentPrice,
-          ticker,
-          adaptiveTpCtx
-        )
+      ? llmLevels?.tpPrice != null
+        ? Math.abs(llmLevels.tpPrice - currentPrice)
+        : computeTpDistance(
+            algo.rules.take_profit,
+            slDistance,
+            currentPrice,
+            ticker,
+            adaptiveTpCtx
+          )
       : undefined;
 
   const sizing = calculatePositionSize(
@@ -1413,10 +1516,36 @@ async function evaluateLlmTraderEntry(
     ...algo,
     rules: { ...algo.rules, side: llmSide },
   };
+  const dailyAtr = dailyBars && dailyBars.length > 0 ? dailyAtrFromBars(dailyBars) : 0;
   const adaptiveTpCtx: AdaptiveTpContext = {
     regime: evaluation.regime,
-    dailyAtr: dailyBars && dailyBars.length > 0 ? dailyAtrFromBars(dailyBars) : 0,
+    dailyAtr,
   };
+
+  // Tier B: validate LLM-emitted SL/TP if present. Rejected levels fall
+  // through to rule-based placement (safety bounds never bypassed).
+  // Accepted levels override the rule path inside openPosition.
+  const llmLevels = validateLlmLevels(decision, llmSide, currentPrice, dailyAtr);
+  if (llmLevels.rejection) {
+    await logActivity(supabase, userId, {
+      algorithm_id: algo.id,
+      event_type: "signal_no_action",
+      ticker,
+      details: {
+        reason: `LLM levels rejected: ${llmLevels.rejection} — falling back to rule-based placement`,
+        source: "llm_trader",
+        llm_stop_loss_price: decision.stop_loss_price,
+        llm_take_profit_price: decision.take_profit_price,
+        llm_level_rationale: decision.level_rationale,
+      },
+    });
+    // Fall through with empty levels (rule-based placement)
+  }
+  const llmLevelsForOpen: ValidatedLlmLevels = {
+    slPrice: llmLevels.slPrice,
+    tpPrice: llmLevels.tpPrice,
+  };
+
   const opened = await openPosition(
     supabase,
     userId,
@@ -1429,7 +1558,8 @@ async function evaluateLlmTraderEntry(
     brokerCtx ?? null,
     1,
     bars,
-    adaptiveTpCtx
+    adaptiveTpCtx,
+    llmLevelsForOpen
   );
   // Link the decision row to the resulting paper_positions row so the
   // close path can backfill the trade outcome onto this decision.

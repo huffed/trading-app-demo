@@ -199,6 +199,10 @@ const decisionSchema = z.object({
   decision: z.enum(["enter_long", "enter_short", "hold", "exit", "move_be"]),
   confidence: z.number().min(0).max(100),
   reasoning: z.string().min(1).max(2000),
+  // Tier B: optional LLM-emitted SL/TP. Mirrors src/lib/scan/llm-trader.ts.
+  stop_loss_price: z.number().positive().optional(),
+  take_profit_price: z.number().positive().optional(),
+  level_rationale: z.string().max(500).optional(),
 });
 
 type Decision = z.infer<typeof decisionSchema>;
@@ -351,6 +355,57 @@ function computeTpForBacktest(
     tpDistance = Math.min(tpDistance, ATR_CAP_MULTIPLIER * adaptiveCtx.dailyAtr);
   }
   return Math.max(tpDistance, slDistance);
+}
+
+/** Validate LLM-emitted SL/TP for backtest harness. Mirrors production
+ *  validateLlmLevels in src/lib/scan/entry.ts. Same bounds: direction
+ *  sanity, RR ≥ 1.5, SL ≤ 2%, TP ≤ 2.5×daily-ATR. */
+function validateLlmLevelsBacktest(
+  decision: Decision,
+  side: "long" | "short",
+  entryPrice: number,
+  dailyAtr: number
+): { slPrice: number | null; tpPrice: number | null; rejection?: string } {
+  const sl = decision.stop_loss_price;
+  const tp = decision.take_profit_price;
+  if (sl === undefined && tp === undefined) {
+    return { slPrice: null, tpPrice: null };
+  }
+  if (side === "long") {
+    if (sl !== undefined && sl >= entryPrice) {
+      return { slPrice: null, tpPrice: null, rejection: `long SL ${sl} not below entry` };
+    }
+    if (tp !== undefined && tp <= entryPrice) {
+      return { slPrice: null, tpPrice: null, rejection: `long TP ${tp} not above entry` };
+    }
+  } else {
+    if (sl !== undefined && sl <= entryPrice) {
+      return { slPrice: null, tpPrice: null, rejection: `short SL ${sl} not above entry` };
+    }
+    if (tp !== undefined && tp >= entryPrice) {
+      return { slPrice: null, tpPrice: null, rejection: `short TP ${tp} not below entry` };
+    }
+  }
+  if (sl !== undefined) {
+    const slPct = Math.abs(entryPrice - sl) / entryPrice;
+    if (slPct > 0.02) {
+      return { slPrice: null, tpPrice: null, rejection: `SL ${(slPct * 100).toFixed(2)}% > 2%` };
+    }
+  }
+  if (tp !== undefined && dailyAtr > 0) {
+    const tpDistance = Math.abs(entryPrice - tp);
+    if (tpDistance > 2.5 * dailyAtr) {
+      return { slPrice: null, tpPrice: null, rejection: `TP > 2.5×ATR` };
+    }
+  }
+  if (sl !== undefined && tp !== undefined) {
+    const slDist = Math.abs(entryPrice - sl);
+    const tpDist = Math.abs(entryPrice - tp);
+    if (slDist > 0 && tpDist / slDist < 1.5) {
+      return { slPrice: null, tpPrice: null, rejection: `RR ${(tpDist / slDist).toFixed(2)} < 1.5` };
+    }
+  }
+  return { slPrice: sl ?? null, tpPrice: tp ?? null };
 }
 
 export function summariseDailyBias(dailyBars: PriceBar[]): { summary: string; regime: Regime } {
@@ -1205,8 +1260,16 @@ export async function runWindow(opts: WindowOptions): Promise<WindowResult> {
     }
 
     if (decision.decision === "enter_long" && !position && !entryBlockedReason) {
-      const slDistance = computeSlForBacktest(bars, i, "long", bar.close);
-      const tpDistance = computeTpForBacktest(slDistance, bar.close, { regime, dailyAtr });
+      // Tier B: validate LLM-emitted levels; rejected → fall back to rules
+      const llmLvl = validateLlmLevelsBacktest(decision, "long", bar.close, dailyAtr);
+      const slDistance =
+        llmLvl.slPrice != null
+          ? Math.abs(bar.close - llmLvl.slPrice)
+          : computeSlForBacktest(bars, i, "long", bar.close);
+      const tpDistance =
+        llmLvl.tpPrice != null
+          ? Math.abs(llmLvl.tpPrice - bar.close)
+          : computeTpForBacktest(slDistance, bar.close, { regime, dailyAtr });
       const stop = bar.close - slDistance;
       const target = bar.close + tpDistance;
       const notional = computeNotional(bar.close, slDistance);
@@ -1222,8 +1285,15 @@ export async function runWindow(opts: WindowOptions): Promise<WindowResult> {
         entry_regime: regime,
       };
     } else if (decision.decision === "enter_short" && !position && !entryBlockedReason) {
-      const slDistance = computeSlForBacktest(bars, i, "short", bar.close);
-      const tpDistance = computeTpForBacktest(slDistance, bar.close, { regime, dailyAtr });
+      const llmLvl = validateLlmLevelsBacktest(decision, "short", bar.close, dailyAtr);
+      const slDistance =
+        llmLvl.slPrice != null
+          ? Math.abs(llmLvl.slPrice - bar.close)
+          : computeSlForBacktest(bars, i, "short", bar.close);
+      const tpDistance =
+        llmLvl.tpPrice != null
+          ? Math.abs(bar.close - llmLvl.tpPrice)
+          : computeTpForBacktest(slDistance, bar.close, { regime, dailyAtr });
       const stop = bar.close + slDistance;
       const target = bar.close - tpDistance;
       const notional = computeNotional(bar.close, slDistance);
@@ -1424,9 +1494,10 @@ async function main(): Promise<void> {
     promptVersionRaw !== "v1" &&
     promptVersionRaw !== "v2" &&
     promptVersionRaw !== "v3" &&
-    promptVersionRaw !== "v4"
+    promptVersionRaw !== "v4" &&
+    promptVersionRaw !== "v5"
   ) {
-    throw new Error(`Unsupported PROMPT_VERSION=${promptVersionRaw}. Use v1, v2, v3, or v4.`);
+    throw new Error(`Unsupported PROMPT_VERSION=${promptVersionRaw}. Use v1, v2, v3, v4, or v5.`);
   }
   const promptVersion: PromptVersion = promptVersionRaw;
 

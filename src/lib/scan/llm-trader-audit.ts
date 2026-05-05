@@ -58,6 +58,12 @@ export async function recordLlmDecision(
   const { decision, regime, userMessage, promptVersion, provider, model } = input.evaluation;
   const context = {
     user_message: userMessage,
+    // Tier B: capture LLM-emitted SL/TP + level rationale. null when LLM
+    // didn't emit them (rule-based fallback path used). Stored in context
+    // JSONB rather than as separate columns — additive, no migration.
+    llm_stop_loss_price: decision.stop_loss_price ?? null,
+    llm_take_profit_price: decision.take_profit_price ?? null,
+    llm_level_rationale: decision.level_rationale ?? null,
     ...(input.contextComponents ?? {}),
   };
   const { data, error } = await supabase
