@@ -8,6 +8,7 @@ import { scanAlgorithm, type ScanResult } from "@/lib/scan/engine";
 import { executeLiveExit, resolveBrokerContext } from "@/lib/scan/live-execution";
 import { getAuthedUser } from "@/lib/supabase/get-authed-user";
 import { type ActionResult } from "@/lib/types/action-result";
+import { sumRealizedPnl, sumUnrealizedPnl } from "@/lib/utils/pnl";
 import { closePositionSchema } from "@/lib/validators/position";
 import type { AlgorithmRules } from "@/types/algorithm";
 import type { PaperPosition } from "@/types/position";
@@ -280,7 +281,10 @@ async function fetchDailyFallback(ticker: string): Promise<number | null> {
 }
 
 /**
- * Aggregate paper trading stats for the dashboard.
+ * Canonical portfolio-wide paper-trading aggregates. Single source of
+ * truth for "across all of this user's algorithms" stats — the dashboard
+ * card consumes this; per-algo views (FTMO compliance, strategy stats)
+ * scope by `algorithm_id` and use their own queries.
  */
 export async function getPaperTradingStats(): Promise<
   ActionResult<{
@@ -316,8 +320,8 @@ export async function getPaperTradingStats(): Promise<
     const openPositions = openRes.data ?? [];
     const closedPositions = closedRes.data ?? [];
 
-    const totalUnrealized = openPositions.reduce((sum, p) => sum + (p.unrealized_pnl ?? 0), 0);
-    const totalRealized = closedPositions.reduce((sum, p) => sum + (p.realized_pnl ?? 0), 0);
+    const totalUnrealized = sumUnrealizedPnl(openPositions);
+    const totalRealized = sumRealizedPnl(closedPositions);
 
     // Most recent scan across all active algorithms
     const lastScanAt = activeAlgos.reduce<string | null>((latest, a) => {

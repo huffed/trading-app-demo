@@ -1,4 +1,5 @@
 import type { Trade } from "@/types/trade";
+import { getTodayAnchor } from "./date";
 
 // ---- Currency configuration ----
 
@@ -34,6 +35,20 @@ export function getCurrencySymbol(): string {
   const fmt = getCurrencyFormatter(activeCurrency);
   const parts = fmt.formatToParts(0);
   return parts.find((p) => p.type === "currency")?.value ?? "$";
+}
+
+/**
+ * Sum the `realized_pnl` field across rows, treating null/missing as 0.
+ * Centralised because at least five sites had this exact reducer inline:
+ * dashboard portfolio stats, FTMO gauges, today/total stats, AI prompts.
+ */
+export function sumRealizedPnl(rows: readonly { realized_pnl: number | null }[]): number {
+  return rows.reduce((s, r) => s + (r.realized_pnl ?? 0), 0);
+}
+
+/** Sum the `unrealized_pnl` field across rows, treating null/missing as 0. */
+export function sumUnrealizedPnl(rows: readonly { unrealized_pnl: number | null }[]): number {
+  return rows.reduce((s, r) => s + (r.unrealized_pnl ?? 0), 0);
 }
 
 export function calculateRealizedPnl(trade: {
@@ -181,13 +196,11 @@ export function formatRelativeTime(dateString: string): string {
 export function getTradeStats(trades: Trade[]) {
   const closed = trades.filter((t) => t.status === "closed");
   const wins = closed.filter((t) => t.realized_pnl != null && t.realized_pnl > 0);
-  const totalPnl = closed.reduce((sum, t) => sum + (t.realized_pnl ?? 0), 0);
+  const totalPnl = sumRealizedPnl(closed);
 
   // Today's P&L
-  const today = new Date().toISOString().slice(0, 10);
-  const todayPnl = closed
-    .filter((t) => t.exit_date?.startsWith(today))
-    .reduce((sum, t) => sum + (t.realized_pnl ?? 0), 0);
+  const today = getTodayAnchor().utcDate;
+  const todayPnl = sumRealizedPnl(closed.filter((t) => t.exit_date?.startsWith(today)));
 
   // Current streak
   const sortedClosed = [...closed]
