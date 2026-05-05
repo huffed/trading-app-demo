@@ -3,77 +3,55 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { AlgoActivitySection } from "@/components/algorithms/algo-activity-section";
-import { AlgoHistorySection } from "@/components/algorithms/algo-history-section";
+import { AlgoEquityHero } from "@/components/algorithms/algo-equity-hero";
+import { AlgoInspectorRail } from "@/components/algorithms/algo-inspector-rail";
+import { AlgoKpiStrip } from "@/components/algorithms/algo-kpi-strip";
 import { AlgoLlmDecisionsSection } from "@/components/algorithms/algo-llm-decisions-section";
-import { AlgoSetupSection } from "@/components/algorithms/algo-setup-section";
-import { AlgoStatusSection } from "@/components/algorithms/algo-status-section";
-import { AlgoTodaySection } from "@/components/algorithms/algo-today-section";
+import { AlgoSetupZone } from "@/components/algorithms/algo-setup-zone";
 import {
   AlgoHeader,
   DeleteAlgoDialog,
   RerunPrompt,
 } from "@/components/algorithms/algorithm-detail-parts";
 import { AlgorithmEditView } from "@/components/algorithms/algorithm-edit-view";
+import { ClosedPositionsCard, OpenPositionsCard } from "@/components/algorithms/position-cards";
+import { ContentShell } from "@/components/layout/content-shell";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   useAlgorithm,
   useDeleteAlgorithm,
-  useRunAiBacktest,
   useUpdateAlgorithm,
 } from "@/hooks/use-algorithms";
+import type { BacktestMetrics } from "@/lib/market-data/types";
 import type {
   Algorithm,
   AlgorithmRules,
   AlgorithmStatus,
 } from "@/types/algorithm";
 
-function ReadView({
-  algo,
-  aiBacktestError,
-  onRunAiBacktest,
-  isAiPending,
-}: {
-  algo: Pick<
-    Algorithm,
-    | "id"
-    | "name"
-    | "description"
-    | "rules"
-    | "ai_analysis"
-    | "backtest_results"
-    | "status"
-    | "last_scanned_at"
-    | "asset_class"
-    | "time_horizon"
-    | "live_trading_enabled"
-  >;
-  aiBacktestError: string | null;
-  onRunAiBacktest: () => void;
-  isAiPending: boolean;
-}) {
+function ReadView({ algo }: { algo: Algorithm }) {
   return (
-    <div className="space-y-4">
-      <AlgoStatusSection
+    <>
+      <AlgoKpiStrip
         algorithmId={algo.id}
-        algorithmStatus={algo.status}
-        liveTradingEnabled={algo.live_trading_enabled ?? false}
+        backtestResults={(algo.backtest_results as BacktestMetrics | null) ?? null}
         lastScannedAt={algo.last_scanned_at}
       />
-      <AlgoTodaySection algorithmId={algo.id} />
-      <AlgoHistorySection algorithmId={algo.id} />
+      <div className="mt-6 space-y-4">
+        <AlgoEquityHero algorithmId={algo.id} />
+        <OpenPositionsCard algorithmId={algo.id} />
+        <ClosedPositionsCard algorithmId={algo.id} />
+      </div>
       {algo.rules?.llm_trader?.enabled && (
-        <AlgoLlmDecisionsSection algorithmId={algo.id} />
+        <div className="mt-4">
+          <AlgoLlmDecisionsSection algorithmId={algo.id} />
+        </div>
       )}
-      <AlgoSetupSection
-        algo={algo}
-        aiBacktestError={aiBacktestError}
-        onRunAiBacktest={onRunAiBacktest}
-        isAiPending={isAiPending}
-      />
-      <AlgoActivitySection algorithmId={algo.id} />
-    </div>
+      <div className="mt-4">
+        <AlgoSetupZone algo={algo} />
+      </div>
+    </>
   );
 }
 
@@ -82,10 +60,8 @@ function useAlgoDetailState(algoId: string) {
   const { data: algo, isLoading } = useAlgorithm(algoId);
   const deleteMutation = useDeleteAlgorithm();
   const updateMutation = useUpdateAlgorithm();
-  const backtestMutation = useRunAiBacktest();
   const [showDelete, setShowDelete] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const [aiBacktestError, setAiBacktestError] = useState<string | null>(null);
   const [showRerunPrompt, setShowRerunPrompt] = useState(false);
 
   const handleSave = (updates: {
@@ -118,34 +94,29 @@ function useAlgoDetailState(algoId: string) {
     router,
     deleteMutation,
     updateMutation,
-    backtestMutation,
     showDelete,
     setShowDelete,
     isEditing,
     setIsEditing,
-    aiBacktestError,
-    setAiBacktestError,
     showRerunPrompt,
     setShowRerunPrompt,
     handleSave,
   };
 }
 
-export default function AlgorithmDetailPage() {
-  const { algoId } = useParams<{ algoId: string }>();
-  const s = useAlgoDetailState(algoId);
+function LoadingState() {
+  return (
+    <ContentShell>
+      <Skeleton className="h-8 w-48" />
+      <Skeleton className="mt-4 h-64 w-full" />
+    </ContentShell>
+  );
+}
 
-  if (s.isLoading) {
-    return (
-      <div className="mx-auto max-w-5xl space-y-4">
-        <Skeleton className="h-8 w-48" />
-        <Skeleton className="h-64 w-full" />
-      </div>
-    );
-  }
-  if (!s.algo) {
-    return (
-      <div className="mx-auto max-w-2xl text-center py-16">
+function NotFoundState() {
+  return (
+    <ContentShell>
+      <div className="mx-auto max-w-2xl py-16 text-center">
         <p className="text-sm text-muted-foreground">Algorithm not found</p>
         <Button
           className="mt-4"
@@ -156,21 +127,41 @@ export default function AlgorithmDetailPage() {
           Back to Algorithms
         </Button>
       </div>
-    );
-  }
+    </ContentShell>
+  );
+}
+
+export default function AlgorithmDetailPage() {
+  const { algoId } = useParams<{ algoId: string }>();
+  const s = useAlgoDetailState(algoId);
+
+  if (s.isLoading) return <LoadingState />;
+  if (!s.algo) return <NotFoundState />;
 
   const algo = s.algo;
 
   return (
-    <div className="mx-auto max-w-5xl space-y-4">
-      <AlgoHeader
-        name={algo.name}
-        status={algo.status}
-        isEditing={s.isEditing}
-        onEdit={() => s.setIsEditing(true)}
-        onDelete={() => s.setShowDelete(true)}
-      />
-      {s.showRerunPrompt && <RerunPrompt onDismiss={() => s.setShowRerunPrompt(false)} />}
+    <ContentShell
+      inspector={
+        s.isEditing ? undefined : (
+          <AlgoInspectorRail algorithmId={algo.id} algorithmStatus={algo.status} />
+        )
+      }
+    >
+      <div className="mb-4">
+        <AlgoHeader
+          name={algo.name}
+          status={algo.status}
+          isEditing={s.isEditing}
+          onEdit={() => s.setIsEditing(true)}
+          onDelete={() => s.setShowDelete(true)}
+        />
+      </div>
+      {s.showRerunPrompt && (
+        <div className="mb-4">
+          <RerunPrompt onDismiss={() => s.setShowRerunPrompt(false)} />
+        </div>
+      )}
       {s.isEditing ? (
         <AlgorithmEditView
           algorithm={algo}
@@ -179,21 +170,7 @@ export default function AlgorithmDetailPage() {
           isSaving={s.updateMutation.isPending}
         />
       ) : (
-        <ReadView
-          algo={algo}
-          aiBacktestError={s.aiBacktestError}
-          onRunAiBacktest={() => {
-            s.setAiBacktestError(null);
-            s.backtestMutation.mutate(algo.id, {
-              onSuccess: (r) => {
-                if (!r.success) {
-                  s.setAiBacktestError(r.error);
-                }
-              },
-            });
-          }}
-          isAiPending={s.backtestMutation.isPending}
-        />
+        <ReadView algo={algo} />
       )}
       <DeleteAlgoDialog
         name={algo.name}
@@ -204,6 +181,6 @@ export default function AlgorithmDetailPage() {
           s.deleteMutation.mutate(algo.id, { onSuccess: () => s.router.push("/algorithms") });
         }}
       />
-    </div>
+    </ContentShell>
   );
 }

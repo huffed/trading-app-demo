@@ -1,64 +1,12 @@
 "use server";
 
-import { AI_MODEL, getAIClient } from "@/lib/ai/client";
-import { buildAiBacktestPrompt } from "@/lib/ai/prompts/backtest";
 import type { runPortfolioBacktest as runPortfolioBacktestEngine } from "@/lib/market-data/portfolio-backtest";
 import { createClient } from "@/lib/supabase/server";
 import { type ActionResult } from "@/lib/types/action-result";
-import type { Algorithm, AlgorithmRules } from "@/types/algorithm";
-import type { Trade } from "@/types/trade";
+import type { AlgorithmRules } from "@/types/algorithm";
 
 
 type PortfolioBacktestResult = ReturnType<typeof runPortfolioBacktestEngine>;
-
-export async function runAiBacktest(
-  algorithmId: string
-): Promise<ActionResult<{ ai_analysis: string }>> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { success: false, error: "Not authenticated" };
-
-  const { data: algo, error: algoErr } = await supabase
-    .from("algorithms")
-    .select("*")
-    .eq("id", algorithmId)
-    .eq("user_id", user.id)
-    .single();
-  if (algoErr || !algo) return { success: false, error: "Algorithm not found" };
-
-  const { data: trades } = await supabase.from("trades").select("*");
-
-  try {
-    const client = getAIClient();
-    const { system, userMessage } = buildAiBacktestPrompt(
-      algo as Algorithm,
-      (trades ?? []) as Trade[]
-    );
-
-    const res = await client.chat.completions.create({
-      model: AI_MODEL,
-      messages: [
-        { role: "system", content: system },
-        { role: "user", content: userMessage },
-      ],
-      max_tokens: 1024,
-    });
-
-    const analysisText = res.choices[0]?.message?.content;
-    if (!analysisText) return { success: false, error: "No response from AI" };
-
-    await supabase.from("algorithms").update({ ai_analysis: analysisText }).eq("id", algorithmId);
-
-    return { success: true, data: { ai_analysis: analysisText } };
-  } catch {
-    return {
-      success: false,
-      error: "AI is temporarily unavailable. Please try again in a moment.",
-    };
-  }
-}
 
 async function fetchPricesForPortfolio(
   tickers: string[],
