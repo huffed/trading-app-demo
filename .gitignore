@@ -44,6 +44,7 @@ next-env.d.ts
 
 # editor
 .idea/
+.claude/
 
 # local-only references (CSVs, docs not for the repo)
 /funded\ account\ references/
@@ -57,3 +58,4 @@ scripts/llm-trader-wf-summary-*.json
 scripts/llm-trader-wf-trades-*.jsonl
 scripts/llm-trader-wf-decisions-*.jsonl
 scripts/wf-run-*.log
+scripts/multi-algo-trades-*.jsonl

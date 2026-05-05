@@ -70,7 +70,7 @@ export function EquityCurveCard({ data }: { data: EquityPoint[] }) {
             />
             <Area
               type="monotone"
-              dataKey="equity"
+              dataKey="value"
               stroke="var(--color-chart-1)"
               fill="url(#equityCurveGradient)"
               strokeWidth={2}
