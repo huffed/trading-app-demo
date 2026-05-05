@@ -1,3 +1,4 @@
+import { sumRealizedPnl } from "@/lib/utils/pnl";
 import type { Algorithm } from "@/types/algorithm";
 import type { Trade } from "@/types/trade";
 
@@ -32,7 +33,7 @@ function formatTradesSummary(trades: Trade[]): string {
 
   const closed = trades.filter((t) => t.status === "closed");
   const wins = closed.filter((t) => t.realized_pnl != null && t.realized_pnl > 0);
-  const totalPnl = closed.reduce((s, t) => s + (t.realized_pnl ?? 0), 0);
+  const totalPnl = sumRealizedPnl(closed);
 
   return [
     `Trade history: ${trades.length} total, ${closed.length} closed`,

@@ -3,6 +3,7 @@
 import { getAuthedUser } from "@/lib/supabase/get-authed-user";
 import { type ActionResult } from "@/lib/types/action-result";
 import { getTodayAnchor } from "@/lib/utils/date";
+import { sumRealizedPnl, sumUnrealizedPnl } from "@/lib/utils/pnl";
 import type { AlgorithmRules } from "@/types/algorithm";
 import type {
   ComplianceGauge,
@@ -54,9 +55,9 @@ function computeGauges(
   capital: number,
   pf: NonNullable<AlgorithmRules["prop_firm"]>
 ) {
-  const realizedToday = inputs.closedToday.reduce((s, r) => s + (r.realized_pnl ?? 0), 0);
-  const unrealizedNow = inputs.openNow.reduce((s, r) => s + (r.unrealized_pnl ?? 0), 0);
-  const totalRealized = inputs.allClosed.reduce((s, r) => s + (r.realized_pnl ?? 0), 0);
+  const realizedToday = sumRealizedPnl(inputs.closedToday);
+  const unrealizedNow = sumUnrealizedPnl(inputs.openNow);
+  const totalRealized = sumRealizedPnl(inputs.allClosed);
   const totalEquityChangePct =
     capital > 0 ? ((totalRealized + unrealizedNow) / capital) * 100 : 0;
   const todaysPnlPct =
