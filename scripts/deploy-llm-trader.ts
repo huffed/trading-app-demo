@@ -63,8 +63,12 @@ function buildRules(): AlgorithmRules {
     timeframe: "4h",
     leverage: 50,
     position_sizing: { type: "risk_per_trade", value: 1 },
-    // SL/TP fixed to match the validated backtest baseline
-    // (1.5%/4.5% = 3:1 RR). Structural SL/TP is a v2 concern.
+    // SL/TP at 1.5%/4.5% (3:1 RR) — what the original deploy-time
+    // backtest used and what's currently LIVE. This is NOT a validated
+    // optimum: friend's actual gold SL median is ~0.07% (placed at
+    // structural levels, not fixed-%). The intraday variant
+    // (deploy-llm-intraday.ts) already uses swing_anchor + rr_multiple
+    // primitives; migrating this 4h algo is the top-priority lever.
     stop_loss: { type: "percentage", value: 1.5 },
     take_profit: { type: "percentage", value: 4.5 },
     max_positions: 1,
