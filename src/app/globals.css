@@ -46,6 +46,21 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+  /* Glass surfaces — `bg-surface-{level}` */
+  --color-surface-base: var(--surface-base);
+  --color-surface-low: var(--surface-low);
+  --color-surface-mid: var(--surface-mid);
+  --color-surface-high: var(--surface-high);
+  --color-surface-sunken: var(--surface-sunken);
+  --color-glass-border: var(--glass-border);
+  --color-glass-border-strong: var(--glass-border-strong);
+  --color-glass-highlight: var(--glass-highlight);
+  /* `shadow-glass-{size}` */
+  --shadow-glass-sm: var(--shadow-1);
+  --shadow-glass-md: var(--shadow-2);
+  --shadow-glass-lg: var(--shadow-3);
+  /* Motion — `duration-base`, `ease-glass` */
+  --ease-glass: cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 :root {
@@ -83,6 +98,20 @@
   --sidebar-ring: oklch(0.55 0.2 260);
   --profit: oklch(0.65 0.18 150);
   --loss: oklch(0.577 0.245 27.325);
+  /* Glass surfaces (light mode — fallback polish; dark is canonical) */
+  --surface-base: oklch(0.985 0 0);
+  --surface-low: oklch(0.97 0 0 / 0.7);
+  --surface-mid: oklch(0.96 0 0 / 0.6);
+  --surface-high: oklch(0.94 0 0 / 0.55);
+  --surface-sunken: oklch(0.95 0 0);
+  --glass-border: oklch(0 0 0 / 0.06);
+  --glass-border-strong: oklch(0 0 0 / 0.1);
+  --glass-highlight: oklch(1 0 0 / 0.5);
+  --shadow-1: 0 1px 2px 0 oklch(0 0 0 / 0.06);
+  --shadow-2: 0 4px 12px -2px oklch(0 0 0 / 0.08);
+  --shadow-3: 0 12px 32px -4px oklch(0 0 0 / 0.12);
+  --profit-glow: oklch(0.65 0.18 150 / 0.15);
+  --loss-glow: oklch(0.577 0.245 27.325 / 0.15);
 }
 
 .dark {
@@ -119,6 +148,26 @@
   --sidebar-ring: oklch(0.62 0.22 260);
   --profit: oklch(0.7 0.18 150);
   --loss: oklch(0.704 0.191 22.216);
+  /* Glass surfaces — three elevations + sunken. Translucent over the
+   * page background so backdrop-blur picks up depth from underlying
+   * content. Tuned for `Surface` primitive's `elevation` prop. */
+  --surface-base: oklch(0.12 0 0);
+  --surface-low: oklch(0.16 0 0 / 0.7);
+  --surface-mid: oklch(0.18 0 0 / 0.6);
+  --surface-high: oklch(0.22 0 0 / 0.55);
+  --surface-sunken: oklch(0.09 0 0);
+  /* Glass borders are tinted edge highlights, not solid lines. The
+   * `-strong` variant is for hover/focus states on interactive surfaces. */
+  --glass-border: oklch(1 0 0 / 0.08);
+  --glass-border-strong: oklch(1 0 0 / 0.14);
+  --glass-highlight: oklch(1 0 0 / 0.06);
+  /* Depth shadows tuned for dark glass — deep but not smudge. */
+  --shadow-1: 0 1px 2px 0 oklch(0 0 0 / 0.4);
+  --shadow-2: 0 4px 12px -2px oklch(0 0 0 / 0.5);
+  --shadow-3: 0 12px 32px -4px oklch(0 0 0 / 0.6);
+  /* Soft halos for state-tinted surfaces (active position, alert card). */
+  --profit-glow: oklch(0.7 0.18 150 / 0.15);
+  --loss-glow: oklch(0.704 0.191 22.216 / 0.15);
 }
 
 @layer base {
