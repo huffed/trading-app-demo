@@ -150,6 +150,10 @@ export function useTriggerScan() {
         queryClient.invalidateQueries({ queryKey: ACTIVITY_KEY });
         queryClient.invalidateQueries({ queryKey: PAPER_STATS_KEY });
         queryClient.invalidateQueries({ queryKey: ["algorithms"] });
+        // LLM-trader algos write a new llm_decisions row each scan;
+        // invalidate so the algo detail page's decision feed refreshes
+        // without a manual reload.
+        queryClient.invalidateQueries({ queryKey: ["llm-decisions"] });
       }
     },
   });
