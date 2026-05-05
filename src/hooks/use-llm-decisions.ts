@@ -45,11 +45,17 @@ export function useLlmDecisions(
     queryKey: [...LLM_DECISIONS_KEY, algorithmId, page, perPage, filters],
     queryFn: async () => {
       const supabase = createClient();
+      // Sort by `created_at` (when the row was inserted server-side via
+      // postgres now()) rather than `bar_date` (the bar the LLM was
+      // reasoning about). Historical rows from before the
+      // Twelve Data timezone fix have Sydney-stamped bar_dates that
+      // sort as "future" UTC, pushing them above genuinely fresh
+      // decisions. created_at is timezone-immune.
       let query = supabase
         .from("llm_decisions")
         .select("*", { count: "exact" })
         .eq("algorithm_id", algorithmId)
-        .order("bar_date", { ascending: false });
+        .order("created_at", { ascending: false });
 
       if (filters.decision) query = query.eq("decision", filters.decision);
       if (filters.regime) query = query.eq("regime", filters.regime);
