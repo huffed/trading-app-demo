@@ -137,6 +137,17 @@ export interface SharedState {
   /** Per-algo call/fail stats. Surfaces "v3 prompt parse-fails more than
    *  v2" patterns invisible in the global counter. */
   perAlgoStats: Map<string, { calls: number; fails: number; failsByType: Map<LlmFailType, number> }>;
+  /** Capture parse-fail context for offline diagnosis. Lets us inspect
+   *  exactly what the LLM was given + what it returned that didn't
+   *  parse. Compare byte-by-byte against single-algo run that worked. */
+  failDumps: Array<{
+    timestamp: string;
+    algoId: string;
+    promptVersion: string;
+    userMessage: string;
+    rawText: string;
+    regime: string;
+  }>;
 }
 
 export function newSharedState(capital: number): SharedState {
@@ -151,6 +162,7 @@ export function newSharedState(capital: number): SharedState {
     llmCalls: 0,
     llmFailures: 0,
     perAlgoStats: new Map(),
+    failDumps: [],
   };
 }
 
@@ -277,7 +289,7 @@ async function processAlgoAtBar(
     failsByType: new Map<LlmFailType, number>(),
   };
   algoStats.calls++;
-  const { decision, failType } = await callLLMWithDiagnostic(
+  const { decision, failType, rawText } = await callLLMWithDiagnostic(
     provider,
     clients,
     systemPrompt,
@@ -290,6 +302,20 @@ async function processAlgoAtBar(
       algoStats.failsByType.set(failType, (algoStats.failsByType.get(failType) ?? 0) + 1);
     }
     state.perAlgoStats.set(algo.algoId, algoStats);
+    // Dump fail context to JSONL for diagnosis. Captures system prompt
+    // hash (just length for now), user message, raw LLM response, and
+    // metadata so we can byte-by-byte compare what failed against
+    // single-algo runs that succeed.
+    if (failType === "parse_fail") {
+      state.failDumps.push({
+        timestamp: bar.date,
+        algoId: algo.algoId,
+        promptVersion: algo.promptVersion,
+        userMessage,
+        rawText: rawText ?? "(null)",
+        regime,
+      });
+    }
     return;
   }
   state.perAlgoStats.set(algo.algoId, algoStats);
@@ -549,6 +575,14 @@ async function main(): Promise<void> {
     const path = `scripts/multi-algo-trades-${algo.algoId}-${sliceDays}d.jsonl`;
     writeFileSync(path, trades.map((t) => JSON.stringify(t)).join("\n"));
     console.log(`  trade log: ${path} (${trades.length} entries)`);
+  }
+
+  // Save fail dumps for offline diagnosis. Includes the full userMessage
+  // + rawText so we can inspect exactly what failed.
+  if (state.failDumps.length > 0) {
+    const failPath = `scripts/multi-algo-fail-dumps-${sliceDays}d.jsonl`;
+    writeFileSync(failPath, state.failDumps.map((d) => JSON.stringify(d)).join("\n"));
+    console.log(`  fail dumps: ${failPath} (${state.failDumps.length} entries)`);
   }
 }
 

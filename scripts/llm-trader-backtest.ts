@@ -558,7 +558,7 @@ async function callGroq(
   client: ReturnType<typeof getAIClient>,
   systemPrompt: string,
   context: string
-): Promise<Decision | null> {
+): Promise<{ decision: Decision | null; rawText: string }> {
   const res = await client.chat.completions.create({
     model: AI_MODEL,
     messages: [
@@ -572,14 +572,14 @@ async function callGroq(
   const text = res.choices[0]?.message?.content ?? "{}";
   const raw = extractJson(text);
   const parsed = decisionSchema.safeParse(raw);
-  return parsed.success ? parsed.data : null;
+  return { decision: parsed.success ? parsed.data : null, rawText: text };
 }
 
 async function callAnthropic(
   client: Anthropic,
   systemPrompt: string,
   context: string
-): Promise<Decision | null> {
+): Promise<{ decision: Decision | null; rawText: string }> {
   const res = await client.messages.create({
     model: ANTHROPIC_MODEL,
     max_tokens: 200,
@@ -590,7 +590,7 @@ async function callAnthropic(
   const text = block && block.type === "text" ? block.text : "{}";
   const raw = extractJson(text);
   const parsed = decisionSchema.safeParse(raw);
-  return parsed.success ? parsed.data : null;
+  return { decision: parsed.success ? parsed.data : null, rawText: text };
 }
 
 /** Failure-type taxonomy for diagnostics. Backtest fail rates spike under
@@ -613,18 +613,18 @@ export function classifyLlmError(err: unknown): LlmFailType {
 /** LLM call with single retry + 1.5s sleep on transient errors. Matches
  *  production's retry strategy (memory: feedback_llm_retry_strategy).
  *  Halves rate-limit-induced failures in backtests with no meaningful
- *  cost. Returns { decision, failType } so callers can track the failure
- *  taxonomy for diagnostics. */
+ *  cost. Returns { decision, failType, rawText } so callers can track
+ *  the failure taxonomy AND inspect the raw LLM output on parse fails. */
 export async function callLLMWithDiagnostic(
   provider: Provider,
   clients: ProviderClients,
   systemPrompt: string,
   context: string
-): Promise<{ decision: Decision | null; failType: LlmFailType | null }> {
+): Promise<{ decision: Decision | null; failType: LlmFailType | null; rawText: string | null }> {
   let lastErr: unknown = null;
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
-      let result: Decision | null;
+      let result: { decision: Decision | null; rawText: string };
       if (provider === "anthropic") {
         if (!clients.anthropic) throw new Error("anthropic client not initialised");
         result = await callAnthropic(clients.anthropic, systemPrompt, context);
@@ -632,12 +632,12 @@ export async function callLLMWithDiagnostic(
         if (!clients.groq) throw new Error("groq client not initialised");
         result = await callGroq(clients.groq, systemPrompt, context);
       }
-      if (result === null) {
+      if (result.decision === null) {
         // null = parse failed (LLM returned text that didn't match
         // decisionSchema). Retry won't help here — schema is the issue.
-        return { decision: null, failType: "parse_fail" };
+        return { decision: null, failType: "parse_fail", rawText: result.rawText };
       }
-      return { decision: result, failType: null };
+      return { decision: result.decision, failType: null, rawText: result.rawText };
     } catch (err) {
       lastErr = err;
       const failType = classifyLlmError(err);
@@ -647,14 +647,14 @@ export async function callLLMWithDiagnostic(
         await new Promise((resolve) => setTimeout(resolve, 1500));
         continue;
       }
-      return { decision: null, failType };
+      return { decision: null, failType, rawText: null };
     }
   }
-  return { decision: null, failType: classifyLlmError(lastErr) };
+  return { decision: null, failType: classifyLlmError(lastErr), rawText: null };
 }
 
-/** Backward-compatible wrapper that drops the failType. Existing callers
- *  (single-algo runWindow) keep working unchanged. */
+/** Backward-compatible wrapper that drops the failType + rawText.
+ *  Existing callers (single-algo runWindow) keep working unchanged. */
 export async function callLLM(
   provider: Provider,
   clients: ProviderClients,
