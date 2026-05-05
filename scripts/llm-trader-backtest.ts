@@ -844,6 +844,7 @@ export interface GateRefusals {
   ftmo_consistency_halt: number;
   stagnant_exits: number;
   ranging_regime: number;
+  lh_short_upper_range: number;
 }
 
 export interface WindowResult {
@@ -987,6 +988,7 @@ export async function runWindow(opts: WindowOptions): Promise<WindowResult> {
     ftmo_consistency_halt: 0,
     stagnant_exits: 0,
     ranging_regime: 0,
+    lh_short_upper_range: 0,
   };
 
   for (let i = startIdx; i < lastIdx; i++) {
@@ -1171,6 +1173,19 @@ export async function runWindow(opts: WindowOptions): Promise<WindowResult> {
           gateRefusals.ftmo_consistency_halt++;
         }
       }
+      // LH-short upper-range gate — mirrors src/lib/scan/entry.ts.
+      // Refuses LH-short entries within 0.30% of 20-bar high
+      // (4 losses / 0 wins in beyr1223h 30d window + first live loss).
+      if (!entryBlockedReason && decision.decision === "enter_short" && regime === "LH") {
+        const lookback = Math.min(20, i + 1);
+        const window = bars.slice(i - lookback + 1, i + 1);
+        const rangeHigh = Math.max(...window.map((b) => b.high));
+        const distFromHigh = (rangeHigh - bar.close) / bar.close;
+        if (distFromHigh < 0.003) {
+          entryBlockedReason = `lh_short_upper_range: entry within ${(distFromHigh * 100).toFixed(2)}% of 20-bar high ${rangeHigh.toFixed(2)} (threshold 0.30%)`;
+          gateRefusals.lh_short_upper_range++;
+        }
+      }
     }
 
     if (decision.decision === "enter_long" && !position && !entryBlockedReason) {
@@ -1312,7 +1327,7 @@ export async function runWindow(opts: WindowOptions): Promise<WindowResult> {
  *  single-window mode; the WF orchestrator has its own across-window
  *  aggregator. */
 export function printWindowSummary(result: WindowResult): void {
-  const { trades, decisions, capital, finalCash, maxDrawdown, llmCalls, llmFailures } = result;
+  const { trades, decisions, capital, finalCash, maxDrawdown, llmCalls, llmFailures, gateRefusals } = result;
   const totalPnl = finalCash - capital;
   const wins = trades.filter((t) => t.realized_pnl > 0);
   const wr = trades.length === 0 ? 0 : (wins.length / trades.length) * 100;
@@ -1326,6 +1341,18 @@ export function printWindowSummary(result: WindowResult): void {
   console.log(`Max drawdown   : ${maxDrawdown.toFixed(2)}%`);
   console.log(`Avg hold       : ${avgHold.toFixed(1)} bars`);
   console.log(`LLM calls      : ${llmCalls} (${llmFailures} fails)`);
+  const totalRefusals =
+    gateRefusals.atr_liquidity +
+    gateRefusals.news_veto +
+    gateRefusals.consec_loss_halt +
+    gateRefusals.ftmo_consistency_halt +
+    gateRefusals.ranging_regime +
+    gateRefusals.lh_short_upper_range;
+  if (totalRefusals > 0) {
+    console.log(
+      `Gate refusals  : ${totalRefusals} (atr=${gateRefusals.atr_liquidity}, news=${gateRefusals.news_veto}, consec=${gateRefusals.consec_loss_halt}, ftmo_cst=${gateRefusals.ftmo_consistency_halt}, ranging=${gateRefusals.ranging_regime}, lh_short_upper=${gateRefusals.lh_short_upper_range}, stagnant_exits=${gateRefusals.stagnant_exits})`
+    );
+  }
   console.log("");
 
   console.log("Trade log (last 15):");

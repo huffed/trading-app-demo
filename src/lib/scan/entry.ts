@@ -1264,6 +1264,41 @@ async function evaluateLlmTraderEntry(
     return { opened: 0 };
   }
 
+  // LH-short upper-range gate. Empirical finding (2026-05-05): LH-short
+  // entries within 0.30% of the 20-bar high went 0/4 in the most recent
+  // 30d window (3 backtest SL hits + 1 live SL hit). Lower-half /
+  // sweep-of-low LH-shorts in the same window went 3/4 winners. The
+  // losing cohort is "fading resistance with a tight stop"; the winning
+  // cohort is "continuation through support". Block only the losing
+  // signature. Mirror analysis for HH-longs is queued as a separate gate.
+  // Threshold (0.30%) splits the cohort cleanly: all 4 losers ≤0.21%
+  // from high, the upper-half winner (Trade 26 in beyr1223h) was 0.34%
+  // from high.
+  if (llmSide === "short" && evaluation.regime === "LH") {
+    const lookback = Math.min(20, bars.length);
+    const window = bars.slice(-lookback);
+    const rangeHigh = Math.max(...window.map((b) => b.high));
+    const distFromHigh = (rangeHigh - currentPrice) / currentPrice;
+    if (distFromHigh < 0.003) {
+      await logActivity(supabase, userId, {
+        algorithm_id: algo.id,
+        event_type: "signal_no_action",
+        ticker,
+        details: {
+          reason: `LH-short upper-range gate: entry ${currentPrice.toFixed(2)} within ${(distFromHigh * 100).toFixed(2)}% of 20-bar high ${rangeHigh.toFixed(2)} (threshold 0.30%) — 0/4 historical WR in this signature`,
+          source: "llm_trader",
+          regime: evaluation.regime,
+          range_high: rangeHigh,
+          dist_from_high_pct: distFromHigh * 100,
+          confidence: decision.confidence,
+          llm_reasoning: decision.reasoning,
+          would_have_entered_side: llmSide,
+        },
+      });
+      return { opened: 0 };
+    }
+  }
+
   // Capped: log near-miss with LLM reasoning, don't open
   if (cappedReason) {
     await logActivity(supabase, userId, {
