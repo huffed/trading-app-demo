@@ -8,7 +8,12 @@ import {
 import { checkDxyDirection } from "@/lib/algorithm/dxy-filter";
 import { checkAtrLiquidity } from "@/lib/algorithm/intraday-atr-gate";
 import { checkBrokerSpread, type SpreadGateResult } from "@/lib/algorithm/spread-gate";
-import { computeSlDistance, computeTpDistance } from "@/lib/algorithm/structural-sl";
+import {
+  computeSlDistance,
+  computeTpDistance,
+  dailyAtrFromBars,
+  type AdaptiveTpContext,
+} from "@/lib/algorithm/structural-sl";
 import { checkTimeOfDayFilter } from "@/lib/algorithm/time-of-day-filter";
 import { getContractSize, pnlInUsd } from "@/lib/constants/markets";
 import { isWeakTrendByAdx } from "@/lib/market-data/adx-filter";
@@ -90,7 +95,12 @@ async function openPosition(
    *  by convention; live entries always evaluate at "now". Optional —
    *  for percentage / fixed / pips rules the helpers fall through to
    *  their existing behaviour. */
-  bars?: PriceBar[]
+  bars?: PriceBar[],
+  /** Adaptive TP context — when provided, regime + daily-ATR
+   *  awareness tightens the resolved TP distance. Pattern-based
+   *  callers omit this; LLM-trader callers compute it from
+   *  `evaluation.regime` + dailyBars and pass through. */
+  adaptiveTpCtx?: AdaptiveTpContext
 ): Promise<{ opened: number; openEvent?: PositionEvent; paperPositionId?: string }> {
   // calculatePositionSize wants MARGIN-used summed, not notional. For
   // leveraged sizing (lots / risk_per_trade / conviction_scaled) sum
@@ -125,7 +135,13 @@ async function openPosition(
       : undefined;
   const tpDistance =
     bars && bars.length > 0 && slDistance !== undefined
-      ? computeTpDistance(algo.rules.take_profit, slDistance, currentPrice, ticker)
+      ? computeTpDistance(
+          algo.rules.take_profit,
+          slDistance,
+          currentPrice,
+          ticker,
+          adaptiveTpCtx
+        )
       : undefined;
 
   const sizing = calculatePositionSize(
@@ -1296,9 +1312,18 @@ async function evaluateLlmTraderEntry(
   // Open with LLM-determined side. We override rules.side temporarily so
   // openPosition's side resolution picks up the LLM's call. Other fields
   // unchanged — sizing, SL/TP, sanity gates all run as normal.
+  //
+  // Adaptive TP context: pass D1-derived regime + daily ATR so TP
+  // computation can tighten the rule-based RR/percentage in chop and
+  // cap absolute distance at a reachable fraction of recent daily
+  // volatility. See AdaptiveTpContext docstring for details.
   const algoForOpen: AlgoContext = {
     ...algo,
     rules: { ...algo.rules, side: llmSide },
+  };
+  const adaptiveTpCtx: AdaptiveTpContext = {
+    regime: evaluation.regime,
+    dailyAtr: dailyBars && dailyBars.length > 0 ? dailyAtrFromBars(dailyBars) : 0,
   };
   const opened = await openPosition(
     supabase,
@@ -1311,7 +1336,8 @@ async function evaluateLlmTraderEntry(
     allOpenPositions,
     brokerCtx ?? null,
     1,
-    bars
+    bars,
+    adaptiveTpCtx
   );
   // Link the decision row to the resulting paper_positions row so the
   // close path can backfill the trade outcome onto this decision.
