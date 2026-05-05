@@ -84,6 +84,12 @@ export interface LlmTraderContext {
   } | null;
   /** Primary timeframe label for the prompt (e.g. "4h"). */
   timeframe: string;
+  /** Layer 3 in-context reflection — pre-formatted summary of the algo's
+   *  recent track record by regime. When provided, the prompt context
+   *  surfaces "your last 20 trades: 30% WR overall, LH-short at 36%,
+   *  HH-long at 20%" so the LLM can dynamically adjust conviction.
+   *  Pass null/undefined to skip (e.g. <10 trades exist yet). */
+  recentOutcomes?: string | null;
 }
 
 const decisionSchema = z.object({
@@ -243,7 +249,11 @@ export function buildLlmTraderContext(ctx: LlmTraderContext): {
   const dxyContext = summariseDxy(ctx.dxyBars, ctx.currentTimestamp);
   const intermarketContext = summariseIntermarket(ctx.intermarket, cur.close, ctx.currentTimestamp);
   const positionContext = summarisePosition(ctx.position ?? null, cur.close);
-  const userMessage = `${ctx.currentTimestamp.slice(0, 16)}\n${dailyContext}\n${dxyContext}\n${intermarketContext}\n${recentContext}\nPosition: ${positionContext}\nDecide.`;
+  // Layer 3 reflection: include recent-outcomes summary when provided.
+  // Self-gates (caller passes null when <10 trades exist), so the
+  // section is silently omitted during the warm-up phase.
+  const reflectionLine = ctx.recentOutcomes ? `\n${ctx.recentOutcomes}` : "";
+  const userMessage = `${ctx.currentTimestamp.slice(0, 16)}\n${dailyContext}\n${dxyContext}\n${intermarketContext}\n${recentContext}\nPosition: ${positionContext}${reflectionLine}\nDecide.`;
   return { userMessage, regime };
 }
 
