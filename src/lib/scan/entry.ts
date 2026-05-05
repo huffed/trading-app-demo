@@ -874,6 +874,29 @@ async function evaluateLlmTraderEntry(
     return { opened: 0 };
   }
 
+  // Dead-hour gate (Asia early-morning chop window). Cross-run analysis
+  // of two 30d backtests showed 04:00 + 05:00 UTC entries went 0 wins
+  // in 7 attempts (sum -4.22R), and the first live trade (2026-05-05
+  // 05:00 UTC) lost -1R as an extension of the same pattern. Other Asia
+  // hours (e.g. 01:00 UTC) had legitimate winners across runs, so we
+  // surgically block 04-05 UTC instead of the broader Asia session.
+  // Sample is small but pattern is consistent across runs; revisit if
+  // ≥3 live trades in this window land winners.
+  const utcHour = new Date(bars[bars.length - 1].date).getUTCHours();
+  if (utcHour === 4 || utcHour === 5) {
+    await logActivity(supabase, userId, {
+      algorithm_id: algo.id,
+      event_type: "signal_no_action",
+      ticker,
+      details: {
+        reason: `Dead-hour gate: ${utcHour}:00 UTC has 0/7 historic WR across two 30d backtests + first live loss`,
+        source: "llm_trader",
+        utc_hour: utcHour,
+      },
+    });
+    return { opened: 0 };
+  }
+
   // ---- Defensive pre-gates (mirror evaluateEntry) ----
 
   const liquidity = checkAtrLiquidity(bars, bars.length - 1);
