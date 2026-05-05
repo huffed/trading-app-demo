@@ -37,28 +37,27 @@ export function useOpenPositions(algorithmId?: string) {
 }
 
 /**
- * Fetch every closed position for one algorithm within the last `days`
- * (default 30). Used for charts that need the full series — pagination
- * doesn't fit a cumulative-pnl curve. Capped server-side at 1000 rows
- * to keep payload bounded; an algo trading more than 1000 times in
- * 30 days is in degenerate territory regardless.
+ * Fetch every closed position within the last `days` (default 30). Pass
+ * `algorithmId` to scope to one algorithm, or omit for portfolio-wide
+ * (used by the dashboard's hero equity curve). Used for charts that
+ * need the full series — pagination doesn't fit a cumulative-pnl curve.
+ * Capped server-side at 1000 rows to keep payload bounded.
  */
 export function useClosedPositionsWindow(algorithmId: string | undefined, days = 30) {
   return useQuery({
-    queryKey: [...POSITIONS_KEY, "closed-window", algorithmId, days],
-    enabled: !!algorithmId,
+    queryKey: [...POSITIONS_KEY, "closed-window", algorithmId ?? "portfolio", days],
     queryFn: async () => {
-      if (!algorithmId) return [] as PaperPosition[];
       const since = new Date(Date.now() - days * 86_400_000).toISOString();
       const supabase = createClient();
-      const { data, error } = await supabase
+      let query = supabase
         .from("paper_positions")
         .select("*")
         .eq("status", "closed")
-        .eq("algorithm_id", algorithmId)
         .gte("closed_at", since)
         .order("closed_at", { ascending: true })
         .limit(1000);
+      if (algorithmId) query = query.eq("algorithm_id", algorithmId);
+      const { data, error } = await query;
       if (error) throw error;
       return (data ?? []) as PaperPosition[];
     },

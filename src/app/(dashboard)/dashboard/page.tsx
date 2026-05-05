@@ -1,35 +1,28 @@
-import { ActivityFeed } from "@/components/dashboard/activity-feed";
-import { AssetAllocationChart } from "@/components/dashboard/asset-allocation-chart";
-import { EmotionWidget } from "@/components/dashboard/emotion-widget";
-import { JournalFlagsCard } from "@/components/dashboard/journal-flags-card";
-import { PaperTradingCard } from "@/components/dashboard/paper-trading-card";
-import { PnlChart } from "@/components/dashboard/pnl-chart";
-import { RecentTrades } from "@/components/dashboard/recent-trades";
-import { StatCards } from "@/components/dashboard/stat-cards";
-import { TopPerformers } from "@/components/dashboard/top-performers";
+import { ActivityPanel } from "@/components/dashboard/activity-panel";
+import { EquityHero } from "@/components/dashboard/equity-hero";
+import { KpiSummary } from "@/components/dashboard/kpi-summary";
+import { LiveStatusRail } from "@/components/dashboard/live-status-rail";
+import { OpenPositionsPanel } from "@/components/dashboard/open-positions-panel";
+import { ContentShell } from "@/components/layout/content-shell";
+import { DashboardGrid } from "@/components/layout/dashboard-grid";
 
 export default function DashboardPage() {
   return (
-    <div className="space-y-6">
-      <div>
+    <ContentShell inspector={<LiveStatusRail />}>
+      <div className="mb-6">
         <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
-        <p className="text-sm text-muted-foreground">Your trading overview at a glance.</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Live trading overview — paper-positions data, scan status, and recent activity.
+        </p>
       </div>
-      <StatCards />
-      <PaperTradingCard />
-      <div className="grid gap-4 lg:grid-cols-2">
-        <PnlChart />
-        <TopPerformers />
+      <KpiSummary />
+      <div className="mt-6">
+        <DashboardGrid>
+          <EquityHero />
+          <OpenPositionsPanel />
+          <ActivityPanel />
+        </DashboardGrid>
       </div>
-      <div className="grid gap-4 lg:grid-cols-2">
-        <RecentTrades />
-        <ActivityFeed />
-      </div>
-      <div className="grid gap-4 lg:grid-cols-2">
-        <AssetAllocationChart />
-        <EmotionWidget />
-      </div>
-      <JournalFlagsCard />
-    </div>
+    </ContentShell>
   );
 }

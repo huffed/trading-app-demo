@@ -1,5 +1,10 @@
 "use client";
 
+/**
+ * Recent activity log — last 10 events across all algorithms. Same
+ * event-icon mapping the legacy ActivityFeed used; rebuilt over the
+ * Surface primitive with tighter type and tabular-nums timestamps.
+ */
 import {
   Activity,
   AlertCircle,
@@ -19,8 +24,8 @@ import {
   Zap,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Surface } from "@/components/ui/surface";
 import { useActivityLog } from "@/hooks/use-paper-trading";
 import { ACTIVITY_TYPE_LABELS } from "@/lib/constants/algorithm";
 import { formatRelativeTime } from "@/lib/utils/pnl";
@@ -50,60 +55,48 @@ const EVENT_ICONS: Record<ActivityEventType, React.ReactNode> = {
   manage_tick: <Activity className="h-3.5 w-3.5 text-muted-foreground" />,
 };
 
-export function ActivityFeed() {
+export function ActivityPanel() {
   const { data, isLoading } = useActivityLog({}, 1, 10);
   const entries = data?.entries ?? [];
 
-  if (isLoading) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Activity</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <Skeleton key={i} className="h-5 w-full" />
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base">Activity</CardTitle>
-      </CardHeader>
-      <CardContent>
-        {entries.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            No activity yet. Scan an active algorithm to get started.
-          </p>
-        ) : (
-          <div className="space-y-2.5">
-            {entries.map((entry) => (
-              <div key={entry.id} className="flex items-center gap-2.5 text-sm">
-                {EVENT_ICONS[entry.event_type] ?? (
-                  <Search className="h-3.5 w-3.5 text-muted-foreground" />
+    <Surface elevation="mid" className="p-5 lg:col-span-6">
+      <div className="mb-3 flex items-center gap-2">
+        <Activity className="h-4 w-4 text-muted-foreground" />
+        <p className="text-xs uppercase tracking-wide text-muted-foreground">Recent activity</p>
+      </div>
+      {isLoading ? (
+        <div className="space-y-3">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-5 w-full" />
+          ))}
+        </div>
+      ) : entries.length === 0 ? (
+        <p className="py-8 text-center text-sm text-muted-foreground">
+          No activity yet — start a scan to populate the feed.
+        </p>
+      ) : (
+        <ul className="space-y-2.5">
+          {entries.map((entry) => (
+            <li key={entry.id} className="flex items-center gap-2.5 text-sm">
+              {EVENT_ICONS[entry.event_type] ?? (
+                <Search className="h-3.5 w-3.5 text-muted-foreground" />
+              )}
+              <span className="min-w-0 flex-1 truncate">
+                {ACTIVITY_TYPE_LABELS[entry.event_type] ?? entry.event_type}
+                {entry.ticker && (
+                  <Badge variant="outline" className="ml-1.5 border-glass-border text-xs">
+                    {entry.ticker}
+                  </Badge>
                 )}
-                <div className="flex-1 min-w-0 truncate">
-                  <span>{ACTIVITY_TYPE_LABELS[entry.event_type] ?? entry.event_type}</span>
-                  {entry.ticker && (
-                    <Badge variant="outline" className="ml-1.5 text-xs">
-                      {entry.ticker}
-                    </Badge>
-                  )}
-                </div>
-                <span className="text-xs text-muted-foreground shrink-0">
-                  {formatRelativeTime(entry.created_at)}
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
-      </CardContent>
-    </Card>
+              </span>
+              <span className="shrink-0 font-mono text-xs tabular-nums text-muted-foreground">
+                {formatRelativeTime(entry.created_at)}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Surface>
   );
 }
