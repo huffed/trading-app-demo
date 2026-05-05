@@ -628,7 +628,9 @@ async function callGroq(
       { role: "user", content: context },
     ],
     response_format: { type: "json_object" },
-    max_tokens: 128,
+    // 600 to match production. See callAnthropic above for rationale —
+    // v5 / Tier B responses can run 150-250 tokens; v3 sub-50 mostly.
+    max_tokens: 600,
     temperature: 0.2,
   });
   const text = res.choices[0]?.message?.content ?? "{}";
@@ -644,7 +646,12 @@ async function callAnthropic(
 ): Promise<Decision | null> {
   const res = await client.messages.create({
     model: ANTHROPIC_MODEL,
-    max_tokens: 200,
+    // 600 to match production llm-trader.ts (PR #135 missed this file).
+    // v5 / Tier B responses include stop_loss_price / take_profit_price /
+    // level_rationale on entries, which pushes typical entry responses
+    // from ~50 to ~150-250 tokens. v3-style hold-only responses fit
+    // comfortably in 100; entry responses with rationale need the headroom.
+    max_tokens: 600,
     system: systemPrompt,
     messages: [{ role: "user", content: context }],
   });
