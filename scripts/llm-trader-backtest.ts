@@ -199,7 +199,7 @@ const decisionSchema = z.object({
   reasoning: z.string().min(1).max(2000),
 });
 
-type Decision = z.infer<typeof decisionSchema>;
+export type Decision = z.infer<typeof decisionSchema>;
 
 // Daily-structure regime tag derived from HH/LH price action. Primary
 // signal for adaptation diagnostics — we want to know whether the LLM
@@ -279,15 +279,31 @@ const TP_PCT = TP_TYPE === "percentage" ? TP_VALUE : 0.045;
  *  entryPrice × SL_VALUE. For "swing_anchor" looks back SL_LOOKBACK bars
  *  to find the swing low (long) or high (short), then adds an ATR buffer
  *  of SL_VALUE × ATR(14) so the SL sits just past the structural level. */
-function computeSlForBacktest(
+/** SL config for backtest entries. Per-algo config in multi-algo
+ *  runs; matches module-level env vars in single-algo runs. */
+export interface SlConfig {
+  type: "percentage" | "swing_anchor";
+  value: number;
+  lookback?: number;
+}
+
+/** TP config for backtest entries. */
+export interface TpConfig {
+  type: "percentage" | "rr_multiple";
+  value: number;
+}
+
+export function computeSlForBacktest(
   bars: PriceBar[],
   entryIdx: number,
   side: "long" | "short",
-  entryPrice: number
+  entryPrice: number,
+  cfg: SlConfig = { type: SL_TYPE, value: SL_VALUE, lookback: SL_LOOKBACK }
 ): number {
-  if (SL_TYPE === "percentage") return entryPrice * SL_VALUE;
+  if (cfg.type === "percentage") return entryPrice * cfg.value;
   // swing_anchor
-  const start = Math.max(0, entryIdx - SL_LOOKBACK);
+  const lookback = cfg.lookback ?? 8;
+  const start = Math.max(0, entryIdx - lookback);
   let level: number;
   if (side === "long") {
     let lowest = Infinity;
@@ -299,7 +315,7 @@ function computeSlForBacktest(
     level = highest;
   }
   const baseDistance = side === "long" ? entryPrice - level : level - entryPrice;
-  if (SL_VALUE <= 0 || baseDistance <= 0) return Math.max(baseDistance, 0);
+  if (cfg.value <= 0 || baseDistance <= 0) return Math.max(baseDistance, 0);
   // Inline ATR(14) computation — mirrors src/lib/algorithm/structural-sl.ts
   // intent. Avoids the production dependency since this script is standalone.
   const atrPeriod = 14;
@@ -316,14 +332,18 @@ function computeSlForBacktest(
     trCount++;
   }
   const atr = trCount > 0 ? trSum / trCount : 0;
-  return baseDistance + SL_VALUE * atr;
+  return baseDistance + cfg.value * atr;
 }
 
 /** Compute TP distance for the backtest's entry. For "percentage" returns
- *  entryPrice × TP_VALUE. For "rr_multiple" returns slDistance × TP_VALUE. */
-function computeTpForBacktest(slDistance: number, entryPrice: number): number {
-  if (TP_TYPE === "percentage") return entryPrice * TP_VALUE;
-  return slDistance * TP_VALUE;
+ *  entryPrice × value. For "rr_multiple" returns slDistance × value. */
+export function computeTpForBacktest(
+  slDistance: number,
+  entryPrice: number,
+  cfg: TpConfig = { type: TP_TYPE, value: TP_VALUE }
+): number {
+  if (cfg.type === "percentage") return entryPrice * cfg.value;
+  return slDistance * cfg.value;
 }
 
 export function summariseDailyBias(dailyBars: PriceBar[]): { summary: string; regime: Regime } {
@@ -371,7 +391,7 @@ function computeAtr(bars: PriceBar[], period: number, idx: number): number {
   return count > 0 ? sum / count : 0;
 }
 
-function summariseRecentBars(bars: PriceBar[], idx: number, tfLabel: string): string {
+export function summariseRecentBars(bars: PriceBar[], idx: number, tfLabel: string): string {
   const start = Math.max(0, idx - 19);
   const window = bars.slice(start, idx + 1);
   const cur = window[window.length - 1];
@@ -397,7 +417,7 @@ function summariseRecentBars(bars: PriceBar[], idx: number, tfLabel: string): st
   );
 }
 
-function summariseDxy(eurusdBars: PriceBar[], currentTs: string): string {
+export function summariseDxy(eurusdBars: PriceBar[], currentTs: string): string {
   const ts = new Date(currentTs).getTime();
   const cutoff24h = ts - 24 * 3600 * 1000;
   const cutoff7d = ts - 7 * 24 * 3600 * 1000;
@@ -411,7 +431,7 @@ function summariseDxy(eurusdBars: PriceBar[], currentTs: string): string {
   return `DXY: 24h ${-c24 >= 0 ? "+" : ""}${(-c24).toFixed(2)}% / 7d ${-c7 >= 0 ? "+" : ""}${(-c7).toFixed(2)}%.`;
 }
 
-interface IntermarketSeries {
+export interface IntermarketSeries {
   silver?: PriceBar[];
   yield10y?: PriceBar[];
   vix?: PriceBar[];
@@ -437,7 +457,7 @@ async function loadIntermarket(): Promise<IntermarketSeries> {
   return out;
 }
 
-function summariseIntermarket(im: IntermarketSeries, goldClose: number, currentTs: string): string {
+export function summariseIntermarket(im: IntermarketSeries, goldClose: number, currentTs: string): string {
   const ts = new Date(currentTs).getTime();
   const cutoff24h = ts - 24 * 3600 * 1000;
   const cutoff7d = ts - 7 * 24 * 3600 * 1000;
@@ -482,7 +502,7 @@ function summariseIntermarket(im: IntermarketSeries, goldClose: number, currentT
   return parts.length > 0 ? `Intermarket: ${parts.join(" | ")}.` : "Intermarket: n/a";
 }
 
-function summarisePosition(position: OpenPosition | null, currentPrice: number): string {
+export function summarisePosition(position: OpenPosition | null, currentPrice: number): string {
   if (!position) return "FLAT.";
   const pnlPct =
     position.side === "long"
@@ -573,7 +593,7 @@ async function callAnthropic(
   return parsed.success ? parsed.data : null;
 }
 
-async function callLLM(
+export async function callLLM(
   provider: Provider,
   clients: ProviderClients,
   systemPrompt: string,
@@ -592,7 +612,7 @@ async function callLLM(
   }
 }
 
-function findExitOnNextBar(
+export function findExitOnNextBar(
   bar: PriceBar,
   position: OpenPosition
 ): { triggered: true; exit_price: number; reason: "stop_loss" | "take_profit" } | { triggered: false } {

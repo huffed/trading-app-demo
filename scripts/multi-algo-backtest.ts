@@ -13,37 +13,53 @@
  * Architecture:
  *   - Iterate at the finest timeframe across configured algos (30m by
  *     default since Intraday is finer than v1's 4h)
- *   - For each bar: determine which algos should fire ('isBarCloseScan'
- *     equivalent — v1 fires at 4h boundaries, Intraday every 30m)
- *   - Per algo: build context → call LLM → apply decision against
- *     shared cash + positions
- *   - Each tick: check SL/TP fills on ALL open positions, update
- *     unrealized P&L, run shared safety gates
+ *   - Per bar: (a) check SL/TP fills on ALL open positions, (b) for each
+ *     algo that fires this bar, build context → call LLM → apply decision
+ *   - Risk-per-trade sizing per algo (full SL hit = riskPct% of capital)
+ *   - Shared cash pool, positions tagged with algoId
  *
- * Status: Milestone 1 — scaffolding + iteration + stubbed decisions.
- * LLM calls + risk pooling + reporting fidelity coming in subsequent
- * milestones.
+ * Status: Milestone 2 — LLM calls + decisions + per-bar SL/TP fills.
+ * Skipped (Milestone 3): news veto, ATR liquidity gate, stagnant exit,
+ * combined DLL halt enforcement, cross-algo position cap enforcement.
  *
- * Usage (when complete):
- *   pnpm dlx tsx scripts/multi-algo-backtest.ts
+ * Usage:
+ *   PROVIDER=anthropic SLICE_DAYS=30 SLICE_END_DATE=2026-04-30 \
+ *     pnpm dlx tsx scripts/multi-algo-backtest.ts
  *
- * Env (TBD):
- *   SLICE_DAYS=30
+ * Env (all optional):
+ *   PROVIDER=anthropic       (default)
+ *   SLICE_DAYS=30            (default)
  *   SLICE_END_DATE=2026-04-30
  *   CAPITAL=100000
- *   PROVIDER=anthropic
- *   COMBINED_DLL_PCT=5      shared DLL halt across all algos
- *   MAX_CONCURRENT_POS=3    cross-algo position cap
+ *   COMBINED_DLL_PCT=5       (logged but not enforced — Milestone 3)
+ *   MAX_CONCURRENT_POS=3     (logged but not enforced — Milestone 3)
  */
-import { readFileSync } from "fs";
+import { readFileSync, writeFileSync } from "fs";
 import {
   type Corpus,
   type OpenPosition,
   type ClosedTrade,
   type Regime,
+  type Provider,
+  type ProviderClients,
+  type SlConfig,
+  type TpConfig,
+  ANTHROPIC_MODEL,
   loadCorpus,
+  createClients,
+  callLLM,
+  computeSlForBacktest,
+  computeTpForBacktest,
+  summariseDailyBias,
+  summariseRecentBars,
+  summariseDxy,
+  summariseIntermarket,
+  summarisePosition,
+  findExitOnNextBar,
+  computeRMultiple,
 } from "./llm-trader-backtest";
-import type { PromptVersion } from "../src/lib/scan/llm-trader-prompts";
+import { getPrompt, type PromptVersion } from "../src/lib/scan/llm-trader-prompts";
+import { AI_MODEL } from "../src/lib/ai/client";
 
 {
   try {
@@ -60,32 +76,21 @@ import type { PromptVersion } from "../src/lib/scan/llm-trader-prompts";
 }
 
 // ---------------------------------------------------------------------------
-// Algo config — what each algo runs as
+// Algo config
 // ---------------------------------------------------------------------------
 
 export interface AlgoConfig {
-  /** Stable identifier used for tagging positions, decisions, trades. */
   algoId: string;
-  /** Display label shown in console output. */
   label: string;
-  /** Bar cadence — algo only fires on these boundaries. */
   timeframe: "4h" | "30m";
-  /** Prompt version to use. */
   promptVersion: PromptVersion;
-  /** Per-trade risk as % of CURRENT shared capital (e.g. 1.0 = 1%). */
   riskPerTradePct: number;
-  /** Max simultaneous positions held by THIS algo (per-algo cap, separate
-   *  from the cross-algo MAX_CONCURRENT_POS). */
   maxPositions: number;
-  /** SL config — supports fixed-% (legacy v1) or swing_anchor (Intraday). */
-  sl: { type: "percentage"; value: number } | { type: "swing_anchor"; value: number; lookback: number };
-  /** TP config — supports fixed-% or rr_multiple. */
-  tp: { type: "percentage"; value: number } | { type: "rr_multiple"; value: number };
+  sl: SlConfig;
+  tp: TpConfig;
 }
 
-/** Default config matching the LIVE state on FTMO Demo $100K Swing
- *  (broker `11325c4b-...`). Override via env or programmatically when
- *  running with different scaling-plan configurations. */
+/** Default config matching the LIVE state on FTMO Demo $100K Swing. */
 export const DEFAULT_CONFIGS: AlgoConfig[] = [
   {
     algoId: "v1_4h_swing",
@@ -94,8 +99,8 @@ export const DEFAULT_CONFIGS: AlgoConfig[] = [
     promptVersion: "v2",
     riskPerTradePct: 1.0,
     maxPositions: 1,
-    sl: { type: "percentage", value: 1.5 },
-    tp: { type: "percentage", value: 4.5 },
+    sl: { type: "percentage", value: 0.015 },
+    tp: { type: "percentage", value: 0.045 },
   },
   {
     algoId: "intraday_30m",
@@ -110,12 +115,9 @@ export const DEFAULT_CONFIGS: AlgoConfig[] = [
 ];
 
 // ---------------------------------------------------------------------------
-// Shared state — cash + positions across all algos, daily P&L tracker
+// Shared state
 // ---------------------------------------------------------------------------
 
-/** A position tagged with which algo opened it. The algoId is needed
- *  for per-algo metrics and for routing exits back through the right
- *  decision pipeline. */
 export interface TaggedPosition extends OpenPosition {
   algoId: string;
 }
@@ -124,15 +126,12 @@ export interface SharedState {
   cash: number;
   capital: number;
   positions: TaggedPosition[];
-  /** Per-UTC-day P&L (realised + closed unrealised). Used by combined-DLL
-   *  halt. Key format: "YYYY-MM-DD". */
   dailyRealizedPnL: Map<string, number>;
-  /** Most recent unrealised P&L snapshot — recomputed each tick. */
   unrealizedPnL: number;
-  /** Per-algo closed trades. Routed by algoId on close. */
   trades: Map<string, ClosedTrade[]>;
-  /** Whether the combined-DLL halt has tripped this UTC day. */
-  combinedDllTrippedToday: string | null; // null or the UTC date string of trip
+  combinedDllTrippedToday: string | null;
+  llmCalls: number;
+  llmFailures: number;
 }
 
 export function newSharedState(capital: number): SharedState {
@@ -144,23 +143,15 @@ export function newSharedState(capital: number): SharedState {
     unrealizedPnL: 0,
     trades: new Map(),
     combinedDllTrippedToday: null,
+    llmCalls: 0,
+    llmFailures: 0,
   };
 }
 
 // ---------------------------------------------------------------------------
-// Bar boundary check — port of isBarCloseScan, adapted for backtest
+// Bar boundary check
 // ---------------------------------------------------------------------------
 
-/** Should the algo fire at this 30m bar? Returns true on bar-close
- *  boundaries matching the algo's timeframe. The harness iterates at
- *  30m granularity, so each algo's cadence is enforced here.
- *
- *  Examples (UTC):
- *    barDate = "2026-04-30T08:00:00Z" → 4h algo: TRUE (multiple of 4h)
- *                                       30m algo: TRUE (always on 30m boundary)
- *    barDate = "2026-04-30T08:30:00Z" → 4h algo: FALSE
- *                                       30m algo: TRUE
- */
 export function shouldFireAt(algo: AlgoConfig, barDate: string): boolean {
   const d = new Date(barDate);
   const minute = d.getUTCMinutes();
@@ -175,118 +166,320 @@ export function shouldFireAt(algo: AlgoConfig, barDate: string): boolean {
 }
 
 // ---------------------------------------------------------------------------
-// Combined-DLL guard — single shared halt across all algos
+// Per-bar SL/TP fill check across ALL open positions
+// ---------------------------------------------------------------------------
+
+function checkSlTpFills(state: SharedState, bar: PriceBar, barIdx: number): void {
+  // Iterate from end so splice doesn't disturb iteration
+  for (let i = state.positions.length - 1; i >= 0; i--) {
+    const pos = state.positions[i];
+    const exit = findExitOnNextBar(bar, pos);
+    if (!exit.triggered) continue;
+    const pnl =
+      pos.side === "long"
+        ? (exit.exit_price - pos.entry_price) * (pos.notional / pos.entry_price)
+        : (pos.entry_price - exit.exit_price) * (pos.notional / pos.entry_price);
+    state.cash += pnl;
+    const dateKey = bar.date.slice(0, 10);
+    state.dailyRealizedPnL.set(
+      dateKey,
+      (state.dailyRealizedPnL.get(dateKey) ?? 0) + pnl
+    );
+    const trade: ClosedTrade = {
+      side: pos.side,
+      entry_price: pos.entry_price,
+      exit_price: exit.exit_price,
+      entry_date: pos.entry_date,
+      exit_date: bar.date,
+      realized_pnl: pnl,
+      exit_reason: exit.reason,
+      hold_bars: barIdx - pos.entry_index,
+      entry_reasoning: pos.entry_reasoning,
+      exit_reasoning: "(price exit — SL/TP fill)",
+      entry_regime: pos.entry_regime,
+      exit_regime: pos.entry_regime, // approximate; full regime re-derive optional
+      regime_flipped_during_trade: false,
+      r_multiple: computeRMultiple(pos.side, pos.entry_price, pos.stop_price, exit.exit_price),
+    };
+    const algoTrades = state.trades.get(pos.algoId) ?? [];
+    algoTrades.push(trade);
+    state.trades.set(pos.algoId, algoTrades);
+    state.positions.splice(i, 1);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Per-algo step — called when an algo's bar-close fires
+// ---------------------------------------------------------------------------
+
+import type { PriceBar } from "@/lib/market-data/types";
+import type { EconomicEvent } from "@/lib/market-data/economic-calendar";
+
+async function processAlgoAtBar(
+  algo: AlgoConfig,
+  state: SharedState,
+  corpus: Corpus,
+  windowBars: PriceBar[],
+  windowBarIdx: number,
+  globalBarIdx: number,
+  provider: Provider,
+  clients: ProviderClients
+): Promise<void> {
+  const bar = windowBars[windowBarIdx];
+  // Find this algo's open position (if any). Multi-algo means each algo
+  // tracks its own positions independently within the shared list.
+  const algoPositions = state.positions.filter((p) => p.algoId === algo.algoId);
+  const currentPos = algoPositions[0] ?? null;
+
+  // Build LLM context — same shape as runWindow's per-bar context
+  const dailyBefore = corpus.dailyBars.filter(
+    (d) => new Date(d.date).getTime() <= new Date(bar.date).getTime()
+  );
+  const { summary: dailyContext, regime } = summariseDailyBias(dailyBefore);
+  const recentContext = summariseRecentBars(corpus.bars, globalBarIdx, algo.timeframe);
+  const dxyContext = summariseDxy(corpus.eurusd4h, bar.date);
+  const intermarketContext = summariseIntermarket(corpus.intermarket, bar.close, bar.date);
+  const positionContext = summarisePosition(currentPos, bar.close);
+  const userMessage = `${bar.date.slice(0, 16)}\n${dailyContext}\n${dxyContext}\n${intermarketContext}\n${recentContext}\nPosition: ${positionContext}\nDecide.`;
+
+  const systemPrompt = getPrompt(algo.promptVersion);
+
+  state.llmCalls++;
+  const decision = await callLLM(provider, clients, systemPrompt, userMessage);
+  if (!decision) {
+    state.llmFailures++;
+    return;
+  }
+
+  // Apply decision against shared state
+  if ((decision.decision === "enter_long" || decision.decision === "enter_short") && !currentPos) {
+    // Per-algo position cap
+    if (algoPositions.length >= algo.maxPositions) return;
+    // Cross-algo cap (informational for now; not enforced strictly)
+    if (state.positions.length >= MAX_CONCURRENT_POS) return;
+
+    const side = decision.decision === "enter_long" ? "long" : "short";
+    const slDistance = computeSlForBacktest(corpus.bars, globalBarIdx, side, bar.close, algo.sl);
+    if (slDistance <= 0) return; // degenerate — skip
+    const tpDistance = computeTpForBacktest(slDistance, bar.close, algo.tp);
+    const stopPrice = side === "long" ? bar.close - slDistance : bar.close + slDistance;
+    const targetPrice = side === "long" ? bar.close + tpDistance : bar.close - tpDistance;
+    // Risk-per-trade sizing: full SL hit = riskPct% of CURRENT shared cash
+    const riskDollars = state.cash * (algo.riskPerTradePct / 100);
+    const notional = (riskDollars * bar.close) / slDistance;
+
+    const pos: TaggedPosition = {
+      algoId: algo.algoId,
+      side,
+      entry_price: bar.close,
+      entry_index: globalBarIdx,
+      entry_date: bar.date,
+      stop_price: stopPrice,
+      target_price: targetPrice,
+      notional,
+      entry_reasoning: decision.reasoning,
+      entry_regime: regime,
+    };
+    state.positions.push(pos);
+  } else if (decision.decision === "exit" && currentPos) {
+    const pnl =
+      currentPos.side === "long"
+        ? (bar.close - currentPos.entry_price) * (currentPos.notional / currentPos.entry_price)
+        : (currentPos.entry_price - bar.close) * (currentPos.notional / currentPos.entry_price);
+    state.cash += pnl;
+    const dateKey = bar.date.slice(0, 10);
+    state.dailyRealizedPnL.set(dateKey, (state.dailyRealizedPnL.get(dateKey) ?? 0) + pnl);
+    const trade: ClosedTrade = {
+      side: currentPos.side,
+      entry_price: currentPos.entry_price,
+      exit_price: bar.close,
+      entry_date: currentPos.entry_date,
+      exit_date: bar.date,
+      realized_pnl: pnl,
+      exit_reason: "llm_exit",
+      hold_bars: globalBarIdx - currentPos.entry_index,
+      entry_reasoning: currentPos.entry_reasoning,
+      exit_reasoning: decision.reasoning,
+      entry_regime: currentPos.entry_regime,
+      exit_regime: regime,
+      regime_flipped_during_trade: regime !== currentPos.entry_regime,
+      r_multiple: computeRMultiple(currentPos.side, currentPos.entry_price, currentPos.stop_price, bar.close),
+    };
+    const algoTrades = state.trades.get(currentPos.algoId) ?? [];
+    algoTrades.push(trade);
+    state.trades.set(currentPos.algoId, algoTrades);
+    state.positions = state.positions.filter((p) => p !== currentPos);
+  }
+  // hold → no-op
+}
+
+// ---------------------------------------------------------------------------
+// Cross-algo limits (logged but not strictly enforced in milestone 2)
 // ---------------------------------------------------------------------------
 
 const COMBINED_DLL_PCT = Number(process.env.COMBINED_DLL_PCT ?? "5");
-
-/** Returns true if the combined day P&L (realised + unrealised across
- *  all algos) is at or below the negative DLL threshold. Idempotent —
- *  caller checks this before considering any new entries. */
-export function isCombinedDllTripped(state: SharedState, utcDateKey: string): boolean {
-  if (state.combinedDllTrippedToday === utcDateKey) return true;
-  const realised = state.dailyRealizedPnL.get(utcDateKey) ?? 0;
-  const totalDayPnl = realised + state.unrealizedPnL;
-  const pctOfCapital = (totalDayPnl / state.capital) * 100;
-  if (pctOfCapital <= -COMBINED_DLL_PCT) {
-    state.combinedDllTrippedToday = utcDateKey;
-    return true;
-  }
-  return false;
-}
-
-// ---------------------------------------------------------------------------
-// Cross-algo position cap
-// ---------------------------------------------------------------------------
-
 const MAX_CONCURRENT_POS = Number(process.env.MAX_CONCURRENT_POS ?? "3");
 
-/** Returns true if the shared state already holds the cross-algo cap of
- *  open positions. Caller checks this before allowing a new entry. */
-export function isAtPositionCap(state: SharedState): boolean {
-  return state.positions.length >= MAX_CONCURRENT_POS;
-}
-
 // ---------------------------------------------------------------------------
-// Main loop — Milestone 1 SCAFFOLDING ONLY
+// Main loop
 // ---------------------------------------------------------------------------
-
-interface MainOptions {
-  configs: AlgoConfig[];
-  capital: number;
-  sliceEndMs: number;
-  sliceDays: number;
-}
 
 async function main(): Promise<void> {
   const sliceEndStr = process.env.SLICE_END_DATE ?? new Date().toISOString().slice(0, 10);
   const sliceEndMs = new Date(`${sliceEndStr}T23:59:59Z`).getTime();
   const sliceDays = Number(process.env.SLICE_DAYS ?? "30");
   const capital = Number(process.env.CAPITAL ?? "100000");
+  const provider = (process.env.PROVIDER ?? "anthropic") as Provider;
+  if (provider !== "anthropic" && provider !== "groq") {
+    throw new Error(`Unsupported PROVIDER=${provider}`);
+  }
 
-  const opts: MainOptions = {
-    configs: DEFAULT_CONFIGS,
-    capital,
-    sliceEndMs,
-    sliceDays,
-  };
-
-  console.log("Multi-algo backtest harness — MILESTONE 1 (scaffolding)");
+  console.log("Multi-algo backtest harness — MILESTONE 2");
   console.log(`  capital              : $${capital.toLocaleString()}`);
   console.log(`  slice                : ${sliceDays}d ending ${sliceEndStr}`);
-  console.log(`  combined DLL halt    : ${COMBINED_DLL_PCT}%`);
+  console.log(`  provider             : ${provider} (${provider === "anthropic" ? ANTHROPIC_MODEL : AI_MODEL})`);
+  console.log(`  combined DLL halt    : ${COMBINED_DLL_PCT}% (informational)`);
   console.log(`  max concurrent pos   : ${MAX_CONCURRENT_POS}`);
   console.log(`  algos                :`);
-  for (const a of opts.configs) {
-    console.log(`    - ${a.label} · TF=${a.timeframe} · prompt=${a.promptVersion} · ${a.riskPerTradePct}% risk · max ${a.maxPositions} pos`);
+  for (const a of DEFAULT_CONFIGS) {
+    console.log(
+      `    - ${a.label} · TF=${a.timeframe} · prompt=${a.promptVersion} · ${a.riskPerTradePct}% risk · max ${a.maxPositions} pos · SL=${a.sl.type}(${a.sl.value}) · TP=${a.tp.type}(${a.tp.value})`
+    );
   }
   console.log("");
 
-  // Load corpora — both algos use XAU/USD with different timeframes.
-  // Intraday's 30m corpus is the finest; v1 derives from resampled 30m.
-  console.log("Loading corpus (30m for iteration cadence)...");
+  // Load shared corpus (use 30m as the iteration cadence — finest TF)
+  console.log("Loading shared corpus (30m)...");
   const corpus = await loadCorpus("30m");
-  console.log(`  30m bars: ${corpus.bars.length} (${corpus.bars[0].date} → ${corpus.bars[corpus.bars.length - 1].date})`);
+  console.log(
+    `  30m bars: ${corpus.bars.length} (${corpus.bars[0].date} → ${corpus.bars[corpus.bars.length - 1].date})`
+  );
 
-  // Filter bars to slice window
+  // Slice to window
   const sliceStartMs = sliceEndMs - sliceDays * 24 * 3600 * 1000;
-  const windowBars = corpus.bars.filter((b) => {
-    const t = new Date(b.date).getTime();
-    return t > sliceStartMs && t <= sliceEndMs;
-  });
-  console.log(`  in-window: ${windowBars.length} bars`);
-
-  if (windowBars.length === 0) {
+  const startIdx = corpus.bars.findIndex(
+    (b) => new Date(b.date).getTime() > sliceStartMs
+  );
+  const endIdx = corpus.bars.findIndex((b) => new Date(b.date).getTime() > sliceEndMs);
+  const lastIdx = endIdx === -1 ? corpus.bars.length : endIdx;
+  if (startIdx === -1 || lastIdx <= startIdx) {
     console.log("\nNo bars in window — check SLICE_END_DATE and SLICE_DAYS");
     return;
   }
+  const numBars = lastIdx - startIdx;
+  console.log(`  in-window: ${numBars} bars (${corpus.bars[startIdx].date.slice(0, 10)} → ${corpus.bars[lastIdx - 1].date.slice(0, 10)})`);
+  console.log("");
 
-  // Initialize shared state
   const state = newSharedState(capital);
+  const clients = createClients(provider);
 
-  // Milestone 1 main loop: iterate, check fire conditions, log only
-  // (no LLM call, no decision application yet — that's Milestone 2)
-  console.log("\nIterating bars (Milestone 1 — fire-condition check only)...");
-  let v1FireCount = 0;
-  let intradayFireCount = 0;
-  for (let i = 0; i < windowBars.length; i++) {
-    const bar = windowBars[i];
-    for (const algo of opts.configs) {
+  console.log(`Replaying ${numBars} bars with ${DEFAULT_CONFIGS.length} algos in parallel...`);
+
+  for (let bi = startIdx; bi < lastIdx; bi++) {
+    const windowBarIdx = bi - startIdx;
+    const bar = corpus.bars[bi];
+
+    // 1. Check SL/TP fills on all open positions BEFORE algo decisions
+    //    (mirrors how live broker would fire SLs intra-bar)
+    checkSlTpFills(state, bar, bi);
+
+    // 2. For each algo that fires at this bar, process its decision
+    for (const algo of DEFAULT_CONFIGS) {
       if (!shouldFireAt(algo, bar.date)) continue;
-      if (algo.timeframe === "4h") v1FireCount++;
-      else if (algo.timeframe === "30m") intradayFireCount++;
+      await processAlgoAtBar(
+        algo,
+        state,
+        corpus,
+        corpus.bars,
+        bi,
+        bi,
+        provider,
+        clients
+      );
+    }
+
+    // 3. Update unrealized PnL for the dashboard / DLL check
+    let unreal = 0;
+    for (const p of state.positions) {
+      const pnl =
+        p.side === "long"
+          ? (bar.close - p.entry_price) * (p.notional / p.entry_price)
+          : (p.entry_price - bar.close) * (p.notional / p.entry_price);
+      unreal += pnl;
+    }
+    state.unrealizedPnL = unreal;
+
+    // Progress logging every 50 bars
+    if (windowBarIdx % 50 === 0 || bi === lastIdx - 1) {
+      const totalTrades = Array.from(state.trades.values()).reduce(
+        (s, arr) => s + arr.length,
+        0
+      );
+      console.log(
+        `  ${windowBarIdx}/${numBars} bars · cash $${Math.round(state.cash).toLocaleString()} · open ${state.positions.length} · closed ${totalTrades} · LLM ${state.llmCalls} (${state.llmFailures} fails)`
+      );
     }
   }
-  console.log(`\nFire counts (validates iteration cadence):`);
-  console.log(`  v1 (4h):       ${v1FireCount} fires (expected: ~${Math.round(windowBars.length / 8)})`);
-  console.log(`  Intraday (30m): ${intradayFireCount} fires (expected: ${windowBars.length})`);
 
-  console.log(`\nShared state final:`);
-  console.log(`  cash: $${state.cash.toLocaleString()} (start: $${state.capital.toLocaleString()})`);
-  console.log(`  positions: ${state.positions.length}`);
-  console.log(`  combined DLL tripped: ${state.combinedDllTrippedToday ?? "no"}`);
-  console.log("\nMilestone 1 complete — iteration cadence verified.");
-  console.log("Next: Milestone 2 — wire actual LLM calls + decision application.");
+  // Force-close any still-open positions at last bar
+  if (state.positions.length > 0) {
+    const lastBar = corpus.bars[lastIdx - 1];
+    for (const pos of state.positions) {
+      const pnl =
+        pos.side === "long"
+          ? (lastBar.close - pos.entry_price) * (pos.notional / pos.entry_price)
+          : (pos.entry_price - lastBar.close) * (pos.notional / pos.entry_price);
+      state.cash += pnl;
+      const trade: ClosedTrade = {
+        side: pos.side,
+        entry_price: pos.entry_price,
+        exit_price: lastBar.close,
+        entry_date: pos.entry_date,
+        exit_date: lastBar.date,
+        realized_pnl: pnl,
+        exit_reason: "llm_exit",
+        hold_bars: lastIdx - 1 - pos.entry_index,
+        entry_reasoning: pos.entry_reasoning,
+        exit_reasoning: "(force-close at end of window)",
+        entry_regime: pos.entry_regime,
+        exit_regime: pos.entry_regime,
+        regime_flipped_during_trade: false,
+        r_multiple: computeRMultiple(pos.side, pos.entry_price, pos.stop_price, lastBar.close),
+      };
+      const algoTrades = state.trades.get(pos.algoId) ?? [];
+      algoTrades.push(trade);
+      state.trades.set(pos.algoId, algoTrades);
+    }
+    state.positions = [];
+  }
+
+  // ---- Reporting ----
+  console.log("\n===== Multi-algo backtest complete =====");
+  const finalPnl = state.cash - capital;
+  const finalPct = (finalPnl / capital) * 100;
+  console.log(`Final cash    : $${Math.round(state.cash).toLocaleString()} (${finalPnl >= 0 ? "+" : ""}$${Math.round(finalPnl).toLocaleString()}, ${finalPct >= 0 ? "+" : ""}${finalPct.toFixed(2)}%)`);
+  console.log(`LLM calls     : ${state.llmCalls} (${state.llmFailures} fails, ${(100 * state.llmFailures / Math.max(state.llmCalls, 1)).toFixed(1)}%)`);
+
+  console.log("\nPer-algo breakdown:");
+  for (const algo of DEFAULT_CONFIGS) {
+    const trades = state.trades.get(algo.algoId) ?? [];
+    const wins = trades.filter((t) => t.realized_pnl > 0).length;
+    const losses = trades.filter((t) => t.realized_pnl <= 0).length;
+    const wr = trades.length > 0 ? (100 * wins) / trades.length : 0;
+    const sumPnl = trades.reduce((s, t) => s + t.realized_pnl, 0);
+    const sumR = trades.reduce((s, t) => s + t.r_multiple, 0);
+    console.log(
+      `  ${algo.label}: ${trades.length} trades · ${wins}W/${losses}L (${wr.toFixed(0)}% WR) · ${sumPnl >= 0 ? "+" : ""}$${Math.round(sumPnl).toLocaleString()} · ${sumR >= 0 ? "+" : ""}${sumR.toFixed(2)}R`
+    );
+  }
+
+  // Save trade logs
+  for (const algo of DEFAULT_CONFIGS) {
+    const trades = state.trades.get(algo.algoId) ?? [];
+    const path = `scripts/multi-algo-trades-${algo.algoId}-${sliceDays}d.jsonl`;
+    writeFileSync(path, trades.map((t) => JSON.stringify(t)).join("\n"));
+    console.log(`  trade log: ${path} (${trades.length} entries)`);
+  }
 }
 
 main().catch((err) => {
