@@ -792,6 +792,17 @@ export interface WindowOptions {
    *  40 trades and stop") without committing to the full window cost.
    *  When unset, runs through all bars in the slice. */
   maxTrades?: number;
+  /** Per-trade risk as a percentage of capital (e.g. 1.0 = 1%). When
+   *  set, position notional is computed dynamically per-trade so that
+   *  a full SL hit always loses exactly `capital × pct/100` dollars,
+   *  regardless of SL distance. This matches the live algo's
+   *  `risk_per_trade` sizing — without it, the backtest uses fixed
+   *  `notional = capital × 0.5` which produces variable dollar P&L
+   *  per R-multiple and is NOT directly comparable to live results.
+   *
+   *  When unset, retains legacy fixed-notional sizing for backward
+   *  compatibility with prior runs. */
+  riskPerTradePct?: number;
   /** Suppress per-bar progress logs (the WF orchestrator prints its own). */
   silent?: boolean;
 }
@@ -876,10 +887,26 @@ export async function runWindow(opts: WindowOptions): Promise<WindowResult> {
     clients,
     promptVersion = DEFAULT_PROMPT_VERSION,
     maxTrades,
+    riskPerTradePct,
     silent = false,
   } = opts;
   const { bars, dailyBars, eurusd4h, intermarket, timeframe } = corpus;
   const systemPrompt = getPrompt(promptVersion);
+
+  // Position-sizing helper. When riskPerTradePct is set, sizes the
+  // position so a full SL hit loses exactly `capital × pct/100`
+  // dollars — matching the live algo's `risk_per_trade` config and
+  // producing dollar P&L directly comparable to live. Without it,
+  // falls back to legacy fixed-notional sizing (capital × 0.5) for
+  // backward compatibility with older runs.
+  const computeNotional = (entryPrice: number, slDistance: number): number => {
+    if (riskPerTradePct === undefined || riskPerTradePct <= 0) {
+      return capital * 0.5;
+    }
+    if (slDistance <= 0) return capital * 0.5; // defensive — degenerate SL
+    const riskDollars = capital * (riskPerTradePct / 100);
+    return (riskDollars * entryPrice) / slDistance;
+  };
 
   // News veto setup. Fetch events once for this slice if not pre-fetched.
   // XAU/USD → ["USD"]. The veto blocks 5 min before / 15 min after every
@@ -1108,7 +1135,7 @@ export async function runWindow(opts: WindowOptions): Promise<WindowResult> {
       const tpDistance = computeTpForBacktest(slDistance, bar.close);
       const stop = bar.close - slDistance;
       const target = bar.close + tpDistance;
-      const notional = capital * 0.5;
+      const notional = computeNotional(bar.close, slDistance);
       position = {
         side: "long",
         entry_price: bar.close,
@@ -1125,7 +1152,7 @@ export async function runWindow(opts: WindowOptions): Promise<WindowResult> {
       const tpDistance = computeTpForBacktest(slDistance, bar.close);
       const stop = bar.close + slDistance;
       const target = bar.close - tpDistance;
-      const notional = capital * 0.5;
+      const notional = computeNotional(bar.close, slDistance);
       position = {
         side: "short",
         entry_price: bar.close,
@@ -1321,6 +1348,13 @@ async function main(): Promise<void> {
     throw new Error(`Invalid MAX_TRADES=${process.env.MAX_TRADES}`);
   }
 
+  const riskPerTradePct = process.env.RISK_PER_TRADE_PCT
+    ? Number(process.env.RISK_PER_TRADE_PCT)
+    : undefined;
+  if (riskPerTradePct !== undefined && (Number.isNaN(riskPerTradePct) || riskPerTradePct <= 0 || riskPerTradePct > 5)) {
+    throw new Error(`Invalid RISK_PER_TRADE_PCT=${process.env.RISK_PER_TRADE_PCT} (must be 0 < x ≤ 5)`);
+  }
+
   const corpus = await loadCorpus(timeframe);
   const tfHoursPerBar = timeframe === "4h" ? 4 : timeframe === "1h" ? 1 : timeframe === "30m" ? 0.5 : 0.25;
   const numBarsHint = Math.round((sliceDays * 24) / tfHoursPerBar);
@@ -1337,6 +1371,9 @@ async function main(): Promise<void> {
   console.log(
     `SL/TP:    ${SL_TYPE}=${SL_VALUE}${SL_TYPE === "swing_anchor" ? ` lookback=${SL_LOOKBACK}` : ""} / ${TP_TYPE}=${TP_VALUE}`
   );
+  console.log(
+    `Sizing:   ${riskPerTradePct !== undefined ? `risk_per_trade=${riskPerTradePct}% (live-equivalent — full SL hit = $${(capital * riskPerTradePct / 100).toFixed(0)})` : `fixed notional ${(capital * 0.5).toLocaleString()} (legacy — dollar P&L NOT directly comparable to live)`}`
+  );
   console.log("");
 
   const clients = createClients(provider);
@@ -1350,6 +1387,7 @@ async function main(): Promise<void> {
     clients,
     promptVersion,
     maxTrades,
+    riskPerTradePct,
   });
 
   printWindowSummary(result);
