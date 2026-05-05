@@ -319,11 +319,36 @@ function computeSlForBacktest(
   return baseDistance + SL_VALUE * atr;
 }
 
-/** Compute TP distance for the backtest's entry. For "percentage" returns
- *  entryPrice × TP_VALUE. For "rr_multiple" returns slDistance × TP_VALUE. */
-function computeTpForBacktest(slDistance: number, entryPrice: number): number {
-  if (TP_TYPE === "percentage") return entryPrice * TP_VALUE;
-  return slDistance * TP_VALUE;
+/** Adaptive TP context for the backtest harness. Mirrors production's
+ *  AdaptiveTpContext (src/lib/algorithm/structural-sl.ts). */
+interface BacktestAdaptiveTpCtx {
+  regime: Regime;
+  dailyAtr: number;
+}
+
+const RANGING_RR = 1.5;
+const ATR_CAP_MULTIPLIER = 1.5;
+
+/** Compute TP distance for the backtest's entry. Mirrors production
+ *  computeTpDistance with adaptive context: regime-aware base RR
+ *  (RANGING gets 1.5R) + ATR cap (≤ 1.5 × daily ATR) + RR-≥-1 floor. */
+function computeTpForBacktest(
+  slDistance: number,
+  entryPrice: number,
+  adaptiveCtx?: BacktestAdaptiveTpCtx
+): number {
+  let tpDistance: number;
+  if (TP_TYPE === "percentage") {
+    tpDistance = entryPrice * TP_VALUE;
+  } else {
+    const baseRr =
+      adaptiveCtx?.regime === "RANGING" ? RANGING_RR : TP_VALUE;
+    tpDistance = baseRr * slDistance;
+  }
+  if (adaptiveCtx?.dailyAtr !== undefined && adaptiveCtx.dailyAtr > 0) {
+    tpDistance = Math.min(tpDistance, ATR_CAP_MULTIPLIER * adaptiveCtx.dailyAtr);
+  }
+  return Math.max(tpDistance, slDistance);
 }
 
 export function summariseDailyBias(dailyBars: PriceBar[]): { summary: string; regime: Regime } {
@@ -975,10 +1000,16 @@ export async function runWindow(opts: WindowOptions): Promise<WindowResult> {
     // Compute daily bias + regime ONCE per bar — used by both intra-bar
     // SL/TP exit attribution AND the LLM context. Threading it through
     // prevents the gnarly "regime at SL fill" attribution edge case.
-    const dailyBiasResult = summariseDailyBias(
-      dailyBars.filter((d) => new Date(d.date).getTime() <= new Date(bar.date).getTime())
+    const dailyBarsBeforeNow = dailyBars.filter(
+      (d) => new Date(d.date).getTime() <= new Date(bar.date).getTime()
     );
+    const dailyBiasResult = summariseDailyBias(dailyBarsBeforeNow);
     const regime: Regime = dailyBiasResult.regime;
+    // Daily ATR for adaptive TP cap. 0 when insufficient history.
+    const dailyAtr =
+      dailyBarsBeforeNow.length >= 15
+        ? computeAtr(dailyBarsBeforeNow, 14, dailyBarsBeforeNow.length - 1)
+        : 0;
 
     // 0) Stagnant exit check — runs BEFORE SL/TP check, mirroring
     //    production's manageExistingPosition order. Cuts deeply-stuck
@@ -1132,7 +1163,7 @@ export async function runWindow(opts: WindowOptions): Promise<WindowResult> {
 
     if (decision.decision === "enter_long" && !position && !entryBlockedReason) {
       const slDistance = computeSlForBacktest(bars, i, "long", bar.close);
-      const tpDistance = computeTpForBacktest(slDistance, bar.close);
+      const tpDistance = computeTpForBacktest(slDistance, bar.close, { regime, dailyAtr });
       const stop = bar.close - slDistance;
       const target = bar.close + tpDistance;
       const notional = computeNotional(bar.close, slDistance);
@@ -1149,7 +1180,7 @@ export async function runWindow(opts: WindowOptions): Promise<WindowResult> {
       };
     } else if (decision.decision === "enter_short" && !position && !entryBlockedReason) {
       const slDistance = computeSlForBacktest(bars, i, "short", bar.close);
-      const tpDistance = computeTpForBacktest(slDistance, bar.close);
+      const tpDistance = computeTpForBacktest(slDistance, bar.close, { regime, dailyAtr });
       const stop = bar.close + slDistance;
       const target = bar.close - tpDistance;
       const notional = computeNotional(bar.close, slDistance);
