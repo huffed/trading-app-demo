@@ -7,10 +7,7 @@ import {
   updateAlgorithm,
   updateAlgorithmStatus,
 } from "@/app/(dashboard)/algorithms/actions";
-import {
-  runAiBacktest,
-  runPortfolioBacktest,
-} from "@/app/(dashboard)/algorithms/backtest-run-actions";
+import { runPortfolioBacktest } from "@/app/(dashboard)/algorithms/backtest-run-actions";
 import {
   generateAlgorithmFromSearch,
   type GenerateFromSearchInput,
@@ -115,17 +112,6 @@ export function useUpdateAlgorithmStatus() {
   });
 }
 
-export function useRunAiBacktest() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (algorithmId: string) => runAiBacktest(algorithmId),
-    onSuccess: (result) => {
-      if (result.success) {
-        queryClient.invalidateQueries({ queryKey: ALGORITHMS_KEY });
-      }
-    },
-  });
-}
 
 export function useRunPortfolioBacktest() {
   return useMutation({

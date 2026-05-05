@@ -21,7 +21,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   useAlgorithm,
   useDeleteAlgorithm,
-  useRunAiBacktest,
   useUpdateAlgorithm,
 } from "@/hooks/use-algorithms";
 import type { BacktestMetrics } from "@/lib/market-data/types";
@@ -31,17 +30,7 @@ import type {
   AlgorithmStatus,
 } from "@/types/algorithm";
 
-function ReadView({
-  algo,
-  aiBacktestError,
-  onRunAiBacktest,
-  isAiPending,
-}: {
-  algo: Algorithm;
-  aiBacktestError: string | null;
-  onRunAiBacktest: () => void;
-  isAiPending: boolean;
-}) {
+function ReadView({ algo }: { algo: Algorithm }) {
   return (
     <>
       <AlgoKpiStrip
@@ -60,12 +49,7 @@ function ReadView({
         </div>
       )}
       <div className="mt-4">
-        <AlgoSetupZone
-          algo={algo}
-          aiBacktestError={aiBacktestError}
-          onRunAiBacktest={onRunAiBacktest}
-          isAiPending={isAiPending}
-        />
+        <AlgoSetupZone algo={algo} />
       </div>
     </>
   );
@@ -76,10 +60,8 @@ function useAlgoDetailState(algoId: string) {
   const { data: algo, isLoading } = useAlgorithm(algoId);
   const deleteMutation = useDeleteAlgorithm();
   const updateMutation = useUpdateAlgorithm();
-  const backtestMutation = useRunAiBacktest();
   const [showDelete, setShowDelete] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const [aiBacktestError, setAiBacktestError] = useState<string | null>(null);
   const [showRerunPrompt, setShowRerunPrompt] = useState(false);
 
   const handleSave = (updates: {
@@ -112,13 +94,10 @@ function useAlgoDetailState(algoId: string) {
     router,
     deleteMutation,
     updateMutation,
-    backtestMutation,
     showDelete,
     setShowDelete,
     isEditing,
     setIsEditing,
-    aiBacktestError,
-    setAiBacktestError,
     showRerunPrompt,
     setShowRerunPrompt,
     handleSave,
@@ -191,21 +170,7 @@ export default function AlgorithmDetailPage() {
           isSaving={s.updateMutation.isPending}
         />
       ) : (
-        <ReadView
-          algo={algo}
-          aiBacktestError={s.aiBacktestError}
-          onRunAiBacktest={() => {
-            s.setAiBacktestError(null);
-            s.backtestMutation.mutate(algo.id, {
-              onSuccess: (r) => {
-                if (!r.success) {
-                  s.setAiBacktestError(r.error);
-                }
-              },
-            });
-          }}
-          isAiPending={s.backtestMutation.isPending}
-        />
+        <ReadView algo={algo} />
       )}
       <DeleteAlgoDialog
         name={algo.name}
