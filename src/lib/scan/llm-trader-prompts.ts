@@ -271,39 +271,42 @@ Short triggers (LH regime ONLY):
 
 Calibration: on 30m, setups develop in 3-6 bars not 12-24. Aim for 1-2 entries per active session (EU or US) when regime is clear; 0-1 in Asia.
 
-NEW: STOP-LOSS AND TAKE-PROFIT PLACEMENT
-==========================================
-When you decide to enter (enter_long or enter_short), you MAY emit
-"stop_loss_price" and "take_profit_price" as floating-point absolute
-prices. If you DO emit them, also emit "level_rationale" explaining the
-structural anchors (e.g. "SL above 14:30 swing high 4787, TP at
-yesterday's structural low 4514").
+STOP-LOSS AND TAKE-PROFIT PLACEMENT — REQUIRED FOR ENTRIES
+==========================================================
+When you emit enter_long or enter_short, you MUST also emit
+stop_loss_price, take_profit_price, and level_rationale. These are
+NOT optional for entry decisions. If you can't pick chart-anchored
+levels that satisfy the constraints below, emit "hold" instead — DO
+NOT enter without prices.
 
-If you OMIT these fields, the engine falls back to mechanical placement
-(swing-anchor SL, regime-aware RR-multiple TP).
+HOW TO PICK PRICES — anchor to chart structure, not arbitrary math:
+- Stop-loss: just beyond the most recent swing point against your
+  trade. For a SHORT, that's a few pips ABOVE the most recent 30m
+  swing high (the level you're fading). For a LONG, a few pips
+  BELOW the most recent swing low (the support you expect to hold).
+  Add a small buffer (3-8 pips on gold) so a sweep doesn't take you
+  out before the move.
+- Take-profit: at a meaningful structural level — recent swing low
+  (for SHORT), recent swing high (for LONG), prior support/resistance
+  test, or the next D1 structural pivot. NOT a fixed % distance, and
+  NOT outside today's likely range.
 
-WHEN TO EMIT YOUR OWN LEVELS:
-- You see clear chart-anchored levels for both SL and TP that are
-  better than the mechanical defaults
-- The current daily range / volatility makes the mechanical TP
-  unreachable (e.g. tight chop where 3R = outside the day's range)
-- A specific recent swing point (high/low) defines a tighter, more
-  meaningful SL than the rule-based 8-bar swing anchor
-
-WHEN TO OMIT (fall back to rules):
-- No clear structural reference for SL or TP
-- Volatility is so wide that any reasonable level violates safety bounds
-- You're not sure — let the rule-based path handle it
-
-LEVEL CONSTRAINTS (engine validates and rejects if violated):
+LEVEL CONSTRAINTS (engine validates; if violated, your trade still
+opens but uses mechanical fallback for the rejected leg):
 - Direction sanity: long SL < entry < long TP; short TP < entry < short SL
 - RR (TP-distance / SL-distance) must be ≥ 1.5
-- SL distance ≤ 2% from entry (no ridiculous stops)
-- TP distance ≤ 2.5 × daily ATR (no hallucinated targets)
+- SL distance ≤ 2% from entry
+- TP distance ≤ 2.5 × daily ATR
 
-If your levels are rejected, the engine logs the reason and falls back
-to rule-based placement — your trade still opens, just with mechanical
-SL/TP. This is a safety net, not a failure mode.
+level_rationale must name the specific structural levels (e.g.
+"SL above 14:30 swing high 4787, TP at yesterday's structural low
+4514"). Don't write generic justifications — name the bars / dates
+/ prices that anchor your choice.
+
+If you genuinely can't see clean chart anchors that satisfy the
+constraints, the right move is "hold" not "enter without prices".
+The whole point of Tier B is human-trader-quality level judgment;
+emitting an entry without prices defeats it.
 
 Intermarket guidance:
 - DXY rising = gold headwind (worse for longs, better for shorts)
@@ -311,9 +314,18 @@ Intermarket guidance:
 - VIX rising = risk-off = gold tailwind (safe haven flows)
 - Gold/silver ratio rising = gold leading; falling = silver leading
 
-Output JSON: {"decision": "enter_long"|"enter_short"|"hold"|"exit", "confidence": 0-100, "reasoning": "1 short sentence", "stop_loss_price": <float, optional>, "take_profit_price": <float, optional>, "level_rationale": "<optional, only when emitting prices>"}.
+OUTPUT FORMAT — JSON object. Required fields by decision type:
 
-"hold" = maintain; "exit" only valid when in a position. Omit stop_loss_price / take_profit_price / level_rationale if not entering.`;
+For HOLD:
+{"decision": "hold", "confidence": 0-100, "reasoning": "1 short sentence"}
+
+For ENTER_LONG / ENTER_SHORT — ALL fields required:
+{"decision": "enter_long" | "enter_short", "confidence": 0-100, "reasoning": "1 short sentence", "stop_loss_price": <number>, "take_profit_price": <number>, "level_rationale": "specific structural anchors"}
+
+For EXIT (only valid when in a position):
+{"decision": "exit", "confidence": 0-100, "reasoning": "1 short sentence"}
+
+Output ONLY the JSON object — no surrounding text or markdown fences.`;
 
 const PROMPTS: Record<PromptVersion, string> = {
   v1: LLM_TRADER_PROMPT_V1,
