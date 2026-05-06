@@ -49,10 +49,11 @@ import { checkConsecutiveLossHalt } from "./consec-loss-halt";
 import { checkConsistencyHalt } from "./consistency-halt";
 import { calculatePositionSize, calculateRiskPrices, logActivity } from "./helpers";
 import { executeLiveEntry, executeLiveExit, type BrokerExecutionContext } from "./live-execution";
-import { linkLlmDecisionToPosition, recordLlmDecision } from "./llm-trader-audit";
 import { evaluateLlmTrader, isBarCloseScan, type LlmTraderContext } from "./llm-trader";
+import { linkLlmDecisionToPosition, recordLlmDecision } from "./llm-trader-audit";
 import { summariseRecentOutcomes } from "./llm-trader-reflection";
 import { getPerHourStats } from "./per-hour-stats";
+import { checkRiskPoolHalt } from "./risk-pool-halt";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 interface AlgoContext {
@@ -165,6 +166,52 @@ async function openPosition(
     slDistance,
     tpDistance
   );
+
+  // Risk-pool halt — applies only when this algo lives on a broker
+  // connection (live trading). Aggregates open-position risk across all
+  // algos sharing the same broker; refuses entry when (combined +
+  // proposed) would exceed the cap. Backstop against multi-algo
+  // momentum-correlated days where every algo fires into the same setup
+  // and combined exposure breaches FTMO 5% DLL.
+  //
+  // Ignored when:
+  //  - No broker (paper/backtest)
+  //  - SL distance unknown (no risk to measure; openPosition has other
+  //    safety checks like position-size sanity gate)
+  if (brokerCtx?.conn?.id && slDistance != null) {
+    const proposedRiskUsd = pnlInUsd(
+      ticker,
+      side,
+      currentPrice,
+      side === "long" ? currentPrice - slDistance : currentPrice + slDistance,
+      sizing.quantity
+    );
+    const cap = algo.rules.prop_firm?.combined_risk_cap_pct ?? undefined;
+    const halt = await checkRiskPoolHalt(
+      supabase,
+      brokerCtx.conn.id,
+      algo.capital,
+      Math.abs(proposedRiskUsd),
+      cap
+    );
+    if (halt.tripped) {
+      await logActivity(supabase, userId, {
+        algorithm_id: algo.id,
+        event_type: "signal_no_action",
+        ticker,
+        details: {
+          reason: `Risk-pool halt: combined ${halt.combinedRiskPct.toFixed(2)}% (current ${halt.currentRiskPct.toFixed(2)}% + proposed ${halt.proposedRiskPct.toFixed(2)}%) exceeds cap ${halt.capPct.toFixed(2)}% — ${algo.rules.side ?? "long"} ${ticker} entry refused to keep portfolio exposure under FTMO DLL margin`,
+          source: "risk_pool_halt",
+          current_risk_pct: halt.currentRiskPct,
+          proposed_risk_pct: halt.proposedRiskPct,
+          combined_risk_pct: halt.combinedRiskPct,
+          cap_pct: halt.capPct,
+        },
+      });
+      return { opened: 0 };
+    }
+  }
+
   const entryReason = entryReasonSchema.parse({
     conditions_met: conditions.map(snapshotCondition),
     signal_result: sentimentResult
