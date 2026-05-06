@@ -1264,73 +1264,28 @@ async function evaluateLlmTraderEntry(
     return { opened: 0 };
   }
 
-  // LH-short upper-range gate. Empirical finding (2026-05-05): LH-short
-  // entries within 0.30% of the 20-bar high went 0/4 in the most recent
-  // 30d window (3 backtest SL hits + 1 live SL hit). Lower-half /
-  // sweep-of-low LH-shorts in the same window went 3/4 winners. The
-  // losing cohort is "fading resistance with a tight stop"; the winning
-  // cohort is "continuation through support". Block only the losing
-  // signature. Threshold (0.30%) splits the cohort cleanly: all 4 losers
-  // ≤0.21% from high, the upper-half winner (Trade 26 in beyr1223h) was
-  // 0.34% from high.
-  if (llmSide === "short" && evaluation.regime === "LH") {
-    const lookback = Math.min(20, bars.length);
-    const window = bars.slice(-lookback);
-    const rangeHigh = Math.max(...window.map((b) => b.high));
-    const distFromHigh = (rangeHigh - currentPrice) / currentPrice;
-    if (distFromHigh < 0.003) {
-      await logActivity(supabase, userId, {
-        algorithm_id: algo.id,
-        event_type: "signal_no_action",
-        ticker,
-        details: {
-          reason: `LH-short upper-range gate: entry ${currentPrice.toFixed(2)} within ${(distFromHigh * 100).toFixed(2)}% of 20-bar high ${rangeHigh.toFixed(2)} (threshold 0.30%) — 0/4 historical WR in this signature`,
-          source: "llm_trader",
-          regime: evaluation.regime,
-          range_high: rangeHigh,
-          dist_from_high_pct: distFromHigh * 100,
-          confidence: decision.confidence,
-          llm_reasoning: decision.reasoning,
-          would_have_entered_side: llmSide,
-        },
-      });
-      return { opened: 0 };
-    }
-  }
-
-  // HH-long lower-range gate. Mirror of LH-short upper-range gate (#136).
-  // Empirical finding from beyr1223h 30d backtest: HH-long entries more
-  // than 0.30% above the 20-bar low went 0/11 (15 losses overall in this
-  // cohort, with 2 winners both within 0.30% of low — ranges 0.15% / 0.27%).
-  // The losing pattern is "chase momentum into upper range without a
-  // pullback to support"; the winning pattern is "pullback into recent
-  // structural support". HH-longs in chop are the worst-performing cohort
-  // in the v3 prompt — 11.8% WR / -$2,811 P&L on 17 trades — so a tight
-  // gate here has high leverage.
-  if (llmSide === "long" && evaluation.regime === "HH") {
-    const lookback = Math.min(20, bars.length);
-    const window = bars.slice(-lookback);
-    const rangeLow = Math.min(...window.map((b) => b.low));
-    const distFromLow = (currentPrice - rangeLow) / currentPrice;
-    if (distFromLow > 0.003) {
-      await logActivity(supabase, userId, {
-        algorithm_id: algo.id,
-        event_type: "signal_no_action",
-        ticker,
-        details: {
-          reason: `HH-long lower-range gate: entry ${currentPrice.toFixed(2)} is ${(distFromLow * 100).toFixed(2)}% above 20-bar low ${rangeLow.toFixed(2)} (threshold 0.30%) — 0/11 historical WR in this signature`,
-          source: "llm_trader",
-          regime: evaluation.regime,
-          range_low: rangeLow,
-          dist_from_low_pct: distFromLow * 100,
-          confidence: decision.confidence,
-          llm_reasoning: decision.reasoning,
-          would_have_entered_side: llmSide,
-        },
-      });
-      return { opened: 0 };
-    }
-  }
+  // Cohort gates removed (#136 LH-short upper-range, #137 HH-long lower-range)
+  // 2026-05-06. Both were calibrated against beyr1223h Apr 2026 data — a
+  // single chop-window sample. Risk analysis showed they could
+  // systematically block winners in trending markets:
+  //
+  //  - HH-long lower-range gate refuses entries >0.30% above 20-bar low.
+  //    In a sustained uptrend, price is ALWAYS >0.30% above old lows
+  //    (the trend keeps making new highs). Gate would fire on virtually
+  //    every HH-long entry, blocking the entire trend-following cohort.
+  //
+  //  - LH-short upper-range gate similarly risked blocking valid fade
+  //    entries during sustained downtrends with strong rallies.
+  //
+  // Architecture decision: structural-failure gates (RANGING block #140,
+  // consec-halt #138, adaptive TP #139) stay — those are regime-neutral
+  // protections. Cohort-judgment is returned to the LLM, which already
+  // has the same data (regime, range position, momentum) in its context.
+  //
+  // Phase 2 path (when ≥20-30 live trades accumulate): activate Layer 3
+  // cohort breakdown via summariseRecentOutcomes — surface "your last 10
+  // HH-long entries far from low went X/Y" so the LLM can weigh the
+  // historical signal as data, not as a hard block.
 
   // Capped: log near-miss with LLM reasoning, don't open
   if (cappedReason) {
