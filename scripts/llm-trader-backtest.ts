@@ -201,7 +201,7 @@ const decisionSchema = z.object({
   reasoning: z.string().min(1).max(2000),
 });
 
-type Decision = z.infer<typeof decisionSchema>;
+export type Decision = z.infer<typeof decisionSchema>;
 
 // Daily-structure regime tag derived from HH/LH price action. Primary
 // signal for adaptation diagnostics — we want to know whether the LLM
@@ -277,19 +277,51 @@ const TP_VALUE = Number(process.env.TP_VALUE ?? (TP_TYPE === "rr_multiple" ? "3"
 const SL_PCT = SL_TYPE === "percentage" ? SL_VALUE : 0.015;
 const TP_PCT = TP_TYPE === "percentage" ? TP_VALUE : 0.045;
 
+/** SL config for backtest entries. Per-algo config in multi-algo runs;
+ *  defaults to module-level env vars in single-algo runs (back-compat). */
+export interface SlConfig {
+  type: "percentage" | "swing_anchor";
+  value: number;
+  lookback?: number;
+}
+
+/** TP config for backtest entries. */
+export interface TpConfig {
+  type: "percentage" | "rr_multiple";
+  value: number;
+}
+
+/** Adaptive TP context for the backtest harness. Mirrors production's
+ *  AdaptiveTpContext (src/lib/algorithm/structural-sl.ts).
+ *  - regime-aware base RR (RANGING gets 1.5R for rr_multiple rules)
+ *  - ATR cap (≤ 1.5 × daily ATR)
+ *  - RR-≥-1 floor */
+export interface BacktestAdaptiveTpCtx {
+  regime: Regime;
+  dailyAtr: number;
+}
+
+const RANGING_RR = 1.5;
+const ATR_CAP_MULTIPLIER = 1.5;
+
 /** Compute SL distance for the backtest's entry. For "percentage" returns
- *  entryPrice × SL_VALUE. For "swing_anchor" looks back SL_LOOKBACK bars
- *  to find the swing low (long) or high (short), then adds an ATR buffer
- *  of SL_VALUE × ATR(14) so the SL sits just past the structural level. */
-function computeSlForBacktest(
+ *  entryPrice × value. For "swing_anchor" looks back N bars to find the
+ *  swing low (long) or high (short), then adds an ATR buffer of value ×
+ *  ATR(14) so the SL sits just past the structural level.
+ *
+ *  cfg defaults to env-var values for single-algo runs. Multi-algo
+ *  callers pass explicit per-algo SL config. */
+export function computeSlForBacktest(
   bars: PriceBar[],
   entryIdx: number,
   side: "long" | "short",
-  entryPrice: number
+  entryPrice: number,
+  cfg: SlConfig = { type: SL_TYPE, value: SL_VALUE, lookback: SL_LOOKBACK }
 ): number {
-  if (SL_TYPE === "percentage") return entryPrice * SL_VALUE;
+  if (cfg.type === "percentage") return entryPrice * cfg.value;
   // swing_anchor
-  const start = Math.max(0, entryIdx - SL_LOOKBACK);
+  const lookback = cfg.lookback ?? 8;
+  const start = Math.max(0, entryIdx - lookback);
   let level: number;
   if (side === "long") {
     let lowest = Infinity;
@@ -301,7 +333,7 @@ function computeSlForBacktest(
     level = highest;
   }
   const baseDistance = side === "long" ? entryPrice - level : level - entryPrice;
-  if (SL_VALUE <= 0 || baseDistance <= 0) return Math.max(baseDistance, 0);
+  if (cfg.value <= 0 || baseDistance <= 0) return Math.max(baseDistance, 0);
   // Inline ATR(14) computation — mirrors src/lib/algorithm/structural-sl.ts
   // intent. Avoids the production dependency since this script is standalone.
   const atrPeriod = 14;
@@ -318,33 +350,27 @@ function computeSlForBacktest(
     trCount++;
   }
   const atr = trCount > 0 ? trSum / trCount : 0;
-  return baseDistance + SL_VALUE * atr;
+  return baseDistance + cfg.value * atr;
 }
-
-/** Adaptive TP context for the backtest harness. Mirrors production's
- *  AdaptiveTpContext (src/lib/algorithm/structural-sl.ts). */
-interface BacktestAdaptiveTpCtx {
-  regime: Regime;
-  dailyAtr: number;
-}
-
-const RANGING_RR = 1.5;
-const ATR_CAP_MULTIPLIER = 1.5;
 
 /** Compute TP distance for the backtest's entry. Mirrors production
- *  computeTpDistance with adaptive context: regime-aware base RR
- *  (RANGING gets 1.5R) + ATR cap (≤ 1.5 × daily ATR) + RR-≥-1 floor. */
-function computeTpForBacktest(
+ *  computeTpDistance with optional adaptive context: regime-aware base
+ *  RR (RANGING gets 1.5R for rr_multiple) + ATR cap + RR-≥-1 floor.
+ *
+ *  cfg defaults to env-var values for single-algo runs. Multi-algo
+ *  callers pass explicit per-algo TP config + adaptive context. */
+export function computeTpForBacktest(
   slDistance: number,
   entryPrice: number,
+  cfg: TpConfig = { type: TP_TYPE, value: TP_VALUE },
   adaptiveCtx?: BacktestAdaptiveTpCtx
 ): number {
   let tpDistance: number;
-  if (TP_TYPE === "percentage") {
-    tpDistance = entryPrice * TP_VALUE;
+  if (cfg.type === "percentage") {
+    tpDistance = entryPrice * cfg.value;
   } else {
     const baseRr =
-      adaptiveCtx?.regime === "RANGING" ? RANGING_RR : TP_VALUE;
+      adaptiveCtx?.regime === "RANGING" ? RANGING_RR : cfg.value;
     tpDistance = baseRr * slDistance;
   }
   if (adaptiveCtx?.dailyAtr !== undefined && adaptiveCtx.dailyAtr > 0) {
@@ -398,7 +424,7 @@ function computeAtr(bars: PriceBar[], period: number, idx: number): number {
   return count > 0 ? sum / count : 0;
 }
 
-function summariseRecentBars(bars: PriceBar[], idx: number, tfLabel: string): string {
+export function summariseRecentBars(bars: PriceBar[], idx: number, tfLabel: string): string {
   const start = Math.max(0, idx - 19);
   const window = bars.slice(start, idx + 1);
   const cur = window[window.length - 1];
@@ -424,7 +450,7 @@ function summariseRecentBars(bars: PriceBar[], idx: number, tfLabel: string): st
   );
 }
 
-function summariseDxy(eurusdBars: PriceBar[], currentTs: string): string {
+export function summariseDxy(eurusdBars: PriceBar[], currentTs: string): string {
   const ts = new Date(currentTs).getTime();
   const cutoff24h = ts - 24 * 3600 * 1000;
   const cutoff7d = ts - 7 * 24 * 3600 * 1000;
@@ -438,7 +464,7 @@ function summariseDxy(eurusdBars: PriceBar[], currentTs: string): string {
   return `DXY: 24h ${-c24 >= 0 ? "+" : ""}${(-c24).toFixed(2)}% / 7d ${-c7 >= 0 ? "+" : ""}${(-c7).toFixed(2)}%.`;
 }
 
-interface IntermarketSeries {
+export interface IntermarketSeries {
   silver?: PriceBar[];
   yield10y?: PriceBar[];
   vix?: PriceBar[];
@@ -464,7 +490,7 @@ async function loadIntermarket(): Promise<IntermarketSeries> {
   return out;
 }
 
-function summariseIntermarket(im: IntermarketSeries, goldClose: number, currentTs: string): string {
+export function summariseIntermarket(im: IntermarketSeries, goldClose: number, currentTs: string): string {
   const ts = new Date(currentTs).getTime();
   const cutoff24h = ts - 24 * 3600 * 1000;
   const cutoff7d = ts - 7 * 24 * 3600 * 1000;
@@ -509,7 +535,7 @@ function summariseIntermarket(im: IntermarketSeries, goldClose: number, currentT
   return parts.length > 0 ? `Intermarket: ${parts.join(" | ")}.` : "Intermarket: n/a";
 }
 
-function summarisePosition(position: OpenPosition | null, currentPrice: number): string {
+export function summarisePosition(position: OpenPosition | null, currentPrice: number): string {
   if (!position) return "FLAT.";
   const pnlPct =
     position.side === "long"
@@ -565,7 +591,7 @@ async function callGroq(
   client: ReturnType<typeof getAIClient>,
   systemPrompt: string,
   context: string
-): Promise<Decision | null> {
+): Promise<{ decision: Decision | null; rawText: string }> {
   const res = await client.chat.completions.create({
     model: AI_MODEL,
     messages: [
@@ -573,23 +599,28 @@ async function callGroq(
       { role: "user", content: context },
     ],
     response_format: { type: "json_object" },
-    max_tokens: 128,
+    // 600 to match production. v3-style hold responses fit ~50; entry
+    // responses with reasoning can run 150-250.
+    max_tokens: 600,
     temperature: 0.2,
   });
   const text = res.choices[0]?.message?.content ?? "{}";
   const raw = extractJson(text);
   const parsed = decisionSchema.safeParse(raw);
-  return parsed.success ? parsed.data : null;
+  return { decision: parsed.success ? parsed.data : null, rawText: text };
 }
 
 async function callAnthropic(
   client: Anthropic,
   systemPrompt: string,
   context: string
-): Promise<Decision | null> {
+): Promise<{ decision: Decision | null; rawText: string }> {
   const res = await client.messages.create({
     model: ANTHROPIC_MODEL,
-    max_tokens: 200,
+    // 600 matches production llm-trader.ts. Haiku's verbose markdown
+    // analyses + ```json wrappers occasionally exceed 200 tokens; 600
+    // covers ~95% of observed responses without appreciably increasing cost.
+    max_tokens: 600,
     system: systemPrompt,
     messages: [{ role: "user", content: context }],
   });
@@ -597,29 +628,79 @@ async function callAnthropic(
   const text = block && block.type === "text" ? block.text : "{}";
   const raw = extractJson(text);
   const parsed = decisionSchema.safeParse(raw);
-  return parsed.success ? parsed.data : null;
+  return { decision: parsed.success ? parsed.data : null, rawText: text };
 }
 
+/** Failure-type taxonomy for diagnostics. Backtest fail rates spike under
+ *  multi-algo because parallel calls hit Anthropic rate limits more often.
+ *  Tracking the error type lets us tell rate-limit (transient, retry helps)
+ *  from parse-fail (prompt issue, retry doesn't help). */
+export type LlmFailType = "rate_limit" | "parse_fail" | "network" | "other";
+
+export function classifyLlmError(err: unknown): LlmFailType {
+  if (err instanceof Error) {
+    const msg = err.message.toLowerCase();
+    if (msg.includes("rate") || msg.includes("429") || msg.includes("overloaded"))
+      return "rate_limit";
+    if (msg.includes("network") || msg.includes("econnreset") || msg.includes("timeout"))
+      return "network";
+  }
+  return "other";
+}
+
+/** LLM call with single retry + 1.5s sleep on transient errors. Returns
+ *  { decision, failType, rawText } so multi-algo can track failure
+ *  taxonomy AND inspect raw LLM output on parse fails. */
+export async function callLLMWithDiagnostic(
+  provider: Provider,
+  clients: ProviderClients,
+  systemPrompt: string,
+  context: string
+): Promise<{ decision: Decision | null; failType: LlmFailType | null; rawText: string | null }> {
+  let lastErr: unknown = null;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      let result: { decision: Decision | null; rawText: string };
+      if (provider === "anthropic") {
+        if (!clients.anthropic) throw new Error("anthropic client not initialised");
+        result = await callAnthropic(clients.anthropic, systemPrompt, context);
+      } else {
+        if (!clients.groq) throw new Error("groq client not initialised");
+        result = await callGroq(clients.groq, systemPrompt, context);
+      }
+      if (result.decision === null) {
+        // Parse fail — schema mismatch, retry won't help
+        return { decision: null, failType: "parse_fail", rawText: result.rawText };
+      }
+      return { decision: result.decision, failType: null, rawText: result.rawText };
+    } catch (err) {
+      lastErr = err;
+      const failType = classifyLlmError(err);
+      // Retry rate_limit + network failures once with a short sleep.
+      if (attempt === 0 && (failType === "rate_limit" || failType === "network")) {
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+        continue;
+      }
+      return { decision: null, failType, rawText: null };
+    }
+  }
+  return { decision: null, failType: classifyLlmError(lastErr), rawText: null };
+}
+
+/** Backward-compatible wrapper around callLLMWithDiagnostic — drops the
+ *  failType + rawText. Single-algo runWindow uses this; multi-algo uses
+ *  callLLMWithDiagnostic directly for richer failure tracking. */
 async function callLLM(
   provider: Provider,
   clients: ProviderClients,
   systemPrompt: string,
   context: string
 ): Promise<Decision | null> {
-  try {
-    if (provider === "anthropic") {
-      if (!clients.anthropic) throw new Error("anthropic client not initialised");
-      return await callAnthropic(clients.anthropic, systemPrompt, context);
-    }
-    if (!clients.groq) throw new Error("groq client not initialised");
-    return await callGroq(clients.groq, systemPrompt, context);
-  } catch (err) {
-    console.error("LLM call failed:", err instanceof Error ? err.message : err);
-    return null;
-  }
+  const { decision } = await callLLMWithDiagnostic(provider, clients, systemPrompt, context);
+  return decision;
 }
 
-function findExitOnNextBar(
+export function findExitOnNextBar(
   bar: PriceBar,
   position: OpenPosition
 ): { triggered: true; exit_price: number; reason: "stop_loss" | "take_profit" } | { triggered: false } {
@@ -1176,7 +1257,7 @@ export async function runWindow(opts: WindowOptions): Promise<WindowResult> {
 
     if (decision.decision === "enter_long" && !position && !entryBlockedReason) {
       const slDistance = computeSlForBacktest(bars, i, "long", bar.close);
-      const tpDistance = computeTpForBacktest(slDistance, bar.close, { regime, dailyAtr });
+      const tpDistance = computeTpForBacktest(slDistance, bar.close, undefined, { regime, dailyAtr });
       const stop = bar.close - slDistance;
       const target = bar.close + tpDistance;
       const notional = computeNotional(bar.close, slDistance);
@@ -1193,7 +1274,7 @@ export async function runWindow(opts: WindowOptions): Promise<WindowResult> {
       };
     } else if (decision.decision === "enter_short" && !position && !entryBlockedReason) {
       const slDistance = computeSlForBacktest(bars, i, "short", bar.close);
-      const tpDistance = computeTpForBacktest(slDistance, bar.close, { regime, dailyAtr });
+      const tpDistance = computeTpForBacktest(slDistance, bar.close, undefined, { regime, dailyAtr });
       const stop = bar.close + slDistance;
       const target = bar.close - tpDistance;
       const notional = computeNotional(bar.close, slDistance);
