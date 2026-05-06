@@ -397,6 +397,16 @@ async function processAlgoAtBar(
       entry_regime: regime,
     };
     state.positions.push(pos);
+  } else if (decision.decision === "move_be" && currentPos) {
+    const slDistance = Math.abs(currentPos.entry_price - currentPos.stop_price);
+    const currentPnlR =
+      currentPos.side === "long"
+        ? (bar.close - currentPos.entry_price) / slDistance
+        : (currentPos.entry_price - bar.close) / slDistance;
+    if (currentPnlR >= 1.0) {
+      currentPos.stop_price = currentPos.entry_price;
+      currentPos.entry_reasoning = `${currentPos.entry_reasoning} | BE moved at ${bar.date.slice(0, 16)} (+${currentPnlR.toFixed(2)}R): ${decision.reasoning}`;
+    }
   } else if (decision.decision === "exit" && currentPos) {
     const pnl =
       currentPos.side === "long"
@@ -631,10 +641,12 @@ async function main(): Promise<void> {
     );
   }
 
-  // Save trade logs
+  // Save trade logs. OUTPUT_TAG is an optional suffix that lets multiple
+  // parallel runs (different windows) write to distinct files.
+  const outputTag = process.env.OUTPUT_TAG ? `-${process.env.OUTPUT_TAG}` : "";
   for (const algo of configs) {
     const trades = state.trades.get(algo.algoId) ?? [];
-    const path = `scripts/multi-algo-trades-${algo.algoId}-${sliceDays}d.jsonl`;
+    const path = `scripts/multi-algo-trades-${algo.algoId}-${sliceDays}d${outputTag}.jsonl`;
     writeFileSync(path, trades.map((t) => JSON.stringify(t)).join("\n"));
     console.log(`  trade log: ${path} (${trades.length} entries)`);
   }
@@ -642,7 +654,7 @@ async function main(): Promise<void> {
   // Save fail dumps for offline diagnosis. Includes the full userMessage
   // + rawText so we can inspect exactly what failed.
   if (state.failDumps.length > 0) {
-    const failPath = `scripts/multi-algo-fail-dumps-${sliceDays}d.jsonl`;
+    const failPath = `scripts/multi-algo-fail-dumps-${sliceDays}d${outputTag}.jsonl`;
     writeFileSync(failPath, state.failDumps.map((d) => JSON.stringify(d)).join("\n"));
     console.log(`  fail dumps: ${failPath} (${state.failDumps.length} entries)`);
   }

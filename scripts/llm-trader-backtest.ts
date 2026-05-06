@@ -944,17 +944,20 @@ export interface WindowResult {
 }
 
 export async function loadCorpus(timeframe: Timeframe): Promise<Corpus> {
-  let fetchInterval: "15min" | "1h" | "4h";
+  let fetchInterval: BarInterval;
   let needsResample: false | "4h" | "30m";
   if (timeframe === "4h") {
-    fetchInterval = "1h";
-    needsResample = "4h";
+    fetchInterval = "4h";
+    needsResample = false;
   } else if (timeframe === "1h") {
     fetchInterval = "1h";
     needsResample = false;
   } else if (timeframe === "30m") {
-    fetchInterval = "15min";
-    needsResample = "30m";
+    // OANDA backfill populated price_cache with native 30min XAU bars
+    // (28 months as of 2026-05-06). Use directly instead of fetching
+    // 15min and resampling — matches what live's getCachedPrices does.
+    fetchInterval = "30min";
+    needsResample = false;
   } else {
     fetchInterval = "15min";
     needsResample = false;
