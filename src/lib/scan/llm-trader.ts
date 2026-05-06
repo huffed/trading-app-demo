@@ -90,6 +90,16 @@ export interface LlmTraderContext {
    *  HH-long at 20%" so the LLM can dynamically adjust conviction.
    *  Pass null/undefined to skip (e.g. <10 trades exist yet). */
   recentOutcomes?: string | null;
+  /** Higher-TF bars for multi-TF structural context. Lets the LLM see
+   *  whether faster TFs have flipped regime ahead of D1's lagging
+   *  14-day window. For Intraday (30m primary) this would be 1h and 4h.
+   *  For v1 (4h primary) this would be daily — but daily is already
+   *  surfaced via dailyBars + summariseDailyBias, so v1 typically
+   *  passes nothing here. Each entry's bars must be ordered oldest →
+   *  newest with the most recent bar at-or-before currentTimestamp.
+   *  Omitted/empty → multi-TF section silently skipped. v5 prompt
+   *  expects this to be present; v3/v4 ignore it gracefully. */
+  higherTfBars?: { tfLabel: string; bars: PriceBar[] }[];
 }
 
 const decisionSchema = z.object({
@@ -221,6 +231,48 @@ function summariseIntermarket(
   return parts.length > 0 ? `Intermarket: ${parts.join(" | ")}.` : "Intermarket: n/a";
 }
 
+/** Multi-TF structural read — for each higher TF, derive HH/LH/RANGING
+ *  regime + 3-bar momentum + 20-bar range distance, condensed to one
+ *  line. Lets the LLM see whether faster TFs have flipped ahead of D1's
+ *  lagging 14-day window — addresses the transition-rally bottleneck
+ *  identified in May 5-6 + Oct 2024 cases (D1 still LH while 1h/4h
+ *  structurally HH on a fresh rally). Only the v5 prompt explicitly
+ *  references this section; v3/v4 see the line but treat it as
+ *  informational confluence. */
+function summariseHigherTfStructure(
+  higherTfBars: NonNullable<LlmTraderContext["higherTfBars"]>,
+  currentTs: string
+): string {
+  if (higherTfBars.length === 0) return "";
+  const ts = new Date(currentTs).getTime();
+  const lines: string[] = [];
+  for (const { tfLabel, bars } of higherTfBars) {
+    const before = bars.filter((b) => new Date(b.date).getTime() <= ts);
+    if (before.length < 8) continue; // need at least 7 bars to derive structure
+    const recent = before.slice(-14);
+    const last3High = Math.max(...recent.slice(-3).map((b) => b.high));
+    const prev3High = Math.max(...recent.slice(-7, -3).map((b) => b.high));
+    const last3Low = Math.min(...recent.slice(-3).map((b) => b.low));
+    const prev3Low = Math.min(...recent.slice(-7, -3).map((b) => b.low));
+    let regime: "HH" | "LH" | "RANGING";
+    if (last3High > prev3High && last3Low > prev3Low) regime = "HH";
+    else if (last3High < prev3High && last3Low < prev3Low) regime = "LH";
+    else regime = "RANGING";
+    const window20 = before.slice(-20);
+    const swingHigh = Math.max(...window20.map((b) => b.high));
+    const swingLow = Math.min(...window20.map((b) => b.low));
+    const cur = before[before.length - 1];
+    const mom3 =
+      before.length >= 4
+        ? ((cur.close - before[before.length - 4].close) / before[before.length - 4].close) * 100
+        : 0;
+    lines.push(
+      `${tfLabel}: ${regime} (range ${swingLow.toFixed(0)}-${swingHigh.toFixed(0)}, mom ${mom3 >= 0 ? "+" : ""}${mom3.toFixed(2)}%)`
+    );
+  }
+  return lines.length > 0 ? `Higher TF: ${lines.join(" | ")}.` : "";
+}
+
 function summarisePosition(position: LlmTraderContext["position"], currentPrice: number): string {
   if (!position) return "FLAT.";
   const pnlPct =
@@ -249,11 +301,17 @@ export function buildLlmTraderContext(ctx: LlmTraderContext): {
   const dxyContext = summariseDxy(ctx.dxyBars, ctx.currentTimestamp);
   const intermarketContext = summariseIntermarket(ctx.intermarket, cur.close, ctx.currentTimestamp);
   const positionContext = summarisePosition(ctx.position ?? null, cur.close);
+  // Multi-TF structural read — only emitted if caller provided higherTfBars.
+  // The v5 prompt expects this; older prompts ignore it.
+  const higherTfContext = ctx.higherTfBars && ctx.higherTfBars.length > 0
+    ? summariseHigherTfStructure(ctx.higherTfBars, ctx.currentTimestamp)
+    : "";
+  const higherTfLine = higherTfContext ? `\n${higherTfContext}` : "";
   // Layer 3 reflection: include recent-outcomes summary when provided.
   // Self-gates (caller passes null when <10 trades exist), so the
   // section is silently omitted during the warm-up phase.
   const reflectionLine = ctx.recentOutcomes ? `\n${ctx.recentOutcomes}` : "";
-  const userMessage = `${ctx.currentTimestamp.slice(0, 16)}\n${dailyContext}\n${dxyContext}\n${intermarketContext}\n${recentContext}\nPosition: ${positionContext}${reflectionLine}\nDecide.`;
+  const userMessage = `${ctx.currentTimestamp.slice(0, 16)}\n${dailyContext}\n${dxyContext}\n${intermarketContext}\n${recentContext}${higherTfLine}\nPosition: ${positionContext}${reflectionLine}\nDecide.`;
   return { userMessage, regime };
 }
 
