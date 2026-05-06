@@ -196,6 +196,16 @@ export interface PropFirmRules {
    */
   consecutive_loss_daily_halt?: number;
   /**
+   * Combined risk cap across all algos sharing the same broker connection
+   * (live trading only). Pre-entry gate refuses new positions when the
+   * sum of (currently open risk + this entry's risk) would exceed this %
+   * of capital. Defaults to 3% — under FTMO's 5% DLL by enough margin
+   * that simultaneous full-stop hits don't breach the daily survival
+   * rule. Range 0.5-5%. Only relevant when ≥2 algos share one broker.
+   * See lib/scan/risk-pool-halt.ts.
+   */
+  combined_risk_cap_pct?: number;
+  /**
    * Whether `max_consecutive_losses` counts losing trades or losing days.
    * Pyramiding strategies should usually pick "days" so a single bad bar
    * closing 3 stacked positions doesn't blow 75% of the budget at once.

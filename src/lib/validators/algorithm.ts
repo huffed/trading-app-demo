@@ -129,6 +129,7 @@ export const propFirmRulesSchema = z.object({
   // 0 disables the kill switch entirely.
   max_consecutive_losses: z.number().int().min(0).max(50),
   consecutive_loss_daily_halt: z.number().int().min(0).max(20).optional(),
+  combined_risk_cap_pct: z.number().min(0.5).max(5).optional(),
   consecutive_loss_unit: z.enum(["trades", "days"]).optional(),
   daily_loss_halt_pct: z.number().min(10).max(100).optional(),
   consistency_rule: z.number().min(10).max(100),
