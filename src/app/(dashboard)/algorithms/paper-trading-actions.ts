@@ -8,7 +8,7 @@ import { scanAlgorithm, type ScanResult } from "@/lib/scan/engine";
 import { executeLiveExit, resolveBrokerContext } from "@/lib/scan/live-execution";
 import { getAuthedUser } from "@/lib/supabase/get-authed-user";
 import { type ActionResult } from "@/lib/types/action-result";
-import { sumRealizedPnl, sumUnrealizedPnl } from "@/lib/utils/pnl";
+import { sumDisplayedPnl, type DisplayedPnlInput } from "@/lib/utils/pnl";
 import { closePositionSchema } from "@/lib/validators/position";
 import type { AlgorithmRules } from "@/types/algorithm";
 import type { PaperPosition } from "@/types/position";
@@ -311,6 +311,14 @@ export async function getPaperTradingStats(): Promise<
   try {
     const { supabase, user } = await getAuthedUser();
 
+    // Pull the broker-mirror fields too so totals can prefer broker truth
+    // over paper math when broker data is set. Falls back to system fields
+    // for backtest data, manual trades, or pre-broker-mirror entries.
+    const positionFields =
+      "status, side, ticker, quantity, entry_price, current_price, " +
+      "unrealized_pnl, realized_pnl, broker_fill_price, broker_close_price, " +
+      "broker_unrealized_pnl";
+
     const [algoRes, openRes, closedRes] = await Promise.all([
       supabase
         .from("algorithms")
@@ -319,22 +327,22 @@ export async function getPaperTradingStats(): Promise<
         .eq("status", "active"),
       supabase
         .from("paper_positions")
-        .select("unrealized_pnl")
+        .select(positionFields)
         .eq("user_id", user.id)
         .eq("status", "open"),
       supabase
         .from("paper_positions")
-        .select("realized_pnl")
+        .select(positionFields)
         .eq("user_id", user.id)
         .eq("status", "closed"),
     ]);
 
     const activeAlgos = algoRes.data ?? [];
-    const openPositions = openRes.data ?? [];
-    const closedPositions = closedRes.data ?? [];
+    const openPositions = (openRes.data ?? []) as unknown as DisplayedPnlInput[];
+    const closedPositions = (closedRes.data ?? []) as unknown as DisplayedPnlInput[];
 
-    const totalUnrealized = sumUnrealizedPnl(openPositions);
-    const totalRealized = sumRealizedPnl(closedPositions);
+    const totalUnrealized = sumDisplayedPnl(openPositions);
+    const totalRealized = sumDisplayedPnl(closedPositions);
 
     // Most recent scan across all active algorithms
     const lastScanAt = activeAlgos.reduce<string | null>((latest, a) => {

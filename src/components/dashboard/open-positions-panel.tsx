@@ -10,17 +10,24 @@ import { DataRow } from "@/components/ui/data-row";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Surface } from "@/components/ui/surface";
 import { useAutoRefreshPrices, useOpenPositions } from "@/hooks/use-paper-trading";
-import { formatPnl, formatPnlPercent, formatPriceValue, pnlColorClass } from "@/lib/utils/pnl";
+import {
+  displayedPnl,
+  formatPnl,
+  formatPnlPercent,
+  formatPriceValue,
+  pnlColorClass,
+} from "@/lib/utils/pnl";
 import type { PaperPosition } from "@/types/position";
 
 function PnlValue({ pos }: { pos: PaperPosition }) {
+  const pnl = displayedPnl(pos) ?? 0;
   const pct =
     pos.entry_price > 0 && pos.current_price != null
       ? ((pos.current_price - pos.entry_price) / pos.entry_price) * 100 * (pos.side === "long" ? 1 : -1)
       : null;
   return (
-    <span className={`flex items-baseline gap-2 ${pnlColorClass(pos.unrealized_pnl)}`}>
-      <span className="font-semibold">{formatPnl(pos.unrealized_pnl)}</span>
+    <span className={`flex items-baseline gap-2 ${pnlColorClass(pnl)}`}>
+      <span className="font-semibold">{formatPnl(pnl)}</span>
       {pct != null && <span className="text-xs">{formatPnlPercent(pct)}</span>}
     </span>
   );
@@ -31,7 +38,8 @@ export function OpenPositionsPanel() {
   // Live unrealized-pnl refresh while positions are open.
   useAutoRefreshPrices(undefined, positions.length > 0);
 
-  const sorted = [...positions].sort((a, b) => b.unrealized_pnl - a.unrealized_pnl);
+  // Sort by displayed (broker-truth) P&L, not the raw paper unrealized.
+  const sorted = [...positions].sort((a, b) => (displayedPnl(b) ?? 0) - (displayedPnl(a) ?? 0));
 
   return (
     <Surface elevation="mid" className="p-5 lg:col-span-6">
@@ -67,16 +75,16 @@ export function OpenPositionsPanel() {
       )}
       {sorted.length === 0 ? null : (
         <div className="mt-3 flex items-center justify-end gap-2 text-xs text-muted-foreground">
-          {sorted.some((p) => p.unrealized_pnl > 0) && (
+          {sorted.some((p) => (displayedPnl(p) ?? 0) > 0) && (
             <span className="flex items-center gap-1">
               <TrendingUp className="h-3 w-3 text-[var(--profit)]" />
-              {sorted.filter((p) => p.unrealized_pnl > 0).length} up
+              {sorted.filter((p) => (displayedPnl(p) ?? 0) > 0).length} up
             </span>
           )}
-          {sorted.some((p) => p.unrealized_pnl < 0) && (
+          {sorted.some((p) => (displayedPnl(p) ?? 0) < 0) && (
             <span className="flex items-center gap-1">
               <TrendingDown className="h-3 w-3 text-[var(--loss)]" />
-              {sorted.filter((p) => p.unrealized_pnl < 0).length} down
+              {sorted.filter((p) => (displayedPnl(p) ?? 0) < 0).length} down
             </span>
           )}
         </div>

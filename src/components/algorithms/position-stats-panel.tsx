@@ -3,7 +3,7 @@
 import { Skeleton } from "@/components/ui/skeleton";
 import { usePositionLiveQuote, usePositionMaeMfe } from "@/hooks/use-position-stats";
 import { getInstrumentMeta } from "@/lib/constants/markets";
-import { formatPnl, formatPriceValue, pnlColorClass } from "@/lib/utils/pnl";
+import { displayedPnl, formatPnl, formatPriceValue, pnlColorClass } from "@/lib/utils/pnl";
 import type { PaperPosition } from "@/types/position";
 
 function formatDuration(openIso: string, closeIso?: string | null): string {
@@ -115,10 +115,7 @@ function ProtectionSection({ pos }: { pos: PaperPosition }) {
 }
 
 function ResultsSection({ pos }: { pos: PaperPosition }) {
-  const isOpen = pos.status === "open";
-  const grossPnl = isOpen
-    ? pos.broker_unrealized_pnl ?? pos.unrealized_pnl ?? 0
-    : pos.realized_pnl ?? 0;
+  const grossPnl = displayedPnl(pos) ?? 0;
   return (
     <div className="space-y-1.5">
       <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">

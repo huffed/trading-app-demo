@@ -51,6 +51,102 @@ export function sumUnrealizedPnl(rows: readonly { unrealized_pnl: number | null 
   return rows.reduce((s, r) => s + (r.unrealized_pnl ?? 0), 0);
 }
 
+/** Minimal shape needed to compute the displayed P&L. Both PaperPosition
+ *  and the lighter-weight row shapes used by aggregation queries match. */
+export interface DisplayedPnlInput {
+  status: "open" | "closed";
+  side: "long" | "short";
+  ticker: string;
+  quantity: number;
+  entry_price: number;
+  current_price: number | null;
+  unrealized_pnl: number;
+  realized_pnl: number | null;
+  broker_fill_price?: number | null;
+  broker_close_price?: number | null;
+  broker_unrealized_pnl?: number | null;
+}
+
+/**
+ * Returns the P&L value to display to the end user — preferring
+ * broker-derived values when available, falling back to system math.
+ *
+ * The broker's number is the truth that matters to the prop firm and
+ * appears in the broker's account dashboard. System math is a paper
+ * estimate that doesn't include spread cost on close, commission, or
+ * swap. This helper picks the most-truthful number available per row.
+ *
+ * Resolution order (closed):
+ *   1. broker_fill_price + broker_close_price set → recompute from those
+ *      (most accurate — captures broker's actual fill prices)
+ *   2. else → realized_pnl (system math fallback)
+ *
+ * Resolution order (open):
+ *   1. broker_unrealized_pnl synced (manage-positions cron) → use it
+ *      (includes spread / commission / swap)
+ *   2. broker_fill_price + current_price set → estimate from broker fill
+ *      with current Twelve Data mid (off by ~half-spread vs broker)
+ *   3. else → unrealized_pnl (system math fallback)
+ *
+ * For aggregations across many positions, see `sumDisplayedPnl`. */
+export function displayedPnl(pos: DisplayedPnlInput): number | null {
+  if (pos.status === "closed") {
+    if (pos.broker_fill_price != null && pos.broker_close_price != null) {
+      return pnlInUsdShim(
+        pos.ticker,
+        pos.side,
+        pos.broker_fill_price,
+        pos.broker_close_price,
+        pos.quantity
+      );
+    }
+    return pos.realized_pnl;
+  }
+  // Open position
+  if (pos.broker_unrealized_pnl != null) {
+    return pos.broker_unrealized_pnl;
+  }
+  if (pos.broker_fill_price != null && pos.current_price != null) {
+    return pnlInUsdShim(
+      pos.ticker,
+      pos.side,
+      pos.broker_fill_price,
+      pos.current_price,
+      pos.quantity
+    );
+  }
+  return pos.unrealized_pnl;
+}
+
+/** Sum the displayed P&L across rows. Mirrors the broker-truth selection
+ *  in displayedPnl per row, so totals match what FTMO would show on the
+ *  account dashboard rather than what our paper math computed. */
+export function sumDisplayedPnl(rows: readonly DisplayedPnlInput[]): number {
+  return rows.reduce((s, r) => s + (displayedPnl(r) ?? 0), 0);
+}
+
+// Defer the markets import to avoid eagerly loading the catalog in modules
+// that never call displayedPnl. Local require keeps cold-start light.
+function pnlInUsdShim(
+  ticker: string,
+  side: "long" | "short",
+  entry: number,
+  exit: number,
+  qty: number
+): number {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { pnlInUsd } = require("@/lib/constants/markets") as {
+    pnlInUsd: (
+      ticker: string,
+      side: "long" | "short",
+      entry: number,
+      exit: number,
+      qty: number
+    ) => number;
+  };
+  return pnlInUsd(ticker, side, entry, exit, qty);
+}
+
 export function calculateRealizedPnl(trade: {
   side: string;
   entry_price: number;

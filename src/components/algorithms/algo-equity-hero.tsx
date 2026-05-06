@@ -15,18 +15,21 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Surface } from "@/components/ui/surface";
 import { useClosedPositionsWindow } from "@/hooks/use-paper-trading";
 import { formatShortDate } from "@/lib/utils/date";
-import { formatCurrency, formatPnl, pnlColorClass } from "@/lib/utils/pnl";
+import { displayedPnl, formatCurrency, formatPnl, pnlColorClass } from "@/lib/utils/pnl";
+import type { PaperPosition } from "@/types/position";
 
-function buildCurve(
-  positions: { realized_pnl: number | null; closed_at: string | null }[]
-): { date: string; value: number }[] {
-  const valid = positions.filter((p) => p.realized_pnl != null && p.closed_at);
+function buildCurve(positions: PaperPosition[]): { date: string; value: number }[] {
+  // Broker-truth cumulative — uses broker fill/close prices when set,
+  // falls back to system realized_pnl otherwise. Mirrors FTMO dashboard.
+  const valid = positions.filter(
+    (p) => p.closed_at && (p.realized_pnl != null || p.broker_close_price != null)
+  );
   const sorted = [...valid].sort(
     (a, b) => new Date(a.closed_at!).getTime() - new Date(b.closed_at!).getTime()
   );
   let cumulative = 0;
   return sorted.map((p) => {
-    cumulative += p.realized_pnl ?? 0;
+    cumulative += displayedPnl(p) ?? 0;
     return { date: formatShortDate(p.closed_at!), value: Number(cumulative.toFixed(2)) };
   });
 }
