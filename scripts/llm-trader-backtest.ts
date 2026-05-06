@@ -844,8 +844,6 @@ export interface GateRefusals {
   ftmo_consistency_halt: number;
   stagnant_exits: number;
   ranging_regime: number;
-  lh_short_upper_range: number;
-  hh_long_lower_range: number;
 }
 
 export interface WindowResult {
@@ -989,8 +987,6 @@ export async function runWindow(opts: WindowOptions): Promise<WindowResult> {
     ftmo_consistency_halt: 0,
     stagnant_exits: 0,
     ranging_regime: 0,
-    lh_short_upper_range: 0,
-    hh_long_lower_range: 0,
   };
 
   for (let i = startIdx; i < lastIdx; i++) {
@@ -1175,33 +1171,7 @@ export async function runWindow(opts: WindowOptions): Promise<WindowResult> {
           gateRefusals.ftmo_consistency_halt++;
         }
       }
-      // LH-short upper-range gate — mirrors src/lib/scan/entry.ts.
-      // Refuses LH-short entries within 0.30% of 20-bar high
-      // (4 losses / 0 wins in beyr1223h 30d window + first live loss).
-      if (!entryBlockedReason && decision.decision === "enter_short" && regime === "LH") {
-        const lookback = Math.min(20, i + 1);
-        const window = bars.slice(i - lookback + 1, i + 1);
-        const rangeHigh = Math.max(...window.map((b) => b.high));
-        const distFromHigh = (rangeHigh - bar.close) / bar.close;
-        if (distFromHigh < 0.003) {
-          entryBlockedReason = `lh_short_upper_range: entry within ${(distFromHigh * 100).toFixed(2)}% of 20-bar high ${rangeHigh.toFixed(2)} (threshold 0.30%)`;
-          gateRefusals.lh_short_upper_range++;
-        }
-      }
-      // HH-long lower-range gate — mirrors src/lib/scan/entry.ts.
-      // Refuses HH-long entries more than 0.30% above the 20-bar low
-      // (HH-longs in the 30d window: 2 wins both within 0.30% of low,
-      // 11 losses all >0.30% above low, $-5,974 cumulative).
-      if (!entryBlockedReason && decision.decision === "enter_long" && regime === "HH") {
-        const lookback = Math.min(20, i + 1);
-        const window = bars.slice(i - lookback + 1, i + 1);
-        const rangeLow = Math.min(...window.map((b) => b.low));
-        const distFromLow = (bar.close - rangeLow) / bar.close;
-        if (distFromLow > 0.003) {
-          entryBlockedReason = `hh_long_lower_range: entry ${(distFromLow * 100).toFixed(2)}% above 20-bar low ${rangeLow.toFixed(2)} (threshold 0.30%)`;
-          gateRefusals.hh_long_lower_range++;
-        }
-      }
+      // Cohort gates removed — see src/lib/scan/entry.ts comment for rationale.
     }
 
     if (decision.decision === "enter_long" && !position && !entryBlockedReason) {
@@ -1362,12 +1332,10 @@ export function printWindowSummary(result: WindowResult): void {
     gateRefusals.news_veto +
     gateRefusals.consec_loss_halt +
     gateRefusals.ftmo_consistency_halt +
-    gateRefusals.ranging_regime +
-    gateRefusals.lh_short_upper_range +
-    gateRefusals.hh_long_lower_range;
+    gateRefusals.ranging_regime;
   if (totalRefusals > 0) {
     console.log(
-      `Gate refusals  : ${totalRefusals} (atr=${gateRefusals.atr_liquidity}, news=${gateRefusals.news_veto}, consec=${gateRefusals.consec_loss_halt}, ftmo_cst=${gateRefusals.ftmo_consistency_halt}, ranging=${gateRefusals.ranging_regime}, lh_short_upper=${gateRefusals.lh_short_upper_range}, hh_long_lower=${gateRefusals.hh_long_lower_range}, stagnant_exits=${gateRefusals.stagnant_exits})`
+      `Gate refusals  : ${totalRefusals} (atr=${gateRefusals.atr_liquidity}, news=${gateRefusals.news_veto}, consec=${gateRefusals.consec_loss_halt}, ftmo_cst=${gateRefusals.ftmo_consistency_halt}, ranging=${gateRefusals.ranging_regime}, stagnant_exits=${gateRefusals.stagnant_exits})`
     );
   }
   console.log("");
