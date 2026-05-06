@@ -16,23 +16,25 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Surface } from "@/components/ui/surface";
 import { useClosedPositionsWindow } from "@/hooks/use-paper-trading";
 import { formatShortDate } from "@/lib/utils/date";
-import { formatCurrency, formatPnl, pnlColorClass } from "@/lib/utils/pnl";
+import { displayedPnl, formatCurrency, formatPnl, pnlColorClass } from "@/lib/utils/pnl";
+import type { PaperPosition } from "@/types/position";
 
 interface CurvePoint {
   date: string;
   value: number;
 }
 
-function buildCurve(
-  positions: { realized_pnl: number | null; closed_at: string | null }[]
-): CurvePoint[] {
-  const valid = positions.filter((p) => p.realized_pnl != null && p.closed_at);
+function buildCurve(positions: PaperPosition[]): CurvePoint[] {
+  // Use broker-truth realized P&L when set (broker_close_price + broker_fill_price),
+  // fall back to system realized_pnl otherwise. Curve reflects what FTMO
+  // actually shows, not paper math.
+  const valid = positions.filter((p) => p.closed_at && (p.realized_pnl != null || p.broker_close_price != null));
   const sorted = [...valid].sort(
     (a, b) => new Date(a.closed_at!).getTime() - new Date(b.closed_at!).getTime()
   );
   let cumulative = 0;
   return sorted.map((p) => {
-    cumulative += p.realized_pnl ?? 0;
+    cumulative += displayedPnl(p) ?? 0;
     return {
       date: formatShortDate(p.closed_at!),
       value: Number(cumulative.toFixed(2)),

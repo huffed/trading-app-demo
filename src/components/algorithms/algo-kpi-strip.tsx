@@ -15,7 +15,8 @@ import {
   useOpenPositions,
 } from "@/hooks/use-paper-trading";
 import type { BacktestMetrics } from "@/lib/market-data/types";
-import { formatPnl, formatPnlPercent, formatRelativeTime } from "@/lib/utils/pnl";
+import { displayedPnl, formatPnl, formatPnlPercent, formatRelativeTime } from "@/lib/utils/pnl";
+import type { PaperPosition } from "@/types/position";
 
 const DAY_MS = 86_400_000;
 
@@ -25,19 +26,14 @@ function pnlState(value: number): "profit" | "loss" | "neutral" {
   return "neutral";
 }
 
-interface ClosedRow {
-  realized_pnl: number | null;
-  closed_at: string | null;
-}
-
-function summariseToday(closed: ClosedRow[], nowMs: number) {
+function summariseToday(closed: PaperPosition[], nowMs: number) {
   const cutoff = nowMs - DAY_MS;
   let pnl = 0;
   let count = 0;
   for (const p of closed) {
     if (!p.closed_at) continue;
     if (new Date(p.closed_at).getTime() < cutoff) continue;
-    pnl += p.realized_pnl ?? 0;
+    pnl += displayedPnl(p) ?? 0;
     count++;
   }
   return { pnl, count };
@@ -83,7 +79,7 @@ export function AlgoKpiStrip({
   );
   const openCount = openPositions?.length ?? 0;
   const unrealized = (openPositions ?? []).reduce(
-    (s, p) => s + (p.broker_unrealized_pnl ?? p.unrealized_pnl ?? 0),
+    (s, p) => s + (displayedPnl(p) ?? 0),
     0
   );
   const todayTotal = today.pnl + unrealized;

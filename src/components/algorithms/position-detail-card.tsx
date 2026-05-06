@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EXIT_REASON_LABELS } from "@/lib/constants/algorithm";
-import { formatPnl, pnlColorClass } from "@/lib/utils/pnl";
+import { displayedPnl, formatPnl, pnlColorClass } from "@/lib/utils/pnl";
 import type { PaperPosition } from "@/types/position";
 import { PositionActivityPanel } from "./position-activity-panel";
 import { PositionChartPanel } from "./position-chart-panel";
@@ -35,9 +35,7 @@ function CardTrigger({
   expanded: boolean;
 }) {
   const isOpen = pos.status === "open";
-  const grossPnl = isOpen
-    ? pos.broker_unrealized_pnl ?? pos.unrealized_pnl ?? 0
-    : pos.realized_pnl ?? 0;
+  const grossPnl = displayedPnl(pos) ?? 0;
   const sideLabel = pos.side === "long" ? "BUY" : "SELL";
   const sideClass =
     pos.side === "long"

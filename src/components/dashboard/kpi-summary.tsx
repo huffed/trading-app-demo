@@ -16,14 +16,10 @@ import {
   useClosedPositionsWindow,
   usePaperTradingStats,
 } from "@/hooks/use-paper-trading";
-import { formatPnl, formatRelativeTime } from "@/lib/utils/pnl";
+import { displayedPnl, formatPnl, formatRelativeTime } from "@/lib/utils/pnl";
+import type { PaperPosition } from "@/types/position";
 
 const DAY_MS = 86_400_000;
-
-interface ClosedRow {
-  realized_pnl: number | null;
-  closed_at: string | null;
-}
 
 function pnlState(value: number): "profit" | "loss" | "neutral" {
   if (value > 0) return "profit";
@@ -45,7 +41,7 @@ function LoadingStrip() {
   );
 }
 
-function summarise(closed: ClosedRow[]) {
+function summarise(closed: PaperPosition[]) {
   const now = Date.now();
   const dayCutoff = now - DAY_MS;
   const weekCutoff = now - 7 * DAY_MS;
@@ -55,7 +51,7 @@ function summarise(closed: ClosedRow[]) {
   for (const p of closed) {
     if (!p.closed_at) continue;
     const t = new Date(p.closed_at).getTime();
-    const pnl = p.realized_pnl ?? 0;
+    const pnl = displayedPnl(p) ?? 0;
     if (t >= weekCutoff) week += pnl;
     if (t >= dayCutoff) {
       today += pnl;
