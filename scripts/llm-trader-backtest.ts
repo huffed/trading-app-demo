@@ -1431,9 +1431,10 @@ async function main(): Promise<void> {
     promptVersionRaw !== "v1" &&
     promptVersionRaw !== "v2" &&
     promptVersionRaw !== "v3" &&
-    promptVersionRaw !== "v4"
+    promptVersionRaw !== "v4" &&
+    promptVersionRaw !== "v6"
   ) {
-    throw new Error(`Unsupported PROMPT_VERSION=${promptVersionRaw}. Use v1, v2, v3, or v4.`);
+    throw new Error(`Unsupported PROMPT_VERSION=${promptVersionRaw}. Use v1, v2, v3, v4, or v6.`);
   }
   const promptVersion: PromptVersion = promptVersionRaw;
 
