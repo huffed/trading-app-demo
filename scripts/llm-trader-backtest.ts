@@ -1098,23 +1098,27 @@ export async function runWindow(opts: WindowOptions): Promise<WindowResult> {
     );
   }
 
-  // v5 prompt requires multi-TF context. Precompute higher-TF bars
-  // (resampled from primary bars) once per run; per-bar slice is by
-  // timestamp filter inside summariseHigherTfStructure. For 30m primary
-  // we surface 1h + 4h. For 4h primary, daily is already in the prompt
-  // via summariseDailyBias, so v5 effectively wouldn't add value there
-  // (we still resample but the structure of v5 prompt was designed for
-  // the 30m use case).
-  const useMultiTf = promptVersion === "v5";
+  // v5 + v5_15m prompts require multi-TF context. Precompute higher-TF
+  // bars once per run; per-bar slice is by timestamp inside
+  // summariseHigherTfStructure. Pairings:
+  //   30m primary → 1h + 4h (v5)
+  //   15m primary → 30m + 1h (v5_15m)
+  //   1h primary  → 4h only (degraded — only for ad-hoc experimentation)
+  const useMultiTf = promptVersion === "v5" || promptVersion === "v5_15m";
   const higherTfBars: { tfLabel: string; bars: PriceBar[] }[] = useMultiTf
     ? timeframe === "30m"
       ? [
           { tfLabel: "1h", bars: resampleTo(bars, "1h") },
           { tfLabel: "4h", bars: resampleTo(bars, "4h") },
         ]
-      : timeframe === "1h"
-        ? [{ tfLabel: "4h", bars: resampleTo(bars, "4h") }]
-        : []
+      : timeframe === "15m"
+        ? [
+            { tfLabel: "30m", bars: resampleTo(bars, "30min") },
+            { tfLabel: "1h", bars: resampleTo(bars, "1h") },
+          ]
+        : timeframe === "1h"
+          ? [{ tfLabel: "4h", bars: resampleTo(bars, "4h") }]
+          : []
     : [];
 
   const closedTrades: ClosedTrade[] = [];
@@ -1546,9 +1550,12 @@ async function main(): Promise<void> {
     promptVersionRaw !== "v2" &&
     promptVersionRaw !== "v3" &&
     promptVersionRaw !== "v4" &&
-    promptVersionRaw !== "v5"
+    promptVersionRaw !== "v5" &&
+    promptVersionRaw !== "v5_15m"
   ) {
-    throw new Error(`Unsupported PROMPT_VERSION=${promptVersionRaw}. Use v1, v2, v3, v4, or v5.`);
+    throw new Error(
+      `Unsupported PROMPT_VERSION=${promptVersionRaw}. Use v1, v2, v3, v4, v5, or v5_15m.`
+    );
   }
   const promptVersion: PromptVersion = promptVersionRaw;
 

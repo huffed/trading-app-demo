@@ -1057,22 +1057,30 @@ async function evaluateLlmTraderEntry(
   // exist, so it's silently omitted during the warm-up phase. Activates
   // automatically as trades accumulate.
   const recentOutcomes = await summariseRecentOutcomes(supabase, algo.id);
-  // v5 prompt requires multi-TF structural context. For 30m primary,
-  // we resample the in-memory bars to 1h + 4h on the fly so the LLM
-  // sees the higher-TF regime read independently of D1's lagging 14-day
-  // window. Caller emits the line only when promptVersion === "v5"
-  // (older prompts ignore the field), so this is safe to populate
-  // unconditionally for v5 algos.
-  const useMultiTf = llmConfig.prompt_version === "v5";
+  // v5 + v5_15m prompts require multi-TF structural context. We resample
+  // the in-memory primary bars to two higher TFs on the fly so the LLM
+  // sees structure independently of D1's lagging 14-day window. Caller
+  // emits the line only when the prompt version opts in.
+  // Pairings:
+  //   30m primary → 1h + 4h
+  //   15m primary → 30m + 1h
+  //   1h primary  → 4h only (single higher TF — override rule degraded)
+  const useMultiTf =
+    llmConfig.prompt_version === "v5" || llmConfig.prompt_version === "v5_15m";
   const higherTfBars = useMultiTf
     ? rules.timeframe === "30m"
       ? [
           { tfLabel: "1h", bars: resampleTo(bars, "1h") },
           { tfLabel: "4h", bars: resampleTo(bars, "4h") },
         ]
-      : rules.timeframe === "1h"
-        ? [{ tfLabel: "4h", bars: resampleTo(bars, "4h") }]
-        : []
+      : rules.timeframe === "15m"
+        ? [
+            { tfLabel: "30m", bars: resampleTo(bars, "30min") },
+            { tfLabel: "1h", bars: resampleTo(bars, "1h") },
+          ]
+        : rules.timeframe === "1h"
+          ? [{ tfLabel: "4h", bars: resampleTo(bars, "4h") }]
+          : []
     : undefined;
 
   const ctx: LlmTraderContext = {

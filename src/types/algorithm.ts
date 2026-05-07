@@ -499,8 +499,16 @@ export interface AlgorithmRules {
      *    winners run" + adds "move_be" decision (LLM-judged break-even
      *    SL move) + framed for STRUCTURAL SL/TP (swing_anchor + rr_multiple
      *    in algo rules), not fixed %.
+     *  - "v5": v4 + multi-TF override. D1 disagreeing with both 1h+4h
+     *    flips the regime read (catches transition rallies D1 lags on).
+     *    Pair with TIMEFRAME=30m. Validated +59% lift vs v3 across 4
+     *    windows / -2.15% avg DD vs -5.46%.
+     *  - "v5_15m": v5 base adapted to 15m primary. Higher TFs become
+     *    30m + 1h (vs v5's 1h + 4h on 30m primary). Tighter momentum
+     *    triggers (+0.25% vs +0.4%), 3-8 bar setup window (vs 4-12),
+     *    explicit London/NY-open emphasis where 15m's edge concentrates.
      *  Defaults to v2 in production when unspecified. */
-    prompt_version?: "v1" | "v2" | "v3" | "v4" | "v5";
+    prompt_version?: "v1" | "v2" | "v3" | "v4" | "v5" | "v5_15m";
     /** Dry-run: log the LLM's decision to activity_log but do NOT
      *  actually open/close positions. Used for the first 1-2 cycles of
      *  live deployment to verify the LLM behaves sensibly on real-time
