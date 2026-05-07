@@ -266,13 +266,19 @@ export function calculateUnrealizedPnl(
     : (entryPrice - currentPrice) * quantity;
 }
 
+// Threshold (seconds) → label of the unit you get when you divide seconds
+// by that threshold. e.g. 3600s threshold + "h" label means "if seconds ≥
+// 3600, return floor(seconds / 3600) + 'h'", which gives the count in hours.
+// Labels were previously off-by-one (3600s → "m", 86400s → "h", ...) which
+// silently made every relative time read smaller than reality — a 7-hour
+// row showed as "6m ago".
 const RELATIVE_TIME_UNITS: [number, string][] = [
-  [60, "s"],
-  [3600, "m"],
-  [86400, "h"],
-  [604800, "d"],
-  [2592000, "w"],
-  [31536000, "mo"],
+  [60, "m"],
+  [3600, "h"],
+  [86400, "d"],
+  [604800, "w"],
+  [2592000, "mo"],
+  [31536000, "y"],
 ];
 
 export function formatRelativeTime(dateString: string): string {
