@@ -83,7 +83,7 @@ function DecisionRow({ entry }: { entry: LlmDecisionRow }) {
           )}
         </div>
         <span className="text-xs text-muted-foreground shrink-0 ml-2">
-          {formatRelativeTime(entry.bar_date)}
+          {formatRelativeTime(entry.created_at)}
         </span>
       </button>
       {expanded && (
