@@ -215,6 +215,11 @@ export interface OpenPosition {
   entry_index: number;
   entry_date: string;
   stop_price: number;
+  /** Snapshot of the entry-to-SL distance — write-once, never mutated.
+   *  stop_price gets moved to entry on `move_be`, which would otherwise
+   *  destroy the original 1R needed for the R-multiple on close.
+   *  Mirrors paper_positions.initial_stop_loss_price (migration 00032). */
+  initial_stop_price: number;
   target_price: number;
   notional: number;
   entry_reasoning: string;
@@ -1189,7 +1194,7 @@ export async function runWindow(opts: WindowOptions): Promise<WindowResult> {
           entry_regime: position.entry_regime,
           exit_regime: regime,
           regime_flipped_during_trade: regime !== position.entry_regime,
-          r_multiple: computeRMultiple(position.side, position.entry_price, position.stop_price, exitPrice),
+          r_multiple: computeRMultiple(position.side, position.entry_price, position.initial_stop_price, exitPrice),
         });
         equityHigh = Math.max(equityHigh, cash);
         maxDrawdown = Math.max(maxDrawdown, ((equityHigh - cash) / equityHigh) * 100);
@@ -1221,7 +1226,7 @@ export async function runWindow(opts: WindowOptions): Promise<WindowResult> {
           entry_regime: position.entry_regime,
           exit_regime: regime,
           regime_flipped_during_trade: regime !== position.entry_regime,
-          r_multiple: computeRMultiple(position.side, position.entry_price, position.stop_price, exit.exit_price),
+          r_multiple: computeRMultiple(position.side, position.entry_price, position.initial_stop_price, exit.exit_price),
         });
         equityHigh = Math.max(equityHigh, cash);
         maxDrawdown = Math.max(maxDrawdown, ((equityHigh - cash) / equityHigh) * 100);
@@ -1330,6 +1335,7 @@ export async function runWindow(opts: WindowOptions): Promise<WindowResult> {
         entry_index: i,
         entry_date: bar.date,
         stop_price: stop,
+        initial_stop_price: stop,
         target_price: target,
         notional,
         entry_reasoning: decision.reasoning,
@@ -1347,6 +1353,7 @@ export async function runWindow(opts: WindowOptions): Promise<WindowResult> {
         entry_index: i,
         entry_date: bar.date,
         stop_price: stop,
+        initial_stop_price: stop,
         target_price: target,
         notional,
         entry_reasoning: decision.reasoning,
@@ -1357,7 +1364,9 @@ export async function runWindow(opts: WindowOptions): Promise<WindowResult> {
       // price. Only valid when in a profitable position with current
       // P&L >= +1R favorable. Trade continues; subsequent bars'
       // SL/TP fill check uses the new (entry-price) SL.
-      const slDistance = Math.abs(position.entry_price - position.stop_price);
+      // Gate against initial_stop_price so a second move_be on the same
+      // trade can't divide by zero (post-BE, stop_price == entry_price).
+      const slDistance = Math.abs(position.entry_price - position.initial_stop_price);
       const currentPnlR =
         position.side === "long"
           ? (bar.close - position.entry_price) / slDistance
@@ -1388,7 +1397,7 @@ export async function runWindow(opts: WindowOptions): Promise<WindowResult> {
         entry_regime: position.entry_regime,
         exit_regime: regime,
         regime_flipped_during_trade: regime !== position.entry_regime,
-        r_multiple: computeRMultiple(position.side, position.entry_price, position.stop_price, exitPrice),
+        r_multiple: computeRMultiple(position.side, position.entry_price, position.initial_stop_price, exitPrice),
       });
       equityHigh = Math.max(equityHigh, cash);
       maxDrawdown = Math.max(maxDrawdown, ((equityHigh - cash) / equityHigh) * 100);
@@ -1429,7 +1438,7 @@ export async function runWindow(opts: WindowOptions): Promise<WindowResult> {
       entry_regime: position.entry_regime,
       exit_regime: lastBarRegime,
       regime_flipped_during_trade: lastBarRegime !== position.entry_regime,
-      r_multiple: computeRMultiple(position.side, position.entry_price, position.stop_price, exitPrice),
+      r_multiple: computeRMultiple(position.side, position.entry_price, position.initial_stop_price, exitPrice),
     });
     equityHigh = Math.max(equityHigh, cash);
     maxDrawdown = Math.max(maxDrawdown, ((equityHigh - cash) / equityHigh) * 100);

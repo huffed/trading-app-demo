@@ -220,7 +220,7 @@ function checkSlTpFills(state: SharedState, bar: PriceBar, barIdx: number): void
       entry_regime: pos.entry_regime,
       exit_regime: pos.entry_regime, // approximate; full regime re-derive optional
       regime_flipped_during_trade: false,
-      r_multiple: computeRMultiple(pos.side, pos.entry_price, pos.stop_price, exit.exit_price),
+      r_multiple: computeRMultiple(pos.side, pos.entry_price, pos.initial_stop_price, exit.exit_price),
     };
     const algoTrades = state.trades.get(pos.algoId) ?? [];
     algoTrades.push(trade);
@@ -404,6 +404,7 @@ async function processAlgoAtBar(
       entry_index: globalBarIdx,
       entry_date: bar.date,
       stop_price: stopPrice,
+      initial_stop_price: stopPrice,
       target_price: targetPrice,
       notional,
       entry_reasoning: decision.reasoning,
@@ -411,7 +412,9 @@ async function processAlgoAtBar(
     };
     state.positions.push(pos);
   } else if (decision.decision === "move_be" && currentPos) {
-    const slDistance = Math.abs(currentPos.entry_price - currentPos.stop_price);
+    // Gate against initial_stop_price so a second move_be on the same
+    // trade can't divide by zero (post-BE, stop_price == entry_price).
+    const slDistance = Math.abs(currentPos.entry_price - currentPos.initial_stop_price);
     const currentPnlR =
       currentPos.side === "long"
         ? (bar.close - currentPos.entry_price) / slDistance
@@ -442,7 +445,7 @@ async function processAlgoAtBar(
       entry_regime: currentPos.entry_regime,
       exit_regime: regime,
       regime_flipped_during_trade: regime !== currentPos.entry_regime,
-      r_multiple: computeRMultiple(currentPos.side, currentPos.entry_price, currentPos.stop_price, bar.close),
+      r_multiple: computeRMultiple(currentPos.side, currentPos.entry_price, currentPos.initial_stop_price, bar.close),
     };
     const algoTrades = state.trades.get(currentPos.algoId) ?? [];
     algoTrades.push(trade);
@@ -629,7 +632,7 @@ async function main(): Promise<void> {
         entry_regime: pos.entry_regime,
         exit_regime: pos.entry_regime,
         regime_flipped_during_trade: false,
-        r_multiple: computeRMultiple(pos.side, pos.entry_price, pos.stop_price, lastBar.close),
+        r_multiple: computeRMultiple(pos.side, pos.entry_price, pos.initial_stop_price, lastBar.close),
       };
       const algoTrades = state.trades.get(pos.algoId) ?? [];
       algoTrades.push(trade);
