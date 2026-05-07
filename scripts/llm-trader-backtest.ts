@@ -544,6 +544,43 @@ export function summarisePosition(position: OpenPosition | null, currentPrice: n
   return `${position.side.toUpperCase()} from ${position.entry_price.toFixed(0)}, cur ${currentPrice.toFixed(0)}, P&L ${pnlPct >= 0 ? "+" : ""}${pnlPct.toFixed(2)}%, SL ${position.stop_price.toFixed(0)}/TP ${position.target_price.toFixed(0)}.`;
 }
 
+/** Multi-TF structural read for the v5 prompt. Mirrors production
+ *  `summariseHigherTfStructure` in src/lib/scan/llm-trader.ts. Outputs
+ *  HH/LH/RANGING + 20-bar range + 3-bar momentum per higher TF. */
+export function summariseHigherTfStructure(
+  higherTfBars: { tfLabel: string; bars: PriceBar[] }[],
+  currentTs: string
+): string {
+  if (higherTfBars.length === 0) return "";
+  const ts = new Date(currentTs).getTime();
+  const lines: string[] = [];
+  for (const { tfLabel, bars } of higherTfBars) {
+    const before = bars.filter((b) => new Date(b.date).getTime() <= ts);
+    if (before.length < 8) continue;
+    const recent = before.slice(-14);
+    const last3High = Math.max(...recent.slice(-3).map((b) => b.high));
+    const prev3High = Math.max(...recent.slice(-7, -3).map((b) => b.high));
+    const last3Low = Math.min(...recent.slice(-3).map((b) => b.low));
+    const prev3Low = Math.min(...recent.slice(-7, -3).map((b) => b.low));
+    let regime: "HH" | "LH" | "RANGING";
+    if (last3High > prev3High && last3Low > prev3Low) regime = "HH";
+    else if (last3High < prev3High && last3Low < prev3Low) regime = "LH";
+    else regime = "RANGING";
+    const window20 = before.slice(-20);
+    const swingHigh = Math.max(...window20.map((b) => b.high));
+    const swingLow = Math.min(...window20.map((b) => b.low));
+    const cur = before[before.length - 1];
+    const mom3 =
+      before.length >= 4
+        ? ((cur.close - before[before.length - 4].close) / before[before.length - 4].close) * 100
+        : 0;
+    lines.push(
+      `${tfLabel}: ${regime} (range ${swingLow.toFixed(0)}-${swingHigh.toFixed(0)}, mom ${mom3 >= 0 ? "+" : ""}${mom3.toFixed(2)}%)`
+    );
+  }
+  return lines.length > 0 ? `Higher TF: ${lines.join(" | ")}.` : "";
+}
+
 export type Provider = "groq" | "anthropic";
 
 export interface ProviderClients {
@@ -1056,6 +1093,25 @@ export async function runWindow(opts: WindowOptions): Promise<WindowResult> {
     );
   }
 
+  // v5 prompt requires multi-TF context. Precompute higher-TF bars
+  // (resampled from primary bars) once per run; per-bar slice is by
+  // timestamp filter inside summariseHigherTfStructure. For 30m primary
+  // we surface 1h + 4h. For 4h primary, daily is already in the prompt
+  // via summariseDailyBias, so v5 effectively wouldn't add value there
+  // (we still resample but the structure of v5 prompt was designed for
+  // the 30m use case).
+  const useMultiTf = promptVersion === "v5";
+  const higherTfBars: { tfLabel: string; bars: PriceBar[] }[] = useMultiTf
+    ? timeframe === "30m"
+      ? [
+          { tfLabel: "1h", bars: resampleTo(bars, "1h") },
+          { tfLabel: "4h", bars: resampleTo(bars, "4h") },
+        ]
+      : timeframe === "1h"
+        ? [{ tfLabel: "4h", bars: resampleTo(bars, "4h") }]
+        : []
+    : [];
+
   const closedTrades: ClosedTrade[] = [];
   const decisionLog: DecisionLogEntry[] = [];
   let position: OpenPosition | null = null;
@@ -1179,8 +1235,12 @@ export async function runWindow(opts: WindowOptions): Promise<WindowResult> {
     const dxyContext = summariseDxy(eurusd4h, bar.date);
     const intermarketContext = summariseIntermarket(intermarket, bar.close, bar.date);
     const positionContext = summarisePosition(position, bar.close);
+    const higherTfContext = useMultiTf
+      ? summariseHigherTfStructure(higherTfBars, bar.date)
+      : "";
+    const higherTfLine = higherTfContext ? `\n${higherTfContext}` : "";
 
-    const userMessage = `${bar.date.slice(0, 16)}\n${dailyContext}\n${dxyContext}\n${intermarketContext}\n${recentContext}\nPosition: ${positionContext}\nDecide.`;
+    const userMessage = `${bar.date.slice(0, 16)}\n${dailyContext}\n${dxyContext}\n${intermarketContext}\n${recentContext}${higherTfLine}\nPosition: ${positionContext}\nDecide.`;
 
     const decision = await callLLM(provider, clients, systemPrompt, userMessage);
     llmCallCount++;
@@ -1476,9 +1536,10 @@ async function main(): Promise<void> {
     promptVersionRaw !== "v1" &&
     promptVersionRaw !== "v2" &&
     promptVersionRaw !== "v3" &&
-    promptVersionRaw !== "v4"
+    promptVersionRaw !== "v4" &&
+    promptVersionRaw !== "v5"
   ) {
-    throw new Error(`Unsupported PROMPT_VERSION=${promptVersionRaw}. Use v1, v2, v3, or v4.`);
+    throw new Error(`Unsupported PROMPT_VERSION=${promptVersionRaw}. Use v1, v2, v3, v4, or v5.`);
   }
   const promptVersion: PromptVersion = promptVersionRaw;
 
@@ -1533,11 +1594,14 @@ async function main(): Promise<void> {
 
   // Save full audit trail (existing CLI behavior preserved). File names
   // include the prompt version so v1 vs v2 runs don't overwrite each other.
-  const decisionLogPath = `scripts/llm-trader-decisions-${provider}-${timeframe}-${sliceDays}d-${promptVersion}.jsonl`;
+  // OUTPUT_TAG appends a suffix so parallel runs (different windows /
+  // configs) don't clobber each other's audit + trade logs.
+  const outputTag = process.env.OUTPUT_TAG ? `-${process.env.OUTPUT_TAG}` : "";
+  const decisionLogPath = `scripts/llm-trader-decisions-${provider}-${timeframe}-${sliceDays}d-${promptVersion}${outputTag}.jsonl`;
   writeFileSync(decisionLogPath, result.decisions.map((d) => JSON.stringify(d)).join("\n"));
   console.log(`Decision audit trail: ${decisionLogPath} (${result.decisions.length} entries)`);
 
-  const tradeLogPath = `scripts/llm-trader-trades-${provider}-${timeframe}-${sliceDays}d-${promptVersion}.jsonl`;
+  const tradeLogPath = `scripts/llm-trader-trades-${provider}-${timeframe}-${sliceDays}d-${promptVersion}${outputTag}.jsonl`;
   writeFileSync(tradeLogPath, result.trades.map((t) => JSON.stringify(t)).join("\n"));
   console.log(`Trade log: ${tradeLogPath} (${result.trades.length} entries)`);
 }

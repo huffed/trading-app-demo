@@ -500,7 +500,7 @@ export interface AlgorithmRules {
      *    SL move) + framed for STRUCTURAL SL/TP (swing_anchor + rr_multiple
      *    in algo rules), not fixed %.
      *  Defaults to v2 in production when unspecified. */
-    prompt_version?: "v1" | "v2" | "v3" | "v4";
+    prompt_version?: "v1" | "v2" | "v3" | "v4" | "v5";
     /** Dry-run: log the LLM's decision to activity_log but do NOT
      *  actually open/close positions. Used for the first 1-2 cycles of
      *  live deployment to verify the LLM behaves sensibly on real-time
