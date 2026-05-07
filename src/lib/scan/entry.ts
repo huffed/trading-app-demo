@@ -1066,9 +1066,7 @@ async function evaluateLlmTraderEntry(
   //   15m primary → 30m + 1h
   //   1h primary  → 4h only (single higher TF — override rule degraded)
   const useMultiTf =
-    llmConfig.prompt_version === "v5" ||
-    llmConfig.prompt_version === "v5_15m" ||
-    llmConfig.prompt_version === "v6_15m";
+    llmConfig.prompt_version === "v5" || llmConfig.prompt_version === "v5_15m";
   const higherTfBars = useMultiTf
     ? rules.timeframe === "30m"
       ? [
