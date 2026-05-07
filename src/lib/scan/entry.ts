@@ -1052,6 +1052,24 @@ async function evaluateLlmTraderEntry(
   // exist, so it's silently omitted during the warm-up phase. Activates
   // automatically as trades accumulate.
   const recentOutcomes = await summariseRecentOutcomes(supabase, algo.id);
+  // v5 prompt requires multi-TF structural context. For 30m primary,
+  // we resample the in-memory bars to 1h + 4h on the fly so the LLM
+  // sees the higher-TF regime read independently of D1's lagging 14-day
+  // window. Caller emits the line only when promptVersion === "v5"
+  // (older prompts ignore the field), so this is safe to populate
+  // unconditionally for v5 algos.
+  const useMultiTf = llmConfig.prompt_version === "v5";
+  const higherTfBars = useMultiTf
+    ? rules.timeframe === "30m"
+      ? [
+          { tfLabel: "1h", bars: resampleTo(bars, "1h") },
+          { tfLabel: "4h", bars: resampleTo(bars, "4h") },
+        ]
+      : rules.timeframe === "1h"
+        ? [{ tfLabel: "4h", bars: resampleTo(bars, "4h") }]
+        : []
+    : undefined;
+
   const ctx: LlmTraderContext = {
     currentTimestamp: bars[bars.length - 1].date,
     bars,
@@ -1072,6 +1090,7 @@ async function evaluateLlmTraderEntry(
       : null,
     timeframe: rules.timeframe,
     recentOutcomes,
+    higherTfBars,
   };
   const evaluation = await evaluateLlmTrader(llmConfig, ctx);
   const decision = evaluation.decision;
