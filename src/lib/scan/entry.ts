@@ -236,6 +236,11 @@ async function openPosition(
       current_price: currentPrice,
       entry_reason: entryReason,
       stop_loss_price: stopLossPrice,
+      // Write-once snapshot of the entry-to-SL distance. stop_loss_price
+      // gets mutated by LLM `move_be` decisions, which destroys the
+      // original 1R needed to compute R-multiples on close. Read this
+      // when 1R must reflect entry-time risk (audit, halts).
+      initial_stop_loss_price: stopLossPrice,
       take_profit_price: takeProfitPrice,
     })
     .select("id")
@@ -1178,7 +1183,12 @@ async function evaluateLlmTraderEntry(
       });
       return { opened: 0 };
     }
-    const slDistance = Math.abs(entryPrice - stopPrice);
+    // Use initial SL distance for the +1R gate so a second move_be on the
+    // same trade doesn't divide by zero (after the first BE move,
+    // stop_loss_price == entry_price). Falls back to current SL for
+    // legacy rows opened before migration 00032.
+    const initialStop = currentPosition.initial_stop_loss_price ?? stopPrice;
+    const slDistance = Math.abs(entryPrice - Number(initialStop));
     const currentPnlR =
       currentPosition.side === "long"
         ? (currentPrice - entryPrice) / slDistance

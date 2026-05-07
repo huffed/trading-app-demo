@@ -134,6 +134,12 @@ interface BackfillPaperRow {
   side: "long" | "short";
   entry_price: number;
   stop_loss_price: number;
+  /** Entry-time SL price, snapshotted at insert and never mutated. Used
+   *  for R-multiple math so BE-moved trades still produce the correct
+   *  multiple on close. Null on legacy rows opened before migration
+   *  00032 — fall back to stop_loss_price (which equals the original
+   *  for any non-BE-moved trade). */
+  initial_stop_loss_price: number | null;
   exit_price: number;
   exit_reason: string;
   realized_pnl: number;
@@ -159,7 +165,7 @@ export async function backfillClosedTradeOutcomes(
   const { data, error } = await supabase
     .from("llm_decisions")
     .select(
-      `id, paper_position_id, paper_positions!inner(side, entry_price, stop_loss_price, exit_price, exit_reason, realized_pnl, closed_at, status)`
+      `id, paper_position_id, paper_positions!inner(side, entry_price, stop_loss_price, initial_stop_loss_price, exit_price, exit_reason, realized_pnl, closed_at, status)`
     )
     .is("trade_outcome", null)
     .not("paper_position_id", "is", null)
@@ -178,8 +184,9 @@ export async function backfillClosedTradeOutcomes(
       ? row.paper_positions[0]
       : row.paper_positions;
     if (!pp) continue;
+    const slForR = pp.initial_stop_loss_price ?? pp.stop_loss_price;
     const outcome: DecisionOutcome = {
-      r_multiple: computeRMultiple(pp.side, pp.entry_price, pp.stop_loss_price, pp.exit_price),
+      r_multiple: computeRMultiple(pp.side, pp.entry_price, slForR, pp.exit_price),
       exit_reason: pp.exit_reason,
       realized_pnl: pp.realized_pnl,
       side: pp.side,

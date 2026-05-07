@@ -28,6 +28,12 @@ export interface PaperPosition {
   entry_reason: EntryReason;
   exit_reason: ExitReason | null;
   stop_loss_price: number | null;
+  /** Entry-time SL price, snapshotted at insert. Unlike stop_loss_price
+   *  it is never mutated — `move_be` and any future trailing-SL logic
+   *  only touch stop_loss_price. Read this when 1R must reflect the
+   *  entry-to-SL distance the trade was opened with (R-multiple math,
+   *  loss-magnitude gates). Null on rows opened before migration 00032. */
+  initial_stop_loss_price: number | null;
   take_profit_price: number | null;
   status: PositionStatus;
   // Live broker mirror — populated only when algorithm has live trading on.
