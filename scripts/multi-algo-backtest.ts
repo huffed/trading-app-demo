@@ -85,7 +85,7 @@ import { resampleTo, alignBarIndex } from "../src/lib/market-data/resample";
 export interface AlgoConfig {
   algoId: string;
   label: string;
-  timeframe: "4h" | "30m";
+  timeframe: "4h" | "30m" | "15m";
   promptVersion: PromptVersion;
   riskPerTradePct: number;
   maxPositions: number;
@@ -313,10 +313,11 @@ async function processAlgoAtBar(
   const dxyContext = summariseDxy(corpus.eurusd4h, bar.date);
   const intermarketContext = summariseIntermarket(corpus.intermarket, bar.close, bar.date);
   const positionContext = summarisePosition(currentPos, bar.close);
-  // v5 prompt expects multi-TF context. Caller decides which TFs to pass
-  // (passes empty array when algo isn't on v5).
+  // v5 + v5_15m prompts expect multi-TF context. Caller decides which
+  // TFs to pass (passes empty array when algo isn't on a multi-TF prompt).
   const higherTfContext =
-    algo.promptVersion === "v5" && higherTfBars.length > 0
+    (algo.promptVersion === "v5" || algo.promptVersion === "v5_15m") &&
+    higherTfBars.length > 0
       ? summariseHigherTfStructure(higherTfBars, bar.date)
       : "";
   const higherTfLine = higherTfContext ? `\n${higherTfContext}` : "";
@@ -505,6 +506,19 @@ async function main(): Promise<void> {
   }
   console.log("");
 
+  // 15m algos aren't supported in this harness yet — the iteration
+  // cadence is 30m, so a 15m algo would silently receive 30m bars and
+  // misread its own context. Fail fast with a clear pointer to the
+  // single-algo harness, which DOES support 15m primary natively.
+  const has15m = configs.some((c) => c.timeframe === "15m");
+  if (has15m) {
+    throw new Error(
+      "Multi-algo harness corpus is 30m; 15m algos can't run here yet. " +
+        "Use scripts/llm-trader-backtest.ts (TIMEFRAME=15m) for 15m WF, " +
+        "or extend this harness to load 15m as base when any algo is 15m."
+    );
+  }
+
   // Load shared corpus (use 30m as the iteration cadence — finest TF)
   console.log("Loading shared corpus (30m)...");
   const corpus = await loadCorpus("30m");
@@ -559,19 +573,24 @@ async function main(): Promise<void> {
     for (const algo of configs) {
       if (!shouldFireAt(algo, bar.date)) continue;
       const algoBars = algoBarsByTf.get(algo.timeframe) ?? corpus.bars;
-      // For v5 on 30m primary: pass 1h + 4h higher-TF bars. For v5 on
-      // 4h primary: pass nothing (D1 already in summariseDailyBias and
-      // v5's override rule references 1h/4h vs D1, which doesn't fit
-      // the 4h-primary use case). For non-v5 algos: empty array
-      // (the processor gates internally on promptVersion === "v5"
-      // anyway; this keeps the wiring explicit).
+      // Higher-TF context pairings:
+      //   v5 + 30m primary    → 1h + 4h
+      //   v5_15m + 15m primary → 30m + 1h
+      //   anything else        → empty (the processor gates internally
+      //                          on the prompt version, so this is just
+      //                          explicit wiring)
       const higherTfBars: { tfLabel: string; bars: PriceBar[] }[] =
         algo.promptVersion === "v5" && algo.timeframe === "30m"
           ? [
               { tfLabel: "1h", bars: algoBarsByTf.get("1h") ?? [] },
               { tfLabel: "4h", bars: algoBarsByTf.get("4h") ?? [] },
             ]
-          : [];
+          : algo.promptVersion === "v5_15m" && algo.timeframe === "15m"
+            ? [
+                { tfLabel: "30m", bars: algoBarsByTf.get("30m") ?? [] },
+                { tfLabel: "1h", bars: algoBarsByTf.get("1h") ?? [] },
+              ]
+            : [];
       await processAlgoAtBar(
         algo,
         state,
