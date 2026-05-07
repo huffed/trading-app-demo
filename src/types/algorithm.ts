@@ -507,13 +507,8 @@ export interface AlgorithmRules {
      *    30m + 1h (vs v5's 1h + 4h on 30m primary). Tighter momentum
      *    triggers (+0.25% vs +0.4%), 3-8 bar setup window (vs 4-12),
      *    explicit London/NY-open emphasis where 15m's edge concentrates.
-     *  - "v6_15m": v5_15m + ICT/SMC framework (kill zones by name,
-     *    Power-of-3 narrative, OTE retracement entries, news-spike
-     *    behavior). Pure prompt iteration — no context-builder code
-     *    changes. Targets gaps where v5_15m didn't surface 15m-specific
-     *    framing in its decisions.
      *  Defaults to v2 in production when unspecified. */
-    prompt_version?: "v1" | "v2" | "v3" | "v4" | "v5" | "v5_15m" | "v6_15m";
+    prompt_version?: "v1" | "v2" | "v3" | "v4" | "v5" | "v5_15m";
     /** Dry-run: log the LLM's decision to activity_log but do NOT
      *  actually open/close positions. Used for the first 1-2 cycles of
      *  live deployment to verify the LLM behaves sensibly on real-time

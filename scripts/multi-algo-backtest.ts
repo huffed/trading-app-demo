@@ -316,9 +316,7 @@ async function processAlgoAtBar(
   // v5 + v5_15m prompts expect multi-TF context. Caller decides which
   // TFs to pass (passes empty array when algo isn't on a multi-TF prompt).
   const higherTfContext =
-    (algo.promptVersion === "v5" ||
-      algo.promptVersion === "v5_15m" ||
-      algo.promptVersion === "v6_15m") &&
+    (algo.promptVersion === "v5" || algo.promptVersion === "v5_15m") &&
     higherTfBars.length > 0
       ? summariseHigherTfStructure(higherTfBars, bar.date)
       : "";
@@ -587,9 +585,7 @@ async function main(): Promise<void> {
               { tfLabel: "1h", bars: algoBarsByTf.get("1h") ?? [] },
               { tfLabel: "4h", bars: algoBarsByTf.get("4h") ?? [] },
             ]
-          : (algo.promptVersion === "v5_15m" ||
-                algo.promptVersion === "v6_15m") &&
-              algo.timeframe === "15m"
+          : algo.promptVersion === "v5_15m" && algo.timeframe === "15m"
             ? [
                 { tfLabel: "30m", bars: algoBarsByTf.get("30m") ?? [] },
                 { tfLabel: "1h", bars: algoBarsByTf.get("1h") ?? [] },
