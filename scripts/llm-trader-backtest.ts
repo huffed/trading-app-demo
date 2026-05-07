@@ -1594,11 +1594,14 @@ async function main(): Promise<void> {
 
   // Save full audit trail (existing CLI behavior preserved). File names
   // include the prompt version so v1 vs v2 runs don't overwrite each other.
-  const decisionLogPath = `scripts/llm-trader-decisions-${provider}-${timeframe}-${sliceDays}d-${promptVersion}.jsonl`;
+  // OUTPUT_TAG appends a suffix so parallel runs (different windows /
+  // configs) don't clobber each other's audit + trade logs.
+  const outputTag = process.env.OUTPUT_TAG ? `-${process.env.OUTPUT_TAG}` : "";
+  const decisionLogPath = `scripts/llm-trader-decisions-${provider}-${timeframe}-${sliceDays}d-${promptVersion}${outputTag}.jsonl`;
   writeFileSync(decisionLogPath, result.decisions.map((d) => JSON.stringify(d)).join("\n"));
   console.log(`Decision audit trail: ${decisionLogPath} (${result.decisions.length} entries)`);
 
-  const tradeLogPath = `scripts/llm-trader-trades-${provider}-${timeframe}-${sliceDays}d-${promptVersion}.jsonl`;
+  const tradeLogPath = `scripts/llm-trader-trades-${provider}-${timeframe}-${sliceDays}d-${promptVersion}${outputTag}.jsonl`;
   writeFileSync(tradeLogPath, result.trades.map((t) => JSON.stringify(t)).join("\n"));
   console.log(`Trade log: ${tradeLogPath} (${result.trades.length} entries)`);
 }

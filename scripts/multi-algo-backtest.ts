@@ -52,6 +52,7 @@ import {
   computeSlForBacktest,
   computeTpForBacktest,
   summariseDailyBias,
+  summariseHigherTfStructure,
   summariseRecentBars,
   summariseDxy,
   summariseIntermarket,
@@ -275,7 +276,12 @@ async function processAlgoAtBar(
   // Intraday (30m) gets the raw 30m corpus. Without this, v1's context
   // builder receives 30m bars but the prompt says "4h trader" — causing
   // 50% parse-fail (LLM confused by TF mismatch).
-  algoBars: PriceBar[]
+  algoBars: PriceBar[],
+  // Higher-TF bar series for v5 multi-TF context. Caller passes the
+  // full map; processor selects based on algo's primary TF. For 30m
+  // primary on v5 → 1h + 4h. For 4h primary v5 wouldn't add value
+  // (D1 already in summariseDailyBias) — caller passes empty here.
+  higherTfBars: { tfLabel: string; bars: PriceBar[] }[]
 ): Promise<void> {
   const bar = windowBars[windowBarIdx];
   // Find this algo's open position (if any). Multi-algo means each algo
@@ -307,7 +313,14 @@ async function processAlgoAtBar(
   const dxyContext = summariseDxy(corpus.eurusd4h, bar.date);
   const intermarketContext = summariseIntermarket(corpus.intermarket, bar.close, bar.date);
   const positionContext = summarisePosition(currentPos, bar.close);
-  const userMessage = `${bar.date.slice(0, 16)}\n${dailyContext}\n${dxyContext}\n${intermarketContext}\n${recentContext}\nPosition: ${positionContext}\nDecide.`;
+  // v5 prompt expects multi-TF context. Caller decides which TFs to pass
+  // (passes empty array when algo isn't on v5).
+  const higherTfContext =
+    algo.promptVersion === "v5" && higherTfBars.length > 0
+      ? summariseHigherTfStructure(higherTfBars, bar.date)
+      : "";
+  const higherTfLine = higherTfContext ? `\n${higherTfContext}` : "";
+  const userMessage = `${bar.date.slice(0, 16)}\n${dailyContext}\n${dxyContext}\n${intermarketContext}\n${recentContext}${higherTfLine}\nPosition: ${positionContext}\nDecide.`;
 
   const systemPrompt = getPrompt(algo.promptVersion);
 
@@ -521,7 +534,12 @@ async function main(): Promise<void> {
   const algoBarsByTf = new Map<string, PriceBar[]>();
   algoBarsByTf.set("30m", corpus.bars);
   algoBarsByTf.set("4h", resampleTo(corpus.bars, "4h"));
-  console.log(`  resampled bars: 30m=${corpus.bars.length}, 4h=${algoBarsByTf.get("4h")?.length ?? 0}`);
+  // 1h is also pre-resampled because v5 multi-TF context for 30m primary
+  // surfaces 1h structure as part of the override signal.
+  algoBarsByTf.set("1h", resampleTo(corpus.bars, "1h"));
+  console.log(
+    `  resampled bars: 30m=${corpus.bars.length}, 1h=${algoBarsByTf.get("1h")?.length ?? 0}, 4h=${algoBarsByTf.get("4h")?.length ?? 0}`
+  );
   console.log("");
 
   console.log(`Replaying ${numBars} bars with ${configs.length} algos in parallel...`);
@@ -538,6 +556,19 @@ async function main(): Promise<void> {
     for (const algo of configs) {
       if (!shouldFireAt(algo, bar.date)) continue;
       const algoBars = algoBarsByTf.get(algo.timeframe) ?? corpus.bars;
+      // For v5 on 30m primary: pass 1h + 4h higher-TF bars. For v5 on
+      // 4h primary: pass nothing (D1 already in summariseDailyBias and
+      // v5's override rule references 1h/4h vs D1, which doesn't fit
+      // the 4h-primary use case). For non-v5 algos: empty array
+      // (the processor gates internally on promptVersion === "v5"
+      // anyway; this keeps the wiring explicit).
+      const higherTfBars: { tfLabel: string; bars: PriceBar[] }[] =
+        algo.promptVersion === "v5" && algo.timeframe === "30m"
+          ? [
+              { tfLabel: "1h", bars: algoBarsByTf.get("1h") ?? [] },
+              { tfLabel: "4h", bars: algoBarsByTf.get("4h") ?? [] },
+            ]
+          : [];
       await processAlgoAtBar(
         algo,
         state,
@@ -547,7 +578,8 @@ async function main(): Promise<void> {
         bi,
         provider,
         clients,
-        algoBars
+        algoBars,
+        higherTfBars
       );
     }
 
