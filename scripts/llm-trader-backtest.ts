@@ -1104,7 +1104,10 @@ export async function runWindow(opts: WindowOptions): Promise<WindowResult> {
   //   30m primary → 1h + 4h (v5)
   //   15m primary → 30m + 1h (v5_15m)
   //   1h primary  → 4h only (degraded — only for ad-hoc experimentation)
-  const useMultiTf = promptVersion === "v5" || promptVersion === "v5_15m";
+  const useMultiTf =
+    promptVersion === "v5" ||
+    promptVersion === "v5_15m" ||
+    promptVersion === "v6_15m";
   const higherTfBars: { tfLabel: string; bars: PriceBar[] }[] = useMultiTf
     ? timeframe === "30m"
       ? [
@@ -1551,10 +1554,11 @@ async function main(): Promise<void> {
     promptVersionRaw !== "v3" &&
     promptVersionRaw !== "v4" &&
     promptVersionRaw !== "v5" &&
-    promptVersionRaw !== "v5_15m"
+    promptVersionRaw !== "v5_15m" &&
+    promptVersionRaw !== "v6_15m"
   ) {
     throw new Error(
-      `Unsupported PROMPT_VERSION=${promptVersionRaw}. Use v1, v2, v3, v4, v5, or v5_15m.`
+      `Unsupported PROMPT_VERSION=${promptVersionRaw}. Use v1, v2, v3, v4, v5, v5_15m, or v6_15m.`
     );
   }
   const promptVersion: PromptVersion = promptVersionRaw;
