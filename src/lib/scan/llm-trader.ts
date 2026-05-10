@@ -80,6 +80,10 @@ export interface LlmTraderContext {
     entryPrice: number;
     entryDate: string;
     stopPrice?: number;
+    /** Entry-time SL — used for R-multiple math so a BE-moved stop
+     *  doesn't make R look infinite. Falls back to stopPrice when
+     *  absent (legacy rows pre-migration 00032). */
+    initialStopPrice?: number;
     targetPrice?: number;
   } | null;
   /** Primary timeframe label for the prompt (e.g. "4h"). */
@@ -281,7 +285,26 @@ function summarisePosition(position: LlmTraderContext["position"], currentPrice:
       : ((position.entryPrice - currentPrice) / position.entryPrice) * 100;
   const sl = position.stopPrice ? `SL ${position.stopPrice.toFixed(0)}` : "SL n/a";
   const tp = position.targetPrice ? `TP ${position.targetPrice.toFixed(0)}` : "TP n/a";
-  return `${position.side.toUpperCase()} from ${position.entryPrice.toFixed(0)}, cur ${currentPrice.toFixed(0)}, P&L ${pnlPct >= 0 ? "+" : ""}${pnlPct.toFixed(2)}%, ${sl}/${tp}.`;
+  // R-multiple — compute against the entry-time SL distance so BE-moves
+  // don't change the denominator. The engine's move_be gate uses this
+  // exact figure, and the LLM was previously hallucinating R from
+  // assumed "typical" stop widths instead of reading the actual SL —
+  // surface it explicitly so the model has nothing to guess.
+  const slForR = position.initialStopPrice ?? position.stopPrice;
+  let rTag = "";
+  if (slForR && slForR !== position.entryPrice) {
+    const slDistance = Math.abs(position.entryPrice - slForR);
+    const currentR =
+      position.side === "long"
+        ? (currentPrice - position.entryPrice) / slDistance
+        : (position.entryPrice - currentPrice) / slDistance;
+    const oneRPrice =
+      position.side === "long"
+        ? position.entryPrice + slDistance
+        : position.entryPrice - slDistance;
+    rTag = `, R ${currentR >= 0 ? "+" : ""}${currentR.toFixed(2)} (+1R at ${oneRPrice.toFixed(0)})`;
+  }
+  return `${position.side.toUpperCase()} from ${position.entryPrice.toFixed(0)}, cur ${currentPrice.toFixed(0)}, P&L ${pnlPct >= 0 ? "+" : ""}${pnlPct.toFixed(2)}%${rTag}, ${sl}/${tp}.`;
 }
 
 /** Build the user-message context string + capture the regime tag.
@@ -354,13 +377,16 @@ async function callAnthropic(
   systemPrompt: string,
   context: string
 ): Promise<LlmTraderDecision | null> {
-  // max_tokens raised 200 → 600 after backtest fail-dump diagnosis
-  // (2026-05-05) revealed Haiku's verbose markdown analyses + ```json
-  // wrappers were running out of token budget mid-response. Live was
-  // silently dropping ~10-20% of decisions for the same reason.
+  // max_tokens raised 200 → 600 (2026-05-05) → 1000 (2026-05-08) after
+  // multi-algo analog-backtest fail-dump diagnosis showed v2 prompt at
+  // 28% parse-fail rate even at 600. Long markdown analysis + ```json
+  // wrappers regularly exceeded 600 tokens, truncating mid-JSON. 1000
+  // covers >99% of observed responses without appreciably increasing
+  // cost (extra tokens are output, not input — incremental cost ~$0.002
+  // per failed-then-retried call).
   const res = await client.messages.create({
     model,
-    max_tokens: 600,
+    max_tokens: 1000,
     system: systemPrompt,
     messages: [{ role: "user", content: context }],
   });
@@ -384,7 +410,7 @@ async function callGroq(
       { role: "user", content: context },
     ],
     response_format: { type: "json_object" },
-    max_tokens: 600,
+    max_tokens: 1000,
     temperature: 0.2,
   });
   const text = res.choices[0]?.message?.content ?? "{}";
