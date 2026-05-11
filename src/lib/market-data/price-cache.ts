@@ -1,5 +1,4 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-import { createClient } from "@/lib/supabase/server";
 import type { BarInterval } from "./interval";
 import type { PriceBar } from "./types";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -33,7 +32,12 @@ export async function getCachedPrices(
   outputSize: string,
   interval: BarInterval = "1day"
 ): Promise<PriceBar[] | null> {
-  const supabase = await createClient();
+  // Use the admin client for reads too — the cache is global, and the
+  // cron HTTP path has no auth session (would hit the RLS deny branch
+  // on every tick). The "read-for-authenticated" RLS policy is kept as
+  // defense-in-depth for any future call site that opts back into the
+  // user-scoped server client.
+  const supabase = createAdminClient() as unknown as SupabaseClient;
   const ttlHours = interval === "1day" ? DAILY_TTL_HOURS : INTRADAY_TTL_HOURS;
   const cutoff = new Date(Date.now() - ttlHours * 60 * 60 * 1000).toISOString();
 
@@ -47,8 +51,9 @@ export async function getCachedPrices(
     .limit(1)
     .single();
 
-  if (!data) return null;
-  return data.bars as PriceBar[];
+  const row = data as { bars: PriceBar[] } | null;
+  if (!row) return null;
+  return row.bars;
 }
 
 /**
