@@ -1,6 +1,7 @@
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import type { BarInterval } from "./interval";
 import type { PriceBar } from "./types";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 // Daily bars refresh once per market day, intraday bars far more often.
 // Tighter TTL on intraday so live signals don't act on stale data.
@@ -31,7 +32,12 @@ export async function getCachedPrices(
   outputSize: string,
   interval: BarInterval = "1day"
 ): Promise<PriceBar[] | null> {
-  const supabase = await createClient();
+  // Use the admin client for reads too — the cache is global, and the
+  // cron HTTP path has no auth session (would hit the RLS deny branch
+  // on every tick). The "read-for-authenticated" RLS policy is kept as
+  // defense-in-depth for any future call site that opts back into the
+  // user-scoped server client.
+  const supabase = createAdminClient() as unknown as SupabaseClient;
   const ttlHours = interval === "1day" ? DAILY_TTL_HOURS : INTRADAY_TTL_HOURS;
   const cutoff = new Date(Date.now() - ttlHours * 60 * 60 * 1000).toISOString();
 
@@ -45,24 +51,29 @@ export async function getCachedPrices(
     .limit(1)
     .single();
 
-  if (!data) return null;
-  return data.bars as PriceBar[];
+  const row = data as { bars: PriceBar[] } | null;
+  if (!row) return null;
+  return row.bars;
 }
 
 /**
  * Merge `newBars` into the existing cached row by date — newer wins on
  * overlap, oldest dropped on overflow.
  *
- * Why: the unique key `(user_id, ticker, output_size, interval)` is
- * shared across the OANDA deep-history backfill (~28K bars on 30m) and
- * the live cron's Twelve Data fetch (5000 bars). A naive overwrite-upsert
- * truncated the deep tail every time the cron rehydrated the cache,
- * silently destroying the multi-year corpus the validation harnesses
- * depend on. Merge-on-write makes the cache append-only at the tail
- * while still letting live writes refresh the head.
+ * Why: the unique key `(ticker, output_size, interval)` is shared across
+ * the OANDA deep-history backfill (~28K bars on 30m) and the live cron's
+ * Twelve Data fetch (5000 bars). A naive overwrite-upsert truncated the
+ * deep tail every time the cron rehydrated the cache, silently destroying
+ * the multi-year corpus the validation harnesses depend on. Merge-on-write
+ * makes the cache append-only at the tail while still letting live writes
+ * refresh the head.
  *
- * One extra round-trip per write — fine because every caller fires this
- * off the hot path (`.catch(() => {})` after returning a response).
+ * Writes go through the service-role admin client so the cron path
+ * (which has no auth session) can refresh the cache. Reads stay on the
+ * authenticated server client so the operator's UI flows hit the same
+ * RLS-gated read policy as everywhere else. Two round-trips per write —
+ * fine because every caller fires this off the hot path
+ * (`.catch(() => {})` after returning a response).
  */
 export async function savePricesToCache(
   ticker: string,
@@ -70,12 +81,9 @@ export async function savePricesToCache(
   bars: PriceBar[],
   interval: BarInterval = "1day"
 ): Promise<void> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return;
-
+  // Cast to the untyped SupabaseClient so insert/upsert payloads aren't
+  // narrowed to `never` (the codebase doesn't generate DB types yet).
+  const supabase = createAdminClient() as unknown as SupabaseClient;
   const tickerUpper = ticker.toUpperCase();
 
   // Read the existing JSONB so we can merge against it. Skip the
@@ -85,13 +93,13 @@ export async function savePricesToCache(
   const { data: existing } = await supabase
     .from("price_cache")
     .select("bars")
-    .eq("user_id", user.id)
     .eq("ticker", tickerUpper)
     .eq("output_size", outputSize)
     .eq("interval", interval)
     .maybeSingle();
 
-  const existingBars = (existing?.bars as PriceBar[] | undefined) ?? [];
+  const existingRow = existing as { bars: PriceBar[] } | null;
+  const existingBars = existingRow?.bars ?? [];
 
   // Dedupe by date string. Map insertion order is preserved, so we seed
   // with the existing bars (oldest → newest) and overlay the new ones —
@@ -115,7 +123,6 @@ export async function savePricesToCache(
 
   await supabase.from("price_cache").upsert(
     {
-      user_id: user.id,
       ticker: tickerUpper,
       output_size: outputSize,
       interval,
@@ -123,6 +130,6 @@ export async function savePricesToCache(
       bar_count: capped.length,
       fetched_at: new Date().toISOString(),
     },
-    { onConflict: "user_id,ticker,output_size,interval" }
+    { onConflict: "ticker,output_size,interval" }
   );
 }
