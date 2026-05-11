@@ -1348,20 +1348,35 @@ async function evaluateLlmTraderEntry(
   const llmSide: "long" | "short" =
     decision.decision === "enter_long" ? "long" : "short";
 
-  // RANGING regime block. Empirical finding (beyr1223h 30d): RANGING
-  // regime entries went 0/4, -$2,217 cumulative, 0% WR. v3 prompt has
-  // a soft "RANGING block" rule but the LLM doesn't reliably follow it
-  // — it still emits enter_long / enter_short ~3% of bars in RANGING.
-  // Hard-block at the gate level. When market structure is ambiguous
-  // (neither HH nor LH on D1), neither direction has positive expected
-  // value in this prompt + setup combo. Hold or wait for regime shift.
-  if (evaluation.regime === "RANGING") {
+  // RANGING regime block — applies only to prompt versions WITHOUT
+  // multi-TF override logic (v1-v4). Empirical finding for v3 specifically
+  // (beyr1223h 30d): RANGING entries went 0/4, -$2,217 cumulative, 0% WR.
+  // v3 has a soft "RANGING block" rule the LLM doesn't reliably follow,
+  // so we hard-block at the gate level for v1-v4.
+  //
+  // v5 + v5_15m prompts DO have explicit multi-TF override logic — they
+  // can override a D1 RANGING regime when 30m+1h (v5) or 30m+1h (v5_15m)
+  // both agree on direction. Hard-blocking those prompts defeats the
+  // whole design of the override. Trust the LLM's nuanced regime read
+  // when it has the multi-TF data to make it.
+  //
+  // Incident 2026-05-11: 15m (v5_15m) + 30m (v5) both correctly called
+  // MULTI-TF OVERRIDE long at 12:15 UTC (D1=RANGING, 30m=HH, 1h=HH,
+  // +0.71% momentum) — both blocked by this gate. The LLM was right;
+  // the gate was applying v3 calibration to prompts that have moved on.
+  //
+  // Schema note: prompt_version defaults to v2 when unset
+  // (DEFAULT_PROMPT_VERSION in llm-trader-prompts.ts). Undefined treated
+  // as legacy (block applies).
+  const hasMultiTfOverride =
+    llmConfig.prompt_version === "v5" || llmConfig.prompt_version === "v5_15m";
+  if (evaluation.regime === "RANGING" && !hasMultiTfOverride) {
     await logActivity(supabase, userId, {
       algorithm_id: algo.id,
       event_type: "signal_no_action",
       ticker,
       details: {
-        reason: "RANGING regime block: 0/4 historical WR (-$2,217 in beyr1223h 30d). Chop regime has structurally negative EV for v3 prompt — hold and wait for regime shift.",
+        reason: `RANGING regime block: 0/4 historical WR (-$2,217 in beyr1223h 30d). Chop regime has structurally negative EV for ${llmConfig.prompt_version ?? "legacy"} prompt — hold and wait for regime shift.`,
         source: "llm_trader",
         regime: evaluation.regime,
         confidence: decision.confidence,
