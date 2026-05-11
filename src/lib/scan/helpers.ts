@@ -129,7 +129,7 @@ export async function logActivity(
   supabase: SupabaseClient,
   userId: string,
   entry: {
-    algorithm_id: string;
+    algorithm_id: string | null;
     position_id?: string;
     event_type: string;
     ticker?: string;
