@@ -951,107 +951,131 @@ async function evaluateLlmTraderEntry(
   // Operator-triggered "Scan now" passes force=true to bypass — the
   // explicit click is the operator asking for a snapshot evaluation
   // even mid-bar; the silent-skip behaviour was confusing on the UI.
+  // The bar-close gate applies to BOTH entry and management scans —
+  // mid-bar context is bad regardless of position state.
   if (!force && !isBarCloseScan(rules.timeframe)) {
     return { opened: 0 };
   }
 
-  // Dead-hour gate — empirically blocks two specific UTC hours.
+  // Load the position FIRST so the entry-side gates below can be
+  // conditionally skipped when a position is open. The entry-side
+  // gates (dead-hour, ATR liquidity, news veto, consec halt, consistency
+  // halt) all exist to REFUSE NEW ENTRIES in unfavourable conditions.
+  // They were previously running unconditionally, which silently muzzled
+  // the LLM's ability to manage existing positions during exactly the
+  // periods where management matters most (post-weekend gap dead-vol,
+  // pre-news drift, London close).
   //
-  // Originally calibrated as "04-05 UTC Asia early-morning chop" against
-  // backtests where Twelve Data returned XAU/USD bars in Sydney local
-  // time (UTC+10) but the code parsed them as UTC. Sydney 04-05 is
-  // actually 18-19 UTC the previous day — i.e. London close, not
-  // Asia chop. The empirical evidence (0/7 WR across two 30d backtests
-  // + a -1R live loss on 2026-05-05) was sound; just labeled wrong.
+  // Incident 2026-05-11: 4h XAU/USD long hit a $365 SL after the ATR
+  // gate skipped 3 consecutive LLM calls across the Sunday-open →
+  // Monday-pre-dump window (ATR 22.18, 16.32, 17.33 — all below 20th
+  // percentile). The model never got the chance to evaluate exit /
+  // move_be before the structural stop fired at 05:46 UTC.
   //
-  // Now that Twelve Data is fetched with `timezone=UTC`, bar timestamps
-  // are honest UTC. The hour comparison shifts to 18, 19 to preserve
-  // the same real-world hours that were validated. Revisit calibration
-  // (proper analysis on UTC-stamped bars) when there's a reason to —
-  // Asia chop may or may not be a real concern that the original
-  // analysis would have caught had timezones been correct.
-  const utcHour = new Date(bars[bars.length - 1].date).getUTCHours();
-  if (utcHour === 18 || utcHour === 19) {
-    await logActivity(supabase, userId, {
-      algorithm_id: algo.id,
-      event_type: "signal_no_action",
-      ticker,
-      details: {
-        reason: `Dead-hour gate: ${utcHour}:00 UTC (London close) — 0/7 historic WR across two 30d backtests + first live loss; calibration was on Sydney-time bars (now corrected) so block hours are 18-19 UTC, originally labeled 04-05`,
-        source: "llm_trader",
-        utc_hour: utcHour,
-      },
-    });
-    return { opened: 0 };
-  }
+  // Fix: gates only block when there's no open position. When in trade,
+  // the LLM is always called so it can hold / exit / move_be. The gates
+  // still log signal_no_action so the audit trail is preserved.
+  const currentPosition =
+    allOpenPositions.find((p) => p.algorithm_id === algo.id && p.ticker === ticker) ?? null;
 
-  // ---- Defensive pre-gates (mirror evaluateEntry) ----
-
+  // ATR liquidity is computed unconditionally so its values can be
+  // surfaced in the signal_detected log later. The skip/refuse behaviour
+  // only applies when there's no open position (entry-side gate).
   const liquidity = checkAtrLiquidity(bars, bars.length - 1);
-  if (liquidity.skip) {
-    await logActivity(supabase, userId, {
-      algorithm_id: algo.id,
-      event_type: "signal_no_action",
-      ticker,
-      details: {
-        reason: liquidity.reason ?? "ATR liquidity gate triggered",
-        source: "llm_trader",
-        atr_current: liquidity.atr_current,
-        atr_threshold: liquidity.atr_threshold,
-      },
-    });
-    return { opened: 0 };
-  }
 
-  const veto = await checkNewsVeto(rules, ticker);
-  if (veto.vetoed) {
-    await logActivity(supabase, userId, {
-      algorithm_id: algo.id,
-      event_type: "signal_no_action",
-      ticker,
-      details: { reason: `News veto: ${veto.reason}`, source: "llm_trader" },
-    });
-    return { opened: 0 };
-  }
-
-  const consecHalt = rules.prop_firm?.consecutive_loss_daily_halt ?? 0;
-  if (consecHalt > 0) {
-    const halt = await checkConsecutiveLossHalt(supabase, algo.id, consecHalt);
-    if (halt.tripped) {
+  if (!currentPosition) {
+    // Dead-hour gate — empirically blocks two specific UTC hours.
+    //
+    // Originally calibrated as "04-05 UTC Asia early-morning chop" against
+    // backtests where Twelve Data returned XAU/USD bars in Sydney local
+    // time (UTC+10) but the code parsed them as UTC. Sydney 04-05 is
+    // actually 18-19 UTC the previous day — i.e. London close, not
+    // Asia chop. The empirical evidence (0/7 WR across two 30d backtests
+    // + a -1R live loss on 2026-05-05) was sound; just labeled wrong.
+    //
+    // Now that Twelve Data is fetched with `timezone=UTC`, bar timestamps
+    // are honest UTC. The hour comparison shifts to 18, 19 to preserve
+    // the same real-world hours that were validated.
+    const utcHour = new Date(bars[bars.length - 1].date).getUTCHours();
+    if (utcHour === 18 || utcHour === 19) {
       await logActivity(supabase, userId, {
         algorithm_id: algo.id,
         event_type: "signal_no_action",
         ticker,
         details: {
-          reason: `Consecutive-loss halt: ${halt.streak}/${halt.threshold} losses today`,
+          reason: `Dead-hour gate: ${utcHour}:00 UTC (London close) — 0/7 historic WR across two 30d backtests + first live loss; calibration was on Sydney-time bars (now corrected) so block hours are 18-19 UTC, originally labeled 04-05`,
           source: "llm_trader",
+          utc_hour: utcHour,
         },
       });
       return { opened: 0 };
     }
-  }
 
-  const consistencyPct = rules.prop_firm?.consistency_rule ?? 0;
-  if (consistencyPct > 0 && brokerCtx) {
-    const halt = await checkConsistencyHalt(supabase, algo.id, consistencyPct);
-    if (halt.tripped) {
+    // ---- Defensive pre-gates (mirror evaluateEntry) ----
+
+    if (liquidity.skip) {
       await logActivity(supabase, userId, {
         algorithm_id: algo.id,
         event_type: "signal_no_action",
         ticker,
         details: {
-          reason: `Consistency halt: today $${halt.today_net.toFixed(0)} = ${(halt.ratio * 100).toFixed(1)}% of total $${halt.total_net.toFixed(0)} (≥ ${(halt.threshold * 100).toFixed(0)}% limit)`,
+          reason: liquidity.reason ?? "ATR liquidity gate triggered",
           source: "llm_trader",
+          atr_current: liquidity.atr_current,
+          atr_threshold: liquidity.atr_threshold,
         },
       });
       return { opened: 0 };
+    }
+
+    const veto = await checkNewsVeto(rules, ticker);
+    if (veto.vetoed) {
+      await logActivity(supabase, userId, {
+        algorithm_id: algo.id,
+        event_type: "signal_no_action",
+        ticker,
+        details: { reason: `News veto: ${veto.reason}`, source: "llm_trader" },
+      });
+      return { opened: 0 };
+    }
+
+    const consecHalt = rules.prop_firm?.consecutive_loss_daily_halt ?? 0;
+    if (consecHalt > 0) {
+      const halt = await checkConsecutiveLossHalt(supabase, algo.id, consecHalt);
+      if (halt.tripped) {
+        await logActivity(supabase, userId, {
+          algorithm_id: algo.id,
+          event_type: "signal_no_action",
+          ticker,
+          details: {
+            reason: `Consecutive-loss halt: ${halt.streak}/${halt.threshold} losses today`,
+            source: "llm_trader",
+          },
+        });
+        return { opened: 0 };
+      }
+    }
+
+    const consistencyPct = rules.prop_firm?.consistency_rule ?? 0;
+    if (consistencyPct > 0 && brokerCtx) {
+      const halt = await checkConsistencyHalt(supabase, algo.id, consistencyPct);
+      if (halt.tripped) {
+        await logActivity(supabase, userId, {
+          algorithm_id: algo.id,
+          event_type: "signal_no_action",
+          ticker,
+          details: {
+            reason: `Consistency halt: today $${halt.today_net.toFixed(0)} = ${(halt.ratio * 100).toFixed(1)}% of total $${halt.total_net.toFixed(0)} (≥ ${(halt.threshold * 100).toFixed(0)}% limit)`,
+            source: "llm_trader",
+          },
+        });
+        return { opened: 0 };
+      }
     }
   }
 
   // ---- LLM call ----
-
-  const currentPosition =
-    allOpenPositions.find((p) => p.algorithm_id === algo.id && p.ticker === ticker) ?? null;
+  // currentPosition was loaded above (before the entry-side gates).
   // Layer 3 in-context reflection — pass the algo's recent track record
   // into the LLM context. Self-gates: returns null when <10 closed trades
   // exist, so it's silently omitted during the warm-up phase. Activates
