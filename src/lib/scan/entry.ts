@@ -6,7 +6,10 @@ import {
   convictionMultiplierByTfAgreement,
 } from "@/lib/algorithm/conviction-sizing";
 import { checkDxyDirection } from "@/lib/algorithm/dxy-filter";
+import { checkBarStaleness } from "@/lib/algorithm/bar-staleness-gate";
 import { checkAtrLiquidity } from "@/lib/algorithm/intraday-atr-gate";
+import { checkLivePriceDrift } from "@/lib/algorithm/live-price-drift-gate";
+import { checkReEntryCooldown } from "@/lib/algorithm/re-entry-cooldown";
 import { checkBrokerSpread, type SpreadGateResult } from "@/lib/algorithm/spread-gate";
 import {
   computeSlDistance,
@@ -957,6 +960,34 @@ async function evaluateLlmTraderEntry(
     return { opened: 0 };
   }
 
+  // Bar-staleness gate — refuse the LLM call entirely when the most
+  // recent bar is more than 1.5× the primary TF old. Catches the
+  // root cause behind the 2026-05-12 Trade #3 incident: the 30m
+  // price cache hadn't refreshed for ~60 min, so the LLM analyzed
+  // bars dated 00:30 at 01:30 UTC decision time, $25 below live
+  // price. Save the API spend AND don't manage an open position on
+  // stale data — both paths benefit from refusal here.
+  const lastBarDate = bars.length > 0 ? bars[bars.length - 1].date : null;
+  const staleness = checkBarStaleness({
+    timeframe: rules.timeframe,
+    lastBarDate,
+  });
+  if (staleness.block) {
+    await logActivity(supabase, userId, {
+      algorithm_id: algo.id,
+      event_type: "signal_no_action",
+      ticker,
+      details: {
+        reason: staleness.reason ?? "Bar-staleness gate triggered",
+        source: "llm_trader",
+        bar_age_minutes: staleness.bar_age_minutes,
+        threshold_minutes: staleness.threshold_minutes,
+        last_bar_date: staleness.last_bar_date,
+      },
+    });
+    return { opened: 0 };
+  }
+
   // Load the position FIRST so the entry-side gates below can be
   // conditionally skipped when a position is open. The entry-side
   // gates (dead-hour, ATR liquidity, news veto, consec halt, consistency
@@ -1054,6 +1085,35 @@ async function evaluateLlmTraderEntry(
         });
         return { opened: 0 };
       }
+    }
+
+    // Re-entry cooldown — refuses a new entry on this (algo, ticker)
+    // when a loss closed within the last primary-TF bar. Closes the
+    // race where the just-stopped trade hasn't yet incremented the
+    // consec-loss halt's count. See re-entry-cooldown.ts for incident
+    // context (2026-05-12 Trade #3 fired 19s after Trade #1 stopped).
+    const cooldown = await checkReEntryCooldown({
+      supabase,
+      algorithmId: algo.id,
+      ticker,
+      timeframe: rules.timeframe,
+    });
+    if (cooldown.block) {
+      await logActivity(supabase, userId, {
+        algorithm_id: algo.id,
+        event_type: "signal_no_action",
+        ticker,
+        details: {
+          reason: cooldown.reason ?? "Re-entry cooldown triggered",
+          source: "llm_trader",
+          cooldown_minutes: cooldown.cooldown_minutes,
+          elapsed_minutes: cooldown.elapsed_minutes,
+          last_close_id: cooldown.last_close_id,
+          last_exit_reason: cooldown.last_exit_reason,
+          last_realized_pnl: cooldown.last_realized_pnl,
+        },
+      });
+      return { opened: 0 };
     }
 
     const consistencyPct = rules.prop_firm?.consistency_rule ?? 0;
@@ -1462,6 +1522,42 @@ async function evaluateLlmTraderEntry(
       });
       return { opened: 0 };
     }
+  }
+
+  // Live-price drift gate — refuse when the broker's live quote has
+  // moved beyond threshold from the bar-close the LLM analyzed, in
+  // either direction. The LLM reasons about a snapshot of the last
+  // completed bar; if the unprinted current bar has moved >0.20% in
+  // either direction, the setup the LLM described no longer exists
+  // at the actual fill price. See live-price-drift-gate.ts for the
+  // 2026-05-12 incident that motivated this gate (top-tick on adverse
+  // drift) and the absolute-drift revision (falling-knife re-entry).
+  const barCloseForDrift = closes[closes.length - 1];
+  const drift = checkLivePriceDrift({
+    side: llmSide,
+    barClose: barCloseForDrift,
+    livePrice,
+  });
+  if (drift.block) {
+    await logActivity(supabase, userId, {
+      algorithm_id: algo.id,
+      event_type: "signal_no_action",
+      ticker,
+      details: {
+        reason: drift.reason ?? "Live-price drift gate triggered",
+        source: "llm_trader",
+        regime: evaluation.regime,
+        would_have_entered_side: llmSide,
+        confidence: decision.confidence,
+        llm_reasoning: decision.reasoning,
+        bar_close: drift.bar_close,
+        live_price: drift.live_price,
+        drift_pct: drift.drift_pct,
+        drift_abs_pct: drift.drift_abs_pct,
+        threshold_pct: drift.threshold_pct,
+      },
+    });
+    return { opened: 0 };
   }
 
   // Log the decision as a real signal_detected with full LLM trace
