@@ -50,6 +50,12 @@ export interface PaperPosition {
    *  position has no broker mirror or the most recent fetch failed. */
   broker_unrealized_pnl?: number | null;
   broker_pnl_synced_at?: string | null;
+  /** Timestamp at which broker truth (actual close fill + commission/swap-
+   *  inclusive realized P&L) was written back to this row. NULL on a
+   *  closed broker-mirrored position means the deferred reconciliation
+   *  pass will keep retrying `fetchClosedDealForPosition` until the deal
+   *  lands. NULL on paper-only or open rows is the steady state. */
+  broker_realized_synced_at?: string | null;
   created_at: string;
   updated_at: string;
 }
