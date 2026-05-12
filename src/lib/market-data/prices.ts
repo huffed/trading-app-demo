@@ -7,7 +7,13 @@
  *   3. API call via provider fallback chain
  *
  * Provider fallback chain:
- *   Twelve Data (800 credits/day) → Yahoo Finance (unlimited, unofficial) → Alpha Vantage (25 req/day)
+ *   OANDA (practice, unlimited) → Twelve Data (800 credits/day) → Yahoo Finance (unlimited, unofficial) → Alpha Vantage (25 req/day)
+ *
+ * OANDA promoted to head 2026-05-12 after Twelve Data repeatedly stalled
+ * on intraday refreshes (the bar-staleness gate refused every 15m/30m
+ * scan for hours that morning). OANDA's the same source we backfilled
+ * 27,718 30m bars from in 2026-05-06 with zero issues. Twelve Data
+ * stays as fallback so we don't lose redundancy.
  *
  * Callers should check the Supabase cache first (via getCachedPrices) before
  * calling this function. This function handles the in-memory cache and API fallback.
@@ -118,6 +124,15 @@ async function fetchWithFallback(
   interval: BarInterval
 ): Promise<PriceBar[]> {
   const providerErrors: string[] = [];
+
+  try {
+    const { fetchDailyPrices: fromOanda } = await import("./oanda");
+    return await fromOanda(symbol, outputSize, interval);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    providerErrors.push(`oanda: ${msg}`);
+    console.warn(`[prices] OANDA failed for ${symbol}: ${msg}`);
+  }
 
   try {
     const { fetchDailyPrices: fromTwelveData } = await import("./twelve-data");
