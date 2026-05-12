@@ -31,6 +31,24 @@ export function timeframeToInterval(timeframe: string | undefined): BarInterval 
   return "1day";
 }
 
+/** Minutes per bar for a given interval. Used by anything that needs to
+ *  reason about bar duration in real time — staleness checks, cooldown
+ *  windows, force-refresh cadence. */
+export function intervalMinutes(interval: BarInterval): number {
+  switch (interval) {
+    case "15min":
+      return 15;
+    case "30min":
+      return 30;
+    case "1h":
+      return 60;
+    case "4h":
+      return 240;
+    case "1day":
+      return 1440;
+  }
+}
+
 /** Bars per calendar day for sizing default-window math. Forex/CFD markets
  *  trade ~24h on weekdays, so the count is a true 24h × bars-per-hour for
  *  intraday intervals; daily bars are 1 per day. */

@@ -14,7 +14,7 @@ import { pnlInUsd, priceDeltaForRule } from "@/lib/constants/markets";
 import { checkConditions, normalize, type Cache } from "@/lib/market-data/backtest-engine";
 import { timeframeToInterval, type BarInterval } from "@/lib/market-data/interval";
 import { getCachedPrices, savePricesToCache } from "@/lib/market-data/price-cache";
-import { fetchDailyPrices } from "@/lib/market-data/prices";
+import { fetchDailyPrices, getFreshPricesForScan } from "@/lib/market-data/prices";
 import { resampleToDaily } from "@/lib/market-data/resample";
 import { fetchBatchQuotes } from "@/lib/market-data/twelve-data";
 import type { PriceBar } from "@/lib/market-data/types";
@@ -306,11 +306,12 @@ async function processTicker(
   force: boolean
 ) {
   try {
-    let prices = await getCachedPrices(ticker, "full", interval);
-    if (!prices) {
-      prices = await fetchDailyPrices(ticker, "full", interval);
-      savePricesToCache(ticker, "full", prices, interval).catch(() => {});
-    }
+    // Primary-TF bars MUST reflect the most-recently-closed bar. Both
+    // caches in this stack have 1h TTLs, so without an explicit
+    // freshness check the LLM keeps seeing the same too-old bars across
+    // back-to-back scans (and the bar-staleness gate keeps refusing).
+    // See getFreshPricesForScan for the threshold + fallback semantics.
+    const prices = await getFreshPricesForScan(ticker, "full", interval);
     if (prices.length < 10) {
       result.errors.push({ ticker, error: "Not enough price data" });
       result.tickers_scanned++;
