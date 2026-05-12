@@ -1180,6 +1180,9 @@ async function evaluateLlmTraderEntry(
           stopPrice: currentPosition.stop_loss_price
             ? Number(currentPosition.stop_loss_price)
             : undefined,
+          initialStopPrice: currentPosition.initial_stop_loss_price
+            ? Number(currentPosition.initial_stop_loss_price)
+            : undefined,
           targetPrice: currentPosition.take_profit_price
             ? Number(currentPosition.take_profit_price)
             : undefined,
@@ -1196,7 +1199,11 @@ async function evaluateLlmTraderEntry(
       algorithm_id: algo.id,
       event_type: "signal_no_action",
       ticker,
-      details: { reason: "LLM call failed (after retry)", source: "llm_trader" },
+      details: {
+        reason: "LLM call failed (after retry)",
+        source: "llm_trader",
+        regime: evaluation.regime,
+      },
     });
     return { opened: 0 };
   }
@@ -1227,6 +1234,7 @@ async function evaluateLlmTraderEntry(
         details: {
           reason: "LLM decision: hold",
           source: "llm_trader",
+          regime: evaluation.regime,
           confidence: decision.confidence,
           llm_reasoning: decision.reasoning,
         },
@@ -1250,6 +1258,7 @@ async function evaluateLlmTraderEntry(
         details: {
           reason: "LLM decision: move_be but no open position",
           source: "llm_trader",
+          regime: evaluation.regime,
           confidence: decision.confidence,
           llm_reasoning: decision.reasoning,
         },
@@ -1269,6 +1278,7 @@ async function evaluateLlmTraderEntry(
         details: {
           reason: "LLM decision: move_be but no stop_loss_price set on position",
           source: "llm_trader",
+          regime: evaluation.regime,
           confidence: decision.confidence,
           llm_reasoning: decision.reasoning,
         },
@@ -1297,6 +1307,7 @@ async function evaluateLlmTraderEntry(
         details: {
           reason: `LLM decision: move_be but only +${currentPnlR.toFixed(2)}R favorable (need +1R)`,
           source: "llm_trader",
+          regime: evaluation.regime,
           confidence: decision.confidence,
           llm_reasoning: decision.reasoning,
         },
@@ -1318,6 +1329,7 @@ async function evaluateLlmTraderEntry(
       details: {
         reason: `LLM moved SL to break-even at +${currentPnlR.toFixed(2)}R`,
         source: "llm_trader",
+        regime: evaluation.regime,
         action: "move_sl_to_be",
         old_stop_loss: stopPrice,
         new_stop_loss: entryPrice,
@@ -1348,6 +1360,7 @@ async function evaluateLlmTraderEntry(
         details: {
           reason: "LLM decision: exit but no open position",
           source: "llm_trader",
+          regime: evaluation.regime,
           confidence: decision.confidence,
           llm_reasoning: decision.reasoning,
         },
@@ -1394,6 +1407,7 @@ async function evaluateLlmTraderEntry(
       details: {
         reason: "LLM decision: exit",
         source: "llm_trader",
+        regime: evaluation.regime,
         exit_price: exitPrice,
         realized_pnl: realizedPnl,
         exit_reason: "exit_signal",
@@ -1479,6 +1493,7 @@ async function evaluateLlmTraderEntry(
       details: {
         reason: cappedReason,
         source: "llm_trader",
+        regime: evaluation.regime,
         would_have_entered_side: llmSide,
         confidence: decision.confidence,
         llm_reasoning: decision.reasoning,
@@ -1497,6 +1512,7 @@ async function evaluateLlmTraderEntry(
       details: {
         reason: "dry_run mode — would have entered",
         source: "llm_trader",
+        regime: evaluation.regime,
         would_have_entered_side: llmSide,
         confidence: decision.confidence,
         llm_reasoning: decision.reasoning,
@@ -1516,6 +1532,7 @@ async function evaluateLlmTraderEntry(
         details: {
           reason: spread.reason ?? "Live spread gate triggered",
           source: "llm_trader",
+          regime: evaluation.regime,
           observed_spread_pips: spread.observed_spread_pips,
           threshold_pips: spread.threshold_pips,
         },
@@ -1567,6 +1584,7 @@ async function evaluateLlmTraderEntry(
     ticker,
     details: {
       source: "llm_trader",
+      regime: evaluation.regime,
       direction: llmSide,
       confidence: decision.confidence,
       llm_reasoning: decision.reasoning,
