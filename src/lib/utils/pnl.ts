@@ -65,6 +65,11 @@ export interface DisplayedPnlInput {
   broker_fill_price?: number | null;
   broker_close_price?: number | null;
   broker_unrealized_pnl?: number | null;
+  /** Set when the broker's deal record has been reconciled onto this
+   *  row — at that point `realized_pnl` IS broker truth (profit + swap +
+   *  commission). Null on broker-mirrored rows where the deal hasn't
+   *  landed yet, or on paper-only rows. */
+  broker_realized_synced_at?: string | null;
 }
 
 /**
@@ -77,9 +82,12 @@ export interface DisplayedPnlInput {
  * swap. This helper picks the most-truthful number available per row.
  *
  * Resolution order (closed):
- *   1. broker_fill_price + broker_close_price set → recompute from those
- *      (most accurate — captures broker's actual fill prices)
- *   2. else → realized_pnl (system math fallback)
+ *   1. broker_realized_synced_at set → realized_pnl is broker truth
+ *      (profit + swap + commission, exact match to broker dashboard)
+ *   2. broker_fill_price + broker_close_price set but not yet synced →
+ *      recompute from raw fill prices (off by commission/swap, but
+ *      better than paper-math realized_pnl)
+ *   3. else → realized_pnl (paper math — paper-only positions)
  *
  * Resolution order (open):
  *   1. broker_unrealized_pnl synced (manage-positions cron) → use it
@@ -91,6 +99,9 @@ export interface DisplayedPnlInput {
  * For aggregations across many positions, see `sumDisplayedPnl`. */
 export function displayedPnl(pos: DisplayedPnlInput): number | null {
   if (pos.status === "closed") {
+    if (pos.broker_realized_synced_at != null) {
+      return pos.realized_pnl;
+    }
     if (pos.broker_fill_price != null && pos.broker_close_price != null) {
       return pnlInUsdShim(
         pos.ticker,

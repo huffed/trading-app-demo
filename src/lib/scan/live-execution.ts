@@ -227,20 +227,48 @@ export async function executeLiveExit(args: ExitArgs): Promise<void> {
   try {
     const { adapter, conn } = args.ctx;
     const closed = await adapter.closePosition(conn, brokerPositionId);
+
+    // Best-effort: fetch the broker's actual close fill + realised P&L
+    // (profit + swap + commission) so the row reflects the broker's
+    // truth instead of our local closePrice. The deal record sometimes
+    // lags the close call by <60s on MetaApi, so a null here is normal
+    // — the deferred reconciliation pass in manage.ts will retry until
+    // it lands and stamp `broker_realized_synced_at` on success.
+    const dealFetcher = adapter.fetchClosedDealForPosition;
+    const dealResult = dealFetcher
+      ? await dealFetcher.call(adapter, conn, brokerPositionId).catch(() => null)
+      : null;
+
+    const update: Record<string, unknown> = {
+      broker_close_id: closed.orderId,
+      broker_error: null,
+    };
+    if (dealResult) {
+      update.broker_close_price = dealResult.price;
+      update.realized_pnl = dealResult.realizedPnl;
+      update.broker_realized_synced_at = new Date().toISOString();
+    } else {
+      // Provisional — local closePrice is the best we have until the
+      // deferred reconciliation pass picks this row up.
+      update.broker_close_price = args.closePrice;
+    }
+
     await supabase
       .from("paper_positions")
-      .update({
-        broker_close_id: closed.orderId,
-        broker_close_price: args.closePrice,
-        broker_error: null,
-      })
+      .update(update)
       .eq("id", paperPositionId);
     await logActivity(supabase, userId, {
       algorithm_id: algorithmId,
       position_id: paperPositionId,
       event_type: "live_order_closed",
       ticker,
-      details: { broker_position_id: brokerPositionId, broker_order_id: closed.orderId },
+      details: {
+        broker_position_id: brokerPositionId,
+        broker_order_id: closed.orderId,
+        broker_realized_synced: dealResult != null,
+        broker_close_price: dealResult?.price ?? args.closePrice,
+        broker_realized_pnl: dealResult?.realizedPnl ?? null,
+      },
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Live close failed";
