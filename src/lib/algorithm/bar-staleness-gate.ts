@@ -18,15 +18,26 @@
  * structural SL (54 lots from 7-pip SL math), the stale-data entry hit
  * SL in 10 min for -$399.
  *
- * Threshold: 1.5× primary-TF bar duration. So:
- *   - 15m algo refuses on bars > 22.5 min stale
- *   - 30m algo refuses on bars > 45 min stale
- *   - 1h  algo refuses on bars > 90 min stale
- *   - 4h  algo refuses on bars > 360 min stale
+ * Threshold: 1.5× primary-TF bar duration, measured from the bar's
+ * CLOSE (= open + tfMinutes). So:
+ *   - 15m algo refuses when most-recent close is > 22.5 min ago
+ *   - 30m algo refuses when most-recent close is > 45 min ago
+ *   - 1h  algo refuses when most-recent close is > 90 min ago
+ *   - 4h  algo refuses when most-recent close is > 360 min ago
  *
- * The 1.5× multiplier gives one full bar of grace for the case where a
- * fresh bar has just closed but Twelve Data hasn't published it yet.
- * Anything beyond that means the cache fetch is broken or starved.
+ * The 1.5× multiplier (from close) gives 0.5×TF of grace after the bar
+ * closes for the provider to publish, then refuses if a second full bar
+ * has effectively elapsed unfed.
+ *
+ * Why measured from CLOSE not OPEN: provider `date` fields hold the bar's
+ * open timestamp by convention. Earlier this gate computed age from open
+ * directly and the 1.5×TF threshold was being eaten by the bar's own
+ * duration — leaving only 0.5×TF of post-close grace. For 15m/30m that's
+ * tolerable, but for 4h it produced a ~2h false-positive deadzone every
+ * cycle (gate fired between (open + 1.5×TF) and the next bar close, even
+ * though the cached bar was the freshest closed 4h candle in existence).
+ * 2026-05-12 incident: 4h algo fired the gate twice at 12:00 and 16:00
+ * UTC on the freshest possible closed bar.
  */
 import { timeframeToInterval, type BarInterval } from "@/lib/market-data/interval";
 import { parseBarDate } from "@/lib/market-data/parse-bar-date";
@@ -52,11 +63,13 @@ function intervalMinutes(interval: BarInterval): number {
 export interface BarStalenessGateResult {
   block: boolean;
   status: "ok" | "stale" | "no_bars";
-  /** Age of the most recent bar in minutes (now - bars[last].date). */
+  /** Minutes elapsed since the most recent bar's CLOSE
+   *  (= now - bars[last].date - tfMinutes). Can be negative on the rare
+   *  scan that lands mid-bar with a leading bar-close timestamp. */
   bar_age_minutes: number;
-  /** Threshold the age was compared against, in minutes. */
+  /** Threshold the age was compared against, in minutes (from close). */
   threshold_minutes: number;
-  /** ISO timestamp of the bar that was checked. */
+  /** ISO timestamp of the bar that was checked (open). */
   last_bar_date?: string;
   reason?: string;
 }
@@ -107,7 +120,11 @@ export function checkBarStaleness(args: {
   }
 
   const now = args.now ?? new Date();
-  const ageMs = now.getTime() - barDate.getTime();
+  // Age = wall-clock now minus the bar's CLOSE timestamp (open + tfMinutes).
+  // Provider `date` fields hold OPEN by convention, so subtract one bar
+  // duration. See doc comment for why we measure from close.
+  const closeMs = barDate.getTime() + tfMinutes * 60_000;
+  const ageMs = now.getTime() - closeMs;
   const ageMinutes = ageMs / 60_000;
 
   if (ageMinutes > thresholdMinutes) {
@@ -117,7 +134,7 @@ export function checkBarStaleness(args: {
       bar_age_minutes: ageMinutes,
       threshold_minutes: thresholdMinutes,
       last_bar_date: barDate.toISOString(),
-      reason: `Most recent bar is ${ageMinutes.toFixed(1)} min old (threshold ${thresholdMinutes.toFixed(1)} min = ${multiplier}× ${tfMinutes}m primary-TF). LLM context anchored on prices that no longer reflect the market — likely a stale price cache or Twelve Data fetch failure.`,
+      reason: `Most recent bar closed ${ageMinutes.toFixed(1)} min ago (threshold ${thresholdMinutes.toFixed(1)} min = ${multiplier}× ${tfMinutes}m primary-TF, measured from close). LLM context anchored on prices that no longer reflect the market — likely a stale price cache or provider fetch failure.`,
     };
   }
 
