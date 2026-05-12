@@ -19,6 +19,7 @@
  * calling this function. This function handles the in-memory cache and API fallback.
  */
 import { intervalMinutes, type BarInterval } from "./interval";
+import { parseBarDate } from "./parse-bar-date";
 import { getCachedPrices, savePricesToCache } from "./price-cache";
 import type { PriceBar } from "./types";
 
@@ -99,7 +100,9 @@ export async function getFreshPricesForScan(
 
   const latest = prices[prices.length - 1];
   if (!latest) return prices;
-  const latestMs = new Date(latest.date).getTime();
+  // UTC-explicit parse — bar dates are "YYYY-MM-DD HH:MM:SS" without
+  // a TZ marker, default `new Date(...)` would skew by host-TZ offset.
+  const latestMs = parseBarDate(latest.date).getTime();
   if (!Number.isFinite(latestMs)) return prices;
 
   const ageMs = Date.now() - latestMs;

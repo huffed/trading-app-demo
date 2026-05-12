@@ -29,6 +29,7 @@
  * Anything beyond that means the cache fetch is broken or starved.
  */
 import { timeframeToInterval, type BarInterval } from "@/lib/market-data/interval";
+import { parseBarDate } from "@/lib/market-data/parse-bar-date";
 
 /** Multiplier on primary-TF bar duration. >1.5× = stale. */
 export const STALENESS_THRESHOLD_MULTIPLIER = 1.5;
@@ -90,7 +91,12 @@ export function checkBarStaleness(args: {
     };
   }
 
-  const barDate = args.lastBarDate instanceof Date ? args.lastBarDate : new Date(args.lastBarDate);
+  // Parse explicitly as UTC — bar `date` strings come from provider
+  // fetchers as "YYYY-MM-DD HH:MM:SS" (no TZ marker), which Node's
+  // default `new Date(...)` interprets in system-local TZ. On BST that
+  // skews every age check by 60 min, false-firing this gate. See
+  // parse-bar-date.ts for the 2026-05-12 incident.
+  const barDate = parseBarDate(args.lastBarDate);
   if (Number.isNaN(barDate.getTime())) {
     return {
       block: false,

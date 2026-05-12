@@ -20,6 +20,7 @@ import {
 import { checkTimeOfDayFilter } from "@/lib/algorithm/time-of-day-filter";
 import { getContractSize, pnlInUsd } from "@/lib/constants/markets";
 import { isWeakTrendByAdx } from "@/lib/market-data/adx-filter";
+import { parseBarDate } from "@/lib/market-data/parse-bar-date";
 import { resolveSide } from "@/lib/market-data/auto-side";
 import {
   collectOtherTimeframes,
@@ -1027,7 +1028,9 @@ async function evaluateLlmTraderEntry(
     // Now that Twelve Data is fetched with `timezone=UTC`, bar timestamps
     // are honest UTC. The hour comparison shifts to 18, 19 to preserve
     // the same real-world hours that were validated.
-    const utcHour = new Date(bars[bars.length - 1].date).getUTCHours();
+    // parseBarDate so the host TZ doesn't skew the UTC hour read — see
+    // parse-bar-date.ts for the 2026-05-12 incident.
+    const utcHour = parseBarDate(bars[bars.length - 1].date).getUTCHours();
     if (utcHour === 18 || utcHour === 19) {
       await logActivity(supabase, userId, {
         algorithm_id: algo.id,
