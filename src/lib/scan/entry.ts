@@ -1227,22 +1227,29 @@ async function evaluateLlmTraderEntry(
 
   // ---- Decision dispatch ----
 
-  // Hold: log only when not capped (cap path handles its own logging)
+  // Hold: always log. Earlier this was gated on !cappedReason on the
+  // assumption that the cap path would log instead — but the cap path
+  // only fires on enter_long/enter_short (line ~1491), so when the LLM
+  // said "hold" while in trade (cappedReason set because max_positions=1)
+  // the tick was silently dropped. Operator lost visibility of every
+  // in-trade management decision unless they queried llm_decisions
+  // directly. 2026-05-12: surfaced when a short held through its own
+  // entry premise evaporating, with no signal in the UI.
   if (decision.decision === "hold") {
-    if (!cappedReason) {
-      await logActivity(supabase, userId, {
-        algorithm_id: algo.id,
-        event_type: "signal_no_action",
-        ticker,
-        details: {
-          reason: "LLM decision: hold",
-          source: "llm_trader",
-          regime: evaluation.regime,
-          confidence: decision.confidence,
-          llm_reasoning: decision.reasoning,
-        },
-      });
-    }
+    await logActivity(supabase, userId, {
+      algorithm_id: algo.id,
+      ...(currentPosition ? { position_id: currentPosition.id } : {}),
+      event_type: "signal_no_action",
+      ticker,
+      details: {
+        reason: "LLM decision: hold",
+        source: "llm_trader",
+        regime: evaluation.regime,
+        confidence: decision.confidence,
+        llm_reasoning: decision.reasoning,
+        had_position: hadPosition,
+      },
+    });
     return { opened: 0 };
   }
 
