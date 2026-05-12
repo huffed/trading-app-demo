@@ -29,6 +29,10 @@ import { fetchBatchQuotes } from "@/lib/market-data/twelve-data";
 import type { PriceBar } from "@/lib/market-data/types";
 import type { AlgorithmRules } from "@/types/algorithm";
 import type { PaperPosition, PositionEvent } from "@/types/position";
+import {
+  reconcileBrokerRealizedPnl,
+  reconcileOrphanBrokerRealized,
+} from "./broker-truth-sync";
 import { manageExistingPosition, type AlgoForPositionMgmt } from "./engine";
 import { logActivity } from "./helpers";
 import { resolveBrokerContext } from "./live-execution";
@@ -235,9 +239,11 @@ async function manageAlgorithm(
   );
 
   // Sync broker-reported unrealized P&L before the exit-trigger loop —
-  // fresh-as-possible read for the UI to display, and it has no
-  // side-effects on the exit logic itself.
+  // fresh-as-possible read for the UI to display. Then pick up any
+  // closed positions whose broker deal record wasn't available at exit
+  // time. Both no-op without broker context.
   await syncBrokerUnrealizedPnl(supabase, brokerCtx, positions);
+  if (brokerCtx) await reconcileBrokerRealizedPnl(supabase, brokerCtx, algo.id);
 
   for (const ticker of tickers) {
     try {
@@ -321,6 +327,18 @@ export async function manageActiveAlgorithms(
   const results: ManageResult[] = [];
   for (const { algo, positions } of byAlgo.values()) {
     results.push(await manageAlgorithm(supabase, algo, positions));
+  }
+
+  // Deferred broker-truth pass for algos that have NO open positions
+  // (those are skipped above) but still have closed positions where
+  // executeLiveExit couldn't capture the broker deal at exit time.
+  // Idempotent + best-effort — never blocks the manage cycle.
+  try {
+    await reconcileOrphanBrokerRealized(supabase, new Set(byAlgo.keys()));
+  } catch (err) {
+    logger.warn("manage-positions", "broker realized reconciliation failed", {
+      error: err instanceof Error ? err.message : "unknown",
+    });
   }
 
   // Backfill trade_outcome on llm_decisions rows linked to positions that

@@ -314,10 +314,14 @@ export async function getPaperTradingStats(): Promise<
     // Pull the broker-mirror fields too so totals can prefer broker truth
     // over paper math when broker data is set. Falls back to system fields
     // for backtest data, manual trades, or pre-broker-mirror entries.
+    // `broker_realized_synced_at` is required for displayedPnl to recognise
+    // closed rows where realized_pnl is broker truth (incl. commission /
+    // swap) — without it the helper falls back to fill-price math, which
+    // is off by the close-side spread + fees.
     const positionFields =
       "status, side, ticker, quantity, entry_price, current_price, " +
       "unrealized_pnl, realized_pnl, broker_fill_price, broker_close_price, " +
-      "broker_unrealized_pnl";
+      "broker_unrealized_pnl, broker_realized_synced_at";
 
     const [algoRes, openRes, closedRes] = await Promise.all([
       supabase
