@@ -7,12 +7,19 @@
  *   3. API call via provider fallback chain
  *
  * Provider fallback chain:
- *   Twelve Data (800 credits/day) → Yahoo Finance (unlimited, unofficial) → Alpha Vantage (25 req/day)
+ *   OANDA (practice, unlimited) → Twelve Data (800 credits/day) → Yahoo Finance (unlimited, unofficial) → Alpha Vantage (25 req/day)
+ *
+ * OANDA promoted to head 2026-05-12 after Twelve Data repeatedly stalled
+ * on intraday refreshes (the bar-staleness gate refused every 15m/30m
+ * scan for hours that morning). OANDA's the same source we backfilled
+ * 27,718 30m bars from in 2026-05-06 with zero issues. Twelve Data
+ * stays as fallback so we don't lose redundancy.
  *
  * Callers should check the Supabase cache first (via getCachedPrices) before
  * calling this function. This function handles the in-memory cache and API fallback.
  */
-import type { BarInterval } from "./interval";
+import { intervalMinutes, type BarInterval } from "./interval";
+import { getCachedPrices, savePricesToCache } from "./price-cache";
 import type { PriceBar } from "./types";
 
 const MEMORY_CACHE_TTL_MS = 60 * 60 * 1000;
@@ -26,21 +33,89 @@ const memoryCache = new Map<string, { data: PriceBar[]; fetchedAt: number }>();
  * so it's skipped automatically for intraday requests.
  *
  * Callers should wrap this with the Supabase price cache for persistence.
+ *
+ * `forceRefresh` (default false) bypasses the in-memory cache and hits
+ * the provider on every call. The live cron sets this when the cached
+ * tail is stale — without it the 1h in-memory TTL keeps returning the
+ * same too-old bars even after the Supabase cache is rotated. The fresh
+ * result is written back to the in-memory cache so subsequent reads
+ * within the TTL still hit (and so the same bars persist across multi-
+ * ticker scans in one tick).
  */
 export async function fetchDailyPrices(
   symbol: string,
   outputSize: "compact" | "full" = "compact",
-  interval: BarInterval = "1day"
+  interval: BarInterval = "1day",
+  forceRefresh = false
 ): Promise<PriceBar[]> {
   const cacheKey = `${symbol.toUpperCase()}:${outputSize}:${interval}`;
-  const cached = memoryCache.get(cacheKey);
-  if (cached && Date.now() - cached.fetchedAt < MEMORY_CACHE_TTL_MS) {
-    return cached.data;
+  if (!forceRefresh) {
+    const cached = memoryCache.get(cacheKey);
+    if (cached && Date.now() - cached.fetchedAt < MEMORY_CACHE_TTL_MS) {
+      return cached.data;
+    }
   }
 
   const prices = await fetchWithFallback(symbol, outputSize, interval);
   memoryCache.set(cacheKey, { data: prices, fetchedAt: Date.now() });
   return prices;
+}
+
+/**
+ * Read cached prices for (ticker, interval), force-refresh from the
+ * provider when the cached tail is older than one full primary-TF bar
+ * duration. Live cron scans use this to guarantee `bars[last]` reflects
+ * the most-recently-closed bar — without it, both the in-memory cache
+ * (1h TTL in this file) and the Supabase cache (1h TTL in price-cache.ts)
+ * keep returning identical too-old data for up to an hour, which the
+ * bar-staleness gate then refuses across multiple consecutive scans.
+ *
+ * Threshold = 1.0× `intervalMinutes(interval)`. The bar-staleness gate
+ * fires at 1.5×, so a fresh fetch happens BEFORE the gate would block
+ * under normal conditions. When the provider fails (rate limit, network),
+ * the cached (stale) bars are returned and the gate handles the refusal
+ * downstream.
+ *
+ * `liveCron` is the opt-in switch. When false (default) callers get the
+ * old behaviour: cache TTL controls freshness, no force-refresh path.
+ * Daily-interval reads always go through the regular cache path —
+ * D1 bars don't churn fast enough to justify per-scan refreshes, and
+ * the 7-day Supabase TTL on D1 is intentional.
+ */
+export async function getFreshPricesForScan(
+  ticker: string,
+  outputSize: "compact" | "full",
+  interval: BarInterval,
+  liveCron = true
+): Promise<PriceBar[]> {
+  let prices = await getCachedPrices(ticker, outputSize, interval);
+  if (!prices) {
+    prices = await fetchDailyPrices(ticker, outputSize, interval);
+    savePricesToCache(ticker, outputSize, prices, interval).catch(() => {});
+    return prices;
+  }
+
+  if (!liveCron || interval === "1day") return prices;
+
+  const latest = prices[prices.length - 1];
+  if (!latest) return prices;
+  const latestMs = new Date(latest.date).getTime();
+  if (!Number.isFinite(latestMs)) return prices;
+
+  const ageMs = Date.now() - latestMs;
+  const oneBarMs = intervalMinutes(interval) * 60_000;
+  if (ageMs <= oneBarMs) return prices;
+
+  try {
+    const fresh = await fetchDailyPrices(ticker, outputSize, interval, true);
+    savePricesToCache(ticker, outputSize, fresh, interval).catch(() => {});
+    return fresh;
+  } catch {
+    // Provider failed — return what we have. Downstream bar-staleness
+    // gate (1.5× threshold) will refuse the entry if data is too old
+    // to act on. Don't swallow the refusal here by faking freshness.
+    return prices;
+  }
 }
 
 async function fetchWithFallback(
@@ -49,6 +124,15 @@ async function fetchWithFallback(
   interval: BarInterval
 ): Promise<PriceBar[]> {
   const providerErrors: string[] = [];
+
+  try {
+    const { fetchDailyPrices: fromOanda } = await import("./oanda");
+    return await fromOanda(symbol, outputSize, interval);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    providerErrors.push(`oanda: ${msg}`);
+    console.warn(`[prices] OANDA failed for ${symbol}: ${msg}`);
+  }
 
   try {
     const { fetchDailyPrices: fromTwelveData } = await import("./twelve-data");
