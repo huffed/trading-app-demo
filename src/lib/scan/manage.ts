@@ -24,7 +24,7 @@
 import { logger } from "@/lib/logger";
 import { timeframeToInterval } from "@/lib/market-data/interval";
 import { getCachedPrices, savePricesToCache } from "@/lib/market-data/price-cache";
-import { fetchDailyPrices } from "@/lib/market-data/prices";
+import { fetchDailyPrices, getFreshPricesForScan } from "@/lib/market-data/prices";
 import { fetchBatchQuotes } from "@/lib/market-data/twelve-data";
 import type { PriceBar } from "@/lib/market-data/types";
 import type { AlgorithmRules } from "@/types/algorithm";
@@ -52,23 +52,20 @@ interface AlgoForManage extends AlgoForPositionMgmt {
   broker_connection_id?: string | null;
 }
 
-/** Fetch bars for a ticker, hitting the price_cache first. Mirrors what
- *  processTicker does inside the scan engine. Returns null when there's
- *  not enough data to evaluate exit conditions safely. */
+/** Fetch bars for a ticker. Uses getFreshPricesForScan so the manage
+ *  tick gets the same just-closed bar treatment as the scan engine —
+ *  intraday positions are managed on bar-close logic (SL, TP, LLM
+ *  exits), so reading a stale tail can cause a miss or a phantom hit. */
 async function loadBars(
   ticker: string,
   interval: ReturnType<typeof timeframeToInterval>
 ): Promise<PriceBar[] | null> {
-  let prices = await getCachedPrices(ticker, "full", interval);
-  if (!prices) {
-    try {
-      prices = await fetchDailyPrices(ticker, "full", interval);
-      savePricesToCache(ticker, "full", prices, interval).catch(() => {});
-    } catch {
-      return null;
-    }
+  try {
+    const prices = await getFreshPricesForScan(ticker, "full", interval);
+    return prices.length >= 10 ? prices : null;
+  } catch {
+    return null;
   }
-  return prices.length >= 10 ? prices : null;
 }
 
 /** Fetch a daily series for higher-timeframe pattern conditions
