@@ -24,6 +24,10 @@ export interface AnalyticsMetrics {
 export interface DrawdownPoint {
   date: string;
   drawdown: number;
+  /** "%" when starting capital is known and we can express drawdown
+   *  relative to NAV; "$" when capital is unknown and we fall back to
+   *  raw dollar drawdown. */
+  unit: "%" | "$";
 }
 
 export interface DistributionBucket {
@@ -69,7 +73,15 @@ function daysBetween(a: string, b: string): number {
 
 // ---- Computation functions ----
 
-export function computeMetrics(trades: Trade[]): AnalyticsMetrics {
+export function computeMetrics(
+  trades: Trade[],
+  /** Account starting capital, used as the denominator for
+   *  `maxDrawdownPercent`. When null/undefined/≤0, the percent falls
+   *  back to "% of running peak" (the prior behaviour) which is 0 for
+   *  accounts that have been underwater from inception. Pass the user's
+   *  `trading_profile.answers.capital` here. */
+  startingCapital?: number | null
+): AnalyticsMetrics {
   const closed = getClosedTrades(trades);
   if (closed.length === 0) {
     return {
@@ -92,7 +104,12 @@ export function computeMetrics(trades: Trade[]): AnalyticsMetrics {
   const grossProfit = wins.reduce((s, t) => s + t.realized_pnl, 0);
   const grossLoss = Math.abs(losses.reduce((s, t) => s + t.realized_pnl, 0));
 
-  // Max drawdown from equity curve
+  // Max drawdown from equity curve. Peak starts at 0 (account NAV at
+  // inception, expressed as cumulative P&L) and only updates on new
+  // highs. For accounts underwater from inception, peak stays at 0 and
+  // every drawdown reading is just (-equity) — meaningful only when we
+  // can express it as % of starting capital, hence the fallback below.
+  const useCapital = startingCapital != null && startingCapital > 0;
   let peak = 0;
   let maxDd = 0;
   let maxDdPct = 0;
@@ -105,7 +122,11 @@ export function computeMetrics(trades: Trade[]): AnalyticsMetrics {
     const dd = peak - equity;
     if (dd > maxDd) {
       maxDd = dd;
-      maxDdPct = peak > 0 ? (dd / peak) * 100 : 0;
+      maxDdPct = useCapital
+        ? (dd / (startingCapital as number)) * 100
+        : peak > 0
+          ? (dd / peak) * 100
+          : 0;
     }
   }
 
@@ -146,8 +167,16 @@ export function computeEquityCurve(trades: Trade[]) {
   );
 }
 
-export function computeDrawdownSeries(trades: Trade[]): DrawdownPoint[] {
+export function computeDrawdownSeries(
+  trades: Trade[],
+  /** Same semantics as `computeMetrics(...)`. When provided + positive,
+   *  the series is in percent of starting capital. Otherwise it falls
+   *  back to dollar drawdown so the chart still renders something
+   *  useful (every point will be ≤ 0). */
+  startingCapital?: number | null
+): DrawdownPoint[] {
   const closed = getClosedTrades(trades);
+  const useCapital = startingCapital != null && startingCapital > 0;
   let peak = 0;
   let equity = 0;
   return closed.map((t) => {
@@ -155,10 +184,15 @@ export function computeDrawdownSeries(trades: Trade[]): DrawdownPoint[] {
     if (equity > peak) {
       peak = equity;
     }
-    const ddPct = peak > 0 ? ((equity - peak) / peak) * 100 : 0;
+    // dd is ≤ 0 (current equity below or at peak). Express either as %
+    // of starting capital (preferred — matches industry convention and
+    // works while underwater from inception) or as raw dollars.
+    const ddDollars = equity - peak;
+    const value = useCapital ? (ddDollars / (startingCapital as number)) * 100 : ddDollars;
     return {
       date: formatShortDate(t.exit_date),
-      drawdown: Number(ddPct.toFixed(2)),
+      drawdown: Number(value.toFixed(2)),
+      unit: useCapital ? "%" : "$",
     };
   });
 }
