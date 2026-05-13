@@ -11,6 +11,7 @@ import {
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { DrawdownPoint } from "@/lib/utils/analytics";
+import { formatCurrency } from "@/lib/utils/pnl";
 
 const TOOLTIP_STYLE = {
   backgroundColor: "var(--color-popover)",
@@ -21,6 +22,13 @@ const TOOLTIP_STYLE = {
 };
 
 export function DrawdownCard({ data }: { data: DrawdownPoint[] }) {
+  // Series unit is consistent across all points; sample the first to
+  // pick the axis formatter. Empty series falls back to "%" but the
+  // early-return below renders the placeholder anyway.
+  const unit: "%" | "$" = data[0]?.unit ?? "%";
+  const formatValue = (v: number): string =>
+    unit === "%" ? `${v}%` : formatCurrency(v);
+
   if (data.length < 2) {
     return (
       <Card>
@@ -61,11 +69,11 @@ export function DrawdownCard({ data }: { data: DrawdownPoint[] }) {
               tick={{ fontSize: 11, fill: "var(--color-muted-foreground)" }}
               axisLine={false}
               tickLine={false}
-              tickFormatter={(v: number) => `${v}%`}
+              tickFormatter={formatValue}
             />
             <Tooltip
               contentStyle={TOOLTIP_STYLE}
-              formatter={(value) => [`${Number(value).toFixed(2)}%`, "Drawdown"]}
+              formatter={(value) => [formatValue(Number(value)), "Drawdown"]}
             />
             <Area
               type="monotone"
