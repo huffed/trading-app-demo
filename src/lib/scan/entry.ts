@@ -533,6 +533,15 @@ export async function evaluateEntry(
    *  configured on this algo, OR when the fetch failed (gate becomes
    *  no-op via no_data status). */
   dxyBars?: PriceBar[] | null,
+  /** Intermarket series (silver / 10Y yield / VIX) for the LLM-trader's
+   *  prompt context. Fetched once per scan when llm_trader is enabled
+   *  on a commodity algo; null otherwise. Each sub-field is independent
+   *  — partial data still produces a useful summariser line. */
+  intermarket?: {
+    silver?: PriceBar[];
+    yield10y?: PriceBar[];
+    vix?: PriceBar[];
+  } | null,
   /** When set, this evaluation is dry-run — the position cap (max_positions
    *  / max_per_ticker) is full so we wouldn't open even if every gate
    *  passed. We still run the full gate ladder for telemetry (each gate
@@ -570,6 +579,7 @@ export async function evaluateEntry(
       brokerCtx,
       dailyBars,
       dxyBars,
+      intermarket,
       cappedReason,
       force
     );
@@ -938,6 +948,11 @@ async function evaluateLlmTraderEntry(
   brokerCtx?: BrokerExecutionContext | null,
   dailyBars?: PriceBar[] | null,
   dxyBars?: PriceBar[] | null,
+  intermarket?: {
+    silver?: PriceBar[];
+    yield10y?: PriceBar[];
+    vix?: PriceBar[];
+  } | null,
   cappedReason?: string | null,
   force = false
 ): Promise<{ opened: number; openEvent?: PositionEvent }> {
@@ -1175,6 +1190,7 @@ async function evaluateLlmTraderEntry(
     bars,
     dailyBars: dailyBars ?? [],
     dxyBars,
+    intermarket: intermarket ?? undefined,
     position: currentPosition
       ? {
           side: currentPosition.side,

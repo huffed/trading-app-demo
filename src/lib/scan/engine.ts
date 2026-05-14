@@ -303,6 +303,11 @@ async function processTicker(
   interval: BarInterval,
   brokerCtx: BrokerExecutionContext | null,
   dxyBars: PriceBar[] | null,
+  intermarket: {
+    silver?: PriceBar[];
+    yield10y?: PriceBar[];
+    vix?: PriceBar[];
+  } | null,
   force: boolean
 ) {
   try {
@@ -388,6 +393,7 @@ async function processTicker(
       brokerCtx,
       dailyBars,
       dxyBars,
+      intermarket,
       cappedReason,
       force
     );
@@ -488,12 +494,16 @@ export async function scanAlgorithm(
     algo.live_trading_enabled ?? false
   );
 
-  // Fetch EUR/USD 1h bars ONCE per scan when the DXY filter is on —
-  // proxy for DXY (Twelve Data has no DXY symbol). Shared across all
-  // tickers in the run; cached via the standard price-cache TTL so
-  // every-15-min scans don't re-fetch the same bars.
+  // Fetch EUR/USD 1h bars ONCE per scan when either the DXY filter OR
+  // the LLM-trader is on. Shared across all tickers in the run; cached
+  // via the standard price-cache TTL so every-15-min scans don't
+  // re-fetch the same bars. The LLM-trader's prompt context uses these
+  // for the DXY directional row (mirrors backtest harness); without
+  // them the LLM has been seeing "DXY: n/a" since activation.
   let dxyBars: PriceBar[] | null = null;
-  if (algo.rules.dxy_filter?.enabled) {
+  const wantsDxy =
+    algo.rules.dxy_filter?.enabled || algo.rules.llm_trader?.enabled;
+  if (wantsDxy) {
     dxyBars = await getCachedPrices("EUR/USD", "full", "1h");
     if (!dxyBars) {
       try {
@@ -503,6 +513,42 @@ export async function scanAlgorithm(
         dxyBars = null;
       }
     }
+  }
+
+  // Intermarket series (silver / 10Y yield / VIX) for the LLM-trader's
+  // prompt context. Three daily series, fetched ONCE per scan when
+  // `llm_trader.enabled` and the algo's asset class is commodity (the
+  // gold-shaped XAU/XAG ratio + yield/VIX context isn't meaningful for
+  // forex). Each tryFetch catches its own failure so a single missing
+  // series doesn't blank the whole intermarket block. Cost: ~3 OANDA /
+  // Yahoo calls per scan — both unmetered providers, no Twelve Data
+  // quota impact.
+  let intermarket: {
+    silver?: PriceBar[];
+    yield10y?: PriceBar[];
+    vix?: PriceBar[];
+  } | null = null;
+  if (algo.rules.llm_trader?.enabled && algo.rules.asset_class === "commodity") {
+    const tryFetch = async (
+      ticker: string
+    ): Promise<PriceBar[] | undefined> => {
+      try {
+        let bars = await getCachedPrices(ticker, "full", "1day");
+        if (!bars) {
+          bars = await fetchDailyPrices(ticker, "full", "1day");
+          savePricesToCache(ticker, "full", bars, "1day").catch(() => {});
+        }
+        return bars && bars.length > 0 ? bars : undefined;
+      } catch {
+        return undefined;
+      }
+    };
+    const [silver, yield10y, vix] = await Promise.all([
+      tryFetch("XAG/USD"),
+      tryFetch("^TNX"),
+      tryFetch("^VIX"),
+    ]);
+    intermarket = { silver, yield10y, vix };
   }
 
   for (const ticker of tickers) {
@@ -517,6 +563,7 @@ export async function scanAlgorithm(
       interval,
       brokerCtx,
       dxyBars,
+      intermarket,
       force
     );
   }
