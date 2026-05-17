@@ -1139,13 +1139,15 @@ export async function runWindow(opts: WindowOptions): Promise<WindowResult> {
     );
   }
 
-  // v5 + v5_15m prompts require multi-TF context. Precompute higher-TF
-  // bars once per run; per-bar slice is by timestamp inside
+  // v5 + v5_15m + v2_mtf prompts require multi-TF context. Precompute
+  // higher-TF bars once per run; per-bar slice is by timestamp inside
   // summariseHigherTfStructure. Pairings:
   //   30m primary → 1h + 4h (v5)
   //   15m primary → 30m + 1h (v5_15m)
+  //   4h primary  → 1h only (v2_mtf — faster-pulse early-warning vs D1 lag)
   //   1h primary  → 4h only (degraded — only for ad-hoc experimentation)
-  const useMultiTf = promptVersion === "v5" || promptVersion === "v5_15m";
+  const useMultiTf =
+    promptVersion === "v5" || promptVersion === "v5_15m" || promptVersion === "v2_mtf";
   const higherTfBars: { tfLabel: string; bars: PriceBar[] }[] = useMultiTf
     ? timeframe === "30m"
       ? [
@@ -1157,9 +1159,11 @@ export async function runWindow(opts: WindowOptions): Promise<WindowResult> {
             { tfLabel: "30m", bars: resampleTo(bars, "30min") },
             { tfLabel: "1h", bars: resampleTo(bars, "1h") },
           ]
-        : timeframe === "1h"
-          ? [{ tfLabel: "4h", bars: resampleTo(bars, "4h") }]
-          : []
+        : timeframe === "4h"
+          ? [{ tfLabel: "1h", bars: resampleTo(bars, "1h") }]
+          : timeframe === "1h"
+            ? [{ tfLabel: "4h", bars: resampleTo(bars, "4h") }]
+            : []
     : [];
 
   const closedTrades: ClosedTrade[] = [];
