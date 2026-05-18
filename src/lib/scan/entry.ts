@@ -39,7 +39,7 @@ import { isRangingByAtr } from "@/lib/market-data/regime-filter";
 import { resampleTo, resampleToDaily } from "@/lib/market-data/resample";
 import type { PriceBar } from "@/lib/market-data/types";
 import { evaluateLiveSignal, type SignalResult } from "@/lib/signals/evaluate-live";
-import { entryReasonSchema } from "@/lib/validators/position";
+import { entryReasonSchema, type EntryCohort } from "@/lib/validators/position";
 import {
   isPatternCondition,
   isSentimentCondition,
@@ -105,7 +105,16 @@ async function openPosition(
    *  awareness tightens the resolved TP distance. Pattern-based
    *  callers omit this; LLM-trader callers compute it from
    *  `evaluation.regime` + dailyBars and pass through. */
-  adaptiveTpCtx?: AdaptiveTpContext
+  adaptiveTpCtx?: AdaptiveTpContext,
+  /** Per-trade cohort attribution — captured at entry time and stored
+   *  in entry_reason.cohort. Foundation for Phase 3 cohort-based gates
+   *  (auto-skip degrading cohorts). Started 2026-05-18 so by the time
+   *  Phase 3 builds, enough cohort-tagged data has accumulated to
+   *  slice on. Caller-provided pieces (regime) merged with locally
+   *  computed pieces (entry_zone, position_in_range_pct, entry_hour_utc).
+   *  Optional — pre-instrumentation callers and pattern-strategy callers
+   *  may pass undefined; Phase 3 gates must handle null cohort gracefully. */
+  cohortFromCaller?: { regime?: "HH" | "LH" | "RANGING" }
 ): Promise<{ opened: number; openEvent?: PositionEvent; paperPositionId?: string }> {
   // calculatePositionSize wants MARGIN-used summed, not notional. For
   // leveraged sizing (lots / risk_per_trade / conviction_scaled) sum
@@ -216,6 +225,40 @@ async function openPosition(
     }
   }
 
+  // Cohort attribution — captured at entry time for Phase 3 cohort-based
+  // gates. position_in_range_pct and entry_zone are computed from the
+  // most recent 20-bar window's high/low; regime comes from the caller
+  // (LLM-trader passes it from evaluation.regime; pattern callers leave
+  // it undefined). All computations are best-effort — if bars are
+  // missing or thin (<20), the field stays undefined and Phase 3 skips
+  // this row when slicing on it.
+  const cohort: Partial<EntryCohort> = {
+    ...(cohortFromCaller?.regime ? { regime: cohortFromCaller.regime } : {}),
+    entry_hour_utc: new Date().getUTCHours(),
+  };
+  if (bars && bars.length >= 20) {
+    const window20 = bars.slice(-20);
+    const swingHigh = Math.max(...window20.map((b) => b.high));
+    const swingLow = Math.min(...window20.map((b) => b.low));
+    if (swingHigh > swingLow) {
+      const pct = ((currentPrice - swingLow) / (swingHigh - swingLow)) * 100;
+      // Clamp to [0, 100] — currentPrice can drift slightly outside the
+      // 20-bar range if the most recent bar made a new high/low.
+      cohort.position_in_range_pct = Math.max(0, Math.min(100, pct));
+      // Equilibrium band ±10% around 50% midpoint; outside that band is
+      // premium (>60%) or discount (<40%). Threshold values picked to
+      // match the friend's framing in `feedback_premium_discount_framework.md`
+      // — long entries in premium and short entries in discount are the
+      // wrong-zone cohorts Phase 3 should flag.
+      cohort.entry_zone =
+        cohort.position_in_range_pct >= 60
+          ? "premium"
+          : cohort.position_in_range_pct <= 40
+            ? "discount"
+            : "equilibrium";
+    }
+  }
+
   const entryReason = entryReasonSchema.parse({
     conditions_met: conditions.map(snapshotCondition),
     signal_result: sentimentResult
@@ -225,6 +268,7 @@ async function openPosition(
           reasoning: sentimentResult.reasoning,
         }
       : undefined,
+    cohort: Object.keys(cohort).length > 0 ? cohort : undefined,
   });
 
   const { data: position } = await supabase
@@ -1652,7 +1696,15 @@ async function evaluateLlmTraderEntry(
     brokerCtx ?? null,
     1,
     bars,
-    adaptiveTpCtx
+    adaptiveTpCtx,
+    // Cohort attribution — regime from LLM evaluation. Other cohort
+    // dimensions (entry_zone, position_in_range, entry_hour) computed
+    // inside openPosition from bars + current timestamp. `n/a` regime
+    // (insufficient daily history) is dropped — not useful for cohort
+    // slicing.
+    {
+      regime: evaluation.regime !== "n/a" ? evaluation.regime : undefined,
+    }
   );
   // Link the decision row to the resulting paper_positions row so the
   // close path can backfill the trade outcome onto this decision.
