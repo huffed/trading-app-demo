@@ -220,6 +220,10 @@ async function main(): Promise<void> {
     throw new Error(`Unsupported TIMEFRAME=${timeframeRaw}. Use 4h / 1h / 30m / 15m.`);
   }
   const timeframe: Timeframe = timeframeRaw;
+  // Default to XAU/USD for backwards compat with prior runs. Set
+  // TICKER=EUR/USD (or any other catalog symbol) to walk-forward a
+  // forex pair on the same prompt + harness.
+  const ticker = (process.env.TICKER ?? "XAU/USD").toUpperCase();
   const windowDays = Number(process.env.WINDOW_DAYS ?? "40");
   const windowCount = Number(process.env.WINDOW_COUNT ?? "6");
   const capital = Number(process.env.CAPITAL ?? "100000");
@@ -227,16 +231,17 @@ async function main(): Promise<void> {
   const endDateMs = endDateStr ? new Date(`${endDateStr}T23:59:59Z`).getTime() : Date.now();
   if (Number.isNaN(endDateMs)) throw new Error(`Invalid END_DATE=${endDateStr}`);
 
+  // Allowlist mirrors llm-trader-prompts.ts → PromptVersion. Keep in
+  // sync when new prompt versions are added; running with an unknown
+  // version would silently fall through to DEFAULT_PROMPT_VERSION.
   const promptVersionRaw = (process.env.PROMPT_VERSION ?? DEFAULT_PROMPT_VERSION).toLowerCase();
-  if (
-    promptVersionRaw !== "v1" &&
-    promptVersionRaw !== "v2" &&
-    promptVersionRaw !== "v3" &&
-    promptVersionRaw !== "v4"
-  ) {
-    throw new Error(`Unsupported PROMPT_VERSION=${promptVersionRaw}. Use v1, v2, v3, or v4.`);
+  const ALLOWED: PromptVersion[] = ["v1", "v2", "v2_mtf", "v3", "v4", "v5", "v5_15m"];
+  if (!ALLOWED.includes(promptVersionRaw as PromptVersion)) {
+    throw new Error(
+      `Unsupported PROMPT_VERSION=${promptVersionRaw}. Use one of ${ALLOWED.join(", ")}.`
+    );
   }
-  const promptVersion: PromptVersion = promptVersionRaw;
+  const promptVersion: PromptVersion = promptVersionRaw as PromptVersion;
 
   const grid = buildWindowGrid(endDateMs, windowDays, windowCount);
 
@@ -244,6 +249,7 @@ async function main(): Promise<void> {
   console.log(
     `Provider: ${provider} (model: ${provider === "anthropic" ? ANTHROPIC_MODEL : AI_MODEL})`
   );
+  console.log(`Ticker:    ${ticker}`);
   console.log(`Prompt:    ${promptVersion}`);
   console.log(`Timeframe: ${timeframe}`);
   console.log(`Capital per window: $${capital.toLocaleString()}`);
@@ -266,7 +272,7 @@ async function main(): Promise<void> {
   console.log("");
 
   // Load corpus once — Twelve Data + intermarket fetches are expensive.
-  const corpus: Corpus = await loadCorpus(timeframe);
+  const corpus: Corpus = await loadCorpus(timeframe, ticker);
   const clients = createClients(provider);
 
   // Pre-fetch the economic calendar once across the full grid range so

@@ -40,6 +40,7 @@ import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { AI_MODEL, getAIClient } from "../src/lib/ai/client";
 import { checkAtrLiquidity } from "../src/lib/algorithm/intraday-atr-gate";
 import { checkStagnantExit } from "../src/lib/algorithm/stagnant-exit";
+import { INSTRUMENT_CATALOG, type InstrumentClass } from "../src/lib/constants/markets";
 import {
   type EconomicEvent,
   fetchEconomicCalendar,
@@ -916,9 +917,25 @@ export type Timeframe = "4h" | "1h" | "30m" | "15m";
 export interface Corpus {
   bars: PriceBar[];
   dailyBars: PriceBar[];
+  /** EUR/USD 4h bars used as a DXY proxy in the LLM prompt. For
+   *  commodity backtests this is intermarket context (USD strength).
+   *  For forex backtests where the primary pair IS EUR/USD, this is
+   *  degenerate — the runWindow loop suppresses the DXY block in
+   *  that case to avoid feeding the LLM its own bars. */
   eurusd4h: PriceBar[];
+  /** Gold-specific intermarket series (XAU/XAG, ^TNX, ^VIX). Always
+   *  fetched for commodity tickers; empty struct for forex (the
+   *  summariser then prints "Intermarket: n/a" and the LLM's prompt
+   *  context skips the block entirely). */
   intermarket: IntermarketSeries;
   timeframe: Timeframe;
+  /** The instrument the corpus is loaded for. Used by runWindow to
+   *  pick the right news-veto currencies and to suppress gold-only
+   *  intermarket context for forex pairs. */
+  ticker: string;
+  /** Resolved from the markets catalog. "commodity" enables the
+   *  XAU/XAG + yields + VIX prompt block; "forex" suppresses it. */
+  assetClass: InstrumentClass;
 }
 
 export interface WindowOptions {
@@ -985,7 +1002,17 @@ export interface WindowResult {
   gateRefusals: GateRefusals;
 }
 
-export async function loadCorpus(timeframe: Timeframe): Promise<Corpus> {
+export async function loadCorpus(
+  timeframe: Timeframe,
+  ticker: string = "XAU/USD"
+): Promise<Corpus> {
+  const meta = INSTRUMENT_CATALOG.find((m) => m.symbol === ticker.toUpperCase());
+  if (!meta) {
+    throw new Error(
+      `loadCorpus: ${ticker} not in INSTRUMENT_CATALOG. Add it to FOREX_PAIRS or COMMODITIES first.`
+    );
+  }
+  const assetClass = meta.assetClass;
   let fetchInterval: BarInterval;
   let needsResample: false | "4h" | "30m";
   if (timeframe === "4h") {
@@ -1006,29 +1033,43 @@ export async function loadCorpus(timeframe: Timeframe): Promise<Corpus> {
   }
 
   console.log(
-    `Loading XAU/USD ${timeframe} corpus (fetched at ${fetchInterval}${needsResample ? `, resampled to ${needsResample}` : ""})...`
+    `Loading ${ticker} ${timeframe} corpus (fetched at ${fetchInterval}${needsResample ? `, resampled to ${needsResample}` : ""})...`
   );
-  // Prefer Supabase cache for historical depth — Twelve Data caps at
-  // 5000 bars per call which limits live fetches to ~7mo on 1h. The
-  // cache has 2.4yr of XAU/USD 1h bars from prior accumulated fetches.
-  const fetched = await fetchOrCachedFull("XAU/USD", fetchInterval);
+  const fetched = await fetchOrCachedFull(ticker, fetchInterval);
   const bars = needsResample ? resampleTo(fetched, needsResample) : fetched;
-  const dailyBars = await fetchOrCachedFull("XAU/USD", "1day");
+  const dailyBars = await fetchOrCachedFull(ticker, "1day");
   console.log(`  ${timeframe} corpus: ${bars.length} bars (${bars[0]?.date.slice(0, 10) ?? "?"} → ${bars[bars.length - 1]?.date.slice(0, 10) ?? "?"})`);
   console.log(`  daily corpus: ${dailyBars.length} bars`);
 
-  console.log("Loading EUR/USD 4h proxy...");
-  const eurusd4h = await fetchOrCachedFull("EUR/USD", "4h");
-  console.log(`  EUR/USD 4h: ${eurusd4h.length} bars`);
+  // EUR/USD 4h: loaded as a DXY proxy. Pointless when backtesting
+  // EUR/USD itself (the bars would equal the primary series). For
+  // other forex pairs it still gives the LLM some USD-strength
+  // context, so we load it everywhere except EUR/USD.
+  let eurusd4h: PriceBar[] = [];
+  if (ticker.toUpperCase() !== "EUR/USD") {
+    console.log("Loading EUR/USD 4h proxy...");
+    eurusd4h = await fetchOrCachedFull("EUR/USD", "4h");
+    console.log(`  EUR/USD 4h: ${eurusd4h.length} bars`);
+  } else {
+    console.log("Skipping DXY proxy load (primary is EUR/USD).");
+  }
 
-  console.log("Loading intermarket series (silver / yields / VIX)...");
-  const intermarket = await loadIntermarket();
-  console.log(
-    `  silver: ${intermarket.silver?.length ?? 0} bars · 10Y yield: ${intermarket.yield10y?.length ?? 0} bars · VIX: ${intermarket.vix?.length ?? 0} bars`
-  );
+  // Gold-specific intermarket (silver, yields, VIX) — only meaningful
+  // for commodity backtests. For forex the summariser sees an empty
+  // struct and prints "Intermarket: n/a", which the LLM ignores.
+  let intermarket: IntermarketSeries = {};
+  if (assetClass === "commodity") {
+    console.log("Loading intermarket series (silver / yields / VIX)...");
+    intermarket = await loadIntermarket();
+    console.log(
+      `  silver: ${intermarket.silver?.length ?? 0} bars · 10Y yield: ${intermarket.yield10y?.length ?? 0} bars · VIX: ${intermarket.vix?.length ?? 0} bars`
+    );
+  } else {
+    console.log(`Skipping commodity intermarket load (asset class: ${assetClass}).`);
+  }
   console.log("");
 
-  return { bars, dailyBars, eurusd4h, intermarket, timeframe };
+  return { bars, dailyBars, eurusd4h, intermarket, timeframe, ticker: ticker.toUpperCase(), assetClass };
 }
 
 export async function runWindow(opts: WindowOptions): Promise<WindowResult> {
@@ -1044,7 +1085,7 @@ export async function runWindow(opts: WindowOptions): Promise<WindowResult> {
     riskPerTradePct,
     silent = false,
   } = opts;
-  const { bars, dailyBars, eurusd4h, intermarket, timeframe } = corpus;
+  const { bars, dailyBars, eurusd4h, intermarket, timeframe, ticker } = corpus;
   const systemPrompt = getPrompt(promptVersion);
 
   // Position-sizing helper. When riskPerTradePct is set, sizes the
@@ -1063,9 +1104,9 @@ export async function runWindow(opts: WindowOptions): Promise<WindowResult> {
   };
 
   // News veto setup. Fetch events once for this slice if not pre-fetched.
-  // XAU/USD → ["USD"]. The veto blocks 5 min before / 15 min after every
-  // high-impact USD release.
-  const newsCurrencies = getEventCurrencies("XAU/USD");
+  // Forex: BOTH base + quote currencies (EUR/USD → ["EUR","USD"]).
+  // Gold: USD-only. getEventCurrencies handles the split internally.
+  const newsCurrencies = getEventCurrencies(ticker);
   let newsEvents: EconomicEvent[] = opts.economicEvents ?? [];
   if (newsEvents.length === 0 && PRODUCTION_GATES.news_veto.enabled) {
     const sliceStartMs = sliceEndMs - sliceDays * 24 * 3600 * 1000;
@@ -1098,13 +1139,15 @@ export async function runWindow(opts: WindowOptions): Promise<WindowResult> {
     );
   }
 
-  // v5 + v5_15m prompts require multi-TF context. Precompute higher-TF
-  // bars once per run; per-bar slice is by timestamp inside
+  // v5 + v5_15m + v2_mtf prompts require multi-TF context. Precompute
+  // higher-TF bars once per run; per-bar slice is by timestamp inside
   // summariseHigherTfStructure. Pairings:
   //   30m primary → 1h + 4h (v5)
   //   15m primary → 30m + 1h (v5_15m)
+  //   4h primary  → 1h only (v2_mtf — faster-pulse early-warning vs D1 lag)
   //   1h primary  → 4h only (degraded — only for ad-hoc experimentation)
-  const useMultiTf = promptVersion === "v5" || promptVersion === "v5_15m";
+  const useMultiTf =
+    promptVersion === "v5" || promptVersion === "v5_15m" || promptVersion === "v2_mtf";
   const higherTfBars: { tfLabel: string; bars: PriceBar[] }[] = useMultiTf
     ? timeframe === "30m"
       ? [
@@ -1116,9 +1159,11 @@ export async function runWindow(opts: WindowOptions): Promise<WindowResult> {
             { tfLabel: "30m", bars: resampleTo(bars, "30min") },
             { tfLabel: "1h", bars: resampleTo(bars, "1h") },
           ]
-        : timeframe === "1h"
-          ? [{ tfLabel: "4h", bars: resampleTo(bars, "4h") }]
-          : []
+        : timeframe === "4h"
+          ? [{ tfLabel: "1h", bars: resampleTo(bars, "1h") }]
+          : timeframe === "1h"
+            ? [{ tfLabel: "4h", bars: resampleTo(bars, "4h") }]
+            : []
     : [];
 
   const closedTrades: ClosedTrade[] = [];
@@ -1241,7 +1286,11 @@ export async function runWindow(opts: WindowOptions): Promise<WindowResult> {
     // 2) Ask LLM for the next decision based on this bar's close.
     const dailyContext = dailyBiasResult.summary;
     const recentContext = summariseRecentBars(bars, i, timeframe);
-    const dxyContext = summariseDxy(eurusd4h, bar.date);
+    // DXY proxy: skipped when primary IS EUR/USD (degenerate — same
+    // series as `bars`). For all other tickers it gives the LLM
+    // USD-strength color via the EUR/USD 4h close.
+    const dxyContext =
+      ticker === "EUR/USD" ? "" : summariseDxy(eurusd4h, bar.date);
     const intermarketContext = summariseIntermarket(intermarket, bar.close, bar.date);
     const positionContext = summarisePosition(position, bar.close);
     const higherTfContext = useMultiTf
@@ -1249,7 +1298,16 @@ export async function runWindow(opts: WindowOptions): Promise<WindowResult> {
       : "";
     const higherTfLine = higherTfContext ? `\n${higherTfContext}` : "";
 
-    const userMessage = `${bar.date.slice(0, 16)}\n${dailyContext}\n${dxyContext}\n${intermarketContext}\n${recentContext}${higherTfLine}\nPosition: ${positionContext}\nDecide.`;
+    // Compose message — empty context lines are dropped to avoid
+    // feeding the LLM blank "DXY: n/a" or "Intermarket: n/a" rows.
+    const contextLines = [
+      bar.date.slice(0, 16),
+      dailyContext,
+      dxyContext,
+      intermarketContext,
+      recentContext,
+    ].filter((l) => l && l.length > 0);
+    const userMessage = `${contextLines.join("\n")}${higherTfLine}\nPosition: ${positionContext}\nDecide.`;
 
     const decision = await callLLM(provider, clients, systemPrompt, userMessage);
     llmCallCount++;

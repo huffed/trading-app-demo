@@ -26,7 +26,7 @@
  * `PROMPT_VERSION=v1|v2` env var (backtest CLI). Both default to v2.
  */
 
-export type PromptVersion = "v1" | "v2" | "v3" | "v4" | "v5" | "v5_15m";
+export type PromptVersion = "v1" | "v2" | "v2_mtf" | "v3" | "v4" | "v5" | "v5_15m";
 
 const HEAD = `You are a gold (XAU/USD) discretionary trader on 4h. Take only HIGH-CONVICTION setups; most bars should be "hold".
 
@@ -98,6 +98,32 @@ ${V1_RANGING_RULE}${TAIL}`;
 
 export const LLM_TRADER_PROMPT_V2 = `${HEAD}
 ${V2_RANGING_RULE}${TAIL}`;
+
+// 2026-05-17 — v2_mtf is v2 + multi-TF transition override. Higher TF
+// (1h) context is passed in by the engine when prompt is v2_mtf; the
+// vanilla v2 doesn't receive it. Targets the D1 lag problem identified
+// in the 2026-05-15 missed-trade analysis (Feb 2-6 cluster: gold
+// rallied $4549→$5090 over 50h while D1 read LH; algo took 5+ short
+// entries that all stopped). The override is informational+soft — D1
+// remains the primary direction filter; 1h provides early-warning
+// signal for D1 reversals at 4h cadence.
+//
+// Pair with timeframe=4h, structural SL/TP. Inherits v2's
+// V2_RANGING_RULE for → RANGING handling.
+const MULTI_TF_V2 = `MULTI-TF CONTEXT (when "Higher TF:" line is present):
+- D1 is your PRIMARY direction filter. The Higher TF line shows 1h structure independently.
+- D1 has a 14-day swing window — it LAGS reversals by 1-3 days at 4h cadence. When a reversal starts, D1 still shows the OLD regime while 1h has already flipped.
+- IF D1 = LH AND 1h = HH AND 1h 3-bar momentum > +0.5%: TRANSITION signal. You MAY take LONG entries with 4h structural confluence (sweep+reclaim, BOS+retest at a 4h level, pullback to 4h SMA20 with bullish reversal candle). Don't chase the first bar of the rally — wait for pullback or retest.
+- IF D1 = HH AND 1h = LH AND 1h 3-bar momentum < -0.5%: TRANSITION signal. You MAY take SHORT entries with 4h structural confluence.
+- When invoking transition mode, state explicitly: "MULTI-TF TRANSITION: D1=X, 1h=Y, mom Z%". Audit trail captures the rationale.
+- If 1h matches D1 (both HH, both LH, or 1h is RANGING with no clear direction), the standard regime rule from above applies — no override.
+- Transition mode does NOT change the REGIME-FLIP EXIT rule for OPEN positions. Those rules still bind.
+
+`;
+
+export const LLM_TRADER_PROMPT_V2_MTF = `${HEAD}
+
+${MULTI_TF_V2}${V2_RANGING_RULE}${TAIL}`;
 
 // v3: scalper variant — designed for 30m (and possibly 15m) cadence.
 // Differs from v2 in that it (a) reframes the conviction threshold so
@@ -382,6 +408,7 @@ SL/TP are STRUCTURAL — placed by the engine at chart levels (just past recent 
 const PROMPTS: Record<PromptVersion, string> = {
   v1: LLM_TRADER_PROMPT_V1,
   v2: LLM_TRADER_PROMPT_V2,
+  v2_mtf: LLM_TRADER_PROMPT_V2_MTF,
   v3: LLM_TRADER_PROMPT_V3,
   v4: LLM_TRADER_PROMPT_V4,
   v5: LLM_TRADER_PROMPT_V5,
@@ -395,6 +422,7 @@ export function getPrompt(version: PromptVersion | string | undefined): string {
   if (
     version === "v1" ||
     version === "v2" ||
+    version === "v2_mtf" ||
     version === "v3" ||
     version === "v4" ||
     version === "v5" ||
