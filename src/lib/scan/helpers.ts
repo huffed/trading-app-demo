@@ -8,6 +8,7 @@ import {
   riskToLots,
   ruleAsPctOfEntry,
 } from "@/lib/constants/markets";
+import { logger } from "@/lib/logger";
 import type { AlgorithmRules } from "@/types/algorithm";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -53,7 +54,9 @@ export function calculatePositionSize(
     sizing.type === "conviction_scaled"
   ) {
     const contractSize = getContractSize(symbol ?? "", rules.asset_class);
-    const leverage = rules.leverage ?? 30;
+    // Guard: leverage ≤ 0 (bad config) would make marginRequired Infinity
+    // below and silently refuse every entry. Treat invalid as default 30.
+    const leverage = rules.leverage && rules.leverage > 0 ? rules.leverage : 30;
     let lots: number;
     if (sizing.type === "lots") {
       lots = sizing.value;
@@ -136,7 +139,7 @@ export async function logActivity(
     details?: Record<string, unknown>;
   }
 ) {
-  await supabase.from("activity_log").insert({
+  const { error } = await supabase.from("activity_log").insert({
     user_id: userId,
     algorithm_id: entry.algorithm_id,
     position_id: entry.position_id ?? null,
@@ -144,4 +147,15 @@ export async function logActivity(
     ticker: entry.ticker ?? null,
     details: entry.details ?? {},
   });
+  if (error) {
+    // activity_log inserts have silently dropped before (event_type CHECK
+    // constraint incident, migration 00023 — every halt/drift/live-order
+    // event was thrown away for weeks). Audit writes must never fail
+    // invisibly.
+    logger.error(
+      "activity-log",
+      `insert failed for event_type=${entry.event_type}`,
+      error.message
+    );
+  }
 }

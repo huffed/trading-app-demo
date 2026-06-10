@@ -477,6 +477,27 @@ const PROMPTS: Record<PromptVersion, string> = {
   v5_15m: LLM_TRADER_PROMPT_V5_15M,
 };
 
+/** Which prompt versions embed an explicit multi-TF override (the prompt
+ *  itself may take RANGING-regime entries when faster TFs agree) and
+ *  therefore (a) receive higher-TF context lines and (b) bypass the
+ *  engine's hard RANGING block.
+ *
+ *  Record<PromptVersion, boolean> ON PURPOSE: adding a new version to the
+ *  PromptVersion type without declaring it here is a COMPILE ERROR.
+ *  Hardcoded version lists in entry.ts drifted twice — the 2026-05-11
+ *  incident (gate calibrated for v3 muzzling v5/v5_15m) and a silent
+ *  v2_mtf omission found in the 2026-06-10 hygiene audit. */
+export const PROMPT_HAS_MTF_OVERRIDE: Record<PromptVersion, boolean> = {
+  v1: false,
+  v2: false,
+  v2_generic: false,
+  v2_mtf: true,
+  v3: false,
+  v4: false,
+  v5: true,
+  v5_15m: true,
+};
+
 /** Resolve a prompt version string to its prompt body. Falls back to
  *  v2 (current default for swing/4h) for unknown versions — keeps
  *  production resilient to old algorithm rows that predate v2/v3/v4/v5. */

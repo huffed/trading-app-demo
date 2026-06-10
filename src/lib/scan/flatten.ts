@@ -10,10 +10,12 @@
  */
 import { getBrokerAdapter } from "@/lib/brokers/registry";
 import type { BrokerConnection } from "@/lib/brokers/types";
+import { logActivity } from "@/lib/scan/helpers";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 interface PosRow {
   id: string;
+  user_id: string;
   ticker: string;
   entry_price: number;
   current_price: number | null;
@@ -64,7 +66,9 @@ export async function flattenAlgorithmPositions(
 
   const { data: positions } = await supabase
     .from("paper_positions")
-    .select("id, ticker, entry_price, current_price, realized_pnl, unrealized_pnl, broker_position_id")
+    .select(
+      "id, user_id, ticker, entry_price, current_price, realized_pnl, unrealized_pnl, broker_position_id"
+    )
     .eq("algorithm_id", algorithmId)
     .eq("status", "open");
 
@@ -104,6 +108,29 @@ export async function flattenAlgorithmPositions(
       .update(closeUpdate as unknown as never)
       .eq("id", pos.id)
       .eq("status", "open");
+
+    // Audit the broker-close outcome. Before this, flatten's
+    // broker-closed / broker-failed result existed only in the HTTP
+    // response — the 2026-05-18 flatten's broker outcome was unrecoverable
+    // during the 2026-06-10 review because nothing persisted it.
+    await logActivity(supabase, pos.user_id, {
+      algorithm_id: algorithmId,
+      position_id: pos.id,
+      event_type:
+        status === "broker-closed"
+          ? "live_order_closed"
+          : status.startsWith("broker-failed")
+            ? "live_order_close_failed"
+            : "position_closed",
+      ticker: pos.ticker,
+      details: {
+        source: "flatten",
+        flatten_status: status,
+        exit_reason: exitReason,
+        exit_price: exitPrice,
+        realized_pnl: realized,
+      },
+    });
 
     results.push({ ticker: pos.ticker, broker_position_id: pos.broker_position_id, status });
   }
