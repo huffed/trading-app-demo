@@ -273,11 +273,80 @@ export interface DecisionLogEntry {
  *    TP_TYPE=percentage|rr_multiple (default: percentage)
  *    TP_VALUE=<number> — for percentage: TP distance as fraction (0.045
  *      = 4.5%); for rr_multiple: RR ratio (3 = TP at 3× SL distance) */
-const SL_TYPE = (process.env.SL_TYPE ?? "percentage") as "percentage" | "swing_anchor";
-const SL_VALUE = Number(process.env.SL_VALUE ?? (SL_TYPE === "swing_anchor" ? "0.25" : "0.015"));
-const SL_LOOKBACK = Number(process.env.SL_LOOKBACK ?? "8");
-const TP_TYPE = (process.env.TP_TYPE ?? "percentage") as "percentage" | "rr_multiple";
-const TP_VALUE = Number(process.env.TP_VALUE ?? (TP_TYPE === "rr_multiple" ? "3" : "0.045"));
+/** Named SL/TP geometry presets. Passing SL_PRESET kills the
+ *  silent-default bug class: the 2026-05 WF baselines unknowingly ran the
+ *  env defaults (pct 1.5% SL / 4.5% TP) while everyone believed they ran
+ *  the live swing config — discovered 2026-06-10 via the exit-replay
+ *  provenance check (PR #178), where it had to be inferred from the
+ *  recorded stop distances.
+ *    baseline — harness historical defaults (pct 1.5% / pct 4.5%)
+ *    live     — live 4h algo rules (swing_anchor 0.25/8 + rr3),
+ *               per the Supabase dump of 2026-05-18
+ *    comboC   — SL-sweep + exit-replay winner (swing_anchor 0.10/4 + rr3);
+ *               PENDING paid WF confirmation — not a live config yet
+ *  Mixing SL_PRESET with explicit SL_x / TP_x env vars throws on purpose
+ *  — a half-applied preset is exactly the ambiguity this exists to kill. */
+const SL_PRESETS = {
+  baseline: { slType: "percentage", slValue: 0.015, slLookback: 8, tpType: "percentage", tpValue: 0.045 },
+  live: { slType: "swing_anchor", slValue: 0.25, slLookback: 8, tpType: "rr_multiple", tpValue: 3 },
+  comboC: { slType: "swing_anchor", slValue: 0.1, slLookback: 4, tpType: "rr_multiple", tpValue: 3 },
+} as const;
+
+const SL_PRESET_NAME = process.env.SL_PRESET ?? null;
+const slPreset = SL_PRESET_NAME
+  ? SL_PRESETS[SL_PRESET_NAME as keyof typeof SL_PRESETS]
+  : undefined;
+if (SL_PRESET_NAME && !slPreset) {
+  throw new Error(
+    `Unknown SL_PRESET=${SL_PRESET_NAME}. Use ${Object.keys(SL_PRESETS).join(" | ")}.`
+  );
+}
+if (
+  slPreset &&
+  (process.env.SL_TYPE ||
+    process.env.SL_VALUE ||
+    process.env.SL_LOOKBACK ||
+    process.env.TP_TYPE ||
+    process.env.TP_VALUE)
+) {
+  throw new Error(
+    "SL_PRESET conflicts with explicit SL_*/TP_* env vars — set one or the other."
+  );
+}
+
+const SL_TYPE = (process.env.SL_TYPE ?? slPreset?.slType ?? "percentage") as
+  | "percentage"
+  | "swing_anchor";
+const SL_VALUE = Number(
+  process.env.SL_VALUE ?? slPreset?.slValue ?? (SL_TYPE === "swing_anchor" ? "0.25" : "0.015")
+);
+const SL_LOOKBACK = Number(process.env.SL_LOOKBACK ?? slPreset?.slLookback ?? "8");
+const TP_TYPE = (process.env.TP_TYPE ?? slPreset?.tpType ?? "percentage") as
+  | "percentage"
+  | "rr_multiple";
+const TP_VALUE = Number(
+  process.env.TP_VALUE ?? slPreset?.tpValue ?? (TP_TYPE === "rr_multiple" ? "3" : "0.045")
+);
+
+/** Resolved SL/TP geometry for this process — callers (WF orchestrator)
+ *  print and persist this so no run is ever ambiguous about what it ran. */
+export const RESOLVED_SLTP = {
+  preset: SL_PRESET_NAME,
+  // True when nothing pinned the geometry — running harness defaults,
+  // which are NOT the live config. Callers should warn loudly.
+  using_harness_defaults:
+    !SL_PRESET_NAME &&
+    !process.env.SL_TYPE &&
+    !process.env.SL_VALUE &&
+    !process.env.TP_TYPE &&
+    !process.env.TP_VALUE,
+  sl: {
+    type: SL_TYPE,
+    value: SL_VALUE,
+    ...(SL_TYPE === "swing_anchor" ? { lookback: SL_LOOKBACK } : {}),
+  },
+  tp: { type: TP_TYPE, value: TP_VALUE },
+};
 
 // Legacy constants — only used in fallback paths if SL_TYPE/TP_TYPE are
 // percentage. Real path is `computeSlForBacktest` / `computeTpForBacktest`.

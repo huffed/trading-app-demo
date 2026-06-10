@@ -57,6 +57,22 @@
  *                               detail page's Decisions section then
  *                               surfaces backtest decisions for review
  *                               with the same UI as live decisions.)
+ *   SL_PRESET=comboC           (named SL/TP geometry: baseline | live |
+ *                               comboC. OMITTING IT runs harness defaults
+ *                               (pct 1.5%/4.5%) which are NOT the live
+ *                               config — the header warns when that
+ *                               happens. See SL_PRESETS in
+ *                               llm-trader-backtest.ts.)
+ *
+ * comboC CONFIRMATION RUN (the one paid validation moment, ~$4-6 with
+ * replay cache, fits the $25/mo cap; screened at $0 by PR #178):
+ *   SL_PRESET=comboC REPLAY_CACHE=1 PROVIDER=anthropic TIMEFRAME=4h \
+ *     PROMPT_VERSION=v2 END_DATE=2026-04-30 \
+ *     pnpm dlx tsx scripts/llm-trader-walk-forward.ts
+ * Compare against an SL_PRESET=live run on the same windows + the ≤5% DD
+ * gate before ANY live config change (then update the 4h algo's rules
+ * sl/tp in Supabase — verify the exact JSONB shape via
+ * scripts/dump-live-configs.ts first).
  */
 import { readFileSync, writeFileSync } from "fs";
 import { createClient } from "@supabase/supabase-js";
@@ -72,6 +88,7 @@ import {
   createClients,
   getLlmUsageTotals,
   getReplayCacheStats,
+  RESOLVED_SLTP,
   loadCorpus,
   runWindow,
 } from "./llm-trader-backtest";
@@ -255,6 +272,18 @@ async function main(): Promise<void> {
   console.log(`Prompt:    ${promptVersion}`);
   console.log(`Timeframe: ${timeframe}`);
   console.log(`Capital per window: $${capital.toLocaleString()}`);
+  console.log(
+    `SL/TP: ${RESOLVED_SLTP.sl.type} ${RESOLVED_SLTP.sl.value}` +
+      `${RESOLVED_SLTP.sl.lookback !== undefined ? `/${RESOLVED_SLTP.sl.lookback}` : ""}` +
+      ` + ${RESOLVED_SLTP.tp.type} ${RESOLVED_SLTP.tp.value}` +
+      ` (${RESOLVED_SLTP.preset ? `preset: ${RESOLVED_SLTP.preset}` : "env"})`
+  );
+  if (RESOLVED_SLTP.using_harness_defaults) {
+    console.log(
+      `  ⚠ SL/TP from HARNESS DEFAULTS — this is NOT the live config. ` +
+        `Set SL_PRESET=live (or comboC) for a config-faithful run.`
+    );
+  }
   console.log(`Windows: ${windowCount} × ${windowDays}d (non-overlapping, ending ${grid[grid.length - 1].sliceEndDate})`);
   console.log(
     `Coverage: ${grid[0].sliceEndDate} (− ${windowDays}d) → ${grid[grid.length - 1].sliceEndDate}`
@@ -459,6 +488,7 @@ async function main(): Promise<void> {
     decisions_by_regime: decisionStats,
     llm_usage: usage,
     replay_cache: replay,
+    sl_tp: RESOLVED_SLTP,
   };
   writeFileSync(summaryPath, JSON.stringify(summaryDoc, null, 2));
   console.log(`Walk-forward summary saved: ${summaryPath}`);
