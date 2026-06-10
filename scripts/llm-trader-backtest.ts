@@ -650,6 +650,61 @@ const LLM_MAX_ATTEMPTS = Number(process.env.LLM_MAX_ATTEMPTS ?? 5);
 const REPLAY_CACHE_ENABLED = process.env.REPLAY_CACHE === "1";
 const REPLAY_CACHE_DIR = "scripts/.llm-replay-cache";
 
+// Hard monthly spend cap (2026-06-10). The first month of development cost
+// ~£400 against a £150/month ceiling — most of it WF validation runs. The
+// harness now refuses to spend past LLM_MONTHLY_BUDGET_USD per calendar
+// month (default $25, deliberately conservative — override per run when a
+// planned validation moment needs more). Tracked in a local ledger file;
+// covers HARNESS Anthropic spend only. Live scanning (~$0.15-0.45/day) and
+// Groq free-tier runs don't draw from it.
+const LLM_MONTHLY_BUDGET_USD = Number(process.env.LLM_MONTHLY_BUDGET_USD ?? 25);
+const SPEND_LEDGER_PATH = "scripts/.llm-spend-ledger.json";
+
+type SpendLedger = Record<string, { api_calls: number; est_cost_usd: number }>;
+
+function ledgerMonthKey(): string {
+  return new Date().toISOString().slice(0, 7); // YYYY-MM
+}
+
+function readSpendLedger(): SpendLedger {
+  try {
+    if (!existsSync(SPEND_LEDGER_PATH)) return {};
+    return JSON.parse(readFileSync(SPEND_LEDGER_PATH, "utf8")) as SpendLedger;
+  } catch {
+    return {};
+  }
+}
+
+function addToSpendLedger(costUsd: number): void {
+  try {
+    const ledger = readSpendLedger();
+    const key = ledgerMonthKey();
+    const row = ledger[key] ?? { api_calls: 0, est_cost_usd: 0 };
+    row.api_calls += 1;
+    row.est_cost_usd += costUsd;
+    ledger[key] = row;
+    writeFileSync(SPEND_LEDGER_PATH, JSON.stringify(ledger, null, 2));
+  } catch {
+    /* ledger failure must never break a run */
+  }
+}
+
+/** Hard stop, not a warning: a budget guard that lets the run continue is
+ *  just a log line. Losing partial window results is cheaper than letting
+ *  the spend continue. */
+function enforceMonthlyBudget(): void {
+  const spent = readSpendLedger()[ledgerMonthKey()]?.est_cost_usd ?? 0;
+  if (spent >= LLM_MONTHLY_BUDGET_USD) {
+    console.error(
+      `\n✗ MONTHLY LLM BUDGET EXHAUSTED: $${spent.toFixed(2)} spent in ${ledgerMonthKey()} ` +
+        `(cap $${LLM_MONTHLY_BUDGET_USD}). Aborting before the next API call.\n` +
+        `  Raise deliberately for a planned run: LLM_MONTHLY_BUDGET_USD=${Math.ceil(spent + 10)} ...\n` +
+        `  Ledger: ${SPEND_LEDGER_PATH}`
+    );
+    process.exit(1);
+  }
+}
+
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -804,12 +859,14 @@ function recordUsage(usage: Anthropic.Usage | null | undefined): void {
   usageTotals.output_tokens += usage.output_tokens ?? 0;
   usageTotals.cache_read_input_tokens += cacheRead;
   usageTotals.cache_creation_input_tokens += cacheWrite;
-  usageTotals.estimated_cost_usd +=
+  const callCost =
     ((usage.input_tokens ?? 0) * HAIKU_IN_PER_M +
       (usage.output_tokens ?? 0) * HAIKU_OUT_PER_M +
       cacheRead * HAIKU_CACHE_READ_PER_M +
       cacheWrite * HAIKU_CACHE_WRITE_PER_M) /
     1_000_000;
+  usageTotals.estimated_cost_usd += callCost;
+  addToSpendLedger(callCost);
 }
 
 export function getLlmUsageTotals(): LlmUsageTotals {
@@ -938,6 +995,9 @@ export async function callLLMWithDiagnostic(
     }
     replayStats.misses++;
   }
+
+  // Budget guard applies to paid providers only — Groq free tier is $0.
+  if (provider === "anthropic") enforceMonthlyBudget();
 
   let lastErr: unknown = null;
   for (let attempt = 0; attempt < LLM_MAX_ATTEMPTS; attempt++) {
