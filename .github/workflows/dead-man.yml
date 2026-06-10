@@ -1,0 +1,54 @@
+# Dead-man switch for the trading pipeline (2026-06-10).
+#
+# The whole stack runs on the operator's Mac (cron → pnpm dev → Supabase).
+# When any link dies, ticks stop SILENTLY — the 2026-05-24 outage went
+# unnoticed for 17 days and Supabase's free tier auto-paused the project
+# from zero traffic. This check inverts that: GitHub (independent infra)
+# verifies every 30 min that a manage_tick reached the database recently,
+# and FAILS when the trail goes stale — GitHub emails the repo owner on
+# scheduled-workflow failure, so a dead Mac/server/cron/DB alerts within
+# ~45-60 min with zero third-party accounts.
+#
+# Depends on the `public.last_manage_tick()` SECURITY DEFINER function
+# (anon-executable, exposes ONE timestamp and nothing else — RLS keeps
+# everything else closed). Secrets: SUPABASE_URL + SUPABASE_ANON_KEY
+# (encrypted repo secrets; nothing sensitive lives in this file — the
+# repo is public).
+#
+# NOTE: GitHub disables scheduled workflows after 60 days without repo
+# activity. This repo sees regular commits; if development ever pauses
+# that long, re-enable under Actions → dead-man-switch.
+name: dead-man-switch
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+
+jobs:
+  check-heartbeat:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify manage_tick freshness
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          MAX_AGE_MINUTES: "45" # manage tick cadence is 5 min; 45 = ~9 missed ticks
+        run: |
+          set -euo pipefail
+          ts=$(curl -fsS -X POST "$SUPABASE_URL/rest/v1/rpc/last_manage_tick" \
+            -H "apikey: $SUPABASE_ANON_KEY" \
+            -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
+            -H "Content-Type: application/json" -d '{}' | tr -d '"')
+          if [ -z "$ts" ] || [ "$ts" = "null" ]; then
+            echo "::error::No manage_tick found at all — pipeline has never ticked or DB is unreachable."
+            exit 1
+          fi
+          now_epoch=$(date -u +%s)
+          tick_epoch=$(date -u -d "$ts" +%s)
+          age_min=$(( (now_epoch - tick_epoch) / 60 ))
+          echo "Last manage_tick: $ts (${age_min}m ago, threshold ${MAX_AGE_MINUTES}m)"
+          if [ "$age_min" -gt "$MAX_AGE_MINUTES" ]; then
+            echo "::error::Trading pipeline heartbeat STALE: last manage_tick ${age_min}m ago (> ${MAX_AGE_MINUTES}m). Mac asleep, dev server down, cron dead, or Supabase paused."
+            exit 1
+          fi
+          echo "Pipeline alive."
