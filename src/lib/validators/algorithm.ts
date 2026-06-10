@@ -243,7 +243,7 @@ const llmTraderSchema = z.object({
   enabled: z.boolean(),
   provider: z.enum(["anthropic", "groq"]),
   model: z.string().optional(),
-  prompt_version: z.enum(["v1", "v2", "v2_mtf", "v3", "v4", "v5", "v5_15m"]).optional(),
+  prompt_version: z.enum(["v1", "v2", "v2_generic", "v2_mtf", "v3", "v4", "v5", "v5_15m"]).optional(),
   dry_run: z.boolean().optional(),
 });
 

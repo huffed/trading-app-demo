@@ -512,8 +512,15 @@ export interface AlgorithmRules {
      *    permits TRANSITION-mode entries when D1 lags a 1h-confirmed
      *    reversal. Targets the D1 detection lag identified 2026-05-15
      *    (Feb 2-6 missed cluster: 12% reversal while D1 read LH).
+     *  - "v2_generic": v2 stripped of gold-specific framing. Built
+     *    2026-05-18 for Phase 0 of the architecture rebuild's
+     *    multi-instrument viability test. Same triggers/regime rules
+     *    as v2 but no "gold (XAU/USD)" framing and no gold-specific
+     *    intermarket guidance — LLM interprets per instrument. Engine
+     *    auto-skips commodity intermarket for non-commodity tickers
+     *    and uses EUR/USD as DXY proxy for non-EUR/USD pairs.
      *  Defaults to v2 in production when unspecified. */
-    prompt_version?: "v1" | "v2" | "v2_mtf" | "v3" | "v4" | "v5" | "v5_15m";
+    prompt_version?: "v1" | "v2" | "v2_generic" | "v2_mtf" | "v3" | "v4" | "v5" | "v5_15m";
     /** Dry-run: log the LLM's decision to activity_log but do NOT
      *  actually open/close positions. Used for the first 1-2 cycles of
      *  live deployment to verify the LLM behaves sensibly on real-time

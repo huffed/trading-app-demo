@@ -196,16 +196,31 @@ export async function executeLiveEntry(args: EntryArgs): Promise<void> {
     await maybeHaltOnDivergence(supabase, userId, algorithmId, args.divergenceRule);
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Live order failed";
+    // Roll back the paper position. Broker rejected the order, so there
+    // is no real exposure — leaving the row open with status='open' lets
+    // the manage cron treat it as a real position and eventually "trigger"
+    // paper SL/TP hits against zero actual exposure (bug surfaced
+    // 2026-05-18: Sat-00:00-UTC entry rejected MARKET_CLOSED, then
+    // "stopped out" 2 days later for -$441 paper-only loss). Close
+    // cleanly with zero P&L and the distinct broker_rejected exit reason
+    // so analytics can identify these voids vs real exits (constraint
+    // added in migration 00038).
     await supabase
       .from("paper_positions")
-      .update({ broker_error: msg })
+      .update({
+        status: "closed",
+        closed_at: new Date().toISOString(),
+        exit_reason: "broker_rejected",
+        realized_pnl: 0,
+        broker_error: msg,
+      })
       .eq("id", paperPositionId);
     await logActivity(supabase, userId, {
       algorithm_id: algorithmId,
       position_id: paperPositionId,
       event_type: "live_order_failed",
       ticker,
-      details: { error: msg, side },
+      details: { error: msg, side, voided: true },
     });
   }
 }

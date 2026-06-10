@@ -93,29 +93,34 @@ export interface AlgoConfig {
   tp: TpConfig;
 }
 
-/** Default config matching the LIVE state on FTMO Demo $100K Swing
- *  as of 2026-05-06 (post v1 SL/TP migration to structural primitives).
- *  Both algos now use swing_anchor + rr_multiple — consistent architecture. */
+/** Default config matching the LIVE state on FTMO Demo $50K Swing.
+ *  SYNCED 2026-05-18 from Supabase via scripts/dump-live-configs.ts —
+ *  do NOT hand-edit; re-run the dump script if live algos change. Prior
+ *  state had drifted (30m=v3 in harness vs v5 live; risk 1.0 in harness
+ *  vs 0.75 live). Per feedback_harness_vs_live_drift.md, manual
+ *  maintenance of this constant is a known recurring failure mode. */
 export const DEFAULT_CONFIGS: AlgoConfig[] = [
   {
     algoId: "v1_4h_swing",
-    label: "Gold LLM-Trader v1 (4h)",
+    label: "Gold Swing 4h",
     timeframe: "4h",
     promptVersion: "v2",
-    riskPerTradePct: 1.0,
+    riskPerTradePct: 0.75,
     maxPositions: 1,
     sl: { type: "swing_anchor", value: 0.25, lookback: 8 },
     tp: { type: "rr_multiple", value: 3 },
+    // Live algoId in Supabase: 6b6b1907-c76d-4f1e-ad40-a8170183dd86
   },
   {
     algoId: "intraday_30m",
-    label: "Gold LLM-Intraday v1 (30m)",
+    label: "Gold Intraday 30m",
     timeframe: "30m",
-    promptVersion: "v3",
-    riskPerTradePct: 1.0,
-    maxPositions: 2,
+    promptVersion: "v5",
+    riskPerTradePct: 0.75,
+    maxPositions: 1,
     sl: { type: "swing_anchor", value: 0.25, lookback: 8 },
     tp: { type: "rr_multiple", value: 3 },
+    // Live algoId in Supabase: 85d8aa26-710e-4916-bdcd-08139aca664c
   },
 ];
 
