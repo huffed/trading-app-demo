@@ -63,3 +63,4 @@ scripts/multi-algo-fail-dumps-*.jsonl
 scripts/wf-logs*/
 scripts/.llm-replay-cache/
 scripts/.llm-spend-ledger.json
+scripts/exit-replay-summary-*.json
