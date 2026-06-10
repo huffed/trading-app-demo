@@ -68,16 +68,43 @@ function ageMinutes(isoTs: string | null | undefined): string {
   return `${Math.floor(min / 1440)}d ${Math.floor((min % 1440) / 60)}h ago`;
 }
 
+// 2026-06-10: a paused Supabase project returned {data: null, error} on
+// every query and this script printed a clean "nothing exists" dashboard.
+// A ground-truth tool must fail loudly, never render an error as empty.
+function check<T extends { error: { message: string } | null }>(label: string, res: T): T {
+  if (res.error) {
+    console.error(`\n✗ Query failed [${label}]: ${res.error.message}`);
+    console.error(
+      "  DB unreachable or query error — NOTHING in this output is trustworthy. Aborting."
+    );
+    process.exit(1);
+  }
+  return res;
+}
+
 async function main(): Promise<void> {
   console.log(`\n=== LIVE STATE @ ${new Date().toISOString()} ===\n`);
 
+  // 0. Table counts — connectivity probe + data-integrity sanity check.
+  section("TABLE COUNTS (all-time)");
+  for (const table of ["algorithms", "paper_positions", "activity_log", "llm_decisions"]) {
+    const { count } = check(
+      `count ${table}`,
+      await supabase.from(table).select("*", { count: "exact", head: true })
+    );
+    console.log(`  ${pad(table, 20)} ${count ?? 0} rows`);
+  }
+
   // 1. Active algos
   section("ACTIVE ALGOS");
-  const { data: algos } = await supabase
-    .from("algorithms")
-    .select("id, name, status, live_trading_enabled, broker_connection_id, updated_at")
-    .eq("status", "active")
-    .order("name");
+  const { data: algos } = check(
+    "active algos",
+    await supabase
+      .from("algorithms")
+      .select("id, name, status, live_trading_enabled, broker_connection_id, updated_at")
+      .eq("status", "active")
+      .order("name")
+  );
   if (!algos || algos.length === 0) {
     console.log("  No active algos.");
   } else {
@@ -93,13 +120,16 @@ async function main(): Promise<void> {
 
   // 2. Open positions
   section("OPEN POSITIONS");
-  const { data: open } = await supabase
-    .from("paper_positions")
-    .select(
-      "id, algorithm_id, ticker, side, opened_at, entry_price, broker_fill_price, broker_position_id, current_price, unrealized_pnl, stop_loss_price, take_profit_price"
-    )
-    .eq("status", "open")
-    .order("opened_at");
+  const { data: open } = check(
+    "open positions",
+    await supabase
+      .from("paper_positions")
+      .select(
+        "id, algorithm_id, ticker, side, opened_at, entry_price, broker_fill_price, broker_position_id, current_price, unrealized_pnl, stop_loss_price, take_profit_price"
+      )
+      .eq("status", "open")
+      .order("opened_at")
+  );
   if (!open || open.length === 0) {
     console.log("  No open positions.");
   } else {
@@ -116,28 +146,40 @@ async function main(): Promise<void> {
 
   // 3. Cron heartbeat
   section("CRON HEARTBEAT (last 24h)");
-  const { count: manageCount } = await supabase
-    .from("activity_log")
-    .select("*", { count: "exact", head: true })
-    .eq("event_type", "manage_tick")
-    .gte("created_at", new Date(Date.now() - 24 * 3600 * 1000).toISOString());
-  const { data: lastManage } = await supabase
-    .from("activity_log")
-    .select("created_at")
-    .eq("event_type", "manage_tick")
-    .order("created_at", { ascending: false })
-    .limit(1);
-  const { count: scanCount } = await supabase
-    .from("activity_log")
-    .select("*", { count: "exact", head: true })
-    .eq("event_type", "scan_completed")
-    .gte("created_at", new Date(Date.now() - 24 * 3600 * 1000).toISOString());
-  const { data: lastScan } = await supabase
-    .from("activity_log")
-    .select("created_at")
-    .eq("event_type", "scan_completed")
-    .order("created_at", { ascending: false })
-    .limit(1);
+  const { count: manageCount } = check(
+    "manage_tick count",
+    await supabase
+      .from("activity_log")
+      .select("*", { count: "exact", head: true })
+      .eq("event_type", "manage_tick")
+      .gte("created_at", new Date(Date.now() - 24 * 3600 * 1000).toISOString())
+  );
+  const { data: lastManage } = check(
+    "last manage_tick",
+    await supabase
+      .from("activity_log")
+      .select("created_at")
+      .eq("event_type", "manage_tick")
+      .order("created_at", { ascending: false })
+      .limit(1)
+  );
+  const { count: scanCount } = check(
+    "scan_completed count",
+    await supabase
+      .from("activity_log")
+      .select("*", { count: "exact", head: true })
+      .eq("event_type", "scan_completed")
+      .gte("created_at", new Date(Date.now() - 24 * 3600 * 1000).toISOString())
+  );
+  const { data: lastScan } = check(
+    "last scan_completed",
+    await supabase
+      .from("activity_log")
+      .select("created_at")
+      .eq("event_type", "scan_completed")
+      .order("created_at", { ascending: false })
+      .limit(1)
+  );
   console.log(
     `  manage_tick:    ${manageCount ?? 0} events / 24h, last ${ageMinutes(lastManage?.[0]?.created_at as string | undefined)} (expect 288/24h = every 5min)`
   );
@@ -153,10 +195,13 @@ async function main(): Promise<void> {
 
   // 4. Recent event counts
   section("RECENT EVENTS (last 24h, by type)");
-  const { data: eventTypes } = await supabase
-    .from("activity_log")
-    .select("event_type")
-    .gte("created_at", new Date(Date.now() - 24 * 3600 * 1000).toISOString());
+  const { data: eventTypes } = check(
+    "recent events",
+    await supabase
+      .from("activity_log")
+      .select("event_type")
+      .gte("created_at", new Date(Date.now() - 24 * 3600 * 1000).toISOString())
+  );
   const counts = new Map<string, number>();
   for (const e of eventTypes ?? []) {
     counts.set(e.event_type as string, (counts.get(e.event_type as string) ?? 0) + 1);
@@ -168,15 +213,18 @@ async function main(): Promise<void> {
 
   // 5. Broker sync gaps
   section("BROKER SYNC GAPS (closed positions awaiting broker truth)");
-  const { data: unsynced } = await supabase
-    .from("paper_positions")
-    .select("id, ticker, side, closed_at, realized_pnl, broker_position_id")
-    .eq("status", "closed")
-    .not("broker_position_id", "is", null)
-    .is("broker_realized_synced_at", null)
-    .gte("closed_at", new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString())
-    .order("closed_at", { ascending: false })
-    .limit(10);
+  const { data: unsynced } = check(
+    "broker sync gaps",
+    await supabase
+      .from("paper_positions")
+      .select("id, ticker, side, closed_at, realized_pnl, broker_position_id")
+      .eq("status", "closed")
+      .not("broker_position_id", "is", null)
+      .is("broker_realized_synced_at", null)
+      .gte("closed_at", new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString())
+      .order("closed_at", { ascending: false })
+      .limit(10)
+  );
   if (!unsynced || unsynced.length === 0) {
     console.log("  None pending. (Run backfill-broker-realized.ts if older rows need sync.)");
   } else {
@@ -190,14 +238,17 @@ async function main(): Promise<void> {
 
   // 6. Last 5 closed trades
   section("LAST 5 CLOSED TRADES");
-  const { data: recent } = await supabase
-    .from("paper_positions")
-    .select(
-      "ticker, side, opened_at, closed_at, entry_price, exit_price, realized_pnl, exit_reason, broker_realized_synced_at"
-    )
-    .eq("status", "closed")
-    .order("closed_at", { ascending: false })
-    .limit(5);
+  const { data: recent } = check(
+    "last closed trades",
+    await supabase
+      .from("paper_positions")
+      .select(
+        "ticker, side, opened_at, closed_at, entry_price, exit_price, realized_pnl, exit_reason, broker_realized_synced_at"
+      )
+      .eq("status", "closed")
+      .order("closed_at", { ascending: false })
+      .limit(5)
+  );
   if (!recent || recent.length === 0) {
     console.log("  No closed trades.");
   } else {
