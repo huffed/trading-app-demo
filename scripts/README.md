@@ -160,3 +160,5 @@ repo root.
 | `gold-search.ts` | Combinatorial search runner restricted to the gold (XAU/USD) universe. |
 | `vet-search-candidates.ts` | Vet candidates emitted by `gold-search` against the long-corpus inspect harness before activation. |
 | `dryrun-generate-from-search.ts` | Dry-run wrapper around the algorithm-generation flow seeded from search output. Inspect generated rules without writing the algorithms row. |
+| `exit-mechanics-replay.ts` | $0 screen: replays recorded WF entries through SL-geometry × exit-mechanics grids (zero LLM calls), with a fidelity gate against recorded outcomes. Screen-then-confirm: candidates that win here go to ONE paid walk-forward confirmation. |
+| `cohort-report.ts` | The learning loop's weekly review: per-cohort expectancy (regime / prompt / side / confidence / session / entry-zone) from `llm_decisions` outcomes + `paper_positions` tags, decay flags (last 14d vs prior 14d), and shadow-gate candidates (log-only first, scoped per algo+prompt_version). Run weekly and after any config change. $0. |
