@@ -157,10 +157,16 @@ export async function closePosition(positionId: string): Promise<ActionResult<Pa
       })
       .eq("id", positionId)
       .eq("user_id", user.id)
+      .eq("status", "open")
       .select()
-      .single();
+      .maybeSingle();
 
     if (updateErr) return { success: false, error: updateErr.message };
+    // Claim failed → a cron tick closed it between page render and click.
+    // Bail before logging/broker mirror so the close isn't double-fired.
+    if (!updated) {
+      return { success: false, error: "Position already closed" };
+    }
 
     // Log the manual close
     await supabase.from("activity_log").insert({
