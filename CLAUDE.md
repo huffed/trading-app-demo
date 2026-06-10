@@ -2,17 +2,16 @@
 
 # QuantTrader
 
-AI-powered trading platform that works for everyone — from complete beginners to experienced traders. The AI discovers opportunities, builds strategies, manages risk, and (eventually) trades autonomously. No prior trading experience required.
+A **personal autonomous trading system** for a single operator (not a SaaS — no users planned). An LLM (Anthropic Haiku) makes per-bar discretionary trading decisions on gold (XAU/USD); a deterministic engine handles everything enforceable — SL/TP geometry, gates, halts, sizing, broker mirroring. Goal: pass FTMO funded-account challenges and scale to multiple funded accounts.
 
-## Product Vision
+## Product Vision (updated 2026-06-10)
 
-- **Core:** The AI is the strategist AND the executor. Users don't need trading experience — the AI guides beginners through what to trade and why, while experienced traders can upload history to refine the AI's approach. Human error is where profit is lost — minimize human decision-making.
-- **Two entry points:** (1) Beginners — the AI asks about goals, risk comfort, and interests, then builds strategies from scratch. (2) Experienced traders — upload CSV history, AI learns winning patterns and enhances them.
-- **Architecture layers:** User Profile (learned from conversation OR CSV) → Discovery Engine (finds opportunities) → Signal Engine (technical + sentiment conditions) → Execution Engine (broker API) → Learning Loop (refines over time).
-- **Autonomy levels:** Monitor → Suggest → Semi-auto → Full auto. User progresses as trust builds.
-- **Current focus:** Forex + commodities via FTMO-style funded accounts. Equity scaffolding is preserved but deprioritised — the active strategy work lives on the ~14-pair forex universe.
-- **Secondary:** Trade journaling with AI analysis, performance dashboard, educational onboarding. Manual trade placement was deferred (the autonomous flow is the primary product).
-- **Our app is NOT a broker.** It's a controller that executes on connected brokers (MetaApi MT5 — primary; cTrader Open API — pending KYC) via their APIs. No brokerage license needed.
+- **Core division of labor:** the LLM picks entries (direction + timing from chart structure, regime, intermarket context); the engine owns exits, risk, and execution. Every dataset so far endorses this split — LLM mid-trade exits measured at ~−24% R vs mechanical SL/TP, permissive prompt-feedback fails, engine gates work.
+- **The learning loop is the spine** (see `project_roadmap_2026_06` in operator memory): per-trade cohort attribution → weekly cohort report → $0 replay screens → ≤1 paid walk-forward confirmation/month (pre-registered criteria + recency window) → shadow-then-enforce engine gates → live paper feeds back.
+- **Current focus:** gold 4h (`v2` prompt — the only validated baseline). Lower timeframes are sequenced, not dead: 30m re-entry comes as a ported-primitives scalper bundle after the 4h geometry confirmation. Multi-instrument (forex alongside gold — gold stays in the mix permanently) is the endpoint.
+- **Budget reality:** ≤£150/month total. Development defaults to $0 (replay screens over recorded trades, Groq free tier for plumbing); the harness enforces `LLM_MONTHLY_BUDGET_USD` (default $25) with a hard process-exit.
+- **Our app is NOT a broker.** It's a controller that executes on connected brokers (MetaApi MT5 — primary; cTrader Open API — dormant by design, kept as the MT5 alternative) via their APIs.
+- **Dormant-by-design surfaces:** the original beginner-SaaS chrome (chat-creates-algorithms, onboarding wizard, journal, CSV import, stocks scaffolding) is kept deliberately but receives no investment. Do not delete it; do not extend it.
 
 ## Commands
 
@@ -24,6 +23,8 @@ pnpm lint:fix    # Auto-fix lint issues
 pnpm format      # Prettier format all source files
 pnpm format:check # Check formatting without writing
 pnpm start       # Start production server
+pnpm test        # Vitest suite (119 tests)
+pnpm test:watch  # Vitest in watch mode
 ```
 
 Add shadcn components: `pnpm dlx shadcn@latest add <component-name>`
@@ -72,8 +73,9 @@ gh pr create --base dev
 | Server State | TanStack React Query | 5 |
 | Client State | Zustand | 5 |
 | Validation | Zod | 4 |
-| AI/LLM | Groq SDK (`groq-sdk`) — llama-3.3-70b-versatile | - |
-| Market Data | Twelve Data (prices, primary), Yahoo Finance (prices, fallback), Alpha Vantage (news sentiment), Finnhub (ticker lookup, company profiles) | - |
+| AI/LLM (trading brain) | Anthropic SDK (`@anthropic-ai/sdk`) — claude-haiku-4-5, per-bar LLM-trader decisions (live + backtest harness) | - |
+| AI/LLM (chat/codegen) | Groq SDK (`groq-sdk`) — llama-3.3-70b-versatile, dormant SaaS chat + algorithm generation | - |
+| Market Data | OANDA (prices, HEAD of live chain + positioning book), Twelve Data (fallback), Yahoo Finance (fallback), Alpha Vantage (news sentiment), Finnhub (economic calendar) | - |
 | CSV Parsing | PapaParse | 5 |
 | Charts | Recharts | 3 |
 | Theme | next-themes (dark mode default) | - |
@@ -127,6 +129,12 @@ src/
 │   │   ├── intraday-atr-gate.ts  # ATR-percentile liquidity gate (always-on, backtest + live)
 │   │   ├── spread-gate.ts        # Live broker bid/ask refusal (live-only)
 │   │   ├── stagnant-exit.ts      # Cut deeply-stuck red trades (R-aware, ATR-derived bar count)
+│   │   ├── bar-staleness-gate.ts # Refuse LLM calls on stale cached bars (pre-LLM, saves spend)
+│   │   ├── live-price-drift-gate.ts # Block entries when live price drifted >0.20% from bar close
+│   │   ├── re-entry-cooldown.ts  # No re-entry within 1× primary TF of a loss close
+│   │   ├── structural-sl.ts      # swing_anchor SL + adaptive rr_multiple TP (production path)
+│   │   ├── conviction-sizing.ts  # Conviction-scaled position sizing
+│   │   ├── dxy-filter.ts         # DXY directional filter (opt-in)
 │   │   ├── rules-post-process.ts # clampRules() — corrects LLM output
 │   │   └── combinatorial-search* # Wave 7: search engine + grid + scoring + universe + price loader
 │   ├── brokers/                  # Multi-broker abstraction
@@ -143,7 +151,10 @@ src/
 │   │   ├── journal.ts            # Label maps: entry type, emotion
 │   │   └── prop-firm.ts          # FTMO, Topstep, FundedNext, The5ers presets
 │   ├── market-data/
-│   │   ├── prices.ts             # Twelve Data → Yahoo → Alpha Vantage fallback chain
+│   │   ├── prices.ts             # OANDA → Twelve Data → Yahoo → Alpha Vantage fallback chain
+│   │   ├── oanda.ts              # OANDA v20 candles (head of live chain, unmetered practice host)
+│   │   ├── oanda-positioning.ts  # OANDA positionBook fetcher → oanda_positioning_cache
+│   │   ├── parse-bar-date.ts     # parseBarDate() — UTC-explicit parsing (2026-05-12 BST incident)
 │   │   ├── price-cache.ts        # Supabase price_cache reads/writes
 │   │   ├── twelve-data.ts        # Batch quote fetcher (live prices)
 │   │   ├── news-sentiment.ts     # NEWS_SENTIMENT fetcher with sentiment_cache
@@ -167,18 +178,26 @@ src/
 │   ├── patterns/                 # ICT/SMC pattern detectors (FVG, IFVG, sweep, BOS, OB, daily bias)
 │   ├── scan/                     # Live scan engine + manage cron
 │   │   ├── engine.ts             # processTicker, manageExistingPosition, scanAlgorithm
-│   │   ├── manage.ts             # Manage tick — exits + broker P&L sync
-│   │   ├── entry.ts              # evaluateEntry — full entry-gate pipeline
-│   │   ├── live-execution.ts     # executeLiveEntry / executeLiveExit (broker mirror)
-│   │   ├── helpers.ts            # logActivity, calculatePositionSize, calculateRiskPrices
+│   │   ├── manage.ts             # Manage tick — exits + broker P&L sync + reconciliation
+│   │   ├── entry.ts              # evaluateEntry + evaluateLlmTraderEntry — full entry-gate pipeline
+│   │   ├── llm-trader.ts         # THE CORE: per-bar Anthropic call, context builder, decision parse
+│   │   ├── llm-trader-prompts.ts # Prompt versions v1-v5_15m + PROMPT_HAS_MTF_OVERRIDE registry
+│   │   ├── llm-trader-reflection.ts # Layer-3 substrate: summariseRecentOutcomes (unwired)
+│   │   ├── llm-trader-audit.ts   # llm_decisions persistence + trade-outcome backfill
+│   │   ├── live-execution.ts     # executeLiveEntry / executeLiveExit (broker mirror + 30× sanity gate)
+│   │   ├── broker-truth-sync.ts  # Broker deal record → realized P&L reconciliation
+│   │   ├── flatten.ts            # Flatten-everything routine (admin escape hatch + DLL halt)
+│   │   ├── helpers.ts            # logActivity (error-checked), position sizing, risk prices
 │   │   ├── consec-loss-halt.ts   # R-aware 3-strikes daily halt
 │   │   ├── consistency-halt.ts   # FTMO consistency-rule guard (live-only)
 │   │   ├── daily-halt.ts         # Daily loss limit force-close
+│   │   ├── portfolio-halt.ts     # Portfolio-level halt (cross-algo, per portfolio)
+│   │   ├── risk-pool-halt.ts     # Combined-risk cap across algos sharing a broker
 │   │   ├── divergence.ts         # Cumulative paper-vs-broker divergence kill switch
 │   │   ├── drift-detector.ts     # Live-vs-backtest WR drift halt
 │   │   ├── pair-quality.ts       # Auto-pair-pruning
-│   │   ├── readiness-check.ts    # Pass/caution/fail verdict aggregator
-│   │   └── reconciliation.ts     # EOD broker-vs-paper reconciliation
+│   │   ├── per-hour-stats.ts     # Per-hour outcome aggregation
+│   │   └── readiness-check.ts    # Pass/caution/fail verdict aggregator
 │   ├── signals/
 │   │   └── evaluate-live.ts      # LLM-powered live signal evaluation orchestrator
 │   ├── api/
@@ -252,6 +271,26 @@ type EntryCondition = TechnicalCondition | SentimentCondition | PatternCondition
 **Backtest behavior:** Technical and pattern conditions are backtested against price data. Sentiment conditions are filtered out (can't historically backtest news). Results include `backtest_mode: "technical_only"` when sentiment conditions were excluded.
 
 **Live signal check:** For algorithms with sentiment conditions, the algorithm detail page shows a "Live Signal Check" card. Enter a ticker → fetches current news → evaluates sentiment thresholds → LLM assesses narrative/catalyst patterns → returns buy/hold/no_signal with confidence.
+
+## LLM-Trader (the live trading core)
+
+The condition system above is the legacy/dormant path. **The active system is the LLM-trader**: when `rules.llm_trader.enabled`, the scan skips condition evaluation and, on each primary-TF bar close, sends chart context (recent bars, D1 regime read, SMA/momentum, DXY proxy, gold intermarket, optional higher-TF lines) to Anthropic Haiku, which returns `enter_long | enter_short | hold | exit | move_be` as JSON.
+
+- **Prompts** live in `src/lib/scan/llm-trader-prompts.ts` — versions `v1`-`v5_15m` + `v2_generic`/`v2_mtf`, selected per algo via `rules.llm_trader.prompt_version`. Prompt text is **validated-baseline material**: never edit a version in place; add a new version and take it through the confirmation pipeline. Capability flags (e.g. multi-TF override) live in `PROMPT_HAS_MTF_OVERRIDE: Record<PromptVersion, boolean>` — the compiler forces new versions to declare them; never hardcode version lists in gates.
+- **Division of labor:** the LLM picks entries; the **engine owns exits** (SL/TP geometry via `structural-sl.ts`, stagnant cut, halts). Measured 2026-06-10 (PR #178 replay, n=299): honoring LLM mid-trade exits cost ~24% of total R vs letting SL/TP play out.
+- **Every decision is audited** to the `llm_decisions` table (context, decision, confidence, reasoning, linked position, trade outcome backfilled on close) — surfaced on the algorithm detail page.
+- **Defensive gates run before the LLM call when flat** (dead-hour, ATR liquidity, news veto, consec-loss halt, etc.) and are **skipped in-position** so the LLM can always manage an open trade (2026-05-11 incident). The RANGING hard block consults the prompt-capability registry.
+- **`live_trading_enabled` gates ONLY broker mirroring — NOT the scan or the LLM call.** A `status='active'` algo with the flag off still scans, still spends API tokens (~$0.003/call), and still opens PAPER positions. Zero-spend idle requires `status='paused'`.
+
+### Validation economics (the harness)
+
+`scripts/llm-trader-backtest.ts` + `scripts/llm-trader-walk-forward.ts` replay history through the same prompts with real Anthropic calls. Hard-won rules, all enforced in code:
+
+- **`SL_PRESET=baseline|live|comboC`** pins the full SL/TP geometry; omitting it runs harness defaults (pct 1.5%/4.5%) which are NOT the live config — the header warns loudly. Resolved geometry is echoed in the header and summary JSON (the May baselines silently ran the wrong geometry for weeks).
+- **`REPLAY_CACHE=1`** memoises responses on disk — re-running an unchanged config costs $0. Default OFF so variance reps stay independent.
+- **Rate limiter + jittered backoff** (`LLM_RPM`/`LLM_TPM`/`LLM_MAX_ATTEMPTS`) — the 2026-05-18 cascade wasted ~67% of a sweep before these existed.
+- **`LLM_MONTHLY_BUDGET_USD` (default $25)** — a per-month spend ledger; the process exits before exceeding it. The £150/month ceiling is structural, not advisory.
+- **Confirmation protocol** (walk-forward docstring): screen candidates at $0 first (`scripts/exit-mechanics-replay.ts` pattern — replay recorded entries through variant mechanics), then ONE paid A/B confirmation with pre-registered criteria, always including a **recency window ending run-day** (the standard grid stops at 2026-04-30).
 
 ## Conventions
 
@@ -327,7 +366,11 @@ Current tables:
 - `activity_log` — every event the scan/manage cron emits. `event_type` is constrained (see migration 00028 for the full list); `details` is JSONB with per-event telemetry. Read this for any "did the gate fire?" question.
 - `broker_connections` — operator's broker creds (token, account_id, region) per provider (`metaapi` / `ctrader`). RLS-scoped to user.
 - `sentiment_cache` — cached NEWS_SENTIMENT API responses per ticker/topics, builds historical data. Unique: (user_id, ticker, fetched_at).
-- `price_cache` — cached OHLCV bars per ticker/interval/output_size, avoids redundant API calls.
+- `price_cache` — cached OHLCV bars per ticker/interval/output_size (global, not user-scoped since 00037), avoids redundant API calls.
+- `llm_decisions` — per-bar LLM-trader audit trail (context, decision, confidence, reasoning, prompt_version, source live/walk_forward, linked paper_position, trade outcome backfilled on close). Migration 00031+00035.
+- `oanda_positioning_cache` — OANDA retail positionBook snapshots every 20 min (long/short %, price buckets). History builds forward only — OANDA exposes no historical positioning. Collecting since 2026-06-10. Migration 00034.
+- `paper_positions_archive` — archived position rows (migration 00033).
+- `public.last_manage_tick()` — SECURITY DEFINER function, anon-executable, exposes exactly one timestamp for the GitHub Actions dead-man switch. Migration 00039.
 
 All tables use Row Level Security (RLS). Users can only access their own data. The scan engine uses an admin client (`createAdminClient()`) for the cron path because scheduled execution has no Supabase session.
 
@@ -455,9 +498,15 @@ If adding/renaming nav items, update both `sidebar.tsx` and `mobile-nav.tsx`.
 
 Production cron runs on the operator's local Mac via the system `cron` daemon (NOT a separate cron host). See `scripts/README.md` for the schedule, log paths, and the "is the cron alive?" diagnostic. The Mac and `pnpm dev` / `pnpm start` must both be up for any scheduled task to fire — closed lid or sleep stalls the schedule.
 
-Three live cron entrypoints:
+Five live cron entrypoints (all in the operator's crontab as of 2026-06-10):
 - `manage-cron.sh` (every 5 min) → `/api/cron/manage-positions`
-- `scan-cron.sh` (hourly) → `/api/cron/scan-active-algorithms`
+- `scan-cron.sh` (every 15 min — aligned to 15m/1h/4h bar closes) → `/api/cron/scan-active-algorithms`
+- `heartbeat-cron.sh` (every 5 min) → `/api/cron/heartbeat` + optional `HEARTBEAT_PING_URL` dead-man ping
+- `oanda-positioning-cron.sh` (every 20 min) → `/api/admin/snapshot-oanda-positioning?instruments=XAU_USD`
 - `prune-sentiment-cache-cron.sh` (daily 04:00 UTC) → `/api/admin/prune-sentiment-cache`
 
 Each emits `manage_tick` / `scan_started` + `scan_completed` events to `activity_log` so the operator can verify liveness even on no-op ticks.
+
+**Independent alerting:** `.github/workflows/dead-man.yml` (GitHub Actions, every 30 min) calls the anon-executable `last_manage_tick()` RPC and fails — emailing the repo owner — when the heartbeat trail is >45 min stale. Covers the full 2026-05-24 silent-outage chain: Mac asleep → cron dead → zero DB traffic → Supabase free-tier auto-pause (which took the DB offline for 17 days, unnoticed). The 5-min ticks are also what keep the free-tier Supabase project from auto-pausing again.
+
+**Restart-from-idle warning:** restarting the dev server with algos `status='active'` resumes LLM calls and paper trading immediately (the live flag doesn't gate scans — see LLM-Trader section). Run `pnpm dlx tsx scripts/live-state.ts` first; it fails loudly on an unreachable DB.
