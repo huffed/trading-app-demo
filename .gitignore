@@ -61,3 +61,5 @@ scripts/wf-run-*.log
 scripts/multi-algo-trades-*.jsonl
 scripts/multi-algo-fail-dumps-*.jsonl
 scripts/wf-logs*/
+scripts/.llm-replay-cache/
+scripts/.llm-spend-ledger.json

@@ -70,6 +70,8 @@ import {
   aggregateByRegimeFlip,
   aggregateDecisionsByRegime,
   createClients,
+  getLlmUsageTotals,
+  getReplayCacheStats,
   loadCorpus,
   runWindow,
 } from "./llm-trader-backtest";
@@ -340,6 +342,31 @@ async function main(): Promise<void> {
   const agg = aggregateAcrossWindows(results);
   printAggregateReport(agg);
 
+  // Actual API spend for this run (from response.usage, not estimates) +
+  // replay-cache effectiveness. Cost estimates drifted 5-7x from reality
+  // before this was measured — treat these numbers as authoritative.
+  const usage = getLlmUsageTotals();
+  const replay = getReplayCacheStats();
+  console.log("LLM usage (actual, this run):");
+  console.log(
+    `  ${usage.calls} API calls · ${usage.replayed_calls} replayed from cache · ` +
+      `${(usage.input_tokens / 1000).toFixed(1)}K in / ${(usage.output_tokens / 1000).toFixed(1)}K out · ` +
+      `est. $${usage.estimated_cost_usd.toFixed(2)}`
+  );
+  if (usage.cache_read_input_tokens > 0 || usage.cache_creation_input_tokens > 0) {
+    console.log(
+      `  prompt cache: ${usage.cache_read_input_tokens} read / ${usage.cache_creation_input_tokens} written`
+    );
+  }
+  if (replay.enabled) {
+    const denom = replay.hits + replay.misses;
+    const hitPct = denom === 0 ? 0 : (replay.hits / denom) * 100;
+    console.log(
+      `  replay cache: ${replay.hits} hits / ${replay.misses} misses (${hitPct.toFixed(0)}%) · ${replay.writes} written`
+    );
+  }
+  console.log("");
+
   // Per-regime breakdown across ALL trades from all windows. This is the
   // adaptation diagnostic — does the LLM's edge hold symmetrically across
   // HH / LH / RANGING regimes, or is it concentrated?
@@ -430,6 +457,8 @@ async function main(): Promise<void> {
     by_regime: regimeStats,
     flip_cohort: flip,
     decisions_by_regime: decisionStats,
+    llm_usage: usage,
+    replay_cache: replay,
   };
   writeFileSync(summaryPath, JSON.stringify(summaryDoc, null, 2));
   console.log(`Walk-forward summary saved: ${summaryPath}`);

@@ -33,7 +33,8 @@
  *   30m = 2880 calls = ~1.5M tokens (Dev tier required)
  *   15m = 5760 calls = ~3M tokens (Dev tier or higher)
  */
-import { readFileSync, writeFileSync } from "fs";
+import { createHash } from "crypto";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { z } from "zod";
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
@@ -603,9 +604,273 @@ export function createClients(provider: Provider): ProviderClients {
     if (!process.env.ANTHROPIC_API_KEY) {
       throw new Error("ANTHROPIC_API_KEY env var required for anthropic provider");
     }
-    clients.anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+    // maxRetries: 0 — the SDK's silent internal retries (default 2) fight
+    // with callLLMWithDiagnostic's backoff and hide true attempt counts.
+    // All retry policy lives in one place: the loop in callLLMWithDiagnostic.
+    clients.anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY, maxRetries: 0 });
   }
   return clients;
+}
+
+/* ----------------------------------------------------------------------
+ * Rate limiting, backoff, replay cache, usage accounting (2026-06-10)
+ *
+ * 2026-05-18 incident: 4 parallel WF reps with a single fixed 1.5s retry
+ * hit a rate-limit cascade — W1+W2 ~normal, W3 90%+ failures, W4-W6 100%.
+ * ~67% of the sweep's spend bought nothing. Per operator memory the cap
+ * was "2-3 parallel reps"; this section makes the harness enforce its own
+ * budget instead of relying on operator discipline:
+ *
+ *  1. Sliding-window limiter (requests/min + est. input tokens/min)
+ *     throttles BEFORE each call. Defaults sit under Anthropic Tier-1
+ *     Haiku limits (50 RPM / 50K input TPM). Tune via LLM_RPM / LLM_TPM.
+ *     NOTE: the limiter is per-process. When running N parallel rep
+ *     PROCESSES, set LLM_RPM/LLM_TPM to (tier limit / N) in each.
+ *  2. Jittered exponential backoff honoring the API's retry-after header
+ *     replaces the single 1.5s sleep. LLM_MAX_ATTEMPTS to tune.
+ *  3. REPLAY_CACHE=1 memoises successful responses on disk keyed by
+ *     sha256(provider|model|system|context) — re-running an UNCHANGED
+ *     config over the same bars costs $0. Default OFF: variance reps must
+ *     stay independent samples; replaying cached responses would fake
+ *     zero-variance. Parse-fails are never cached (re-runs retry them).
+ *  4. Usage accounting from response.usage — actual tokens + $ per run,
+ *     so cost estimates stop drifting from reality (memory: prior
+ *     estimates were 5-7x off). Also surfaces cache_read tokens so we
+ *     notice when prompts cross Haiku's 4096-token cacheable minimum
+ *     (current prompts ~1.5-2K tokens — below it, so cache_control is
+ *     intentionally NOT sent yet).
+ *
+ * The live scan path (src/lib/scan/llm-trader.ts) is intentionally
+ * unchanged — 6 calls/day per algo; single retry is fine there.
+ * -------------------------------------------------------------------- */
+
+const LLM_RPM = Number(process.env.LLM_RPM ?? 40);
+const LLM_TPM = Number(process.env.LLM_TPM ?? 36_000);
+const LLM_MAX_ATTEMPTS = Number(process.env.LLM_MAX_ATTEMPTS ?? 5);
+const REPLAY_CACHE_ENABLED = process.env.REPLAY_CACHE === "1";
+const REPLAY_CACHE_DIR = "scripts/.llm-replay-cache";
+
+// Hard monthly spend cap (2026-06-10). The first month of development cost
+// ~£400 against a £150/month ceiling — most of it WF validation runs. The
+// harness now refuses to spend past LLM_MONTHLY_BUDGET_USD per calendar
+// month (default $25, deliberately conservative — override per run when a
+// planned validation moment needs more). Tracked in a local ledger file;
+// covers HARNESS Anthropic spend only. Live scanning (~$0.15-0.45/day) and
+// Groq free-tier runs don't draw from it.
+const LLM_MONTHLY_BUDGET_USD = Number(process.env.LLM_MONTHLY_BUDGET_USD ?? 25);
+const SPEND_LEDGER_PATH = "scripts/.llm-spend-ledger.json";
+
+type SpendLedger = Record<string, { api_calls: number; est_cost_usd: number }>;
+
+function ledgerMonthKey(): string {
+  return new Date().toISOString().slice(0, 7); // YYYY-MM
+}
+
+function readSpendLedger(): SpendLedger {
+  try {
+    if (!existsSync(SPEND_LEDGER_PATH)) return {};
+    return JSON.parse(readFileSync(SPEND_LEDGER_PATH, "utf8")) as SpendLedger;
+  } catch {
+    return {};
+  }
+}
+
+function addToSpendLedger(costUsd: number): void {
+  try {
+    const ledger = readSpendLedger();
+    const key = ledgerMonthKey();
+    const row = ledger[key] ?? { api_calls: 0, est_cost_usd: 0 };
+    row.api_calls += 1;
+    row.est_cost_usd += costUsd;
+    ledger[key] = row;
+    writeFileSync(SPEND_LEDGER_PATH, JSON.stringify(ledger, null, 2));
+  } catch {
+    /* ledger failure must never break a run */
+  }
+}
+
+/** Hard stop, not a warning: a budget guard that lets the run continue is
+ *  just a log line. Losing partial window results is cheaper than letting
+ *  the spend continue. */
+function enforceMonthlyBudget(): void {
+  const spent = readSpendLedger()[ledgerMonthKey()]?.est_cost_usd ?? 0;
+  if (spent >= LLM_MONTHLY_BUDGET_USD) {
+    console.error(
+      `\n✗ MONTHLY LLM BUDGET EXHAUSTED: $${spent.toFixed(2)} spent in ${ledgerMonthKey()} ` +
+        `(cap $${LLM_MONTHLY_BUDGET_USD}). Aborting before the next API call.\n` +
+        `  Raise deliberately for a planned run: LLM_MONTHLY_BUDGET_USD=${Math.ceil(spent + 10)} ...\n` +
+        `  Ledger: ${SPEND_LEDGER_PATH}`
+    );
+    process.exit(1);
+  }
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** ~4 chars/token heuristic — only used to pace the limiter, not billed. */
+function estimateInputTokens(systemPrompt: string, context: string): number {
+  return Math.ceil((systemPrompt.length + context.length) / 4) + 16;
+}
+
+class SlidingWindowLimiter {
+  private requests: number[] = [];
+  private tokens: { ts: number; n: number }[] = [];
+
+  async acquire(estTokens: number): Promise<void> {
+    for (;;) {
+      const now = Date.now();
+      this.requests = this.requests.filter((t) => now - t < 60_000);
+      this.tokens = this.tokens.filter((e) => now - e.ts < 60_000);
+      const tokensInWindow = this.tokens.reduce((s, e) => s + e.n, 0);
+      if (this.requests.length < LLM_RPM && tokensInWindow + estTokens <= LLM_TPM) {
+        this.requests.push(now);
+        this.tokens.push({ ts: now, n: estTokens });
+        return;
+      }
+      await sleep(250 + Math.random() * 250);
+    }
+  }
+}
+
+const limiter = new SlidingWindowLimiter();
+
+function isRetryableApiError(err: unknown): boolean {
+  if (err instanceof Anthropic.RateLimitError) return true;
+  if (err instanceof Anthropic.APIConnectionError) return true;
+  if (err instanceof Anthropic.APIError) {
+    const status = Number(err.status ?? 0);
+    return status === 529 || status >= 500;
+  }
+  // Groq / generic transport errors — fall back to the string taxonomy.
+  const t = classifyLlmError(err);
+  return t === "rate_limit" || t === "network";
+}
+
+/** Backoff delay for attempt N (0-indexed): honor the API's retry-after
+ *  when present, else 2s · 2^N capped at 60s, plus 0-500ms jitter so
+ *  parallel windows don't re-synchronize their retries. */
+function retryDelayMs(err: unknown, attempt: number): number {
+  let base = Math.min(2_000 * 2 ** attempt, 60_000);
+  if (err instanceof Anthropic.APIError) {
+    const h = err.headers as unknown;
+    const ra =
+      h && typeof (h as Headers).get === "function"
+        ? (h as Headers).get("retry-after")
+        : null;
+    const raSec = ra ? Number(ra) : NaN;
+    if (Number.isFinite(raSec) && raSec > 0) base = Math.max(base, raSec * 1_000);
+  }
+  return base + Math.random() * 500;
+}
+
+// ---- Replay cache ----
+
+export interface ReplayCacheStats {
+  enabled: boolean;
+  hits: number;
+  misses: number;
+  writes: number;
+}
+
+const replayStats: ReplayCacheStats = {
+  enabled: REPLAY_CACHE_ENABLED,
+  hits: 0,
+  misses: 0,
+  writes: 0,
+};
+
+export function getReplayCacheStats(): ReplayCacheStats {
+  return { ...replayStats };
+}
+
+function replayKey(provider: Provider, model: string, systemPrompt: string, context: string): string {
+  return createHash("sha256")
+    .update(provider)
+    .update("|")
+    .update(model)
+    .update("|")
+    .update(systemPrompt)
+    .update("|")
+    .update(context)
+    .digest("hex");
+}
+
+function replayPath(key: string): string {
+  return `${REPLAY_CACHE_DIR}/${key}.json`;
+}
+
+function readReplayCache(key: string): string | null {
+  try {
+    const p = replayPath(key);
+    if (!existsSync(p)) return null;
+    const doc = JSON.parse(readFileSync(p, "utf8")) as { rawText?: string };
+    return typeof doc.rawText === "string" ? doc.rawText : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeReplayCache(key: string, rawText: string): void {
+  try {
+    if (!existsSync(REPLAY_CACHE_DIR)) mkdirSync(REPLAY_CACHE_DIR, { recursive: true });
+    writeFileSync(replayPath(key), JSON.stringify({ rawText }));
+    replayStats.writes++;
+  } catch {
+    /* cache write failure must never break a run */
+  }
+}
+
+// ---- Usage accounting ----
+
+export interface LlmUsageTotals {
+  calls: number;
+  replayed_calls: number;
+  input_tokens: number;
+  output_tokens: number;
+  cache_read_input_tokens: number;
+  cache_creation_input_tokens: number;
+  estimated_cost_usd: number;
+}
+
+// Haiku 4.5 pricing: $1/M input, $5/M output; cache reads 0.1x, writes 1.25x.
+const HAIKU_IN_PER_M = 1.0;
+const HAIKU_OUT_PER_M = 5.0;
+const HAIKU_CACHE_READ_PER_M = 0.1;
+const HAIKU_CACHE_WRITE_PER_M = 1.25;
+
+const usageTotals: LlmUsageTotals = {
+  calls: 0,
+  replayed_calls: 0,
+  input_tokens: 0,
+  output_tokens: 0,
+  cache_read_input_tokens: 0,
+  cache_creation_input_tokens: 0,
+  estimated_cost_usd: 0,
+};
+
+function recordUsage(usage: Anthropic.Usage | null | undefined): void {
+  usageTotals.calls++;
+  if (!usage) return;
+  const cacheRead = usage.cache_read_input_tokens ?? 0;
+  const cacheWrite = usage.cache_creation_input_tokens ?? 0;
+  usageTotals.input_tokens += usage.input_tokens ?? 0;
+  usageTotals.output_tokens += usage.output_tokens ?? 0;
+  usageTotals.cache_read_input_tokens += cacheRead;
+  usageTotals.cache_creation_input_tokens += cacheWrite;
+  const callCost =
+    ((usage.input_tokens ?? 0) * HAIKU_IN_PER_M +
+      (usage.output_tokens ?? 0) * HAIKU_OUT_PER_M +
+      cacheRead * HAIKU_CACHE_READ_PER_M +
+      cacheWrite * HAIKU_CACHE_WRITE_PER_M) /
+    1_000_000;
+  usageTotals.estimated_cost_usd += callCost;
+  addToSpendLedger(callCost);
+}
+
+export function getLlmUsageTotals(): LlmUsageTotals {
+  return { ...usageTotals };
 }
 
 /** Robust JSON extractor — Anthropic occasionally prefaces JSON with
@@ -667,6 +932,7 @@ async function callAnthropic(
     system: systemPrompt,
     messages: [{ role: "user", content: context }],
   });
+  recordUsage(res.usage);
   const block = res.content[0];
   const text = block && block.type === "text" ? block.text : "{}";
   const raw = extractJson(text);
@@ -681,6 +947,15 @@ async function callAnthropic(
 export type LlmFailType = "rate_limit" | "parse_fail" | "network" | "other";
 
 export function classifyLlmError(err: unknown): LlmFailType {
+  // Typed SDK errors first (Anthropic) — string matching is the fallback
+  // for Groq / generic transport errors only.
+  if (err instanceof Anthropic.RateLimitError) return "rate_limit";
+  if (err instanceof Anthropic.APIConnectionError) return "network";
+  if (err instanceof Anthropic.APIError) {
+    const status = Number(err.status ?? 0);
+    if (status === 529) return "rate_limit"; // overloaded — same treatment
+    if (status >= 500) return "network"; // transient server error, retryable
+  }
   if (err instanceof Error) {
     const msg = err.message.toLowerCase();
     if (msg.includes("rate") || msg.includes("429") || msg.includes("overloaded"))
@@ -691,18 +966,43 @@ export function classifyLlmError(err: unknown): LlmFailType {
   return "other";
 }
 
-/** LLM call with single retry + 1.5s sleep on transient errors. Returns
- *  { decision, failType, rawText } so multi-algo can track failure
- *  taxonomy AND inspect raw LLM output on parse fails. */
+/** LLM call with limiter + jittered exponential backoff (replaces the old
+ *  single 1.5s retry — see the rate-limiting section above for the
+ *  2026-05-18 cascade incident this fixes). Returns { decision, failType,
+ *  rawText } so multi-algo can track failure taxonomy AND inspect raw LLM
+ *  output on parse fails. */
 export async function callLLMWithDiagnostic(
   provider: Provider,
   clients: ProviderClients,
   systemPrompt: string,
   context: string
 ): Promise<{ decision: Decision | null; failType: LlmFailType | null; rawText: string | null }> {
+  const model = provider === "anthropic" ? ANTHROPIC_MODEL : AI_MODEL;
+  const cacheKey = REPLAY_CACHE_ENABLED
+    ? replayKey(provider, model, systemPrompt, context)
+    : null;
+
+  if (cacheKey) {
+    const cached = readReplayCache(cacheKey);
+    if (cached !== null) {
+      const parsed = decisionSchema.safeParse(extractJson(cached));
+      if (parsed.success) {
+        replayStats.hits++;
+        usageTotals.replayed_calls++;
+        return { decision: parsed.data, failType: null, rawText: cached };
+      }
+      // Corrupt/unparseable cache entry — fall through to a live call.
+    }
+    replayStats.misses++;
+  }
+
+  // Budget guard applies to paid providers only — Groq free tier is $0.
+  if (provider === "anthropic") enforceMonthlyBudget();
+
   let lastErr: unknown = null;
-  for (let attempt = 0; attempt < 2; attempt++) {
+  for (let attempt = 0; attempt < LLM_MAX_ATTEMPTS; attempt++) {
     try {
+      await limiter.acquire(estimateInputTokens(systemPrompt, context));
       let result: { decision: Decision | null; rawText: string };
       if (provider === "anthropic") {
         if (!clients.anthropic) throw new Error("anthropic client not initialised");
@@ -712,19 +1012,18 @@ export async function callLLMWithDiagnostic(
         result = await callGroq(clients.groq, systemPrompt, context);
       }
       if (result.decision === null) {
-        // Parse fail — schema mismatch, retry won't help
+        // Parse fail — schema mismatch, retry won't help, never cached.
         return { decision: null, failType: "parse_fail", rawText: result.rawText };
       }
+      if (cacheKey) writeReplayCache(cacheKey, result.rawText);
       return { decision: result.decision, failType: null, rawText: result.rawText };
     } catch (err) {
       lastErr = err;
-      const failType = classifyLlmError(err);
-      // Retry rate_limit + network failures once with a short sleep.
-      if (attempt === 0 && (failType === "rate_limit" || failType === "network")) {
-        await new Promise((resolve) => setTimeout(resolve, 1500));
+      if (attempt < LLM_MAX_ATTEMPTS - 1 && isRetryableApiError(err)) {
+        await sleep(retryDelayMs(err, attempt));
         continue;
       }
-      return { decision: null, failType, rawText: null };
+      return { decision: null, failType: classifyLlmError(err), rawText: null };
     }
   }
   return { decision: null, failType: classifyLlmError(lastErr), rawText: null };
