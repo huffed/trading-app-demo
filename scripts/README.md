@@ -22,6 +22,7 @@ operator), but the schedule should be kept in sync with this table.
 | **Every 15 min (`*/15 * * * *`)** | `scan-cron.sh` | `/api/cron/scan-active-algorithms` | `/tmp/quanttrader-scan.log` |
 | Daily 04:00 UTC (`0 4 * * *`) | `prune-sentiment-cache-cron.sh` | `/api/admin/prune-sentiment-cache?days=30` | `/tmp/quanttrader-prune.log` |
 | Every 20 min (`*/20 * * * *`) | `oanda-positioning-cron.sh` | `/api/admin/snapshot-oanda-positioning?instruments=XAU_USD` | `/tmp/quanttrader-oanda-positioning.log` |
+| Every 5 min (`*/5 * * * *`) | `heartbeat-cron.sh` | `/api/cron/heartbeat` | `/tmp/quanttrader-heartbeat.log` |
 
 The 15-min scan cadence is chosen to align with bar-close moments
 across 15m, 1h, and 4h primary timeframes simultaneously. At `*/15 * *
@@ -43,6 +44,30 @@ positions.
 
 Both scripts are idempotent — running more often than the cadence above
 is safe; the underlying endpoints just do less work.
+
+## Dead-man's switch (heartbeat-cron.sh)
+
+The pipeline is a chain of local single points of failure: Mac asleep →
+cron silent → zero DB traffic → Supabase free tier auto-pauses the
+project (this exact chain ran 2026-05-24 → 2026-06-10, unnoticed).
+`heartbeat-cron.sh` closes the visibility gap with an **inverted**
+monitor:
+
+1. Every 5 min it calls `/api/cron/heartbeat` (the stale-scan detector).
+2. Only when fully healthy (HTTP 200 **and** `stale_count: 0`) does it
+   ping `HEARTBEAT_PING_URL`.
+3. The monitor behind that URL alerts when pings STOP arriving — one
+   alert covers Mac sleep, dead cron daemon, crashed server,
+   paused/erroring Supabase, and silently-stale scans.
+
+Setup: create a free check at https://healthchecks.io (or an UptimeRobot
+heartbeat monitor), set its grace period to ~15 min, and add the ping
+URL to `.env.local` as `HEARTBEAT_PING_URL=...`. Without the var the
+script still logs health locally but sends no ping.
+
+Side benefit: the heartbeat's DB query plus the 5-min manage tick keep
+enough traffic flowing that the Supabase free tier won't auto-pause
+again.
 
 ## Pre-requisites
 

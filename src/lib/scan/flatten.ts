@@ -94,10 +94,16 @@ export async function flattenAlgorithmPositions(
       exit_reason: exitReason,
       closed_at: new Date().toISOString(),
     };
+    // status guard: if a manage/scan tick closed this row mid-flatten,
+    // keep its close record (exit_reason, realized P&L) — don't overwrite.
+    // The broker close above still ran regardless: flatten is the
+    // emergency hammer and a duplicate broker close fails harmlessly in
+    // the catch.
     await supabase
       .from("paper_positions")
       .update(closeUpdate as unknown as never)
-      .eq("id", pos.id);
+      .eq("id", pos.id)
+      .eq("status", "open");
 
     results.push({ ticker: pos.ticker, broker_position_id: pos.broker_position_id, status });
   }
