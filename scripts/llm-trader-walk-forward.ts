@@ -64,15 +64,37 @@
  *                               happens. See SL_PRESETS in
  *                               llm-trader-backtest.ts.)
  *
- * comboC CONFIRMATION RUN (the one paid validation moment, ~$4-6 with
- * replay cache, fits the $25/mo cap; screened at $0 by PR #178):
- *   SL_PRESET=comboC REPLAY_CACHE=1 PROVIDER=anthropic TIMEFRAME=4h \
- *     PROMPT_VERSION=v2 END_DATE=2026-04-30 \
- *     pnpm dlx tsx scripts/llm-trader-walk-forward.ts
- * Compare against an SL_PRESET=live run on the same windows + the ≤5% DD
- * gate before ANY live config change (then update the 4h algo's rules
- * sl/tp in Supabase — verify the exact JSONB shape via
- * scripts/dump-live-configs.ts first).
+ * comboC CONFIRMATION PROTOCOL v2 (2026-06-10; ~$8-12 total, fits the
+ * $25/mo cap; screened at $0 by PR #178). FOUR runs, all REPLAY_CACHE=1
+ * so shared flat-bar calls are paid once:
+ *
+ *   1+2. Standard grid (comparable with the $0 screen + May baselines):
+ *     SL_PRESET=comboC REPLAY_CACHE=1 PROVIDER=anthropic TIMEFRAME=4h \
+ *       PROMPT_VERSION=v2 END_DATE=2026-04-30 \
+ *       pnpm dlx tsx scripts/llm-trader-walk-forward.ts
+ *     ...then identical with SL_PRESET=live (the live-swing geometry has
+ *     NEVER been WF-measured — the May "$11.7K baseline" silently ran
+ *     pct 1.5%).
+ *
+ *   3+4. RECENCY window — the standard grid stops at 2026-04-30 and
+ *   never tests the newest regime. One 40d window ending today covers
+ *   May→June, INCLUDING the 2026-05-07→18 live period (ground-truth
+ *   fills to compare against):
+ *     SL_PRESET=comboC REPLAY_CACHE=1 PROVIDER=anthropic TIMEFRAME=4h \
+ *       PROMPT_VERSION=v2 WINDOW_COUNT=1 WINDOW_DAYS=40 \
+ *       END_DATE=<today> pnpm dlx tsx scripts/llm-trader-walk-forward.ts
+ *     ...then identical with SL_PRESET=live. (Check the corpus header
+ *     prints bars through ~today; if the cache tail is stale, the OANDA
+ *     backfill is free.)
+ *
+ * PRE-REGISTERED pass criteria (decided before the run, not after):
+ *   comboC beats live on combined return across runs 1-vs-2 AND is not
+ *   materially worse on the recency window (3-vs-4), AND worst
+ *   per-window DD ≤5% at 0.75% risk. DD breach → fall back to
+ *   comboC+max-hold-24 or risk 0.6% per the PR #178 screen. Marginal →
+ *   no change. Then update the 4h algo's rules sl/tp in Supabase (PAPER
+ *   mode — live_trading_enabled stays false); verify the exact JSONB
+ *   shape via scripts/dump-live-configs.ts first.
  */
 import { readFileSync, writeFileSync } from "fs";
 import { createClient } from "@supabase/supabase-js";
