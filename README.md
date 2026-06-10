@@ -46,8 +46,12 @@ Production cron runs on the operator's local Mac (system `cron` daemon) — see 
 | Cadence | Endpoint | Purpose |
 |---|---|---|
 | every 5 min | `/api/cron/manage-positions` | SL/TP + signal-based exits + stagnant gate + broker P&L sync |
-| every hour | `/api/cron/scan-active-algorithms` | Entry evaluation against all active algorithms |
+| every 15 min | `/api/cron/scan-active-algorithms` | Entry evaluation against all active algorithms (aligned to 15m/1h/4h bar closes) |
+| every 5 min | `/api/cron/heartbeat` | Stale-scan detector + optional dead-man ping |
+| every 20 min | `/api/admin/snapshot-oanda-positioning` | OANDA retail positioning snapshot |
 | daily 04:00 UTC | `/api/admin/prune-sentiment-cache` | Cache hygiene |
+
+Independent of the Mac: `.github/workflows/dead-man.yml` (GitHub Actions, every 30 min) emails the owner when the heartbeat trail goes stale >45 min.
 
 ## Repo & branches
 
