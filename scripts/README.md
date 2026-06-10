@@ -60,10 +60,21 @@ monitor:
    alert covers Mac sleep, dead cron daemon, crashed server,
    paused/erroring Supabase, and silently-stale scans.
 
-Setup: create a free check at https://healthchecks.io (or an UptimeRobot
-heartbeat monitor), set its grace period to ~15 min, and add the ping
-URL to `.env.local` as `HEARTBEAT_PING_URL=...`. Without the var the
-script still logs health locally but sends no ping.
+**Active alert channel: GitHub Actions** (`.github/workflows/dead-man.yml`,
+2026-06-10). Every 30 min GitHub — independent infrastructure, no extra
+account — calls the anon-executable `public.last_manage_tick()` RPC and
+FAILS the workflow when the latest manage_tick is older than 45 min;
+GitHub emails the repo owner on scheduled-workflow failures. Covers Mac
+sleep, dead cron, crashed server, and paused/erroring Supabase
+end-to-end. Secrets `SUPABASE_URL` / `SUPABASE_ANON_KEY` are encrypted
+repo secrets (the repo is public — nothing sensitive in the workflow
+file).
+
+Alternative/additional channel: create a free check at
+https://healthchecks.io (grace ~15 min) and add its ping URL to
+`.env.local` as `HEARTBEAT_PING_URL=...` — `heartbeat-cron.sh` pings it
+only when fully healthy. Without the var the script still logs health
+locally but sends no ping.
 
 Side benefit: the heartbeat's DB query plus the 5-min manage tick keep
 enough traffic flowing that the Supabase free tier won't auto-pause
