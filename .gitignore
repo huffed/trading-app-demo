@@ -64,3 +64,4 @@ scripts/wf-logs*/
 scripts/.llm-replay-cache/
 scripts/.llm-spend-ledger.json
 scripts/exit-replay-summary-*.json
+scripts/cohort-report-*.json
