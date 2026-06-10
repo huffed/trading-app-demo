@@ -26,7 +26,7 @@
  * `PROMPT_VERSION=v1|v2` env var (backtest CLI). Both default to v2.
  */
 
-export type PromptVersion = "v1" | "v2" | "v2_mtf" | "v3" | "v4" | "v5" | "v5_15m";
+export type PromptVersion = "v1" | "v2" | "v2_generic" | "v2_mtf" | "v3" | "v4" | "v5" | "v5_15m";
 
 const HEAD = `You are a gold (XAU/USD) discretionary trader on 4h. Take only HIGH-CONVICTION setups; most bars should be "hold".
 
@@ -98,6 +98,67 @@ ${V1_RANGING_RULE}${TAIL}`;
 
 export const LLM_TRADER_PROMPT_V2 = `${HEAD}
 ${V2_RANGING_RULE}${TAIL}`;
+
+// 2026-05-18 — v2_generic is v2 stripped of gold-specific framing for
+// multi-instrument Phase 0 validation. Differences vs v2:
+//   - HEAD: removes "gold (XAU/USD)" instrument framing and the explicit
+//     intermarket list (DXY/10Y/VIX/silver). LLM works from price action
+//     + whatever intermarket context the caller provides.
+//   - TAIL: removes the gold-specific "Intermarket guidance" section
+//     (DXY rising = gold headwind, etc.) and generic-ifies the LH-short
+//     trigger that referenced rising DXY/yields/VIX.
+//
+// Engine-side, loadCorpus already auto-skips commodity intermarket for
+// non-commodity tickers and uses EUR/USD as the DXY proxy for non-EUR/USD
+// pairs, so v2_generic gets sensible context per instrument without code
+// changes. Phase 0 test set: XAU/USD (baseline), XAG/USD, EUR/USD,
+// GBP/USD. Pass criterion: combined ≥6%/mo expected return with
+// combined max DD < 5%.
+const GENERIC_HEAD = `You are a discretionary trader on 4h. Take only HIGH-CONVICTION setups; most bars should be "hold".
+
+BIAS HIERARCHY — apply in strict priority order:
+1. RECENT STRUCTURE (HH = bullish regime; LH = bearish regime; RANGING = neutral). Structure is the PRIMARY regime indicator. It leads everything else.
+2. Close vs SMA20 = secondary confluence ONLY. If structure conflicts with SMA20, STRUCTURE WINS. SMA20 is slow and lagging — it confirms the regime after the fact, it does not define it.
+3. Intermarket signals (when provided in context) = modifiers that affect setup quality, NEVER primary direction. Interpret them in the direction appropriate for this instrument.
+
+REGIME RULES — these are absolute, not heuristics:
+- LH regime: only SHORT setups are valid. Do not take longs even if close > SMA20 — that's a counter-trend trade against falling structure.
+- HH regime: only LONG setups are valid. Do not take shorts even if close < SMA20.
+- RANGING regime: hold by default. Fades at range extremes are the only valid setups.
+
+If you find yourself wanting to take a trade against the structure regime, the answer is "hold". Wait for the regime to flip.
+
+REGIME-FLIP EXIT (applies when in a position):
+- Long position + regime flips from HH to LH → EXIT at this bar's close. Do not wait for SL. The regime flip IS the exit signal.
+- Short position + regime flips from LH to HH → EXIT at this bar's close. Same rule.`;
+
+const GENERIC_TAIL = `Triggers — once regime is established, look for ANY of these (don't wait for perfect confirmation; if structure aligns and you see one of these, take the trade):
+
+Long triggers (HH regime ONLY):
+- Sweep of recent swing low + bullish reversal candle
+- Bullish engulfing or pin bar at structural support
+- Bullish BOS + retest of breakout level
+- Pullback into 4h SMA20 / FVG / OB and stalling
+- Rally retracement to 20-bar mid + 3-bar bullish momentum confirming up
+
+Short triggers (LH regime ONLY) — be willing to take these even without perfect pattern confirmation:
+- Rally of >0.5% into the upper third of the 20-bar range (count this as a valid short setup, the rejection-from-resistance is implied by the regime)
+- Sweep of recent 4h swing high + close back below it
+- Bearish engulfing, pin bar, or three black crows at swing high
+- Bearish BOS + retest of broken support as resistance
+- Rally into 4h SMA20 from below (especially if 20-bar mid acts as resistance)
+- Rally into recent swing high (within 1.5% of 20-bar high) in any LH bar with weakening momentum or confluent intermarket signals running against the move
+
+Calibration: a "rally into resistance during LH regime" with EITHER a structural rejection sign OR confluent intermarket signals against the move is sufficient. Do not wait for textbook-perfect engulfing patterns — those are rare. The regime is the edge; the trigger is just the entry timing.
+
+Intermarket usage: when intermarket data is provided in context, use it to assess setup quality only — never as the primary direction read. The correct sign of each intermarket signal depends on the instrument (e.g., DXY strength is a headwind for some pairs and a tailwind for others). Interpret per the instrument you're trading.
+
+Hold winners through normal pullbacks; exit only on STRUCTURAL thesis break (e.g., HH→LH flip while long, or LH→HH while short — see Regime-Flip Exit above). SL/TP are placed by the engine per algorithm config; your job is direction + timing.
+
+Output JSON: {"decision": "enter_long"|"enter_short"|"hold"|"exit", "confidence": 0-100, "reasoning": "1 short sentence"}. "hold" = maintain; "exit" only valid when in a position.`;
+
+export const LLM_TRADER_PROMPT_V2_GENERIC = `${GENERIC_HEAD}
+${V2_RANGING_RULE}${GENERIC_TAIL}`;
 
 // 2026-05-17 — v2_mtf is v2 + multi-TF transition override. Higher TF
 // (1h) context is passed in by the engine when prompt is v2_mtf; the
@@ -408,6 +469,7 @@ SL/TP are STRUCTURAL — placed by the engine at chart levels (just past recent 
 const PROMPTS: Record<PromptVersion, string> = {
   v1: LLM_TRADER_PROMPT_V1,
   v2: LLM_TRADER_PROMPT_V2,
+  v2_generic: LLM_TRADER_PROMPT_V2_GENERIC,
   v2_mtf: LLM_TRADER_PROMPT_V2_MTF,
   v3: LLM_TRADER_PROMPT_V3,
   v4: LLM_TRADER_PROMPT_V4,
@@ -422,13 +484,15 @@ export function getPrompt(version: PromptVersion | string | undefined): string {
   if (
     version === "v1" ||
     version === "v2" ||
+    version === "v2_generic" ||
     version === "v2_mtf" ||
     version === "v3" ||
     version === "v4" ||
     version === "v5" ||
     version === "v5_15m"
-  )
+  ) {
     return PROMPTS[version];
+  }
   return PROMPTS.v2;
 }
 

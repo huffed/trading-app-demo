@@ -235,7 +235,7 @@ async function main(): Promise<void> {
   // sync when new prompt versions are added; running with an unknown
   // version would silently fall through to DEFAULT_PROMPT_VERSION.
   const promptVersionRaw = (process.env.PROMPT_VERSION ?? DEFAULT_PROMPT_VERSION).toLowerCase();
-  const ALLOWED: PromptVersion[] = ["v1", "v2", "v2_mtf", "v3", "v4", "v5", "v5_15m"];
+  const ALLOWED: PromptVersion[] = ["v1", "v2", "v2_generic", "v2_mtf", "v3", "v4", "v5", "v5_15m"];
   if (!ALLOWED.includes(promptVersionRaw as PromptVersion)) {
     throw new Error(
       `Unsupported PROMPT_VERSION=${promptVersionRaw}. Use one of ${ALLOWED.join(", ")}.`
