@@ -54,6 +54,7 @@ import { checkConsistencyHalt } from "./consistency-halt";
 import { calculatePositionSize, calculateRiskPrices, logActivity } from "./helpers";
 import { executeLiveEntry, executeLiveExit, type BrokerExecutionContext } from "./live-execution";
 import { evaluateLlmTrader, isBarCloseScan, type LlmTraderContext } from "./llm-trader";
+import { PROMPT_HAS_MTF_OVERRIDE } from "./llm-trader-prompts";
 import { linkLlmDecisionToPosition, recordLlmDecision } from "./llm-trader-audit";
 import { summariseRecentOutcomes } from "./llm-trader-reflection";
 import { getPerHourStats } from "./per-hour-stats";
@@ -1212,10 +1213,11 @@ async function evaluateLlmTraderEntry(
   //   15m primary → 30m + 1h (v5_15m)
   //   4h primary  → 1h only (v2_mtf — gives faster-pulse early-warning vs D1 lag)
   //   1h primary  → 4h only (single higher TF — override rule degraded)
-  const useMultiTf =
-    llmConfig.prompt_version === "v5" ||
-    llmConfig.prompt_version === "v5_15m" ||
-    llmConfig.prompt_version === "v2_mtf";
+  // Capability comes from the prompt registry, not a hardcoded list —
+  // the compiler forces new prompt versions to declare it.
+  const useMultiTf = llmConfig.prompt_version
+    ? PROMPT_HAS_MTF_OVERRIDE[llmConfig.prompt_version]
+    : false;
   const higherTfBars = useMultiTf
     ? rules.timeframe === "30m"
       ? [
@@ -1366,6 +1368,23 @@ async function evaluateLlmTraderEntry(
     // legacy rows opened before migration 00032.
     const initialStop = currentPosition.initial_stop_loss_price ?? stopPrice;
     const slDistance = Math.abs(entryPrice - Number(initialStop));
+    if (slDistance <= 0) {
+      // Legacy row already BE'd with no initial_stop_loss_price recorded —
+      // R is undefined; skip rather than divide by zero (NaN/Infinity R
+      // would corrupt the +1R check and the audit trail).
+      await logActivity(supabase, userId, {
+        algorithm_id: algo.id,
+        position_id: currentPosition.id,
+        event_type: "signal_no_action",
+        ticker,
+        details: {
+          reason: "LLM decision: move_be skipped — zero initial SL distance (legacy BE'd row)",
+          source: "llm_trader",
+          regime: evaluation.regime,
+        },
+      });
+      return { opened: 0 };
+    }
     const currentPnlR =
       currentPosition.side === "long"
         ? (currentPrice - entryPrice) / slDistance
@@ -1516,9 +1535,12 @@ async function evaluateLlmTraderEntry(
   //
   // Schema note: prompt_version defaults to v2 when unset
   // (DEFAULT_PROMPT_VERSION in llm-trader-prompts.ts). Undefined treated
-  // as legacy (block applies).
-  const hasMultiTfOverride =
-    llmConfig.prompt_version === "v5" || llmConfig.prompt_version === "v5_15m";
+  // as legacy (block applies). Capability comes from the prompt registry
+  // (PROMPT_HAS_MTF_OVERRIDE) — the old hardcoded list here silently
+  // omitted v2_mtf, exactly the drift the registry exists to prevent.
+  const hasMultiTfOverride = llmConfig.prompt_version
+    ? PROMPT_HAS_MTF_OVERRIDE[llmConfig.prompt_version]
+    : false;
   if (evaluation.regime === "RANGING" && !hasMultiTfOverride) {
     await logActivity(supabase, userId, {
       algorithm_id: algo.id,
