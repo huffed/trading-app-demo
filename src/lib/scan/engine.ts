@@ -11,6 +11,7 @@ import {
   type StagnantExitResult,
 } from "@/lib/algorithm/stagnant-exit";
 import { pnlInUsd, priceDeltaForRule } from "@/lib/constants/markets";
+import { logger } from "@/lib/logger";
 import { checkConditions, normalize, type Cache } from "@/lib/market-data/backtest-engine";
 import { timeframeToInterval, type BarInterval } from "@/lib/market-data/interval";
 import { getCachedPrices, savePricesToCache } from "@/lib/market-data/price-cache";
@@ -151,10 +152,13 @@ export async function manageExistingPosition(
     });
   }
 
+  // status guard: a concurrent tick may have closed this row since we
+  // fetched it — never scribble unrealized_pnl back onto a closed row.
   await supabase
     .from("paper_positions")
     .update({ current_price: currentPrice, unrealized_pnl: unrealizedPnl })
-    .eq("id", position.id);
+    .eq("id", position.id)
+    .eq("status", "open");
   return { closed: 0, updated: 1 };
 }
 
@@ -176,8 +180,13 @@ interface CloseExitArgs {
  *  unit-tested independently of the price-management flow. */
 async function closePositionForExit(
   a: CloseExitArgs
-): Promise<{ closed: number; updated: number; closeEvent: PositionEvent }> {
-  await a.supabase
+): Promise<{ closed: number; updated: number; closeEvent?: PositionEvent }> {
+  // Atomic claim: only the first tick to flip open → closed proceeds to
+  // the broker exit + close logging. The 5-min manage tick and 15-min
+  // scan tick both walk open positions with no cross-tick lock, so a slow
+  // tick can race this close — the loser must not re-fire executeLiveExit
+  // (duplicate broker close) or double-log the close event.
+  const { data: claimed, error: claimError } = await a.supabase
     .from("paper_positions")
     .update({
       current_price: a.currentPrice,
@@ -188,7 +197,27 @@ async function closePositionForExit(
       status: "closed",
       closed_at: new Date().toISOString(),
     })
-    .eq("id", a.position.id);
+    .eq("id", a.position.id)
+    .eq("status", "open")
+    .select("id");
+
+  if (claimError) {
+    // Paper close failed → do NOT touch the broker; paper-first ordering
+    // means the next tick retries the whole close cleanly.
+    logger.error(
+      "scan-engine",
+      `close update failed for position ${a.position.id} — skipping broker exit this tick`,
+      claimError.message
+    );
+    return { closed: 0, updated: 0 };
+  }
+  if (!claimed || claimed.length === 0) {
+    logger.warn(
+      "scan-engine",
+      `position ${a.position.id} already closed by a concurrent tick — skipping duplicate close`
+    );
+    return { closed: 0, updated: 0 };
+  }
 
   if (a.brokerCtx) {
     await executeLiveExit({
