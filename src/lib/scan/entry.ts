@@ -9,6 +9,7 @@ import {
 import { checkDxyDirection } from "@/lib/algorithm/dxy-filter";
 import { checkAtrLiquidity } from "@/lib/algorithm/intraday-atr-gate";
 import { checkLivePriceDrift } from "@/lib/algorithm/live-price-drift-gate";
+import { checkMarketStateGate } from "@/lib/algorithm/market-state-gate";
 import { checkReEntryCooldown } from "@/lib/algorithm/re-entry-cooldown";
 import { checkBrokerSpread, type SpreadGateResult } from "@/lib/algorithm/spread-gate";
 import {
@@ -1200,6 +1201,62 @@ async function evaluateLlmTraderEntry(
     }
   }
 
+  // ---- Market state (computed once per evaluation) ----
+  // Leading-indicator states (study PR #188). Computed BEFORE the LLM
+  // call so (a) a market_state_gate refusal costs $0 in LLM spend and
+  // (b) the same read feeds the decision audit + entry cohort shadow
+  // logging below. 4h-frame only (the study's frame — lower TFs come
+  // with the S4 re-entry); fully wrapped so state computation can never
+  // break trading.
+  let marketState: MarketState | null = null;
+  if (rules.timeframe === "4h") {
+    try {
+      let oneHourBars = await getCachedPrices(ticker, "compact", "1h");
+      if (!oneHourBars || oneHourBars.length < 30) {
+        oneHourBars = await fetchDailyPrices(ticker, "compact", "1h");
+        savePricesToCache(ticker, "compact", oneHourBars, "1h").catch(() => {});
+      }
+      marketState = computeMarketState4h(
+        {
+          bars4h: bars,
+          oneHourBars: oneHourBars ?? [],
+          dailyBars: dailyBars ?? [],
+          // dxyBars arrive as EUR/USD 1h from the scan engine; the state
+          // math is defined on the 4h frame (study parity).
+          eurusd4h: dxyBars && dxyBars.length > 0 ? resampleTo(dxyBars, "4h") : [],
+        },
+        bars.length - 1
+      );
+    } catch {
+      marketState = null;
+    }
+  }
+
+  // ---- Market-state gate (regime-library dormancy) ----
+  // Flat-only and per-algo via rules — in-position management is never
+  // muzzled (2026-05-11 lesson) and there is no global gate list
+  // (feedback_gate_doing_too_much). For library algos this IS the
+  // dormancy mechanism: gate mismatch = the strategy sleeps this tick,
+  // with zero LLM spend. Specialists fail closed on unreadable state.
+  if (!currentPosition && rules.market_state_gate) {
+    const verdict = checkMarketStateGate(rules.market_state_gate, marketState);
+    if (!verdict.allowed) {
+      await logActivity(supabase, userId, {
+        algorithm_id: algo.id,
+        event_type: "signal_no_action",
+        ticker,
+        details: {
+          reason: "market_state_gate",
+          source: "llm_trader",
+          gate_mode: rules.market_state_gate.mode,
+          verdict: verdict.reason,
+          market_state: marketState,
+        },
+      });
+      return { opened: 0 };
+    }
+  }
+
   // ---- LLM call ----
   // currentPosition was loaded above (before the entry-side gates).
   // Layer 3 in-context reflection — pass the algo's recent track record
@@ -1279,36 +1336,6 @@ async function evaluateLlmTraderEntry(
       },
     });
     return { opened: 0 };
-  }
-
-  // ---- Shadow market-state (2026-06-11, study PR #188) ----
-  // Leading-indicator states computed per evaluation and attached to the
-  // decision audit + entry cohort. LOG-ONLY: nothing gates on these
-  // until live shadow evidence accumulates. 4h-frame only (the study's
-  // frame — lower TFs come with the S4 re-entry); fully wrapped so state
-  // computation can never break trading.
-  let marketState: MarketState | null = null;
-  if (rules.timeframe === "4h") {
-    try {
-      let oneHourBars = await getCachedPrices(ticker, "compact", "1h");
-      if (!oneHourBars || oneHourBars.length < 30) {
-        oneHourBars = await fetchDailyPrices(ticker, "compact", "1h");
-        savePricesToCache(ticker, "compact", oneHourBars, "1h").catch(() => {});
-      }
-      marketState = computeMarketState4h(
-        {
-          bars4h: bars,
-          oneHourBars: oneHourBars ?? [],
-          dailyBars: dailyBars ?? [],
-          // dxyBars arrive as EUR/USD 1h from the scan engine; the state
-          // math is defined on the 4h frame (study parity).
-          eurusd4h: dxyBars && dxyBars.length > 0 ? resampleTo(dxyBars, "4h") : [],
-        },
-        bars.length - 1
-      );
-    } catch {
-      marketState = null;
-    }
   }
 
   // Audit-log the decision (best-effort; never blocks trade flow). For

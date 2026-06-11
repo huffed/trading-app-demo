@@ -214,6 +214,31 @@ const driftSchema = z.object({
   min_live_wr_pct: z.number().min(5).max(80).optional(),
 });
 
+// Regime-library dormancy gate — values must mirror the unions in
+// src/lib/market-data/market-state.ts ("n/a" excluded: unreadable state
+// is handled by on_unreadable, never configured as a target state).
+const marketStateGateSchema = z.object({
+  mode: z.enum(["allow", "block"]),
+  states: z.object({
+    mtf: z
+      .array(
+        z.enum([
+          "aligned_HH",
+          "aligned_LH",
+          "ranging_all",
+          "fast_div_bull",
+          "fast_div_bear",
+          "mixed",
+        ])
+      )
+      .optional(),
+    vol: z.array(z.enum(["low", "mid", "high"])).optional(),
+    range: z.array(z.enum(["compressed", "normal", "expanded"])).optional(),
+    dxy: z.array(z.enum(["usd_up", "usd_down", "usd_flip"])).optional(),
+  }),
+  on_unreadable: z.enum(["block", "allow"]).optional(),
+});
+
 const breakevenMoveSchema = z.object({
   enabled: z.boolean(),
   // R-units. 0.5 = aggressive (cuts more recoveries). 3 = lax (breakeven
@@ -344,6 +369,7 @@ export const algorithmRulesSchema = z.object({
   llm_trader: llmTraderSchema.optional(),
   time_filter: timeFilterSchema.optional(),
   drift: driftSchema.optional(),
+  market_state_gate: marketStateGateSchema.optional(),
 });
 
 /**

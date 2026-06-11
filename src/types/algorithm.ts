@@ -1,3 +1,5 @@
+import type { MarketStateGate } from "@/lib/algorithm/market-state-gate";
+
 export type AlgorithmStatus = "draft" | "active" | "paused" | "archived";
 export type RiskLevel = "conservative" | "moderate" | "aggressive";
 export type IndicatorOperator = "less_than" | "greater_than" | "crosses_above" | "crosses_below";
@@ -544,6 +546,14 @@ export interface AlgorithmRules {
      *  drops below this regardless of baseline. Bounds: 5-80. */
     min_live_wr_pct?: number;
   };
+  /**
+   * Regime-library dormancy gate. Declares the market states this
+   * algorithm may enter in; the engine evaluates it every tick against
+   * the live-computed MarketState, BEFORE any LLM spend, and only when
+   * flat. Strategies wake and sleep with the regime — never via manual
+   * toggling. See src/lib/algorithm/market-state-gate.ts.
+   */
+  market_state_gate?: MarketStateGate;
 }
 
 // --- Backtest results ---
