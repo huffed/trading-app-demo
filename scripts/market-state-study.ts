@@ -190,6 +190,32 @@ async function main(): Promise<void> {
     console.log("");
   }
 
+  // Direction split (SIDE_SPLIT=1) — feedback_direction_split_first:
+  // mixed long+short medians can flip when split; never conclude on
+  // combined tables alone.
+  if (process.env.SIDE_SPLIT === "1") {
+    for (const side of ["long", "short"] as const) {
+      const sub = trades.filter((t) => t.side === side);
+      const o = agg(sub);
+      console.log(
+        `===== ${side.toUpperCase()} only: n=${o.n} WR=${o.wr.toFixed(0)}% meanR=${o.meanR.toFixed(2)} =====`
+      );
+      for (const feat of FEATURES) {
+        const m = new Map<string, StudyTrade[]>();
+        for (const t of sub) m.set(feat.key(t), [...(m.get(feat.key(t)) ?? []), t]);
+        const line = [...m]
+          .sort((a, b) => b[1].length - a[1].length)
+          .map(([state, ts]) => {
+            const a = agg(ts);
+            return `${state} n=${a.n} ${a.meanR.toFixed(2)}R`;
+          })
+          .join(" · ");
+        console.log(`  ${pad(feat.label, 14)}${line}`);
+      }
+      console.log("");
+    }
+  }
+
   // Historically-bad stretches: what state were we in?
   const STRETCHES: { label: string; from: string; to: string }[] = [
     { label: "Feb 2-6 reversal bleed", from: "2026-02-02", to: "2026-02-07" },
