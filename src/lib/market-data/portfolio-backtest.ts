@@ -8,6 +8,7 @@
  */
 import { checkDxyDirection } from "@/lib/algorithm/dxy-filter";
 import { checkAtrLiquidity } from "@/lib/algorithm/intraday-atr-gate";
+import { checkMarketStateGate } from "@/lib/algorithm/market-state-gate";
 import { checkStagnantExit } from "@/lib/algorithm/stagnant-exit";
 import { computeSlDistance, computeTpDistance } from "@/lib/algorithm/structural-sl";
 import {
@@ -22,6 +23,11 @@ import {
   DEFAULT_STOP_LOSS_PCT,
   DEFAULT_TAKE_PROFIT_PCT,
 } from "@/lib/constants/defaults";
+import {
+  computeMarketState4h,
+  lastIdxAtOrBefore,
+  type MarketState,
+} from "@/lib/market-data/market-state";
 import {
   isPatternCondition,
   isTechnicalCondition,
@@ -115,9 +121,33 @@ interface TickerState {
    *  states in a run. Populated only when caller passes proxyBars to
    *  runPortfolioBacktest AND the algo has dxy_filter configured. */
   dxyBars: PriceBar[] | null;
+  /** Full-depth series for market_state_gate evaluation. The state
+   *  percentile windows (~1y of 4h bars) must see deep history — the
+   *  window-sliced sim bars would silently shift every percentile and
+   *  diverge gate decisions from live. Null when the caller supplied no
+   *  marketStateSeries (gated algos then fail closed, mirroring live). */
+  stateSeries: {
+    bars4h: PriceBar[];
+    oneHour: PriceBar[];
+    daily: PriceBar[];
+    eurusd4h: PriceBar[];
+  } | null;
   /** Index of the most recently processed bar (for fast lookup as the
    *  unified timeline advances). */
   cursor: number;
+}
+
+/** Full-depth (NOT window-sliced) series for market_state_gate
+ *  evaluation during validation runs. Keyed by ticker; `daily` falls
+ *  back to a resample of `bars4h` when native daily candles aren't
+ *  supplied. Walk-forward callers pass this once — windows keep their
+ *  sliced sim bars while gate states are computed against full history,
+ *  exactly how live computes them. */
+export interface MarketStateSeries {
+  bars4h: Map<string, PriceBar[]>;
+  oneHour: Map<string, PriceBar[]>;
+  daily?: Map<string, PriceBar[]>;
+  eurusd4h: PriceBar[];
 }
 
 
@@ -147,7 +177,8 @@ function initTickerStates(
   rules: AlgorithmRules,
   pricesByTicker: Map<string, PriceBar[]>,
   events: EconomicEvent[],
-  proxyBars: PriceBar[] | null
+  proxyBars: PriceBar[] | null,
+  marketStateSeries: MarketStateSeries | null = null
 ): Map<string, TickerState> {
   // Pre-resolve unique non-primary timeframes from the rule's conditions
   // so each ticker resamples once and reuses across the simulation loop.
@@ -179,10 +210,39 @@ function initTickerStates(
       newsEvents: events,
       relevantCurrencies: getEventCurrencies(ticker),
       dxyBars: proxyBars,
+      stateSeries: (() => {
+        const fullBars4h = marketStateSeries?.bars4h.get(ticker);
+        if (!fullBars4h || fullBars4h.length === 0) return null;
+        return {
+          bars4h: fullBars4h,
+          oneHour: marketStateSeries?.oneHour.get(ticker) ?? [],
+          daily: marketStateSeries?.daily?.get(ticker) ?? resampleToDaily(fullBars4h),
+          eurusd4h: marketStateSeries?.eurusd4h ?? [],
+        };
+      })(),
       cursor: -1,
     });
   }
   return out;
+}
+
+/** Market state at a sim bar, computed against the FULL-depth series
+ *  (never the window slice). Returns null — which the gate fails closed
+ *  on — when no series was supplied or the primary TF isn't 4h (states
+ *  are defined on the 4h frame; lower-TF frames arrive with S4). */
+function marketStateForBar(
+  state: TickerState,
+  barDate: string,
+  rules: AlgorithmRules
+): MarketState | null {
+  const ss = state.stateSeries;
+  if (!ss || rules.timeframe.toLowerCase() !== "4h") return null;
+  const idx = lastIdxAtOrBefore(ss.bars4h, barDate);
+  if (idx < 0) return null;
+  return computeMarketState4h(
+    { bars4h: ss.bars4h, oneHourBars: ss.oneHour, dailyBars: ss.daily, eurusd4h: ss.eurusd4h },
+    idx
+  );
 }
 
 /** Build the per-non-primary-timeframe bundle map for the current bar.
@@ -431,6 +491,13 @@ function tryOpenEntry(
   if (!checkConditions(techEntry, entryCtx, rules.entry_logic)) {
     return;
   }
+  // Market-state gate (regime-library dormancy) — same checker live uses.
+  // Runs AFTER conditions so the windowed-percentile state math only
+  // executes on bars where the strategy actually fired.
+  if (rules.market_state_gate) {
+    const ms = marketStateForBar(state, state.bars[i].date, rules);
+    if (!checkMarketStateGate(rules.market_state_gate, ms).allowed) return;
+  }
   const entryPrice = applySlippage(state.closes[i], cfg.slippageBps, side === "long");
   // Conviction-scaled sizing: dispatch to condition-count or
   // tf-agreement curve based on rules.position_sizing.conviction_metric.
@@ -507,7 +574,12 @@ export function runPortfolioBacktest(
    *  When null AND the algo has dxy_filter enabled, the gate behaves
    *  as a no-op (logs no_data status). Required when validating the
    *  filter via inspect-algo overlay. */
-  proxyBars: PriceBar[] | null = null
+  proxyBars: PriceBar[] | null = null,
+  /** Full-depth series for market_state_gate evaluation — REQUIRED when
+   *  validating a gated algo; without it the gate fails closed and the
+   *  run produces zero entries (loudly wrong rather than silently
+   *  unfaithful). See MarketStateSeries. */
+  marketStateSeries: MarketStateSeries | null = null
 ): BacktestMetrics {
   const entry = normalize(rules.entry_conditions);
   const exit = normalize(rules.exit_conditions);
@@ -533,7 +605,7 @@ export function runPortfolioBacktest(
   }
 
   const cfg = buildSimConfig(rules);
-  const states = initTickerStates(rules, pricesByTicker, events, proxyBars);
+  const states = initTickerStates(rules, pricesByTicker, events, proxyBars, marketStateSeries);
   const timeline = buildTimeline(pricesByTicker);
   const s = initialSimState(capital);
   const trades: BacktestTrade[] = [];
