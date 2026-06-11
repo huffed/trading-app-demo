@@ -45,6 +45,13 @@ const WINDOW_DAYS = Number(process.env.WINDOW_DAYS ?? 40);
 const STEP_DAYS = Number(process.env.STEP_DAYS ?? 40);
 const CAPITAL = Number(process.env.CAPITAL ?? 100_000);
 const TICKER = "XAU/USD";
+/** Primary timeframe under test. "4h" (default) runs gated + ungated.
+ *  "1h" runs UNGATED ONLY — the market-state gate is 4h-frame and the
+ *  engine fails non-4h gated algos closed by design, so a gated 1h run
+ *  would report zero trades. The pattern triggers and swing-anchor
+ *  geometry are bar-relative and port unchanged; corpus depth differs
+ *  (4h reaches 2020; 1h reaches ~Aug 2025 — OANDA provider floor). */
+const TIMEFRAME = (process.env.TIMEFRAME ?? "4h") as "4h" | "1h";
 
 function baseRules(): AlgorithmRules {
   return {
@@ -55,7 +62,7 @@ function baseRules(): AlgorithmRules {
     position_sizing: { type: "risk_per_trade", value: 0.6 },
     max_positions: 1,
     leverage: 9,
-    timeframe: "4h",
+    timeframe: TIMEFRAME,
     asset_class: "commodity",
     side: "long",
     stagnant_exit: { enabled: true },
@@ -70,8 +77,8 @@ interface Candidate {
 function buildCandidates(): Candidate[] {
   const dipBuyer = baseRules();
   dipBuyer.entry_conditions = [
-    { type: "pattern", pattern: "liquidity_sweep", direction: "bullish", lookback: 5, timeframe: "4h" },
-    { type: "pattern", pattern: "daily_bias", direction: "bullish", ma_period: 20, timeframe: "4h" },
+    { type: "pattern", pattern: "liquidity_sweep", direction: "bullish", lookback: 5, timeframe: TIMEFRAME },
+    { type: "pattern", pattern: "daily_bias", direction: "bullish", ma_period: 20, timeframe: TIMEFRAME },
   ];
   // Block-mode: exclude the two states both screens flag as negative
   // for longs (fast_div_bull −0.32R taken / +0.18R held; usd_down 0.24R
@@ -88,8 +95,8 @@ function buildCandidates(): Candidate[] {
 
   const coilBreakout = baseRules();
   coilBreakout.entry_conditions = [
-    { type: "pattern", pattern: "bos", direction: "bullish", lookback: 5, timeframe: "4h" },
-    { type: "pattern", pattern: "daily_bias", direction: "bullish", ma_period: 20, timeframe: "4h" },
+    { type: "pattern", pattern: "bos", direction: "bullish", lookback: 5, timeframe: TIMEFRAME },
+    { type: "pattern", pattern: "daily_bias", direction: "bullish", ma_period: 20, timeframe: TIMEFRAME },
   ];
   coilBreakout.market_state_gate = {
     mode: "allow",
@@ -98,7 +105,7 @@ function buildCandidates(): Candidate[] {
 
   const rangeFade = baseRules();
   rangeFade.entry_conditions = [
-    { type: "pattern", pattern: "liquidity_sweep", direction: "bullish", lookback: 5, timeframe: "4h" },
+    { type: "pattern", pattern: "liquidity_sweep", direction: "bullish", lookback: 5, timeframe: TIMEFRAME },
   ];
   rangeFade.market_state_gate = {
     mode: "allow",
@@ -108,8 +115,8 @@ function buildCandidates(): Candidate[] {
   const bearShort = baseRules();
   bearShort.side = "short";
   bearShort.entry_conditions = [
-    { type: "pattern", pattern: "bos", direction: "bearish", lookback: 5, timeframe: "4h" },
-    { type: "pattern", pattern: "daily_bias", direction: "bearish", ma_period: 20, timeframe: "4h" },
+    { type: "pattern", pattern: "bos", direction: "bearish", lookback: 5, timeframe: TIMEFRAME },
+    { type: "pattern", pattern: "daily_bias", direction: "bearish", ma_period: 20, timeframe: TIMEFRAME },
   ];
   bearShort.market_state_gate = {
     mode: "allow",
@@ -168,18 +175,20 @@ async function main(): Promise<void> {
   const only = process.env.ONLY?.split(",").map((s) => s.trim());
   const candidates = buildCandidates().filter((c) => !only || only.includes(c.key));
 
-  console.log(`Loading full-depth corpus for ${TICKER}...`);
-  const corpus: Corpus = await loadCorpus("4h");
-  const corpus1h: Corpus = await loadCorpus("1h");
+  console.log(`Loading full-depth corpus for ${TICKER} (primary TF: ${TIMEFRAME})...`);
+  const corpus: Corpus = await loadCorpus(TIMEFRAME);
+  const corpus1h: Corpus = TIMEFRAME === "1h" ? corpus : await loadCorpus("1h");
   const bars: PriceBar[] = corpus.bars;
   console.log(
-    `  4h: ${bars.length} bars (${bars[0]?.date.slice(0, 10)} → ${bars[bars.length - 1]?.date.slice(0, 10)}) · 1h: ${corpus1h.bars.length} · daily: ${corpus.dailyBars.length} · eurusd4h: ${corpus.eurusd4h.length}`
+    `  ${TIMEFRAME}: ${bars.length} bars (${bars[0]?.date.slice(0, 10)} → ${bars[bars.length - 1]?.date.slice(0, 10)}) · 1h: ${corpus1h.bars.length} · daily: ${corpus.dailyBars.length} · eurusd4h: ${corpus.eurusd4h.length}`
   );
   console.log(
     `  NOTE: mtf/dxy features need 1h + EUR/USD history (≈ ${corpus1h.bars[0]?.date.slice(0, 10) ?? "?"} onward); vol needs ~1y of 4h warm-up.`
   );
   console.log(
-    `  Gated candidates fail closed before their features are readable — early windows under-trade BY DESIGN.\n`
+    TIMEFRAME === "4h"
+      ? `  Gated candidates fail closed before their features are readable — early windows under-trade BY DESIGN.\n`
+      : `  1h mode: UNGATED ONLY (market-state gate is 4h-frame; a gated 1h algo fails closed by design).\n`
   );
 
   const marketStateSeries: MarketStateSeries = {
@@ -189,10 +198,11 @@ async function main(): Promise<void> {
     eurusd4h: corpus.eurusd4h,
   };
   const prices = new Map([[TICKER, bars]]);
+  const variants: ("gated" | "ungated")[] = TIMEFRAME === "4h" ? ["gated", "ungated"] : ["ungated"];
 
   const reports: RunReport[] = [];
   for (const c of candidates) {
-    for (const variant of ["gated", "ungated"] as const) {
+    for (const variant of variants) {
       const rules = variant === "gated" ? c.rules : ungated(c.rules);
       const summary = runWalkForward(rules, prices, CAPITAL, {
         testWindowDays: WINDOW_DAYS,
@@ -207,6 +217,11 @@ async function main(): Promise<void> {
     }
   }
 
+  if (TIMEFRAME !== "4h") {
+    console.log(
+      "\n1h mode is an exploratory screen — no ship verdicts (shipping a 1h algo needs the gate's lower-TF frame first)."
+    );
+  } else {
   console.log("\n--- Ship-gate verdicts (pre-registered) ---");
   for (const c of candidates) {
     const g = reports.find((r) => r.candidate === c.key && r.variant === "gated")!;
@@ -221,6 +236,7 @@ async function main(): Promise<void> {
     console.log(
       `${c.key.padEnd(14)} ${verdict}  [${checks.map((x) => `${x.name}: ${x.pass ? "✓" : "✗"}`).join(" · ")}]`
     );
+  }
   }
 
   const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
