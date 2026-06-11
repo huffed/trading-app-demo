@@ -75,17 +75,17 @@ const TP_CFG = { type: "rr_multiple" as const, value: 3 };
  *    swing-anchor stops).
  *  Screening geometries on the SAME entries gives the stalled paid SL
  *  sweep a $0 first-pass answer; comboC was its leader through W1+W2. */
-interface Geometry {
+export interface Geometry {
   key: string;
   sl: { type: "percentage" | "swing_anchor"; value: number; lookback?: number };
 }
-const GEOMETRIES: Geometry[] = [
+export const GEOMETRIES: Geometry[] = [
   { key: "pct15", sl: { type: "percentage", value: 0.015 } },
   { key: "swing", sl: { type: "swing_anchor", value: 0.25, lookback: 8 } }, // live config
   { key: "comboC", sl: { type: "swing_anchor", value: 0.1, lookback: 4 } }, // sweep leader
 ];
 
-interface RecordedTrade {
+export interface RecordedTrade {
   side: "long" | "short";
   entry_price: number;
   exit_price: number;
@@ -96,7 +96,7 @@ interface RecordedTrade {
   r_multiple?: number;
 }
 
-interface VariantCfg {
+export interface VariantCfg {
   key: string;
   honorLlmExits: boolean;
   beAtR: number | null; // move SL to entry once +N R touched
@@ -127,7 +127,7 @@ const GRID: GridCell[] = GEOMETRIES.flatMap((geom) =>
   MECHANICS.map((mech) => ({ key: `${geom.key}:${mech.key}`, geom, mech }))
 );
 
-interface SimOutcome {
+export interface SimOutcome {
   r: number;
   holdBars: number;
   exitReason: string;
@@ -135,7 +135,7 @@ interface SimOutcome {
 
 /** ATR(14) over daily bars strictly before `dateStr` — feeds the
  *  adaptive-TP cap the same way the harness does at entry time. */
-function dailyAtrBefore(dailyBars: PriceBar[], dateStr: string): number {
+export function dailyAtrBefore(dailyBars: PriceBar[], dateStr: string): number {
   const day = dateStr.slice(0, 10);
   let end = dailyBars.length - 1;
   while (end > 0 && dailyBars[end].date.slice(0, 10) >= day) end--;
@@ -157,7 +157,7 @@ function dailyAtrBefore(dailyBars: PriceBar[], dateStr: string): number {
  *  findExitOnNextBar in the harness). BE moves apply at bar CLOSE, so a
  *  bar that touches +1R and then reverses through entry still exits at
  *  the ORIGINAL stop that bar (conservative). */
-function simulate(
+export function simulate(
   trade: RecordedTrade,
   bars: PriceBar[],
   entryIdx: number,
@@ -472,7 +472,11 @@ async function main(): Promise<void> {
   console.log(`\nSummary saved: ${outPath}`);
 }
 
-main().catch((err) => {
-  console.error("exit-mechanics-replay failed:", err);
-  process.exit(1);
-});
+// Run only when executed directly — entry-gate-screen.ts imports the
+// simulator from this file and must not trigger a full replay report.
+if (process.argv[1]?.includes("exit-mechanics-replay")) {
+  main().catch((err) => {
+    console.error("exit-mechanics-replay failed:", err);
+    process.exit(1);
+  });
+}
