@@ -45,7 +45,10 @@ import {
   type Corpus,
 } from "./llm-trader-backtest";
 import { dailyAtrBefore, simulate, type RecordedTrade, type VariantCfg } from "./exit-mechanics-replay";
-import type { PriceBar } from "../src/lib/market-data/types";
+import {
+  computeMarketState4h,
+  type MarketState,
+} from "../src/lib/market-data/market-state";
 
 // Self-load .env.local (same pattern as sibling scripts)
 {
@@ -71,72 +74,6 @@ const V0: VariantCfg = { key: "v0", honorLlmExits: false, beAtR: null, maxHoldBa
 
 type Regime = "HH" | "LH" | "RANGING";
 
-/** Same structural read the harness's daily-bias uses: highest/lowest of
- *  the last 3 bars vs the 4 before them, on any timeframe's bars. */
-function swingRegime(bars: PriceBar[], endIdx: number): Regime | null {
-  if (endIdx < 7) return null;
-  const hi = (a: number, b: number): number => {
-    let m = -Infinity;
-    for (let i = a; i <= b; i++) m = Math.max(m, bars[i].high);
-    return m;
-  };
-  const lo = (a: number, b: number): number => {
-    let m = Infinity;
-    for (let i = a; i <= b; i++) m = Math.min(m, bars[i].low);
-    return m;
-  };
-  const last3High = hi(endIdx - 2, endIdx);
-  const prev4High = hi(endIdx - 6, endIdx - 3);
-  const last3Low = lo(endIdx - 2, endIdx);
-  const prev4Low = lo(endIdx - 6, endIdx - 3);
-  if (last3High > prev4High && last3Low > prev4Low) return "HH";
-  if (last3High < prev4High && last3Low < prev4Low) return "LH";
-  return "RANGING";
-}
-
-function atr14(bars: PriceBar[], endIdx: number): number | null {
-  if (endIdx < 15) return null;
-  let s = 0;
-  for (let i = endIdx - 13; i <= endIdx; i++) {
-    s += Math.max(
-      bars[i].high - bars[i].low,
-      Math.abs(bars[i].high - bars[i - 1].close),
-      Math.abs(bars[i].low - bars[i - 1].close)
-    );
-  }
-  return s / 14;
-}
-
-/** Percentile of x within sorted historical values (fraction 0..1). */
-function pctile(history: number[], x: number): number | null {
-  if (history.length < 100) return null;
-  let below = 0;
-  for (const h of history) if (h < x) below++;
-  return below / history.length;
-}
-
-/** Index of the last bar in `bars` with date <= target (binary search). */
-function lastIdxAtOrBefore(bars: PriceBar[], target: string): number {
-  let lo = 0;
-  let hi = bars.length - 1;
-  let ans = -1;
-  while (lo <= hi) {
-    const mid = (lo + hi) >> 1;
-    if (bars[mid].date <= target) {
-      ans = mid;
-      lo = mid + 1;
-    } else hi = mid - 1;
-  }
-  return ans;
-}
-
-interface StateFeatures {
-  vol: string;
-  mtf: string;
-  range: string;
-  dxy: string;
-}
-
 function discoverFiles(): string[] {
   if (process.env.FILES) return process.env.FILES.split(",").map((s) => s.trim());
   return readdirSync("scripts")
@@ -154,77 +91,12 @@ async function main(): Promise<void> {
   const barIdxByDate = new Map<string, number>();
   bars.forEach((b, i) => barIdxByDate.set(b.date, i));
 
-  // Precompute rolling series once (per 4h bar): ATR14 and 20-bar width.
-  const atrSeries: (number | null)[] = bars.map((_, i) => atr14(bars, i));
-  const widthSeries: (number | null)[] = bars.map((_, i) => {
-    if (i < 20) return null;
-    let hi = -Infinity;
-    let lo = Infinity;
-    for (let j = i - 19; j <= i; j++) {
-      hi = Math.max(hi, bars[j].high);
-      lo = Math.min(lo, bars[j].low);
-    }
-    return (hi - lo) / bars[i].close;
-  });
-
-  function featuresAt(entryIdx: number, entryDate: string): StateFeatures {
-    // vol percentile vs trailing ~1y of 4h bars (1560)
-    const atrNow = atrSeries[entryIdx];
-    const atrHist = atrSeries
-      .slice(Math.max(0, entryIdx - 1560), entryIdx)
-      .filter((v): v is number => v !== null);
-    const volP = atrNow !== null ? pctile(atrHist, atrNow) : null;
-    const vol = volP === null ? "n/a" : volP < 0.3 ? "low" : volP > 0.7 ? "high" : "mid";
-
-    // multi-TF structure
-    const d1Idx = lastIdxAtOrBefore(corpus.dailyBars, entryDate.slice(0, 10) + " 00:00:00") - 1;
-    const h1Idx = lastIdxAtOrBefore(corpus1h.bars, entryDate);
-    const d1 = d1Idx >= 7 ? swingRegime(corpus.dailyBars, d1Idx) : null;
-    const h4 = swingRegime(bars, entryIdx);
-    const h1 = h1Idx >= 7 ? swingRegime(corpus1h.bars, h1Idx) : null;
-    let mtf = "n/a";
-    if (d1 && h4 && h1) {
-      if (d1 === "HH" && h4 === "HH" && h1 === "HH") mtf = "aligned_HH";
-      else if (d1 === "LH" && h4 === "LH" && h1 === "LH") mtf = "aligned_LH";
-      else if (d1 === "RANGING" && h4 === "RANGING" && h1 === "RANGING") mtf = "ranging_all";
-      else if (h1 === "HH" && d1 !== "HH") mtf = "fast_div_bull";
-      else if (h1 === "LH" && d1 !== "LH") mtf = "fast_div_bear";
-      else mtf = "mixed";
-    }
-
-    // range compression
-    const wNow = widthSeries[entryIdx];
-    const wHist = widthSeries
-      .slice(Math.max(0, entryIdx - 500), entryIdx)
-      .filter((v): v is number => v !== null);
-    const wP = wNow !== null ? pctile(wHist, wNow) : null;
-    const range = wP === null ? "n/a" : wP < 0.3 ? "compressed" : wP > 0.7 ? "expanded" : "normal";
-
-    // DXY proxy: EUR/USD 4h 20-bar slope. EUR up = USD down.
-    const eIdx = lastIdxAtOrBefore(corpus.eurusd4h, entryDate);
-    let dxy = "n/a";
-    if (eIdx >= 26) {
-      const slope = (i: number): number =>
-        corpus.eurusd4h[i].close - corpus.eurusd4h[i - 20].close;
-      const now = slope(eIdx);
-      let flipped = false;
-      for (let k = 1; k <= 6; k++) {
-        if (Math.sign(slope(eIdx - k)) !== Math.sign(now)) {
-          flipped = true;
-          break;
-        }
-      }
-      dxy = flipped ? "usd_flip" : now > 0 ? "usd_down" : "usd_up";
-    }
-    return { vol, mtf, range, dxy };
-  }
-
   interface StudyTrade {
     cohort: string;
     entryDate: string;
     side: "long" | "short";
     r: number;
-    f: StateFeatures;
+    f: MarketState;
   }
   const trades: StudyTrade[] = [];
   let unmatched = 0;
@@ -254,7 +126,15 @@ async function main(): Promise<void> {
         entryDate: t.entry_date,
         side: t.side,
         r: simulate(t, bars, entryIdx, slDistance, tpDistance, V0).r,
-        f: featuresAt(entryIdx, t.entry_date),
+        f: computeMarketState4h(
+          {
+            bars4h: bars,
+            oneHourBars: corpus1h.bars,
+            dailyBars: corpus.dailyBars,
+            eurusd4h: corpus.eurusd4h,
+          },
+          entryIdx
+        ),
       });
     }
   }

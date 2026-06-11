@@ -68,6 +68,21 @@ const cohortSchema = z.object({
   /** Entry hour in UTC (0-23). Foundation for hour-of-day cohort
    *  analysis (Asia / EU / NY session edges). */
   entry_hour_utc: z.number().int().min(0).max(23).optional(),
+  /**
+   * Market-state features at entry (shadow logger 2026-06-11 —
+   * src/lib/market-data/market-state.ts, study PR #188). Logged as
+   * evidence for future state-keyed downshifts; nothing gates on them.
+   * Open string enums on purpose — the feature module owns the
+   * vocabulary.
+   */
+  market_state: z
+    .object({
+      mtf: z.string(),
+      vol: z.string(),
+      range: z.string(),
+      dxy: z.string(),
+    })
+    .optional(),
 });
 
 export const entryReasonSchema = z.object({
