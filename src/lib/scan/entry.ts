@@ -36,6 +36,9 @@ import {
   isWithinVetoWindow,
 } from "@/lib/market-data/economic-calendar";
 import { isRangingByAtr } from "@/lib/market-data/regime-filter";
+import { computeMarketState4h, type MarketState } from "@/lib/market-data/market-state";
+import { getCachedPrices, savePricesToCache } from "@/lib/market-data/price-cache";
+import { fetchDailyPrices } from "@/lib/market-data/prices";
 import { resampleTo, resampleToDaily } from "@/lib/market-data/resample";
 import type { PriceBar } from "@/lib/market-data/types";
 import { evaluateLiveSignal, type SignalResult } from "@/lib/signals/evaluate-live";
@@ -115,7 +118,7 @@ async function openPosition(
    *  computed pieces (entry_zone, position_in_range_pct, entry_hour_utc).
    *  Optional — pre-instrumentation callers and pattern-strategy callers
    *  may pass undefined; Phase 3 gates must handle null cohort gracefully. */
-  cohortFromCaller?: { regime?: "HH" | "LH" | "RANGING" }
+  cohortFromCaller?: Partial<EntryCohort>
 ): Promise<{ opened: number; openEvent?: PositionEvent; paperPositionId?: string }> {
   // calculatePositionSize wants MARGIN-used summed, not notional. For
   // leveraged sizing (lots / risk_per_trade / conviction_scaled) sum
@@ -234,7 +237,7 @@ async function openPosition(
   // missing or thin (<20), the field stays undefined and Phase 3 skips
   // this row when slicing on it.
   const cohort: Partial<EntryCohort> = {
-    ...(cohortFromCaller?.regime ? { regime: cohortFromCaller.regime } : {}),
+    ...(cohortFromCaller ?? {}),
     entry_hour_utc: new Date().getUTCHours(),
   };
   if (bars && bars.length >= 20) {
@@ -1278,6 +1281,36 @@ async function evaluateLlmTraderEntry(
     return { opened: 0 };
   }
 
+  // ---- Shadow market-state (2026-06-11, study PR #188) ----
+  // Leading-indicator states computed per evaluation and attached to the
+  // decision audit + entry cohort. LOG-ONLY: nothing gates on these
+  // until live shadow evidence accumulates. 4h-frame only (the study's
+  // frame — lower TFs come with the S4 re-entry); fully wrapped so state
+  // computation can never break trading.
+  let marketState: MarketState | null = null;
+  if (rules.timeframe === "4h") {
+    try {
+      let oneHourBars = await getCachedPrices(ticker, "compact", "1h");
+      if (!oneHourBars || oneHourBars.length < 30) {
+        oneHourBars = await fetchDailyPrices(ticker, "compact", "1h");
+        savePricesToCache(ticker, "compact", oneHourBars, "1h").catch(() => {});
+      }
+      marketState = computeMarketState4h(
+        {
+          bars4h: bars,
+          oneHourBars: oneHourBars ?? [],
+          dailyBars: dailyBars ?? [],
+          // dxyBars arrive as EUR/USD 1h from the scan engine; the state
+          // math is defined on the 4h frame (study parity).
+          eurusd4h: dxyBars && dxyBars.length > 0 ? resampleTo(dxyBars, "4h") : [],
+        },
+        bars.length - 1
+      );
+    } catch {
+      marketState = null;
+    }
+  }
+
   // Audit-log the decision (best-effort; never blocks trade flow). For
   // entry decisions, paper_position_id is linked back after openPosition
   // succeeds. For hold/exit, the row stays unlinked.
@@ -1290,6 +1323,7 @@ async function evaluateLlmTraderEntry(
     evaluation,
     hadPosition,
     source: "live",
+    contextComponents: marketState ? { market_state: marketState } : undefined,
   });
 
   // ---- Decision dispatch ----
@@ -1687,6 +1721,7 @@ async function evaluateLlmTraderEntry(
       llm_reasoning: decision.reasoning,
       atr_current: liquidity.atr_current,
       atr_threshold: liquidity.atr_threshold,
+      market_state: marketState ?? undefined,
     },
   });
 
@@ -1719,13 +1754,14 @@ async function evaluateLlmTraderEntry(
     1,
     bars,
     adaptiveTpCtx,
-    // Cohort attribution — regime from LLM evaluation. Other cohort
-    // dimensions (entry_zone, position_in_range, entry_hour) computed
-    // inside openPosition from bars + current timestamp. `n/a` regime
-    // (insufficient daily history) is dropped — not useful for cohort
-    // slicing.
+    // Cohort attribution — regime from LLM evaluation + shadow market
+    // state. Other cohort dimensions (entry_zone, position_in_range,
+    // entry_hour) computed inside openPosition from bars + current
+    // timestamp. `n/a` regime (insufficient daily history) is dropped —
+    // not useful for cohort slicing.
     {
       regime: evaluation.regime !== "n/a" ? evaluation.regime : undefined,
+      ...(marketState ? { market_state: marketState } : {}),
     }
   );
   // Link the decision row to the resulting paper_positions row so the
