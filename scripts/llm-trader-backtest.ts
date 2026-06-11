@@ -55,6 +55,7 @@ import {
   isWithinVetoWindow,
 } from "../src/lib/market-data/economic-calendar";
 import type { BarInterval } from "../src/lib/market-data/interval";
+import { savePricesToCache } from "../src/lib/market-data/price-cache";
 import { fetchDailyPrices } from "../src/lib/market-data/prices";
 import { resampleTo } from "../src/lib/market-data/resample";
 import type { PriceBar } from "../src/lib/market-data/types";
@@ -92,16 +93,36 @@ async function loadFullCachedBars(
   return (data as { bars: PriceBar[] }).bars ?? null;
 }
 
+/** A cache row shallower than this is treated as a miss for CORPUS
+ *  purposes. The live scan legitimately writes 120-bar compact rows
+ *  (entry.ts shadow state-logger); without this guard the first such
+ *  write shadows the deep provider fetch and historical studies silently
+ *  lose whole feature columns (2026-06-11: study mtf went all-n/a). */
+const MIN_CORPUS_DEPTH_BARS = 1000;
+
 /** Wrapper: prefer the Supabase cache (full historical depth) and fall
- *  back to the provider chain if the cache is empty or stale. Used by
- *  loadCorpus to source 1h primary, daily, and EUR/USD 4h bars. */
+ *  back to the provider chain if the cache is empty or shallow. Deep
+ *  provider results are saved back under output_size "full" so the next
+ *  run cache-hits. Used by loadCorpus to source 1h primary, daily, and
+ *  EUR/USD 4h bars. */
 async function fetchOrCachedFull(
   ticker: string,
   interval: BarInterval
 ): Promise<PriceBar[]> {
   const cached = await loadFullCachedBars(ticker, interval);
-  if (cached && cached.length > 0) return cached;
-  return await fetchDailyPrices(ticker, "full", interval);
+  if (cached && cached.length >= MIN_CORPUS_DEPTH_BARS) return cached;
+  try {
+    const fetched = await fetchDailyPrices(ticker, "full", interval);
+    if (fetched.length > (cached?.length ?? 0)) {
+      await savePricesToCache(ticker, "full", fetched, interval).catch(() => {});
+      return fetched;
+    }
+    return cached && cached.length > 0 ? cached : fetched;
+  } catch (err) {
+    // Provider down: a shallow cache row beats nothing.
+    if (cached && cached.length > 0) return cached;
+    throw err;
+  }
 }
 import {
   DEFAULT_PROMPT_VERSION,
