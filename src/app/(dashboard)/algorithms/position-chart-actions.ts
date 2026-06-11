@@ -4,8 +4,8 @@ import { timeframeToInterval } from "@/lib/market-data/interval";
 import { getCachedPrices } from "@/lib/market-data/price-cache";
 import { fetchDailyPrices } from "@/lib/market-data/prices";
 import { getAuthedUser } from "@/lib/supabase/get-authed-user";
+import { rulesFromRow } from "@/lib/supabase/row-mappers";
 import { type ActionResult } from "@/lib/types/action-result";
-import type { AlgorithmRules } from "@/types/algorithm";
 
 export interface ChartBar {
   /** ISO timestamp (bar open). */
@@ -68,7 +68,7 @@ export async function getPositionChartData(
       .eq("id", pos.algorithm_id)
       .single();
     if (!algo) return { success: true, data: null };
-    const rules = algo.rules as AlgorithmRules;
+    const rules = rulesFromRow(algo.rules);
     const interval = timeframeToInterval(rules.timeframe);
 
     let bars = await getCachedPrices(pos.ticker, "full", interval);

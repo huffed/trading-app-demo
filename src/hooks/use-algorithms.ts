@@ -13,11 +13,12 @@ import {
   type GenerateFromSearchInput,
 } from "@/app/(dashboard)/algorithms/generate-from-search-actions";
 import { createClient } from "@/lib/supabase/client";
+import { algorithmFromRow, algorithmsFromRows } from "@/lib/supabase/row-mappers";
 import type {
   AlgorithmFormValues,
   AlgorithmUpdate,
 } from "@/lib/validators/algorithm";
-import type { Algorithm, AlgorithmStatus } from "@/types/algorithm";
+import type { AlgorithmStatus } from "@/types/algorithm";
 
 const ALGORITHMS_KEY = ["algorithms"];
 
@@ -31,7 +32,7 @@ export function useAlgorithmsList() {
         .select("*")
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return (data ?? []) as Algorithm[];
+      return algorithmsFromRows(data ?? []);
     },
   });
 }
@@ -45,7 +46,7 @@ export function useAlgorithm(id: string | null) {
       const supabase = createClient();
       const { data, error } = await supabase.from("algorithms").select("*").eq("id", id).single();
       if (error) throw error;
-      return data as Algorithm;
+      return algorithmFromRow(data);
     },
   });
 }

@@ -3,6 +3,7 @@
 import { z } from "zod";
 import { getBrokerAdapter, listSupportedProviders } from "@/lib/brokers/registry";
 import type { BrokerConnection as AdapterConn, BrokerPosition } from "@/lib/brokers/types";
+import { toJson } from "@/lib/supabase/row-mappers";
 import { createClient } from "@/lib/supabase/server";
 import { type ActionResult } from "@/lib/types/action-result";
 import type {
@@ -189,7 +190,7 @@ export async function syncBrokerConnection(
         status: "active" as const,
         last_error: null,
         last_synced_at: snap.fetched_at,
-        account_snapshot,
+        account_snapshot: toJson(account_snapshot),
         broker_name: conn.broker_name ?? snap.account.broker ?? null,
         server: conn.server ?? snap.account.server ?? null,
         account_login: conn.account_login ?? (snap.account.login ? String(snap.account.login) : null),

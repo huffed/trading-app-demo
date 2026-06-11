@@ -184,7 +184,7 @@ export function computeMarketState4h(inputs: MarketStateInputs, idx: number): Ma
       }
       const p = pctile(hist, wNow);
       if (p !== null)
-        out.range = p < LOW_P ? "compressed" : p > HIGH_P ? "expanded" : "normal";
+        {out.range = p < LOW_P ? "compressed" : p > HIGH_P ? "expanded" : "normal";}
     }
   }
 

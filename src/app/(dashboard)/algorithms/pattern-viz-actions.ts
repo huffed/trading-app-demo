@@ -6,6 +6,7 @@ import { fetchDailyPrices } from "@/lib/market-data/prices";
 import { computeAtr } from "@/lib/market-data/regime-filter";
 import { resampleToDaily } from "@/lib/market-data/resample";
 import { getAuthedUser } from "@/lib/supabase/get-authed-user";
+import { rulesFromRow } from "@/lib/supabase/row-mappers";
 import { type ActionResult } from "@/lib/types/action-result";
 import {
   isPatternCondition,
@@ -72,7 +73,7 @@ export async function getPatternVisualization(
       .eq("id", pos.algorithm_id)
       .single();
     if (!algo) return { success: true, data: null };
-    const rules = algo.rules as AlgorithmRules;
+    const rules = rulesFromRow(algo.rules);
     const cond = rules.entry_conditions[conditionIndex];
     if (!cond || !isPatternCondition(cond)) {
       return {

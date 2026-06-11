@@ -116,7 +116,7 @@ function ScanPanel() {
           </>
         )}
       </Button>
-      {results && <div className="mt-3">{<ScanResultsList results={results} />}</div>}
+      {results && <div className="mt-3"><ScanResultsList results={results} /></div>}
     </Surface>
   );
 }

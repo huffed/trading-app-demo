@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { AI_MODEL, getAIClient } from "@/lib/ai/client";
 import { buildChatSystemPrompt } from "@/lib/ai/prompts/chat";
+import { fromJson } from "@/lib/supabase/row-mappers";
 import { createClient } from "@/lib/supabase/server";
 
 const chatRequestSchema = z.object({
@@ -52,7 +53,7 @@ export async function POST(request: Request) {
     const system = buildChatSystemPrompt(
       stats as Parameters<typeof buildChatSystemPrompt>[0],
       tradeHistory,
-      algorithms ?? [],
+      (algorithms ?? []).map((a) => ({ ...a, rules: fromJson<Record<string, unknown>>(a.rules) })),
       profile?.trading_profile as Parameters<typeof buildChatSystemPrompt>[3]
     );
 

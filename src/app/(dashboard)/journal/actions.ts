@@ -1,6 +1,7 @@
 "use server";
 
 import { analyzeJournalEntry } from "@/lib/ai/analyze";
+import { toUpdateRow } from "@/lib/supabase/row-mappers";
 import { createClient } from "@/lib/supabase/server";
 import { type ActionResult } from "@/lib/types/action-result";
 import { journalFormSchema, type JournalFormValues } from "@/lib/validators/journal";
@@ -79,7 +80,7 @@ export async function updateJournalEntry(
 
   const { data, error } = await supabase
     .from("journal_entries")
-    .update(cleaned)
+    .update(toUpdateRow<"journal_entries">(cleaned))
     .eq("id", id)
     .eq("user_id", user.id)
     .select()

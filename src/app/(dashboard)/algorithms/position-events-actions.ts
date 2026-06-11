@@ -1,6 +1,7 @@
 "use server";
 
 import { getAuthedUser } from "@/lib/supabase/get-authed-user";
+import { rulesFromRow } from "@/lib/supabase/row-mappers";
 import { type ActionResult } from "@/lib/types/action-result";
 import type { AlgorithmRules, EntryCondition } from "@/types/algorithm";
 
@@ -87,7 +88,7 @@ export async function getPositionEntryContext(
       .eq("id", pos.algorithm_id)
       .single();
     if (!algo) return { success: true, data: null };
-    const rules = algo.rules as AlgorithmRules;
+    const rules = rulesFromRow(algo.rules);
 
     // Match the signal_detected event by ticker + timestamp window
     // around opened_at. The scan engine emits signal_detected ~milli-

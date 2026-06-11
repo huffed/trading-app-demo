@@ -18,10 +18,10 @@
  * values. Mirrors how a live order's SL/TP prices are set at order
  * placement and never re-derived.
  */
+import { priceDeltaForRule } from "@/lib/constants/markets";
 import { computeAtr } from "@/lib/market-data/regime-filter";
 import type { PriceBar } from "@/lib/market-data/types";
 import type { AlgorithmRules } from "@/types/algorithm";
-import { priceDeltaForRule } from "@/lib/constants/markets";
 
 const DEFAULT_SWING_LOOKBACK = 8;
 const DEFAULT_BUFFER_ATR_PERIOD = 14;

@@ -1,3 +1,4 @@
+import { fromJson, toJson } from "@/lib/supabase/row-mappers";
 import { createClient } from "@/lib/supabase/server";
 import type { SentimentSnapshot } from "./news-sentiment";
 
@@ -14,7 +15,9 @@ export async function getCachedSentiment(
     .from("sentiment_cache")
     .select("*")
     .eq("ticker", ticker)
-    .eq("topics", `{${(topics ?? []).join(",")}}`)
+    // PostgREST needs the pg array literal form for eq on an array column;
+    // the generated types expect string[]. Runtime-correct, type-cast only.
+    .eq("topics", `{${(topics ?? []).join(",")}}` as unknown as string[])
     .gte("fetched_at", cutoff)
     .order("fetched_at", { ascending: false })
     .limit(1);
@@ -28,13 +31,13 @@ export async function getCachedSentiment(
   return {
     ticker: row.ticker,
     fetched_at: row.fetched_at,
-    articles: row.articles as SentimentSnapshot["articles"],
+    articles: fromJson<SentimentSnapshot["articles"]>(row.articles),
     aggregate: {
       avg_sentiment: Number(row.avg_sentiment),
       article_count: row.article_count,
       bullish_count: row.bullish_count,
       bearish_count: row.bearish_count,
-      topic_distribution: row.topic_distribution as Record<string, number>,
+      topic_distribution: fromJson<Record<string, number>>(row.topic_distribution),
     },
   };
 }
@@ -60,7 +63,7 @@ export async function saveSentimentToCache(
     article_count: snapshot.aggregate.article_count,
     bullish_count: snapshot.aggregate.bullish_count,
     bearish_count: snapshot.aggregate.bearish_count,
-    articles: snapshot.articles,
-    topic_distribution: snapshot.aggregate.topic_distribution,
+    articles: toJson(snapshot.articles),
+    topic_distribution: toJson(snapshot.aggregate.topic_distribution),
   });
 }

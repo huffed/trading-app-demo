@@ -20,8 +20,8 @@
  * just lose the audit row for that bar. Inserts log to console.error
  * but don't throw.
  */
-import type { SupabaseClient } from "@supabase/supabase-js";
 import type { LlmTraderEvaluation } from "@/lib/scan/llm-trader";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 export interface RecordDecisionInput {
   algorithmId: string;

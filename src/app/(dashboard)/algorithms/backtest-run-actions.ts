@@ -1,6 +1,7 @@
 "use server";
 
 import type { runPortfolioBacktest as runPortfolioBacktestEngine } from "@/lib/market-data/portfolio-backtest";
+import { rulesFromRow } from "@/lib/supabase/row-mappers";
 import { createClient } from "@/lib/supabase/server";
 import { type ActionResult } from "@/lib/types/action-result";
 import type { AlgorithmRules } from "@/types/algorithm";
@@ -127,7 +128,7 @@ export async function runPortfolioBacktest(
     };
   }
 
-  const rules = algo.rules as AlgorithmRules;
+  const rules = rulesFromRow(algo.rules);
   if (!rules.entry_conditions || rules.entry_conditions.length === 0) {
     return { success: false, error: "Algorithm has no trading rules. Try regenerating it." };
   }

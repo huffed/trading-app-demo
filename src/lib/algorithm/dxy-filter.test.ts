@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { checkDxyDirection } from "./dxy-filter";
 import type { PriceBar } from "@/lib/market-data/types";
+import { checkDxyDirection } from "./dxy-filter";
 
 // Build two bars where the close delta in pips is `deltaPips`. Lookback
 // bar is exactly `lookbackHours` before the entry bar so the binary

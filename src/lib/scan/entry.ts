@@ -1,12 +1,12 @@
 /**
  * Entry evaluation — checks if conditions are met and opens a new position.
  */
+import { checkBarStaleness } from "@/lib/algorithm/bar-staleness-gate";
 import {
   convictionMultiplier,
   convictionMultiplierByTfAgreement,
 } from "@/lib/algorithm/conviction-sizing";
 import { checkDxyDirection } from "@/lib/algorithm/dxy-filter";
-import { checkBarStaleness } from "@/lib/algorithm/bar-staleness-gate";
 import { checkAtrLiquidity } from "@/lib/algorithm/intraday-atr-gate";
 import { checkLivePriceDrift } from "@/lib/algorithm/live-price-drift-gate";
 import { checkReEntryCooldown } from "@/lib/algorithm/re-entry-cooldown";
@@ -20,7 +20,6 @@ import {
 import { checkTimeOfDayFilter } from "@/lib/algorithm/time-of-day-filter";
 import { getContractSize, pnlInUsd } from "@/lib/constants/markets";
 import { isWeakTrendByAdx } from "@/lib/market-data/adx-filter";
-import { parseBarDate } from "@/lib/market-data/parse-bar-date";
 import { resolveSide } from "@/lib/market-data/auto-side";
 import {
   collectOtherTimeframes,
@@ -35,10 +34,11 @@ import {
   getEventCurrencies,
   isWithinVetoWindow,
 } from "@/lib/market-data/economic-calendar";
-import { isRangingByAtr } from "@/lib/market-data/regime-filter";
 import { computeMarketState4h, type MarketState } from "@/lib/market-data/market-state";
+import { parseBarDate } from "@/lib/market-data/parse-bar-date";
 import { getCachedPrices, savePricesToCache } from "@/lib/market-data/price-cache";
 import { fetchDailyPrices } from "@/lib/market-data/prices";
+import { isRangingByAtr } from "@/lib/market-data/regime-filter";
 import { resampleTo, resampleToDaily } from "@/lib/market-data/resample";
 import type { PriceBar } from "@/lib/market-data/types";
 import { evaluateLiveSignal, type SignalResult } from "@/lib/signals/evaluate-live";
@@ -57,8 +57,8 @@ import { checkConsistencyHalt } from "./consistency-halt";
 import { calculatePositionSize, calculateRiskPrices, logActivity } from "./helpers";
 import { executeLiveEntry, executeLiveExit, type BrokerExecutionContext } from "./live-execution";
 import { evaluateLlmTrader, isBarCloseScan, type LlmTraderContext } from "./llm-trader";
-import { PROMPT_HAS_MTF_OVERRIDE } from "./llm-trader-prompts";
 import { linkLlmDecisionToPosition, recordLlmDecision } from "./llm-trader-audit";
+import { PROMPT_HAS_MTF_OVERRIDE } from "./llm-trader-prompts";
 import { summariseRecentOutcomes } from "./llm-trader-reflection";
 import { getPerHourStats } from "./per-hour-stats";
 import { checkRiskPoolHalt } from "./risk-pool-halt";

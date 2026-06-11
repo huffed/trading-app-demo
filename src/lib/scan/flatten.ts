@@ -11,18 +11,20 @@
 import { getBrokerAdapter } from "@/lib/brokers/registry";
 import type { BrokerConnection } from "@/lib/brokers/types";
 import { logActivity } from "@/lib/scan/helpers";
+import type { Tables } from "@/lib/supabase/database.types";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-interface PosRow {
-  id: string;
-  user_id: string;
-  ticker: string;
-  entry_price: number;
-  current_price: number | null;
-  realized_pnl: number | null;
-  unrealized_pnl: number | null;
-  broker_position_id: string | null;
-}
+type PosRow = Pick<
+  Tables<"paper_positions">,
+  | "id"
+  | "user_id"
+  | "ticker"
+  | "entry_price"
+  | "current_price"
+  | "realized_pnl"
+  | "unrealized_pnl"
+  | "broker_position_id"
+>;
 
 export interface FlattenResult {
   ticker: string;

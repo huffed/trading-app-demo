@@ -65,7 +65,15 @@ const eslintConfig = defineConfig([
   // Override default ignores of eslint-config-next. `scripts/` is one-off
   // CLI tooling (data analysis, ad-hoc maintenance) — console.log is the
   // intended output channel there, and the production code rules don't fit.
-  globalIgnores([".next/**", "out/**", "build/**", "next-env.d.ts", "scripts/**"]),
+  // database.types.ts is generated (Supabase MCP) — never hand-edited.
+  globalIgnores([
+    ".next/**",
+    "out/**",
+    "build/**",
+    "next-env.d.ts",
+    "scripts/**",
+    "src/lib/supabase/database.types.ts",
+  ]),
 ]);
 
 export default eslintConfig;

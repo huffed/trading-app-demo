@@ -13,16 +13,16 @@ export type PropFirmPresetSetting =
   | "custom"
   | null;
 
-export async function getProfile(): Promise<
-  ActionResult<{
-    full_name: string | null;
-    email: string;
-    timezone: string;
-    default_currency: string;
-    prop_firm_preset: PropFirmPresetSetting;
-    autonomy_level: AutonomyLevel;
-  }>
-> {
+export type ProfileSettings = {
+  full_name: string | null;
+  email: string;
+  timezone: string;
+  default_currency: string;
+  prop_firm_preset: PropFirmPresetSetting;
+  autonomy_level: AutonomyLevel;
+};
+
+export async function getProfile(): Promise<ActionResult<ProfileSettings>> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -40,7 +40,9 @@ export async function getProfile(): Promise<
   if (error) {
     return { success: false, error: error.message };
   }
-  return { success: true, data };
+  // Columns are nullable in the schema but have DB defaults; the signup
+  // trigger always populates them.
+  return { success: true, data: data as ProfileSettings };
 }
 
 export async function updateProfile(values: {

@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
+import { fromJson } from "@/lib/supabase/row-mappers";
 import type { TradingProfile } from "@/types/trading-profile";
 
 const PROFILE_KEY = ["trading-profile"];
@@ -22,7 +23,7 @@ export function useTradingProfile() {
         .eq("id", user.id)
         .single();
       if (error) throw error;
-      return (data?.trading_profile as TradingProfile) ?? null;
+      return fromJson<TradingProfile | null>(data?.trading_profile ?? null) ?? null;
     },
   });
 }

@@ -7,6 +7,7 @@
  * HttpOnly cookie; cTrader echoes it back via ?state=. Mismatch → reject.
  */
 import { NextResponse } from "next/server";
+import { toJson } from "@/lib/supabase/row-mappers";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -156,9 +157,10 @@ export async function GET(request: Request) {
     account_login: acc.accountNumber ?? acc.accountId ?? null,
     broker_name: acc.brokerName ?? null,
     server: acc.live ? "live" : "demo",
-    region: null,
+    // region omitted — NOT NULL DEFAULT 'london'; explicit null would violate
+    // the constraint (cTrader has no region concept, the column is MetaApi's)
     status: "active",
-    account_snapshot: acc as unknown as Record<string, unknown>,
+    account_snapshot: toJson(acc),
     last_synced_at: new Date().toISOString(),
   }));
 
