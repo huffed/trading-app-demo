@@ -1,0 +1,34 @@
+# One-shot reminder: FTMO observation-gate review due 2026-07-11.
+#
+# Same alerting mechanism as dead-man.yml — the job FAILS on purpose so
+# GitHub emails the repo owner. Operator decision 2026-06-11: the $10K
+# FTMO Swing challenge start is deferred to >= 2026-07-11, gated on
+# three pre-registered criteria (>=1 clean mirrored-trade lifecycle;
+# >=8-10 live trades with WR/expectancy in the backtest band; zero infra
+# incidents). The review itself runs in Claude Code (memory file
+# project_current_state.md, "FTMO DECISION" entry, carries the brief).
+#
+# DELETE THIS WORKFLOW after the review runs — the year guard makes any
+# accidental future firing a silent no-op, but don't leave clutter.
+name: ftmo-gate-reminder
+on:
+  schedule:
+    # 09:23 UTC, 11 July (GitHub cron is UTC; ~10:23 operator local).
+    - cron: "23 9 11 7 *"
+  workflow_dispatch: {}
+
+jobs:
+  remind:
+    runs-on: ubuntu-latest
+    steps:
+      - name: FTMO observation-gate review due
+        run: |
+          if [ "$(date -u +%Y)" != "2026" ]; then
+            echo "Year guard: this one-shot reminder was for 2026 — no-op. Delete this workflow."
+            exit 0
+          fi
+          echo "::error::FTMO observation-gate review is DUE (2026-07-11)."
+          echo "Open a Claude Code session in trading-app/demo-1 — it runs the GO/NO-GO review unprompted."
+          echo "Criteria + brief: operator memory, project_current_state.md, 'FTMO DECISION' entry."
+          echo "After the review: delete .github/workflows/ftmo-gate-reminder.yml."
+          exit 1
