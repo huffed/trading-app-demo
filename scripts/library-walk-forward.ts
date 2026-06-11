@@ -52,6 +52,14 @@ const TICKER = "XAU/USD";
  *  geometry are bar-relative and port unchanged; corpus depth differs
  *  (4h reaches 2020; 1h reaches ~Aug 2025 — OANDA provider floor). */
 const TIMEFRAME = (process.env.TIMEFRAME ?? "4h") as "4h" | "1h";
+/** Friction knobs. Applied as rules.prop_firm slippage/spread fields —
+ *  the sim charges spread round-trip on notional and slips entry + every
+ *  exit price. Defaults 0 (frictionless) to stay comparable with the
+ *  flagship's comboC validation, which also ran frictionless. For gold:
+ *  full spread ~$0.30 → FRICTION_SPREAD_BPS≈0.4 (the sim doubles it);
+ *  realistic market-order slippage ≈ 0.5 bps/side. */
+const FRICTION_SLIPPAGE_BPS = Number(process.env.FRICTION_SLIPPAGE_BPS ?? 0);
+const FRICTION_SPREAD_BPS = Number(process.env.FRICTION_SPREAD_BPS ?? 0);
 
 function baseRules(): AlgorithmRules {
   return {
@@ -66,6 +74,14 @@ function baseRules(): AlgorithmRules {
     asset_class: "commodity",
     side: "long",
     stagnant_exit: { enabled: true },
+    ...(FRICTION_SLIPPAGE_BPS > 0 || FRICTION_SPREAD_BPS > 0
+      ? {
+          prop_firm: {
+            slippage_bps: FRICTION_SLIPPAGE_BPS,
+            spread_bps: FRICTION_SPREAD_BPS,
+          },
+        }
+      : {}),
   } as AlgorithmRules;
 }
 
