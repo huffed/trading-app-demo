@@ -52,3 +52,35 @@ jobs:
             exit 1
           fi
           echo "Pipeline alive."
+
+  # Broker-API reachability (added 2026-06-11 after MetaApi's client-API
+  # tier black-holed globally — every regional endpoint TCP-timeout while
+  # our pipeline stayed green; nothing alerted because the dead-man only
+  # watched OUR links). Unauthenticated probe: ANY HTTP status counts as
+  # alive (401/404 fine — we're testing reachability, not auth); only a
+  # connect timeout on two attempts 30s apart fails. Distinct job name so
+  # the failure email says which alarm fired. Runs unconditionally —
+  # broker downtime matters even in paper mode because mirroring is the
+  # next step after every config change.
+  check-broker-api:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify MetaApi client API reachability (london)
+        run: |
+          set -uo pipefail
+          probe() {
+            curl -s -o /dev/null -w "%{http_code}" -m 15 \
+              "https://mt-client-api-v1.london.agiliumtrade.ai/health" 2>/dev/null || echo "000"
+          }
+          code=$(probe)
+          if [ "$code" = "000" ]; then
+            echo "First attempt: connect failure — retrying in 30s (transient-blip guard)"
+            sleep 30
+            code=$(probe)
+          fi
+          echo "MetaApi london client API → HTTP $code"
+          if [ "$code" = "000" ]; then
+            echo "::error::MetaApi client API UNREACHABLE (london, two attempts). Broker mirroring is dead even if the local pipeline is green — like the 2026-06-11 global MetaApi outage."
+            exit 1
+          fi
+          echo "Broker API reachable."

@@ -62,10 +62,15 @@ monitor:
 
 **Active alert channel: GitHub Actions** (`.github/workflows/dead-man.yml`,
 2026-06-10). Every 30 min GitHub — independent infrastructure, no extra
-account — calls the anon-executable `public.last_manage_tick()` RPC and
-FAILS the workflow when the latest manage_tick is older than 45 min;
-GitHub emails the repo owner on scheduled-workflow failures. Covers Mac
-sleep, dead cron, crashed server, and paused/erroring Supabase
+account — runs two parallel jobs: (1) `check-heartbeat` calls the
+anon-executable `public.last_manage_tick()` RPC and FAILS when the
+latest manage_tick is older than 45 min; (2) `check-broker-api` (added
+2026-06-11 after MetaApi's global client-API outage went unalerted —
+our pipeline was green while broker mirroring was dead) probes the
+MetaApi london client host and FAILS on connect-timeout across two
+attempts. GitHub emails the repo owner on scheduled-workflow failures,
+and the failing job's name says which alarm fired. Covers Mac
+sleep, dead cron, crashed server, broker-API outage, and paused/erroring Supabase
 end-to-end. Secrets `SUPABASE_URL` / `SUPABASE_ANON_KEY` are encrypted
 repo secrets (the repo is public — nothing sensitive in the workflow
 file).
