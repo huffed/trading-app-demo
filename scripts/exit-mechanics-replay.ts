@@ -134,7 +134,13 @@ export interface SimOutcome {
 }
 
 /** ATR(14) over daily bars strictly before `dateStr` — feeds the
- *  adaptive-TP cap the same way the harness does at entry time. */
+ *  adaptive-TP cap the same way the harness did WHEN THE CORPUS WAS
+ *  RECORDED (flat mean of the last 14 TRs). Kept deliberately on the
+ *  recorded-era math so the pct15:v0 fidelity gate stays meaningful:
+ *  this replays May-era runs, so it must use May-era cap inputs. The
+ *  harness itself now uses production dailyAtrFromBars (Wilder,
+ *  2026-06-11 dedup) — when the next paid run lands, switch this to
+ *  dailyAtrFromBars and re-baseline fidelity on the new corpus. */
 export function dailyAtrBefore(dailyBars: PriceBar[], dateStr: string): number {
   const day = dateStr.slice(0, 10);
   let end = dailyBars.length - 1;

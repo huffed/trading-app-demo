@@ -41,6 +41,12 @@ import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { AI_MODEL, getAIClient } from "../src/lib/ai/client";
 import { checkAtrLiquidity } from "../src/lib/algorithm/intraday-atr-gate";
 import { checkStagnantExit } from "../src/lib/algorithm/stagnant-exit";
+import {
+  type AdaptiveTpContext,
+  computeSlDistance,
+  computeTpDistance,
+  dailyAtrFromBars,
+} from "../src/lib/algorithm/structural-sl";
 import { INSTRUMENT_CATALOG, type InstrumentClass } from "../src/lib/constants/markets";
 import {
   type EconomicEvent,
@@ -367,23 +373,22 @@ export interface TpConfig {
   value: number;
 }
 
-/** Adaptive TP context for the backtest harness. Mirrors production's
- *  AdaptiveTpContext (src/lib/algorithm/structural-sl.ts).
- *  - regime-aware base RR (RANGING gets 1.5R for rr_multiple rules)
- *  - ATR cap (≤ 1.5 × daily ATR)
- *  - RR-≥-1 floor */
+/** Adaptive TP context for the backtest harness. Thin alias over
+ *  production's AdaptiveTpContext (src/lib/algorithm/structural-sl.ts):
+ *  regime-aware base RR + ATR cap + RR-≥-1 floor all happen there. */
 export interface BacktestAdaptiveTpCtx {
   regime: Regime;
   dailyAtr: number;
 }
 
-const RANGING_RR = 1.5;
-const ATR_CAP_MULTIPLIER = 1.5;
-
-/** Compute SL distance for the backtest's entry. For "percentage" returns
- *  entryPrice × value. For "swing_anchor" looks back N bars to find the
- *  swing low (long) or high (short), then adds an ATR buffer of value ×
- *  ATR(14) so the SL sits just past the structural level.
+/** Compute SL distance for the backtest's entry. Wrapper over production
+ *  computeSlDistance — the harness MUST run the exact math live runs
+ *  (2026-06-11 dedup; the old inline copy had drifted to a flat-mean ATR
+ *  buffer vs production's Wilder smoothing).
+ *
+ *  Unit mapping: harness percentage values are fractions (0.015 = 1.5%);
+ *  production rules store percent units (1.5 = 1.5%). swing_anchor value
+ *  is the ATR-buffer multiplier in both.
  *
  *  cfg defaults to env-var values for single-algo runs. Multi-algo
  *  callers pass explicit per-algo SL config. */
@@ -394,44 +399,15 @@ export function computeSlForBacktest(
   entryPrice: number,
   cfg: SlConfig = { type: SL_TYPE, value: SL_VALUE, lookback: SL_LOOKBACK }
 ): number {
-  if (cfg.type === "percentage") return entryPrice * cfg.value;
-  // swing_anchor
-  const lookback = cfg.lookback ?? 8;
-  const start = Math.max(0, entryIdx - lookback);
-  let level: number;
-  if (side === "long") {
-    let lowest = Infinity;
-    for (let j = start; j <= entryIdx; j++) lowest = Math.min(lowest, bars[j].low);
-    level = lowest;
-  } else {
-    let highest = -Infinity;
-    for (let j = start; j <= entryIdx; j++) highest = Math.max(highest, bars[j].high);
-    level = highest;
-  }
-  const baseDistance = side === "long" ? entryPrice - level : level - entryPrice;
-  if (cfg.value <= 0 || baseDistance <= 0) return Math.max(baseDistance, 0);
-  // Inline ATR(14) computation — mirrors src/lib/algorithm/structural-sl.ts
-  // intent. Avoids the production dependency since this script is standalone.
-  const atrPeriod = 14;
-  const atrStart = Math.max(1, entryIdx - atrPeriod + 1);
-  let trSum = 0;
-  let trCount = 0;
-  for (let i = atrStart; i <= entryIdx; i++) {
-    const tr = Math.max(
-      bars[i].high - bars[i].low,
-      Math.abs(bars[i].high - bars[i - 1].close),
-      Math.abs(bars[i].low - bars[i - 1].close)
-    );
-    trSum += tr;
-    trCount++;
-  }
-  const atr = trCount > 0 ? trSum / trCount : 0;
-  return baseDistance + cfg.value * atr;
+  const rule =
+    cfg.type === "percentage"
+      ? { type: "percentage" as const, value: cfg.value * 100 }
+      : { type: "swing_anchor" as const, value: cfg.value, lookback: cfg.lookback };
+  return computeSlDistance(rule, side, entryPrice, undefined, bars, entryIdx);
 }
 
-/** Compute TP distance for the backtest's entry. Mirrors production
- *  computeTpDistance with optional adaptive context: regime-aware base
- *  RR (RANGING gets 1.5R for rr_multiple) + ATR cap + RR-≥-1 floor.
+/** Compute TP distance for the backtest's entry. Wrapper over production
+ *  computeTpDistance (same unit mapping as computeSlForBacktest).
  *
  *  cfg defaults to env-var values for single-algo runs. Multi-algo
  *  callers pass explicit per-algo TP config + adaptive context. */
@@ -441,18 +417,14 @@ export function computeTpForBacktest(
   cfg: TpConfig = { type: TP_TYPE, value: TP_VALUE },
   adaptiveCtx?: BacktestAdaptiveTpCtx
 ): number {
-  let tpDistance: number;
-  if (cfg.type === "percentage") {
-    tpDistance = entryPrice * cfg.value;
-  } else {
-    const baseRr =
-      adaptiveCtx?.regime === "RANGING" ? RANGING_RR : cfg.value;
-    tpDistance = baseRr * slDistance;
-  }
-  if (adaptiveCtx?.dailyAtr !== undefined && adaptiveCtx.dailyAtr > 0) {
-    tpDistance = Math.min(tpDistance, ATR_CAP_MULTIPLIER * adaptiveCtx.dailyAtr);
-  }
-  return Math.max(tpDistance, slDistance);
+  const rule =
+    cfg.type === "percentage"
+      ? { type: "percentage" as const, value: cfg.value * 100 }
+      : { type: "rr_multiple" as const, value: cfg.value };
+  const ctx: AdaptiveTpContext | undefined = adaptiveCtx
+    ? { regime: adaptiveCtx.regime, dailyAtr: adaptiveCtx.dailyAtr }
+    : undefined;
+  return computeTpDistance(rule, slDistance, entryPrice, undefined, ctx);
 }
 
 export function summariseDailyBias(dailyBars: PriceBar[]): { summary: string; regime: Regime } {
@@ -484,6 +456,12 @@ export function summariseDailyBias(dailyBars: PriceBar[]): { summary: string; re
   return { summary, regime };
 }
 
+/** Flat-mean ATR for PROMPT CONTEXT TEXT only. Intentionally byte-matches
+ *  production's private computeAtr in src/lib/scan/llm-trader.ts (the live
+ *  prompt builder). Do NOT switch to Wilder here without changing live in
+ *  the same PR — any divergence changes the prompt bytes the LLM sees and
+ *  silently decorrelates harness from live. SL/TP math no longer uses this
+ *  (that goes through structural-sl.ts production functions). */
 function computeAtr(bars: PriceBar[], period: number, idx: number): number {
   const start = Math.max(1, idx - period + 1);
   let sum = 0;
@@ -1571,11 +1549,10 @@ export async function runWindow(opts: WindowOptions): Promise<WindowResult> {
     );
     const dailyBiasResult = summariseDailyBias(dailyBarsBeforeNow);
     const regime: Regime = dailyBiasResult.regime;
-    // Daily ATR for adaptive TP cap. 0 when insufficient history.
-    const dailyAtr =
-      dailyBarsBeforeNow.length >= 15
-        ? computeAtr(dailyBarsBeforeNow, 14, dailyBarsBeforeNow.length - 1)
-        : 0;
+    // Daily ATR for adaptive TP cap — production fn (Wilder smoothing,
+    // mirrors entry.ts's dailyAtrFromBars(dailyBars)). 0 when insufficient
+    // history. The old local flat-mean here was drift vs live.
+    const dailyAtr = dailyAtrFromBars(dailyBarsBeforeNow);
 
     // 0) Stagnant exit check — runs BEFORE SL/TP check, mirroring
     //    production's manageExistingPosition order. Cuts deeply-stuck
