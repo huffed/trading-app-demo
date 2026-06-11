@@ -18,25 +18,28 @@ import {
   executePortfolioHalt,
 } from "@/lib/scan/portfolio-halt";
 import { createAdminClient } from "@/lib/supabase/admin";
+import type { Tables } from "@/lib/supabase/database.types";
 import type { AlgorithmRules } from "@/types/algorithm";
 import type { Portfolio } from "@/types/portfolio";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
-interface AlgoRow {
-  id: string;
-  user_id: string;
-  name: string;
-  description: string;
+type AlgoRow = Pick<
+  Tables<"algorithms">,
+  | "id"
+  | "user_id"
+  | "name"
+  | "description"
+  | "capital"
+  | "status"
+  | "live_trading_enabled"
+  | "broker_connection_id"
+  | "portfolio_id"
+> & {
   rules: AlgorithmRules;
-  capital: number;
-  status: string;
-  live_trading_enabled: boolean | null;
-  broker_connection_id: string | null;
-  portfolio_id: string | null;
   algorithm_watchlist: { ticker: string; name: string; auto_paused?: boolean }[] | null;
-}
+};
 
 /**
  * Group active algos by portfolio (or "no portfolio" → null bucket) and

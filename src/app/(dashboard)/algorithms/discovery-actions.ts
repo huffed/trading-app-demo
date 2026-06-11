@@ -4,8 +4,8 @@ import { AI_MODEL, getAIClient } from "@/lib/ai/client";
 import { buildDiscoveryPrompt } from "@/lib/ai/prompts/discovery";
 import { getInstrumentMeta, isCurrencyPair } from "@/lib/constants/markets";
 import { getAuthedUser } from "@/lib/supabase/get-authed-user";
+import { algorithmFromRow } from "@/lib/supabase/row-mappers";
 import { type ActionResult } from "@/lib/types/action-result";
-import type { Algorithm } from "@/types/algorithm";
 import type { DiscoverySuggestion } from "@/types/watchlist";
 
 const RECENT_PAUSE_WINDOW_DAYS = 7;
@@ -83,7 +83,7 @@ export async function discoverTickers(
 
   try {
     const { system, userMessage } = buildDiscoveryPrompt(
-      algo as Algorithm,
+      algorithmFromRow(algo),
       excludedFromSuggestions
     );
 
@@ -101,7 +101,7 @@ export async function discoverTickers(
     const text = res.choices[0]?.message?.content ?? "{}";
     const parsed = JSON.parse(text) as { suggestions?: unknown[] };
     const raw = Array.isArray(parsed.suggestions) ? parsed.suggestions : [];
-    const assetClass = (algo as Algorithm).asset_class;
+    const assetClass = algo.asset_class;
     const suggestions = raw
       .filter(validateSuggestion)
       .map((s) => ({

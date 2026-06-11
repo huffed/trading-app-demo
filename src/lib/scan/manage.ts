@@ -27,7 +27,7 @@ import { getCachedPrices, savePricesToCache } from "@/lib/market-data/price-cach
 import { fetchDailyPrices, getFreshPricesForScan } from "@/lib/market-data/prices";
 import { fetchBatchQuotes } from "@/lib/market-data/twelve-data";
 import type { PriceBar } from "@/lib/market-data/types";
-import type { AlgorithmRules } from "@/types/algorithm";
+import type { Tables } from "@/lib/supabase/database.types";
 import type { PaperPosition, PositionEvent } from "@/types/position";
 import {
   reconcileBrokerRealizedPnl,
@@ -49,12 +49,8 @@ export interface ManageResult {
   errors: { ticker: string; error: string }[];
 }
 
-interface AlgoForManage extends AlgoForPositionMgmt {
-  user_id: string;
-  rules: AlgorithmRules;
-  live_trading_enabled?: boolean | null;
-  broker_connection_id?: string | null;
-}
+type AlgoForManage = AlgoForPositionMgmt &
+  Pick<Tables<"algorithms">, "user_id" | "live_trading_enabled" | "broker_connection_id">;
 
 /** Fetch bars for a ticker. Uses getFreshPricesForScan so the manage
  *  tick gets the same just-closed bar treatment as the scan engine —

@@ -1,5 +1,7 @@
 "use server";
 
+import type { TablesInsert } from "@/lib/supabase/database.types";
+import { toUpdateRow } from "@/lib/supabase/row-mappers";
 import { createClient } from "@/lib/supabase/server";
 import { type ActionResult } from "@/lib/types/action-result";
 import { tradeFormSchema, type TradeFormValues } from "@/lib/validators/trade";
@@ -53,7 +55,7 @@ export async function updateTrade(
 
   const { data, error } = await supabase
     .from("trades")
-    .update(cleaned)
+    .update(toUpdateRow<"trades">(cleaned))
     .eq("id", id)
     .eq("user_id", user.id)
     .select()
@@ -87,7 +89,7 @@ export async function importTrades(
     return { success: false, error: "Not authenticated" };
   }
 
-  const validRows: Record<string, unknown>[] = [];
+  const validRows: TablesInsert<"trades">[] = [];
   const errors: string[] = [];
 
   for (let i = 0; i < rows.length; i++) {

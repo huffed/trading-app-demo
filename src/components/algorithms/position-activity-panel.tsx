@@ -21,7 +21,7 @@ function eventVariant(eventType: string): "default" | "secondary" | "destructive
   if (eventType === "position_opened" || eventType === "live_order_placed") return "default";
   if (eventType === "position_closed" || eventType === "live_order_closed") return "secondary";
   if (eventType.includes("error") || eventType.includes("halt") || eventType.includes("kill"))
-    return "destructive";
+    {return "destructive";}
   return "outline";
 }
 

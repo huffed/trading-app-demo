@@ -4,8 +4,9 @@ import { getCachedPrices, savePricesToCache } from "@/lib/market-data/price-cach
 import { fetchDailyPrices } from "@/lib/market-data/prices";
 import type { BacktestMetrics, PriceBar } from "@/lib/market-data/types";
 import { getAuthedUser } from "@/lib/supabase/get-authed-user";
+import { rulesFromRow } from "@/lib/supabase/row-mappers";
 import { type ActionResult } from "@/lib/types/action-result";
-import type { Algorithm, AlgorithmRules } from "@/types/algorithm";
+import type { AlgorithmRules } from "@/types/algorithm";
 import { discoverTickers } from "./discovery-actions";
 import { bulkAddWatchlistItems } from "./watchlist-actions";
 
@@ -249,8 +250,8 @@ export async function seedWatchlist(algorithmId: string): Promise<ActionResult<S
     return { success: true, data: { tickers: [], added: 0, baseline_metrics: null } };
   }
 
-  const rules = (algo as Algorithm).rules;
-  const capital = (algo as Algorithm).capital;
+  const rules = rulesFromRow(algo.rules);
+  const capital = algo.capital;
 
   // Fetch prices once for the union of (baseline ∪ candidates). Cache
   // hits make this cheap on repeat clicks.

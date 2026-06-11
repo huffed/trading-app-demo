@@ -22,12 +22,12 @@ import { detectBos } from "./bos";
 import { detectDailyBias } from "./daily-bias";
 import { detectEngulfing } from "./engulfing";
 import { detectFvg, scanFvgs } from "./fvg";
+import { detectSessionWindow } from "./gold-session-window";
 import { detectLiquiditySweep } from "./liquidity-sweep";
 import { detectMomentum } from "./momentum";
 import { detectOrderBlock } from "./order-block";
 import { detectPinBar } from "./pin-bar";
 import { detectPostNewsWindow } from "./post-news-window";
-import { detectSessionWindow } from "./gold-session-window";
 
 /**
  * Optional context for patterns that depend on data outside the bar

@@ -6,8 +6,8 @@ import { getCachedPrices } from "@/lib/market-data/price-cache";
 import { fetchDailyPrices } from "@/lib/market-data/prices";
 import { resolveBrokerContext } from "@/lib/scan/live-execution";
 import { getAuthedUser } from "@/lib/supabase/get-authed-user";
+import { rulesFromRow } from "@/lib/supabase/row-mappers";
 import { type ActionResult } from "@/lib/types/action-result";
-import type { AlgorithmRules } from "@/types/algorithm";
 
 export interface PositionLiveQuote {
   bid: number;
@@ -123,7 +123,7 @@ export async function getPositionMaeMfe(
       .eq("id", pos.algorithm_id)
       .single();
     if (!algo) return { success: true, data: null };
-    const rules = algo.rules as AlgorithmRules;
+    const rules = rulesFromRow(algo.rules);
     const interval = timeframeToInterval(rules.timeframe);
 
     // Try cache first; fall back to live fetch if missing. The position's

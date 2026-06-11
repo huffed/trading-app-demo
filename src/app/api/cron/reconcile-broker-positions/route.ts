@@ -27,6 +27,7 @@ import type { BrokerConnection, BrokerPosition } from "@/lib/brokers/types";
 import { logger } from "@/lib/logger";
 import { logActivity } from "@/lib/scan/helpers";
 import { createAdminClient } from "@/lib/supabase/admin";
+import type { Tables } from "@/lib/supabase/database.types";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 export const dynamic = "force-dynamic";
@@ -34,20 +35,17 @@ export const maxDuration = 120;
 
 const VOLUME_TOLERANCE = 0.005; // 0.5% — covers floating-point + minor partial-fill rounding
 
-interface AlgoRow {
-  id: string;
-  user_id: string;
-  name: string;
+type AlgoRow = Pick<Tables<"algorithms">, "id" | "user_id" | "name"> & {
+  // Non-null by query invariant: .not("broker_connection_id", "is", null)
   broker_connection_id: string;
-}
+};
 
-interface PaperPositionRow {
-  id: string;
-  ticker: string;
+type PaperPositionRow = Pick<
+  Tables<"paper_positions">,
+  "id" | "ticker" | "quantity" | "broker_position_id"
+> & {
   side: "long" | "short";
-  quantity: number;
-  broker_position_id: string | null;
-}
+};
 
 type DriftEntry =
   | {

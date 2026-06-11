@@ -7,10 +7,10 @@ import { fetchBatchQuotes } from "@/lib/market-data/twelve-data";
 import { scanAlgorithm, type ScanResult } from "@/lib/scan/engine";
 import { executeLiveExit, resolveBrokerContext } from "@/lib/scan/live-execution";
 import { getAuthedUser } from "@/lib/supabase/get-authed-user";
+import { paperPositionFromRow, rulesFromRow, sideFromRow } from "@/lib/supabase/row-mappers";
 import { type ActionResult } from "@/lib/types/action-result";
 import { sumDisplayedPnl, type DisplayedPnlInput } from "@/lib/utils/pnl";
 import { closePositionSchema } from "@/lib/validators/position";
-import type { AlgorithmRules } from "@/types/algorithm";
 import type { PaperPosition } from "@/types/position";
 
 /**
@@ -54,7 +54,7 @@ export async function triggerScan(
         user.id,
         {
           ...algo,
-          rules: algo.rules as AlgorithmRules,
+          rules: rulesFromRow(algo.rules),
           algorithm_watchlist: algo.algorithm_watchlist ?? [],
         },
         { force: options.force }
@@ -138,7 +138,7 @@ export async function closePosition(positionId: string): Promise<ActionResult<Pa
 
     const realizedPnl = pnlInUsd(
       position.ticker,
-      position.side,
+      sideFromRow(position.side),
       position.entry_price,
       currentPrice,
       position.quantity
@@ -185,7 +185,7 @@ export async function closePosition(positionId: string): Promise<ActionResult<Pa
     // Mirror the close to the broker if this paper position has a real
     // counterpart. Without this, "Close" in the UI leaves a real MT5
     // position dangling, blowing the user's risk budget on FTMO.
-    await mirrorManualClose(supabase, user.id, position, positionId, currentPrice);
+    await mirrorManualClose(supabase, user.id, paperPositionFromRow(position), positionId, currentPrice);
 
     return { success: true, data: updated as PaperPosition };
   } catch (err) {
@@ -234,7 +234,7 @@ export async function refreshPositionPrices(algorithmId?: string): Promise<Actio
 
       const unrealizedPnl = pnlInUsd(
         pos.ticker,
-        pos.side,
+        sideFromRow(pos.side),
         pos.entry_price,
         currentPrice,
         pos.quantity

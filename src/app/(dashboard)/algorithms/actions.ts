@@ -12,6 +12,7 @@ import {
   buildRulesFromTemplate,
   selectStrategyTemplate,
 } from "@/lib/strategies/selector";
+import { algorithmFromRow, rulesFromRow, toJson } from "@/lib/supabase/row-mappers";
 import { createClient } from "@/lib/supabase/server";
 import { type ActionResult } from "@/lib/types/action-result";
 import {
@@ -140,14 +141,14 @@ export async function generateAlgorithm(
         time_horizon: parsed.data.time_horizon,
         capital: parsed.data.capital,
         user_hints: parsed.data.user_hints || null,
-        rules: finalRules,
+        rules: toJson(finalRules),
         status: "draft",
       })
       .select()
       .single();
 
     if (error) return { success: false, error: error.message };
-    return { success: true, data };
+    return { success: true, data: algorithmFromRow(data) };
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Algorithm generation failed";
     return { success: false, error: msg };
@@ -229,8 +230,8 @@ export async function updateAlgorithm(
       algorithm_id: id,
       source,
       fields_changed: fieldsChanged,
-      before,
-      after: validated,
+      before: toJson(before),
+      after: toJson(validated),
     });
     if (auditInsert.error) {
       // Audit failure is non-fatal — the update already landed. Surface
@@ -240,7 +241,7 @@ export async function updateAlgorithm(
     }
   }
 
-  return { success: true, data };
+  return { success: true, data: algorithmFromRow(data) };
 }
 
 export async function deleteAlgorithm(id: string): Promise<ActionResult<null>> {
@@ -275,7 +276,7 @@ export async function updateAlgorithmStatus(
     .single();
 
   if (error) return { success: false, error: error.message };
-  return { success: true, data: data as Algorithm };
+  return { success: true, data: algorithmFromRow(data) };
 }
 
 export async function runLiveSignal(
@@ -303,11 +304,7 @@ export async function runLiveSignal(
   }
 
   try {
-    const result = await evaluateLiveSignal(
-      algo.rules as AlgorithmRules,
-      ticker,
-      (algo.description as string) ?? ""
-    );
+    const result = await evaluateLiveSignal(rulesFromRow(algo.rules), ticker, algo.description ?? "");
     return { success: true, data: result };
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Signal evaluation failed";
