@@ -28,7 +28,7 @@
  * stepDays >= testWindowDays.
  */
 import type { AlgorithmRules } from "@/types/algorithm";
-import { runPortfolioBacktest } from "./portfolio-backtest";
+import { runPortfolioBacktest, type MarketStateSeries } from "./portfolio-backtest";
 import type { EconomicEvent } from "./economic-calendar";
 import type { BacktestMetrics, PriceBar } from "./types";
 
@@ -76,6 +76,14 @@ export interface WalkForwardOptions {
     latestWindow: WalkForwardWindow,
     allSoFar: WalkForwardWindow[]
   ) => boolean;
+  /**
+   * Full-depth series for market_state_gate evaluation. Windows keep
+   * their sliced sim bars; gate states compute against this full history
+   * (the ~1y percentile windows would otherwise see only the slice and
+   * diverge from live). REQUIRED when validating a gated algo — omitted,
+   * the gate fails closed and every window reports zero trades.
+   */
+  marketStateSeries?: MarketStateSeries | null;
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -174,7 +182,14 @@ export function runWalkForward(
       i++;
       continue;
     }
-    const result: BacktestMetrics = runPortfolioBacktest(rules, sliced, capital, options.events ?? []);
+    const result: BacktestMetrics = runPortfolioBacktest(
+      rules,
+      sliced,
+      capital,
+      options.events ?? [],
+      null,
+      options.marketStateSeries ?? null
+    );
     const window: WalkForwardWindow = {
       index: i++,
       start: new Date(sliceStart).toISOString().slice(0, 10),

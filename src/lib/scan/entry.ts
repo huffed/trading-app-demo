@@ -566,6 +566,41 @@ async function checkEntryConditions(
   return { pass: false, met, total, fired, firedTfs, totalTfs };
 }
 
+/** Live market-state read shared by the LLM and deterministic entry
+ *  paths — feeds the market_state_gate and the decision-audit/cohort
+ *  shadow logging. 4h-frame only (the study's frame — lower TFs come
+ *  with the S4 re-entry); never throws: null means "unreadable", which
+ *  gated specialists fail closed on. One compact-1h fetch per call. */
+async function computeLiveMarketState(
+  ticker: string,
+  timeframe: string,
+  bars: PriceBar[],
+  dailyBars?: PriceBar[] | null,
+  dxyBars?: PriceBar[] | null
+): Promise<MarketState | null> {
+  if (timeframe !== "4h") return null;
+  try {
+    let oneHourBars = await getCachedPrices(ticker, "compact", "1h");
+    if (!oneHourBars || oneHourBars.length < 30) {
+      oneHourBars = await fetchDailyPrices(ticker, "compact", "1h");
+      savePricesToCache(ticker, "compact", oneHourBars, "1h").catch(() => {});
+    }
+    return computeMarketState4h(
+      {
+        bars4h: bars,
+        oneHourBars: oneHourBars ?? [],
+        dailyBars: dailyBars ?? [],
+        // dxyBars arrive as EUR/USD 1h from the scan engine; the state
+        // math is defined on the 4h frame (study parity).
+        eurusd4h: dxyBars && dxyBars.length > 0 ? resampleTo(dxyBars, "4h") : [],
+      },
+      bars.length - 1
+    );
+  } catch {
+    return null;
+  }
+}
+
 export async function evaluateEntry(
   supabase: SupabaseClient,
   userId: string,
@@ -732,6 +767,35 @@ export async function evaluateEntry(
           total_net: halt.total_net,
           ratio: halt.ratio,
           threshold: halt.threshold,
+        },
+      });
+      return { opened: 0 };
+    }
+  }
+
+  // Market-state gate (regime-library dormancy) — deterministic path.
+  // Same checker + same live state read as the LLM path. Computed only
+  // when the algo declares a gate, so ungated algos pay no extra fetch.
+  // Specialists fail closed on unreadable state.
+  if (rules.market_state_gate) {
+    const marketState = await computeLiveMarketState(
+      ticker,
+      rules.timeframe,
+      bars,
+      dailyBars,
+      dxyBars
+    );
+    const verdict = checkMarketStateGate(rules.market_state_gate, marketState);
+    if (!verdict.allowed) {
+      await logActivity(supabase, userId, {
+        algorithm_id: algo.id,
+        event_type: "signal_no_action",
+        ticker,
+        details: {
+          reason: "market_state_gate",
+          gate_mode: rules.market_state_gate.mode,
+          verdict: verdict.reason,
+          market_state: marketState,
         },
       });
       return { opened: 0 };
@@ -1205,32 +1269,14 @@ async function evaluateLlmTraderEntry(
   // Leading-indicator states (study PR #188). Computed BEFORE the LLM
   // call so (a) a market_state_gate refusal costs $0 in LLM spend and
   // (b) the same read feeds the decision audit + entry cohort shadow
-  // logging below. 4h-frame only (the study's frame — lower TFs come
-  // with the S4 re-entry); fully wrapped so state computation can never
-  // break trading.
-  let marketState: MarketState | null = null;
-  if (rules.timeframe === "4h") {
-    try {
-      let oneHourBars = await getCachedPrices(ticker, "compact", "1h");
-      if (!oneHourBars || oneHourBars.length < 30) {
-        oneHourBars = await fetchDailyPrices(ticker, "compact", "1h");
-        savePricesToCache(ticker, "compact", oneHourBars, "1h").catch(() => {});
-      }
-      marketState = computeMarketState4h(
-        {
-          bars4h: bars,
-          oneHourBars: oneHourBars ?? [],
-          dailyBars: dailyBars ?? [],
-          // dxyBars arrive as EUR/USD 1h from the scan engine; the state
-          // math is defined on the 4h frame (study parity).
-          eurusd4h: dxyBars && dxyBars.length > 0 ? resampleTo(dxyBars, "4h") : [],
-        },
-        bars.length - 1
-      );
-    } catch {
-      marketState = null;
-    }
-  }
+  // logging below.
+  const marketState: MarketState | null = await computeLiveMarketState(
+    ticker,
+    rules.timeframe,
+    bars,
+    dailyBars,
+    dxyBars
+  );
 
   // ---- Market-state gate (regime-library dormancy) ----
   // Flat-only and per-algo via rules — in-position management is never
