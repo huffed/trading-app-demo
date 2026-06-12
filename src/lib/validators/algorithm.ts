@@ -300,6 +300,16 @@ export const algorithmRulesSchema = z.object({
     type: z.enum(["percentage", "fixed", "pips", "rr_multiple"]),
     value: z.number(),
   }),
+  // Per-side TP override — applied to SHORT entries only (gold's
+  // fall-fast-reverse asymmetry: short-geometry screen 2026-06-12,
+  // n=134 recorded shorts, rr1.5 +0.38R vs symmetric rr3 +0.26R while
+  // longs need rr3). Absent = symmetric take_profit on both sides.
+  take_profit_short: z
+    .object({
+      type: z.enum(["percentage", "fixed", "pips", "rr_multiple"]),
+      value: z.number(),
+    })
+    .optional(),
   // Per-type sizing bounds. Catches the "stale form sends 70 thinking
   // it's 0.7" class of bug — clampRules can't safely rescue a literal
   // user-submitted value, so reject upstream instead. Numbers chosen so

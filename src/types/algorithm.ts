@@ -274,6 +274,12 @@ export interface AlgorithmRules {
   exit_logic?: EntryLogic;
   stop_loss: StopLoss;
   take_profit: TakeProfit;
+  /** Per-side TP override — applied to SHORT entries only. Gold falls
+   *  fast then reverses (short-geometry screen 2026-06-12, n=134:
+   *  shorts at rr1.5 earn +46% more R than at the symmetric rr3, while
+   *  longs need the rr3 room). Absent = symmetric take_profit. Resolved
+   *  via takeProfitRuleForSide() in structural-sl.ts. */
+  take_profit_short?: TakeProfit;
   position_sizing: PositionSizing;
   max_positions: number;
   /** Pyramiding cap per symbol. Defaults to 1 (no stacking). */

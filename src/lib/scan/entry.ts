@@ -16,6 +16,7 @@ import {
   computeSlDistance,
   computeTpDistance,
   dailyAtrFromBars,
+  takeProfitRuleForSide,
   type AdaptiveTpContext,
 } from "@/lib/algorithm/structural-sl";
 import { checkTimeOfDayFilter } from "@/lib/algorithm/time-of-day-filter";
@@ -155,7 +156,7 @@ async function openPosition(
   const tpDistance =
     bars && bars.length > 0 && slDistance !== undefined
       ? computeTpDistance(
-          algo.rules.take_profit,
+          takeProfitRuleForSide(algo.rules, side),
           slDistance,
           currentPrice,
           ticker,
