@@ -139,8 +139,25 @@ function buildCandidates(): Candidate[] {
     states: { mtf: ["aligned_LH"] },
   };
 
+  // Transition short — rides the 1h/4h rollover BEFORE D1 confirms
+  // (fast_div_bear: study +0.73R shorts n=51, the second-best short
+  // bucket; the Sentinel only wakes on CONFIRMED aligned_LH, so the
+  // transition into a bear leg is otherwise unhunted — the D1-lag gap).
+  // Deliberately NO daily_bias condition: requiring D1-bearish would
+  // reintroduce the lag this candidate exists to front-run.
+  const breakdownRider = baseRules();
+  breakdownRider.side = "short";
+  breakdownRider.entry_conditions = [
+    { type: "pattern", pattern: "bos", direction: "bearish", lookback: 5, timeframe: TIMEFRAME },
+  ];
+  breakdownRider.market_state_gate = {
+    mode: "allow",
+    states: { mtf: ["fast_div_bear"] },
+  };
+
   return [
     { key: "dip_buyer", rules: dipBuyer },
+    { key: "breakdown_rider", rules: breakdownRider },
     { key: "coil_breakout", rules: coilBreakout },
     { key: "range_fade", rules: rangeFade },
     { key: "bear_short", rules: bearShort },
