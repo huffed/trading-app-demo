@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { AlgoEquityHero } from "@/components/algorithms/algo-equity-hero";
+import { AlgoEvaluationLogSection } from "@/components/algorithms/algo-evaluation-log-section";
 import { AlgoInspectorRail } from "@/components/algorithms/algo-inspector-rail";
 import { AlgoKpiStrip } from "@/components/algorithms/algo-kpi-strip";
 import { AlgoLlmDecisionsSection } from "@/components/algorithms/algo-llm-decisions-section";
@@ -48,6 +49,9 @@ function ReadView({ algo }: { algo: Algorithm }) {
           <AlgoLlmDecisionsSection algorithmId={algo.id} />
         </div>
       )}
+      <div className="mt-4">
+        <AlgoEvaluationLogSection algorithmId={algo.id} />
+      </div>
       <div className="mt-4">
         <AlgoSetupZone algo={algo} />
       </div>
