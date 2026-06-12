@@ -94,29 +94,75 @@ export interface AdaptiveTpContext {
 const DEFAULT_RANGING_RR = 1.5;
 const DEFAULT_ATR_CAP_MULTIPLIER = 1.5;
 
+/** Context for LEVEL-based TP rules (prior_day_extreme). The level is
+ *  computed from the daily series at entry time — callers that can't
+ *  supply it (or whose level sits at/behind entry) fall back to the
+ *  rule's `value` as an rr_multiple. */
+export interface LevelTpContext {
+  side: "long" | "short";
+  /** Entry bar timestamp ("YYYY-MM-DD HH:mm[:ss]" or ISO). */
+  entryDate: string;
+  /** Native daily bars up to entry (deeper history fine — the lookup
+   *  takes the last day strictly before the entry's UTC day). */
+  dailyBars: PriceBar[];
+}
+
+/** Previous UTC day's extreme — the liquidity pool a trade runs toward
+ *  (low for shorts, high for longs). Null when unavailable. */
+function priorDayLevel(ctx: LevelTpContext): number | null {
+  const day = ctx.entryDate.slice(0, 10);
+  for (let i = ctx.dailyBars.length - 1; i >= 0; i--) {
+    const b = ctx.dailyBars[i];
+    if (b.date.slice(0, 10) < day) {
+      return ctx.side === "short" ? b.low : b.high;
+    }
+  }
+  return null;
+}
+
 /** Compute TP distance for any rule type. For "rr_multiple" the
- *  distance is `value` × slDistance; otherwise dispatches to
- *  priceDeltaForRule. Caller must compute slDistance first.
+ *  distance is `value` × slDistance; for "prior_day_extreme" the
+ *  distance runs to the previous UTC day's low/high (falling back to
+ *  `value` as an RR multiple when no valid level exists beyond entry
+ *  or levelCtx is missing); otherwise dispatches to priceDeltaForRule.
+ *  Caller must compute slDistance first.
  *
- *  When `adaptiveCtx` is provided, regime + ATR awareness tightens
- *  the result. Without `adaptiveCtx` the function behaves exactly as
- *  before — backwards compatible. */
+ *  When `adaptiveCtx` is provided, regime + ATR awareness tightens the
+ *  rr paths. Level-resolved distances take ONLY the RR≥1 floor — no
+ *  ATR cap, no RANGING adjust — matching the structural-TP screen that
+ *  validated them (capping a structural level would target a price
+ *  that isn't there). Without `adaptiveCtx` the rr paths behave
+ *  exactly as before — backwards compatible. */
 export function computeTpDistance(
   rule: AlgorithmRules["take_profit"],
   slDistance: number,
   entryPrice: number,
   symbol: string | undefined,
-  adaptiveCtx?: AdaptiveTpContext
+  adaptiveCtx?: AdaptiveTpContext,
+  levelCtx?: LevelTpContext
 ): number {
+  if (rule.type === "prior_day_extreme" && levelCtx) {
+    const level = priorDayLevel(levelCtx);
+    if (level !== null) {
+      const distance =
+        levelCtx.side === "short" ? entryPrice - level : level - entryPrice;
+      if (distance > 0) {
+        // Floor only — mirror the screen exactly (no ATR cap on levels).
+        return Math.max(distance, slDistance);
+      }
+    }
+    // No valid level beyond entry → fall through to rr fallback below.
+  }
+
   let tpDistance: number;
-  if (rule.type !== "rr_multiple") {
-    tpDistance = priceDeltaForRule(rule, entryPrice, symbol);
-  } else {
+  if (rule.type === "rr_multiple" || rule.type === "prior_day_extreme") {
     const baseRr =
       adaptiveCtx?.regime === "RANGING"
         ? (adaptiveCtx.rangingRr ?? DEFAULT_RANGING_RR)
         : rule.value;
     tpDistance = baseRr * slDistance;
+  } else {
+    tpDistance = priceDeltaForRule(rule, entryPrice, symbol);
   }
 
   if (adaptiveCtx?.dailyAtr !== undefined && adaptiveCtx.dailyAtr > 0) {

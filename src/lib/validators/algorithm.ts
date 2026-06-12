@@ -297,16 +297,20 @@ export const algorithmRulesSchema = z.object({
     atr_period: z.number().int().min(2).max(200).optional(),
   }),
   take_profit: z.object({
-    type: z.enum(["percentage", "fixed", "pips", "rr_multiple"]),
+    // prior_day_extreme: TP at the previous UTC day's low (shorts) /
+    // high (longs) — the liquidity pool; value = fallback RR when no
+    // valid level exists beyond entry.
+    type: z.enum(["percentage", "fixed", "pips", "rr_multiple", "prior_day_extreme"]),
     value: z.number(),
   }),
   // Per-side TP override — applied to SHORT entries only (gold's
   // fall-fast-reverse asymmetry: short-geometry screen 2026-06-12,
   // n=134 recorded shorts, rr1.5 +0.38R vs symmetric rr3 +0.26R while
-  // longs need rr3). Absent = symmetric take_profit on both sides.
+  // longs need rr3; structural-TP screen same day: prior_day_extreme
+  // +0.54R). Absent = symmetric take_profit on both sides.
   take_profit_short: z
     .object({
-      type: z.enum(["percentage", "fixed", "pips", "rr_multiple"]),
+      type: z.enum(["percentage", "fixed", "pips", "rr_multiple", "prior_day_extreme"]),
       value: z.number(),
     })
     .optional(),

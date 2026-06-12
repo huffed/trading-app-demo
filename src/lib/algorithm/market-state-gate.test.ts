@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { MarketState } from "@/lib/market-data/market-state";
+import type { PriceBar } from "@/lib/market-data/types";
 import { checkMarketStateGate, type MarketStateGate } from "./market-state-gate";
+import { computeTpDistance, takeProfitRuleForSide } from "./structural-sl";
 
 const STATE: MarketState = { mtf: "fast_div_bear", vol: "mid", range: "compressed", dxy: "usd_up" };
 
@@ -80,7 +82,6 @@ describe("checkMarketStateGate", () => {
 
 // Co-located with the gate tests for convenience — both are small
 // pure-resolver suites over rules shapes.
-import { takeProfitRuleForSide } from "./structural-sl";
 
 describe("takeProfitRuleForSide", () => {
   const tp = { type: "rr_multiple" as const, value: 3 };
@@ -98,5 +99,59 @@ describe("takeProfitRuleForSide", () => {
 
   it("shorts fall back to symmetric when no override", () => {
     expect(takeProfitRuleForSide({ take_profit: tp }, "short")).toBe(tp);
+  });
+});
+
+
+describe("computeTpDistance prior_day_extreme", () => {
+  const daily: PriceBar[] = [
+    { date: "2026-06-10", open: 4100, high: 4150, low: 4040, close: 4120, volume: 0 },
+    { date: "2026-06-11", open: 4120, high: 4220, low: 4036, close: 4211, volume: 0 },
+  ];
+  const rule = { type: "prior_day_extreme" as const, value: 1.5 };
+
+  it("short targets the previous UTC day's low", () => {
+    // Entry 2026-06-12 → prior day 06-11, low 4036. Short from 4100 →
+    // distance 64; SL 20 → level wins over floor.
+    const d = computeTpDistance(rule, 20, 4100, undefined, undefined, {
+      side: "short",
+      entryDate: "2026-06-12 08:00:00",
+      dailyBars: daily,
+    });
+    expect(d).toBeCloseTo(64, 6);
+  });
+
+  it("long targets the previous day's high", () => {
+    const d = computeTpDistance(rule, 20, 4150, undefined, undefined, {
+      side: "long",
+      entryDate: "2026-06-12 08:00:00",
+      dailyBars: daily,
+    });
+    expect(d).toBeCloseTo(70, 6); // 4220 − 4150
+  });
+
+  it("falls back to RR when the level is behind entry", () => {
+    // Short from BELOW the prior low: 4036 level is above entry 4000 →
+    // no valid target → fallback 1.5 × SL.
+    const d = computeTpDistance(rule, 20, 4000, undefined, undefined, {
+      side: "short",
+      entryDate: "2026-06-12 08:00:00",
+      dailyBars: daily,
+    });
+    expect(d).toBeCloseTo(30, 6);
+  });
+
+  it("falls back to RR without levelCtx", () => {
+    expect(computeTpDistance(rule, 20, 4100, undefined)).toBeCloseTo(30, 6);
+  });
+
+  it("floors level distance at 1×SL", () => {
+    // Level only 5 away but SL is 20 → floor wins.
+    const d = computeTpDistance(rule, 20, 4041, undefined, undefined, {
+      side: "short",
+      entryDate: "2026-06-12 08:00:00",
+      dailyBars: daily,
+    });
+    expect(d).toBeCloseTo(20, 6);
   });
 });

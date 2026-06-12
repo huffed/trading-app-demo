@@ -492,7 +492,8 @@ type StopOrTpRule =
   | { type: "fixed"; value: number }
   | { type: "pips"; value: number }
   | { type: "swing_anchor"; value: number; lookback?: number; atr_period?: number }
-  | { type: "rr_multiple"; value: number };
+  | { type: "rr_multiple"; value: number }
+  | { type: "prior_day_extreme"; value: number };
 
 /**
  * Resolve a stop-loss / take-profit rule into the absolute price distance
@@ -527,9 +528,11 @@ export function priceDeltaForRule(
     }
     case "swing_anchor":
     case "rr_multiple":
+    case "prior_day_extreme":
       // These rule types depend on context priceDeltaForRule doesn't have
       // (bars/idx for swing_anchor, the resolved SL distance for
-      // rr_multiple). Callers should route them through the helpers in
+      // rr_multiple, the daily series for prior_day_extreme). Callers
+      // should route them through the helpers in
       // lib/algorithm/structural-sl.ts and never reach this branch.
       throw new Error(
         `priceDeltaForRule called with type "${rule.type}" — use computeSlDistance / computeTpDistance instead`

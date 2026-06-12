@@ -394,7 +394,8 @@ async function processAlgoAtBar(
       algo.tp,
       { regime, dailyAtr },
       side,
-      algo.tpShort
+      algo.tpShort,
+      { entryDate: bar.date, dailyBars: dailyBefore }
     );
     const stopPrice = side === "long" ? bar.close - slDistance : bar.close + slDistance;
     const targetPrice = side === "long" ? bar.close + tpDistance : bar.close - tpDistance;

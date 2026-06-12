@@ -120,7 +120,12 @@ async function openPosition(
    *  computed pieces (entry_zone, position_in_range_pct, entry_hour_utc).
    *  Optional — pre-instrumentation callers and pattern-strategy callers
    *  may pass undefined; Phase 3 gates must handle null cohort gracefully. */
-  cohortFromCaller?: Partial<EntryCohort>
+  cohortFromCaller?: Partial<EntryCohort>,
+  /** Native daily bars for LEVEL-based TP rules (prior_day_extreme) —
+   *  the level is the previous UTC day's extreme, so the rule silently
+   *  falls back to its RR value when this is omitted. Both entry paths
+   *  thread their existing dailyBars here. */
+  dailyBarsForLevels?: PriceBar[] | null
 ): Promise<{ opened: number; openEvent?: PositionEvent; paperPositionId?: string }> {
   // calculatePositionSize wants MARGIN-used summed, not notional. For
   // leveraged sizing (lots / risk_per_trade / conviction_scaled) sum
@@ -160,7 +165,10 @@ async function openPosition(
           slDistance,
           currentPrice,
           ticker,
-          adaptiveTpCtx
+          adaptiveTpCtx,
+          dailyBarsForLevels && dailyBarsForLevels.length > 0
+            ? { side, entryDate: bars[bars.length - 1].date, dailyBars: dailyBarsForLevels }
+            : undefined
         )
       : undefined;
 
@@ -1040,7 +1048,10 @@ export async function evaluateEntry(
     allOpenPositions,
     brokerCtx ?? null,
     convictionMult,
-    bars
+    bars,
+    undefined,
+    undefined,
+    dailyBars
   );
 }
 
@@ -1846,7 +1857,8 @@ async function evaluateLlmTraderEntry(
     {
       regime: evaluation.regime !== "n/a" ? evaluation.regime : undefined,
       ...(marketState ? { market_state: marketState } : {}),
-    }
+    },
+    dailyBars
   );
   // Link the decision row to the resulting paper_positions row so the
   // close path can backfill the trade outcome onto this decision.

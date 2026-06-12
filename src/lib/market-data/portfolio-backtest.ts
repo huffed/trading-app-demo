@@ -519,7 +519,16 @@ function tryOpenEntry(
     takeProfitRuleForSide(rules, side),
     slDistance,
     entryPrice,
-    ticker
+    ticker,
+    undefined,
+    // Level-based TP rules read the previous day's extreme; the
+    // resampled-D1 series is the sim's daily view (native daily when the
+    // caller supplied marketStateSeries.daily would be marginally truer,
+    // but higherTfBars is what every other D1-aware gate in this sim
+    // uses — consistency wins).
+    state.higherTfBars.length > 0
+      ? { side, entryDate: state.bars[i].date, dailyBars: state.higherTfBars }
+      : undefined
   );
   const sized = sizeForBacktest(
     rules,
