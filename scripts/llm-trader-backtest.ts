@@ -399,9 +399,11 @@ export interface SlConfig {
   lookback?: number;
 }
 
-/** TP config for backtest entries. */
+/** TP config for backtest entries. prior_day_extreme = TP at the
+ *  previous UTC day's low (shorts) / high (longs), value = fallback RR
+ *  — mirrors production's TakeProfit rule type. */
 export interface TpConfig {
-  type: "percentage" | "rr_multiple";
+  type: "percentage" | "rr_multiple" | "prior_day_extreme";
   value: number;
 }
 
@@ -455,7 +457,10 @@ export function computeTpForBacktest(
   cfg: TpConfig = { type: TP_TYPE, value: TP_VALUE },
   adaptiveCtx?: BacktestAdaptiveTpCtx,
   side?: "long" | "short",
-  cfgShort?: TpConfig
+  cfgShort?: TpConfig,
+  /** Daily bars + entry timestamp for level-based rules
+   *  (prior_day_extreme). Omitted = those rules fall back to RR. */
+  levelCtx?: { entryDate: string; dailyBars: PriceBar[] }
 ): number {
   const shortCfg =
     cfgShort ?? (TP_RR_SHORT !== undefined ? { type: "rr_multiple" as const, value: TP_RR_SHORT } : undefined);
@@ -463,11 +468,22 @@ export function computeTpForBacktest(
   const rule =
     eff.type === "percentage"
       ? { type: "percentage" as const, value: eff.value * 100 }
-      : { type: "rr_multiple" as const, value: eff.value };
+      : eff.type === "prior_day_extreme"
+        ? { type: "prior_day_extreme" as const, value: eff.value }
+        : { type: "rr_multiple" as const, value: eff.value };
   const ctx: AdaptiveTpContext | undefined = adaptiveCtx
     ? { regime: adaptiveCtx.regime, dailyAtr: adaptiveCtx.dailyAtr }
     : undefined;
-  return computeTpDistance(rule, slDistance, entryPrice, undefined, ctx);
+  return computeTpDistance(
+    rule,
+    slDistance,
+    entryPrice,
+    undefined,
+    ctx,
+    levelCtx && side
+      ? { side, entryDate: levelCtx.entryDate, dailyBars: levelCtx.dailyBars }
+      : undefined
+  );
 }
 
 export function summariseDailyBias(dailyBars: PriceBar[]): { summary: string; regime: Regime } {
@@ -1775,7 +1791,7 @@ export async function runWindow(opts: WindowOptions): Promise<WindowResult> {
 
     if (decision.decision === "enter_long" && !position && !entryBlockedReason) {
       const slDistance = computeSlForBacktest(bars, i, "long", bar.close);
-      const tpDistance = computeTpForBacktest(slDistance, bar.close, undefined, { regime, dailyAtr }, "long");
+      const tpDistance = computeTpForBacktest(slDistance, bar.close, undefined, { regime, dailyAtr }, "long", undefined, { entryDate: bar.date, dailyBars });
       const stop = bar.close - slDistance;
       const target = bar.close + tpDistance;
       const notional = computeNotional(bar.close, slDistance);
@@ -1793,7 +1809,7 @@ export async function runWindow(opts: WindowOptions): Promise<WindowResult> {
       };
     } else if (decision.decision === "enter_short" && !position && !entryBlockedReason) {
       const slDistance = computeSlForBacktest(bars, i, "short", bar.close);
-      const tpDistance = computeTpForBacktest(slDistance, bar.close, undefined, { regime, dailyAtr }, "short");
+      const tpDistance = computeTpForBacktest(slDistance, bar.close, undefined, { regime, dailyAtr }, "short", undefined, { entryDate: bar.date, dailyBars });
       const stop = bar.close + slDistance;
       const target = bar.close - tpDistance;
       const notional = computeNotional(bar.close, slDistance);

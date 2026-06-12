@@ -118,9 +118,13 @@ export interface StopLoss {
 }
 
 export interface TakeProfit {
-  type: "percentage" | "fixed" | "pips" | "rr_multiple";
+  type: "percentage" | "fixed" | "pips" | "rr_multiple" | "prior_day_extreme";
   /** For percentage/fixed/pips: the TP distance in those units. For
-   *  rr_multiple: the RR ratio (e.g. 2 = TP at 2× SL distance). */
+   *  rr_multiple: the RR ratio (e.g. 2 = TP at 2× SL distance). For
+   *  prior_day_extreme: the FALLBACK RR used when no valid level exists
+   *  beyond entry (level = previous UTC day's low for shorts / high for
+   *  longs — the liquidity pool price runs to; structural-TP screen
+   *  2026-06-12: +0.54R vs rr1.5's +0.38R on n=134 recorded shorts). */
   value: number;
 }
 
