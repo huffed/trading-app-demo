@@ -63,30 +63,46 @@ function computeGauges(
   const todaysPnlPct =
     capital > 0 ? ((realizedToday + unrealizedNow) / capital) * 100 : 0;
   const dailyHaltPct = (pf.daily_loss_halt_pct ?? 100) / 100;
-  const dailyThresholdPct = pf.daily_loss_limit * dailyHaltPct;
   const dailyValuePct = todaysPnlPct < 0 ? -todaysPnlPct : 0;
   const drawdownValuePct = totalEquityChangePct < 0 ? -totalEquityChangePct : 0;
   const profitValuePct = totalEquityChangePct > 0 ? totalEquityChangePct : 0;
 
+  // prop_firm can legitimately be PARTIAL — e.g. library algos carrying
+  // only combined_risk_cap_pct for the broker risk pool. Each gauge
+  // renders only when its limit field is configured; the card already
+  // null-guards per gauge.
+  const dailyLimit = pf.daily_loss_limit;
+  const maxDd = pf.max_drawdown;
+  const profitTarget = pf.profit_target;
+
   return {
-    daily_pnl: {
-      label: "Today's loss",
-      value_pct: Number(dailyValuePct.toFixed(2)),
-      threshold_pct: Number(dailyThresholdPct.toFixed(2)),
-      state: gaugeState(dailyValuePct, dailyThresholdPct),
-    },
-    drawdown: {
-      label: "Drawdown",
-      value_pct: Number(drawdownValuePct.toFixed(2)),
-      threshold_pct: pf.max_drawdown,
-      state: gaugeState(drawdownValuePct, pf.max_drawdown),
-    },
-    profit_target: {
-      label: "Profit target",
-      value_pct: Number(profitValuePct.toFixed(2)),
-      threshold_pct: pf.profit_target,
-      state: (profitValuePct >= pf.profit_target ? "breach" : "ok") as "breach" | "ok",
-    },
+    daily_pnl:
+      dailyLimit && dailyLimit > 0
+        ? {
+            label: "Today's loss",
+            value_pct: Number(dailyValuePct.toFixed(2)),
+            threshold_pct: Number((dailyLimit * dailyHaltPct).toFixed(2)),
+            state: gaugeState(dailyValuePct, dailyLimit * dailyHaltPct),
+          }
+        : null,
+    drawdown:
+      maxDd && maxDd > 0
+        ? {
+            label: "Drawdown",
+            value_pct: Number(drawdownValuePct.toFixed(2)),
+            threshold_pct: maxDd,
+            state: gaugeState(drawdownValuePct, maxDd),
+          }
+        : null,
+    profit_target:
+      profitTarget && profitTarget > 0
+        ? {
+            label: "Profit target",
+            value_pct: Number(profitValuePct.toFixed(2)),
+            threshold_pct: profitTarget,
+            state: (profitValuePct >= profitTarget ? "breach" : "ok") as "breach" | "ok",
+          }
+        : null,
   };
 }
 
