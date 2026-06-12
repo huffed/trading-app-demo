@@ -560,7 +560,17 @@ async function checkEntryConditions(
       reason: "Entry conditions not met",
       conditions_met: met,
       conditions_total: total,
-      conditions_breakdown: fired,
+      entry_logic: typeof logic === "object" ? `n_of_m(${logic.n})` : (logic ?? "all"),
+      bar_date: bars[bars.length - 1]?.date,
+      bar_close: closes[closes.length - 1],
+      // Structured per-condition results (was a bare boolean[] — useless
+      // in the evaluation-log UI without names). Shape: snapshotCondition
+      // fields + timeframe + met.
+      conditions_breakdown: conditions.map((c, idx) => ({
+        ...snapshotCondition(c),
+        timeframe: c.timeframe,
+        met: fired[idx] ?? false,
+      })),
     },
   });
   return { pass: false, met, total, fired, firedTfs, totalTfs };

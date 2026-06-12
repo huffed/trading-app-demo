@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useEvaluationLog, type EvaluationLogRow } from "@/hooks/use-evaluation-log";
+import { PATTERN_LABELS, TECHNICAL_OP_LABELS } from "@/lib/constants/algorithm";
 import { formatRelativeTime } from "@/lib/utils/pnl";
 import { AlgoSection } from "./algo-section";
 
@@ -35,9 +36,78 @@ function headline(row: EvaluationLogRow): string {
   const reason = typeof d.reason === "string" ? d.reason : null;
   const verdict = typeof d.verdict === "string" ? d.verdict : null;
   if (reason === "market_state_gate" && verdict) return `state gate: ${verdict}`;
+  if (reason === "Entry conditions not met") {
+    const met = typeof d.conditions_met === "number" ? d.conditions_met : "?";
+    const total = typeof d.conditions_total === "number" ? d.conditions_total : "?";
+    const logic = typeof d.entry_logic === "string" ? ` · logic ${d.entry_logic}` : "";
+    return `conditions ${met}/${total}${logic}`;
+  }
   if (reason) return reason;
   if (verdict) return verdict;
   return EVENT_BADGE[row.event_type]?.label ?? row.event_type;
+}
+
+/** Structured per-condition result (engine logs these since 2026-06-12;
+ *  older rows carry a bare boolean[] which we skip — no names to show). */
+interface ConditionResult {
+  type?: string;
+  indicator?: string;
+  operator?: string;
+  value?: number;
+  pattern?: string;
+  direction?: string;
+  timeframe?: string;
+  met?: boolean;
+}
+
+function conditionLabel(c: ConditionResult): string {
+  if (c.type === "technical" && c.indicator) {
+    const op = c.operator ? (TECHNICAL_OP_LABELS[c.operator] ?? c.operator) : "";
+    return `${c.indicator} ${op} ${c.value ?? ""}`.trim();
+  }
+  if (c.pattern) {
+    const label = PATTERN_LABELS[c.pattern] ?? c.pattern;
+    return c.direction ? `${label} (${c.direction})` : label;
+  }
+  return c.type ?? "condition";
+}
+
+function structuredConditions(row: EvaluationLogRow): ConditionResult[] | null {
+  const raw = row.details?.conditions_breakdown;
+  if (!Array.isArray(raw) || raw.length === 0) return null;
+  if (typeof raw[0] !== "object" || raw[0] === null) return null;
+  return raw as ConditionResult[];
+}
+
+function ConditionChecklist({ conditions }: { conditions: ConditionResult[] }) {
+  return (
+    <div className="space-y-0.5">
+      {conditions.map((c, i) => (
+        <div key={i} className="flex items-center gap-1.5 text-xs">
+          {c.met ? (
+            <Check className="h-3 w-3 shrink-0 text-[color:var(--profit)]" />
+          ) : (
+            <X className="h-3 w-3 shrink-0 text-[color:var(--loss)]" />
+          )}
+          <span className={c.met ? "" : "text-muted-foreground"}>
+            {conditionLabel(c)}
+          </span>
+          {c.timeframe && (
+            <span className="text-[10px] text-muted-foreground">{c.timeframe}</span>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function barContext(row: EvaluationLogRow): string | null {
+  const d = row.details ?? {};
+  const date = typeof d.bar_date === "string" ? d.bar_date : null;
+  const close = typeof d.bar_close === "number" ? d.bar_close : null;
+  if (!date && close == null) return null;
+  const closeStr = close != null ? close.toLocaleString(undefined, { maximumFractionDigits: 2 }) : null;
+  return [date, closeStr ? `close ${closeStr}` : null].filter(Boolean).join(" · ");
 }
 
 function marketStateChip(row: EvaluationLogRow): string | null {
@@ -57,6 +127,8 @@ function EvaluationRow({ row }: { row: EvaluationLogRow }) {
     variant: "outline" as BadgeVariant,
   };
   const stateChip = marketStateChip(row);
+  const conditions = structuredConditions(row);
+  const bar = barContext(row);
   return (
     <div className="border-b border-border last:border-0 py-2">
       <button
@@ -84,10 +156,16 @@ function EvaluationRow({ row }: { row: EvaluationLogRow }) {
             )}
           </div>
           <p className="text-xs text-muted-foreground line-clamp-2">{headline(row)}</p>
+          {conditions && <ConditionChecklist conditions={conditions} />}
         </div>
-        <span className="text-xs text-muted-foreground shrink-0 ml-2">
-          {formatRelativeTime(row.created_at)}
-        </span>
+        <div className="shrink-0 ml-2 text-right space-y-0.5">
+          <div className="text-xs text-muted-foreground">
+            {formatRelativeTime(row.created_at)}
+          </div>
+          {bar && (
+            <div className="text-[10px] text-muted-foreground tabular-nums">{bar}</div>
+          )}
+        </div>
       </button>
       {expanded && row.details && (
         <div className="ml-5 mt-2 text-xs">
