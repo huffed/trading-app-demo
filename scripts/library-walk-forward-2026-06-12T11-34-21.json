@@ -1,0 +1,77 @@
+{
+  "window_days": 40,
+  "step_days": 40,
+  "capital": 100000,
+  "candidates": [
+    {
+      "key": "breakdown_rider",
+      "rules": {
+        "entry_conditions": [
+          {
+            "type": "pattern",
+            "pattern": "bos",
+            "direction": "bearish",
+            "lookback": 5,
+            "timeframe": "4h"
+          }
+        ],
+        "exit_conditions": [],
+        "stop_loss": {
+          "type": "swing_anchor",
+          "value": 0.1,
+          "lookback": 4
+        },
+        "take_profit": {
+          "type": "rr_multiple",
+          "value": 3
+        },
+        "position_sizing": {
+          "type": "risk_per_trade",
+          "value": 0.6
+        },
+        "max_positions": 1,
+        "leverage": 9,
+        "timeframe": "4h",
+        "asset_class": "commodity",
+        "side": "short",
+        "stagnant_exit": {
+          "enabled": true
+        },
+        "market_state_gate": {
+          "mode": "allow",
+          "states": {
+            "mtf": [
+              "fast_div_bear"
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "reports": [
+    {
+      "candidate": "breakdown_rider",
+      "variant": "gated",
+      "windows": 58,
+      "windows_with_trades": 5,
+      "green_of_traded_pct": 40,
+      "total_trades": 8,
+      "total_return": -487,
+      "mean_return": -8,
+      "worst_dd": 1.73,
+      "dd_breaches_gt5": 0
+    },
+    {
+      "candidate": "breakdown_rider",
+      "variant": "ungated",
+      "windows": 58,
+      "windows_with_trades": 47,
+      "green_of_traded_pct": 25.53191489361702,
+      "total_trades": 94,
+      "total_return": -23046,
+      "mean_return": -397,
+      "worst_dd": 4.49,
+      "dd_breaches_gt5": 0
+    }
+  ]
+}

@@ -354,6 +354,14 @@ const TP_TYPE = (process.env.TP_TYPE ?? slPreset?.tpType ?? "percentage") as
 const TP_VALUE = Number(
   process.env.TP_VALUE ?? slPreset?.tpValue ?? (TP_TYPE === "rr_multiple" ? "3" : "0.045")
 );
+/** Per-side TP override for SHORT entries (mirrors live
+ *  rules.take_profit_short — short-geometry screen 2026-06-12: shorts
+ *  at rr1.5 +46% vs symmetric rr3). Env TP_RR_SHORT=1.5 to match the
+ *  live config; unset = symmetric (pre-2026-06-12 behaviour). */
+const TP_RR_SHORT = process.env.TP_RR_SHORT ? Number(process.env.TP_RR_SHORT) : undefined;
+if (TP_RR_SHORT !== undefined && (Number.isNaN(TP_RR_SHORT) || TP_RR_SHORT < 1 || TP_RR_SHORT > 10)) {
+  throw new Error(`Invalid TP_RR_SHORT=${process.env.TP_RR_SHORT} (must be 1-10)`);
+}
 
 /** Resolved SL/TP geometry for this process — callers (WF orchestrator)
  *  print and persist this so no run is ever ambiguous about what it ran. */
@@ -373,6 +381,9 @@ export const RESOLVED_SLTP = {
     ...(SL_TYPE === "swing_anchor" ? { lookback: SL_LOOKBACK } : {}),
   },
   tp: { type: TP_TYPE, value: TP_VALUE },
+  ...(TP_RR_SHORT !== undefined
+    ? { tp_short: { type: "rr_multiple" as const, value: TP_RR_SHORT } }
+    : {}),
 };
 
 // Legacy constants — only used in fallback paths if SL_TYPE/TP_TYPE are
@@ -431,17 +442,28 @@ export function computeSlForBacktest(
  *  computeTpDistance (same unit mapping as computeSlForBacktest).
  *
  *  cfg defaults to env-var values for single-algo runs. Multi-algo
- *  callers pass explicit per-algo TP config + adaptive context. */
+ *  callers pass explicit per-algo TP config + adaptive context.
+ *
+ *  `side` enables the per-side override: when "short" and TP_RR_SHORT
+ *  (or the caller's cfgShort) is set, the short rule replaces cfg —
+ *  mirroring live's rules.take_profit_short resolution. Omitted side =
+ *  symmetric (back-compat for analysis scripts replaying mixed books
+ *  through one geometry on purpose). */
 export function computeTpForBacktest(
   slDistance: number,
   entryPrice: number,
   cfg: TpConfig = { type: TP_TYPE, value: TP_VALUE },
-  adaptiveCtx?: BacktestAdaptiveTpCtx
+  adaptiveCtx?: BacktestAdaptiveTpCtx,
+  side?: "long" | "short",
+  cfgShort?: TpConfig
 ): number {
+  const shortCfg =
+    cfgShort ?? (TP_RR_SHORT !== undefined ? { type: "rr_multiple" as const, value: TP_RR_SHORT } : undefined);
+  const eff = side === "short" && shortCfg ? shortCfg : cfg;
   const rule =
-    cfg.type === "percentage"
-      ? { type: "percentage" as const, value: cfg.value * 100 }
-      : { type: "rr_multiple" as const, value: cfg.value };
+    eff.type === "percentage"
+      ? { type: "percentage" as const, value: eff.value * 100 }
+      : { type: "rr_multiple" as const, value: eff.value };
   const ctx: AdaptiveTpContext | undefined = adaptiveCtx
     ? { regime: adaptiveCtx.regime, dailyAtr: adaptiveCtx.dailyAtr }
     : undefined;
@@ -1753,7 +1775,7 @@ export async function runWindow(opts: WindowOptions): Promise<WindowResult> {
 
     if (decision.decision === "enter_long" && !position && !entryBlockedReason) {
       const slDistance = computeSlForBacktest(bars, i, "long", bar.close);
-      const tpDistance = computeTpForBacktest(slDistance, bar.close, undefined, { regime, dailyAtr });
+      const tpDistance = computeTpForBacktest(slDistance, bar.close, undefined, { regime, dailyAtr }, "long");
       const stop = bar.close - slDistance;
       const target = bar.close + tpDistance;
       const notional = computeNotional(bar.close, slDistance);
@@ -1771,7 +1793,7 @@ export async function runWindow(opts: WindowOptions): Promise<WindowResult> {
       };
     } else if (decision.decision === "enter_short" && !position && !entryBlockedReason) {
       const slDistance = computeSlForBacktest(bars, i, "short", bar.close);
-      const tpDistance = computeTpForBacktest(slDistance, bar.close, undefined, { regime, dailyAtr });
+      const tpDistance = computeTpForBacktest(slDistance, bar.close, undefined, { regime, dailyAtr }, "short");
       const stop = bar.close + slDistance;
       const target = bar.close - tpDistance;
       const notional = computeNotional(bar.close, slDistance);

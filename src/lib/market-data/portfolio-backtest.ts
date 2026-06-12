@@ -10,7 +10,11 @@ import { checkDxyDirection } from "@/lib/algorithm/dxy-filter";
 import { checkAtrLiquidity } from "@/lib/algorithm/intraday-atr-gate";
 import { checkMarketStateGate } from "@/lib/algorithm/market-state-gate";
 import { checkStagnantExit } from "@/lib/algorithm/stagnant-exit";
-import { computeSlDistance, computeTpDistance } from "@/lib/algorithm/structural-sl";
+import {
+  computeSlDistance,
+  computeTpDistance,
+  takeProfitRuleForSide,
+} from "@/lib/algorithm/structural-sl";
 import {
   initTrailingState,
   trailingFeaturesEnabled,
@@ -511,7 +515,12 @@ function tryOpenEntry(
   // Computed BEFORE sizing because risk_per_trade sizing needs the SL
   // distance to derive lot count.
   const slDistance = computeSlDistance(rules.stop_loss, side, entryPrice, ticker, state.bars, i);
-  const tpDistance = computeTpDistance(rules.take_profit, slDistance, entryPrice, ticker);
+  const tpDistance = computeTpDistance(
+    takeProfitRuleForSide(rules, side),
+    slDistance,
+    entryPrice,
+    ticker
+  );
   const sized = sizeForBacktest(
     rules,
     s.equity,

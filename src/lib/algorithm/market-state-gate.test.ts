@@ -77,3 +77,26 @@ describe("checkMarketStateGate", () => {
     expect(checkMarketStateGate(gate, null).allowed).toBe(true);
   });
 });
+
+// Co-located with the gate tests for convenience — both are small
+// pure-resolver suites over rules shapes.
+import { takeProfitRuleForSide } from "./structural-sl";
+
+describe("takeProfitRuleForSide", () => {
+  const tp = { type: "rr_multiple" as const, value: 3 };
+  const tpShort = { type: "rr_multiple" as const, value: 1.5 };
+
+  it("longs always get the symmetric rule", () => {
+    expect(takeProfitRuleForSide({ take_profit: tp, take_profit_short: tpShort }, "long")).toBe(tp);
+  });
+
+  it("shorts get the override when configured", () => {
+    expect(takeProfitRuleForSide({ take_profit: tp, take_profit_short: tpShort }, "short")).toBe(
+      tpShort
+    );
+  });
+
+  it("shorts fall back to symmetric when no override", () => {
+    expect(takeProfitRuleForSide({ take_profit: tp }, "short")).toBe(tp);
+  });
+});

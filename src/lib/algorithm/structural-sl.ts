@@ -131,6 +131,21 @@ export function computeTpDistance(
   return tpDistance;
 }
 
+/** Per-side TP rule resolution. Gold's fall-fast-reverse asymmetry
+ *  (short-geometry screen 2026-06-12, n=134 recorded shorts: rr1.5
+ *  +0.38R/58% WR vs the symmetric rr3's +0.26R/45%, while longs need
+ *  the rr3 room) means shorts may carry their own TP rule. Falls back
+ *  to the symmetric take_profit when no override is configured. EVERY
+ *  entry path that computes a TP must resolve through this — live,
+ *  portfolio backtest, harness — or validation silently diverges from
+ *  live. */
+export function takeProfitRuleForSide(
+  rules: Pick<AlgorithmRules, "take_profit" | "take_profit_short">,
+  side: "long" | "short"
+): AlgorithmRules["take_profit"] {
+  return side === "short" && rules.take_profit_short ? rules.take_profit_short : rules.take_profit;
+}
+
 /** Convenience: extract the most recent daily ATR from a D1 bar
  *  series. Returns 0 when insufficient history (caller should treat
  *  as "no cap"). */

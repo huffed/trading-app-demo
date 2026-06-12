@@ -91,36 +91,31 @@ export interface AlgoConfig {
   maxPositions: number;
   sl: SlConfig;
   tp: TpConfig;
+  /** Per-side TP override for SHORT entries — mirrors live
+   *  rules.take_profit_short. Omitted = symmetric tp on both sides. */
+  tpShort?: TpConfig;
 }
 
-/** Default config matching the LIVE state on FTMO Demo $50K Swing.
- *  SYNCED 2026-05-18 from Supabase via scripts/dump-live-configs.ts —
- *  do NOT hand-edit; re-run the dump script if live algos change. Prior
- *  state had drifted (30m=v3 in harness vs v5 live; risk 1.0 in harness
- *  vs 0.75 live). Per feedback_harness_vs_live_drift.md, manual
- *  maintenance of this constant is a known recurring failure mode. */
+/** Default config matching the LIVE state on FTMO Demo $100K Swing.
+ *  SYNCED 2026-06-12 from Supabase — do NOT hand-edit; re-run
+ *  scripts/dump-live-configs.ts if live algos change. (30m/15m algos
+ *  archived 2026-06-12; only the LLM flagship runs through this
+ *  harness — the deterministic library algos validate via
+ *  library-walk-forward.ts.) Per feedback_harness_vs_live_drift.md,
+ *  manual maintenance of this constant is a known recurring failure
+ *  mode. */
 export const DEFAULT_CONFIGS: AlgoConfig[] = [
   {
     algoId: "v1_4h_swing",
     label: "Gold Swing 4h",
     timeframe: "4h",
     promptVersion: "v2",
-    riskPerTradePct: 0.75,
+    riskPerTradePct: 1,
     maxPositions: 1,
-    sl: { type: "swing_anchor", value: 0.25, lookback: 8 },
+    sl: { type: "swing_anchor", value: 0.1, lookback: 4 },
     tp: { type: "rr_multiple", value: 3 },
+    tpShort: { type: "rr_multiple", value: 1.5 },
     // Live algoId in Supabase: 6b6b1907-c76d-4f1e-ad40-a8170183dd86
-  },
-  {
-    algoId: "intraday_30m",
-    label: "Gold Intraday 30m",
-    timeframe: "30m",
-    promptVersion: "v5",
-    riskPerTradePct: 0.75,
-    maxPositions: 1,
-    sl: { type: "swing_anchor", value: 0.25, lookback: 8 },
-    tp: { type: "rr_multiple", value: 3 },
-    // Live algoId in Supabase: 85d8aa26-710e-4916-bdcd-08139aca664c
   },
 ];
 
@@ -393,10 +388,14 @@ async function processAlgoAtBar(
       dailyBefore.length >= 15
         ? computeDailyAtrInline(dailyBefore, 14)
         : 0;
-    const tpDistance = computeTpForBacktest(slDistance, bar.close, algo.tp, {
-      regime,
-      dailyAtr,
-    });
+    const tpDistance = computeTpForBacktest(
+      slDistance,
+      bar.close,
+      algo.tp,
+      { regime, dailyAtr },
+      side,
+      algo.tpShort
+    );
     const stopPrice = side === "long" ? bar.close - slDistance : bar.close + slDistance;
     const targetPrice = side === "long" ? bar.close + tpDistance : bar.close - tpDistance;
     // Risk-per-trade sizing: full SL hit = riskPct% of CURRENT shared cash
