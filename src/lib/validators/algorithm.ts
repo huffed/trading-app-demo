@@ -132,7 +132,9 @@ export const propFirmRulesSchema = z.object({
   combined_risk_cap_pct: z.number().min(0.5).max(5).optional(),
   consecutive_loss_unit: z.enum(["trades", "days"]).optional(),
   daily_loss_halt_pct: z.number().min(10).max(100).optional(),
-  consistency_rule: z.number().min(10).max(100),
+  // 0 = consistency rule disabled (FTMO 2-step path — the live flagship
+  // runs 0; the old min(10) floor rejected its own production config).
+  consistency_rule: z.union([z.literal(0), z.number().min(10).max(100)]),
   slippage_bps: z.number().min(0).max(100),
   commission_pct: z.number().min(0).max(5),
   spread_bps: z.number().min(0).max(50).optional(),
