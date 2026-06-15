@@ -95,6 +95,44 @@ again.
   files under protected paths (System Settings → Privacy & Security →
   Full Disk Access → add `/usr/sbin/cron`).
 
+## Keep-awake LaunchAgent
+
+`launchd/com.huffed.quanttrader.caffeinate.plist` is a user-level
+LaunchAgent that runs `caffeinate -dis` and respawns it on exit. Idle
+sleep is what killed the 2026-06-15 evening scan window — the Mac dozed
+on the default 10-min AC timer, cron silently missed the 20:00 UTC 4h
+bar-close, and only the GH Actions dead-man caught it. This plist holds
+`PreventSystemSleep` / `PreventUserIdleSystemSleep` /
+`PreventUserIdleDisplaySleep` assertions for as long as the user is
+logged in.
+
+Note: `caffeinate -dis` overrides the idle-sleep timer but NOT a
+closed-lid sleep. Keep the lid open (or use an external display with
+clamshell power settings).
+
+Install on a fresh Mac:
+
+```bash
+cp scripts/launchd/com.huffed.quanttrader.caffeinate.plist \
+   ~/Library/LaunchAgents/
+launchctl bootstrap gui/$(id -u) \
+   ~/Library/LaunchAgents/com.huffed.quanttrader.caffeinate.plist
+```
+
+Verify:
+
+```bash
+launchctl print "gui/$(id -u)/com.huffed.quanttrader.caffeinate" | head
+pmset -g assertions | grep -A1 'caffeinate command-line tool'
+```
+
+Uninstall:
+
+```bash
+launchctl bootout "gui/$(id -u)/com.huffed.quanttrader.caffeinate"
+rm ~/Library/LaunchAgents/com.huffed.quanttrader.caffeinate.plist
+```
+
 ## Editing the schedule
 
 ```bash
