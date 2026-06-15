@@ -46,12 +46,13 @@ const STEP_DAYS = Number(process.env.STEP_DAYS ?? 40);
 const CAPITAL = Number(process.env.CAPITAL ?? 100_000);
 const TICKER = "XAU/USD";
 /** Primary timeframe under test. "4h" (default) runs gated + ungated.
- *  "1h" runs UNGATED ONLY — the market-state gate is 4h-frame and the
- *  engine fails non-4h gated algos closed by design, so a gated 1h run
- *  would report zero trades. The pattern triggers and swing-anchor
- *  geometry are bar-relative and port unchanged; corpus depth differs
- *  (4h reaches 2020; 1h reaches ~Aug 2025 — OANDA provider floor). */
-const TIMEFRAME = (process.env.TIMEFRAME ?? "4h") as "4h" | "1h";
+ *  "1h" and "30m" run UNGATED ONLY — the market-state gate is 4h-frame
+ *  and the engine fails non-4h gated algos closed by design, so a gated
+ *  sub-4h run would report zero trades. The pattern triggers and
+ *  swing-anchor geometry are bar-relative and port unchanged; corpus
+ *  depth differs (4h reaches 2020; 1h reaches ~Aug 2025; 30m reaches
+ *  ~2024 per the OANDA backfill — see loadCorpus). */
+const TIMEFRAME = (process.env.TIMEFRAME ?? "4h") as "4h" | "1h" | "30m";
 /** Friction knobs. Applied as rules.prop_firm slippage/spread fields —
  *  the sim charges spread round-trip on notional and slips entry + every
  *  exit price. Defaults 0 (frictionless) to stay comparable with the
@@ -155,12 +156,65 @@ function buildCandidates(): Candidate[] {
     states: { mtf: ["fast_div_bear"] },
   };
 
+  // --- 30m exploration set (2026-06-15, $0 screen) ---
+  // The five canonical candidates above are the validated-at-4h primitives.
+  // These five test whether 30m unlocks a structurally different edge
+  // family (intraday session structure / momentum / ICT mechanics) that
+  // wasn't expressible at 4h cadence. Untied to the ship-gate verdict —
+  // exploratory only.
+  //
+  // 2026-06-15 initial run (XAU 30m, 4 × 40d windows, OANDA-depth-limited
+  // to Dec 2025 → Jun 2026): aggregate looked positive for fvg_long
+  // (+$6103 @ realistic friction) and order_block_long (+$8333) — but
+  // per-window breakdown showed BOTH candidates' returns came almost
+  // entirely from W00 (Dec 2025 → Jan 2026, the late-2025 gold rally).
+  // W02 was red across the set, W03 had zero trades for any candidate
+  // (D1 bias filter rejected the whole window). Result: candidate-shaped
+  // but window-bound, not statically-robust edges. Reading under the
+  // learning-loop framing (decay-detect + adapt) is different from the
+  // "ship gates" framing here — see the FTMO-go observation runs.
+
+  const asianBreak = baseRules();
+  asianBreak.entry_conditions = [
+    { type: "pattern", pattern: "asian_range_break", direction: "bullish", timeframe: TIMEFRAME },
+    { type: "pattern", pattern: "daily_bias", direction: "bullish", ma_period: 20, timeframe: TIMEFRAME },
+  ];
+
+  const momentumLong = baseRules();
+  momentumLong.entry_conditions = [
+    { type: "pattern", pattern: "momentum", direction: "bullish", lookback: 5, timeframe: TIMEFRAME },
+    { type: "pattern", pattern: "daily_bias", direction: "bullish", ma_period: 20, timeframe: TIMEFRAME },
+  ];
+
+  const silverBullet = baseRules();
+  silverBullet.entry_conditions = [
+    { type: "pattern", pattern: "gold_session_window", session: "silver_bullet", timeframe: TIMEFRAME },
+    { type: "pattern", pattern: "bos", direction: "bullish", lookback: 5, timeframe: TIMEFRAME },
+  ];
+
+  const fvgLong = baseRules();
+  fvgLong.entry_conditions = [
+    { type: "pattern", pattern: "fvg", direction: "bullish", timeframe: TIMEFRAME },
+    { type: "pattern", pattern: "daily_bias", direction: "bullish", ma_period: 20, timeframe: TIMEFRAME },
+  ];
+
+  const orderBlockLong = baseRules();
+  orderBlockLong.entry_conditions = [
+    { type: "pattern", pattern: "order_block", direction: "bullish", timeframe: TIMEFRAME },
+    { type: "pattern", pattern: "daily_bias", direction: "bullish", ma_period: 20, timeframe: TIMEFRAME },
+  ];
+
   return [
     { key: "dip_buyer", rules: dipBuyer },
     { key: "breakdown_rider", rules: breakdownRider },
     { key: "coil_breakout", rules: coilBreakout },
     { key: "range_fade", rules: rangeFade },
     { key: "bear_short", rules: bearShort },
+    { key: "asian_break_long", rules: asianBreak },
+    { key: "momentum_long", rules: momentumLong },
+    { key: "silver_bullet_long", rules: silverBullet },
+    { key: "fvg_long", rules: fvgLong },
+    { key: "order_block_long", rules: orderBlockLong },
   ];
 }
 
@@ -211,6 +265,12 @@ async function main(): Promise<void> {
   console.log(`Loading full-depth corpus for ${TICKER} (primary TF: ${TIMEFRAME})...`);
   const corpus: Corpus = await loadCorpus(TIMEFRAME);
   const corpus1h: Corpus = TIMEFRAME === "1h" ? corpus : await loadCorpus("1h");
+  // No native 4h corpus needed for state series when primary is 4h (same
+  // bars). For 1h/30m primary we still want the 4h state-series source
+  // for the marketStateSeries map below — fall back to 1h bars when 4h
+  // not loaded separately (mtf state then uses what's available). Live
+  // gate parity isn't the goal for sub-4h here (ungated-only).
+  const corpus4h: Corpus = TIMEFRAME === "4h" ? corpus : await loadCorpus("4h");
   const bars: PriceBar[] = corpus.bars;
   console.log(
     `  ${TIMEFRAME}: ${bars.length} bars (${bars[0]?.date.slice(0, 10)} → ${bars[bars.length - 1]?.date.slice(0, 10)}) · 1h: ${corpus1h.bars.length} · daily: ${corpus.dailyBars.length} · eurusd4h: ${corpus.eurusd4h.length}`
@@ -221,11 +281,11 @@ async function main(): Promise<void> {
   console.log(
     TIMEFRAME === "4h"
       ? `  Gated candidates fail closed before their features are readable — early windows under-trade BY DESIGN.\n`
-      : `  1h mode: UNGATED ONLY (market-state gate is 4h-frame; a gated 1h algo fails closed by design).\n`
+      : `  ${TIMEFRAME} mode: UNGATED ONLY (market-state gate is 4h-frame; a gated sub-4h algo fails closed by design).\n`
   );
 
   const marketStateSeries: MarketStateSeries = {
-    bars4h: new Map([[TICKER, bars]]),
+    bars4h: new Map([[TICKER, corpus4h.bars]]),
     oneHour: new Map([[TICKER, corpus1h.bars]]),
     daily: new Map([[TICKER, corpus.dailyBars]]),
     eurusd4h: corpus.eurusd4h,
@@ -252,7 +312,7 @@ async function main(): Promise<void> {
 
   if (TIMEFRAME !== "4h") {
     console.log(
-      "\n1h mode is an exploratory screen — no ship verdicts (shipping a 1h algo needs the gate's lower-TF frame first)."
+      `\n${TIMEFRAME} mode is an exploratory screen — no ship verdicts (shipping a sub-4h algo needs the gate's lower-TF frame first).`
     );
   } else {
   console.log("\n--- Ship-gate verdicts (pre-registered) ---");
