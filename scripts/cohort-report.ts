@@ -43,6 +43,7 @@
  */
 import { readFileSync, writeFileSync } from "fs";
 import { createClient } from "@supabase/supabase-js";
+import { detectDecay } from "../src/lib/learning-loop/decay-detector";
 
 // Self-load .env.local (same pattern as sibling scripts)
 {
@@ -433,10 +434,11 @@ async function main(): Promise<void> {
     report[dim.label] = dimReport;
   }
 
-  // Decay comparison: last DAYS vs the DAYS before it.
-  const now = Date.now();
-  const recentStart = now - DAYS * 86400_000;
-  const priorStart = now - 2 * DAYS * 86400_000;
+  // Decay comparison: delegate to src/lib/learning-loop/decay-detector.ts
+  // so the meta-backtest (issue #216) tests the same rule the report uses.
+  const asOf = new Date();
+  const recentStart = asOf.getTime() - DAYS * 86400_000;
+  const priorStart = asOf.getTime() - 2 * DAYS * 86400_000;
   const recent = trades.filter((t) => t.date.getTime() >= recentStart);
   const prior = trades.filter(
     (t) => t.date.getTime() >= priorStart && t.date.getTime() < recentStart
@@ -447,15 +449,14 @@ async function main(): Promise<void> {
   for (const dim of DIMENSIONS) {
     const recentMap = byKey(recent, dim.key);
     const priorMap = byKey(prior, dim.key);
-    for (const [value, rts] of recentMap) {
-      const pts = priorMap.get(value) ?? [];
-      if (rts.length < MIN_N || pts.length < MIN_N) continue;
-      const ra = aggregate(rts);
-      const pa = aggregate(pts);
-      const meanDrop = pa.sumR / pa.n - ra.sumR / ra.n;
-      const wrDrop = (pa.wins / pa.n - ra.wins / ra.n) * 100;
-      if (meanDrop >= 0.5 || wrDrop >= 20) {
-        const flag = `${dim.label}=${value}: meanR ${(pa.sumR / pa.n).toFixed(2)}→${(ra.sumR / ra.n).toFixed(2)}, WR ${((pa.wins / pa.n) * 100).toFixed(0)}%→${((ra.wins / ra.n) * 100).toFixed(0)}% (n ${pa.n}→${ra.n})`;
+    for (const value of recentMap.keys()) {
+      const cohortTrades = trades.filter((t) => dim.key(t) === value);
+      const verdict = detectDecay(
+        cohortTrades.map((t) => ({ date: t.date, r: t.r })),
+        { asOf, halfWindowDays: DAYS, minN: MIN_N }
+      );
+      if (verdict.flagged) {
+        const flag = `${dim.label}=${value}: ${verdict.reason}`;
         decayFlags.push(flag);
         console.log(`  ⚠ ${flag}`);
       }

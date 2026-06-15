@@ -67,3 +67,4 @@ scripts/exit-replay-summary-*.json
 scripts/cohort-report-*.json
 scripts/entry-gate-screen-*.json
 scripts/market-state-study-*.json
+scripts/auto-loop-meta-backtest-*.json
