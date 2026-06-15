@@ -420,16 +420,28 @@ async function callGroq(
 }
 
 /**
- * Check whether the current wall-clock time is at a bar-close moment for
- * the given primary timeframe. The scan-cron runs every 15 min, but the
- * LLM should only evaluate at primary-TF bar-close to match how the
- * backtest harness evaluated. Otherwise live calls happen mid-bar with
- * partial data — the LLM's context is half-formed, decisions diverge
- * from backtest.
+ * Throttle gate: returns true on scan ticks that should trigger an LLM
+ * evaluation. The scan-cron runs every 15 min; without this gate the LLM
+ * would be called every tick. The throttle fires once per primary-TF
+ * worth of wall-clock (one tick per 4h, per 1h, etc.), so each call sees
+ * exactly one new closed bar relative to the previous call.
  *
- * Returns true if "now" is within the first 15 minutes after a bar-close
- * boundary for the timeframe. Forex/gold markets close at UTC midnight
- * so daily uses 00:00 UTC.
+ * IMPORTANT — this does NOT align with OANDA bar boundaries. OANDA's
+ * default H4 alignment for gold is NY 17:00 (`dailyAlignment=17`,
+ * `alignmentTimezone=America/New_York` per OANDA defaults; the OANDA
+ * client passes no overrides). In practice that means:
+ *   - EDT (summer): bars open at 01/05/09/13/17/21 UTC, close at 05/09/13/17/21/01
+ *   - EST (winter): bars open at 02/06/10/14/18/22 UTC, close at 06/10/14/18/22/02
+ * The gate below fires at UTC `hour % 4 === 0` regardless of season, so the
+ * LLM call happens 2-3 hours AFTER the actual bar close. This is fine — the
+ * LLM gets `currentTimestamp = bars[bars.length-1].date` (the bar's open
+ * time) so its decision-input is identical to what the backtest harness
+ * feeds it. Live and harness see the same view; only the wall-clock
+ * moment of the call differs. See investigation notes 2026-06-15.
+ *
+ * Returns true if "now" is within the first 15 minutes after a wall-clock
+ * UTC multiple of the timeframe's duration. Forex/gold markets close at
+ * UTC midnight so daily uses 00:00 UTC.
  */
 export function isBarCloseScan(timeframe: string, now: Date = new Date()): boolean {
   const minute = now.getUTCMinutes();
@@ -437,7 +449,9 @@ export function isBarCloseScan(timeframe: string, now: Date = new Date()): boole
   const tf = timeframe.toLowerCase();
   switch (tf) {
     case "4h":
-      // 4h bars close at 00:00, 04:00, 08:00, 12:00, 16:00, 20:00 UTC
+      // Wall-clock gate at 00/04/08/12/16/20 UTC (NOT OANDA bar boundaries
+      // — see the IMPORTANT note in the docstring above). Each tick the
+      // most-recent-closed 4h bar advances by one.
       return minute < 15 && hour % 4 === 0;
     case "1h":
       // Hourly bars close every :00

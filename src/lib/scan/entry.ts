@@ -119,7 +119,15 @@ async function openPosition(
    *  slice on. Caller-provided pieces (regime) merged with locally
    *  computed pieces (entry_zone, position_in_range_pct, entry_hour_utc).
    *  Optional — pre-instrumentation callers and pattern-strategy callers
-   *  may pass undefined; Phase 3 gates must handle null cohort gracefully. */
+   *  may pass undefined; Phase 3 gates must handle null cohort gracefully.
+   *
+   *  WARNING — `entry_hour_utc` is the wall-clock UTC hour of the
+   *  openPosition call (00/04/08/12/16/20 UTC for the flagship's 4h
+   *  throttle gate), NOT the bar's UTC hour. OANDA H4 bars are aligned
+   *  to NY 17:00 (01/05/09/13/17/21 UTC in EDT). For bar-aligned hour
+   *  analysis use `llm_decisions.bar_date.getUTCHours()` instead — that's
+   *  what `scripts/cohort-report.ts:346` reads, and what live + backtest
+   *  share. See investigation notes 2026-06-15. */
   cohortFromCaller?: Partial<EntryCohort>,
   /** Native daily bars for LEVEL-based TP rules (prior_day_extreme) —
    *  the level is the previous UTC day's extreme, so the rule silently
