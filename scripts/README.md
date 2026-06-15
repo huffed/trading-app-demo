@@ -23,6 +23,7 @@ operator), but the schedule should be kept in sync with this table.
 | Daily 04:00 UTC (`0 4 * * *`) | `prune-sentiment-cache-cron.sh` | `/api/admin/prune-sentiment-cache?days=30` | `/tmp/quanttrader-prune.log` |
 | Every 20 min (`*/20 * * * *`) | `oanda-positioning-cron.sh` | `/api/admin/snapshot-oanda-positioning?instruments=XAU_USD` | `/tmp/quanttrader-oanda-positioning.log` |
 | Every 5 min (`*/5 * * * *`) | `heartbeat-cron.sh` | `/api/cron/heartbeat` | `/tmp/quanttrader-heartbeat.log` |
+| Weekly Sun 23:00 UTC (`0 23 * * 0`) | `cohort-report-cron.sh` | _(none — direct script via Supabase)_ | `/tmp/quanttrader-cohort-report.log` |
 
 The 15-min scan cadence is chosen to align with bar-close moments
 across 15m, 1h, and 4h primary timeframes simultaneously. At `*/15 * *
@@ -155,6 +156,12 @@ Reference entries (swap `/Users/jack.jones/...` for your repo path):
 # Snapshot OANDA positioning (XAU_USD by default) every 20 minutes —
 # OANDA's positionBook itself only refreshes on a 20-min cadence
 */20 * * * * /Users/jack.jones/Documents/trading-app/demo-1/scripts/oanda-positioning-cron.sh >> /tmp/quanttrader-oanda-positioning.log 2>&1
+
+# Weekly $0 cohort report — learning-loop REVIEW layer. Sunday 23:00
+# UTC = post-weekly-close. Writes dated JSON to scripts/cohort-report-*
+# AND streams the summary to the log. No endpoint — script connects to
+# Supabase directly, doesn't need pnpm dev running.
+0 23 * * 0 /Users/jack.jones/Documents/trading-app/demo-1/scripts/cohort-report-cron.sh >> /tmp/quanttrader-cohort-report.log 2>&1
 ```
 
 `crontab -l` shows the active list; `crontab -r` removes everything
