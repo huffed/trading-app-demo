@@ -18,6 +18,13 @@
  *     these become log-only engine gates first (scoped per
  *     algo + prompt_version per the gate-scoping lessons), and only
  *     flip to enforcing after weeks of shadow evidence.
+ *  5. ENGINE ACTIVITY (always emitted, useful in pre-trade weeks):
+ *     LLM decision distribution + confidence stats over the activity
+ *     window, per-algo gate refusal / condition miss / drift refusal
+ *     counts, and notable defensive saves (drift refusals with the
+ *     would-have-entered side preserved). This is what keeps the
+ *     report informative during the 30-day observation window between
+ *     a config change and the first closed trade.
  *
  * Honesty rule: with small n the report SAYS "insufficient n" rather
  * than printing noise as signal. Cohort gates were reverted once
@@ -55,6 +62,10 @@ import { createClient } from "@supabase/supabase-js";
 const DAYS = Number(process.env.DAYS ?? 14);
 const SOURCE = process.env.SOURCE ?? "live";
 const MIN_N = Number(process.env.MIN_N ?? 5);
+/** Window for the engine-activity section. Separate from DAYS (which
+ *  governs the decay-comparison halves) so weekly review reads against
+ *  the prior 7 days regardless of how trade history is being sliced. */
+const ACTIVITY_DAYS = Number(process.env.ACTIVITY_DAYS ?? 7);
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -106,6 +117,188 @@ function confBucket(c: number | null): string {
   if (c < 70) return "<70";
   if (c < 75) return "70-74";
   return "75+";
+}
+
+interface AlgoActivity {
+  name: string;
+  gate_refusals: number;
+  condition_misses: number;
+  drift_refusals: number;
+  bar_staleness_refusals: number;
+  llm_holds: number;
+  other_refusals: number;
+  fires: number;
+  evaluations: number;
+}
+
+interface EngineActivity {
+  window_days: number;
+  llm_decisions: number;
+  llm_avg_confidence: number | null;
+  llm_by_decision: Record<string, number>;
+  llm_by_mtf: Record<string, number>;
+  per_algo: AlgoActivity[];
+  notable_saves: Array<{
+    when: string;
+    algorithm: string;
+    reason: string;
+    confidence: number | null;
+    would_have_entered_side: string | null;
+    llm_reasoning: string | null;
+  }>;
+}
+
+/** Engine activity over the ACTIVITY_DAYS window — always emitted so
+ *  weekly reads stay informative when zero trades have closed yet. */
+async function buildEngineActivity(
+  pad: (s: string, n: number) => string
+): Promise<EngineActivity> {
+  const since = new Date(Date.now() - ACTIVITY_DAYS * 86400_000).toISOString();
+
+  const { data: algos } = check(
+    "active algorithms",
+    await supabase.from("algorithms").select("id, name").eq("status", "active")
+  );
+  const algoById = new Map<string, string>(
+    (algos ?? []).map((a) => [a.id as string, a.name as string])
+  );
+
+  // LLM decision summary (live source only — walk_forward and backtest
+  // decisions don't reflect engine activity).
+  const { data: decisions } = check(
+    "llm_decisions activity",
+    await supabase
+      .from("llm_decisions")
+      .select("decision, confidence, context, created_at")
+      .eq("source", "live")
+      .gte("created_at", since)
+  );
+  const dRows = decisions ?? [];
+  const byDecision: Record<string, number> = {};
+  const byMtf: Record<string, number> = {};
+  let confSum = 0;
+  let confN = 0;
+  for (const r of dRows) {
+    const dec = (r.decision as string) ?? "unknown";
+    byDecision[dec] = (byDecision[dec] ?? 0) + 1;
+    const mtf = ((r.context as Record<string, unknown> | null)?.market_state as
+      | Record<string, unknown>
+      | undefined)?.mtf;
+    const mtfStr = typeof mtf === "string" ? mtf : "n/a";
+    byMtf[mtfStr] = (byMtf[mtfStr] ?? 0) + 1;
+    if (typeof r.confidence === "number") {
+      confSum += r.confidence;
+      confN++;
+    }
+  }
+
+  // Per-algo activity-log buckets — query per algo to dodge the
+  // 1000-row default cap (gate-refusal volume on dormant specialists
+  // exceeds it inside a single weekly window).
+  const perAlgoMap = new Map<string, AlgoActivity>();
+  const notable: EngineActivity["notable_saves"] = [];
+  for (const [id, name] of algoById) {
+    const a: AlgoActivity = {
+      name,
+      gate_refusals: 0,
+      condition_misses: 0,
+      drift_refusals: 0,
+      bar_staleness_refusals: 0,
+      llm_holds: 0,
+      other_refusals: 0,
+      fires: 0,
+      evaluations: 0,
+    };
+    perAlgoMap.set(id, a);
+    const { data: events } = check(
+      `activity_log:${name}`,
+      await supabase
+        .from("activity_log")
+        .select("event_type, details, created_at")
+        .eq("algorithm_id", id)
+        .gte("created_at", since)
+        .in("event_type", ["signal_no_action", "signal_detected", "position_opened"])
+        .limit(5000)
+    );
+    for (const e of events ?? []) {
+      a.evaluations++;
+      if (e.event_type === "signal_detected" || e.event_type === "position_opened") {
+        a.fires++;
+        continue;
+      }
+      const reason = String((e.details as Record<string, unknown> | null)?.reason ?? "");
+      if (reason === "market_state_gate") a.gate_refusals++;
+      else if (reason.startsWith("Entry conditions")) a.condition_misses++;
+      else if (reason.startsWith("LLM decision:")) a.llm_holds++;
+      else if (reason.startsWith("Most recent bar closed")) a.bar_staleness_refusals++;
+      else if (reason.includes("drifted")) {
+        a.drift_refusals++;
+        const d = (e.details ?? {}) as Record<string, unknown>;
+        notable.push({
+          when: e.created_at as string,
+          algorithm: a.name,
+          reason: "live_price_drift",
+          confidence: typeof d.confidence === "number" ? d.confidence : null,
+          would_have_entered_side:
+            typeof d.would_have_entered_side === "string"
+              ? d.would_have_entered_side
+              : null,
+          llm_reasoning: typeof d.llm_reasoning === "string" ? d.llm_reasoning : null,
+        });
+      } else {
+        a.other_refusals++;
+      }
+    }
+  }
+  const perAlgo = [...perAlgoMap.values()].sort((a, b) => a.name.localeCompare(b.name));
+
+  console.log(`--- Engine activity (last ${ACTIVITY_DAYS}d) ---\n`);
+  console.log(
+    `LLM decisions: ${dRows.length}${confN > 0 ? ` · avg confidence ${(confSum / confN).toFixed(1)}` : ""}`
+  );
+  if (Object.keys(byDecision).length > 0) {
+    const parts = Object.entries(byDecision)
+      .sort((a, b) => b[1] - a[1])
+      .map(([k, v]) => `${k}=${v}`)
+      .join(" · ");
+    console.log(`  ${parts}`);
+  }
+  if (Object.keys(byMtf).length > 0) {
+    const parts = Object.entries(byMtf)
+      .sort((a, b) => b[1] - a[1])
+      .map(([k, v]) => `${k}=${v}`)
+      .join(" · ");
+    console.log(`  mtf: ${parts}`);
+  }
+  console.log("");
+  console.log(
+    `  ${pad("algo", 38)}${pad("evals", 7)}${pad("gate", 6)}${pad("cond", 6)}${pad("drift", 7)}${pad("stale", 7)}${pad("holds", 7)}${pad("other", 7)}fires`
+  );
+  for (const a of perAlgo) {
+    console.log(
+      `  ${pad(a.name, 38)}${pad(String(a.evaluations), 7)}${pad(String(a.gate_refusals), 6)}${pad(String(a.condition_misses), 6)}${pad(String(a.drift_refusals), 7)}${pad(String(a.bar_staleness_refusals), 7)}${pad(String(a.llm_holds), 7)}${pad(String(a.other_refusals), 7)}${a.fires}`
+    );
+  }
+  if (notable.length > 0) {
+    console.log("\nNotable saves (drift refusals — gate caught a stale-price entry):");
+    for (const s of notable) {
+      console.log(
+        `  ${s.when.slice(0, 16)}Z  ${s.algorithm}  conf ${s.confidence ?? "?"}, ${s.would_have_entered_side ?? "?"}`
+      );
+      if (s.llm_reasoning) console.log(`    "${s.llm_reasoning.slice(0, 180)}"`);
+    }
+  }
+  console.log("");
+
+  return {
+    window_days: ACTIVITY_DAYS,
+    llm_decisions: dRows.length,
+    llm_avg_confidence: confN > 0 ? Number((confSum / confN).toFixed(1)) : null,
+    llm_by_decision: byDecision,
+    llm_by_mtf: byMtf,
+    per_algo: perAlgo,
+    notable_saves: notable,
+  };
 }
 
 async function main(): Promise<void> {
@@ -161,12 +354,34 @@ async function main(): Promise<void> {
     `${trades.length} completed entries with outcomes (${rows.length - trades.length} skipped without r_multiple) · ` +
       `${trades.filter((t) => t.zone !== "untagged").length} carry entry-zone tags\n`
   );
-  if (trades.length === 0) {
-    console.log("No data — nothing to report yet.");
-    return;
-  }
 
   const pad = (s: string, n: number): string => (s.length >= n ? s : s + " ".repeat(n - s.length));
+  const engineActivity = await buildEngineActivity(pad);
+
+  if (trades.length === 0) {
+    console.log("No closed trades in the cohort window yet — engine activity above is the");
+    console.log("weekly read for now (expected during the 30-day observation between any");
+    console.log("config change and the first closed trade).");
+    const outPath = `scripts/cohort-report-${new Date().toISOString().slice(0, 10)}.json`;
+    writeFileSync(
+      outPath,
+      JSON.stringify(
+        {
+          generated_at: new Date().toISOString(),
+          source: SOURCE,
+          days: DAYS,
+          activity_days: ACTIVITY_DAYS,
+          min_n: MIN_N,
+          trades: 0,
+          engine_activity: engineActivity,
+        },
+        null,
+        2
+      )
+    );
+    console.log(`\nSaved: ${outPath}`);
+    return;
+  }
 
   interface Agg {
     n: number;
@@ -274,8 +489,18 @@ async function main(): Promise<void> {
   writeFileSync(
     outPath,
     JSON.stringify(
-      { generated_at: new Date().toISOString(), source: SOURCE, days: DAYS, min_n: MIN_N,
-        trades: trades.length, dimensions: report, decay_flags: decayFlags, shadow_gate_candidates: candidates },
+      {
+        generated_at: new Date().toISOString(),
+        source: SOURCE,
+        days: DAYS,
+        activity_days: ACTIVITY_DAYS,
+        min_n: MIN_N,
+        trades: trades.length,
+        dimensions: report,
+        decay_flags: decayFlags,
+        shadow_gate_candidates: candidates,
+        engine_activity: engineActivity,
+      },
       null,
       2
     )
