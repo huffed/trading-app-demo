@@ -27,6 +27,7 @@ import { detectEngulfing } from "./engulfing";
 import { detectFvg, scanFvgs } from "./fvg";
 import { detectSessionWindow } from "./gold-session-window";
 import { detectLiquiditySweep } from "./liquidity-sweep";
+import { detectLiquiditySweepReclaim } from "./liquidity-sweep-reclaim";
 import { detectMeanReversion } from "./mean-reversion";
 import { detectMomentum } from "./momentum";
 import { detectOrderBlock } from "./order-block";
@@ -93,6 +94,15 @@ function evaluateClassicPattern(
   switch (cond.pattern) {
     case "liquidity_sweep": {
       const r = detectLiquiditySweep(bars, idx, cond.lookback ?? 5);
+      if (!r.detected || !r.details) return false;
+      if (effectiveDir && r.details.direction !== effectiveDir) return false;
+      return true;
+    }
+    case "liquidity_sweep_reclaim": {
+      const r = detectLiquiditySweepReclaim(bars, idx, {
+        lookback: cond.lookback ?? 5,
+        reclaim_window: 3,
+      });
       if (!r.detected || !r.details) return false;
       if (effectiveDir && r.details.direction !== effectiveDir) return false;
       return true;

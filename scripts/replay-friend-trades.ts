@@ -17,6 +17,7 @@ import { detectDailyBias } from "../src/lib/patterns/daily-bias";
 import { detectEqualLevels } from "../src/lib/patterns/equal-levels";
 import { detectFvg } from "../src/lib/patterns/fvg";
 import { detectLiquiditySweep } from "../src/lib/patterns/liquidity-sweep";
+import { detectLiquiditySweepReclaim } from "../src/lib/patterns/liquidity-sweep-reclaim";
 import { detectOrderBlock } from "../src/lib/patterns/order-block";
 import { detectOte } from "../src/lib/patterns/ote";
 import { loadCorpus } from "./llm-trader-backtest";
@@ -179,6 +180,8 @@ interface PatternHit {
   fvg_bearish: boolean;
   sweep_bullish: boolean;
   sweep_bearish: boolean;
+  sweep_reclaim_bullish: boolean;
+  sweep_reclaim_bearish: boolean;
   choch_bullish: boolean;
   choch_bearish: boolean;
   ote_bullish: boolean;
@@ -234,6 +237,15 @@ function evaluatePatterns(
   const sweepBull = sweepResult.detected && sweepResult.details?.direction === "bullish";
   const sweepBear = sweepResult.detected && sweepResult.details?.direction === "bearish";
 
+  // Sweep+reclaim — sweep happened in prior 1-3 bars AND current bar's
+  // close is back inside the swept range. This is the discretionary
+  // "wait for confirmation" entry pattern, distinct from raw sweep
+  // which fires AT the sweep candle. The friend's only signal-bearing
+  // zero-primitive trade (EUR/USD +$182) matches this pattern.
+  const reclaimResult = detectLiquiditySweepReclaim(bars, i, { lookback: 5, reclaim_window: 3 });
+  const reclaimBull = reclaimResult.detected && reclaimResult.details?.direction === "bullish";
+  const reclaimBear = reclaimResult.detected && reclaimResult.details?.direction === "bearish";
+
   // ----- New primitives added since 2026-04-29 baseline ChoCh, OTE, equal_levels -----
   const chochResult = detectChoch(bars, i, 5);
   const chochBull = chochResult.detected && chochResult.details?.direction === "bullish";
@@ -264,7 +276,8 @@ function evaluatePatterns(
     isBull ? oteBull : oteBear,
     isBull ? eqBull : eqBear,
   ].filter(Boolean).length;
-  const allPrimitives = aligned + newPrimitives;
+  const sweepReclaimAligned = isBull ? reclaimBull : reclaimBear;
+  const allPrimitives = aligned + newPrimitives + (sweepReclaimAligned ? 1 : 0);
 
   return {
     daily_bias_bullish: biasBull,
@@ -277,6 +290,8 @@ function evaluatePatterns(
     fvg_bearish: fvgBear,
     sweep_bullish: sweepBull,
     sweep_bearish: sweepBear,
+    sweep_reclaim_bullish: reclaimBull,
+    sweep_reclaim_bearish: reclaimBear,
     choch_bullish: chochBull,
     choch_bearish: chochBear,
     ote_bullish: oteBull,
@@ -401,7 +416,7 @@ async function main() {
     }).length;
     return (fired / sample.length) * 100;
   }
-  const patterns = ["daily_bias", "bos", "ob", "fvg", "sweep", "choch", "ote", "equal_levels"];
+  const patterns = ["daily_bias", "bos", "ob", "fvg", "sweep", "sweep_reclaim", "choch", "ote", "equal_levels"];
   console.log(`Pattern             ALL    WINNERS  LOSERS`);
   for (const p of patterns) {
     const a = fireAlignedRate(p, evaluated).toFixed(0);

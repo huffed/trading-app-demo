@@ -78,7 +78,7 @@ const V12_CLUSTER_GATE: MarketStateGate = {
   on_unreadable: "allow",
 };
 
-const PAIRS = ["EUR/USD", "GBP/USD", "USD/JPY"];
+const PAIRS = ["EUR/USD", "GBP/USD", "USD/JPY", "XAU/USD"];
 const STRATEGIES: { key: string; conditions: (tf: string) => EntryCondition[] }[] = [
   {
     key: "coil_breakout",
@@ -98,6 +98,13 @@ const STRATEGIES: { key: string; conditions: (tf: string) => EntryCondition[] }[
     key: "fvg_dailybias",
     conditions: (tf) => [
       { type: "pattern", pattern: "fvg", direction: "bullish", timeframe: tf },
+      { type: "pattern", pattern: "daily_bias", direction: "bullish", ma_period: 20, timeframe: tf },
+    ],
+  },
+  {
+    key: "sweep_reclaim_dailybias",
+    conditions: (tf) => [
+      { type: "pattern", pattern: "liquidity_sweep_reclaim", direction: "bullish", lookback: 5, timeframe: tf },
       { type: "pattern", pattern: "daily_bias", direction: "bullish", ma_period: 20, timeframe: tf },
     ],
   },
@@ -142,7 +149,7 @@ function makeRules(
     max_positions: 1,
     leverage: 9,
     timeframe: TIMEFRAME,
-    asset_class: "forex",
+    asset_class: pair === "XAU/USD" ? "commodity" : "forex",
     side: "long",
     stagnant_exit: { enabled: true },
     ...(gated ? { market_state_gate: V12_CLUSTER_GATE } : {}),

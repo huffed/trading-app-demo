@@ -10,6 +10,10 @@ export * from "./types";
 export { detectSwingPoints, lastSwingBefore } from "./swing-points";
 export { detectDailyBias } from "./daily-bias";
 export { detectLiquiditySweep } from "./liquidity-sweep";
+export {
+  detectLiquiditySweepReclaim,
+  type LiquiditySweepReclaimDetails,
+} from "./liquidity-sweep-reclaim";
 export { detectFvg, fvgFillIndex, scanFvgs } from "./fvg";
 export { detectBos } from "./bos";
 export { detectChoch, type ChochDetails } from "./choch";

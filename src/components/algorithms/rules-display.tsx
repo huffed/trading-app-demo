@@ -113,6 +113,7 @@ function formatSentimentCondition(c: SentimentCondition): string {
 
 const PATTERN_LABELS: Record<PatternCondition["pattern"], string> = {
   liquidity_sweep: "Liquidity sweep",
+  liquidity_sweep_reclaim: "Liquidity sweep + reclaim",
   fvg: "Fair Value Gap",
   ifvg: "Inverse FVG (filled, retesting)",
   daily_bias: "Daily bias",
