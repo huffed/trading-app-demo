@@ -108,8 +108,12 @@ function canonicalize(value: unknown): unknown {
   return value;
 }
 
+// `supabase` is typed loosely here because the SupabaseClient generic
+// parameters inferred at the call site don't match the bare
+// ReturnType<typeof createClient>. This is a script file — any is fine.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function resolveAlgoIds(
-  supabase: ReturnType<typeof createClient>,
+  supabase: any,
   ids: string[]
 ): Promise<string[]> {
   const full = ids.filter((id) => UUID_RE.test(id));
