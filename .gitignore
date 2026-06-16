@@ -75,3 +75,14 @@ scripts/discovery-mfe-mae-by-exit-*.json
 scripts/discovery-trailing-stop-*.json
 scripts/discovery-trailing-stop-engine-*.json
 scripts/discovery-v1-2-*.json
+scripts/auto-loop-*.json
+scripts/library-walk-forward-*.json
+scripts/discovery-rr-achievement-*.json
+scripts/discovery-pir-window-normalization-*.json
+scripts/discovery-hour-level-cluster-*.json
+scripts/discovery-day-of-week-cluster-*.json
+scripts/discovery-per-ticker-cluster-*.json
+scripts/discovery-per-algo-validation-*.json
+scripts/discovery-deployed-algo-cluster-filter-*.json
+scripts/discovery-equal-levels-confluence-*.json
+scripts/discovery-ote-standalone-validation-*.json
