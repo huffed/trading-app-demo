@@ -1,0 +1,80 @@
+{
+  "generated_at": "2026-06-16T15:36:14.340Z",
+  "tickers": [
+    "XAU/USD"
+  ],
+  "per_algo": [
+    {
+      "algo": "dip_buyer_4h",
+      "pre_filter": {
+        "n": 99,
+        "mean_r": -0.05507811447811446,
+        "total_r": -5.452733333333332
+      },
+      "post_filter": {
+        "n": 92,
+        "mean_r": 0.018912681159420342,
+        "total_r": 1.7399666666666715
+      },
+      "cluster_only": {
+        "n": 7,
+        "mean_r": -1.0275285714285716,
+        "total_r": -7.1927
+      }
+    },
+    {
+      "algo": "bear_short_4h",
+      "pre_filter": {
+        "n": 0,
+        "mean_r": 0,
+        "total_r": 0
+      },
+      "post_filter": {
+        "n": 0,
+        "mean_r": 0,
+        "total_r": 0
+      },
+      "cluster_only": {
+        "n": 0,
+        "mean_r": 0,
+        "total_r": 0
+      }
+    },
+    {
+      "algo": "fvg_long_30m",
+      "pre_filter": {
+        "n": 43,
+        "mean_r": 0.47852170542635675,
+        "total_r": 20.57643333333334
+      },
+      "post_filter": {
+        "n": 43,
+        "mean_r": 0.47852170542635675,
+        "total_r": 20.57643333333334
+      },
+      "cluster_only": {
+        "n": 0,
+        "mean_r": 0,
+        "total_r": 0
+      }
+    },
+    {
+      "algo": "coil_breakout_1h",
+      "pre_filter": {
+        "n": 73,
+        "mean_r": 0.4971262557077625,
+        "total_r": 36.29021666666666
+      },
+      "post_filter": {
+        "n": 72,
+        "mean_r": 0.5207002314814813,
+        "total_r": 37.490416666666654
+      },
+      "cluster_only": {
+        "n": 1,
+        "mean_r": -1.2002,
+        "total_r": -1.2002
+      }
+    }
+  ]
+}
