@@ -330,6 +330,17 @@ export function checkMarketStateGateConfig(
   let refusedAt: { clause: number; verdict: GateVerdict } | null = null;
 
   for (let i = 0; i < config.clauses.length; i++) {
+    // When a non-shadow clause has already refused, only continue
+    // evaluating SHADOW clauses (for telemetry) — non-shadow clauses
+    // after refusal can't change the AND-composite verdict so we skip
+    // them for efficiency. This is the "shadow telemetry survives a
+    // hard refusal" fix (2026-06-16): without it, V1.2 shadow clauses
+    // placed after a hard `block` clause never fire because the loop
+    // short-circuits, leaving us with zero shadow data to validate
+    // whether the V1.2 gate would ALSO catch entries the hard gate
+    // already catches (redundant) or DIFFERENT entries (complementary).
+    if (refusedAt && config.clauses[i].shadow !== true) continue;
+
     // In whole-composite shadow mode, strip per-clause shadow so we can
     // see the underlying clause verdict and re-shadow at the composite
     // level on refusal. Otherwise leave the clause untouched so its
@@ -343,9 +354,11 @@ export function checkMarketStateGateConfig(
     if (!compositeShadow && v.shadow_block_reason && !firstShadowReason) {
       firstShadowReason = { clause: i, reason: v.shadow_block_reason };
     }
-    if (!v.allowed) {
+    if (!v.allowed && !refusedAt) {
       refusedAt = { clause: i, verdict: v };
-      break;
+      // Don't break — keep iterating to evaluate any remaining shadow
+      // clauses for telemetry. Subsequent non-shadow clauses are skipped
+      // at the top of the loop.
     }
   }
 
@@ -370,5 +383,13 @@ export function checkMarketStateGateConfig(
       shadow_block_reason: composedReason,
     };
   }
-  return { allowed: false, reason: composedReason };
+  // Hard refusal — but surface any shadow clause that would ALSO block,
+  // so the operator can see whether the V1.2 shadow gate (or any other
+  // shadow clause) is redundant with the hard gate (caught the same
+  // entry) or complementary (would have caught a different population).
+  const verdict: GateVerdict = { allowed: false, reason: composedReason };
+  if (firstShadowReason) {
+    verdict.shadow_block_reason = `clause #${firstShadowReason.clause}: ${firstShadowReason.reason}`;
+  }
+  return verdict;
 }

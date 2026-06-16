@@ -88,3 +88,4 @@ scripts/discovery-equal-levels-confluence-*.json
 scripts/discovery-ote-standalone-validation-*.json
 scripts/sweep-fvg-dailybias-geometry-*.json
 scripts/sweep-algo-geometry-*.json
+scripts/replay-v12-shadow-*.json

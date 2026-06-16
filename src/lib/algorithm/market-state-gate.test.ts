@@ -332,7 +332,10 @@ describe("checkMarketStateGateConfig", () => {
       clauses: [
         // Enforced clause — refuses (state is fast_div_bear, allowed list is aligned_LH).
         { mode: "allow", states: { mtf: ["aligned_LH"] } },
-        // Shadow clause — never reached because we short-circuit.
+        // Shadow clause that would ALSO refuse (joint match).
+        // Per the 2026-06-16 shadow-telemetry fix, this clause IS evaluated
+        // after the hard refusal so its shadow_block_reason surfaces — but
+        // it does NOT change allowed (still false from clause #0).
         {
           mode: "block_joint",
           states: { vol: ["mid"], range: ["compressed"] },
@@ -343,6 +346,73 @@ describe("checkMarketStateGateConfig", () => {
     const v = checkMarketStateGateConfig(config, STATE);
     expect(v.allowed).toBe(false);
     expect(v.reason).toContain("clause #0");
+    // Shadow telemetry survived the hard refusal — operator can now see
+    // that the V1.2-style cluster gate would have ALSO caught this entry.
+    expect(v.shadow_block_reason).toContain("clause #1");
+  });
+
+  it("shadow telemetry survives a hard refusal — composite SHADOW clause after a hard-refusing clause is still evaluated for telemetry", () => {
+    // The canonical fix case (2026-06-16): Dip-Buyer's V1.2 shadow gate
+    // sat as clause #1 behind a hard `block` clause #0 (dxy=usd_down OR
+    // mtf=fast_div_bull). Before the fix the loop short-circuited on
+    // clause #0's refusal and the shadow clause never fired — yielding
+    // zero shadow data to validate the gate against. This test pins the
+    // new behavior so it can't regress.
+    const config: MarketStateGateComposite = {
+      clauses: [
+        // Clause #0: hard block on usd_up (refuses because STATE.dxy=usd_up).
+        { mode: "block", states: { dxy: ["usd_up"] } },
+        // Clause #1: shadow joint match on vol=mid ∩ range=compressed
+        // (both met by STATE). Pre-fix: never evaluated. Post-fix:
+        // evaluates and surfaces shadow_block_reason on the composite.
+        {
+          mode: "block_joint",
+          states: { vol: ["mid"], range: ["compressed"] },
+          shadow: true,
+        },
+      ],
+    };
+    const v = checkMarketStateGateConfig(config, STATE);
+    expect(v.allowed).toBe(false); // hard refusal still controls
+    expect(v.reason).toContain("clause #0");
+    expect(v.shadow_block_reason).toBeDefined();
+    expect(v.shadow_block_reason).toContain("clause #1");
+  });
+
+  it("shadow telemetry does NOT fire when the shadow clause would have allowed (no false positives)", () => {
+    const config: MarketStateGateComposite = {
+      clauses: [
+        // Hard refusal.
+        { mode: "block", states: { dxy: ["usd_up"] } },
+        // Shadow clause that WOULD allow (state doesn't match joint
+        // condition: vol=mid yes, range=expanded no — STATE.range=compressed).
+        {
+          mode: "block_joint",
+          states: { vol: ["mid"], range: ["expanded"] },
+          shadow: true,
+        },
+      ],
+    };
+    const v = checkMarketStateGateConfig(config, STATE);
+    expect(v.allowed).toBe(false);
+    expect(v.shadow_block_reason).toBeUndefined();
+  });
+
+  it("subsequent non-shadow clauses are NOT evaluated after a hard refusal (efficiency)", () => {
+    // Verifies the optimization holds: only SHADOW clauses are evaluated
+    // post-refusal. Non-shadow clauses after refusal can't change the
+    // verdict (AND-composition) so we skip them.
+    const config: MarketStateGateComposite = {
+      clauses: [
+        { mode: "allow", states: { mtf: ["aligned_LH"] } }, // refuses
+        { mode: "block", states: { vol: ["mid"] } }, // would also refuse — skipped
+      ],
+    };
+    const v = checkMarketStateGateConfig(config, STATE);
+    expect(v.allowed).toBe(false);
+    expect(v.reason).toContain("clause #0");
+    expect(v.reason).not.toContain("clause #1");
+    expect(v.shadow_block_reason).toBeUndefined();
   });
 
   it("composite with zero clauses is pass-through", () => {
