@@ -11,7 +11,7 @@
  *
  * These are TYPE-ONLY operations — no runtime transformation happens.
  */
-import type { Algorithm, AlgorithmRules } from "@/types/algorithm";
+import type { Algorithm, AlgorithmRules, Strategy } from "@/types/algorithm";
 import type { PaperPosition } from "@/types/position";
 import type { Database, Json, Tables, TablesUpdate } from "./database.types";
 
@@ -35,6 +35,14 @@ export function algorithmFromRow(row: Tables<"algorithms">): Algorithm {
 
 export function algorithmsFromRows(rows: Tables<"algorithms">[]): Algorithm[] {
   return rows as unknown as Algorithm[];
+}
+
+export function strategyFromRow(row: Tables<"strategies">): Strategy {
+  return row as unknown as Strategy;
+}
+
+export function strategiesFromRows(rows: Tables<"strategies">[]): Strategy[] {
+  return rows as unknown as Strategy[];
 }
 
 export function paperPositionFromRow(row: Tables<"paper_positions">): PaperPosition {

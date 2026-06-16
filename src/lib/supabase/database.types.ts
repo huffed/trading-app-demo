@@ -1,5 +1,5 @@
 /**
- * Supabase database types — GENERATED from the live schema 2026-06-11
+ * Supabase database types — GENERATED from the live schema 2026-06-16
  * via the Supabase MCP (`generate_typescript_types`). Do not hand-edit;
  * regenerate after applying migrations. Single source of truth for row
  * shapes — local `interface XRow { ... }` duplicates and
@@ -226,6 +226,7 @@ export type Database = {
           risk_level: string
           rules: Json
           status: string
+          strategy_id: string | null
           time_horizon: string
           updated_at: string | null
           user_hints: string | null
@@ -250,6 +251,7 @@ export type Database = {
           risk_level?: string
           rules?: Json
           status?: string
+          strategy_id?: string | null
           time_horizon?: string
           updated_at?: string | null
           user_hints?: string | null
@@ -274,6 +276,7 @@ export type Database = {
           risk_level?: string
           rules?: Json
           status?: string
+          strategy_id?: string | null
           time_horizon?: string
           updated_at?: string | null
           user_hints?: string | null
@@ -292,6 +295,13 @@ export type Database = {
             columns: ["portfolio_id"]
             isOneToOne: false
             referencedRelation: "portfolios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "algorithms_strategy_id_fkey"
+            columns: ["strategy_id"]
+            isOneToOne: false
+            referencedRelation: "strategies"
             referencedColumns: ["id"]
           },
         ]
@@ -966,6 +976,39 @@ export type Database = {
         }
         Relationships: []
       }
+      strategies: {
+        Row: {
+          created_at: string
+          description: string
+          id: string
+          name: string
+          rules_template: Json
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string
+          id?: string
+          name: string
+          rules_template?: Json
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          id?: string
+          name?: string
+          rules_template?: Json
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       trades: {
         Row: {
           asset_class: string
@@ -1041,6 +1084,7 @@ export type Database = {
     }
     Functions: {
       last_manage_tick: { Args: never; Returns: string }
+      last_scan_tick: { Args: never; Returns: string }
       prune_sentiment_cache: {
         Args: { retention_days?: number }
         Returns: number
