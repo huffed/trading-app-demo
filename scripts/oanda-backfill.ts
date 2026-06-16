@@ -158,24 +158,10 @@ async function main(): Promise<void> {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 
-  // Match existing XAU/USD cache rows' user_id for consistency. Unique
-  // constraint is on (user_id, ticker, output_size, interval) — pass
-  // the same user_id so a re-run upserts rather than duplicating.
-  const { data: existing } = await supabase
-    .from("price_cache")
-    .select("user_id")
-    .eq("ticker", CACHE_TICKER)
-    .limit(1)
-    .maybeSingle();
-  const userId = (existing as { user_id: string } | null)?.user_id ?? null;
-  if (!userId) {
-    console.error("No existing XAU/USD cache row found to derive user_id. Aborting to avoid orphan row.");
-    process.exit(1);
-  }
-
+  // price_cache is now global (user_id column dropped in migration 00037).
+  // Unique constraint is on (ticker, output_size, interval).
   const { error } = await supabase.from("price_cache").upsert(
     {
-      user_id: userId,
       ticker: CACHE_TICKER,
       interval: CACHE_INTERVAL,
       output_size: "full",
@@ -183,7 +169,7 @@ async function main(): Promise<void> {
       bar_count: allBars.length,
       fetched_at: new Date().toISOString(),
     },
-    { onConflict: "user_id,ticker,output_size,interval" }
+    { onConflict: "ticker,output_size,interval" }
   );
 
   if (error) {
