@@ -69,3 +69,4 @@ scripts/entry-gate-screen-*.json
 scripts/market-state-study-*.json
 scripts/discovery-v1-*.json
 scripts/discovery-v1-losers-*.json
+scripts/discovery-mfe-mae-*.json
