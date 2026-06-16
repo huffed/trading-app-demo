@@ -93,6 +93,59 @@ const TARGET_GATE = {
   shadow: true as const,
 };
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// Postgres JSONB reorders object keys on storage, so equality must
+// canonicalize before comparing. Array order is preserved (positional).
+function canonicalize(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(canonicalize);
+  if (value && typeof value === "object") {
+    const obj = value as Record<string, unknown>;
+    const sorted: Record<string, unknown> = {};
+    for (const k of Object.keys(obj).sort()) sorted[k] = canonicalize(obj[k]);
+    return sorted;
+  }
+  return value;
+}
+
+async function resolveAlgoIds(
+  supabase: ReturnType<typeof createClient>,
+  ids: string[]
+): Promise<string[]> {
+  const full = ids.filter((id) => UUID_RE.test(id));
+  const prefixes = ids.filter((id) => !UUID_RE.test(id));
+  if (prefixes.length === 0) return full;
+
+  for (const p of prefixes) {
+    if (!/^[0-9a-f-]{1,35}$/i.test(p)) {
+      throw new Error(
+        `ALGO_IDS contains invalid value: "${p}" — must be a full UUID or hex prefix.`
+      );
+    }
+  }
+
+  const { data: all, error } = await supabase.from("algorithms").select("id, name");
+  if (error) throw new Error(`prefix resolution failed: ${error.message}`);
+
+  const resolved = [...full];
+  for (const p of prefixes) {
+    const needle = p.toLowerCase();
+    const matches = ((all ?? []) as Array<{ id: string; name: string }>).filter((r) =>
+      r.id.startsWith(needle)
+    );
+    if (matches.length === 0) {
+      throw new Error(`ALGO_IDS prefix "${p}" matched no algorithms.`);
+    }
+    if (matches.length > 1) {
+      const detail = matches.map((r) => `${r.id} (${r.name})`).join(", ");
+      throw new Error(`ALGO_IDS prefix "${p}" is ambiguous — matched: ${detail}`);
+    }
+    console.log(`  resolved prefix "${p}" → ${matches[0].id} (${matches[0].name})`);
+    resolved.push(matches[0].id);
+  }
+  return resolved;
+}
+
 async function main() {
   if (ALGO_IDS.length === 0 && ALGO_NAMES.length === 0) {
     console.error("Pass ALGO_IDS or ALGO_NAMES env. Discover via `pnpm dlx tsx scripts/live-state.ts`.");
@@ -116,9 +169,12 @@ async function main() {
       `Gate to add: block_joint discount ∩ london(7-13) ∩ compressed, shadow=true\n`
   );
 
+  const resolvedIds =
+    ALGO_IDS.length > 0 ? await resolveAlgoIds(supabase, ALGO_IDS) : [];
+
   // Read targets. Allow either filter.
   let query = supabase.from("algorithms").select("id, name, status, rules");
-  if (ALGO_IDS.length > 0) query = query.in("id", ALGO_IDS);
+  if (resolvedIds.length > 0) query = query.in("id", resolvedIds);
   else query = query.in("name", ALGO_NAMES);
   const { data: rows, error: readErr } = await query;
   if (readErr) throw new Error(`read failed: ${readErr.message}`);
@@ -144,7 +200,8 @@ async function main() {
     // Idempotency: if the EXACT target gate is already deployed, skip.
     if (
       existing &&
-      JSON.stringify(existing) === JSON.stringify(TARGET_GATE)
+      JSON.stringify(canonicalize(existing)) ===
+        JSON.stringify(canonicalize(TARGET_GATE))
     ) {
       console.log("  ✓ target gate ALREADY DEPLOYED — skipping.");
       skippedAlreadyDeployed++;
