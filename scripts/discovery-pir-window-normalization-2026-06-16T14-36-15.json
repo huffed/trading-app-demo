@@ -1,0 +1,92 @@
+{
+  "generated_at": "2026-06-16T14:36:15.087Z",
+  "tickers": [
+    "XAU/USD",
+    "EUR/USD",
+    "GBP/USD",
+    "USD/JPY"
+  ],
+  "method": "Compare entry_zone = discount derived from PIR over 20-bar window (legacy) vs 24h window (normalized). Cluster filter: entry_zone=discount AND entry_hour_bucket=london(7-13) AND range=compressed.",
+  "total_trades": 5027,
+  "clusters": {
+    "legacy": {
+      "n": 76,
+      "mean_r": -0.7657962719298246,
+      "win_pct": 7.894736842105263
+    },
+    "normalized_24h": {
+      "n": 78,
+      "mean_r": -0.5718692307692307,
+      "win_pct": 12.820512820512821
+    },
+    "overlap": {
+      "n": 52,
+      "mean_r": -0.7773676282051283,
+      "win_pct": 7.6923076923076925
+    },
+    "legacy_only": {
+      "n": 24,
+      "mean_r": -0.740725,
+      "win_pct": 8.333333333333334
+    },
+    "normalized_only": {
+      "n": 26,
+      "mean_r": -0.16087243589743588,
+      "win_pct": 23.076923076923077
+    },
+    "union": {
+      "n": 102,
+      "mean_r": -0.6116,
+      "win_pct": 11.764705882352942
+    },
+    "non_cluster": {
+      "n": 4925,
+      "mean_r": -0.013234064297800371,
+      "win_pct": 25.766497461928935
+    }
+  },
+  "per_tf": [
+    {
+      "timeframe": "30m",
+      "total": 1236,
+      "legacy": {
+        "n": 12,
+        "mean_r": -0.4616236111111111,
+        "win_pct": 16.666666666666668
+      },
+      "normalized_24h": {
+        "n": 26,
+        "mean_r": -0.21501987179487175,
+        "win_pct": 23.076923076923077
+      }
+    },
+    {
+      "timeframe": "1h",
+      "total": 466,
+      "legacy": {
+        "n": 1,
+        "mean_r": -1.2002,
+        "win_pct": 0
+      },
+      "normalized_24h": {
+        "n": 1,
+        "mean_r": -1.2002,
+        "win_pct": 0
+      }
+    },
+    {
+      "timeframe": "4h",
+      "total": 3325,
+      "legacy": {
+        "n": 63,
+        "mean_r": -0.8168386243386242,
+        "win_pct": 6.349206349206349
+      },
+      "normalized_24h": {
+        "n": 51,
+        "mean_r": -0.7414722222222222,
+        "win_pct": 7.8431372549019605
+      }
+    }
+  ]
+}
