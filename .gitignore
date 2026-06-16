@@ -91,4 +91,5 @@ scripts/sweep-algo-geometry-*.json
 scripts/replay-v12-shadow-*.json
 scripts/sweep-forex-prep-s5-*.json
 scripts/regime-decomp-ote-long-*.json
+scripts/test-confluence-228-*.json
 scripts/inspect-blind-spot-trades-*.json
