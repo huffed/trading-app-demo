@@ -42,6 +42,10 @@ export interface TrailingState {
    *  high (long) or lowest low (short) the position has touched since
    *  entry. Updated on each bar BEFORE the SL recompute. */
   mfePriceFavorable: number;
+  /** ATR(14) at entry bar — captured once, used by the ATR-variant of
+   *  trailing_stop. undefined when not computed; ATR-variant rules
+   *  silently skip in that case. */
+  initialAtr?: number;
 }
 
 export interface UpdateTrailingInput {
@@ -93,11 +97,33 @@ export function updateTrailingState(input: UpdateTrailingInput): TrailingState {
   }
 
   if (trailingStop?.enabled) {
-    const activateR = trailingStop.activate_at_r ?? 0.5;
-    if (mfeR >= activateR) {
-      const trailDistance = (trailingStop.trail_distance_r ?? 1) * initialSlDistance;
-      const trailedSl = side === "long" ? newMfe - trailDistance : newMfe + trailDistance;
-      candidates.push(trailedSl);
+    // ATR-variant takes precedence when either ATR-field is set AND
+    // initialAtr is available on the state. Falls back to R-variant
+    // (or skips silently if neither path can compute).
+    const useAtr =
+      (trailingStop.activate_at_atr !== undefined ||
+        trailingStop.trail_distance_atr !== undefined) &&
+      state.initialAtr !== undefined &&
+      state.initialAtr > 0;
+    if (useAtr) {
+      const initialAtr = state.initialAtr as number;
+      const activateAtr = trailingStop.activate_at_atr ?? 0.5;
+      const mfeAtr =
+        side === "long"
+          ? (newMfe - entryPrice) / initialAtr
+          : (entryPrice - newMfe) / initialAtr;
+      if (mfeAtr >= activateAtr) {
+        const trailDistance = (trailingStop.trail_distance_atr ?? 1) * initialAtr;
+        const trailedSl = side === "long" ? newMfe - trailDistance : newMfe + trailDistance;
+        candidates.push(trailedSl);
+      }
+    } else {
+      const activateR = trailingStop.activate_at_r ?? 0.5;
+      if (mfeR >= activateR) {
+        const trailDistance = (trailingStop.trail_distance_r ?? 1) * initialSlDistance;
+        const trailedSl = side === "long" ? newMfe - trailDistance : newMfe + trailDistance;
+        candidates.push(trailedSl);
+      }
     }
   }
 
@@ -110,6 +136,7 @@ export function updateTrailingState(input: UpdateTrailingInput): TrailingState {
     initialSlPrice: state.initialSlPrice,
     currentSlPrice: newSl,
     mfePriceFavorable: newMfe,
+    initialAtr: state.initialAtr,
   };
 }
 
@@ -121,11 +148,16 @@ export function updateTrailingState(input: UpdateTrailingInput): TrailingState {
 export function initTrailingState(input: {
   entryPrice: number;
   initialSlPrice: number;
+  /** ATR(14) at entry bar — captured once, persisted on the trailing
+   *  state for the ATR-variant of trailing_stop. Optional; ATR-variant
+   *  rules silently skip when undefined. */
+  initialAtr?: number;
 }): TrailingState {
   return {
     initialSlPrice: input.initialSlPrice,
     currentSlPrice: input.initialSlPrice,
     mfePriceFavorable: input.entryPrice,
+    initialAtr: input.initialAtr,
   };
 }
 

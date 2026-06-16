@@ -206,6 +206,15 @@ const trailingStopSchema = z.object({
   // R-units. 0.25 = very tight (locks in fast, exits on noise). 5 = wide
   // trail (lets winners run, gives back more on reversal). Default 1.0.
   trail_distance_r: z.number().min(0.25).max(5).optional(),
+  // ATR-units variant (added 2026-06-16). Use when the trail should
+  // anchor on absolute volatility rather than each trade's specific
+  // SL-distance. Discovery work showed trend-followers' winners reach
+  // 9-17 ATR favorable — an ATR-anchored trail captures that tail
+  // more directly than R-based for wide-swing-anchor SLs. If either
+  // ATR-field is set, the ATR variant takes precedence over the R
+  // variant on this rule.
+  activate_at_atr: z.number().min(0).max(10).optional(),
+  trail_distance_atr: z.number().min(0.25).max(10).optional(),
 });
 
 const driftSchema = z.object({

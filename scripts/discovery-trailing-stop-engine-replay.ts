@@ -1,39 +1,19 @@
 /**
- * Trailing-stop test — analogous to BE-trigger test (#226 follow-on
- * PR #232), but for the OPPOSITE end of the distribution. MFE/MAE ×
- * exit_reason (PR #234) revealed that TP-hit winners frequently run
- * 3-5× past our 3R TP target (MFE p90: bear_short 16.6 ATR, coil_1h
- * 13.7 ATR, fvg_30m 9.9 ATR). A trailing stop could capture more of
- * that winner tail.
+ * Trailing-stop test (engine-mechanic version, ATR-variant).
  *
- * ⚠️  2026-06-16 UNITS-BUG FIX
- * The original version of this script (the one used for PR #235)
- * reported the trail-fire exit R in ATR-units while reporting the
- * baseline actualR in real-R-units (pnl / RISK_DOLLARS) — adding
- * the two into one sum was apples-to-oranges. Under swing_anchor
- * 0.10/4 the SL is ~3× ATR for gold, so every captured-R in the
- * fire branch was inflated by ~3×, faking a +163 R "improvement"
- * that does not exist in real-R-units.
+ * Re-runs the trailing-stop test (PR #235) using the ENGINE's actual
+ * `updateTrailingState` primitive — now with the ATR-anchored variant
+ * added 2026-06-16. With ATR fields populated on the trailing_stop rule
+ * and initialAtr captured on the state, the engine now measures the
+ * SAME mechanic the simulation in PR #235 used: distances expressed in
+ * units of entry-bar ATR, not in 1R = swing-anchor units.
  *
- * The fix: compute exit R as `(trailSl - entry) / initialSlDistance`
- * — the same denominator the engine uses. The full A/B decomposition
- * lives in `scripts/discovery-trailing-stop-ab-decomp.ts`: 100% of
- * the simulation-vs-engine gap was units, 0% mechanic (every fire
- * happens on the same bar in both).
- *
- * PR #235's "+100% R doubled" finding evaporates under this fix.
- * Keeping the script live (units-correct) so future trailing screens
- * use it safely; the engine-mechanic version
- * (discovery-trailing-stop-engine-replay.ts) is what should drive
- * ship decisions.
- *
- * Asymmetry: BE rescued losses by sacrificing winners (failed). A
- * trailing stop tries to RIDE winners further by accepting that some
- * winners-that-just-tagged-TP will instead exit at a lower R via the
- * trail. The math is different — we're not asking "are losers'
- * favorable excursions bigger than winners' adverse excursions" but
- * "do winners run far enough past TP to make a trail-and-give-back
- * preferable to fixed 3R."
+ * Earlier attempt: ran the engine with R-based fields and got a
+ * uniformly negative result. Root cause: 1R ≠ 1 ATR for swing_anchor
+ * 0.10/4 — R contains the swing width AND the 0.10×ATR buffer, varying
+ * 4×+ per trade. R-based engine and ATR-based simulation measured
+ * different mechanics. Adding ATR-variant to the engine resolves the
+ * gap.
  *
  * ============================================================
  * PRE-REGISTERED DESIGN — LOCKED 2026-06-16
@@ -41,46 +21,25 @@
  *
  *  Decision      | Pick
  *  --------------|----------------------------------------------
- *  1. Trade source | Same multi-pair (XAU+EUR+GBP+JPY) as BE-test.
- *  2. Algos under test | 5 trend-followers per MFE/MAE finding:
+ *  1. Trade source | Same multi-pair (XAU+EUR+GBP+JPY).
+ *  2. Algos under test | Same 5 trend-followers as PR #235:
  *                      |   coil_breakout_1h, coil_breakout_4h,
  *                      |   bear_short_4h, breakdown_rider_4h,
  *                      |   fvg_long_30m
- *                      | Excluded: dip_buyer + mean_reversion
- *                      | (compact MFE/MAE — trail won't help).
- *  3. Trail thresholds | {1.0, 1.5, 2.0, 2.5, 3.0, 4.0} ATR
- *                      | Distance the trail SL stays BEHIND the
- *                      | running MFE peak. Smaller = exits sooner
- *                      | (less giveback, more scratches); larger =
- *                      | rides further (more profit per winner,
- *                      | also more retracements take us out near 3R).
- *  4. Trail activation rule | Trail arms only after MFE reaches
- *                           | trail_threshold favorable (otherwise
- *                           | original SL/TP unchanged).
- *  5. Trail exit rule | Once armed: trailing_SL = MFE_peak −
- *                     | trail_threshold (ratchets up only). If a
- *                     | subsequent bar's adverse touches trailing_SL,
- *                     | exit at trailing_SL price. Otherwise actual
- *                     | recorded outcome.
- *  6. R conversion | 2026-06-16 FIX: exit R = (trailSl - entry) /
- *                  | initialSlDistance — same denominator the engine
- *                  | uses. Original "1 ATR = 1 R" approximation was a
- *                  | units bug under swing_anchor where SL ≈ 3 ATR for
- *                  | gold. Friction on trail exit: -0.05 R.
- *  7. TRAIN/TEST | Per-algo midpoint split (same as BE-test).
- *  8. Ship gate | Net R improvement ≥ 5% in BOTH halves to qualify.
- *
- * Replays each trade against each trail threshold. Pre-registered
- * order of within-bar events: MFE peak updates FIRST (using bar.high
- * for long), THEN adverse check. Slightly optimistic for trail; matches
- * the BE-test's lucky-order convention.
- *
- * Out of scope (would need separate pre-registered tests):
- *   - Trail activation at NON-threshold MFE level (e.g., trail only
- *     after MFE > 3R = "trail past TP")
- *   - Chandelier-style trail (high − K*ATR with K independent of
- *     MFE)
- *   - Structural-trail (trail to swing lows)
+ *  3. activate_at_atr grid | {1.0, 1.5, 2.0, 2.5, 3.0, 4.0}
+ *  4. trail_distance_atr grid | {1.0, 1.5, 2.0, 2.5, 3.0, 4.0}
+ *  5. Total combinations | 6 × 6 = 36 per algo × 5 algos = 180
+ *  6. SL distance per trade | computeSlDistance() with swing_anchor
+ *                           | 0.10/4 — same as engine uses at entry
+ *  7. ATR at entry | atr14(corpus.bars, entryIdx) — captured once,
+ *                  | persisted on TrailingState (matches engine path)
+ *  8. Trailing logic | engine's updateTrailingState() called per bar
+ *                    | with ATR fields → ATR-variant branch
+ *  9. Exit detection | long SL hit if bar.low <= currentSlPrice;
+ *                    | short SL hit if bar.high >= currentSlPrice.
+ *                    | Friction -0.05 R.
+ *  10. TRAIN/TEST | Per-algo midpoint split (same as PR #235).
+ *  11. Ship gate | Net R improvement ≥ 5% in BOTH halves.
  */
 import { writeFileSync } from "fs";
 import { runPortfolioBacktest } from "../src/lib/market-data/portfolio-backtest";
@@ -88,8 +47,13 @@ import type { MarketStateSeries } from "../src/lib/market-data/portfolio-backtes
 import type { BacktestTrade, PriceBar } from "../src/lib/market-data/types";
 import type { AlgorithmRules } from "../src/types/algorithm";
 import { loadCorpus, type Corpus } from "./llm-trader-backtest";
-import { atr14 } from "../src/lib/market-data/market-state";
 import { computeSlDistance } from "../src/lib/algorithm/structural-sl";
+import { atr14 } from "../src/lib/market-data/market-state";
+import {
+  initTrailingState,
+  updateTrailingState,
+  type TrailingState,
+} from "../src/lib/algorithm/trailing-stop";
 
 const CAPITAL = 100_000;
 const RISK_PCT = 0.6;
@@ -103,7 +67,8 @@ const FRICTION_SLIPPAGE_BPS = 0.5;
 const FRICTION_SPREAD_BPS = 0.4;
 const TRAIL_EXIT_FRICTION_R = -0.05;
 
-const TRAIL_THRESHOLDS_ATR = [1.0, 1.5, 2.0, 2.5, 3.0, 4.0] as const;
+const ACTIVATE_ATR_GRID = [1.0, 1.5, 2.0, 2.5, 3.0, 4.0] as const;
+const TRAIL_DIST_ATR_GRID = [1.0, 1.5, 2.0, 2.5, 3.0, 4.0] as const;
 const MIN_IMPROVEMENT_PCT = 5;
 const ALGOS_UNDER_TEST = new Set([
   "coil_breakout_1h",
@@ -152,30 +117,25 @@ function buildSpecs(assetClass: "commodity" | "forex"): AlgoSpec[] {
     { type: "pattern", pattern: "daily_bias", direction: "bullish", ma_period: 20, timeframe: "4h" },
   ];
   cb4.market_state_gate = { mode: "allow", states: { range: ["compressed"] } };
-
   const cb1 = baseRules("1h", "long", assetClass);
   cb1.entry_conditions = [
     { type: "pattern", pattern: "bos", direction: "bullish", lookback: 5, timeframe: "1h" },
   ];
-
   const bs = baseRules("4h", "short", assetClass);
   bs.entry_conditions = [
     { type: "pattern", pattern: "bos", direction: "bearish", lookback: 5, timeframe: "4h" },
     { type: "pattern", pattern: "daily_bias", direction: "bearish", ma_period: 20, timeframe: "4h" },
   ];
   bs.market_state_gate = { mode: "allow", states: { mtf: ["aligned_LH"] } };
-
   const br = baseRules("4h", "short", assetClass);
   br.entry_conditions = [
     { type: "pattern", pattern: "bos", direction: "bearish", lookback: 5, timeframe: "4h" },
   ];
   br.market_state_gate = { mode: "allow", states: { mtf: ["fast_div_bear"] } };
-
   const fv = baseRules("30m", "long", assetClass);
   fv.entry_conditions = [
     { type: "pattern", pattern: "fvg", direction: "bullish", timeframe: "30m" },
   ];
-
   return [
     { key: "coil_breakout_4h", timeframe: "4h", rules: cb4, gate: true },
     { key: "coil_breakout_1h", timeframe: "1h", rules: cb1, gate: false },
@@ -194,10 +154,9 @@ interface TestTrade {
   exitDate: string;
   actualR: number;
   bars: PriceBar[];
-  atrAtEntry: number;
-  /** Initial SL distance in price units = engine's 1R. Captured per
-   *  trade via computeSlDistance with the algo's stop_loss rule. */
+  initialSlPrice: number;
   initialSlDistance: number;
+  initialAtr: number;
 }
 
 function findBarIdx(bars: PriceBar[], targetDate: string): number {
@@ -234,39 +193,41 @@ function chunkedBacktest(
   return trades;
 }
 
-/** Simulate trailing-stop replay on a single trade.
- *
- * Trail distance is expressed in ATR-units (favourable extreme − N
- * ATR). Exit R is expressed in real-R-units: dividing by
- * initialSlDistance (the engine's 1R), NOT atrAtEntry — see the
- * units-bug header. Trail activation: MFE ≥ trail_threshold ATR
- * favourable.
- *
- * Within a bar, MFE peak updates FIRST (lucky order for trail), then
- * adverse touch check. */
-function simulateTrailingStop(t: TestTrade, trailThresholdAtr: number): number {
-  const trailDollars = trailThresholdAtr * t.atrAtEntry;
-  let mfePeakPrice = t.entryPrice;
+/** Simulate trailing-stop using the engine's updateTrailingState
+ *  directly, with the ATR-variant fields. Returns the R-multiple. */
+function simulateEngineTrail(
+  t: TestTrade,
+  activateAtAtr: number,
+  trailDistanceAtr: number
+): number {
+  let state: TrailingState = initTrailingState({
+    entryPrice: t.entryPrice,
+    initialSlPrice: t.initialSlPrice,
+    initialAtr: t.initialAtr,
+  });
+  const trailingStop: AlgorithmRules["trailing_stop"] = {
+    enabled: true,
+    activate_at_atr: activateAtAtr,
+    trail_distance_atr: trailDistanceAtr,
+  };
   for (const bar of t.bars) {
+    state = updateTrailingState({
+      side: t.side,
+      entryPrice: t.entryPrice,
+      initialSlDistance: t.initialSlDistance,
+      currentBar: bar,
+      state,
+      trailingStop,
+    });
     if (t.side === "long") {
-      if (bar.high > mfePeakPrice) mfePeakPrice = bar.high;
-      const favorableAtPeak = mfePeakPrice - t.entryPrice;
-      if (favorableAtPeak >= trailDollars) {
-        const trailSlPrice = mfePeakPrice - trailDollars;
-        if (bar.low <= trailSlPrice) {
-          const exitR = (trailSlPrice - t.entryPrice) / t.initialSlDistance;
-          return exitR + TRAIL_EXIT_FRICTION_R;
-        }
+      if (bar.low <= state.currentSlPrice) {
+        const exitR = (state.currentSlPrice - t.entryPrice) / t.initialSlDistance;
+        return exitR + TRAIL_EXIT_FRICTION_R;
       }
     } else {
-      if (bar.low < mfePeakPrice) mfePeakPrice = bar.low;
-      const favorableAtPeak = t.entryPrice - mfePeakPrice;
-      if (favorableAtPeak >= trailDollars) {
-        const trailSlPrice = mfePeakPrice + trailDollars;
-        if (bar.high >= trailSlPrice) {
-          const exitR = (t.entryPrice - trailSlPrice) / t.initialSlDistance;
-          return exitR + TRAIL_EXIT_FRICTION_R;
-        }
+      if (bar.high >= state.currentSlPrice) {
+        const exitR = (t.entryPrice - state.currentSlPrice) / t.initialSlDistance;
+        return exitR + TRAIL_EXIT_FRICTION_R;
       }
     }
   }
@@ -296,8 +257,7 @@ async function processOneTicker(ticker: string): Promise<TestTrade[]> {
       const entryIdx = findBarIdx(corpus.bars, t.entry_date);
       const exitIdx = findBarIdx(corpus.bars, t.exit_date);
       if (entryIdx < 0 || exitIdx < 0 || exitIdx <= entryIdx) { skipped++; continue; }
-      const atr = atr14(corpus.bars, entryIdx);
-      if (atr === null || atr <= 0) { skipped++; continue; }
+      // Use the ENGINE's exact SL computation
       const slDistance = computeSlDistance(
         s.rules.stop_loss,
         t.side,
@@ -307,7 +267,9 @@ async function processOneTicker(ticker: string): Promise<TestTrade[]> {
         entryIdx
       );
       if (slDistance <= 0) { skipped++; continue; }
-      const subBars = corpus.bars.slice(entryIdx + 1, exitIdx + 1);
+      const initialSlPrice = t.side === "long" ? t.entry_price - slDistance : t.entry_price + slDistance;
+      const initialAtr = atr14(corpus.bars, entryIdx);
+      if (initialAtr == null || initialAtr <= 0) { skipped++; continue; }
       tickerTrades.push({
         algo: s.key,
         ticker,
@@ -316,9 +278,10 @@ async function processOneTicker(ticker: string): Promise<TestTrade[]> {
         entryPrice: t.entry_price,
         exitDate: t.exit_date,
         actualR: t.pnl / RISK_DOLLARS,
+        bars: corpus.bars.slice(entryIdx + 1, exitIdx + 1),
+        initialSlPrice,
         initialSlDistance: slDistance,
-        bars: subBars,
-        atrAtEntry: atr,
+        initialAtr,
       });
       processed++;
     }
@@ -329,7 +292,8 @@ async function processOneTicker(ticker: string): Promise<TestTrade[]> {
 
 interface ResultRow {
   algo: string;
-  threshold: number;
+  activateAtr: number;
+  trailDistAtr: number;
   totalN: number;
   baselineTotalR: number;
   trailTotalR: number;
@@ -339,24 +303,23 @@ interface ResultRow {
   trailTestR: number;
   trainImprovementPct: number;
   testImprovementPct: number;
-  trailFiredOnWinners: number;
-  trailFiredOnLosers: number;
+  firedOnWinners: number;
+  firedOnLosers: number;
   qualifies: boolean;
 }
 
 async function main() {
-  console.log("Trailing-stop test — PRE-REGISTERED design");
+  console.log("Trailing-stop test (ENGINE MECHANIC) — PRE-REGISTERED");
   console.log(`Tickers: ${TICKERS.join(", ")}`);
-  console.log(`Algos under test (trend-followers): ${[...ALGOS_UNDER_TEST].sort().join(", ")}`);
-  console.log(`Trail thresholds: ${TRAIL_THRESHOLDS_ATR.join(", ")} ATR`);
-  console.log("Locked constants: see file header. Do NOT edit post-results.\n");
+  console.log(`activate_at_atr grid: ${ACTIVATE_ATR_GRID.join(", ")}`);
+  console.log(`trail_distance_atr grid: ${TRAIL_DIST_ATR_GRID.join(", ")}`);
+  console.log("Uses engine's updateTrailingState + computeSlDistance directly.\n");
 
   const allTrades: TestTrade[] = [];
   for (const ticker of TICKERS) {
     const tickerTrades = await processOneTicker(ticker);
     allTrades.push(...tickerTrades);
   }
-
   console.log(`\nTotal trades under test: ${allTrades.length}`);
 
   const algos = [...new Set(allTrades.map((t) => t.algo))].sort();
@@ -375,100 +338,94 @@ async function main() {
     const baselineTrain = trades.slice(0, mid).reduce((s, t) => s + t.actualR, 0);
     const baselineTest = trades.slice(mid).reduce((s, t) => s + t.actualR, 0);
 
-    for (const threshold of TRAIL_THRESHOLDS_ATR) {
-      const trailR = trades.map((t) => simulateTrailingStop(t, threshold));
-      const trailTotal = trailR.reduce((s, r) => s + r, 0);
-      const trailTrainR = trailR.slice(0, mid).reduce((s, r) => s + r, 0);
-      const trailTestR = trailR.slice(mid).reduce((s, r) => s + r, 0);
-
-      let firedOnWinners = 0, firedOnLosers = 0;
-      for (let i = 0; i < trades.length; i++) {
-        // "Fired" = the trail-result differs from the actual (within
-        // floating-point tolerance), meaning the trail exit replaced
-        // the actual exit.
-        if (Math.abs(trailR[i] - trades[i].actualR) > 0.01) {
-          if (trades[i].actualR > 0) firedOnWinners++;
-          else firedOnLosers++;
+    for (const activateAtr of ACTIVATE_ATR_GRID) {
+      for (const trailDistAtr of TRAIL_DIST_ATR_GRID) {
+        const trailR = trades.map((t) => simulateEngineTrail(t, activateAtr, trailDistAtr));
+        const trailTotal = trailR.reduce((s, r) => s + r, 0);
+        const trailTrainR = trailR.slice(0, mid).reduce((s, r) => s + r, 0);
+        const trailTestR = trailR.slice(mid).reduce((s, r) => s + r, 0);
+        let firedOnWinners = 0, firedOnLosers = 0;
+        for (let i = 0; i < trades.length; i++) {
+          if (Math.abs(trailR[i] - trades[i].actualR) > 0.01) {
+            if (trades[i].actualR > 0) firedOnWinners++;
+            else firedOnLosers++;
+          }
         }
+        const trainImpPct = baselineTrain !== 0 ? ((trailTrainR - baselineTrain) / Math.abs(baselineTrain)) * 100 : 0;
+        const testImpPct = baselineTest !== 0 ? ((trailTestR - baselineTest) / Math.abs(baselineTest)) * 100 : 0;
+        const qualifies = trainImpPct >= MIN_IMPROVEMENT_PCT && testImpPct >= MIN_IMPROVEMENT_PCT;
+        rows.push({
+          algo, activateAtr, trailDistAtr,
+          totalN: trades.length,
+          baselineTotalR: baselineTotal,
+          trailTotalR: trailTotal,
+          baselineTrainR: baselineTrain,
+          baselineTestR: baselineTest,
+          trailTrainR, trailTestR,
+          trainImprovementPct: trainImpPct,
+          testImprovementPct: testImpPct,
+          firedOnWinners, firedOnLosers,
+          qualifies,
+        });
       }
-
-      const trainImpPct = baselineTrain !== 0 ? ((trailTrainR - baselineTrain) / Math.abs(baselineTrain)) * 100 : 0;
-      const testImpPct = baselineTest !== 0 ? ((trailTestR - baselineTest) / Math.abs(baselineTest)) * 100 : 0;
-      const qualifies = trainImpPct >= MIN_IMPROVEMENT_PCT && testImpPct >= MIN_IMPROVEMENT_PCT;
-      rows.push({
-        algo,
-        threshold,
-        totalN: trades.length,
-        baselineTotalR: baselineTotal,
-        trailTotalR: trailTotal,
-        baselineTrainR: baselineTrain,
-        baselineTestR: baselineTest,
-        trailTrainR,
-        trailTestR,
-        trainImprovementPct: trainImpPct,
-        testImprovementPct: testImpPct,
-        trailFiredOnWinners: firedOnWinners,
-        trailFiredOnLosers: firedOnLosers,
-        qualifies,
-      });
     }
   }
 
-  console.log("\n=== Per algo × trail threshold ===");
-  console.log(
-    "  algo                   thr  n     baseR    trailR    trainΔ%   testΔ%  fired W/L  qualifies"
-  );
-  for (const r of rows) {
-    const tag = r.qualifies ? "✓ SHIP" : "·";
+  console.log("\n=== Top qualifying (algo, activate_at_atr, trail_distance_atr) pairs by improvement ===");
+  const qualifyingRows = rows.filter((r) => r.qualifies);
+  qualifyingRows.sort((a, b) => (b.trailTotalR - b.baselineTotalR) - (a.trailTotalR - a.baselineTotalR));
+  for (const r of qualifyingRows.slice(0, 20)) {
     console.log(
-      `  ${r.algo.padEnd(22)}  ${r.threshold.toFixed(1)}  ${String(r.totalN).padStart(3)}  ` +
-        `${r.baselineTotalR.toFixed(2).padStart(7)}  ${r.trailTotalR.toFixed(2).padStart(7)}  ` +
-        `${r.trainImprovementPct.toFixed(1).padStart(7)}%  ${r.testImprovementPct.toFixed(1).padStart(6)}%  ` +
-        `${String(r.trailFiredOnWinners).padStart(3)}/${String(r.trailFiredOnLosers).padStart(3)}  ${tag}`
+      `  ✓ ${r.algo.padEnd(22)}  act=${r.activateAtr.toFixed(1)}atr tdist=${r.trailDistAtr.toFixed(1)}atr  ` +
+        `${r.baselineTotalR.toFixed(2).padStart(7)} → ${r.trailTotalR.toFixed(2).padStart(7)}  ` +
+        `TRAIN +${r.trainImprovementPct.toFixed(1).padStart(5)}%  TEST +${r.testImprovementPct.toFixed(1).padStart(5)}%  ` +
+        `W/L ${r.firedOnWinners}/${r.firedOnLosers}`
     );
   }
+  console.log(`\nTotal qualifying pairs across all algos: ${qualifyingRows.length}`);
 
-  console.log("\n=== Qualifying (algo, threshold) pairs ===");
-  const winners = rows.filter((r) => r.qualifies);
-  if (winners.length === 0) {
-    console.log("(none qualified)");
-  } else {
-    for (const r of winners) {
+  console.log("\n=== Best per-algo configuration ===");
+  for (const algo of algos) {
+    const algoRows = qualifyingRows.filter((r) => r.algo === algo);
+    if (algoRows.length === 0) {
+      const algoAll = rows.filter((r) => r.algo === algo);
+      const best = algoAll.sort((a, b) => (b.trailTotalR - b.baselineTotalR) - (a.trailTotalR - a.baselineTotalR))[0];
+      console.log(`  ✗ ${algo.padEnd(22)}  NO QUALIFYING PAIR (best: act=${best.activateAtr}atr tdist=${best.trailDistAtr}atr TRAIN +${best.trainImprovementPct.toFixed(1)}% TEST +${best.testImprovementPct.toFixed(1)}%)`);
+    } else {
+      const best = algoRows[0]; // already sorted by improvement
       console.log(
-        `  ✓ ${r.algo}  trail@${r.threshold.toFixed(1)} ATR  ` +
-          `baseline ${r.baselineTotalR.toFixed(2)}R → trail ${r.trailTotalR.toFixed(2)}R  ` +
-          `(TRAIN +${r.trainImprovementPct.toFixed(1)}%, TEST +${r.testImprovementPct.toFixed(1)}%)  ` +
-          `fired on ${r.trailFiredOnWinners} winners + ${r.trailFiredOnLosers} losers`
+        `  ✓ ${algo.padEnd(22)}  BEST: act=${best.activateAtr.toFixed(1)}atr tdist=${best.trailDistAtr.toFixed(1)}atr  ` +
+          `${best.baselineTotalR.toFixed(2)} → ${best.trailTotalR.toFixed(2)}  ` +
+          `(TRAIN +${best.trainImprovementPct.toFixed(1)}%, TEST +${best.testImprovementPct.toFixed(1)}%)  ` +
+          `${algoRows.length} of ${ACTIVATE_ATR_GRID.length * TRAIL_DIST_ATR_GRID.length} configs qualify`
       );
     }
   }
 
   const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
-  const outPath = `scripts/discovery-trailing-stop-${stamp}.json`;
+  const outPath = `scripts/discovery-trailing-stop-engine-${stamp}.json`;
   writeFileSync(
     outPath,
     JSON.stringify(
       {
         locked_design: {
-          capital: CAPITAL,
-          risk_pct: RISK_PCT,
+          capital: CAPITAL, risk_pct: RISK_PCT,
           friction: { slippage_bps: FRICTION_SLIPPAGE_BPS, spread_bps: FRICTION_SPREAD_BPS },
           trail_exit_friction_r: TRAIL_EXIT_FRICTION_R,
-          trail_thresholds_atr: TRAIL_THRESHOLDS_ATR,
+          activate_atr_grid: ACTIVATE_ATR_GRID,
+          trail_dist_atr_grid: TRAIL_DIST_ATR_GRID,
           algos_under_test: [...ALGOS_UNDER_TEST].sort(),
           tickers: TICKERS,
           min_improvement_pct: MIN_IMPROVEMENT_PCT,
-          r_atr_assumption: "1 ATR = 1 R (pre-registered approximation)",
+          mechanic_source: "engine's updateTrailingState + computeSlDistance",
         },
         total_trades: allTrades.length,
         results: rows,
-        qualifying: winners,
+        qualifying: qualifyingRows,
       },
-      null,
-      2
+      null, 2
     )
   );
   console.log(`\nSaved: ${outPath}`);
 }
-
 main().catch((e) => { console.error(e); process.exit(1); });

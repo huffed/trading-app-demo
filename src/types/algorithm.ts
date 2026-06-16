@@ -414,6 +414,15 @@ export interface AlgorithmRules {
      *  armed. Default 1.0 — same magnitude as the original SL distance.
      *  Larger = lets winners run further; smaller = locks in faster. */
     trail_distance_r?: number;
+    /** ATR-units variant (2026-06-16): trail anchored on absolute
+     *  volatility (ATR(14) at entry) rather than each trade's
+     *  swing-anchor SL distance. If either ATR-field is set, the
+     *  ATR variant takes precedence over the R variant in
+     *  updateTrailingState. Trend-followers' winners reach 9-17 ATR
+     *  favorable; ATR-anchored trail captures that tail more
+     *  directly than R-based for wide-swing SLs that vary per trade. */
+    activate_at_atr?: number;
+    trail_distance_atr?: number;
   };
   /**
    * Breakeven SL move — once the position's MFE crosses `trigger_at_r`,
