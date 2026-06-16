@@ -294,6 +294,20 @@ function equityFromTrades(trades: BacktestTrade[], capital: number): EquityStats
   };
 }
 
+/** Equity-stats for a temporal sub-window of a trade list (by exit_date). */
+function windowedStats(
+  trades: BacktestTrade[],
+  fromMs: number,
+  toMs: number,
+  capital: number
+): EquityStats {
+  const sub = trades.filter((t) => {
+    const e = new Date(t.exit_date).getTime();
+    return e >= fromMs && e < toMs;
+  });
+  return equityFromTrades(sub, capital);
+}
+
 async function runOneAlgo(
   spec: AlgoSpec,
   corpus: Corpus,
@@ -473,6 +487,25 @@ async function runOneAlgo(
   const randomStats = equityFromTrades(randomTrades, CAPITAL);
   const oracle = equityFromTrades(oracleTrades, CAPITAL);
 
+  // TRAIN/TEST split — strongest in-period robustness check. If
+  // retune-random delta holds on BOTH halves of the replay window
+  // separately, the win is robust. If it concentrates in one half,
+  // the apparent edge is period-specific. Split at midpoint of
+  // the replay window (replayStart..replayEnd).
+  const splitMs = (replayStart.getTime() + replayEnd.getTime()) / 2;
+  const splitDate = new Date(splitMs).toISOString().slice(0, 10);
+  const trainEnd = splitMs;
+  const testStart = splitMs;
+  const trainEndMs = trainEnd;
+  const testStartMs = testStart;
+  const lastMs = replayEnd.getTime() + DAY_MS;
+  const trainStatic = windowedStats(staticTrades, replayStart.getTime(), trainEndMs, CAPITAL);
+  const trainRetune = windowedStats(autoLoopTrades, replayStart.getTime(), trainEndMs, CAPITAL);
+  const trainRandom = windowedStats(randomTrades, replayStart.getTime(), trainEndMs, CAPITAL);
+  const testStatic = windowedStats(staticTrades, testStartMs, lastMs, CAPITAL);
+  const testRetune = windowedStats(autoLoopTrades, testStartMs, lastMs, CAPITAL);
+  const testRandom = windowedStats(randomTrades, testStartMs, lastMs, CAPITAL);
+
   console.log(
     `  static (${spec.defaultVariantKey.padEnd(22)}): total $${stat.totalReturn.toFixed(0).padStart(7)}  DD ${stat.maxDrawdownPct.toFixed(2)}%  ${stat.trades} tr  ${stat.winRate.toFixed(0)}% WR`
   );
@@ -495,6 +528,14 @@ async function runOneAlgo(
     console.log(`    [retune ${e.date.slice(0, 10)}] ${e.from} → ${e.to}  trigger=${e.drift}`);
   }
   if (retuneEvents.length > 5) console.log(`    ... ${retuneEvents.length - 5} more`);
+  // Train/test split readout — the strongest defense against
+  // period-specific curve-fit.
+  console.log(
+    `  TRAIN (${replayStart.toISOString().slice(0, 10)} → ${splitDate})  static $${trainStatic.totalReturn.toFixed(0)}  retune $${trainRetune.totalReturn.toFixed(0)}  random $${trainRandom.totalReturn.toFixed(0)}  Δ(R-Rand) $${(trainRetune.totalReturn - trainRandom.totalReturn).toFixed(0)}`
+  );
+  console.log(
+    `  TEST  (${splitDate} → ${replayEnd.toISOString().slice(0, 10)})  static $${testStatic.totalReturn.toFixed(0)}  retune $${testRetune.totalReturn.toFixed(0)}  random $${testRandom.totalReturn.toFixed(0)}  Δ(R-Rand) $${(testRetune.totalReturn - testRandom.totalReturn).toFixed(0)}`
+  );
 
   return {
     config: spec.key,
@@ -508,6 +549,11 @@ async function runOneAlgo(
     retune_events: retuneEvents,
     sunday_count: sundays.length,
     variant_churn: new Set(sundayActive.map((s) => s.variant)).size,
+    split_test: {
+      split_date: splitDate,
+      train: { static: trainStatic, retune: trainRetune, random: trainRandom },
+      test: { static: testStatic, retune: testRetune, random: testRandom },
+    },
   };
 }
 
