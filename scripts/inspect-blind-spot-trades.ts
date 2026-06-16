@@ -278,6 +278,100 @@ interface InspectionRow {
   primitives: ReturnType<typeof aligned>;
 }
 
+interface ExtendedContext {
+  // 4h structure: 8 prior 4h bars + the entry's 4h bar
+  bars4h: Bar[];
+  entry4hIndex: number;
+  // Last 5 daily bars
+  dailyContext: Bar[];
+  // Daily bias result + the SMA20 value at trade day
+  dailyBias: string;
+  dailySma20: number;
+  // Prior day high / low (the day before trade day)
+  priorDayHigh: number;
+  priorDayLow: number;
+  priorDayPosPct: number; // where entry sits in prior day's range, 0=low 100=high, <0 below, >100 above
+  // 4h-range structure: highest high + lowest low across last 6 4h bars (24h)
+  rangeHigh24h_4h: number;
+  rangeLow24h_4h: number;
+  // 4h equilibrium of that range; >50 = premium, <50 = discount
+  pos4h24hRangePct: number;
+  // 4h-trend tag from last 3 closes (rough)
+  hh4h: number;
+  ll4h: number;
+}
+
+function findBarIndexByDate(bars: Bar[], targetDate: string): number {
+  let last = -1;
+  for (let i = 0; i < bars.length; i++) {
+    if (bars[i].date <= targetDate) last = i;
+    else break;
+  }
+  return last;
+}
+
+function extendedContext(
+  hourBars: Bar[],
+  i: number,
+  bars4h: Bar[],
+  dailyBars: Bar[],
+  entryPrice: number
+): ExtendedContext {
+  const entryHourDate = hourBars[i].date;
+  // Find 4h bar that contains the entry hour
+  const ent4hIdx = findBarIndexByDate(bars4h, entryHourDate);
+  const window4h = bars4h.slice(Math.max(0, ent4hIdx - 8), ent4hIdx + 1);
+  const last24h_4h = bars4h.slice(Math.max(0, ent4hIdx - 5), ent4hIdx + 1);
+  const r24Hi = Math.max(...last24h_4h.map((b) => b.high));
+  const r24Lo = Math.min(...last24h_4h.map((b) => b.low));
+  const pos4h = r24Hi === r24Lo ? 50 : ((entryPrice - r24Lo) / (r24Hi - r24Lo)) * 100;
+  // 4h HH/LL count over last 4 bars (rough trend tag)
+  let hh = 0, ll = 0;
+  for (let k = 1; k <= Math.min(4, window4h.length - 1); k++) {
+    const cur = window4h[window4h.length - k];
+    const prev = window4h[window4h.length - k - 1];
+    if (cur.high > prev.high) hh++;
+    if (cur.low < prev.low) ll++;
+  }
+  // Daily context
+  const tradeDay = entryHourDate.slice(0, 10);
+  let dEnd = 0;
+  for (let k = 0; k < dailyBars.length; k++) {
+    if (dailyBars[k].date.slice(0, 10) <= tradeDay) dEnd = k + 1;
+    else break;
+  }
+  const dailySlice = dailyBars.slice(0, dEnd);
+  const dailyCtx = dailyBars.slice(Math.max(0, dEnd - 5), dEnd);
+  // SMA20 of daily closes
+  let sma20 = 0;
+  if (dailySlice.length >= 20) {
+    const last20 = dailySlice.slice(-20);
+    sma20 = last20.reduce((s, b) => s + b.close, 0) / 20;
+  }
+  const lastDailyClose = dailySlice[dailySlice.length - 1]?.close ?? 0;
+  const biasResult = sma20 > 0
+    ? (lastDailyClose > sma20 ? "bullish" : "bearish")
+    : "n/a";
+  const priorDay = dailySlice.length >= 2 ? dailySlice[dailySlice.length - 2] : { high: 0, low: 0, open: 0, close: 0, date: "", volume: 0 };
+  const priorRange = priorDay.high - priorDay.low;
+  const priorPos = priorRange === 0 ? 50 : ((entryPrice - priorDay.low) / priorRange) * 100;
+  return {
+    bars4h: window4h,
+    entry4hIndex: ent4hIdx,
+    dailyContext: dailyCtx,
+    dailyBias: biasResult,
+    dailySma20: Number(sma20.toFixed(5)),
+    priorDayHigh: priorDay.high,
+    priorDayLow: priorDay.low,
+    priorDayPosPct: Math.round(priorPos),
+    rangeHigh24h_4h: r24Hi,
+    rangeLow24h_4h: r24Lo,
+    pos4h24hRangePct: Math.round(pos4h),
+    hh4h: hh,
+    ll4h: ll,
+  };
+}
+
 async function main() {
   const trades = loadTrades();
   console.log(`Loaded ${trades.length} trades.\n`);
@@ -289,14 +383,15 @@ async function main() {
     bySymbol.set(t.appSymbol, arr);
   }
 
-  const allRows: InspectionRow[] = [];
+  const allRows: (InspectionRow & { ext: ExtendedContext })[] = [];
   for (const [symbol, sTrades] of bySymbol) {
-    console.log(`Loading ${symbol} 1h+1d corpora...`);
+    console.log(`Loading ${symbol} 1h+4h+1d corpora...`);
     const c1 = await loadCorpus("1h", symbol);
     const c4 = await loadCorpus("4h", symbol);
     const hourBars: Bar[] = c1.bars;
+    const bars4h: Bar[] = c4.bars;
     const dailyBars: Bar[] = c4.dailyBars;
-    console.log(`  ${hourBars.length} 1h bars, ${dailyBars.length} 1d bars`);
+    console.log(`  ${hourBars.length} 1h, ${bars4h.length} 4h, ${dailyBars.length} 1d bars`);
     for (const t of sTrades) {
       const idx = findBarIndex(hourBars, t.openUtc.getTime());
       if (idx < 25) continue;
@@ -306,6 +401,7 @@ async function main() {
       if (aligned_count !== 0) continue;
       const window = hourBars.slice(Math.max(0, idx - 10), Math.min(hourBars.length, idx + 11));
       const feats = structuralFeatures(hourBars, idx, symbol, t.openPrice, t.openUtc);
+      const ext = extendedContext(hourBars, idx, bars4h, dailyBars, t.openPrice);
       allRows.push({
         trade: t,
         entryBarIndex: idx,
@@ -313,32 +409,48 @@ async function main() {
         bars: window,
         features: feats,
         primitives: prims,
+        ext,
       });
     }
   }
 
-  console.log(`\n\n=== ${allRows.length} ZERO-primitive trades ===\n`);
+  console.log(`\n\n=== ${allRows.length} ZERO-primitive trades — RIGOROUS STRUCTURAL READ ===\n`);
   for (const r of allRows) {
     const t = r.trade;
     const f = r.features;
+    const x = r.ext;
     const dir = t.type === "buy" ? "LONG" : "SHORT";
     const outcome = t.isWin ? "WIN" : "LOSS";
-    console.log(`--- ${t.openUtc.toISOString().slice(0, 16)} UTC | ${t.appSymbol} ${dir} | ${outcome} ($${t.profit.toFixed(0)}) | dur=${Math.round(t.durationSec / 60)}min ---`);
-    console.log(`  entry: ${t.openPrice}  bar: O=${r.entryBar.open} H=${r.entryBar.high} L=${r.entryBar.low} C=${r.entryBar.close}`);
-    console.log(`  features:`);
-    console.log(`    round level: ${f.roundLevel} (${f.nearestRoundDistPips} pips away)`);
-    console.log(`    ATR14=${f.atr14}, ATR pctile=${f.atrPctile}, pos in 24h range: ${f.pos24hRange}% [${f.low24h}..${f.high24h}]`);
-    console.log(`    vs 24h vwap: ${f.vwapPxDiffPct >= 0 ? "+" : ""}${f.vwapPxDiffPct}%`);
-    console.log(`    pos in prior 5-bar: ${f.pos5barRangePct}% (>100=breakout-up, <0=breakdown)`);
-    console.log(`    mins to London open: ${f.minsToLondon},  mins to NY open: ${f.minsToNy}`);
-    console.log(`  bars ±10 around entry:`);
+    console.log(`\n=========== ${t.openUtc.toISOString().slice(0, 16)} UTC | ${t.appSymbol} ${dir} | ${outcome} ($${t.profit.toFixed(0)}) | dur=${Math.round(t.durationSec / 60)}min ===========`);
+    console.log(`entry price: ${t.openPrice}  |  1h bar: O=${r.entryBar.open} H=${r.entryBar.high} L=${r.entryBar.low} C=${r.entryBar.close}`);
+    console.log(`\nHTF context (this is where ICT signal would live):`);
+    console.log(`  D1 bias: ${x.dailyBias} (SMA20=${x.dailySma20}, last close=${x.dailyContext[x.dailyContext.length - 1]?.close})`);
+    console.log(`  Prior day: H=${x.priorDayHigh} L=${x.priorDayLow}  |  entry @ ${t.openPrice} = ${x.priorDayPosPct}% of prior-day range (>100=above pdh, <0=below pdl)`);
+    console.log(`  4h 24h range: H=${x.rangeHigh24h_4h} L=${x.rangeLow24h_4h}  |  entry @ ${x.pos4h24hRangePct}% (>=50=premium, <50=discount)`);
+    console.log(`  4h structure last 4 bars: ${x.hh4h} higher-highs, ${x.ll4h} lower-lows`);
+    console.log(`  Last 5 daily bars:`);
+    for (const b of x.dailyContext) {
+      console.log(`    ${b.date.slice(0, 10)}  O=${b.open} H=${b.high} L=${b.low} C=${b.close}`);
+    }
+    console.log(`  Last 9 4h bars (entry's 4h bar = last):`);
+    for (let bi = 0; bi < x.bars4h.length; bi++) {
+      const b = x.bars4h[bi];
+      const tag = bi === x.bars4h.length - 1 ? "  4h-ENTRY " : "           ";
+      console.log(`    ${tag} ${b.date}  O=${b.open}  H=${b.high}  L=${b.low}  C=${b.close}`);
+    }
+    console.log(`\nMicro context (1h):`);
+    console.log(`  round level: ${f.roundLevel} (${f.nearestRoundDistPips} pips away)`);
+    console.log(`  ATR14=${f.atr14}, ATR pctile=${f.atrPctile}, pos in 24h range: ${f.pos24hRange}% [${f.low24h}..${f.high24h}]`);
+    console.log(`  vs 24h vwap: ${f.vwapPxDiffPct >= 0 ? "+" : ""}${f.vwapPxDiffPct}%, pos prior-5bar: ${f.pos5barRangePct}%`);
+    console.log(`  mins to London open: ${f.minsToLondon},  mins to NY open: ${f.minsToNy}`);
+    console.log(`\n1h bars ±10 around entry:`);
     const entryWindowIdx = r.bars.findIndex((b) => b.date === r.entryBar.date);
     for (let bi = 0; bi < r.bars.length; bi++) {
       const b = r.bars[bi];
       const tag = bi === entryWindowIdx ? "ENTRY  " : "       ";
       console.log(`    ${tag} ${b.date}  O=${b.open}  H=${b.high}  L=${b.low}  C=${b.close}`);
     }
-    console.log("");
+    console.log(`\nPrimitives that fired (in trade direction): NONE — that's the whole point of this subset.`);
   }
 
   const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);

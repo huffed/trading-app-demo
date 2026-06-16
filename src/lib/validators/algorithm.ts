@@ -81,6 +81,7 @@ const patternConditionSchema = z.object({
   type: z.literal("pattern"),
   pattern: z.enum([
     "liquidity_sweep",
+    "liquidity_sweep_reclaim",
     "fvg",
     "ifvg",
     "daily_bias",

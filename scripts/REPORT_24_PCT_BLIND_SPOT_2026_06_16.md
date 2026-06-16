@@ -1,99 +1,163 @@
 # 24% blind-spot investigation (S1.5 priority #4)
 
 **Date:** 2026-06-16 PM
-**Question:** Per `project_friend_replay_2026_06`, 9 of friend's 38 FTMO trades (24%) had ZERO of our 8 pattern primitives fire at entry. 3 winners + 6 losers. Roadmap question: "what was he reading on those trades that we don't detect? May surface a NEW primitive worth building."
-**Cost:** $0 (replay over recorded corpus).
+**Trigger question:** Per `project_friend_replay_2026_06`, 9 of friend's 38 FTMO trades had ZERO of our 8 pattern primitives fire at entry. What was he reading that we miss?
+**Outcome:** Closed S1.5 priority #4 as "investigated" with TWO distinct findings:
+1. **The 24% blind spot is not a coverage gap** (78% are correctly-not-detected wrong-side trades).
+2. **A new winner-discriminator primitive surfaced as a side-effect: `liquidity_sweep_reclaim`.** The #245 kill was based on the wrong measurement.
+
+This second finding only came to light because the operator pushed back on the first-pass categorization ("you dismissed losers too easily — outcome ≠ no-signal"). The re-analysis identified one trade's V-bottom structure, which prompted re-examining the sweep+reclaim hypothesis, which led to building the detector and finding it has real signal across both friend-replay AND 6yr backtest.
 
 ---
 
-## The 9 trades
+## Finding 1 — The 24% blind spot is mostly his discretionary noise
 
-| # | Date/UTC | Pair | Side | P&L | Duration | Bar context |
-|---|---|---|---|---|---|---|
-| 1 | 2026-03-13 10:05 | EUR/USD | LONG | **+$182** | 200min | V-bottom reversal after 50pip drop; ATR pctile 22, pos24h=17%, near round 1.145 |
-| 2 | 2026-02-23 08:35 | XAU/USD | SHORT | −$72 | 20min | Shorted DURING $5136→$5210 rally (74pip up move over 6h) |
-| 3 | 2026-02-23 09:17 | XAU/USD | SHORT | −$77 | 66min | Same rally, second short attempt |
-| 4 | 2026-02-24 23:55 | XAU/USD | SHORT | −$5 | 36min | Late-night discretionary scalp, ended near-flat |
-| 5 | 2026-03-05 08:45 | XAU/USD | LONG | +$5 | 46min | First of 5 same-day longs |
-| 6 | 2026-03-05 09:45 | XAU/USD | LONG | −$170 | 15min | (XAU dropped from 5160 to 5050 in 6h afterward) |
-| 7 | 2026-03-05 10:10 | XAU/USD | LONG | +$15 | 9min | |
-| 8 | 2026-03-05 10:29 | XAU/USD | LONG | −$71 | 4min | |
-| 9 | 2026-03-05 10:34 | XAU/USD | LONG | −$69 | 2min | |
+### The 9 trades + structural read
 
-**Aggregate P&L on the 9 zero-primitive trades: −$262** (3 winners +$202, 6 losers −$464).
+| # | Date/UTC | Pair | Side | P&L | Duration | D1 bias | Zone | ICT-standard signal? |
+|---|---|---|---|---|---|---|---|---|
+| 1 | 03-13 10:05 | EUR/USD | LONG | **+$182** | 200min | bearish | discount (20% 4h, -84% pdh-pdl) | YES — V-bottom after −50pip drop at 24h low + low ATR (n=1, isolated) |
+| 2 | 02-23 08:35 | XAU/USD | SHORT | −$72 | 20min | **bullish** | 22% (discount) | NO — shorting discount in bullish D1 |
+| 3 | 02-23 09:17 | XAU/USD | SHORT | −$77 | 66min | **bullish** | similar | NO — repeat counter-D1 |
+| 4 | 02-24 23:55 | XAU/USD | SHORT | −$5 | 36min | **bullish** | 59% (premium) | weak — counter-D1 scalp, near-flat |
+| 5 | 03-05 08:45 | XAU/USD | LONG | +$5 | 46min | **bearish** | 78% pdh-pdl (premium) | NO — premium long in bearish D1 |
+| 6 | 03-05 09:45 | XAU/USD | LONG | −$170 | 15min | bearish | 79% | NO — repeat |
+| 7 | 03-05 10:10 | XAU/USD | LONG | +$15 | 9min | bearish | 70% | NO |
+| 8 | 03-05 10:29 | XAU/USD | LONG | −$71 | 4min | bearish | 73% | NO |
+| 9 | 03-05 10:34 | XAU/USD | LONG | −$69 | 2min | bearish | 71% | NO |
 
-**Aggregate P&L excluding the 1 genuine-signal candidate (trade #1): −$444 on 8 trades.**
+**8 of 9 trades** are counter-D1 / wrong-zone discretionary entries with NO standard ICT signal in his direction. Our primitives correctly stayed silent — they are doing their job by refusing to fire when the chart says "don't trade."
 
----
+Net P&L on 8 of 9 non-signal trades: **−$444**. The 1 signal trade (EUR/USD +$182) is a different missing-detector hypothesis (intraday-V at 24h extreme), n=1 — too thin to commit on.
 
-## Categorization
-
-### Category A — possibly missing signal (1 trade, 11%)
-
-**Trade #1 (EUR/USD LONG +$182):** the only zero-primitive trade with a real signal. Setup:
-- After a sharp 50-pip drop (1.1500 → 1.1450) over 4 hours
-- ATR pctile 22 (low-volatility regime)
-- Entry near 24h low (pos24h = 17%)
-- Entry bar wicked to L=1.14520 then rallied to H=1.14722 — V-bottom inside one bar
-- Held 200 min, exited near intraday peak ~1.1488
-
-This is an **intraday-V reversal after a sharp drop near a 24h extreme** pattern. Possible missing detector classes:
-- **24h-extreme reversal**: bar reverses sharply from a 24h extreme with intra-bar V structure
-- **Drop-then-reclaim**: ≥2× ATR drop in N bars followed by full reclaim within 1 bar
-
-But our `liquidity_sweep` detector should arguably have caught the prior bar's wick of 1.14330 (then closed 1.14452). It didn't — likely because our sweep definition uses a 5-bar swing-low reference and 1.14330 wasn't far enough below the recent swing.
-
-### Category B — wrong-side trades, primitives correctly didn't fire (7 trades, 78%)
-
-**Trades #2-3 (XAU/USD SHORT 2026-02-23):** friend shorted around 5147 while gold was IN a multi-hour rally ($5136 low → $5210 high over 5 hours). Bearish primitives (bos_bearish, fvg_bearish, daily_bias_bearish) correctly did NOT fire because gold was rallying. He was fighting the trend; primitives are SUPPOSED to disagree.
-
-**Trades #5-9 (XAU/USD LONG 5x on 2026-03-05):** friend bought 5 times in 1.5 hours between 08:45 and 10:34. The SAME 4h period:
-- Hours 08-12: range-bound 5146-5180
-- Hour 13: BREAKDOWN — drops 5164 → 5081 (one bar, $83 drop)
-- Hours 14-19: continued collapse to 5050 area
-
-Bullish primitives (bos_bullish, fvg_bullish, daily_bias_bullish) correctly did NOT fire because XAU was breaking down. He was repeatedly trying to catch the bottom of a strong down-move. **Primitives were RIGHT to stay silent.**
-
-### Category C — discretionary noise (1 trade, 11%)
-
-**Trade #4 (XAU/USD SHORT 2026-02-24 23:55):** 36-min late-night scalp ending −$5 (near-flat). Not enough signal in either direction to merit a detector.
+**Conclusion 1:** The 24% "blind spot" is mostly his discretionary error rate. Not a coverage gap. No primitive should be built based on these specifically.
 
 ---
 
-## Reframing the 24% blind spot
+## Finding 2 — `liquidity_sweep_reclaim` is a real winner-discriminator we missed
 
-**The original framing assumed the 24% might contain missed signals worth detecting.** The actual breakdown:
+### How this finding emerged
 
-- **78% of the blind spot is wrong-side discretionary trading** (shorting an uptrend, longing a breakdown). Our primitives correctly identified those entries as "don't trade" — they are doing their job by NOT firing.
-- **11% is discretionary noise** (low-stakes scalp).
-- **11% is potentially missing signal** (1 trade, n=1).
+Looking carefully at the EUR/USD WIN structural context:
+```
+Hour 06: drop 1.150 → 1.148  (broke 1.145 round)
+Hour 07: drop 1.148 → 1.145  (continued)
+Hour 08: SWEEP — wicked to 1.14330 (new low), closed at 1.14452
+Hour 09: stabilize
+Hour 10: ENTRY — closed at 1.14584 (RECLAIM above 1.145 round)
+```
 
-The 24% "blind spot" is NOT a coverage gap in our detectors. It's mostly the noise component of any discretionary trader's record — losses from fighting the trend, over-trading, and scalping at random points. Our primitives' INABILITY to detect those entries is a feature, not a bug.
+He entered AT the reclaim bar, 2 bars AFTER the sweep candle. Our `liquidity_sweep` detector evaluates AT the sweep candle, not at the reclaim bar. So at hour 10 (his entry bar), the detector sees no fresh sweep and doesn't fire.
 
-**This is the same pattern as the audit-phantom finding from earlier this session** (see [[feedback_audit_phantom_pattern]]): exhaustive coverage of an audit list returns mostly phantoms. The remaining genuine items are too thin individually to justify investment.
+### Per-primitive table on his trades (sweep_reclaim added)
+
+| Pattern | All 38 | Winners | Losers | Edge |
+|---|---|---|---|---|
+| daily_bias | 61% | **73%** | 44% | +29pp ✓ winner-disc |
+| fvg | 29% | **45%** | 6% | **+39pp** ✓ strongest winner-disc |
+| equal_levels | 50% | **59%** | 38% | +21pp ✓ winner-disc |
+| **sweep_reclaim** (NEW) | **13%** | **18%** | **6%** | **+12pp ✓ winner-disc** |
+| ob | 5% | 9% | 0% | +9pp weak winner |
+| bos | 8% | 9% | 6% | +3pp neutral |
+| **sweep** (raw) | 5% | **0%** | **13%** | **−13pp ✗ loser-disc** |
+| ote | 5% | 0% | 13% | −13pp ✗ loser-disc |
+| choch | 0% | 0% | 0% | null |
+
+**Raw sweep fires on his losers. Sweep+reclaim fires on his winners.** The #245 sweep+reclaim refinement we killed earlier was actually a real edge — we just measured raw sweep at the wrong moment.
+
+### Caveat — sweep_reclaim doesn't catch the EUR/USD trade
+
+The EUR/USD WIN that triggered the investigation isn't a sweep+reclaim — it's a V-bottom that established a NEW swing low (1.14330) rather than wicking through a PRIOR one. The detector doesn't fire on it.
+
+So sweep_reclaim doesn't shrink the blind-spot count (still 9 zero-primitive). But it catches **4 of his 22 winners** (18%) that we previously couldn't detect at all if we'd been using the right entry-timing definition of sweep.
 
 ---
 
-## Recommendation
+## Finding 2b — Backtest confirms sweep+reclaim has signal in 6yr corpus
 
-**Don't build a new primitive based on this investigation.** Specifically:
+Built `src/lib/patterns/liquidity-sweep-reclaim.ts` (fires when a sweep occurred ≤N bars ago AND current bar's close is back inside the swept range — the discretionary "wait for confirmation" entry timing).
 
-1. **The 8 wrong-side / noise trades** don't represent missing signals — they represent friend's discretionary error rate. Building detectors that fire on them would degrade our edge, not improve it.
+Added `sweep_reclaim_dailybias` candidate to `scripts/sweep-forex-prep-s5.ts` and ran on XAU/USD + EUR/USD + GBP/USD + USD/JPY × geometry grid:
 
-2. **The 1 EUR/USD intraday-V reversal trade** is interesting but n=1. We'd need ≥5-10 similar setups across our 6yr corpus to justify a detector. Sub-task hypothesis if operator wants to pursue later:
-   - "intraday-V detector": bar hits 24h-low ATR-percentile-low, intra-bar wick + close ratio > X, prior 3-bar move was ≥2× ATR drop
-   - First step would be backtest: count similar setups on EUR/USD 6yr corpus, measure forward 5-10 bar performance
-   - Only build the detector if backtest shows positive expectancy at meaningful n
+| Pair | Best cell (gated) | Return | Trades | Green % | DD |
+|---|---|---|---|---|---|
+| XAU/USD | sa-0.10/4 rr=3 | $16,401 | 64 | n/a | <3% (est) |
+| EUR/USD | sa-0.10/4 rr=5 | $10,612 | 43 | 45% | 2.96% |
+| GBP/USD | sa-0.10/4 rr=3 | $9,931 | 44 | 45.5% | 1.78% |
+| USD/JPY | pct-0.30 rr=5 | $24,153 | 67 | 47% | **5.91%** ⚠️ |
+| USD/JPY (DD-safe) | pct-0.50 rr=3 | $14,605 | 58 | 53% | 4.62% |
 
-3. **Better roadmap action: focus on validated direction.** Friend-replay already identified daily_bias + FVG + equal_levels-as-structural as winner-discriminators ([[project_friend_replay_2026_06]]). S1.5 #1 (FVG-DailyBias-Long 4h) and #3 (forex prep) acted on those. The 24% blind spot tail offers diminishing returns.
+**All 4 instruments produce positive returns**. Magnitudes are smaller than the dominant `fvg_dailybias` primitive (typically 4-6×) but the edge is real.
 
-**Close S1.5 priority #4** as "investigated, no actionable new primitive." Possible follow-up hypothesis on intraday-V reversal logged but not committed.
+### Geometry-instrument fit observation
+
+- **Gold**: `swing_anchor 0.10/4` works; `pct-0.30` is too tight (large losses).
+- **Forex**: both `swing_anchor` and `pct-0.30` to `pct-0.50` work; magnitudes differ.
+
+This is consistent with gold's larger per-bar ATR — a 30 bps SL is too tight for gold's normal noise but appropriate for forex.
+
+---
+
+## Where this leaves #245
+
+The 2026-06-16 PM kill of #245 (`sweep+reclaim refinement`) was based on:
+> "liquidity_sweep is a loser-discriminator on friend's trades (0% winners, 13% losers) AND has marginal backtest baseline (-0.05R LONG, +0.03R SHORT). Refinement won't rescue it."
+
+**Both clauses were measured at the wrong bar.**
+
+- The friend-replay 0% winners / 13% losers stat was at the SWEEP CANDLE moment. His winners enter at the RECLAIM CANDLE (1-3 bars later). With the corrected detector, his trades show 18% winners / 6% losers — the OPPOSITE direction.
+- The "marginal backtest baseline" was `liquidity_sweep` at the sweep candle. `liquidity_sweep_reclaim_dailybias` at the reclaim candle produces $10-24K returns across 4 instruments × 6yr.
+
+**The kill should be reversed.** #245 stays valid as a future-work item.
+
+---
+
+## Recommendations
+
+### What to build now (this PR)
+
+- `liquidity_sweep_reclaim` detector — DONE in this PR
+- Wired through pattern dispatcher + validator + types
+- Unit tests (7 cases, all passing)
+- Friend-replay extended with new primitive
+
+### What NOT to build now (gated on operator decision)
+
+- A `Library: Gold sweep_reclaim_dailybias 4h` algo deploy. The magnitude is smaller than fvg_dailybias, so deploying it would carry portfolio diversification value rather than dominant-edge value. Owed: full 4-way pre-deploy validation per CLAUDE.md before any APPLY=1.
+- A forex sweep_reclaim algo. Same gating.
+- Combining `sweep_reclaim` with `fvg` as a confluence filter on existing algos. Possible but adds complexity; should be tested as ablation before adopting.
+
+### Roadmap actions
+
+- **Re-open #245** as "validated, deferred deployment." The kill rationale was wrong; the pattern has real signal in both friend-replay AND 6yr backtest.
+- **Close S1.5 priority #4** as "investigated and CLOSED with new primitive surfaced." Original goal (find missing detector for 24% blind spot) was met negatively — the blind spot is mostly noise — but the investigation methodology surfaced an unrelated valuable primitive.
+
+### Process lesson
+
+The first-pass categorization of "wrong-side discretionary trade = no missing signal" was based on outcomes (tautological). The operator's push to re-analyze by STRUCTURE (not outcome) surfaced the EUR/USD V-bottom hypothesis, which led to sweep+reclaim re-examination, which led to a real new primitive. **Always re-check structural reads at entry — outcome-based filtering loses signal.**
+
+---
+
+## Files in this PR
+
+- `src/lib/patterns/liquidity-sweep-reclaim.ts` — the new detector
+- `src/lib/patterns/liquidity-sweep-reclaim.test.ts` — 7 unit tests
+- `src/lib/patterns/index.ts` — barrel export
+- `src/lib/patterns/evaluate.ts` — pattern dispatcher case
+- `src/lib/validators/algorithm.ts` — pattern enum
+- `src/types/algorithm.ts` — pattern type union
+- `src/components/algorithms/rules-display.tsx` — UI label
+- `scripts/inspect-blind-spot-trades.ts` — rich-context inspector
+- `scripts/replay-friend-trades.ts` — extended with sweep_reclaim
+- `scripts/sweep-forex-prep-s5.ts` — extended with sweep_reclaim_dailybias candidate + XAU/USD
+- `scripts/REPORT_24_PCT_BLIND_SPOT_2026_06_16.md` — this report
+- `.gitignore` — new sweep JSON patterns
 
 ---
 
 ## Connected memos
 
-- [[project_friend_replay_2026_06]] — the source data
-- [[feedback_audit_phantom_pattern]] — same diminishing-returns pattern
-- [[feedback_both_styles_valid]] — friend's style has discretionary noise; ours has different noise. Both can be profitable.
-- [[project_roadmap_2026_06]] S1.5 priority #4
+- [[project_friend_replay_2026_06]] — source data
+- [[project_discovery_gaps_audit_2026_06]] — #245 was closed here, needs re-opening
+- [[feedback_audit_phantom_pattern]] — partially still holds, but this case shows operator-question-driven re-analysis CAN surface real findings
+- [[project_roadmap_2026_06]] S1.5 priority #4 — closes with new primitive surfaced

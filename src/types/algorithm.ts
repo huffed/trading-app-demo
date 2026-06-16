@@ -51,6 +51,7 @@ export interface PatternCondition {
   type: "pattern";
   pattern:
     | "liquidity_sweep"
+    | "liquidity_sweep_reclaim"
     | "fvg"
     | "ifvg"
     | "daily_bias"
