@@ -74,3 +74,4 @@ scripts/discovery-be-trigger-*.json
 scripts/discovery-mfe-mae-by-exit-*.json
 scripts/discovery-trailing-stop-*.json
 scripts/discovery-trailing-stop-engine-*.json
+scripts/discovery-v1-2-*.json
