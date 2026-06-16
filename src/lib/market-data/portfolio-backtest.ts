@@ -351,7 +351,7 @@ function runCloseLoop(
           config: rules.stagnant_exit,
         }).exit
       : false;
-    const exitPrice = pickBacktestExitPrice(
+    const decision = pickBacktestExitPrice(
       pos,
       bar,
       state.closes[i],
@@ -359,8 +359,15 @@ function runCloseLoop(
       signalExitFired || stagnantFired,
       ticker
     );
-    if (exitPrice !== null) {
-      closeSimPosition(pos, dayKey, exitPrice, capital, cfg, s, trades, ticker);
+    if (decision !== null) {
+      // Reason precedence: pickBacktestExitPrice returns "signal_exit" when
+      // SL/TP didn't hit and the signal/stagnant force-close fired.
+      // Refine to "stagnant_exit" when that's what actually triggered.
+      const reason: BacktestTrade["exit_reason"] =
+        decision.reason === "signal_exit" && stagnantFired && !signalExitFired
+          ? "stagnant_exit"
+          : decision.reason;
+      closeSimPosition(pos, dayKey, decision.price, capital, cfg, s, trades, ticker, reason);
       // Tag the just-recorded trade with its ticker for portfolio breakdown.
       const t = trades[trades.length - 1];
       if (t) t.ticker = ticker;
@@ -384,7 +391,7 @@ function forceCloseTicker(
   if (state.positions.length === 0) return;
   const exitPrice = applySlippage(closePrice, cfg.slippageBps, false);
   for (let p = state.positions.length - 1; p >= 0; p--) {
-    closeSimPosition(state.positions[p], dayKey, exitPrice, capital, cfg, s, trades, ticker);
+    closeSimPosition(state.positions[p], dayKey, exitPrice, capital, cfg, s, trades, ticker, "force_close");
     const t = trades[trades.length - 1];
     if (t) t.ticker = ticker;
     state.positions.splice(p, 1);

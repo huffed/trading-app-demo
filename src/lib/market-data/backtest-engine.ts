@@ -292,7 +292,7 @@ function runSimulation(
             config: rules.stagnant_exit,
           }).exit
         : false;
-      const exitPrice = pickBacktestExitPrice(
+      const decision = pickBacktestExitPrice(
         pos,
         bar,
         closes[i],
@@ -300,8 +300,12 @@ function runSimulation(
         signalExitFired || stagnantFired,
         symbol
       );
-      if (exitPrice !== null) {
-        closeSimPosition(pos, dayKey, exitPrice, capital, cfg, s, trades, symbol);
+      if (decision !== null) {
+        const reason =
+          decision.reason === "signal_exit" && stagnantFired && !signalExitFired
+            ? "stagnant_exit"
+            : decision.reason;
+        closeSimPosition(pos, dayKey, decision.price, capital, cfg, s, trades, symbol, reason);
         positions.splice(p, 1);
         if (pf) dailyHalted = enforcePropFirm(pf, s, capital, dayKey, dailyHalted);
       }

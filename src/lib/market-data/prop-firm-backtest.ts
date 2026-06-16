@@ -75,7 +75,8 @@ export function closeSimPosition(
   cfg: SimConfig,
   s: SimState,
   trades: BacktestTrade[],
-  symbol?: string
+  symbol?: string,
+  exitReason?: BacktestTrade["exit_reason"]
 ) {
   const side = pos.side ?? "long";
   // Direction-aware percent change: longs profit on price rising, shorts
@@ -118,6 +119,7 @@ export function closeSimPosition(
     exit_price: exitPrice,
     side,
     pnl,
+    ...(exitReason ? { exit_reason: exitReason } : {}),
   });
   s.equity += pnl;
   s.peakEquity = Math.max(s.peakEquity, s.equity);
@@ -300,6 +302,15 @@ export function sizeForBacktest(
  * trailing state before invoking (e.g., portfolio-backtest's
  * runCloseLoop).
  */
+/** Result of intra-bar exit check. The reason is paired with the price
+ *  so callers can tag the BacktestTrade with which mechanic fired —
+ *  unlocks per-outcome analysis on top of the trade list (e.g., MFE/MAE
+ *  per exit reason). */
+export interface BacktestExitDecision {
+  price: number;
+  reason: "stop_loss_hit" | "take_profit_hit" | "signal_exit";
+}
+
 export function pickBacktestExitPrice(
   pos: {
     entryPrice: number;
@@ -319,7 +330,7 @@ export function pickBacktestExitPrice(
   cfg: SimConfig,
   signalExitFired: boolean,
   symbol?: string
-): number | null {
+): BacktestExitDecision | null {
   const side = pos.side ?? "long";
   const slDelta = pos.slDistance ?? priceDeltaForRule(cfg.stopLoss, pos.entryPrice, symbol);
   const tpDelta = pos.tpDistance ?? priceDeltaForRule(cfg.takeProfit, pos.entryPrice, symbol);
@@ -328,17 +339,17 @@ export function pickBacktestExitPrice(
     const stopPrice = pos.trailingState?.currentSlPrice ?? baseStopPrice;
     const tpPrice = pos.entryPrice - tpDelta;
     // Stops win ties — checked before TP.
-    if (bar.high >= stopPrice) return applySlippage(stopPrice, cfg.slippageBps, true);
-    if (bar.low <= tpPrice) return applySlippage(tpPrice, cfg.slippageBps, true);
-    if (signalExitFired) return applySlippage(closePrice, cfg.slippageBps, true);
+    if (bar.high >= stopPrice) return { price: applySlippage(stopPrice, cfg.slippageBps, true), reason: "stop_loss_hit" };
+    if (bar.low <= tpPrice) return { price: applySlippage(tpPrice, cfg.slippageBps, true), reason: "take_profit_hit" };
+    if (signalExitFired) return { price: applySlippage(closePrice, cfg.slippageBps, true), reason: "signal_exit" };
     return null;
   }
   const baseStopPrice = pos.entryPrice - slDelta;
   const stopPrice = pos.trailingState?.currentSlPrice ?? baseStopPrice;
   const tpPrice = pos.entryPrice + tpDelta;
-  if (bar.low <= stopPrice) return applySlippage(stopPrice, cfg.slippageBps, false);
-  if (bar.high >= tpPrice) return applySlippage(tpPrice, cfg.slippageBps, false);
-  if (signalExitFired) return applySlippage(closePrice, cfg.slippageBps, false);
+  if (bar.low <= stopPrice) return { price: applySlippage(stopPrice, cfg.slippageBps, false), reason: "stop_loss_hit" };
+  if (bar.high >= tpPrice) return { price: applySlippage(tpPrice, cfg.slippageBps, false), reason: "take_profit_hit" };
+  if (signalExitFired) return { price: applySlippage(closePrice, cfg.slippageBps, false), reason: "signal_exit" };
   return null;
 }
 
@@ -371,7 +382,7 @@ export function forceCloseAllPositions(
   const exitPrice = applySlippage(closePrice, cfg.slippageBps, false);
   for (let p = positions.length - 1; p >= 0; p--) {
     const pos = positions[p];
-    closeSimPosition(pos, dayKey, exitPrice, capital, cfg, s, trades, pos.ticker ?? symbol);
+    closeSimPosition(pos, dayKey, exitPrice, capital, cfg, s, trades, pos.ticker ?? symbol, "force_close");
     positions.splice(p, 1);
   }
 }
