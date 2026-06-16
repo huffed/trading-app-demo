@@ -37,7 +37,7 @@ import type { AlgorithmRules } from "../src/types/algorithm";
 
 interface ClassifiedTrade extends BacktestTrade {
   hold_hours: number;
-  exit_reason: string;
+  exit_reason_label: string;
 }
 
 function classifyExit(t: BacktestTrade, rules: AlgorithmRules): string {
@@ -242,7 +242,7 @@ async function main(): Promise<void> {
   const trades: ClassifiedTrade[] = result.trades.map((t) => ({
     ...t,
     hold_hours: holdHours(t),
-    exit_reason: classifyExit(t, algoRow.rules),
+    exit_reason_label: classifyExit(t, algoRow.rules),
   }));
 
   console.log(`Backtest complete in ${duration}s`);
@@ -269,10 +269,10 @@ async function main(): Promise<void> {
   // Exit-reason breakdown
   const reasonCounts = new Map<string, { count: number; pnl: number }>();
   for (const t of trades) {
-    const r = reasonCounts.get(t.exit_reason) ?? { count: 0, pnl: 0 };
+    const r = reasonCounts.get(t.exit_reason_label) ?? { count: 0, pnl: 0 };
     r.count++;
     r.pnl += t.pnl;
-    reasonCounts.set(t.exit_reason, r);
+    reasonCounts.set(t.exit_reason_label, r);
   }
   console.log("Exit-reason breakdown:");
   for (const [reason, stats] of reasonCounts) {

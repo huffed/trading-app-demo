@@ -16,6 +16,20 @@ export interface PriceBar {
   volume: number;
 }
 
+/** Exit reason taxonomy — mirrors paper_positions.exit_reason from the
+ *  live engine. `stop_loss_hit` / `take_profit_hit` set when the bar's
+ *  high/low touches the SL/TP price respectively (trailing-adjusted SL
+ *  counted as stop_loss_hit). `signal_exit` set when the algo's
+ *  exit_conditions or a drawdown-breach trigger force-close. `stagnant_exit`
+ *  set when the stagnant gate forced close. `force_close` covers daily-
+ *  loss-limit halts and end-of-corpus / end-of-chunk position drains. */
+export type BacktestExitReason =
+  | "stop_loss_hit"
+  | "take_profit_hit"
+  | "signal_exit"
+  | "stagnant_exit"
+  | "force_close";
+
 export interface BacktestTrade {
   entry_date: string;
   exit_date: string;
@@ -25,6 +39,10 @@ export interface BacktestTrade {
   pnl: number;
   /** Set on portfolio backtests so the trade list can show which pair fired. */
   ticker?: string;
+  /** Optional for backwards-compatibility with pre-2026-06-16 callers.
+   *  Populated by the prop-firm + portfolio backtest engines. Unlocks
+   *  per-outcome MFE/MAE slicing (PR #233 follow-on to #226 MFE/MAE). */
+  exit_reason?: BacktestExitReason;
 }
 
 export interface OpenPosition {

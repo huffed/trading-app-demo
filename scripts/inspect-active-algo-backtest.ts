@@ -115,7 +115,7 @@ const RULES: AlgorithmRules = {
 
 interface ClassifiedTrade extends BacktestTrade {
   hold_hours: number;
-  exit_reason: string;
+  exit_reason_label: string;
 }
 
 const TP_PCT = (RULES.take_profit.value as number) / 100;
@@ -176,7 +176,7 @@ async function main(): Promise<void> {
   const trades: ClassifiedTrade[] = result.trades.map((t) => ({
     ...t,
     hold_hours: holdHours(t),
-    exit_reason: classifyExit(t),
+    exit_reason_label: classifyExit(t),
   }));
 
   console.log(`Backtest complete in ${duration}s`);
@@ -188,10 +188,10 @@ async function main(): Promise<void> {
   // Exit-reason breakdown
   const reasonCounts = new Map<string, { count: number; pnl: number }>();
   for (const t of trades) {
-    const r = reasonCounts.get(t.exit_reason) ?? { count: 0, pnl: 0 };
+    const r = reasonCounts.get(t.exit_reason_label) ?? { count: 0, pnl: 0 };
     r.count++;
     r.pnl += t.pnl;
-    reasonCounts.set(t.exit_reason, r);
+    reasonCounts.set(t.exit_reason_label, r);
   }
   console.log("Exit-reason breakdown:");
   for (const [reason, stats] of reasonCounts) {
@@ -257,7 +257,7 @@ async function main(): Promise<void> {
         ? `${t.hold_hours.toFixed(1)}h`
         : `${(t.hold_hours / 24).toFixed(1)}d`;
     console.log(
-      `  ${(t.ticker ?? "?").padEnd(8)} ${t.side.padEnd(5)} ${entry.padEnd(20)} ${exitDate.padEnd(20)} ${hold.padStart(7)}  $${t.pnl.toFixed(0).padStart(7)}  ${t.exit_reason}`
+      `  ${(t.ticker ?? "?").padEnd(8)} ${t.side.padEnd(5)} ${entry.padEnd(20)} ${exitDate.padEnd(20)} ${hold.padStart(7)}  $${t.pnl.toFixed(0).padStart(7)}  ${t.exit_reason_label}`
     );
   }
 }
