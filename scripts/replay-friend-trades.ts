@@ -425,6 +425,62 @@ async function main() {
     console.log(`  ${p.padEnd(18)} ${a.padStart(3)}%   ${w.padStart(3)}%     ${l.padStart(3)}%`);
   }
 
+  // ----- CONFLUENCE among the 4 winner-discriminator primitives -----
+  // Per S1.5 #6 investigation: do combos of winner-disc primitives produce
+  // higher WR than individual primitives? This is the empirical test of
+  // whether pattern confluence (audit issue #228 sub-3) has signal.
+  //
+  // The 4 winner-discs (from prior per-pattern table):
+  //   daily_bias (+29pp), fvg (+39pp), equal_levels (+21pp), sweep_reclaim (+12pp)
+  const WIN_DISC = ["daily_bias", "fvg", "equal_levels", "sweep_reclaim"];
+  function countWinDisc(r: Result): number {
+    if (!r.hit) return 0;
+    const dir = r.trade.type === "buy" ? "bullish" : "bearish";
+    let n = 0;
+    for (const p of WIN_DISC) {
+      const v = r.hit[dirKey(p, dir)];
+      if (v === true) n += 1;
+    }
+    return n;
+  }
+  console.log(`\n--- CONFLUENCE: WR by count of winner-disc primitives firing (of ${WIN_DISC.length}) ---`);
+  console.log(`Threshold examines daily_bias + fvg + equal_levels + sweep_reclaim only`);
+  console.log(`# fired | n trades | winners | losers | WR`);
+  for (let k = 0; k <= WIN_DISC.length; k++) {
+    const subset = evaluated.filter((r) => countWinDisc(r) === k);
+    const subWins = subset.filter((r) => r.trade.isWin).length;
+    const subLosses = subset.length - subWins;
+    const wr = subset.length > 0 ? ((subWins / subset.length) * 100).toFixed(1) : "n/a";
+    console.log(`  = ${k}   |   ${String(subset.length).padStart(2)}     |   ${String(subWins).padStart(2)}    |   ${String(subLosses).padStart(2)}   | ${wr}%`);
+  }
+  console.log(`\nCumulative ≥k breakdown:`);
+  for (let k = 1; k <= WIN_DISC.length; k++) {
+    const subset = evaluated.filter((r) => countWinDisc(r) >= k);
+    const subWins = subset.filter((r) => r.trade.isWin).length;
+    const wr = subset.length > 0 ? ((subWins / subset.length) * 100).toFixed(1) : "n/a";
+    console.log(`  ≥ ${k}: n=${String(subset.length).padStart(2)} wins=${String(subWins).padStart(2)} WR=${wr}%`);
+  }
+  console.log(`\nBaseline WR (all evaluated): ${((wins.length / evaluated.length) * 100).toFixed(1)}% (${wins.length}/${evaluated.length})`);
+
+  // ----- COMBO PAIRS: pairs of winner-disc primitives -----
+  console.log(`\n--- PAIR CONFLUENCE: WR for each PAIR of winner-disc primitives co-firing ---`);
+  console.log(`pair                              n trades | wins | losses | WR`);
+  for (let i = 0; i < WIN_DISC.length; i++) {
+    for (let j = i + 1; j < WIN_DISC.length; j++) {
+      const a = WIN_DISC[i];
+      const b = WIN_DISC[j];
+      const subset = evaluated.filter((r) => {
+        if (!r.hit) return false;
+        const dir = r.trade.type === "buy" ? "bullish" : "bearish";
+        return r.hit[dirKey(a, dir)] === true && r.hit[dirKey(b, dir)] === true;
+      });
+      const subWins = subset.filter((r) => r.trade.isWin).length;
+      const subLosses = subset.length - subWins;
+      const wr = subset.length > 0 ? ((subWins / subset.length) * 100).toFixed(1) : "n/a";
+      console.log(`  ${a.padEnd(14)} + ${b.padEnd(14)}    ${String(subset.length).padStart(2)}     |  ${String(subWins).padStart(2)}  |   ${String(subLosses).padStart(2)}   | ${wr}%`);
+    }
+  }
+
   // ----- Coverage rate including new primitives -----
   console.log(`\n--- Coverage including NEW primitives (choch + ote + equal_levels) ---`);
   function coverageAt(threshold: number, key: "allPrimitivesAlignedCount" | "newPrimitivesAlignedCount", sample: Result[]): number {
