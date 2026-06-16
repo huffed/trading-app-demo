@@ -12,10 +12,14 @@
 import { readFileSync, readdirSync } from "fs";
 import { join } from "path";
 import { detectBos } from "../src/lib/patterns/bos";
+import { detectChoch } from "../src/lib/patterns/choch";
 import { detectDailyBias } from "../src/lib/patterns/daily-bias";
+import { detectEqualLevels } from "../src/lib/patterns/equal-levels";
 import { detectFvg } from "../src/lib/patterns/fvg";
 import { detectLiquiditySweep } from "../src/lib/patterns/liquidity-sweep";
 import { detectOrderBlock } from "../src/lib/patterns/order-block";
+import { detectOte } from "../src/lib/patterns/ote";
+import { loadCorpus } from "./llm-trader-backtest";
 
 // Manual env loader (same pattern as analyze-friend-trades.ts)
 {
@@ -111,6 +115,19 @@ function loadTrades(): Trade[] {
   return out.sort((a, b) => a.openUtc.getTime() - b.openUtc.getTime());
 }
 
+async function fetchBarsViaLoadCorpus(symbol: string, interval: "1h" | "1day"): Promise<Bar[]> {
+  // Use the same loadCorpus the V1.2 mining + discovery pipeline uses —
+  // OANDA primary with caching, no Twelve Data rate-limit issues.
+  if (interval === "1day") {
+    const c4 = await loadCorpus("4h", symbol);
+    return c4.dailyBars.map((b) => ({ ...b }));
+  }
+  const c1 = await loadCorpus("1h", symbol);
+  return c1.bars.map((b) => ({ ...b }));
+}
+
+// Legacy Twelve Data direct fetcher — kept for the env-variable fallback
+// path. New default is fetchBarsViaLoadCorpus above.
 async function fetchBars(
   symbol: string,
   interval: "1h" | "1day"
@@ -162,12 +179,23 @@ interface PatternHit {
   fvg_bearish: boolean;
   sweep_bullish: boolean;
   sweep_bearish: boolean;
+  choch_bullish: boolean;
+  choch_bearish: boolean;
+  ote_bullish: boolean;
+  ote_bearish: boolean;
+  equal_levels_bullish: boolean;
+  equal_levels_bearish: boolean;
   /** Aligned to the trade's direction: count of patterns that match the
    *  side he was actually trading (buy → bullish patterns, sell → bearish). */
   alignedCount: number;
   /** Same alignment but for the BOS + OrderBlock + daily_bias 2-of-3
    *  combo specifically — that's the template our friend-clone v1 uses. */
   ourTemplateAlignedCount: number;
+  /** Direction-aligned count over the 3 NEW primitives added since
+   *  2026-04-29's 5%-overlap baseline: choch + ote + equal_levels. */
+  newPrimitivesAlignedCount: number;
+  /** Direction-aligned count over ALL 8 primitives. */
+  allPrimitivesAlignedCount: number;
 }
 
 function evaluatePatterns(
@@ -206,6 +234,18 @@ function evaluatePatterns(
   const sweepBull = sweepResult.detected && sweepResult.details?.direction === "bullish";
   const sweepBear = sweepResult.detected && sweepResult.details?.direction === "bearish";
 
+  // ----- New primitives added since 2026-04-29 baseline ChoCh, OTE, equal_levels -----
+  const chochResult = detectChoch(bars, i, 5);
+  const chochBull = chochResult.detected && chochResult.details?.direction === "bullish";
+  const chochBear = chochResult.detected && chochResult.details?.direction === "bearish";
+
+  const oteResult = detectOte(bars, i, 5);
+  const oteBull = oteResult.detected && oteResult.details?.direction === "bullish";
+  const oteBear = oteResult.detected && oteResult.details?.direction === "bearish";
+
+  const eqBull = detectEqualLevels(bars, i, "bullish", { swingLookback: 5 }).detected;
+  const eqBear = detectEqualLevels(bars, i, "bearish", { swingLookback: 5 }).detected;
+
   const isBull = direction === "bullish";
   const aligned = [
     isBull ? biasBull : biasBear,
@@ -219,6 +259,12 @@ function evaluatePatterns(
     isBull ? bosBull : bosBear,
     isBull ? obBull : obBear,
   ].filter(Boolean).length;
+  const newPrimitives = [
+    isBull ? chochBull : chochBear,
+    isBull ? oteBull : oteBear,
+    isBull ? eqBull : eqBear,
+  ].filter(Boolean).length;
+  const allPrimitives = aligned + newPrimitives;
 
   return {
     daily_bias_bullish: biasBull,
@@ -231,8 +277,16 @@ function evaluatePatterns(
     fvg_bearish: fvgBear,
     sweep_bullish: sweepBull,
     sweep_bearish: sweepBear,
+    choch_bullish: chochBull,
+    choch_bearish: chochBear,
+    ote_bullish: oteBull,
+    ote_bearish: oteBear,
+    equal_levels_bullish: eqBull,
+    equal_levels_bearish: eqBear,
     alignedCount: aligned,
     ourTemplateAlignedCount: ourTemplate,
+    newPrimitivesAlignedCount: newPrimitives,
+    allPrimitivesAlignedCount: allPrimitives,
   };
 }
 
@@ -260,8 +314,8 @@ async function main() {
     let hourBars: Bar[];
     let dailyBars: Bar[];
     try {
-      hourBars = await fetchBars(symbol, "1h");
-      dailyBars = await fetchBars(symbol, "1day");
+      hourBars = await fetchBarsViaLoadCorpus(symbol, "1h");
+      dailyBars = await fetchBarsViaLoadCorpus(symbol, "1day");
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       console.log(`  skip ${symbol}: ${msg}`);
@@ -347,7 +401,7 @@ async function main() {
     }).length;
     return (fired / sample.length) * 100;
   }
-  const patterns = ["daily_bias", "bos", "ob", "fvg", "sweep"];
+  const patterns = ["daily_bias", "bos", "ob", "fvg", "sweep", "choch", "ote", "equal_levels"];
   console.log(`Pattern             ALL    WINNERS  LOSERS`);
   for (const p of patterns) {
     const a = fireAlignedRate(p, evaluated).toFixed(0);
@@ -355,6 +409,21 @@ async function main() {
     const l = fireAlignedRate(p, losses).toFixed(0);
     console.log(`  ${p.padEnd(18)} ${a.padStart(3)}%   ${w.padStart(3)}%     ${l.padStart(3)}%`);
   }
+
+  // ----- Coverage rate including new primitives -----
+  console.log(`\n--- Coverage including NEW primitives (choch + ote + equal_levels) ---`);
+  function coverageAt(threshold: number, key: "allPrimitivesAlignedCount" | "newPrimitivesAlignedCount", sample: Result[]): number {
+    if (sample.length === 0) return 0;
+    return (sample.filter((r) => (r.hit?.[key] ?? 0) >= threshold).length / sample.length) * 100;
+  }
+  console.log(`Trades where ≥1 of 3 NEW primitives aligned: ${coverageAt(1, "newPrimitivesAlignedCount", evaluated).toFixed(0)}% (${evaluated.filter(r => (r.hit?.newPrimitivesAlignedCount ?? 0) >= 1).length} of ${evaluated.length})`);
+  console.log(`Trades where ≥1 of ALL 8 primitives aligned: ${coverageAt(1, "allPrimitivesAlignedCount", evaluated).toFixed(0)}% (${evaluated.filter(r => (r.hit?.allPrimitivesAlignedCount ?? 0) >= 1).length} of ${evaluated.length})`);
+  console.log(`Trades where ≥2 of ALL 8 primitives aligned: ${coverageAt(2, "allPrimitivesAlignedCount", evaluated).toFixed(0)}% (${evaluated.filter(r => (r.hit?.allPrimitivesAlignedCount ?? 0) >= 2).length} of ${evaluated.length})`);
+  console.log(`Trades where ≥3 of ALL 8 primitives aligned: ${coverageAt(3, "allPrimitivesAlignedCount", evaluated).toFixed(0)}%`);
+  const stillMissed = evaluated.filter((r) => (r.hit?.allPrimitivesAlignedCount ?? 0) === 0);
+  console.log(`\nTrades where ZERO primitives fired (we cannot detect this entry at all): ${stillMissed.length} of ${evaluated.length} (${(stillMissed.length / evaluated.length * 100).toFixed(0)}%)`);
+  const stillMissedWins = stillMissed.filter((r) => r.trade.isWin);
+  console.log(`  Of those: ${stillMissedWins.length} winners (${stillMissed.length > 0 ? ((stillMissedWins.length / stillMissed.length) * 100).toFixed(0) : 0}%)`);
 
   // What was happening on HIS WINNING TRADES that DIDN'T match our patterns?
   const winnersWeMissed = wins.filter((r) => (r.hit?.ourTemplateAlignedCount ?? 0) < 2);
