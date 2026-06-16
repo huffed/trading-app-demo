@@ -1,4 +1,4 @@
-import type { MarketStateGate } from "@/lib/algorithm/market-state-gate";
+import type { MarketStateGateConfig } from "@/lib/algorithm/market-state-gate";
 
 export type AlgorithmStatus = "draft" | "active" | "paused" | "archived";
 export type RiskLevel = "conservative" | "moderate" | "aggressive";
@@ -575,7 +575,7 @@ export interface AlgorithmRules {
    * flat. Strategies wake and sleep with the regime — never via manual
    * toggling. See src/lib/algorithm/market-state-gate.ts.
    */
-  market_state_gate?: MarketStateGate;
+  market_state_gate?: MarketStateGateConfig;
 }
 
 // --- Backtest results ---

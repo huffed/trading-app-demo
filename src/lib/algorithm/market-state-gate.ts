@@ -85,6 +85,40 @@ export interface GateVerdict {
   shadow_block_reason?: string;
 }
 
+/** Composite gate: AND-combination of clauses. Entry refused unless EVERY
+ *  clause allows. Use when stacking independently-derived rules — e.g.
+ *  an existing allow-mode mtf clause + a V1.2 cluster block_joint clause.
+ *
+ *  Shadow semantics:
+ *    - composite-level `shadow: true` shadows the ENTIRE stack: per-clause
+ *      shadows are ignored and the composite returns allowed=true on any
+ *      refusal, with the would-block reason surfaced. Use when trialling
+ *      the whole stack as a unit.
+ *    - composite-level shadow undefined/false PRESERVES per-clause
+ *      shadow flags — a clause with shadow=true that would refuse returns
+ *      allowed=true (its shadow_block_reason bubbles up), and the
+ *      composite continues. A clause with shadow not set that refuses
+ *      hard-refuses the composite. This is what enables "shadow the newly
+ *      deployed cluster clause + keep enforcing the existing clause." */
+export interface MarketStateGateComposite {
+  clauses: MarketStateGate[];
+  shadow?: boolean;
+}
+
+export type MarketStateGateConfig = MarketStateGate | MarketStateGateComposite;
+
+export function isCompositeGate(
+  config: MarketStateGateConfig
+): config is MarketStateGateComposite {
+  return Array.isArray((config as MarketStateGateComposite).clauses);
+}
+
+/** Stable display string for the `gate_mode` telemetry field. Single
+ *  clauses report their own mode; composites report `composite_and`. */
+export function gateConfigModeLabel(config: MarketStateGateConfig): string {
+  return isCompositeGate(config) ? "composite_and" : config.mode;
+}
+
 /** Context required to evaluate the entry-zone and entry-hour-bucket
  *  features. Omit when configuring only state-derived features
  *  (mtf/vol/range/dxy). */
@@ -260,4 +294,81 @@ export function checkMarketStateGate(
     };
   }
   return verdict;
+}
+
+/** Dispatcher — accepts either a single MarketStateGate or a composite.
+ *
+ *  Composite semantics: AND across clauses. Two modes determined by
+ *  `config.shadow`:
+ *
+ *  1. `config.shadow === true` — the entire composite shadows. Per-clause
+ *     shadow flags are stripped; the composite refuses on the first
+ *     non-allowed clause, then converts the refusal to allowed=true with
+ *     `shadow_block_reason` set. Use when trialling the whole stack.
+ *
+ *  2. otherwise — per-clause shadow is RESPECTED. A clause with
+ *     `shadow: true` that would refuse returns allowed=true with its own
+ *     `shadow_block_reason`; the composite records it and continues. A
+ *     clause without shadow that refuses hard-refuses the composite.
+ *     The composite's final verdict propagates the FIRST clause's
+ *     `shadow_block_reason` it saw (so the operator can see what would
+ *     have been blocked, while keeping the enforced clauses live). */
+export function checkMarketStateGateConfig(
+  config: MarketStateGateConfig,
+  state: MarketState | null,
+  ctx: GateContext = {}
+): GateVerdict {
+  if (!isCompositeGate(config)) return checkMarketStateGate(config, state, ctx);
+
+  if (config.clauses.length === 0) {
+    return { allowed: true, reason: "composite has no clauses" };
+  }
+
+  const compositeShadow = config.shadow === true;
+  const verdicts: { clause: number; verdict: GateVerdict }[] = [];
+  let firstShadowReason: { clause: number; reason: string } | null = null;
+  let refusedAt: { clause: number; verdict: GateVerdict } | null = null;
+
+  for (let i = 0; i < config.clauses.length; i++) {
+    // In whole-composite shadow mode, strip per-clause shadow so we can
+    // see the underlying clause verdict and re-shadow at the composite
+    // level on refusal. Otherwise leave the clause untouched so its
+    // own shadow flag governs.
+    const clauseForEval: MarketStateGate = compositeShadow
+      ? { ...config.clauses[i], shadow: false }
+      : config.clauses[i];
+    const v = checkMarketStateGate(clauseForEval, state, ctx);
+    verdicts.push({ clause: i, verdict: v });
+
+    if (!compositeShadow && v.shadow_block_reason && !firstShadowReason) {
+      firstShadowReason = { clause: i, reason: v.shadow_block_reason };
+    }
+    if (!v.allowed) {
+      refusedAt = { clause: i, verdict: v };
+      break;
+    }
+  }
+
+  if (!refusedAt) {
+    const acceptReasons = verdicts.map((v) => `[#${v.clause}] ${v.verdict.reason}`).join("; ");
+    const verdict: GateVerdict = {
+      allowed: true,
+      reason: `composite passed (${acceptReasons})`,
+    };
+    if (firstShadowReason) {
+      verdict.shadow_block_reason = `clause #${firstShadowReason.clause}: ${firstShadowReason.reason}`;
+    }
+    return verdict;
+  }
+
+  const composedReason = `composite_and clause #${refusedAt.clause} refused: ${refusedAt.verdict.reason}`;
+
+  if (compositeShadow) {
+    return {
+      allowed: true,
+      reason: `shadow: would-block (${composedReason})`,
+      shadow_block_reason: composedReason,
+    };
+  }
+  return { allowed: false, reason: composedReason };
 }

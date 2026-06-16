@@ -3,10 +3,14 @@ import type { MarketState } from "@/lib/market-data/market-state";
 import type { PriceBar } from "@/lib/market-data/types";
 import {
   checkMarketStateGate,
+  checkMarketStateGateConfig,
   computeEntryHourBucket,
   computeEntryZone,
   computePositionInRangePct,
+  gateConfigModeLabel,
+  isCompositeGate,
   type MarketStateGate,
+  type MarketStateGateComposite,
 } from "./market-state-gate";
 import { computeTpDistance, takeProfitRuleForSide } from "./structural-sl";
 
@@ -220,6 +224,141 @@ describe("checkMarketStateGate", () => {
     const v = checkMarketStateGate(gate, STATE);
     expect(v.allowed).toBe(true);
     expect(v.shadow_block_reason).toBeUndefined();
+  });
+});
+
+describe("checkMarketStateGateConfig", () => {
+  it("dispatches single-clause configs to checkMarketStateGate", () => {
+    const gate: MarketStateGate = {
+      mode: "allow",
+      states: { mtf: ["fast_div_bear"] },
+    };
+    expect(checkMarketStateGateConfig(gate, STATE).allowed).toBe(true);
+  });
+
+  it("composite passes when EVERY clause allows", () => {
+    const config: MarketStateGateComposite = {
+      clauses: [
+        { mode: "allow", states: { mtf: ["fast_div_bear", "aligned_LH"] } },
+        { mode: "block", states: { vol: ["high"] } },
+      ],
+    };
+    const v = checkMarketStateGateConfig(config, STATE);
+    expect(v.allowed).toBe(true);
+    expect(v.reason).toContain("composite passed");
+  });
+
+  it("composite refuses on the FIRST clause that refuses", () => {
+    const config: MarketStateGateComposite = {
+      clauses: [
+        { mode: "allow", states: { mtf: ["aligned_LH"] } }, // refuses — state is fast_div_bear
+        { mode: "block", states: { vol: ["mid"] } }, // would also refuse
+      ],
+    };
+    const v = checkMarketStateGateConfig(config, STATE);
+    expect(v.allowed).toBe(false);
+    expect(v.reason).toContain("clause #0");
+    expect(v.reason).toContain("mtf=fast_div_bear");
+    // Second clause should not surface — short-circuit on first refusal.
+    expect(v.reason).not.toContain("clause #1");
+  });
+
+  it("composite refuses when only ONE clause refuses (AND semantics)", () => {
+    const config: MarketStateGateComposite = {
+      clauses: [
+        { mode: "allow", states: { mtf: ["fast_div_bear"] } }, // passes
+        {
+          mode: "block_joint",
+          states: { vol: ["mid"], range: ["compressed"], dxy: ["usd_up"] },
+        }, // refuses on V1.2-like joint match
+      ],
+    };
+    const v = checkMarketStateGateConfig(config, STATE);
+    expect(v.allowed).toBe(false);
+    expect(v.reason).toContain("clause #1");
+    expect(v.reason).toContain("joint block");
+  });
+
+  it("composite-level shadow overrides clause refusal to allowed=true", () => {
+    const config: MarketStateGateComposite = {
+      clauses: [
+        { mode: "allow", states: { mtf: ["aligned_LH"] } }, // would refuse
+      ],
+      shadow: true,
+    };
+    const v = checkMarketStateGateConfig(config, STATE);
+    expect(v.allowed).toBe(true);
+    expect(v.shadow_block_reason).toContain("mtf=fast_div_bear");
+    expect(v.reason).toContain("shadow:");
+  });
+
+  it("composite-level shadow=true STRIPS per-clause shadow and shadows the whole stack", () => {
+    const config: MarketStateGateComposite = {
+      clauses: [
+        // Per-clause shadow flag is irrelevant when composite-shadow=true.
+        { mode: "allow", states: { mtf: ["aligned_LH"] }, shadow: false },
+      ],
+      shadow: true,
+    };
+    const v = checkMarketStateGateConfig(config, STATE);
+    expect(v.allowed).toBe(true);
+    expect(v.shadow_block_reason).toContain("mtf=fast_div_bear");
+  });
+
+  it("composite without composite-shadow respects PER-CLAUSE shadow flags — enforce one, shadow another", () => {
+    const config: MarketStateGateComposite = {
+      clauses: [
+        // Enforced clause — passes against STATE (fast_div_bear).
+        { mode: "allow", states: { mtf: ["fast_div_bear"] } },
+        // Shadow clause — would refuse on V1.2-like joint match.
+        {
+          mode: "block_joint",
+          states: { vol: ["mid"], range: ["compressed"], dxy: ["usd_up"] },
+          shadow: true,
+        },
+      ],
+    };
+    const v = checkMarketStateGateConfig(config, STATE);
+    // Allowed because the enforced clause passed AND the shadow clause's
+    // refusal was suppressed by its shadow flag.
+    expect(v.allowed).toBe(true);
+    // Shadow info from the would-block clause bubbles up.
+    expect(v.shadow_block_reason).toContain("clause #1");
+    expect(v.shadow_block_reason).toContain("joint block");
+  });
+
+  it("composite without composite-shadow HARD-refuses on a non-shadow clause that refuses", () => {
+    const config: MarketStateGateComposite = {
+      clauses: [
+        // Enforced clause — refuses (state is fast_div_bear, allowed list is aligned_LH).
+        { mode: "allow", states: { mtf: ["aligned_LH"] } },
+        // Shadow clause — never reached because we short-circuit.
+        {
+          mode: "block_joint",
+          states: { vol: ["mid"], range: ["compressed"] },
+          shadow: true,
+        },
+      ],
+    };
+    const v = checkMarketStateGateConfig(config, STATE);
+    expect(v.allowed).toBe(false);
+    expect(v.reason).toContain("clause #0");
+  });
+
+  it("composite with zero clauses is pass-through", () => {
+    const config: MarketStateGateComposite = { clauses: [] };
+    const v = checkMarketStateGateConfig(config, STATE);
+    expect(v.allowed).toBe(true);
+  });
+
+  it("isCompositeGate discriminates correctly", () => {
+    expect(isCompositeGate({ mode: "allow", states: {} })).toBe(false);
+    expect(isCompositeGate({ clauses: [] })).toBe(true);
+  });
+
+  it("gateConfigModeLabel reports composite_and for composites", () => {
+    expect(gateConfigModeLabel({ mode: "block_joint", states: {} })).toBe("block_joint");
+    expect(gateConfigModeLabel({ clauses: [] })).toBe("composite_and");
   });
 });
 

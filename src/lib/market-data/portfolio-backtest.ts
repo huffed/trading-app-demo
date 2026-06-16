@@ -9,7 +9,7 @@
 import { checkDxyDirection } from "@/lib/algorithm/dxy-filter";
 import { checkAtrLiquidity } from "@/lib/algorithm/intraday-atr-gate";
 import {
-  checkMarketStateGate,
+  checkMarketStateGateConfig,
   computePositionInRangePct,
   type GateContext,
 } from "@/lib/algorithm/market-state-gate";
@@ -519,7 +519,7 @@ function tryOpenEntry(
         state.closes[i]
       ),
     };
-    if (!checkMarketStateGate(rules.market_state_gate, ms, gateCtx).allowed) return;
+    if (!checkMarketStateGateConfig(rules.market_state_gate, ms, gateCtx).allowed) return;
   }
   const entryPrice = applySlippage(state.closes[i], cfg.slippageBps, side === "long");
   // Conviction-scaled sizing: dispatch to condition-count or

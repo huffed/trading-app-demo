@@ -231,7 +231,7 @@ const driftSchema = z.object({
 // Regime-library dormancy gate — values must mirror the unions in
 // src/lib/market-data/market-state.ts ("n/a" excluded: unreadable state
 // is handled by on_unreadable, never configured as a target state).
-const marketStateGateSchema = z.object({
+const marketStateGateSingleSchema = z.object({
   mode: z.enum(["allow", "block", "block_joint"]),
   states: z.object({
     mtf: z
@@ -259,6 +259,16 @@ const marketStateGateSchema = z.object({
   on_unreadable: z.enum(["block", "allow"]).optional(),
   shadow: z.boolean().optional(),
 });
+
+const marketStateGateCompositeSchema = z.object({
+  clauses: z.array(marketStateGateSingleSchema).min(1),
+  shadow: z.boolean().optional(),
+});
+
+const marketStateGateSchema = z.union([
+  marketStateGateCompositeSchema,
+  marketStateGateSingleSchema,
+]);
 
 const breakevenMoveSchema = z.object({
   enabled: z.boolean(),
