@@ -19,6 +19,8 @@ import type { PriceBar } from "@/lib/market-data/types";
 import type { PatternCondition } from "@/types/algorithm";
 import { detectAsianRangeBreak } from "./asian-range-break";
 import { detectBos } from "./bos";
+import { detectChoch } from "./choch";
+import { detectOte } from "./ote";
 import { detectDailyBias } from "./daily-bias";
 import { detectEngulfing } from "./engulfing";
 import { detectFvg, scanFvgs } from "./fvg";
@@ -124,6 +126,22 @@ function evaluateClassicPattern(
     }
     case "bos": {
       const r = detectBos(bars, idx, cond.lookback ?? 5);
+      if (!r.detected || !r.details) return false;
+      if (effectiveDir && r.details.direction !== effectiveDir) return false;
+      return true;
+    }
+    case "choch": {
+      // Trend-reversal break — opposite-direction structural break.
+      // cond.lookback controls swing detection (default 5, ICT default).
+      const r = detectChoch(bars, idx, cond.lookback ?? 5);
+      if (!r.detected || !r.details) return false;
+      if (effectiveDir && r.details.direction !== effectiveDir) return false;
+      return true;
+    }
+    case "ote": {
+      // Optimal Trade Entry — fib retracement [62%, 79%] of the most
+      // recent confirmed leg. cond.lookback controls swing detection.
+      const r = detectOte(bars, idx, cond.lookback ?? 5);
       if (!r.detected || !r.details) return false;
       if (effectiveDir && r.details.direction !== effectiveDir) return false;
       return true;

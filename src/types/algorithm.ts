@@ -55,6 +55,8 @@ export interface PatternCondition {
     | "ifvg"
     | "daily_bias"
     | "bos"
+    | "choch"
+    | "ote"
     | "order_block"
     | "engulfing"
     | "pin_bar"

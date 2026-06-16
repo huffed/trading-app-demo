@@ -12,6 +12,8 @@ export { detectDailyBias } from "./daily-bias";
 export { detectLiquiditySweep } from "./liquidity-sweep";
 export { detectFvg, fvgFillIndex, scanFvgs } from "./fvg";
 export { detectBos } from "./bos";
+export { detectChoch, type ChochDetails } from "./choch";
+export { detectOte, type OteDetails } from "./ote";
 export { detectOrderBlock } from "./order-block";
 export { detectEngulfing } from "./engulfing";
 export { detectPinBar } from "./pin-bar";

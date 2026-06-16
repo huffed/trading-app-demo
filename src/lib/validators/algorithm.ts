@@ -85,6 +85,8 @@ const patternConditionSchema = z.object({
     "ifvg",
     "daily_bias",
     "bos",
+    "choch",
+    "ote",
     "order_block",
     "engulfing",
     "pin_bar",
