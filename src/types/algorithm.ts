@@ -621,6 +621,27 @@ export interface Algorithm {
    *  before this point are excluded so a fix-driven baseline reset doesn't
    *  poison the rolling metrics. */
   metrics_reset_at?: string | null;
+  /** Optional strategy umbrella (migration 00042). Null = standalone algo.
+   *  Set: this algo is an instance of a strategy template. A4-stage UI
+   *  groups instances by strategy. Scan engine still reads algorithms.rules
+   *  directly; merged-rules consumption is A3 (deferred). */
+  strategy_id?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Strategy umbrella (migration 00042 + seed PR #266). One row per
+ *  family (FVG-DailyBias, Dip-Buyer, Coil-Breakout, etc.); each
+ *  algorithm instance points back via algorithms.strategy_id. */
+export interface Strategy {
+  id: string;
+  user_id: string;
+  name: string;
+  description: string;
+  /** Shared rules template — merged with per-instance algorithms.rules
+   *  at scan time once A3 ships. Currently informational. */
+  rules_template: Record<string, unknown>;
+  status: AlgorithmStatus;
   created_at: string;
   updated_at: string;
 }
