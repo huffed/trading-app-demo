@@ -39,14 +39,6 @@ export const tourSteps: TourStep[] = [
     target: "[data-tour='journal']",
   },
   {
-    id: "chat",
-    title: "AI Chat Assistant",
-    description:
-      "Got a question about trading or your data? Click this button anytime to chat with your AI assistant. It knows your stats and can explain concepts.",
-    icon: "✨",
-    target: "[data-tour='chat']",
-  },
-  {
     id: "done",
     title: "You're All Set!",
     description:

@@ -77,7 +77,7 @@ export function UserMenu() {
       </DropdownMenuTrigger>
       <MenuItems
         email={email}
-        onProfile={() => router.push("/settings/profile")}
+        onProfile={() => router.push("/settings")}
         onSignOut={handleSignOut}
       />
     </DropdownMenu>

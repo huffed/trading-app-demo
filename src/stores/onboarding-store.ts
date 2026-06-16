@@ -4,14 +4,8 @@ import { persist } from "zustand/middleware";
 interface OnboardingState {
   dismissedTips: string[];
   tourCompleted: boolean;
-  chatSeen: boolean;
-  wizardPending: boolean;
-  wizardDismissed: boolean;
   dismissTip: (id: string) => void;
   setTourCompleted: () => void;
-  setChatSeen: () => void;
-  setWizardPending: () => void;
-  setWizardDismissed: () => void;
   resetOnboarding: () => void;
   isTipDismissed: (id: string) => boolean;
 }
@@ -21,22 +15,14 @@ export const useOnboardingStore = create<OnboardingState>()(
     (set, get) => ({
       dismissedTips: [],
       tourCompleted: false,
-      chatSeen: false,
-      wizardPending: false,
-      wizardDismissed: false,
       dismissTip: (id) =>
         set((state) => ({
           dismissedTips: [...state.dismissedTips, id],
         })),
       setTourCompleted: () => set({ tourCompleted: true }),
-      setChatSeen: () => set({ chatSeen: true }),
-      setWizardPending: () => set({ wizardPending: true }),
-      setWizardDismissed: () => set({ wizardPending: false, wizardDismissed: true }),
       resetOnboarding: () =>
         set({
           tourCompleted: false,
-          wizardPending: false,
-          wizardDismissed: false,
           dismissedTips: [],
         }),
       isTipDismissed: (id) => get().dismissedTips.includes(id),

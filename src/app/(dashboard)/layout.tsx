@@ -1,9 +1,7 @@
 import { redirect } from "next/navigation";
-import { ChatProvider } from "@/components/chat/chat-provider";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Topbar } from "@/components/layout/topbar";
 import { TourProvider } from "@/components/onboarding/tour-provider";
-import { WizardProvider } from "@/components/onboarding/wizard-provider";
 import { CurrencyInitializer } from "@/components/shared/currency-initializer";
 import { createClient } from "@/lib/supabase/server";
 
@@ -19,7 +17,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("onboarding_completed, trading_profile, default_currency")
+    .select("onboarding_completed, default_currency")
     .eq("id", user.id)
     .single();
 
@@ -32,8 +30,6 @@ export default async function DashboardLayout({ children }: { children: React.Re
       </div>
       <CurrencyInitializer currency={profile?.default_currency ?? "USD"} />
       <TourProvider onboardingCompleted={profile?.onboarding_completed ?? false} />
-      <WizardProvider hasTradingProfile={profile?.trading_profile != null} />
-      <ChatProvider />
     </div>
   );
 }
