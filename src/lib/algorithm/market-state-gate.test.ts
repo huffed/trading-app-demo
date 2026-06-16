@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { MarketState } from "@/lib/market-data/market-state";
 import type { PriceBar } from "@/lib/market-data/types";
-import { checkMarketStateGate, type MarketStateGate } from "./market-state-gate";
+import {
+  checkMarketStateGate,
+  computeEntryHourBucket,
+  computeEntryZone,
+  computePositionInRangePct,
+  type MarketStateGate,
+} from "./market-state-gate";
 import { computeTpDistance, takeProfitRuleForSide } from "./structural-sl";
 
 const STATE: MarketState = { mtf: "fast_div_bear", vol: "mid", range: "compressed", dxy: "usd_up" };
@@ -77,6 +83,166 @@ describe("checkMarketStateGate", () => {
   it("treats an empty gate as pass-through", () => {
     const gate: MarketStateGate = { mode: "allow", states: {} };
     expect(checkMarketStateGate(gate, null).allowed).toBe(true);
+  });
+
+  // ----- entry_hour_bucket -----
+
+  it("block mode refuses when entry_hour matches a blocked bucket", () => {
+    const gate: MarketStateGate = {
+      mode: "block",
+      states: { entry_hour_bucket: ["late(21-24)"] },
+    };
+    const v = checkMarketStateGate(gate, STATE, { entryHourUtc: 22 });
+    expect(v.allowed).toBe(false);
+    expect(v.reason).toContain("entry_hour_bucket=late(21-24)");
+  });
+
+  it("block mode passes when entry_hour falls in a different bucket", () => {
+    const gate: MarketStateGate = {
+      mode: "block",
+      states: { entry_hour_bucket: ["late(21-24)"] },
+    };
+    expect(checkMarketStateGate(gate, STATE, { entryHourUtc: 14 }).allowed).toBe(true);
+  });
+
+  it("fails closed when entry_hour_bucket configured but ctx omits entryHourUtc", () => {
+    const gate: MarketStateGate = {
+      mode: "block",
+      states: { entry_hour_bucket: ["late(21-24)"] },
+    };
+    const v = checkMarketStateGate(gate, STATE);
+    expect(v.allowed).toBe(false);
+    expect(v.reason).toContain("entry_hour_bucket unreadable");
+  });
+
+  // ----- entry_zone -----
+
+  it("block mode refuses when entry_zone derived from positionInRangePct hits the list", () => {
+    const gate: MarketStateGate = {
+      mode: "block",
+      states: { entry_zone: ["premium"] },
+    };
+    // 80% → premium under V1 thresholds (≥67%)
+    const v = checkMarketStateGate(gate, STATE, { positionInRangePct: 80 });
+    expect(v.allowed).toBe(false);
+    expect(v.reason).toContain("entry_zone=premium");
+  });
+
+  it("entry_zone uses V1 thresholds (66% is equilibrium, 67% is premium)", () => {
+    expect(computeEntryZone(33)).toBe("equilibrium");
+    expect(computeEntryZone(32)).toBe("discount");
+    expect(computeEntryZone(66)).toBe("equilibrium");
+    expect(computeEntryZone(67)).toBe("premium");
+    expect(computeEntryZone(null)).toBe("n/a");
+  });
+
+  it("entry_hour_bucket buckets match V1 (late = 21-24)", () => {
+    expect(computeEntryHourBucket(0)).toBe("asia(0-7)");
+    expect(computeEntryHourBucket(6)).toBe("asia(0-7)");
+    expect(computeEntryHourBucket(7)).toBe("london(7-13)");
+    expect(computeEntryHourBucket(12)).toBe("london(7-13)");
+    expect(computeEntryHourBucket(13)).toBe("ny(13-21)");
+    expect(computeEntryHourBucket(20)).toBe("ny(13-21)");
+    expect(computeEntryHourBucket(21)).toBe("late(21-24)");
+    expect(computeEntryHourBucket(23)).toBe("late(21-24)");
+  });
+
+  // ----- block_joint mode (the loser-cluster shape) -----
+
+  it("block_joint refuses only when ALL configured features match (V1 cluster)", () => {
+    const gate: MarketStateGate = {
+      mode: "block_joint",
+      states: {
+        entry_hour_bucket: ["late(21-24)"],
+        dxy: ["usd_flip"],
+      },
+    };
+    // Both match: refuse.
+    const refused = checkMarketStateGate(
+      gate,
+      { ...STATE, dxy: "usd_flip" },
+      { entryHourUtc: 22 }
+    );
+    expect(refused.allowed).toBe(false);
+    expect(refused.reason).toContain("joint block");
+    expect(refused.reason).toContain("entry_hour_bucket=late(21-24)");
+    expect(refused.reason).toContain("dxy=usd_flip");
+
+    // Only hour matches: allow.
+    expect(
+      checkMarketStateGate(gate, { ...STATE, dxy: "usd_up" }, { entryHourUtc: 22 }).allowed
+    ).toBe(true);
+
+    // Only DXY matches: allow.
+    expect(
+      checkMarketStateGate(gate, { ...STATE, dxy: "usd_flip" }, { entryHourUtc: 14 }).allowed
+    ).toBe(true);
+
+    // Neither matches: allow.
+    expect(
+      checkMarketStateGate(gate, { ...STATE, dxy: "usd_up" }, { entryHourUtc: 14 }).allowed
+    ).toBe(true);
+  });
+
+  it("block_joint with a single feature is equivalent to block", () => {
+    const joint: MarketStateGate = {
+      mode: "block_joint",
+      states: { dxy: ["usd_up"] },
+    };
+    const block: MarketStateGate = {
+      mode: "block",
+      states: { dxy: ["usd_up"] },
+    };
+    expect(checkMarketStateGate(joint, STATE).allowed).toBe(false);
+    expect(checkMarketStateGate(block, STATE).allowed).toBe(false);
+  });
+
+  // ----- shadow mode -----
+
+  it("shadow mode keeps allowed=true but surfaces would-block reason", () => {
+    const gate: MarketStateGate = {
+      mode: "block",
+      states: { dxy: ["usd_up"] },
+      shadow: true,
+    };
+    const v = checkMarketStateGate(gate, STATE);
+    expect(v.allowed).toBe(true);
+    expect(v.shadow_block_reason).toContain("dxy=usd_up");
+    expect(v.reason).toContain("shadow:");
+  });
+
+  it("shadow mode is a no-op when the gate would have allowed", () => {
+    const gate: MarketStateGate = {
+      mode: "block",
+      states: { dxy: ["usd_down"] },
+      shadow: true,
+    };
+    const v = checkMarketStateGate(gate, STATE);
+    expect(v.allowed).toBe(true);
+    expect(v.shadow_block_reason).toBeUndefined();
+  });
+});
+
+describe("computePositionInRangePct", () => {
+  const flatBars = (n: number, low: number, high: number) =>
+    Array.from({ length: n }, (_, i) => ({
+      high: i === 0 ? high : low + 1,
+      low: i === n - 1 ? low : high - 1,
+    }));
+
+  it("returns null when bars are thin (<20)", () => {
+    expect(computePositionInRangePct(flatBars(19, 100, 200), 150)).toBeNull();
+  });
+
+  it("returns 50 for a price at the midpoint of the 20-bar range", () => {
+    const bars = flatBars(20, 100, 200);
+    expect(computePositionInRangePct(bars, 150)).toBeCloseTo(50, 5);
+  });
+
+  it("clamps to [0, 100] when price drifts outside the range", () => {
+    const bars = flatBars(20, 100, 200);
+    expect(computePositionInRangePct(bars, 50)).toBe(0);
+    expect(computePositionInRangePct(bars, 250)).toBe(100);
   });
 });
 

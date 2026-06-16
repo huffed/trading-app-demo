@@ -8,7 +8,11 @@
  */
 import { checkDxyDirection } from "@/lib/algorithm/dxy-filter";
 import { checkAtrLiquidity } from "@/lib/algorithm/intraday-atr-gate";
-import { checkMarketStateGate } from "@/lib/algorithm/market-state-gate";
+import {
+  checkMarketStateGate,
+  computePositionInRangePct,
+  type GateContext,
+} from "@/lib/algorithm/market-state-gate";
 import { checkStagnantExit } from "@/lib/algorithm/stagnant-exit";
 import {
   computeSlDistance,
@@ -508,7 +512,14 @@ function tryOpenEntry(
   // executes on bars where the strategy actually fired.
   if (rules.market_state_gate) {
     const ms = marketStateForBar(state, state.bars[i].date, rules);
-    if (!checkMarketStateGate(rules.market_state_gate, ms).allowed) return;
+    const gateCtx: GateContext = {
+      entryHourUtc: new Date(state.bars[i].date).getUTCHours(),
+      positionInRangePct: computePositionInRangePct(
+        state.bars.slice(Math.max(0, i - 19), i + 1),
+        state.closes[i]
+      ),
+    };
+    if (!checkMarketStateGate(rules.market_state_gate, ms, gateCtx).allowed) return;
   }
   const entryPrice = applySlippage(state.closes[i], cfg.slippageBps, side === "long");
   // Conviction-scaled sizing: dispatch to condition-count or
