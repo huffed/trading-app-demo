@@ -117,6 +117,8 @@ const PATTERN_LABELS: Record<PatternCondition["pattern"], string> = {
   ifvg: "Inverse FVG (filled, retesting)",
   daily_bias: "Daily bias",
   bos: "Break of structure",
+  choch: "Change of character",
+  ote: "Optimal Trade Entry (fib retrace)",
   order_block: "Order block retest",
   engulfing: "Engulfing candle",
   pin_bar: "Pin bar (rejection)",

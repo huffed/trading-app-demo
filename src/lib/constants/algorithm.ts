@@ -11,6 +11,8 @@ export const PATTERN_LABELS: Record<string, string> = {
   ifvg: "Inverse FVG",
   daily_bias: "Daily bias",
   bos: "Break of Structure (BOS)",
+  choch: "Change of Character (ChoCh)",
+  ote: "Optimal Trade Entry (OTE)",
   order_block: "Order block",
   engulfing: "Engulfing candle",
   pin_bar: "Pin bar (rejection)",
