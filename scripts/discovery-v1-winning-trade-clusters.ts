@@ -73,10 +73,15 @@ const RISK_PCT = 0.6; // per-trade risk, matches live + library
 const RISK_DOLLARS = (CAPITAL * RISK_PCT) / 100; // $600
 const CHUNK_DAYS = 90; // WF chunk size, workaround for runPortfolioBacktest bug
 const DAY_MS = 86_400_000;
-const TICKER = process.env.TICKER ?? "XAU/USD";
-const ASSET_CLASS = (process.env.ASSET_CLASS ?? "commodity") as "commodity" | "forex";
+const TICKERS = (process.env.TICKERS ?? process.env.TICKER ?? "XAU/USD")
+  .split(",")
+  .map((s) => s.trim());
 const FRICTION_SLIPPAGE_BPS = 0.5;
 const FRICTION_SPREAD_BPS = 0.4;
+
+function assetClassFor(ticker: string): "commodity" | "forex" {
+  return ticker.startsWith("XAU") || ticker.startsWith("XAG") ? "commodity" : "forex";
+}
 
 const HARD_GATES = {
   MIN_POOLED_N: 20,
@@ -86,11 +91,14 @@ const HARD_GATES = {
   MIN_TEST_MEAN_R: 0.0, // > 0
 } as const;
 
+// V1.1 (2026-06-16): drop `position_in_range_bucket` (was aliased to
+// entry_zone — same field bucketized once). Add `ticker` so multi-pair
+// pooling can surface "X works on FX but not gold" patterns directly.
 const FEATURES = [
   "side",
+  "ticker",
   "regime",
   "entry_zone",
-  "position_in_range_bucket",
   "entry_hour_bucket",
   "mtf",
   "vol",
@@ -102,7 +110,7 @@ type Feature = (typeof FEATURES)[number];
 const TOP_N_OUTPUT = 15;
 
 // ----- Algo specs (match live deploys) -----
-function baseRules(timeframe: "4h" | "1h" | "30m", side: "long" | "short" = "long"): AlgorithmRules {
+function baseRules(timeframe: "4h" | "1h" | "30m", side: "long" | "short" = "long", assetClass: "commodity" | "forex" = "commodity"): AlgorithmRules {
   return {
     entry_conditions: [],
     exit_conditions: [],
@@ -112,7 +120,7 @@ function baseRules(timeframe: "4h" | "1h" | "30m", side: "long" | "short" = "lon
     max_positions: 1,
     leverage: 9,
     timeframe,
-    asset_class: ASSET_CLASS,
+    asset_class: assetClass,
     side,
     stagnant_exit: { enabled: true },
     prop_firm: { slippage_bps: FRICTION_SLIPPAGE_BPS, spread_bps: FRICTION_SPREAD_BPS },
@@ -126,8 +134,8 @@ interface AlgoSpec {
   gate: boolean;
 }
 
-function buildSpecs(): AlgoSpec[] {
-  const db = baseRules("4h");
+function buildSpecs(assetClass: "commodity" | "forex"): AlgoSpec[] {
+  const db = baseRules("4h", "long", assetClass);
   db.entry_conditions = [
     { type: "pattern", pattern: "liquidity_sweep", direction: "bullish", lookback: 5, timeframe: "4h" },
     { type: "pattern", pattern: "daily_bias", direction: "bullish", ma_period: 20, timeframe: "4h" },
@@ -138,34 +146,46 @@ function buildSpecs(): AlgoSpec[] {
     on_unreadable: "allow",
   };
 
-  const cb4 = baseRules("4h");
+  const cb4 = baseRules("4h", "long", assetClass);
   cb4.entry_conditions = [
     { type: "pattern", pattern: "bos", direction: "bullish", lookback: 5, timeframe: "4h" },
     { type: "pattern", pattern: "daily_bias", direction: "bullish", ma_period: 20, timeframe: "4h" },
   ];
   cb4.market_state_gate = { mode: "allow", states: { range: ["compressed"] } };
 
-  const cb1 = baseRules("1h");
+  const cb1 = baseRules("1h", "long", assetClass);
   cb1.entry_conditions = [
     { type: "pattern", pattern: "bos", direction: "bullish", lookback: 5, timeframe: "1h" },
   ];
 
-  const bs = baseRules("4h", "short");
+  const bs = baseRules("4h", "short", assetClass);
   bs.entry_conditions = [
     { type: "pattern", pattern: "bos", direction: "bearish", lookback: 5, timeframe: "4h" },
     { type: "pattern", pattern: "daily_bias", direction: "bearish", ma_period: 20, timeframe: "4h" },
   ];
   bs.market_state_gate = { mode: "allow", states: { mtf: ["aligned_LH"] } };
 
-  const br = baseRules("4h", "short");
+  const br = baseRules("4h", "short", assetClass);
   br.entry_conditions = [
     { type: "pattern", pattern: "bos", direction: "bearish", lookback: 5, timeframe: "4h" },
   ];
   br.market_state_gate = { mode: "allow", states: { mtf: ["fast_div_bear"] } };
 
-  const fv = baseRules("30m");
+  const fv = baseRules("30m", "long", assetClass);
   fv.entry_conditions = [
     { type: "pattern", pattern: "fvg", direction: "bullish", timeframe: "30m" },
+  ];
+
+  // Mean-reversion candidates added 2026-06-16 (Tier 1 extension).
+  // Pure pattern firing, no bias filter — let the pattern be the entry.
+  const mrL = baseRules("4h", "long", assetClass);
+  mrL.entry_conditions = [
+    { type: "pattern", pattern: "mean_reversion", direction: "bullish", lookback: 20, timeframe: "4h" },
+  ];
+
+  const mrS = baseRules("4h", "short", assetClass);
+  mrS.entry_conditions = [
+    { type: "pattern", pattern: "mean_reversion", direction: "bearish", lookback: 20, timeframe: "4h" },
   ];
 
   return [
@@ -175,28 +195,13 @@ function buildSpecs(): AlgoSpec[] {
     { key: "bear_short_4h", timeframe: "4h", rules: bs, gate: true },
     { key: "breakdown_rider_4h", timeframe: "4h", rules: br, gate: true },
     { key: "fvg_long_30m", timeframe: "30m", rules: fv, gate: false },
+    { key: "mean_reversion_long_4h", timeframe: "4h", rules: mrL, gate: false },
+    { key: "mean_reversion_short_4h", timeframe: "4h", rules: mrS, gate: false },
   ];
 }
 
-function chunkedBacktest(rules: AlgorithmRules, corpus: Corpus, series: MarketStateSeries | null): BacktestTrade[] {
-  const bars = corpus.bars;
-  if (bars.length === 0) return [];
-  const trades: BacktestTrade[] = [];
-  const startMs = new Date(bars[0].date).getTime();
-  const endMs = new Date(bars[bars.length - 1].date).getTime();
-  for (let cursor = startMs; cursor < endMs; cursor += CHUNK_DAYS * DAY_MS) {
-    const chunkEnd = cursor + CHUNK_DAYS * DAY_MS;
-    const chunk = bars.filter((b) => {
-      const t = new Date(b.date).getTime();
-      return t >= cursor && t < chunkEnd;
-    });
-    if (chunk.length < 30) continue;
-    const m = runPortfolioBacktest(rules, new Map([[TICKER, chunk]]), CAPITAL, [], null, series);
-    trades.push(...m.trades);
-  }
-  trades.sort((a, b) => new Date(a.entry_date).getTime() - new Date(b.entry_date).getTime());
-  return trades;
-}
+// chunkedBacktest moved INSIDE processOneTicker (as localChunked) — needs
+// the ticker name for the prices Map, which varies per processed ticker.
 
 // ----- Feature extraction at entry -----
 function entryBarIndex(inputs: MarketStateInputs, entryDate: string): number {
@@ -224,13 +229,14 @@ function positionInRange(corpusBars: { date: string; high: number; low: number; 
 
 function bucketize(features: {
   side: "long" | "short";
+  ticker: string;
   regime: string;
   positionInRangePct: number | null;
   entryHourUtc: number;
   state: MarketState;
 }) {
   // Pre-registered bucket definitions
-  const positionInRangeBucket = features.positionInRangePct === null
+  const entryZone = features.positionInRangePct === null
     ? "n/a"
     : features.positionInRangePct < 33 ? "discount"
     : features.positionInRangePct < 67 ? "equilibrium"
@@ -242,9 +248,9 @@ function bucketize(features: {
     : "late(21-24)";
   return {
     side: features.side,
+    ticker: features.ticker,
     regime: features.regime,
-    entry_zone: positionInRangeBucket, // alias for clarity
-    position_in_range_bucket: positionInRangeBucket,
+    entry_zone: entryZone,
     entry_hour_bucket: entryHourBucket,
     mtf: features.state.mtf,
     vol: features.state.vol,
@@ -262,17 +268,16 @@ interface TaggedTrade {
   features: Record<Feature, string>;
 }
 
-async function main() {
-  console.log("V1 winning-trade cluster mining — PRE-REGISTERED design");
-  console.log("Locked constants: see file header. Do NOT edit post-results.\n");
-
-  const corpus4h = await loadCorpus("4h", TICKER);
-  const corpus1h = await loadCorpus("1h", TICKER);
-  const corpus30m = await loadCorpus("30m", TICKER);
+async function processOneTicker(ticker: string): Promise<TaggedTrade[]> {
+  const assetClass = assetClassFor(ticker);
+  console.log(`\n--- Loading corpora for ${ticker} (${assetClass}) ---`);
+  const corpus4h = await loadCorpus("4h", ticker);
+  const corpus1h = await loadCorpus("1h", ticker);
+  const corpus30m = await loadCorpus("30m", ticker);
   const series: MarketStateSeries = {
-    bars4h: new Map([[TICKER, corpus4h.bars]]),
-    oneHour: new Map([[TICKER, corpus1h.bars]]),
-    daily: new Map([[TICKER, corpus4h.dailyBars]]),
+    bars4h: new Map([[ticker, corpus4h.bars]]),
+    oneHour: new Map([[ticker, corpus1h.bars]]),
+    daily: new Map([[ticker, corpus4h.dailyBars]]),
     eurusd4h: corpus4h.eurusd4h,
   };
   const inputs: MarketStateInputs = {
@@ -282,12 +287,33 @@ async function main() {
     eurusd4h: corpus4h.eurusd4h,
   };
 
-  const specs = buildSpecs();
-  const allTrades: TaggedTrade[] = [];
+  // Patch the chunked backtest to use the right ticker symbol in its Map.
+  const localChunked = (rules: AlgorithmRules, corpus: Corpus, srs: MarketStateSeries | null): BacktestTrade[] => {
+    const bars = corpus.bars;
+    if (bars.length === 0) return [];
+    const trades: BacktestTrade[] = [];
+    const startMs = new Date(bars[0].date).getTime();
+    const endMs = new Date(bars[bars.length - 1].date).getTime();
+    for (let cursor = startMs; cursor < endMs; cursor += CHUNK_DAYS * DAY_MS) {
+      const chunkEnd = cursor + CHUNK_DAYS * DAY_MS;
+      const chunk = bars.filter((b) => {
+        const t = new Date(b.date).getTime();
+        return t >= cursor && t < chunkEnd;
+      });
+      if (chunk.length < 30) continue;
+      const m = runPortfolioBacktest(rules, new Map([[ticker, chunk]]), CAPITAL, [], null, srs);
+      trades.push(...m.trades);
+    }
+    trades.sort((a, b) => new Date(a.entry_date).getTime() - new Date(b.entry_date).getTime());
+    return trades;
+  };
+
+  const specs = buildSpecs(assetClass);
+  const tickerTrades: TaggedTrade[] = [];
 
   for (const s of specs) {
     const corpus = s.timeframe === "4h" ? corpus4h : s.timeframe === "1h" ? corpus1h : corpus30m;
-    const trades = chunkedBacktest(s.rules, corpus, s.gate ? series : null);
+    const trades = localChunked(s.rules, corpus, s.gate ? series : null);
 
     // Tag each trade with features.
     const algoTrades: TaggedTrade[] = [];
@@ -308,6 +334,7 @@ async function main() {
 
       const features = bucketize({
         side: t.side,
+        ticker,
         regime,
         positionInRangePct: posInRange,
         entryHourUtc: entryHour,
@@ -324,7 +351,7 @@ async function main() {
       });
     }
 
-    // Sort by entryDate (already done) and tag train/test per-algo midpoint
+    // Sort by entryDate (already done) and tag train/test per-(ticker,algo) midpoint
     algoTrades.sort((a, b) => a.entryDate.localeCompare(b.entryDate));
     const mid = Math.floor(algoTrades.length / 2);
     for (let i = 0; i < algoTrades.length; i++) {
@@ -332,7 +359,21 @@ async function main() {
       (algoTrades[i] as unknown as { half: "TRAIN" | "TEST" }).half = i < mid ? "TRAIN" : "TEST";
     }
     console.log(`  ${s.key.padEnd(22)} ${algoTrades.length} trades (${mid} train / ${algoTrades.length - mid} test)`);
-    allTrades.push(...algoTrades);
+    tickerTrades.push(...algoTrades);
+  }
+
+  return tickerTrades;
+}
+
+async function main() {
+  console.log("V1 winning-trade cluster mining — PRE-REGISTERED design");
+  console.log(`Tickers: ${TICKERS.join(", ")}`);
+  console.log("Locked constants: see file header. Do NOT edit post-results.\n");
+
+  const allTrades: TaggedTrade[] = [];
+  for (const ticker of TICKERS) {
+    const tickerTrades = await processOneTicker(ticker);
+    allTrades.push(...tickerTrades);
   }
 
   console.log(`\nTotal pooled trades: ${allTrades.length}`);
@@ -363,9 +404,7 @@ async function main() {
     for (let j = i + 1; j < FEATURES.length; j++) {
       const f1 = FEATURES[i];
       const f2 = FEATURES[j];
-      // Skip semantically-identical pair (entry_zone == position_in_range_bucket)
-      if (f1 === "entry_zone" && f2 === "position_in_range_bucket") continue;
-      if (f1 === "position_in_range_bucket" && f2 === "entry_zone") continue;
+      // V1.1: aliased feature removed from FEATURES — no skip needed.
       const cells = new Map<string, { pool: Stats; train: Stats; test: Stats; algos: Set<string> }>();
       for (const t of allTrades) {
         const half = (t as unknown as { half: "TRAIN" | "TEST" }).half;
@@ -449,7 +488,8 @@ async function main() {
           hard_gates: HARD_GATES,
           split: "per-algo midpoint by trade count",
           aggregation: "pooled across 6 deployed configs",
-          algos: specs.map((s) => s.key),
+          algos: [...new Set(allTrades.map((t) => t.algo))].sort(),
+          tickers: TICKERS,
         },
         total_trades: allTrades.length,
         total_winners: allTrades.filter((t) => t.r > 0).length,
