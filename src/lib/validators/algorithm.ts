@@ -89,6 +89,7 @@ const patternConditionSchema = z.object({
     "engulfing",
     "pin_bar",
     "momentum",
+    "mean_reversion",
     "gold_session_window",
     "asian_range_break",
     "post_news_window",

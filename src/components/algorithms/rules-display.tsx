@@ -121,6 +121,7 @@ const PATTERN_LABELS: Record<PatternCondition["pattern"], string> = {
   engulfing: "Engulfing candle",
   pin_bar: "Pin bar (rejection)",
   momentum: "Momentum continuation",
+  mean_reversion: "Mean reversion (fade extreme)",
   gold_session_window: "Session window",
   asian_range_break: "Asian range break",
   post_news_window: "Post-news window",

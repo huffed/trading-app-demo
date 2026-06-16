@@ -24,6 +24,7 @@ import { detectEngulfing } from "./engulfing";
 import { detectFvg, scanFvgs } from "./fvg";
 import { detectSessionWindow } from "./gold-session-window";
 import { detectLiquiditySweep } from "./liquidity-sweep";
+import { detectMeanReversion } from "./mean-reversion";
 import { detectMomentum } from "./momentum";
 import { detectOrderBlock } from "./order-block";
 import { detectPinBar } from "./pin-bar";
@@ -157,6 +158,15 @@ function evaluateClassicPattern(
       // the bar count; defaults to 3 (matches feature analysis).
       // No condition-level threshold knob — uses pattern defaults.
       const r = detectMomentum(bars, idx, { lookback: cond.lookback });
+      if (!r.detected || !r.details) return false;
+      if (effectiveDir && r.details.direction !== effectiveDir) return false;
+      return true;
+    }
+    case "mean_reversion": {
+      // Stretched-from-mean + reversal candle. cond.lookback overrides
+      // the trailing-window length (default 20). No condition-level
+      // stdev-threshold knob currently — uses pattern defaults (1.5).
+      const r = detectMeanReversion(bars, idx, { lookback: cond.lookback });
       if (!r.detected || !r.details) return false;
       if (effectiveDir && r.details.direction !== effectiveDir) return false;
       return true;
