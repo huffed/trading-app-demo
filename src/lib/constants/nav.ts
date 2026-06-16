@@ -3,6 +3,7 @@ import {
   BarChart3,
   BookOpen,
   Bot,
+  Gauge,
   LayoutDashboard,
   Settings,
   type LucideIcon,
@@ -22,6 +23,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/trades", label: "Trades", icon: ArrowLeftRight },
   { href: "/journal", label: "Journal", icon: BookOpen },
   { href: "/algorithms", label: "Algorithms", icon: Bot },
+  { href: "/reports", label: "Reports", icon: Gauge },
   { href: "/analytics", label: "Analytics", icon: BarChart3 },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
