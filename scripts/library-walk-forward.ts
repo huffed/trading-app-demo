@@ -197,6 +197,19 @@ function buildCandidates(): Candidate[] {
     { type: "pattern", pattern: "fvg", direction: "bullish", timeframe: TIMEFRAME },
     { type: "pattern", pattern: "daily_bias", direction: "bullish", ma_period: 20, timeframe: TIMEFRAME },
   ];
+  // V1.2 cluster gate — same shape live deploy will carry, but with
+  // shadow:false so the harness ACTUALLY BLOCKS (vs deploy's shadow:true
+  // which only tags). Lets us measure the lift the cluster gate would
+  // provide if flipped to enforce.
+  fvgLong.market_state_gate = {
+    mode: "block_joint",
+    states: {
+      range: ["compressed"],
+      entry_zone: ["discount"],
+      entry_hour_bucket: ["london(7-13)"],
+    },
+    on_unreadable: "allow",
+  };
 
   const orderBlockLong = baseRules();
   orderBlockLong.entry_conditions = [
@@ -235,7 +248,16 @@ interface RunReport {
   mean_return: number;
   worst_dd: number;
   dd_breaches_gt5: number;
+  per_window?: Array<{
+    start: string;
+    end: string;
+    trades: number;
+    return: number;
+    max_dd: number;
+  }>;
 }
+
+const PER_WINDOW = process.env.PER_WINDOW === "1";
 
 function reportFor(
   candidate: string,
@@ -244,7 +266,7 @@ function reportFor(
 ): RunReport {
   const traded = summary.windows.filter((w) => w.total_trades > 0);
   const green = traded.filter((w) => w.total_return > 0);
-  return {
+  const report: RunReport = {
     candidate,
     variant,
     windows: summary.total_windows,
@@ -256,6 +278,16 @@ function reportFor(
     worst_dd: Number(Math.max(0, ...summary.windows.map((w) => w.max_drawdown)).toFixed(2)),
     dd_breaches_gt5: summary.windows.filter((w) => w.max_drawdown > 5).length,
   };
+  if (PER_WINDOW) {
+    report.per_window = summary.windows.map((w) => ({
+      start: w.start.slice(0, 10),
+      end: w.end.slice(0, 10),
+      trades: w.total_trades,
+      return: Number(w.total_return.toFixed(0)),
+      max_dd: Number(w.max_drawdown.toFixed(2)),
+    }));
+  }
+  return report;
 }
 
 async function main(): Promise<void> {

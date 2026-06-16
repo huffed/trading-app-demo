@@ -86,3 +86,4 @@ scripts/discovery-per-algo-validation-*.json
 scripts/discovery-deployed-algo-cluster-filter-*.json
 scripts/discovery-equal-levels-confluence-*.json
 scripts/discovery-ote-standalone-validation-*.json
+scripts/sweep-fvg-dailybias-geometry-*.json
