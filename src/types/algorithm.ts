@@ -57,6 +57,7 @@ export interface PatternCondition {
     | "bos"
     | "choch"
     | "ote"
+    | "equal_levels"
     | "order_block"
     | "engulfing"
     | "pin_bar"

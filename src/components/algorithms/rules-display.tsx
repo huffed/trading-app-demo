@@ -119,6 +119,7 @@ const PATTERN_LABELS: Record<PatternCondition["pattern"], string> = {
   bos: "Break of structure",
   choch: "Change of character",
   ote: "Optimal Trade Entry (fib retrace)",
+  equal_levels: "Equal highs / equal lows (liquidity pool)",
   order_block: "Order block retest",
   engulfing: "Engulfing candle",
   pin_bar: "Pin bar (rejection)",
