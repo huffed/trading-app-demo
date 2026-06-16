@@ -292,6 +292,37 @@ The condition system above is the legacy/dormant path. **The active system is th
 - **`LLM_MONTHLY_BUDGET_USD` (default $25)** — a per-month spend ledger; the process exits before exceeding it. The £150/month ceiling is structural, not advisory.
 - **Confirmation protocol** (walk-forward docstring): screen candidates at $0 first (`scripts/exit-mechanics-replay.ts` pattern — replay recorded entries through variant mechanics), then ONE paid A/B confirmation with pre-registered criteria, always including a **recency window ending run-day** (the standard grid stops at 2026-04-30).
 
+## Pre-deploy validation (canonical 4-way for library algos)
+
+Applies to **every condition-based library algo** (entry_conditions through `runWalkForward`) — both new deploys AND retroactive revalidation of existing deployed algos. Established 2026-06-16 (PRs #258 + #259) after FVG-DailyBias-Long 4h surfaced a geometry mismatch (rr=3 was demonstrably worse than rr=2) that single-backtest validation would have missed. Coil-Breakout 4h then showed the same pattern under retroactive sweep. Cost: $0 per pass (replay over recorded corpus, no LLM calls).
+
+**The 4 validations — all are MANDATORY before `APPLY=1` on any deploy or geometry change:**
+
+1. **Friction test** — re-run with realistic execution costs. For gold: `FRICTION_SLIPPAGE_BPS=0.5 FRICTION_SPREAD_BPS=0.4`. If returns degrade >5% from frictionless, the frictionless baseline was misleading and shouldn't be the ship signal.
+
+2. **Cadence comparison** — when applicable, run the same composition on 1h and 30m via `TIMEFRAME=1h` / `TIMEFRAME=30m` in `scripts/library-walk-forward.ts`. 4h is usually correct (deepest multi-regime corpus); the comparison surfaces whether a sister-cadence sister algo is warranted AND confirms 4h is the right primary.
+
+3. **Per-window decomp** — `PER_WINDOW=1 pnpm dlx tsx scripts/library-walk-forward.ts ONLY=<candidate>` writes per-window detail into the summary JSON. Aggregate to year-by-year breakdown to identify regime-concentrated failure modes. **Aggregate stats hide chop-year disasters** (e.g. 57% overall green could be 71% ex-2021 + 17% in 2021).
+
+4. **RR × lookback geometry grid** — `pnpm dlx tsx scripts/sweep-algo-geometry.ts` runs `rr_multiple ∈ {2, 3, 5}` × `sl_lookback ∈ {3, 4, 6}` = 9 cells with per-year decomp on each. **Pattern recognition:** a monotonic improvement across the RR axis (rr=2 > rr=3 > rr=5 in ALL lookbacks) is structural, not noise.
+
+**Hard rules:**
+
+- **The sister-algo `rr=3` convention is NOT a default.** Each algo's RR must be validated per-algo via the grid. Coil-1h and Dip-Buyer happen to be at rr=3-best; FVG-DailyBias-Long 4h and Coil-Breakout 4h are at rr=2-best. Don't pattern-match to sister algos — verify.
+
+- **The "chop-rescue mechanism" is real.** rr=2 specifically rescues sideways/distribution regimes (2021 gold range, 2025 chop) because price reverses within 2R before completing a 3R move. When the per-year decomp shows rr=2 turning a chop-year loss into a profit, that's the signal — not statistical noise.
+
+- **Don't change live geometry on backtest alone.** Per [[feedback_iterate_only_validated_baselines]], live algos with a proposed geometry change require an A/B paper variant alongside live for ~30 days before flipping. The update script (`scripts/update-library-geometry-*.ts`) MUST refuse `live_trading_enabled=true` targets as defense-in-depth.
+
+- **Generalize, don't fork.** The sweep script is `scripts/sweep-algo-geometry.ts` with a TARGETS list; add a new target rather than forking the script. The deploy/update scripts follow `scripts/deploy-<algo>-<tf>.ts` and `scripts/update-library-geometry-<date>.ts` patterns.
+
+**What this does NOT replace** (these layers still bind):
+- 10% DD hard gate per [[feedback_dd_validation_gate]] — any sweep cell with worst DD > 5% on a window is disqualified from ship.
+- Direction-split per [[feedback_direction_split_first]] — bullish and bearish are independent validations.
+- Friend-replay direction-of-development signal per [[project_friend_replay_2026_06]] — supplementary, not substitute.
+
+**Reports** live at `scripts/REVALIDATION_REPORT_<date>.md` and get linked from PR bodies.
+
 ## Conventions
 
 ### File Naming
