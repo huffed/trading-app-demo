@@ -72,3 +72,4 @@ scripts/discovery-v1-losers-*.json
 scripts/discovery-mfe-mae-*.json
 scripts/discovery-be-trigger-*.json
 scripts/discovery-mfe-mae-by-exit-*.json
+scripts/discovery-trailing-stop-*.json
