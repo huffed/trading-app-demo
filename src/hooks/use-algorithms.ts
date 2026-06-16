@@ -3,21 +3,13 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   deleteAlgorithm,
-  generateAlgorithm,
   updateAlgorithm,
   updateAlgorithmStatus,
 } from "@/app/(dashboard)/algorithms/actions";
 import { runPortfolioBacktest } from "@/app/(dashboard)/algorithms/backtest-run-actions";
-import {
-  generateAlgorithmFromSearch,
-  type GenerateFromSearchInput,
-} from "@/app/(dashboard)/algorithms/generate-from-search-actions";
 import { createClient } from "@/lib/supabase/client";
 import { algorithmFromRow, algorithmsFromRows } from "@/lib/supabase/row-mappers";
-import type {
-  AlgorithmFormValues,
-  AlgorithmUpdate,
-} from "@/lib/validators/algorithm";
+import type { AlgorithmUpdate } from "@/lib/validators/algorithm";
 import type { AlgorithmStatus } from "@/types/algorithm";
 
 const ALGORITHMS_KEY = ["algorithms"];
@@ -47,30 +39,6 @@ export function useAlgorithm(id: string | null) {
       const { data, error } = await supabase.from("algorithms").select("*").eq("id", id).single();
       if (error) throw error;
       return algorithmFromRow(data);
-    },
-  });
-}
-
-export function useGenerateAlgorithm() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (values: AlgorithmFormValues) => generateAlgorithm(values),
-    onSuccess: (result) => {
-      if (result.success) {
-        queryClient.invalidateQueries({ queryKey: ALGORITHMS_KEY });
-      }
-    },
-  });
-}
-
-export function useGenerateAlgorithmFromSearch() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (input: GenerateFromSearchInput) => generateAlgorithmFromSearch(input),
-    onSuccess: (result) => {
-      if (result.success) {
-        queryClient.invalidateQueries({ queryKey: ALGORITHMS_KEY });
-      }
     },
   });
 }

@@ -10,8 +10,7 @@ interface TourProviderProps {
 }
 
 export function TourProvider({ onboardingCompleted }: TourProviderProps) {
-  const { tourCompleted, setTourCompleted, setWizardPending, resetOnboarding } =
-    useOnboardingStore();
+  const { tourCompleted, setTourCompleted, resetOnboarding } = useOnboardingStore();
   const [dismissed, setDismissed] = useState(false);
 
   // New account but stale localStorage from a previous account — reset
@@ -26,7 +25,6 @@ export function TourProvider({ onboardingCompleted }: TourProviderProps) {
   async function handleComplete() {
     setDismissed(true);
     setTourCompleted();
-    setWizardPending();
     await completeOnboarding();
   }
 

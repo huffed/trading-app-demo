@@ -15,7 +15,6 @@ import {
 } from "@/lib/utils/analytics";
 import type { PaperPosition } from "@/types/position";
 import type { Trade } from "@/types/trade";
-import type { TradingProfile } from "@/types/trading-profile";
 
 export type DataSource = "all" | "manual" | "paper";
 
@@ -30,7 +29,7 @@ export function useAnalytics() {
     staleTime: 60_000,
     queryFn: async () => {
       const supabase = createClient();
-      const [tradesRes, positionsRes, profileRes] = await Promise.all([
+      const [tradesRes, positionsRes] = await Promise.all([
         supabase
           .from("trades")
           .select("*")
@@ -41,14 +40,16 @@ export function useAnalytics() {
           .select("*")
           .eq("status", "closed")
           .order("closed_at", { ascending: true }),
-        supabase.from("profiles").select("trading_profile").maybeSingle(),
       ]);
 
-      const profile = profileRes.data?.trading_profile as TradingProfile | null;
+      // startingCapital was sourced from profiles.trading_profile.answers.capital
+      // (wizard-collected). With the wizard deleted (PR #270) we no longer have
+      // a per-user starting-capital input — return null so analytics fall back
+      // gracefully. Per-algo capital is on algorithms.capital.
       return {
         trades: (tradesRes.data ?? []) as Trade[],
         positions: (positionsRes.data ?? []) as PaperPosition[],
-        startingCapital: profile?.answers?.capital ?? null,
+        startingCapital: null as number | null,
       };
     },
   });

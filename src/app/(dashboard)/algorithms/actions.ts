@@ -1,159 +1,18 @@
 "use server";
 
-import { AI_MODEL, getAIClient } from "@/lib/ai/client";
-import { buildRulesPrompt, buildStrategyPrompt } from "@/lib/ai/prompts/algorithm";
-import {
-  applyManualLayers,
-  clampRules,
-  withPropFirmContext,
-} from "@/lib/algorithm/rules-post-process";
+import { clampRules } from "@/lib/algorithm/rules-post-process";
 import type { SignalResult } from "@/lib/signals/evaluate-live";
-import {
-  buildRulesFromTemplate,
-  selectStrategyTemplate,
-} from "@/lib/strategies/selector";
 import { algorithmFromRow, rulesFromRow, toJson } from "@/lib/supabase/row-mappers";
 import { createClient } from "@/lib/supabase/server";
 import { type ActionResult } from "@/lib/types/action-result";
 import {
-  algorithmFormSchema,
-  algorithmRulesSchema,
   algorithmUpdateSchema,
-  type AlgorithmFormValues,
   type AlgorithmUpdate,
 } from "@/lib/validators/algorithm";
-import type { Algorithm, AlgorithmRules, AlgorithmStatus } from "@/types/algorithm";
+import type { Algorithm, AlgorithmStatus } from "@/types/algorithm";
 
-export type AlgorithmUpdateSource = "chat" | "ui" | "api";
-
-async function generateRulesFreeForm(
-  params: AlgorithmFormValues,
-  tradeCount: number
-): Promise<AlgorithmRules> {
-  const client = getAIClient();
-  const { system, userMessage } = buildRulesPrompt(params, tradeCount);
-
-  const res = await client.chat.completions.create({
-    model: AI_MODEL,
-    messages: [
-      { role: "system", content: system },
-      { role: "user", content: userMessage },
-    ],
-    response_format: { type: "json_object" },
-    max_tokens: 2048,
-  });
-
-  const text = res.choices[0]?.message?.content ?? "{}";
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(text);
-  } catch {
-    throw new Error("AI returned invalid JSON for rules");
-  }
-  const validated = algorithmRulesSchema.safeParse(parsed);
-  if (!validated.success) {
-    throw new Error("AI generated invalid rules structure");
-  }
-  return clampRules(validated.data as AlgorithmRules, params.time_horizon);
-}
-
-/**
- * Pick the rule-generation path. Forex/commodity goes through the vetted
- * template library — free-form generation has consistently produced
- * un-tradeable strategies in those markets. Equity/crypto stays on the
- * AI free-form path which works well for stock trade-history strategies.
- */
-async function generateRules(
-  params: AlgorithmFormValues,
-  tradeCount: number
-): Promise<AlgorithmRules> {
-  const usesTemplates =
-    params.asset_class === "forex" || params.asset_class === "commodity";
-  if (usesTemplates) {
-    const { template } = await selectStrategyTemplate(params);
-    const rules = buildRulesFromTemplate(template, params);
-    return clampRules(rules, params.time_horizon);
-  }
-  return generateRulesFreeForm(params, tradeCount);
-}
-
-async function generateDescription(
-  params: AlgorithmFormValues,
-  tradeCount: number
-): Promise<{ name: string; description: string }> {
-  const client = getAIClient();
-  const { system, userMessage } = buildStrategyPrompt(params, tradeCount);
-
-  const res = await client.chat.completions.create({
-    model: AI_MODEL,
-    messages: [
-      { role: "system", content: system },
-      { role: "user", content: userMessage },
-    ],
-    max_tokens: 1024,
-  });
-
-  const text = res.choices[0]?.message?.content ?? "";
-  const firstLine = text.split("\n").find((l) => l.trim().length > 0) ?? "";
-  const name =
-    firstLine
-      .replace(/^[#*\s]+/, "")
-      .replace(/[*#]+$/, "")
-      .trim() || "Untitled Strategy";
-  return { name, description: text };
-}
-
-export async function generateAlgorithm(
-  values: AlgorithmFormValues
-): Promise<ActionResult<Algorithm>> {
-  const parsed = algorithmFormSchema.safeParse(values);
-  if (!parsed.success) {
-    return { success: false, error: parsed.error.issues[0].message };
-  }
-
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { success: false, error: "Not authenticated" };
-
-  const { count } = await supabase.from("trades").select("*", { count: "exact", head: true });
-
-  const promptParams = withPropFirmContext(parsed.data);
-
-  try {
-    const [rules, { name, description }] = await Promise.all([
-      generateRules(promptParams, count ?? 0),
-      generateDescription(promptParams, count ?? 0),
-    ]);
-
-    const finalRules = applyManualLayers(rules, parsed.data);
-    const finalName = parsed.data.name?.trim() || name;
-
-    const { data, error } = await supabase
-      .from("algorithms")
-      .insert({
-        user_id: user.id,
-        name: finalName,
-        description,
-        asset_class: parsed.data.asset_class,
-        risk_level: parsed.data.risk_level,
-        time_horizon: parsed.data.time_horizon,
-        capital: parsed.data.capital,
-        user_hints: parsed.data.user_hints || null,
-        rules: toJson(finalRules),
-        status: "draft",
-      })
-      .select()
-      .single();
-
-    if (error) return { success: false, error: error.message };
-    return { success: true, data: algorithmFromRow(data) };
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : "Algorithm generation failed";
-    return { success: false, error: msg };
-  }
-}
+/** Source label for activity-log entries when an algo is updated. */
+export type AlgorithmUpdateSource = "ui" | "api";
 
 export async function updateAlgorithm(
   id: string,

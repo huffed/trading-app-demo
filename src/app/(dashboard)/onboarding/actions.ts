@@ -1,14 +1,17 @@
 "use server";
 
-import { generateAlgorithm } from "@/app/(dashboard)/algorithms/actions";
-import { seedWatchlist } from "@/app/(dashboard)/algorithms/seed-watchlist-action";
 import { createClient } from "@/lib/supabase/server";
-import { type ActionResult } from "@/lib/types/action-result";
-import { deriveTradingParams } from "@/lib/utils/derive-trading-params";
-import { tradingProfileSchema } from "@/lib/validators/trading-profile";
-import type { TradingProfile, TradingProfileAnswers } from "@/types/trading-profile";
 
-export async function completeOnboarding(): Promise<ActionResult<null>> {
+/**
+ * Mark onboarding as completed for the current user. Called from
+ * TourProvider when the operator dismisses the tour overlay. After
+ * this fires, the tour overlay won't show again.
+ *
+ * Note: this used to also seed a generated algorithm via the wizard
+ * flow. The wizard was deleted (PR #270) so the action is now just
+ * the boolean flip.
+ */
+export async function completeOnboarding(): Promise<{ success: boolean; error?: string }> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -19,61 +22,7 @@ export async function completeOnboarding(): Promise<ActionResult<null>> {
     .from("profiles")
     .update({ onboarding_completed: true })
     .eq("id", user.id);
-
   if (error) return { success: false, error: error.message };
-  return { success: true, data: null };
-}
 
-/**
- * Save the trading profile from the onboarding wizard and auto-generate
- * the user's first algorithm using their derived preferences.
- * Returns the new algorithm's ID for navigation.
- */
-export async function saveTradingProfileAndGenerate(
-  answers: TradingProfileAnswers
-): Promise<ActionResult<string>> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { success: false, error: "Not authenticated" };
-
-  // Derive trading parameters from wizard answers
-  const derived = deriveTradingParams(answers);
-  const profile: TradingProfile = { answers, derived };
-
-  // Validate
-  const parsed = tradingProfileSchema.safeParse(profile);
-  if (!parsed.success) return { success: false, error: parsed.error.issues[0].message };
-
-  // Save profile + funded-account preset on the same row. The preset is
-  // intentionally set BEFORE algorithm generation so future flows that
-  // read profiles.prop_firm_preset (new-algo defaults, etc.) see the
-  // right value from day one.
-  const propFirmPreset = answers.funded_account?.enabled
-    ? answers.funded_account.preset
-    : null;
-  const { error: profileError } = await supabase
-    .from("profiles")
-    .update({ trading_profile: parsed.data, prop_firm_preset: propFirmPreset })
-    .eq("id", user.id);
-  if (profileError) return { success: false, error: profileError.message };
-
-  // Generate first algorithm using derived params
-  const algoResult = await generateAlgorithm({
-    asset_class: derived.asset_class,
-    risk_level: derived.risk_level,
-    capital: answers.capital,
-    time_horizon: derived.time_horizon,
-    user_hints: derived.user_hints,
-  });
-
-  if (!algoResult.success) return { success: false, error: algoResult.error };
-
-  // Best-effort: seed watchlist with discovered tickers
-  seedWatchlist(algoResult.data.id).catch((e) =>
-    console.warn("[onboarding] Failed to seed watchlist:", e instanceof Error ? e.message : e)
-  );
-
-  return { success: true, data: algoResult.data.id };
+  return { success: true };
 }

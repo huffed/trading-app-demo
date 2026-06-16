@@ -11,7 +11,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { NewsVetoRules } from "@/types/algorithm";
-import { NumericOverride } from "./generate-form-sections";
+import { NumericOverride } from "./numeric-override";
 
 export const DEFAULT_NEWS_VETO: NewsVetoRules = {
   enabled: true,

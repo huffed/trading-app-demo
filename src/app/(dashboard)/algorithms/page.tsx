@@ -1,12 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
-import { Bot, Plus, Telescope, LayoutGrid, Layers } from "lucide-react";
+import { Bot, LayoutGrid, Layers } from "lucide-react";
 import { AlgorithmCard } from "@/components/algorithms/algorithm-card";
 import { StrategyCard } from "@/components/algorithms/strategy-card";
 import { EmptyState } from "@/components/shared/empty-state";
-import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAlgorithmsList } from "@/hooks/use-algorithms";
@@ -26,8 +24,7 @@ const EMPTY_DEFAULT = (
   <EmptyState
     icon={<Bot className="h-8 w-8 text-muted-foreground mb-3" />}
     title="No algorithms yet"
-    description="Let AI design a trading strategy based on your preferences."
-    action={{ href: "/algorithms/generate", label: "Generate your first algorithm" }}
+    description="Algorithms are deployed via scripts in scripts/deploy-*.ts"
   />
 );
 
@@ -183,24 +180,11 @@ export default function AlgorithmsPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Algorithms</h1>
           <p className="text-sm text-muted-foreground">
-            AI-generated trading strategies and backtesting.
+            Deployed trading strategies grouped by family.
           </p>
         </div>
         <div className="flex items-center gap-2">
           <ViewModeToggle value={viewMode} onChange={setViewMode} />
-          <Button
-            size="sm"
-            variant="outline"
-            render={<Link href="/algorithms/generate-from-search" />}
-            nativeButton={false}
-          >
-            <Telescope className="mr-1.5 h-3.5 w-3.5" />
-            Search-find
-          </Button>
-          <Button size="sm" render={<Link href="/algorithms/generate" />} nativeButton={false}>
-            <Plus className="mr-1.5 h-3.5 w-3.5" />
-            Generate New
-          </Button>
         </div>
       </div>
 

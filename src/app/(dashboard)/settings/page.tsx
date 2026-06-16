@@ -7,7 +7,6 @@ import { ProAccountCard } from "@/components/settings/pro-account-card";
 import {
   ApiKeysCard,
   BrokerConnectionsCard,
-  TradingPreferencesCard,
 } from "@/components/settings/settings-cards";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -257,7 +256,6 @@ export default function SettingsPage() {
       <div className="max-w-2xl space-y-4">
         <GeneralSettings />
         <ProAccountCard />
-        <TradingPreferencesCard />
         <BrokerConnectionsCard />
         <ApiKeysCard />
       </div>

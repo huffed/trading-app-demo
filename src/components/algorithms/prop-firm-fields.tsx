@@ -9,7 +9,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { PropFirmRules } from "@/types/algorithm";
-import { NumericOverride } from "./generate-form-sections";
+import { NumericOverride } from "./numeric-override";
 
 function LossUnitSelect({
   values,
