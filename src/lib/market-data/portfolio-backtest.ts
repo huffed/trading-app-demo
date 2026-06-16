@@ -21,6 +21,7 @@ import {
   updateTrailingState,
   type TrailingState,
 } from "@/lib/algorithm/trailing-stop";
+import { atr14 } from "./market-state";
 import {
   DEFAULT_MAX_POSITIONS,
   DEFAULT_POSITION_SIZE_PCT,
@@ -553,7 +554,11 @@ function tryOpenEntry(
   let initialTrailingState: TrailingState | undefined;
   if (trailingFeaturesEnabled(rules)) {
     const initialSlPrice = side === "long" ? entryPrice - slDistance : entryPrice + slDistance;
-    initialTrailingState = initTrailingState({ entryPrice, initialSlPrice });
+    // Compute ATR(14) at entry — used only by the ATR-variant of
+    // trailing_stop. Cheap; always captured so the rule type can be
+    // switched without re-entering positions.
+    const initialAtr = atr14(state.bars, i) ?? undefined;
+    initialTrailingState = initTrailingState({ entryPrice, initialSlPrice, initialAtr });
   }
   state.positions.push({
     entryPrice,

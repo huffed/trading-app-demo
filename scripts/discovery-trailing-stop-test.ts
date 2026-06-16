@@ -6,6 +6,27 @@
  * 13.7 ATR, fvg_30m 9.9 ATR). A trailing stop could capture more of
  * that winner tail.
  *
+ * ⚠️  2026-06-16 UNITS-BUG FIX
+ * The original version of this script (the one used for PR #235)
+ * reported the trail-fire exit R in ATR-units while reporting the
+ * baseline actualR in real-R-units (pnl / RISK_DOLLARS) — adding
+ * the two into one sum was apples-to-oranges. Under swing_anchor
+ * 0.10/4 the SL is ~3× ATR for gold, so every captured-R in the
+ * fire branch was inflated by ~3×, faking a +163 R "improvement"
+ * that does not exist in real-R-units.
+ *
+ * The fix: compute exit R as `(trailSl - entry) / initialSlDistance`
+ * — the same denominator the engine uses. The full A/B decomposition
+ * lives in `scripts/discovery-trailing-stop-ab-decomp.ts`: 100% of
+ * the simulation-vs-engine gap was units, 0% mechanic (every fire
+ * happens on the same bar in both).
+ *
+ * PR #235's "+100% R doubled" finding evaporates under this fix.
+ * Keeping the script live (units-correct) so future trailing screens
+ * use it safely; the engine-mechanic version
+ * (discovery-trailing-stop-engine-replay.ts) is what should drive
+ * ship decisions.
+ *
  * Asymmetry: BE rescued losses by sacrificing winners (failed). A
  * trailing stop tries to RIDE winners further by accepting that some
  * winners-that-just-tagged-TP will instead exit at a lower R via the
@@ -41,10 +62,11 @@
  *                     | subsequent bar's adverse touches trailing_SL,
  *                     | exit at trailing_SL price. Otherwise actual
  *                     | recorded outcome.
- *  6. R conversion | Pre-registered approximation: 1 ATR = 1 R.
- *                  | This is what swing_anchor 0.10/4 SL typically
- *                  | resolves to under comboC geometry. Imperfect
- *                  | but consistent. Friction on trail exit: -0.05 R.
+ *  6. R conversion | 2026-06-16 FIX: exit R = (trailSl - entry) /
+ *                  | initialSlDistance — same denominator the engine
+ *                  | uses. Original "1 ATR = 1 R" approximation was a
+ *                  | units bug under swing_anchor where SL ≈ 3 ATR for
+ *                  | gold. Friction on trail exit: -0.05 R.
  *  7. TRAIN/TEST | Per-algo midpoint split (same as BE-test).
  *  8. Ship gate | Net R improvement ≥ 5% in BOTH halves to qualify.
  *
@@ -67,6 +89,7 @@ import type { BacktestTrade, PriceBar } from "../src/lib/market-data/types";
 import type { AlgorithmRules } from "../src/types/algorithm";
 import { loadCorpus, type Corpus } from "./llm-trader-backtest";
 import { atr14 } from "../src/lib/market-data/market-state";
+import { computeSlDistance } from "../src/lib/algorithm/structural-sl";
 
 const CAPITAL = 100_000;
 const RISK_PCT = 0.6;
@@ -172,6 +195,9 @@ interface TestTrade {
   actualR: number;
   bars: PriceBar[];
   atrAtEntry: number;
+  /** Initial SL distance in price units = engine's 1R. Captured per
+   *  trade via computeSlDistance with the algo's stop_loss rule. */
+  initialSlDistance: number;
 }
 
 function findBarIdx(bars: PriceBar[], targetDate: string): number {
@@ -210,8 +236,11 @@ function chunkedBacktest(
 
 /** Simulate trailing-stop replay on a single trade.
  *
- * Pre-registered conversion: 1 ATR favorable ≈ 1 R favorable. Trail
- * exit R = (MFE_peak_atr - trail_threshold_atr) + friction.
+ * Trail distance is expressed in ATR-units (favourable extreme − N
+ * ATR). Exit R is expressed in real-R-units: dividing by
+ * initialSlDistance (the engine's 1R), NOT atrAtEntry — see the
+ * units-bug header. Trail activation: MFE ≥ trail_threshold ATR
+ * favourable.
  *
  * Within a bar, MFE peak updates FIRST (lucky order for trail), then
  * adverse touch check. */
@@ -220,32 +249,27 @@ function simulateTrailingStop(t: TestTrade, trailThresholdAtr: number): number {
   let mfePeakPrice = t.entryPrice;
   for (const bar of t.bars) {
     if (t.side === "long") {
-      // Update MFE peak (lucky-order convention)
       if (bar.high > mfePeakPrice) mfePeakPrice = bar.high;
-      // Trail arms only after MFE has reached trail_threshold favorable
       const favorableAtPeak = mfePeakPrice - t.entryPrice;
       if (favorableAtPeak >= trailDollars) {
         const trailSlPrice = mfePeakPrice - trailDollars;
-        // Check if THIS bar's low touched the (newly-updated) trail SL.
         if (bar.low <= trailSlPrice) {
-          const trailExitAtr = (trailSlPrice - t.entryPrice) / t.atrAtEntry;
-          return trailExitAtr + TRAIL_EXIT_FRICTION_R;
+          const exitR = (trailSlPrice - t.entryPrice) / t.initialSlDistance;
+          return exitR + TRAIL_EXIT_FRICTION_R;
         }
       }
     } else {
-      // Short — mirrored
       if (bar.low < mfePeakPrice) mfePeakPrice = bar.low;
       const favorableAtPeak = t.entryPrice - mfePeakPrice;
       if (favorableAtPeak >= trailDollars) {
         const trailSlPrice = mfePeakPrice + trailDollars;
         if (bar.high >= trailSlPrice) {
-          const trailExitAtr = (t.entryPrice - trailSlPrice) / t.atrAtEntry;
-          return trailExitAtr + TRAIL_EXIT_FRICTION_R;
+          const exitR = (t.entryPrice - trailSlPrice) / t.initialSlDistance;
+          return exitR + TRAIL_EXIT_FRICTION_R;
         }
       }
     }
   }
-  // Trail never fired — use actual recorded R
   return t.actualR;
 }
 
@@ -274,6 +298,15 @@ async function processOneTicker(ticker: string): Promise<TestTrade[]> {
       if (entryIdx < 0 || exitIdx < 0 || exitIdx <= entryIdx) { skipped++; continue; }
       const atr = atr14(corpus.bars, entryIdx);
       if (atr === null || atr <= 0) { skipped++; continue; }
+      const slDistance = computeSlDistance(
+        s.rules.stop_loss,
+        t.side,
+        t.entry_price,
+        ticker,
+        corpus.bars,
+        entryIdx
+      );
+      if (slDistance <= 0) { skipped++; continue; }
       const subBars = corpus.bars.slice(entryIdx + 1, exitIdx + 1);
       tickerTrades.push({
         algo: s.key,
@@ -283,6 +316,7 @@ async function processOneTicker(ticker: string): Promise<TestTrade[]> {
         entryPrice: t.entry_price,
         exitDate: t.exit_date,
         actualR: t.pnl / RISK_DOLLARS,
+        initialSlDistance: slDistance,
         bars: subBars,
         atrAtEntry: atr,
       });
