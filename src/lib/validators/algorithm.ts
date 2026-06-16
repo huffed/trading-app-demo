@@ -230,7 +230,7 @@ const driftSchema = z.object({
 // src/lib/market-data/market-state.ts ("n/a" excluded: unreadable state
 // is handled by on_unreadable, never configured as a target state).
 const marketStateGateSchema = z.object({
-  mode: z.enum(["allow", "block"]),
+  mode: z.enum(["allow", "block", "block_joint"]),
   states: z.object({
     mtf: z
       .array(
@@ -247,8 +247,15 @@ const marketStateGateSchema = z.object({
     vol: z.array(z.enum(["low", "mid", "high"])).optional(),
     range: z.array(z.enum(["compressed", "normal", "expanded"])).optional(),
     dxy: z.array(z.enum(["usd_up", "usd_down", "usd_flip"])).optional(),
+    entry_zone: z
+      .array(z.enum(["premium", "discount", "equilibrium"]))
+      .optional(),
+    entry_hour_bucket: z
+      .array(z.enum(["asia(0-7)", "london(7-13)", "ny(13-21)", "late(21-24)"]))
+      .optional(),
   }),
   on_unreadable: z.enum(["block", "allow"]).optional(),
+  shadow: z.boolean().optional(),
 });
 
 const breakevenMoveSchema = z.object({

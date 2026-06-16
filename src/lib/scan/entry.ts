@@ -9,7 +9,11 @@ import {
 import { checkDxyDirection } from "@/lib/algorithm/dxy-filter";
 import { checkAtrLiquidity } from "@/lib/algorithm/intraday-atr-gate";
 import { checkLivePriceDrift } from "@/lib/algorithm/live-price-drift-gate";
-import { checkMarketStateGate } from "@/lib/algorithm/market-state-gate";
+import {
+  checkMarketStateGate,
+  computePositionInRangePct,
+  type GateContext,
+} from "@/lib/algorithm/market-state-gate";
 import { checkReEntryCooldown } from "@/lib/algorithm/re-entry-cooldown";
 import { checkBrokerSpread, type SpreadGateResult } from "@/lib/algorithm/spread-gate";
 import {
@@ -812,7 +816,26 @@ export async function evaluateEntry(
       dailyBars,
       dxyBars
     );
-    const verdict = checkMarketStateGate(rules.market_state_gate, marketState);
+    const gateCtx: GateContext = {
+      entryHourUtc: new Date().getUTCHours(),
+      positionInRangePct: computePositionInRangePct(bars, currentPrice),
+    };
+    const verdict = checkMarketStateGate(rules.market_state_gate, marketState, gateCtx);
+    if (verdict.shadow_block_reason) {
+      await logActivity(supabase, userId, {
+        algorithm_id: algo.id,
+        event_type: "signal_no_action",
+        ticker,
+        details: {
+          reason: "market_state_gate_shadow",
+          gate_mode: rules.market_state_gate.mode,
+          would_block: verdict.shadow_block_reason,
+          market_state: marketState,
+          entry_hour_utc: gateCtx.entryHourUtc,
+          position_in_range_pct: gateCtx.positionInRangePct,
+        },
+      });
+    }
     if (!verdict.allowed) {
       await logActivity(supabase, userId, {
         algorithm_id: algo.id,
@@ -823,6 +846,8 @@ export async function evaluateEntry(
           gate_mode: rules.market_state_gate.mode,
           verdict: verdict.reason,
           market_state: marketState,
+          entry_hour_utc: gateCtx.entryHourUtc,
+          position_in_range_pct: gateCtx.positionInRangePct,
         },
       });
       return { opened: 0 };
@@ -1315,7 +1340,27 @@ async function evaluateLlmTraderEntry(
   // dormancy mechanism: gate mismatch = the strategy sleeps this tick,
   // with zero LLM spend. Specialists fail closed on unreadable state.
   if (!currentPosition && rules.market_state_gate) {
-    const verdict = checkMarketStateGate(rules.market_state_gate, marketState);
+    const gateCtx: GateContext = {
+      entryHourUtc: new Date().getUTCHours(),
+      positionInRangePct: computePositionInRangePct(bars, currentPrice),
+    };
+    const verdict = checkMarketStateGate(rules.market_state_gate, marketState, gateCtx);
+    if (verdict.shadow_block_reason) {
+      await logActivity(supabase, userId, {
+        algorithm_id: algo.id,
+        event_type: "signal_no_action",
+        ticker,
+        details: {
+          reason: "market_state_gate_shadow",
+          source: "llm_trader",
+          gate_mode: rules.market_state_gate.mode,
+          would_block: verdict.shadow_block_reason,
+          market_state: marketState,
+          entry_hour_utc: gateCtx.entryHourUtc,
+          position_in_range_pct: gateCtx.positionInRangePct,
+        },
+      });
+    }
     if (!verdict.allowed) {
       await logActivity(supabase, userId, {
         algorithm_id: algo.id,
@@ -1327,6 +1372,8 @@ async function evaluateLlmTraderEntry(
           gate_mode: rules.market_state_gate.mode,
           verdict: verdict.reason,
           market_state: marketState,
+          entry_hour_utc: gateCtx.entryHourUtc,
+          position_in_range_pct: gateCtx.positionInRangePct,
         },
       });
       return { opened: 0 };
