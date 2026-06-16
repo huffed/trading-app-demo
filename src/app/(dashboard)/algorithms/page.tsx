@@ -97,7 +97,7 @@ function StrategyGroupedView({
           key={s.id}
           strategy={s}
           instances={byStrategy.get(s.id) ?? []}
-          defaultOpen={s.status === "active"}
+          defaultOpen={false}
         />
       ))}
       {standalone.length > 0 && (

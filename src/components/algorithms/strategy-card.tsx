@@ -11,11 +11,13 @@ import type { Algorithm, Strategy } from "@/types/algorithm";
 interface StrategyCardProps {
   strategy: Strategy;
   instances: Algorithm[];
-  /** Default open state. Active strategies expand by default; archived collapse. */
+  /** Default open state. Strategies start COLLAPSED by default (operator
+   *  preference 2026-06-16) — cards stay compact in the list, expand on
+   *  click to inspect instances. */
   defaultOpen?: boolean;
 }
 
-export function StrategyCard({ strategy, instances, defaultOpen = true }: StrategyCardProps) {
+export function StrategyCard({ strategy, instances, defaultOpen = false }: StrategyCardProps) {
   const [open, setOpen] = useState(defaultOpen);
   const liveCount = instances.filter((a) => a.live_trading_enabled).length;
   const pausedCount = instances.filter((a) => a.status === "paused").length;
