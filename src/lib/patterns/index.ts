@@ -13,6 +13,7 @@ export { detectLiquiditySweep } from "./liquidity-sweep";
 export { detectFvg, fvgFillIndex, scanFvgs } from "./fvg";
 export { detectBos } from "./bos";
 export { detectChoch, type ChochDetails } from "./choch";
+export { detectEqualLevels, type EqualLevelsDetails, type EqualLevelsOptions } from "./equal-levels";
 export { detectOte, type OteDetails } from "./ote";
 export { detectOrderBlock } from "./order-block";
 export { detectEngulfing } from "./engulfing";

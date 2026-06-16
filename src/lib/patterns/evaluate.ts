@@ -20,6 +20,7 @@ import type { PatternCondition } from "@/types/algorithm";
 import { detectAsianRangeBreak } from "./asian-range-break";
 import { detectBos } from "./bos";
 import { detectChoch } from "./choch";
+import { detectEqualLevels } from "./equal-levels";
 import { detectOte } from "./ote";
 import { detectDailyBias } from "./daily-bias";
 import { detectEngulfing } from "./engulfing";
@@ -144,6 +145,17 @@ function evaluateClassicPattern(
       const r = detectOte(bars, idx, cond.lookback ?? 5);
       if (!r.detected || !r.details) return false;
       if (effectiveDir && r.details.direction !== effectiveDir) return false;
+      return true;
+    }
+    case "equal_levels": {
+      // Equal highs / equal lows — ICT liquidity pools. cond.lookback is
+      // passed as swingLookback (default 5, ICT default); the cluster
+      // tolerance + scanWindow + minCount stay at the detector's defaults
+      // (0.1%, 50 bars, 2 swings). The bullish/bearish direction is required
+      // — it selects swing-low vs swing-high cluster.
+      if (!effectiveDir) return false;
+      const r = detectEqualLevels(bars, idx, effectiveDir, { swingLookback: cond.lookback });
+      if (!r.detected || !r.details) return false;
       return true;
     }
     case "order_block": {
