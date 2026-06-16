@@ -10,8 +10,9 @@ import { checkDxyDirection } from "@/lib/algorithm/dxy-filter";
 import { checkAtrLiquidity } from "@/lib/algorithm/intraday-atr-gate";
 import { checkLivePriceDrift } from "@/lib/algorithm/live-price-drift-gate";
 import {
-  checkMarketStateGate,
+  checkMarketStateGateConfig,
   computePositionInRangePct,
+  gateConfigModeLabel,
   type GateContext,
 } from "@/lib/algorithm/market-state-gate";
 import { checkReEntryCooldown } from "@/lib/algorithm/re-entry-cooldown";
@@ -820,7 +821,12 @@ export async function evaluateEntry(
       entryHourUtc: new Date().getUTCHours(),
       positionInRangePct: computePositionInRangePct(bars, currentPrice),
     };
-    const verdict = checkMarketStateGate(rules.market_state_gate, marketState, gateCtx);
+    const verdict = checkMarketStateGateConfig(
+      rules.market_state_gate,
+      marketState,
+      gateCtx
+    );
+    const gateMode = gateConfigModeLabel(rules.market_state_gate);
     if (verdict.shadow_block_reason) {
       await logActivity(supabase, userId, {
         algorithm_id: algo.id,
@@ -828,7 +834,7 @@ export async function evaluateEntry(
         ticker,
         details: {
           reason: "market_state_gate_shadow",
-          gate_mode: rules.market_state_gate.mode,
+          gate_mode: gateMode,
           would_block: verdict.shadow_block_reason,
           market_state: marketState,
           entry_hour_utc: gateCtx.entryHourUtc,
@@ -843,7 +849,7 @@ export async function evaluateEntry(
         ticker,
         details: {
           reason: "market_state_gate",
-          gate_mode: rules.market_state_gate.mode,
+          gate_mode: gateMode,
           verdict: verdict.reason,
           market_state: marketState,
           entry_hour_utc: gateCtx.entryHourUtc,
@@ -1344,7 +1350,12 @@ async function evaluateLlmTraderEntry(
       entryHourUtc: new Date().getUTCHours(),
       positionInRangePct: computePositionInRangePct(bars, currentPrice),
     };
-    const verdict = checkMarketStateGate(rules.market_state_gate, marketState, gateCtx);
+    const verdict = checkMarketStateGateConfig(
+      rules.market_state_gate,
+      marketState,
+      gateCtx
+    );
+    const gateMode = gateConfigModeLabel(rules.market_state_gate);
     if (verdict.shadow_block_reason) {
       await logActivity(supabase, userId, {
         algorithm_id: algo.id,
@@ -1353,7 +1364,7 @@ async function evaluateLlmTraderEntry(
         details: {
           reason: "market_state_gate_shadow",
           source: "llm_trader",
-          gate_mode: rules.market_state_gate.mode,
+          gate_mode: gateMode,
           would_block: verdict.shadow_block_reason,
           market_state: marketState,
           entry_hour_utc: gateCtx.entryHourUtc,
@@ -1369,7 +1380,7 @@ async function evaluateLlmTraderEntry(
         details: {
           reason: "market_state_gate",
           source: "llm_trader",
-          gate_mode: rules.market_state_gate.mode,
+          gate_mode: gateMode,
           verdict: verdict.reason,
           market_state: marketState,
           entry_hour_utc: gateCtx.entryHourUtc,
