@@ -20,13 +20,30 @@ interface TradingChartProps {
   height?: number;
 }
 
+/** Resolve a CSS custom property on the container, falling back to a
+ *  hardcoded color when the variable is unset or returns an oklch value
+ *  lightweight-charts can't parse. Lightweight-charts accepts hex /
+ *  rgb / rgba / named colors only. */
+function resolveColor(container: HTMLElement, varName: string, fallback: string): string {
+  const raw = getComputedStyle(container).getPropertyValue(varName).trim();
+  if (!raw) return fallback;
+  // lightweight-charts can't parse oklch/lch/hsl-modern — fall back.
+  if (/^(oklch|lch|color)/.test(raw)) return fallback;
+  return raw;
+}
+
 function makeChart(container: HTMLDivElement, height: number): IChartApi {
+  // Theme-aware text/grid colors. We can't pass `var(...)` directly to
+  // lightweight-charts (it doesn't parse CSS variables), and our oklch
+  // tokens don't parse either, so we resolve at mount with explicit
+  // theme-neutral fallbacks.
+  const textColor = resolveColor(container, "--color-foreground", "rgba(160,160,170,0.95)");
   return createChart(container, {
     width: container.clientWidth,
     height,
     layout: {
       background: { type: ColorType.Solid, color: "transparent" },
-      textColor: "var(--color-foreground)",
+      textColor,
       fontSize: 11,
     },
     grid: {
