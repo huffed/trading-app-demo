@@ -22,18 +22,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useAlgoTrades } from "@/hooks/use-algo-trades";
 import { useAlgorithmsList } from "@/hooks/use-algorithms";
 import { useChartData } from "@/hooks/use-chart-data";
-
-function deriveTickerForAlgo(
-  algorithmId: string | null,
-  algos: ReturnType<typeof useAlgorithmsList>["data"]
-): string | null {
-  if (!algorithmId || !algos) return null;
-  const a = algos.find((x) => x.id === algorithmId);
-  if (!a) return null;
-  const watchlist = (a as unknown as { algorithm_watchlist?: { ticker: string }[] })
-    .algorithm_watchlist;
-  return watchlist?.[0]?.ticker ?? null;
-}
+import { useWatchlist } from "@/hooks/use-watchlist";
 
 function deriveTimeframeForAlgo(
   algorithmId: string | null,
@@ -56,7 +45,11 @@ export default function BacktestPage() {
   // page is useful on initial render without a useEffect+setState cycle.
   const algorithmId = pickedAlgorithmId ?? algos[0]?.id ?? null;
 
-  const ticker = useMemo(() => deriveTickerForAlgo(algorithmId, algos), [algorithmId, algos]);
+  // Watchlist is stored in a separate table, NOT joined into algorithms.
+  // useAlgorithmsList does a plain SELECT * so algorithm_watchlist is
+  // never populated — fetch it via useWatchlist instead.
+  const { data: watchlist } = useWatchlist(algorithmId);
+  const ticker = watchlist?.[0]?.ticker ?? null;
   const timeframe = useMemo(
     () => deriveTimeframeForAlgo(algorithmId, algos),
     [algorithmId, algos]
