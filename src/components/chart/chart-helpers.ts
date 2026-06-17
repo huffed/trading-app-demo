@@ -128,26 +128,22 @@ function nearestBarTime(time: number, bars: ChartBar[]): number {
   return time - before <= after - time ? before : after;
 }
 
-/** Build a text-only label marker for the annotation.
+/** Build a text-only label marker for the annotation, anchored at the
+ *  midpoint of the annotation's time span (snapped to the nearest
+ *  actual bar so lightweight-charts can render it).
  *
  *  Lightweight-charts marker `position` is bar-relative ('aboveBar' /
- *  'belowBar' / 'inBar'), NOT line-relative. So we can't say "put this
- *  text below the dashed line at price X". The workaround:
- *    - Bullish: midpoint time + aboveBar. The midpoint bar has its
- *      candle ABOVE the broken swing high (price already pushed
- *      through), so aboveBar reads as "above the line".
- *    - Bearish: anchor at the BREAK bar (to_time) + belowBar. The
- *      break bar's close is by definition below the broken swing low,
- *      so its low is below the line — belowBar at that bar reads as
- *      "below the line". Anchoring at midpoint instead would put the
- *      bar inside the retest area where the candle low is still
- *      ABOVE the line (visually wrong).
+ *  'belowBar' / 'inBar'), NOT line-relative — so vertical positioning
+ *  follows the candle at the midpoint bar, not the dashed line itself.
+ *  Bullish labels render above the candle (typically reads as "above
+ *  the line"); bearish labels render below the candle (may sit above
+ *  the line on retest bars where candle.low > broken swing low).
  *
  *  size: 0 hides the marker shape while keeping the text visible. */
 function annotationLabelMarker(a: PatternAnnotation, bars: ChartBar[]): SeriesMarker<Time> {
   const isBullish = a.direction === "bullish";
-  const rawTime = isBullish ? Math.floor((a.from_time + a.to_time) / 2) : a.to_time;
-  const time = nearestBarTime(rawTime, bars);
+  const midTime = Math.floor((a.from_time + a.to_time) / 2);
+  const time = nearestBarTime(midTime, bars);
   return {
     time: time as UTCTimestamp,
     position: isBullish ? "aboveBar" : "belowBar",
