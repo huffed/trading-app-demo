@@ -40,6 +40,31 @@ export interface NotableSave {
   llm_reasoning: string | null;
 }
 
+/** One day in the engine-activity timeline. All fields are counts of
+ *  events on that UTC calendar date — useful for stacked area / bar
+ *  charts on the /reports page. */
+export interface DailyActivityPoint {
+  date: string; // YYYY-MM-DD (UTC)
+  holds: number;
+  enters_long: number;
+  enters_short: number;
+  exits: number;
+  decisions_total: number;
+  gate_refusals: number;
+  drift_refusals: number;
+  bar_staleness: number;
+  condition_misses: number;
+  fires: number;
+}
+
+/** Portfolio equity curve point — cumulative closed-trade P&L across
+ *  all algos through this calendar date. */
+export interface EquityPoint {
+  date: string; // YYYY-MM-DD (UTC)
+  cumulative_pnl: number;
+  trades_closed: number;
+}
+
 export interface EngineActivity {
   window_days: number;
   since: string; // ISO timestamp the window starts at
@@ -49,6 +74,12 @@ export interface EngineActivity {
   llm_by_mtf: Record<string, number>;
   per_algo: AlgoActivity[];
   notable_saves: NotableSave[];
+  /** Daily time-series across the window — empty array when window has
+   *  no activity. Length = window_days. */
+  daily_series: DailyActivityPoint[];
+  /** Portfolio-wide cumulative P&L over closed paper positions in the
+   *  window. Empty when no closures. */
+  equity_curve: EquityPoint[];
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -126,10 +157,49 @@ function bucketEvent(
   }
 }
 
+/** Empty DailyActivityPoint with zeros for the given UTC date. */
+function emptyDay(date: string): DailyActivityPoint {
+  return {
+    date,
+    holds: 0,
+    enters_long: 0,
+    enters_short: 0,
+    exits: 0,
+    decisions_total: 0,
+    gate_refusals: 0,
+    drift_refusals: 0,
+    bar_staleness: 0,
+    condition_misses: 0,
+    fires: 0,
+  };
+}
+
+/** YYYY-MM-DD slice of an ISO timestamp. UTC by definition. */
+function utcDay(iso: string): string {
+  return iso.slice(0, 10);
+}
+
+/** Build the day-by-day buckets across the window. Zero-fills missing
+ *  days so charts render a continuous axis even on quiet ranges. */
+function buildDailyBuckets(days: number, sinceMs: number): {
+  buckets: Map<string, DailyActivityPoint>;
+  ordered: string[];
+} {
+  const buckets = new Map<string, DailyActivityPoint>();
+  const ordered: string[] = [];
+  for (let i = 0; i < days; i++) {
+    const d = utcDay(new Date(sinceMs + i * 86400_000).toISOString());
+    buckets.set(d, emptyDay(d));
+    ordered.push(d);
+  }
+  return { buckets, ordered };
+}
+
 async function aggregateAlgoEvents(
   supabase: Supa,
   algos: Array<{ id: string; name: string }>,
-  since: string
+  since: string,
+  daily: Map<string, DailyActivityPoint>
 ): Promise<{ perAlgo: AlgoActivity[]; notable: NotableSave[] }> {
   const perAlgo: AlgoActivity[] = [];
   const notable: NotableSave[] = [];
@@ -155,16 +225,88 @@ async function aggregateAlgoEvents(
       .limit(5000);
     if (eventsErr) throw new Error(`engine-activity events query failed (${a.name}): ${eventsErr.message}`);
     for (const e of eventsRaw ?? []) {
-      bucketEvent(
-        bucket,
-        e as { event_type: string; details: Record<string, unknown> | null; created_at: string },
-        notable
-      );
+      const ev = e as {
+        event_type: string;
+        details: Record<string, unknown> | null;
+        created_at: string;
+      };
+      bucketEvent(bucket, ev, notable);
+      const day = daily.get(utcDay(ev.created_at));
+      if (!day) continue;
+      if (ev.event_type === "signal_detected" || ev.event_type === "position_opened") {
+        day.fires++;
+        continue;
+      }
+      const reason = String(ev.details?.reason ?? "");
+      if (reason === "market_state_gate") day.gate_refusals++;
+      else if (reason.startsWith("Entry conditions")) day.condition_misses++;
+      else if (reason.startsWith("Most recent bar closed")) day.bar_staleness++;
+      else if (reason.includes("drifted")) day.drift_refusals++;
     }
     perAlgo.push(bucket);
   }
   perAlgo.sort((a, b) => a.name.localeCompare(b.name));
   return { perAlgo, notable };
+}
+
+async function buildEquityCurve(
+  supabase: Supa,
+  since: string,
+  ordered: string[]
+): Promise<EquityPoint[]> {
+  const { data, error } = await supabase
+    .from("paper_positions")
+    .select("realized_pnl, closed_at")
+    .gte("closed_at", since)
+    .eq("status", "closed")
+    .order("closed_at", { ascending: true })
+    .limit(5000);
+  if (error) throw new Error(`engine-activity equity query failed: ${error.message}`);
+  const rows = (data ?? []) as Array<{ realized_pnl: number | null; closed_at: string }>;
+  if (rows.length === 0) return [];
+
+  // Aggregate per UTC day, then carry-forward cumulative across the
+  // window so the chart shows a stable line on days without closures.
+  const dayClosures = new Map<string, { pnl: number; n: number }>();
+  for (const r of rows) {
+    const day = utcDay(r.closed_at);
+    const bucket = dayClosures.get(day) ?? { pnl: 0, n: 0 };
+    bucket.pnl += r.realized_pnl ?? 0;
+    bucket.n++;
+    dayClosures.set(day, bucket);
+  }
+  let cum = 0;
+  let cumN = 0;
+  const curve: EquityPoint[] = [];
+  for (const date of ordered) {
+    const bucket = dayClosures.get(date);
+    if (bucket) {
+      cum += bucket.pnl;
+      cumN += bucket.n;
+    }
+    curve.push({
+      date,
+      cumulative_pnl: Number(cum.toFixed(2)),
+      trades_closed: cumN,
+    });
+  }
+  return curve;
+}
+
+function bucketDecisionsByDay(
+  rows: DecisionRow[],
+  daily: Map<string, DailyActivityPoint>
+): void {
+  for (const r of rows) {
+    const day = daily.get(utcDay(r.created_at));
+    if (!day) continue;
+    day.decisions_total++;
+    const d = r.decision ?? "";
+    if (d === "hold") day.holds++;
+    else if (d === "enter_long") day.enters_long++;
+    else if (d === "enter_short") day.enters_short++;
+    else if (d === "exit" || d === "move_be") day.exits++;
+  }
 }
 
 /**
@@ -175,7 +317,9 @@ async function aggregateAlgoEvents(
  * `days` is the window size; defaults to 7 (operator weekly review).
  */
 export async function buildEngineActivity(supabase: Supa, days = 7): Promise<EngineActivity> {
-  const since = new Date(Date.now() - days * 86400_000).toISOString();
+  const sinceMs = Date.now() - days * 86400_000;
+  const since = new Date(sinceMs).toISOString();
+  const { buckets: daily, ordered } = buildDailyBuckets(days, sinceMs);
 
   const { data: algosRaw, error: algosErr } = await supabase
     .from("algorithms")
@@ -190,9 +334,12 @@ export async function buildEngineActivity(supabase: Supa, days = 7): Promise<Eng
     .eq("source", "live")
     .gte("created_at", since);
   if (decErr) throw new Error(`engine-activity decisions query failed: ${decErr.message}`);
-  const decisions = summarizeDecisions((decisionsRaw ?? []) as DecisionRow[]);
+  const decisionRows = (decisionsRaw ?? []) as DecisionRow[];
+  const decisions = summarizeDecisions(decisionRows);
+  bucketDecisionsByDay(decisionRows, daily);
 
-  const { perAlgo, notable } = await aggregateAlgoEvents(supabase, algos, since);
+  const { perAlgo, notable } = await aggregateAlgoEvents(supabase, algos, since, daily);
+  const equityCurve = await buildEquityCurve(supabase, since, ordered);
 
   return {
     window_days: days,
@@ -203,5 +350,7 @@ export async function buildEngineActivity(supabase: Supa, days = 7): Promise<Eng
     llm_by_mtf: decisions.byMtf,
     per_algo: perAlgo,
     notable_saves: notable,
+    daily_series: ordered.map((d) => daily.get(d) ?? emptyDay(d)),
+    equity_curve: equityCurve,
   };
 }

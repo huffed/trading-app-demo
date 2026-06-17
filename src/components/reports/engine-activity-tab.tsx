@@ -7,6 +7,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useEngineActivity } from "@/hooks/use-engine-activity";
 import type { AlgoActivity, NotableSave } from "@/lib/cohort/engine-activity";
+import {
+  DecisionsTimeline,
+  GateRefusalsTimeline,
+  PortfolioEquityCurve,
+} from "./activity-charts";
 
 const WINDOWS: { label: string; days: number }[] = [
   { label: "24h", days: 1 },
@@ -54,6 +59,11 @@ export function EngineActivityTab() {
       {data && !isLoading && (
         <>
           <SummaryRow data={data} />
+          <PortfolioEquityCurve data={data.equity_curve} />
+          <div className="grid gap-4 lg:grid-cols-2">
+            <DecisionsTimeline data={data.daily_series} />
+            <GateRefusalsTimeline data={data.daily_series} />
+          </div>
           <PerAlgoTable rows={data.per_algo} />
           {data.notable_saves.length > 0 && <NotableSavesCard saves={data.notable_saves} />}
           {data.per_algo.every((a) => a.evaluations === 0) && (
