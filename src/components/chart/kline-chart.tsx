@@ -10,8 +10,12 @@ import {
   type KLineData,
 } from "klinecharts";
 import type { ChartData } from "@/app/(dashboard)/chart/actions";
-import { applyIndicators, applyOverlays } from "./kline-overlays";
+import { applyIndicators, applyOverlays, ensureTextLabelRegistered } from "./kline-overlays";
 import { type LayerConfig } from "./layer-config";
+
+// Register the custom text-label overlay once at module load — must
+// happen before any chart.createOverlay call references "textLabel".
+ensureTextLabelRegistered();
 
 interface KlineChartProps {
   data: ChartData;

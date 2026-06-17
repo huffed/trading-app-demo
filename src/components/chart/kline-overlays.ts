@@ -3,7 +3,7 @@
  * stay under max-lines and isolate the klinecharts-specific
  * style/option shaping from the React component.
  */
-import { LineType, PolygonType, type Chart, type OverlayCreate } from "klinecharts";
+import { LineType, PolygonType, registerOverlay, type Chart, type OverlayCreate } from "klinecharts";
 import type {
   ChartData,
   ChartMarker,
@@ -14,6 +14,74 @@ import { LAYER_META, type LayerConfig } from "./layer-config";
 const PROFIT_COLOR = "rgba(74,196,142,1)";
 const LOSS_COLOR = "rgba(232,90,90,1)";
 const NEUTRAL_COLOR = "rgba(180,180,220,1)";
+
+/** Custom overlay: flat text at a single point. Built-in
+ *  `simpleAnnotation` paints text inside a blue bubble + arrow +
+ *  connector line because the global OverlayStyle.text default has
+ *  backgroundColor=blue, borderColor=blue. Per-overlay style overrides
+ *  pass through that same global text style.
+ *
+ *  This template draws ONE text figure with per-figure styles set
+ *  explicitly to transparent background / no border. The per-figure
+ *  styles bypass the global text style entirely.
+ *
+ *  extendData payload: `{ text: string, color: string }` so each label
+ *  carries its own color. */
+const TEXT_LABEL_OVERLAY = {
+  name: "textLabel",
+  totalStep: 2,
+  needDefaultPointFigure: false,
+  needDefaultXAxisFigure: false,
+  needDefaultYAxisFigure: false,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  createPointFigures: ({ overlay, coordinates }: any) => {
+    const data = overlay.extendData ?? {};
+    const text = typeof data.text === "string" ? data.text : "";
+    const color = typeof data.color === "string" ? data.color : NEUTRAL_COLOR;
+    return [
+      {
+        type: "text",
+        attrs: {
+          x: coordinates[0].x,
+          y: coordinates[0].y,
+          text,
+          align: "center",
+          baseline: "middle",
+        },
+        styles: {
+          color,
+          size: 11,
+          family: "system-ui",
+          weight: "600",
+          backgroundColor: "transparent",
+          borderColor: "transparent",
+          borderSize: 0,
+          paddingLeft: 0,
+          paddingRight: 0,
+          paddingTop: 0,
+          paddingBottom: 0,
+        },
+        ignoreEvent: true,
+      },
+    ];
+  },
+};
+
+let textLabelRegistered = false;
+export function ensureTextLabelRegistered(): void {
+  if (textLabelRegistered) return;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  registerOverlay(TEXT_LABEL_OVERLAY as any);
+  textLabelRegistered = true;
+}
+
+function labelOverlay(timestamp: number, value: number, text: string, color: string): OverlayCreate {
+  return {
+    name: "textLabel",
+    points: [{ timestamp, value }],
+    extendData: { text, color },
+  };
+}
 
 const ANNOTATION_LABELS: Record<PatternAnnotation["pattern_type"], string> = {
   bos: "BOS",
@@ -63,12 +131,7 @@ function annotationOverlays(a: PatternAnnotation): OverlayCreate[] {
         ],
         styles: { line: { color, style: LineType.Dashed, size: 2, dashedValue: [4, 4] } },
       },
-      {
-        name: "simpleAnnotation",
-        points: [{ timestamp: (t1 + t2) / 2, value: a.top }],
-        extendData: ANNOTATION_LABELS[a.pattern_type],
-        styles: { text: { color, size: 11, family: "system-ui", weight: "600" } },
-      },
+      labelOverlay((t1 + t2) / 2, a.top, ANNOTATION_LABELS[a.pattern_type], color),
     ];
   }
 
@@ -92,12 +155,7 @@ function annotationOverlays(a: PatternAnnotation): OverlayCreate[] {
         },
       },
     },
-    {
-      name: "simpleAnnotation",
-      points: [{ timestamp: (t1 + t2) / 2, value: (a.top + bottom) / 2 }],
-      extendData: ANNOTATION_LABELS[a.pattern_type],
-      styles: { text: { color, size: 10, family: "system-ui", weight: "600" } },
-    },
+    labelOverlay((t1 + t2) / 2, (a.top + bottom) / 2, ANNOTATION_LABELS[a.pattern_type], color),
   ];
 }
 
@@ -107,12 +165,7 @@ function tradeOverlays(markers: ChartMarker[], layers: LayerConfig): OverlayCrea
     if (m.kind === "entry" && !layers.trade_entries) continue;
     if (m.kind === "exit" && !layers.trade_exits) continue;
     const color = m.side === "long" ? PROFIT_COLOR : LOSS_COLOR;
-    out.push({
-      name: "simpleAnnotation",
-      points: [{ timestamp: m.time * 1000, value: m.price }],
-      extendData: m.label,
-      styles: { text: { color, size: 11, family: "system-ui", weight: "600" } },
-    });
+    out.push(labelOverlay(m.time * 1000, m.price, m.label, color));
   }
   return out;
 }
@@ -124,19 +177,8 @@ function swingOverlays(
   if (!enabled) return [];
   return swings.map((s) => {
     const bullish = s.type === "HH" || s.type === "HL";
-    return {
-      name: "simpleAnnotation",
-      points: [{ timestamp: s.time * 1000, value: s.price }],
-      extendData: s.type,
-      styles: {
-        text: {
-          color: bullish ? PROFIT_COLOR : LOSS_COLOR,
-          size: 10,
-          family: "system-ui",
-          weight: "600",
-        },
-      },
-    };
+    const color = bullish ? PROFIT_COLOR : LOSS_COLOR;
+    return labelOverlay(s.time * 1000, s.price, s.type, color);
   });
 }
 
