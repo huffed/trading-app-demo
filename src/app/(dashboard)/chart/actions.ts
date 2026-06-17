@@ -184,7 +184,11 @@ function computeIndicators(closes: number[]): ChartIndicators {
 export async function getChartDataAction(
   ticker: string,
   timeframe: ChartTimeframe,
-  outputSize: "compact" | "full" = "compact"
+  outputSize: "compact" | "full" = "compact",
+  /** When set, trade markers are scoped to a single algorithm. /chart
+   *  shows ALL activity on the ticker (omit); /backtest passes the
+   *  selected algorithm's id. */
+  algorithmId: string | null = null
 ): Promise<ActionResult<ChartData>> {
   const supabase = await createClient();
   const {
@@ -215,7 +219,7 @@ export async function getChartDataAction(
 
     const firstBarTime = bars[0]?.time ?? 0;
     const sinceIso = new Date(firstBarTime * 1000).toISOString();
-    const markers = await fetchTradeMarkers(supabase, ticker, sinceIso);
+    const markers = await fetchTradeMarkers(supabase, ticker, sinceIso, algorithmId);
 
     return {
       success: true,
@@ -232,9 +236,10 @@ type Supa = Awaited<ReturnType<typeof createClient>>;
 async function fetchTradeMarkers(
   supabase: Supa,
   ticker: string,
-  sinceIso: string
+  sinceIso: string,
+  algorithmId: string | null
 ): Promise<ChartMarker[]> {
-  const { data, error } = await supabase
+  let query = supabase
     .from("paper_positions")
     .select(
       "side, entry_price, exit_price, opened_at, closed_at, initial_stop_loss_price, stop_loss_price, realized_pnl, status"
@@ -242,6 +247,8 @@ async function fetchTradeMarkers(
     .eq("ticker", ticker)
     .gte("opened_at", sinceIso)
     .order("opened_at", { ascending: true });
+  if (algorithmId) query = query.eq("algorithm_id", algorithmId);
+  const { data, error } = await query;
   if (error) return [];
   const rows = (data ?? []) as Array<{
     side: string;

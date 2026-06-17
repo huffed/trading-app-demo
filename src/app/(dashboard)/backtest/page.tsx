@@ -60,7 +60,8 @@ export default function BacktestPage() {
   const { data: chartData, isLoading: chartLoading } = useChartData(
     ticker ?? "",
     timeframe,
-    "full"
+    "full",
+    algorithmId
   );
   const { data: live } = useLivePrice(ticker ?? "");
 
