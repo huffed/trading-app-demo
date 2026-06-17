@@ -35,10 +35,11 @@ function fmtPrice(p: number): string {
   return p.toFixed(5);
 }
 
-/** Forward-extension cap for UNFILLED zones (OB only — FVG / IFVG
- *  extend to the chart's right edge per ICT convention so the operator
- *  sees the active S/R level). Kept short for OBs so a 6yr corpus
- *  doesn't smear hundreds of OB zones forward. */
+/** Forward-extension caps for unfilled zones. Each zone shows a
+ *  visible right-edge stroke at this distance from formation so the
+ *  operator can see where it ends, rather than the zone blending
+ *  invisibly into the right edge of the chart. */
+const FVG_FORWARD_BARS = 20;
 const OB_FORWARD_BARS = 30;
 
 function timeAt(chartBars: ChartBar[], idx: number): number {
@@ -171,13 +172,13 @@ function scanFvgsAndIfvgs(
   const gaps = scanFvgs(bars);
   const lastBarIdx = chartBars.length - 1;
   for (const g of gaps) {
-    // FVG zone per ICT convention: starts at the THIRD bar of the
-    // 3-bar pattern (created_at_idx + 1) — where the gap is fully
-    // confirmed. Extends RIGHTWARD until the gap is filled OR to the
-    // chart's right edge if still unfilled, so the operator sees
-    // the active S/R level.
+    // FVG zone: starts at the THIRD bar of the 3-bar pattern (where
+    // the gap is fully confirmed), ends at filled_at OR a fixed
+    // forward window from formation (so each zone has a clear visible
+    // right-edge stroke instead of blending into the chart edge).
     const startIdx = Math.min(g.gap.created_at_idx + 1, lastBarIdx);
-    const endIdx = g.filled_at ?? lastBarIdx;
+    const forwardEnd = Math.min(g.gap.created_at_idx + FVG_FORWARD_BARS, lastBarIdx);
+    const endIdx = g.filled_at ?? forwardEnd;
     fvg.push({
       time: chartBars[g.gap.created_at_idx].time,
       direction: g.gap.direction,
@@ -210,14 +211,15 @@ function scanFvgsAndIfvgs(
         top: g.gap.gap_top,
         bottom: g.gap.gap_bottom,
       });
+      const ifvgEnd = Math.min(g.filled_at + FVG_FORWARD_BARS, lastBarIdx);
       annotations.push({
         pattern_type: "ifvg",
         kind: "zone",
         direction: flipDir,
         from_time: chartBars[g.filled_at].time,
-        // IFVG also extends to the chart's right edge — the role-flip
-        // is "active" until further notice.
-        to_time: chartBars[lastBarIdx].time,
+        // IFVG extends forward by FVG_FORWARD_BARS so it has a visible
+        // right-edge stroke instead of blending into the chart edge.
+        to_time: chartBars[ifvgEnd].time,
         top: g.gap.gap_top,
         bottom: g.gap.gap_bottom,
         label: "IFVG",
