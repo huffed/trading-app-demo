@@ -3,7 +3,7 @@ import type {
   ChartBar,
   ChartMarker,
   ChartPatterns,
-  PatternPoint,
+  SwingMarker,
 } from "@/app/(dashboard)/chart/actions";
 import type { LayerConfig } from "./layer-config";
 
@@ -54,12 +54,6 @@ export function makeHistogramSeries(chart: IChartApi, color: string): ISeriesApi
   });
 }
 
-function directionColor(direction: "bullish" | "bearish" | "neutral"): string {
-  if (direction === "bullish") return PROFIT_COLOR;
-  if (direction === "bearish") return LOSS_COLOR;
-  return NEUTRAL_COLOR;
-}
-
 function tradeMarker(m: ChartMarker): SeriesMarker<Time> {
   if (m.kind === "entry") {
     return {
@@ -80,47 +74,35 @@ function tradeMarker(m: ChartMarker): SeriesMarker<Time> {
   };
 }
 
-function patternMarker(
-  pp: PatternPoint,
-  shape: SeriesMarker<Time>["shape"],
-  prefix: string,
-  positionAbove: boolean
-): SeriesMarker<Time> {
+function swingMarker(s: SwingMarker): SeriesMarker<Time> {
+  // HH and HL are higher-than-prior structure (uptrend signals); LH and
+  // LL are lower-than-prior (downtrend signals). Color matches.
+  const bullish = s.type === "HH" || s.type === "HL";
+  const isHigh = s.type === "HH" || s.type === "LH";
   return {
-    time: pp.time as UTCTimestamp,
-    position: positionAbove ? "aboveBar" : "belowBar",
-    color: directionColor(pp.direction),
-    shape,
-    text: `${prefix}${pp.label.slice(0, 30)}`,
+    time: s.time as UTCTimestamp,
+    position: isHigh ? "aboveBar" : "belowBar",
+    color: bullish ? PROFIT_COLOR : LOSS_COLOR,
+    shape: "circle",
+    text: s.type,
   };
 }
 
-function pushPattern(
-  out: SeriesMarker<Time>[],
-  enabled: boolean,
-  points: PatternPoint[],
-  shape: SeriesMarker<Time>["shape"],
-  prefix: string,
-  positionAboveBullish = true
-): void {
-  if (!enabled) return;
-  for (const p of points) {
-    out.push(patternMarker(p, shape, prefix, positionAboveBullish && p.direction === "bullish"));
-  }
-}
-
+/** Build the marker list for the main candle series. Pattern lines + zones
+ *  are now rendered as LineSeries via chart-annotations.ts, so this
+ *  function emits ONLY:
+ *    - swing structure labels (HH / HL / LH / LL) if layers.swings
+ *    - trade entry / exit shapes if their respective layers are on
+ *  Sort the markers by time per lightweight-charts requirement. */
 export function collectMarkers(
   patterns: ChartPatterns,
   trades: ChartMarker[],
   layers: LayerConfig
 ): SeriesMarker<Time>[] {
   const out: SeriesMarker<Time>[] = [];
-  pushPattern(out, layers.fvg, patterns.fvg, "square", "FVG ");
-  pushPattern(out, layers.ifvg, patterns.ifvg, "square", "IFVG ");
-  pushPattern(out, layers.bos, patterns.bos, "arrowUp", "BOS ");
-  pushPattern(out, layers.sweep, patterns.sweep, "circle", "Sweep ", false);
-  pushPattern(out, layers.order_block, patterns.order_block, "square", "OB ");
-  pushPattern(out, layers.choch, patterns.choch, "arrowDown", "ChoCh ");
+  if (layers.swings) {
+    for (const s of patterns.swings) out.push(swingMarker(s));
+  }
   for (const t of trades) {
     if (t.kind === "entry" && !layers.trade_entries) continue;
     if (t.kind === "exit" && !layers.trade_exits) continue;

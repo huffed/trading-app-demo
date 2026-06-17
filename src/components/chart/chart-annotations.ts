@@ -1,0 +1,134 @@
+/**
+ * Annotation manager — renders pattern annotations (BOS / sweep /
+ * ChoCh lines, FVG / IFVG / OB zones) as miniature LineSeries on the
+ * main chart. Each line annotation = 1 series; each zone = 2 series
+ * (top + bottom). On layer-toggle or data change the manager creates
+ * what's missing and removes what's no longer needed — same idempotent
+ * pattern as chart-overlays for indicator lines.
+ */
+import { LineStyle, type IChartApi, type ISeriesApi, type UTCTimestamp } from "lightweight-charts";
+import type { PatternAnnotation } from "@/app/(dashboard)/chart/actions";
+import type { LayerConfig } from "./layer-config";
+
+/** Color stops per pattern × direction so the operator can spot the
+ *  pattern type from the line color before reading the label. Faint
+ *  alpha because zone brackets are background, not foreground. */
+const DIRECTION_RGB: Record<"bullish" | "bearish" | "neutral", string> = {
+  bullish: "74,196,142",
+  bearish: "232,90,90",
+  neutral: "180,180,220",
+};
+
+function colorFor(annotation: PatternAnnotation): string {
+  const base = DIRECTION_RGB[annotation.direction];
+  const alpha = annotation.kind === "zone" ? 0.55 : 0.85;
+  return `rgba(${base},${alpha})`;
+}
+
+interface AnnotationSeries {
+  /** Unique key derived from annotation identity for diffing. */
+  key: string;
+  topSeries: ISeriesApi<"Line">;
+  bottomSeries?: ISeriesApi<"Line">;
+}
+
+function annotationKey(a: PatternAnnotation): string {
+  return [a.pattern_type, a.from_time, a.to_time, a.top.toFixed(5), (a.bottom ?? 0).toFixed(5)].join("|");
+}
+
+function makeLine(chart: IChartApi, color: string, dashed: boolean): ISeriesApi<"Line"> {
+  return chart.addLineSeries({
+    color,
+    lineWidth: 1,
+    lineStyle: dashed ? LineStyle.Dashed : LineStyle.Solid,
+    priceLineVisible: false,
+    lastValueVisible: false,
+    crosshairMarkerVisible: false,
+  });
+}
+
+function isEnabled(a: PatternAnnotation, layers: LayerConfig): boolean {
+  switch (a.pattern_type) {
+    case "bos":
+      return layers.bos;
+    case "choch":
+      return layers.choch;
+    case "sweep":
+      return layers.sweep;
+    case "fvg":
+      return layers.fvg;
+    case "ifvg":
+      return layers.ifvg;
+    case "order_block":
+      return layers.order_block;
+  }
+}
+
+export interface AnnotationManagerState {
+  byKey: Map<string, AnnotationSeries>;
+}
+
+export function newAnnotationState(): AnnotationManagerState {
+  return { byKey: new Map() };
+}
+
+export function syncAnnotations(
+  chart: IChartApi,
+  state: AnnotationManagerState,
+  annotations: PatternAnnotation[],
+  layers: LayerConfig
+): void {
+  const wanted = annotations.filter((a) => isEnabled(a, layers));
+  const wantedKeys = new Set(wanted.map(annotationKey));
+
+  // Remove series whose annotation is no longer present / enabled.
+  for (const [key, entry] of state.byKey.entries()) {
+    if (!wantedKeys.has(key)) {
+      chart.removeSeries(entry.topSeries);
+      if (entry.bottomSeries) chart.removeSeries(entry.bottomSeries);
+      state.byKey.delete(key);
+    }
+  }
+
+  // Add series for new annotations.
+  for (const a of wanted) {
+    const key = annotationKey(a);
+    if (state.byKey.has(key)) continue;
+    const color = colorFor(a);
+    // Line annotations (BOS, sweep, ChoCh) get dashed style; zones get solid
+    // faint brackets matching the trader-familiar zone rendering.
+    const dashed = a.kind === "line";
+    const topSeries = makeLine(chart, color, dashed);
+    topSeries.setData([
+      { time: a.from_time as UTCTimestamp, value: a.top },
+      { time: a.to_time as UTCTimestamp, value: a.top },
+    ]);
+    let bottomSeries: ISeriesApi<"Line"> | undefined;
+    if (a.kind === "zone" && a.bottom != null) {
+      bottomSeries = makeLine(chart, color, false);
+      bottomSeries.setData([
+        { time: a.from_time as UTCTimestamp, value: a.bottom },
+        { time: a.to_time as UTCTimestamp, value: a.bottom },
+      ]);
+    }
+    // Label as a PriceLine on the top series — appears near the right
+    // edge of the line, mirroring the trader-chart convention.
+    topSeries.createPriceLine({
+      price: a.top,
+      color,
+      lineWidth: 1,
+      lineStyle: LineStyle.Solid,
+      axisLabelVisible: false,
+      title: a.label,
+    });
+    state.byKey.set(key, { key, topSeries, bottomSeries });
+  }
+}
+
+export function clearAnnotations(chart: IChartApi, state: AnnotationManagerState): void {
+  for (const entry of state.byKey.values()) {
+    chart.removeSeries(entry.topSeries);
+    if (entry.bottomSeries) chart.removeSeries(entry.bottomSeries);
+  }
+  state.byKey.clear();
+}

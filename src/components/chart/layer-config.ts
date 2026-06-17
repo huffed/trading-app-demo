@@ -24,6 +24,8 @@ export interface LayerConfig {
   order_block: boolean;
   choch: boolean;
   daily_bias: boolean;
+  /** HH/HL/LH/LL swing-point labels — independent of the pattern lines. */
+  swings: boolean;
   // Trade markers (operator's paper-position activity)
   trade_entries: boolean;
   trade_exits: boolean;
@@ -45,6 +47,7 @@ export const DEFAULT_LAYERS: LayerConfig = {
   order_block: false,
   choch: false,
   daily_bias: true,
+  swings: false,
   trade_entries: true,
   trade_exits: true,
 };
@@ -67,6 +70,7 @@ export const LAYER_META: Record<keyof LayerConfig, { label: string; group: Layer
   order_block: { label: "Order Block", group: "patterns", color: "rgba(120,150,220,0.95)" },
   choch: { label: "ChoCh", group: "patterns", color: "rgba(230,140,90,0.95)" },
   daily_bias: { label: "Daily Bias", group: "patterns", color: "rgba(180,180,220,0.95)" },
+  swings: { label: "Swing labels (HH/HL/LH/LL)", group: "patterns", color: "rgba(180,180,220,0.85)" },
   trade_entries: { label: "Trade entries", group: "trades", color: "rgba(74,196,142,0.95)" },
   trade_exits: { label: "Trade exits", group: "trades", color: "rgba(120,180,230,0.95)" },
 };

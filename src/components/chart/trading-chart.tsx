@@ -12,6 +12,12 @@ import {
 } from "lightweight-charts";
 import type { ChartData } from "@/app/(dashboard)/chart/actions";
 import {
+  clearAnnotations,
+  newAnnotationState,
+  syncAnnotations,
+  type AnnotationManagerState,
+} from "./chart-annotations";
+import {
   BORDER_COLOR,
   collectMarkers,
   GRID_COLOR,
@@ -75,6 +81,7 @@ function bindResizeObserver(chart: IChartApi, container: HTMLDivElement): () => 
 interface MainChartRefs {
   chart: IChartApi;
   overlays: OverlaySeriesRefs;
+  annotations: AnnotationManagerState;
 }
 
 function useMainChart(containerRef: React.RefObject<HTMLDivElement | null>, height: number) {
@@ -84,10 +91,12 @@ function useMainChart(containerRef: React.RefObject<HTMLDivElement | null>, heig
     const chart = makeChart(containerRef.current, height);
     const overlays = emptyRefs();
     overlays.candle = makeCandleSeries(chart);
-    ref.current = { chart, overlays };
+    const annotations = newAnnotationState();
+    ref.current = { chart, overlays, annotations };
     const cleanup = bindResizeObserver(chart, containerRef.current);
     return () => {
       cleanup();
+      clearAnnotations(chart, annotations);
       chart.remove();
       ref.current = null;
     };
@@ -195,6 +204,7 @@ export function TradingChart({ data, layers, height = 480 }: TradingChartProps) 
       }))
     );
     syncOverlays(m.chart, m.overlays, data.bars, data.indicators, layers);
+    syncAnnotations(m.chart, m.annotations, data.patterns.annotations, layers);
     m.overlays.candle.setMarkers(collectMarkers(data.patterns, data.markers, layers));
     m.chart.timeScale().fitContent();
   }, [mainRef, data, layers]);

@@ -46,7 +46,8 @@ export interface ChartIndicators {
   macd_histogram: (number | null)[];
 }
 
-/** A detected pattern at a specific bar. `time` is UTC seconds. */
+/** A detected pattern at a specific bar. `time` is UTC seconds.
+ *  Used for marker-style annotations (single-candle events). */
 export interface PatternPoint {
   time: number;
   direction: "bullish" | "bearish" | "neutral";
@@ -56,6 +57,35 @@ export interface PatternPoint {
   bottom?: number;
 }
 
+/** A pattern annotation rendered as a horizontal line or bracketing zone
+ *  on the price pane. Annotations span time (from_time → to_time)
+ *  because ICT/SMC patterns are MULTI-BAR structures — BOS connects a
+ *  swing high to a break bar, FVG zones live until filled, etc. The
+ *  marker-style PatternPoint is kept for short-text labels at single
+ *  bars; this is the line/zone shape. */
+export interface PatternAnnotation {
+  pattern_type: "bos" | "choch" | "sweep" | "fvg" | "ifvg" | "order_block";
+  kind: "line" | "zone";
+  direction: "bullish" | "bearish" | "neutral";
+  /** UTC-seconds time range the annotation spans. */
+  from_time: number;
+  to_time: number;
+  /** Price level for `line` kind; upper edge for `zone` kind. */
+  top: number;
+  /** Lower edge for `zone` kind (omitted for `line`). */
+  bottom?: number;
+  /** Short label rendered near the right edge of the line/zone. */
+  label: string;
+}
+
+/** Swing high / low marker on the price pane. Single-candle event, so
+ *  rendered via the markers API, not as a line. */
+export interface SwingMarker {
+  time: number;
+  type: "HH" | "HL" | "LH" | "LL";
+  price: number;
+}
+
 export interface ChartPatterns {
   fvg: PatternPoint[];
   ifvg: PatternPoint[];
@@ -63,6 +93,10 @@ export interface ChartPatterns {
   sweep: PatternPoint[];
   order_block: PatternPoint[];
   choch: PatternPoint[];
+  /** Line/zone annotations — the trader-familiar render shape. */
+  annotations: PatternAnnotation[];
+  /** Swing point labels (HH/HL/LH/LL) for trend structure. */
+  swings: SwingMarker[];
   /** Daily bias is one-per-chart, not one-per-bar. */
   daily_bias: {
     bias: "bullish" | "bearish" | "neutral";
