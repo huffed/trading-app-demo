@@ -1,7 +1,11 @@
 "use client";
 
 import { Star } from "lucide-react";
-import type { GeometryCell, GeometrySweep } from "@/app/(dashboard)/algorithms/[algoId]/validate/types";
+import {
+  WINNER_MIN_WR,
+  type GeometryCell,
+  type GeometrySweep,
+} from "@/app/(dashboard)/algorithms/[algoId]/validate/types";
 import { Surface } from "@/components/ui/surface";
 import { cn } from "@/lib/utils";
 import { formatPnl, pnlColorClass } from "@/lib/utils/pnl";
@@ -22,8 +26,9 @@ function cellBgClass(cell: GeometryCell, maxAbs: number): string {
 /** Best cell = highest Calmar among cells that:
  *   (a) didn't breach the DD threshold,
  *   (b) traded at least once,
- *   (c) have a positive return.
- *  Returns null when no cell qualifies (every cell breached DD or lost). */
+ *   (c) have a positive return,
+ *   (d) have win rate >= WINNER_MIN_WR (40%).
+ *  Returns null when no cell qualifies. */
 function pickWinner(
   cells: GeometryCell[],
   ddBreachThreshold: number | null
@@ -31,6 +36,7 @@ function pickWinner(
   const eligible = cells.filter((c) => {
     if (c.total_trades === 0) return false;
     if (c.total_return <= 0) return false;
+    if (c.win_rate < WINNER_MIN_WR) return false;
     if (ddBreachThreshold != null && c.max_drawdown >= ddBreachThreshold) return false;
     return true;
   });
@@ -101,7 +107,7 @@ function WinnerSummary({ winner }: { winner: GeometryCell | null }) {
   if (!winner) {
     return (
       <span className="text-[10px] text-muted-foreground">
-        no surviving cell (every cell breached DD or lost)
+        no surviving cell (every cell breached DD, lost, or WR &lt; {WINNER_MIN_WR}%)
       </span>
     );
   }
@@ -109,7 +115,8 @@ function WinnerSummary({ winner }: { winner: GeometryCell | null }) {
     <span className="flex items-center gap-1 text-[11px] text-amber-500 font-medium">
       <Star className="h-3 w-3 fill-current" />
       best: RR={winner.rr} · lb={winner.lookback} · {formatPnl(winner.total_return)} ·{" "}
-      DD {winner.max_drawdown.toFixed(1)}% · Calmar {winner.calmar?.toFixed(1) ?? "—"}
+      DD {winner.max_drawdown.toFixed(1)}% · WR {winner.win_rate.toFixed(0)}% · Calmar{" "}
+      {winner.calmar?.toFixed(1) ?? "—"}
     </span>
   );
 }
@@ -119,14 +126,18 @@ function Legend({ ddBreachThreshold }: { ddBreachThreshold: number | null }) {
     <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-muted-foreground">
       <span className="flex items-center gap-1">
         <Star className="h-3 w-3 text-amber-500 fill-amber-500" />
-        winner (highest Calmar, no DD breach, positive return)
+        winner (highest Calmar · positive return · DD passes · WR &ge; {WINNER_MIN_WR}%)
       </span>
       {ddBreachThreshold != null && (
         <span className="flex items-center gap-1">
           <span className="inline-block h-2 w-2 rounded-sm ring-1 ring-[var(--loss)]/60" />
-          DD ≥ {ddBreachThreshold}% (would breach prop_firm halt)
+          DD &ge; {ddBreachThreshold}% (would breach prop_firm halt)
         </span>
       )}
+      <span className="flex items-center gap-1">
+        <span className="inline-block h-2 w-2 rounded-sm bg-muted/60" />
+        WR &lt; {WINNER_MIN_WR}% — dimmed (too noisy to trust as winner)
+      </span>
     </div>
   );
 }
@@ -160,6 +171,7 @@ function CellRow({
         if (!cell) return <div key={lb} className="rounded-md border bg-muted/30 p-2" />;
         const key = `${cell.rr}-${cell.lookback}`;
         const ddBreached = ddBreachThreshold != null && cell.max_drawdown >= ddBreachThreshold;
+        const lowWr = cell.total_trades > 0 && cell.win_rate < WINNER_MIN_WR;
         const isWinner = key === winnerKey;
         return (
           <button
@@ -169,9 +181,10 @@ function CellRow({
             className={cn(
               "rounded-md border p-2 text-left hover:border-primary/60 transition-colors relative",
               cellBgClass(cell, maxAbs),
-              selectedKey === key && "border-primary ring-1 ring-primary/40",
+              lowWr && "opacity-60",
+              selectedKey === key && "border-primary ring-1 ring-primary/40 opacity-100",
               ddBreached && "ring-1 ring-[var(--loss)]/60",
-              isWinner && "ring-2 ring-amber-500/70 border-amber-500/60"
+              isWinner && "ring-2 ring-amber-500/70 border-amber-500/60 opacity-100"
             )}
           >
             {isWinner && (
@@ -180,7 +193,7 @@ function CellRow({
             <div className={cn("font-semibold tabular-nums text-sm", pnlColorClass(cell.total_return))}>
               {cell.total_trades === 0 ? "—" : formatPnl(cell.total_return)}
             </div>
-            <div className="text-[10px] text-muted-foreground tabular-nums mt-0.5">
+            <div className={cn("text-[10px] tabular-nums mt-0.5", lowWr ? "text-amber-600/80" : "text-muted-foreground")}>
               {cell.total_trades} trades · {cell.win_rate.toFixed(0)}% WR
             </div>
             <div className={cn("text-[10px] tabular-nums", ddBreached ? "text-[var(--loss)] font-medium" : "text-muted-foreground")}>
