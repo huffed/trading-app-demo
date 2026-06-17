@@ -119,9 +119,16 @@ const LABELED_SEGMENT_OVERLAY = {
  *  `createOverlay({ name: 'rect' })` silently no-ops (the FVG fill was
  *  never visible because of this).
  *
+ *  Right-edge clamp: klinecharts keeps "future space" past the last
+ *  bar (the area beyond the latest candle where new bars will appear).
+ *  Our extend-to-edge FVG/IFVG zones end at the LAST BAR'S timestamp,
+ *  but coordinates beyond the data range map to that future space, so
+ *  rectangles visually extend into it. We clamp the right edge to the
+ *  last data bar's actual x via chart.getDataList() + convertToPixel
+ *  so zones stop AT the last candle, not in the empty space.
+ *
  *  Points define opposite corners. extendData: { color, fillAlpha,
- *  borderAlpha } — color is the base rgba string (we strip the alpha
- *  and re-compose with the operator-set opacities). */
+ *  borderAlpha }. */
 const ZONE_RECT_OVERLAY = {
   name: "zoneRect",
   totalStep: 2,
@@ -129,19 +136,39 @@ const ZONE_RECT_OVERLAY = {
   needDefaultXAxisFigure: false,
   needDefaultYAxisFigure: false,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  createPointFigures: ({ overlay, coordinates }: any) => {
+  createPointFigures: ({ overlay, coordinates, chart }: any) => {
     if (!coordinates || coordinates.length < 2) return [];
     const data = overlay.extendData ?? {};
     const baseColor: string = data.color ?? NEUTRAL_COLOR;
     const fillAlpha: number = typeof data.fillAlpha === "number" ? data.fillAlpha : 0.18;
     const borderAlpha: number = typeof data.borderAlpha === "number" ? data.borderAlpha : 0.5;
-    // Re-compose rgba with our alphas (assumes baseColor ends in ",1)"
-    // which all our DIRECTION_RGB values do).
     const fill = baseColor.replace(/,[\d.]+\)$/, `,${fillAlpha})`);
     const border = baseColor.replace(/,[\d.]+\)$/, `,${borderAlpha})`);
-    const x = Math.min(coordinates[0].x, coordinates[1].x);
+
+    // Find the last data bar's x — used to clamp the right edge so
+    // the rectangle doesn't extend into klinecharts' future space.
+    let lastBarX = Infinity;
+    try {
+      const dataList = chart?.getDataList?.();
+      const lastBar = dataList?.[dataList.length - 1];
+      if (lastBar) {
+        const coord = chart.convertToPixel(
+          { timestamp: lastBar.timestamp },
+          { paneId: "candle_pane" }
+        );
+        const cx = Array.isArray(coord) ? coord[0]?.x : coord?.x;
+        if (typeof cx === "number" && isFinite(cx)) lastBarX = cx;
+      }
+    } catch {
+      // If conversion fails for any reason, fall back to no clamp.
+    }
+
+    const rawLeftX = Math.min(coordinates[0].x, coordinates[1].x);
+    const rawRightX = Math.max(coordinates[0].x, coordinates[1].x);
+    const rightX = Math.min(rawRightX, lastBarX);
+    const x = rawLeftX;
+    const width = Math.max(0, rightX - rawLeftX);
     const y = Math.min(coordinates[0].y, coordinates[1].y);
-    const width = Math.abs(coordinates[1].x - coordinates[0].x);
     const height = Math.abs(coordinates[1].y - coordinates[0].y);
     return [
       {
