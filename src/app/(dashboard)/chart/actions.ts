@@ -37,9 +37,6 @@ export interface ChartData {
   markers: ChartMarker[];
 }
 
-const COMPACT_BAR_COUNT = 100; // Twelve Data 'compact' returns ~100 bars
-const FULL_BAR_COUNT = 5000;
-
 function isoToUnixSeconds(iso: string): number {
   return Math.floor(new Date(iso).getTime() / 1000);
 }
@@ -162,6 +159,3 @@ async function fetchTradeMarkers(
   return markers;
 }
 
-// Silence lint on unused-export hint (re-exported for consumer typing).
-export const CHART_COMPACT_BARS = COMPACT_BAR_COUNT;
-export const CHART_FULL_BARS = FULL_BAR_COUNT;
