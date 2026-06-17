@@ -29,7 +29,15 @@ const MIN_DAYS = 15;
 const MIN_TRADES = 5;
 const MAX_VARIANCE = 0.5; // ±50%
 
-export type EligibilityStatus = "pending" | "eligible" | "drift" | "no_backtest";
+/** Status meanings:
+ *   - pending: time/trade gate not yet met
+ *   - eligible: gate met AND realized R within ±50% of backtest expected
+ *   - ready_unverified: gate met but backtest_results is missing on the
+ *     algo row (current deploy scripts don't persist it — operator should
+ *     manually compare against scripts/REVALIDATION_REPORT_<date>.md
+ *     before promoting). Treat as "look at this, then decide."
+ *   - drift: gate met AND realized R diverges from backtest by >50% */
+export type EligibilityStatus = "pending" | "eligible" | "ready_unverified" | "drift";
 
 export interface AlgoEligibility {
   algorithm_id: string;
@@ -125,12 +133,25 @@ function computeStatus(
   variance: number | null,
   expected: number | null
 ): { status: EligibilityStatus; reasons: string[] } {
+  // Time + trade gate is the operator-stated baseline; it gates everything.
   const reasons: string[] = [];
-  if (expected == null) return { status: "no_backtest", reasons: ["No backtest expected R"] };
   if (days < MIN_DAYS) reasons.push(`${MIN_DAYS - days}d more to milestone`);
   if (trades < MIN_TRADES) reasons.push(`${MIN_TRADES - trades} more closed trades needed`);
   if (reasons.length > 0) return { status: "pending", reasons };
-  if (variance == null) return { status: "pending", reasons: ["Realized R not yet computable"] };
+
+  // Gate met — now classify by variance availability.
+  if (expected == null) {
+    return {
+      status: "ready_unverified",
+      reasons: [
+        "Milestone met. backtest_results not on the algo row — verify variance manually against scripts/REVALIDATION_REPORT_<date>.md",
+      ],
+    };
+  }
+  if (variance == null) {
+    // Edge case: have expected but no realized — shouldn't happen once trades > 0.
+    return { status: "pending", reasons: ["Realized R not yet computable"] };
+  }
   if (Math.abs(variance - 1) > MAX_VARIANCE) {
     reasons.push(`variance ${(variance * 100).toFixed(0)}% of backtest (outside ±50%)`);
     return { status: "drift", reasons };
@@ -196,9 +217,9 @@ function meanRealizedR(positions: PositionRow[]): number | null {
 function sortByActionability(results: AlgoEligibility[]): AlgoEligibility[] {
   const order: Record<EligibilityStatus, number> = {
     eligible: 0,
-    drift: 1,
-    pending: 2,
-    no_backtest: 3,
+    ready_unverified: 1,
+    drift: 2,
+    pending: 3,
   };
   return results.sort((a, b) => {
     if (order[a.status] !== order[b.status]) return order[a.status] - order[b.status];

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { AlertCircle, ArrowRight, CheckCircle2, Clock, TrendingUp } from "lucide-react";
+import { AlertCircle, ArrowRight, CheckCircle2, Clock, HelpCircle, TrendingUp } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,9 +17,9 @@ const STATUS_META: Record<
   { label: string; variant: "default" | "secondary" | "destructive" | "outline" }
 > = {
   eligible: { label: "Eligible", variant: "default" },
+  ready_unverified: { label: "Ready (verify)", variant: "outline" },
   drift: { label: "Drift", variant: "destructive" },
   pending: { label: "Pending", variant: "secondary" },
-  no_backtest: { label: "No backtest", variant: "outline" },
 };
 
 export function EligibilityTab() {
@@ -30,8 +30,15 @@ export function EligibilityTab() {
       <p className="text-sm text-muted-foreground">
         Paper→live promotion milestone (per <code>feedback_live_mirror_milestone</code>): a paper
         algo needs <strong>15+ days deployed</strong>, <strong>5+ closed trades</strong>, and
-        realized mean R within <strong>±50% of backtest expected R</strong>. This catches live-
+        realized mean R within <strong>±50% of backtest expected R</strong>. Catches live-
         execution drift before any real money is risked.
+      </p>
+      <p className="text-xs text-muted-foreground">
+        Note: deploy scripts don&apos;t yet persist <code>backtest_results</code> on the algo row,
+        so the variance check shows &ldquo;—&rdquo; for current algos. Status{" "}
+        <strong>Ready (verify)</strong> means the time+trade gate is met; compare realized R
+        against <code>scripts/REVALIDATION_REPORT_&lt;date&gt;.md</code> manually before
+        promoting. Auto-variance comes online once the deploy-script backfill ships.
       </p>
 
       {isLoading && (
@@ -77,9 +84,9 @@ export function EligibilityTab() {
 
 function SummaryRow({ rows }: { rows: AlgoEligibility[] }) {
   const eligible = rows.filter((r) => r.status === "eligible").length;
+  const readyUnverified = rows.filter((r) => r.status === "ready_unverified").length;
   const drift = rows.filter((r) => r.status === "drift").length;
   const pending = rows.filter((r) => r.status === "pending").length;
-  const noBacktest = rows.filter((r) => r.status === "no_backtest").length;
 
   return (
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -91,6 +98,17 @@ function SummaryRow({ rows }: { rows: AlgoEligibility[] }) {
         emphasis={eligible > 0}
       />
       <StatCard
+        icon={HelpCircle}
+        label="Ready (verify manually)"
+        value={String(readyUnverified)}
+        hint={
+          readyUnverified > 0
+            ? "Gate met; compare against deploy report before promoting"
+            : undefined
+        }
+        emphasis={readyUnverified > 0}
+      />
+      <StatCard
         icon={TrendingUp}
         label="Drift"
         value={String(drift)}
@@ -98,12 +116,6 @@ function SummaryRow({ rows }: { rows: AlgoEligibility[] }) {
         emphasis={drift > 0}
       />
       <StatCard icon={Clock} label="Pending" value={String(pending)} hint="Time or trades to go" />
-      <StatCard
-        icon={AlertCircle}
-        label="No backtest"
-        value={String(noBacktest)}
-        hint="Backtest_results missing or sizing not risk_per_trade"
-      />
     </div>
   );
 }
