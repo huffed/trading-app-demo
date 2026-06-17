@@ -211,7 +211,12 @@ export function TradingChart({ data, layers, height = 480 }: TradingChartProps) 
     const capped = capRecent(data.patterns.annotations, 8);
     syncAnnotations(m.chart, m.annotations, capped, layers);
     m.overlays.candle.setMarkers(
-      collectMarkers({ ...data.patterns, annotations: capped }, data.markers, layers)
+      collectMarkers(
+        data.bars,
+        { ...data.patterns, annotations: capped },
+        data.markers,
+        layers
+      )
     );
     m.chart.timeScale().fitContent();
   }, [mainRef, data, layers]);

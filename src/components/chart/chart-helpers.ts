@@ -106,6 +106,28 @@ const ANNOTATION_LABELS: Record<PatternAnnotation["pattern_type"], string> = {
   order_block: "OB",
 };
 
+/** Snap an arbitrary UTC-seconds timestamp to the nearest actual bar
+ *  in the series. Lightweight-charts SeriesMarkers only render at
+ *  times that match a bar — without this, a midpoint between two
+ *  bars silently snaps to the next-later bar, which pushes every
+ *  label to the end of its line. */
+function nearestBarTime(time: number, bars: ChartBar[]): number {
+  if (bars.length === 0) return time;
+  // Binary search — bars are time-ordered.
+  let lo = 0;
+  let hi = bars.length - 1;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (bars[mid].time < time) lo = mid + 1;
+    else hi = mid;
+  }
+  // lo is the first bar whose time >= target; check lo and lo-1.
+  if (lo === 0) return bars[0].time;
+  const after = bars[lo].time;
+  const before = bars[lo - 1].time;
+  return time - before <= after - time ? before : after;
+}
+
 /** Build a text-only label marker for the annotation.
  *
  *  Lightweight-charts marker `position` is bar-relative ('aboveBar' /
@@ -122,9 +144,10 @@ const ANNOTATION_LABELS: Record<PatternAnnotation["pattern_type"], string> = {
  *      ABOVE the line (visually wrong).
  *
  *  size: 0 hides the marker shape while keeping the text visible. */
-function annotationLabelMarker(a: PatternAnnotation): SeriesMarker<Time> {
+function annotationLabelMarker(a: PatternAnnotation, bars: ChartBar[]): SeriesMarker<Time> {
   const isBullish = a.direction === "bullish";
-  const time = isBullish ? Math.floor((a.from_time + a.to_time) / 2) : a.to_time;
+  const rawTime = isBullish ? Math.floor((a.from_time + a.to_time) / 2) : a.to_time;
+  const time = nearestBarTime(rawTime, bars);
   return {
     time: time as UTCTimestamp,
     position: isBullish ? "aboveBar" : "belowBar",
@@ -137,20 +160,21 @@ function annotationLabelMarker(a: PatternAnnotation): SeriesMarker<Time> {
 
 /** Build the marker list for the main candle series. Renders:
  *    - text labels at break/sweep bars for BOS / ChoCh / Sweep
- *      annotations (lightweight-charts can't put labels on LineSeries
- *      directly without full-width priceLines, so we anchor the label
- *      as a marker at the right end of the dashed line)
+ *      annotations (snapped to the nearest actual bar so the label
+ *      lands where we want it; otherwise lightweight-charts silently
+ *      shifts off-bar marker times to the next-later bar)
  *    - swing structure labels (HH / HL / LH / LL) if layers.swings
  *    - trade entry / exit shapes if their respective layers are on
  *  Sort by time per lightweight-charts requirement. */
 export function collectMarkers(
+  bars: ChartBar[],
   patterns: ChartPatterns,
   trades: ChartMarker[],
   layers: LayerConfig
 ): SeriesMarker<Time>[] {
   const out: SeriesMarker<Time>[] = [];
   for (const a of patterns.annotations) {
-    if (isLineAnnotationEnabled(a, layers)) out.push(annotationLabelMarker(a));
+    if (isLineAnnotationEnabled(a, layers)) out.push(annotationLabelMarker(a, bars));
   }
   if (layers.swings) {
     for (const s of patterns.swings) out.push(swingMarker(s));
