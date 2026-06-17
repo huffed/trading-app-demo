@@ -207,55 +207,6 @@ const ZONE_RECT_OVERLAY = {
   },
 };
 
-/** Horizontal dashed line at a given price with a colored right-edge
- *  badge showing the formatted price. Used by KlineChart for the live
- *  OANDA mid-price line. extendData: { color, text }. */
-const LIVE_PRICE_LINE_OVERLAY = {
-  name: "livePriceLine",
-  totalStep: 2,
-  needDefaultPointFigure: false,
-  needDefaultXAxisFigure: false,
-  needDefaultYAxisFigure: false,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  createPointFigures: ({ overlay, coordinates, bounding }: any) => {
-    if (!coordinates || coordinates.length === 0 || !bounding) return [];
-    const data = overlay.extendData ?? {};
-    const color: string = data.color ?? NEUTRAL_COLOR;
-    const text: string = typeof data.text === "string" ? data.text : "";
-    const y = coordinates[0].y;
-    const left = bounding.left ?? 0;
-    const right = (bounding.left ?? 0) + (bounding.width ?? 0);
-    const BADGE_W = Math.max(48, text.length * 7 + 12);
-    const BADGE_H = 16;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const figures: any[] = [
-      {
-        type: "line",
-        attrs: { coordinates: [{ x: left, y }, { x: right - BADGE_W, y }] },
-        styles: { color, style: LineType.Dashed, size: 1, dashedValue: [4, 4] },
-        ignoreEvent: true,
-      },
-      {
-        type: "rect",
-        attrs: { x: right - BADGE_W, y: y - BADGE_H / 2, width: BADGE_W, height: BADGE_H },
-        styles: { style: "fill", color },
-        ignoreEvent: true,
-      },
-      {
-        type: "text",
-        attrs: { x: right - BADGE_W / 2, y, text, align: "center", baseline: "middle" },
-        styles: {
-          ...LABEL_STYLES,
-          color: "#fff",
-          weight: "700",
-        },
-        ignoreEvent: true,
-      },
-    ];
-    return figures;
-  },
-};
-
 let registered = false;
 export function ensureCustomOverlaysRegistered(): void {
   if (registered) return;
@@ -265,7 +216,5 @@ export function ensureCustomOverlaysRegistered(): void {
   registerOverlay(LABELED_SEGMENT_OVERLAY as any);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   registerOverlay(ZONE_RECT_OVERLAY as any);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  registerOverlay(LIVE_PRICE_LINE_OVERLAY as any);
   registered = true;
 }

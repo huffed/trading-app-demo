@@ -9,7 +9,7 @@ import {
   type Chart,
   type KLineData,
 } from "klinecharts";
-import type { ChartData } from "@/app/(dashboard)/chart/actions";
+import type { ChartData, ChartTimeframe } from "@/app/(dashboard)/chart/actions";
 import { applyIndicators, applyOverlays, ensureTextLabelRegistered } from "./kline-overlays";
 import { type LayerConfig } from "./layer-config";
 
@@ -20,8 +20,12 @@ ensureTextLabelRegistered();
 interface KlineChartProps {
   data: ChartData;
   layers: LayerConfig;
-  /** Latest OANDA mid-price for the ticker. Renders as a horizontal
-   *  dashed line with a right-edge badge. null while loading. */
+  /** Currently displayed timeframe — used to roll the in-progress bar
+   *  forward when the live price moves into the next bar's window. */
+  timeframe: ChartTimeframe;
+  /** Latest OANDA mid-price. Drives the in-progress last bar's close
+   *  via chart.updateData so the built-in priceMark.last (the green
+   *  dashed line) tracks the live tick. null while loading. */
   livePrice?: number | null;
   /** Main pane height. Each oscillator pane (RSI, MACD) adds 140px. */
   height?: number;
@@ -31,14 +35,15 @@ const TEXT_COLOR = "rgba(160,164,175,0.95)";
 const GRID_COLOR = "rgba(120,120,120,0.10)";
 const PROFIT_COLOR = "rgba(74,196,142,1)";
 const LOSS_COLOR = "rgba(232,90,90,1)";
-const LIVE_PRICE_COLOR = "rgba(120,180,230,1)";
 const OSCILLATOR_PANE_HEIGHT = 140;
 
-function fmtLivePrice(p: number): string {
-  if (Math.abs(p) >= 100) return p.toFixed(2);
-  if (Math.abs(p) >= 1) return p.toFixed(4);
-  return p.toFixed(5);
-}
+const TF_SECS: Record<ChartTimeframe, number> = {
+  "15min": 15 * 60,
+  "30min": 30 * 60,
+  "1h": 60 * 60,
+  "4h": 4 * 60 * 60,
+  "1day": 24 * 60 * 60,
+};
 
 function chartStyles() {
   return {
@@ -78,10 +83,15 @@ function toKLine(bars: ChartData["bars"]): KLineData[] {
   }));
 }
 
-export function KlineChart({ data, layers, livePrice, height = 480 }: KlineChartProps) {
+export function KlineChart({
+  data,
+  layers,
+  timeframe,
+  livePrice,
+  height = 480,
+}: KlineChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<Chart | null>(null);
-  const livePriceOverlayIdRef = useRef<string | null>(null);
 
   // One-shot chart setup.
   useEffect(() => {
@@ -119,19 +129,14 @@ export function KlineChart({ data, layers, livePrice, height = 480 }: KlineChart
 
   // Indicators + overlays effect — runs on data OR layers changes, but
   // does NOT touch chart.applyNewData, so the visible range is preserved.
-  // NOTE: applyOverlays calls chart.removeOverlay() which wipes ALL
-  // overlays — including the live-price one. So the live-price effect
-  // below MUST depend on `data`/`layers` too so it re-runs after every
-  // wipe.
   useEffect(() => {
     const chart = chartRef.current;
     if (!chart) return;
     applyIndicators(chart, layers);
     applyOverlays(chart, data, layers);
-    livePriceOverlayIdRef.current = null;
   }, [data, layers]);
 
-  useLivePriceOverlay(chartRef, livePriceOverlayIdRef, livePrice, data.bars, layers);
+  useLiveBarUpdate(chartRef, livePrice, data.bars, timeframe);
 
   // Klinecharts grows the canvas to fit oscillator panes — keep the
   // container at least that tall so the panes don't overflow behind
@@ -159,38 +164,54 @@ export function KlineChart({ data, layers, livePrice, height = 480 }: KlineChart
   );
 }
 
-/** Manage the live-price overlay. Kept out of the KlineChart body so
- *  the component itself stays under the max-lines limit. Re-creates the
- *  overlay after every applyOverlays() wipe (signalled by the parent
- *  resetting the ref to null and the `layers`/`data.bars` deps changing). */
-function useLivePriceOverlay(
+/** Push live OANDA ticks into the chart by updating the in-progress
+ *  last bar (or appending a new one when we cross a TF boundary). The
+ *  built-in priceMark.last (the green dashed line) tracks the bar's
+ *  close, so updating it that way both moves the line AND keeps the
+ *  candle itself looking accurate. Kept out of the KlineChart body so
+ *  the component stays under the max-lines limit. */
+function useLiveBarUpdate(
   chartRef: React.RefObject<Chart | null>,
-  idRef: React.RefObject<string | null>,
   livePrice: number | null | undefined,
   bars: ChartData["bars"],
-  layers: LayerConfig
+  timeframe: ChartTimeframe
 ): void {
   useEffect(() => {
     const chart = chartRef.current;
     if (!chart) return;
-    if (livePrice == null || !isFinite(livePrice)) {
-      if (idRef.current) {
-        chart.removeOverlay({ id: idRef.current });
-        idRef.current = null;
-      }
+    if (livePrice == null || !isFinite(livePrice) || bars.length === 0) return;
+    const tfSecs = TF_SECS[timeframe];
+    const lastBar = bars[bars.length - 1];
+    const nextBarStart = lastBar.time + tfSecs;
+    const nowSecs = Math.floor(Date.now() / 1000);
+    if (nowSecs < nextBarStart) {
+      // Still inside last bar's window — update its close and extend
+      // high/low if the live tick pushed past them.
+      chart.updateData({
+        timestamp: lastBar.time * 1000,
+        open: lastBar.open,
+        high: Math.max(lastBar.high, livePrice),
+        low: Math.min(lastBar.low, livePrice),
+        close: livePrice,
+        volume: lastBar.volume,
+      });
       return;
     }
-    const lastBarTime = bars[bars.length - 1]?.time;
-    if (lastBarTime == null) return;
-    const extendData = { color: LIVE_PRICE_COLOR, text: fmtLivePrice(livePrice) };
-    const points = [{ timestamp: lastBarTime * 1000, value: livePrice }];
-    if (idRef.current) {
-      chart.overrideOverlay({ id: idRef.current, points, extendData });
-    } else {
-      const id = chart.createOverlay({ name: "livePriceLine", points, extendData });
-      if (typeof id === "string") idRef.current = id;
-    }
-  }, [chartRef, idRef, livePrice, bars, layers]);
+    // We're past the last bar's window — synthesize an in-progress bar
+    // at the most recent TF boundary using live as OHLC. Floor `now`
+    // down to the bar that contains the last historical bar so we don't
+    // skip mid-bar after a long gap (weekend close, etc.).
+    const elapsed = Math.floor((nowSecs - lastBar.time) / tfSecs);
+    const synthStart = lastBar.time + elapsed * tfSecs;
+    chart.updateData({
+      timestamp: synthStart * 1000,
+      open: lastBar.close,
+      high: Math.max(lastBar.close, livePrice),
+      low: Math.min(lastBar.close, livePrice),
+      close: livePrice,
+      volume: 0,
+    });
+  }, [chartRef, livePrice, bars, timeframe]);
 }
 
 const BIAS_COLOR: Record<"bullish" | "bearish" | "neutral", string> = {

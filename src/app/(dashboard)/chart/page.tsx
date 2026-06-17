@@ -104,7 +104,7 @@ export default function ChartPage() {
                 markerCount={data.markers.length}
                 hasActiveAlgo={tickersWithAlgos.has(data.ticker)}
               />
-              <KlineChart data={data} layers={layers} livePrice={live?.price ?? null} />
+              <KlineChart data={data} layers={layers} timeframe={data.timeframe} livePrice={live?.price ?? null} />
             </CardContent>
           </Card>
           <LayerTogglePanel layers={layers} onChange={setLayers} />
