@@ -35,12 +35,55 @@ function fmtPrice(p: number): string {
   return p.toFixed(5);
 }
 
-/** Forward-extension caps for unfilled zones. Each zone shows a
- *  visible right-edge stroke at this distance from formation so the
- *  operator can see where it ends, rather than the zone blending
- *  invisibly into the right edge of the chart. */
-const FVG_FORWARD_BARS = 20;
+/** Forward-extension caps for unfilled / unmitigated zones. */
 const OB_FORWARD_BARS = 30;
+/** Cap how far forward an IFVG (filled FVG that flipped role) extends
+ *  before it's deemed stale even without an explicit re-violation. */
+const IFVG_FORWARD_BARS = 40;
+
+/** Minimum FVG gap size as a multiple of ATR(14) at formation. Smaller
+ *  gaps are noise — a 3-bar imbalance where the gap is a fraction of
+ *  a typical bar's range isn't a meaningful zone. ICT convention only
+ *  marks significant gaps; this threshold approximates that. */
+const FVG_MIN_ATR_RATIO = 0.25;
+
+function atr14(bars: PriceBarLike[], idx: number): number {
+  const period = 14;
+  if (idx < period) return 0;
+  let sum = 0;
+  for (let i = idx - period + 1; i <= idx; i++) {
+    if (i === 0) {
+      sum += bars[i].high - bars[i].low;
+      continue;
+    }
+    const prevClose = bars[i - 1].close;
+    sum += Math.max(
+      bars[i].high - bars[i].low,
+      Math.abs(bars[i].high - prevClose),
+      Math.abs(bars[i].low - prevClose)
+    );
+  }
+  return sum / period;
+}
+
+/** Find the bar where an IFVG is re-violated — price closes back through
+ *  the zone in the ORIGINAL FVG's direction (which is opposite the
+ *  IFVG's direction). Returns the cap when no violation is found. */
+function findIfvgEndIdx(
+  bars: PriceBarLike[],
+  fillIdx: number,
+  gapTop: number,
+  gapBottom: number,
+  originalDirection: "bullish" | "bearish"
+): number {
+  const cap = Math.min(fillIdx + IFVG_FORWARD_BARS, bars.length - 1);
+  for (let j = fillIdx + 1; j <= cap; j++) {
+    const violated =
+      originalDirection === "bullish" ? bars[j].close > gapTop : bars[j].close < gapBottom;
+    if (violated) return j;
+  }
+  return cap;
+}
 
 function scanBosAndSweeps(
   bars: PriceBarLike[],
@@ -193,13 +236,18 @@ function scanFvgsAndIfvgs(
   const gaps = scanFvgs(bars);
   const lastBarIdx = chartBars.length - 1;
   for (const g of gaps) {
-    // FVG zone: starts at the THIRD bar of the 3-bar pattern (where
-    // the gap is fully confirmed), ends at filled_at OR a fixed
-    // forward window from formation (so each zone has a clear visible
-    // right-edge stroke instead of blending into the chart edge).
-    const startIdx = Math.min(g.gap.created_at_idx + 1, lastBarIdx);
-    const forwardEnd = Math.min(g.gap.created_at_idx + FVG_FORWARD_BARS, lastBarIdx);
-    const endIdx = g.filled_at ?? forwardEnd;
+    // Significance filter — drop micro-gaps that are noise. scanFvgs
+    // flags any 3-bar imbalance, including ones smaller than a typical
+    // wick. ICT convention only marks gaps with enough size to be
+    // actionable, threshold ≈ 0.25× ATR(14) at formation.
+    const gapSize = g.gap.gap_top - g.gap.gap_bottom;
+    const a = atr14(bars, g.gap.created_at_idx);
+    if (a > 0 && gapSize < a * FVG_MIN_ATR_RATIO) continue;
+
+    // Anchor the rectangle at the FIRST bar of the 3-bar pattern so it
+    // visually encompasses the gap candle, matching ICT convention.
+    const startIdx = Math.max(0, g.gap.created_at_idx - 1);
+
     fvg.push({
       time: chartBars[g.gap.created_at_idx].time,
       direction: g.gap.direction,
@@ -207,24 +255,35 @@ function scanFvgsAndIfvgs(
       top: g.gap.gap_top,
       bottom: g.gap.gap_bottom,
     });
-    // FVG zone annotation: only emit for UNFILLED gaps. Once a gap
-    // is filled it's mitigated; the chart would be a mess of
-    // overlapping zones across a long history if we kept them all.
-    // Filled gaps surface as IFVG (inverse) zones below.
+
     if (g.filled_at == null) {
+      // Unfilled gap — extend to the last bar (right edge of chart).
+      // The right-edge clamp in zoneRect handles the future-space issue.
       annotations.push({
         pattern_type: "fvg",
         kind: "zone",
         direction: g.gap.direction,
         from_time: chartBars[startIdx].time,
-        to_time: chartBars[endIdx].time,
+        to_time: chartBars[lastBarIdx].time,
         top: g.gap.gap_top,
         bottom: g.gap.gap_bottom,
         label: "FVG",
       });
+      continue;
     }
-    if (g.filled_at != null && g.filled_at < chartBars.length) {
+
+    // Filled — the original FVG flips role into an IFVG anchored at the
+    // fill bar. End at first re-violation (close back through the zone
+    // in the original FVG's direction) or +IFVG_FORWARD_BARS cap.
+    if (g.filled_at < chartBars.length) {
       const flipDir = g.gap.direction === "bullish" ? "bearish" : "bullish";
+      const endIdx = findIfvgEndIdx(
+        bars,
+        g.filled_at,
+        g.gap.gap_top,
+        g.gap.gap_bottom,
+        g.gap.direction
+      );
       ifvg.push({
         time: chartBars[g.filled_at].time,
         direction: flipDir,
@@ -232,15 +291,12 @@ function scanFvgsAndIfvgs(
         top: g.gap.gap_top,
         bottom: g.gap.gap_bottom,
       });
-      const ifvgEnd = Math.min(g.filled_at + FVG_FORWARD_BARS, lastBarIdx);
       annotations.push({
         pattern_type: "ifvg",
         kind: "zone",
         direction: flipDir,
         from_time: chartBars[g.filled_at].time,
-        // IFVG extends forward by FVG_FORWARD_BARS so it has a visible
-        // right-edge stroke instead of blending into the chart edge.
-        to_time: chartBars[ifvgEnd].time,
+        to_time: chartBars[endIdx].time,
         top: g.gap.gap_top,
         bottom: g.gap.gap_bottom,
         label: "IFVG",
