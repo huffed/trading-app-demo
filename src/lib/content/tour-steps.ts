@@ -11,38 +11,46 @@ export const tourSteps: TourStep[] = [
     id: "welcome",
     title: "Welcome to QuantTrader",
     description:
-      "Let's walk you through the key features. We'll highlight each one so you know exactly where to find it.",
+      "Quick tour of the surfaces you'll use day-to-day. Each step highlights where the feature lives in the sidebar.",
     icon: "👋",
   },
   {
     id: "dashboard",
-    title: "Your Dashboard",
+    title: "Dashboard",
     description:
-      "This is your home base. Stats update automatically as you log trades — your P&L, win rate, and open positions are all here.",
+      "Live ops at a glance — active algos, last scan, open positions, unrealized P&L, and a Scan-all button when you need to evaluate mid-bar.",
     icon: "📊",
     target: "[data-tour='dashboard']",
   },
   {
-    id: "trades",
-    title: "Trade Management",
+    id: "algorithms",
+    title: "Algorithms",
     description:
-      "Log trades manually or import a CSV. The app calculates P&L, tracks your history, and lets you filter by status, side, or asset class.",
-    icon: "📈",
-    target: "[data-tour='trades']",
+      "Your library of deployed algorithms grouped by strategy. Each card shows status, last activity, and a detail page for backtest stats, LLM decisions, and the readiness check.",
+    icon: "🤖",
+    target: "[data-tour='algorithms']",
   },
   {
-    id: "journal",
-    title: "Trading Journal",
+    id: "reports",
+    title: "Reports",
     description:
-      "Reflect on your decisions and emotions after each trade. Our AI reads your entries and gives you coaching feedback automatically.",
-    icon: "📝",
-    target: "[data-tour='journal']",
+      "Engine activity and per-cohort attribution — how each algorithm and cluster performed. The source of truth for what's working and what isn't.",
+    icon: "📈",
+    target: "[data-tour='reports']",
+  },
+  {
+    id: "chart",
+    title: "Chart",
+    description:
+      "Live TA chart with ICT/SMC patterns, indicators, your paper-trade markers, and an OANDA live-price line that ticks every 5 seconds.",
+    icon: "📉",
+    target: "[data-tour='chart']",
   },
   {
     id: "done",
-    title: "You're All Set!",
+    title: "You're All Set",
     description:
-      "Start by adding your first trade, then write a journal entry about it. The more data you add, the smarter your AI coach becomes.",
+      "Algorithms run on the scan cron every 15 minutes. The Dashboard and Reports pages will populate as scans fire.",
     icon: "🚀",
   },
 ];

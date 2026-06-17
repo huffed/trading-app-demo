@@ -10,6 +10,7 @@ import {
   useDeleteBrokerConnection,
   useSyncBrokerConnection,
 } from "@/hooks/use-broker-connections";
+import { BROKER_STATUS_LABELS } from "@/lib/constants/algorithm";
 import type { BrokerAccountSnapshot, BrokerConnectionView } from "@/types/broker";
 
 const STATUS_VARIANT: Record<BrokerConnectionView["status"], "default" | "secondary" | "outline"> = {
@@ -112,7 +113,7 @@ function CardHeaderRow({
       </div>
       <div className="flex items-center gap-1">
         <Badge variant={STATUS_VARIANT[conn.status]} className="text-[10px]">
-          {conn.status}
+          {BROKER_STATUS_LABELS[conn.status] ?? conn.status}
         </Badge>
         <Button
           size="icon-sm"

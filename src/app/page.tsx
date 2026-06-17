@@ -1,22 +1,22 @@
 import Link from "next/link";
-import { ArrowRight, BarChart3, Bot, BookOpen } from "lucide-react";
+import { ArrowRight, BarChart3, Bot, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const features = [
   {
     icon: Bot,
-    title: "AI Algorithms",
-    desc: "Generate profitable trading strategies with Claude AI.",
+    title: "Autonomous LLM trader",
+    desc: "Per-bar entry decisions from Claude Haiku, audited and replayable.",
   },
   {
-    icon: BookOpen,
-    title: "Smart Journal",
-    desc: "AI-analyzed trade journal with sentiment tracking.",
+    icon: ShieldCheck,
+    title: "Deterministic risk engine",
+    desc: "Structural SL/TP, daily DD halts, consistency rules — never bypassed by the LLM.",
   },
   {
     icon: BarChart3,
-    title: "Deep Analytics",
-    desc: "Performance metrics, risk analysis, and insights.",
+    title: "Paper to live, mirrored",
+    desc: "Validate on paper, then mirror to a connected MT5 broker via MetaApi.",
   },
 ];
 
