@@ -3,7 +3,7 @@
  * stay under max-lines and isolate the klinecharts-specific
  * style/option shaping from the React component.
  */
-import { LineType, PolygonType, type Chart, type OverlayCreate } from "klinecharts";
+import { LineType, type Chart, type OverlayCreate } from "klinecharts";
 import type {
   ChartBar,
   ChartData,
@@ -134,29 +134,20 @@ function annotationOverlays(a: PatternAnnotation, bars: ChartBar[]): OverlayCrea
   }
 
   const bottom = a.bottom ?? a.top;
-  // Zones render as a translucent shaded rectangle — no text label
-  // (traders recognize FVG/IFVG/OB zones by the shape itself; labels
-  // inside the zone obscure the price action). Per ICT convention:
-  //   - Fill opacity ~18% — visible but candles read clearly through
-  //   - Thin border at ~45% opacity to delineate the zone edges
-  // v9 names this overlay "rect" (not "rectangle" — that's v10).
-  // `tMid` is retained for future hover-tooltip wiring.
+  // Zones render as a translucent shaded rectangle via the custom
+  // `zoneRect` overlay (no text label — the shape is the annotation).
+  // Klinecharts v9 has no built-in rectangle overlay; calling it 'rect'
+  // silently no-ops because 'rect' is a low-level figure name, not an
+  // overlay name. See kline-custom-overlays.ts ZONE_RECT_OVERLAY.
   void tMid;
   return [
     {
-      name: "rect",
+      name: "zoneRect",
       points: [
         { timestamp: t1, value: a.top },
         { timestamp: t2, value: bottom },
       ],
-      styles: {
-        polygon: {
-          style: PolygonType.StrokeFill,
-          color: color.replace(",1)", ",0.18)"),
-          borderColor: color.replace(",1)", ",0.45)"),
-          borderSize: 1,
-        },
-      },
+      extendData: { color, fillAlpha: 0.18, borderAlpha: 0.5 },
     },
   ];
 }

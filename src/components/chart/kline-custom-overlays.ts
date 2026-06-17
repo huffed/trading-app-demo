@@ -2,7 +2,7 @@
  * Custom klinecharts overlay templates. Split from kline-overlays.ts
  * to stay under max-lines.
  *
- * Two templates registered:
+ * Three templates registered:
  *
  *   textLabel — flat text at a single point. The default
  *     `simpleAnnotation` paints text inside a blue bubble + connector
@@ -22,7 +22,7 @@
  *     one side or the other.
  *     extendData: { text, color, anchor: 'above' | 'below' }
  */
-import { LineType, registerOverlay } from "klinecharts";
+import { LineType, PolygonType, registerOverlay } from "klinecharts";
 
 const NEUTRAL_COLOR = "rgba(180,180,220,1)";
 
@@ -113,6 +113,54 @@ const LABELED_SEGMENT_OVERLAY = {
   },
 };
 
+/** Custom overlay: filled + stroked rectangle between two corner
+ *  points. Klinecharts v9 has NO built-in rectangle OVERLAY — only a
+ *  low-level `rect` figure primitive that other overlays use. Calling
+ *  `createOverlay({ name: 'rect' })` silently no-ops (the FVG fill was
+ *  never visible because of this).
+ *
+ *  Points define opposite corners. extendData: { color, fillAlpha,
+ *  borderAlpha } — color is the base rgba string (we strip the alpha
+ *  and re-compose with the operator-set opacities). */
+const ZONE_RECT_OVERLAY = {
+  name: "zoneRect",
+  totalStep: 2,
+  needDefaultPointFigure: false,
+  needDefaultXAxisFigure: false,
+  needDefaultYAxisFigure: false,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  createPointFigures: ({ overlay, coordinates }: any) => {
+    if (!coordinates || coordinates.length < 2) return [];
+    const data = overlay.extendData ?? {};
+    const baseColor: string = data.color ?? NEUTRAL_COLOR;
+    const fillAlpha: number = typeof data.fillAlpha === "number" ? data.fillAlpha : 0.18;
+    const borderAlpha: number = typeof data.borderAlpha === "number" ? data.borderAlpha : 0.5;
+    // Re-compose rgba with our alphas (assumes baseColor ends in ",1)"
+    // which all our DIRECTION_RGB values do).
+    const fill = baseColor.replace(/,[\d.]+\)$/, `,${fillAlpha})`);
+    const border = baseColor.replace(/,[\d.]+\)$/, `,${borderAlpha})`);
+    const x = Math.min(coordinates[0].x, coordinates[1].x);
+    const y = Math.min(coordinates[0].y, coordinates[1].y);
+    const width = Math.abs(coordinates[1].x - coordinates[0].x);
+    const height = Math.abs(coordinates[1].y - coordinates[0].y);
+    return [
+      {
+        type: "rect",
+        attrs: { x, y, width, height },
+        styles: {
+          style: PolygonType.StrokeFill,
+          color: fill,
+          borderColor: border,
+          borderSize: 1,
+          borderStyle: LineType.Solid,
+          borderDashedValue: [],
+        },
+        ignoreEvent: true,
+      },
+    ];
+  },
+};
+
 let registered = false;
 export function ensureCustomOverlaysRegistered(): void {
   if (registered) return;
@@ -120,5 +168,7 @@ export function ensureCustomOverlaysRegistered(): void {
   registerOverlay(TEXT_LABEL_OVERLAY as any);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   registerOverlay(LABELED_SEGMENT_OVERLAY as any);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  registerOverlay(ZONE_RECT_OVERLAY as any);
   registered = true;
 }
