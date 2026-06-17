@@ -1,6 +1,7 @@
 "use server";
 
 import { bollingerBands, ema, macd, rsi, sma } from "@/lib/market-data/indicators";
+import { fetchOandaLatestPrice } from "@/lib/market-data/oanda";
 import { fetchDailyPrices } from "@/lib/market-data/prices";
 import { createClient } from "@/lib/supabase/server";
 import { type ActionResult } from "@/lib/types/action-result";
@@ -280,4 +281,27 @@ async function fetchTradeMarkers(
     }
   }
   return markers;
+}
+
+export interface LivePrice {
+  price: number;
+  /** OANDA-reported tick time (ISO). */
+  ts: string;
+}
+
+export async function getLivePriceAction(
+  ticker: string
+): Promise<ActionResult<LivePrice>> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { success: false, error: "Not authenticated" };
+  try {
+    const r = await fetchOandaLatestPrice(ticker);
+    if (!r) return { success: false, error: `No live quote for ${ticker}` };
+    return { success: true, data: r };
+  } catch (e) {
+    return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
+  }
 }

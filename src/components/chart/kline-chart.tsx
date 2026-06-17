@@ -20,6 +20,9 @@ ensureTextLabelRegistered();
 interface KlineChartProps {
   data: ChartData;
   layers: LayerConfig;
+  /** Latest OANDA mid-price for the ticker. Renders as a horizontal
+   *  dashed line with a right-edge badge. null while loading. */
+  livePrice?: number | null;
   /** Main pane height. Each oscillator pane (RSI, MACD) adds 140px. */
   height?: number;
 }
@@ -28,7 +31,14 @@ const TEXT_COLOR = "rgba(160,164,175,0.95)";
 const GRID_COLOR = "rgba(120,120,120,0.10)";
 const PROFIT_COLOR = "rgba(74,196,142,1)";
 const LOSS_COLOR = "rgba(232,90,90,1)";
+const LIVE_PRICE_COLOR = "rgba(120,180,230,1)";
 const OSCILLATOR_PANE_HEIGHT = 140;
+
+function fmtLivePrice(p: number): string {
+  if (Math.abs(p) >= 100) return p.toFixed(2);
+  if (Math.abs(p) >= 1) return p.toFixed(4);
+  return p.toFixed(5);
+}
 
 function chartStyles() {
   return {
@@ -68,9 +78,10 @@ function toKLine(bars: ChartData["bars"]): KLineData[] {
   }));
 }
 
-export function KlineChart({ data, layers, height = 480 }: KlineChartProps) {
+export function KlineChart({ data, layers, livePrice, height = 480 }: KlineChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<Chart | null>(null);
+  const livePriceOverlayIdRef = useRef<string | null>(null);
 
   // One-shot chart setup.
   useEffect(() => {
@@ -108,12 +119,19 @@ export function KlineChart({ data, layers, height = 480 }: KlineChartProps) {
 
   // Indicators + overlays effect — runs on data OR layers changes, but
   // does NOT touch chart.applyNewData, so the visible range is preserved.
+  // NOTE: applyOverlays calls chart.removeOverlay() which wipes ALL
+  // overlays — including the live-price one. So the live-price effect
+  // below MUST depend on `data`/`layers` too so it re-runs after every
+  // wipe.
   useEffect(() => {
     const chart = chartRef.current;
     if (!chart) return;
     applyIndicators(chart, layers);
     applyOverlays(chart, data, layers);
+    livePriceOverlayIdRef.current = null;
   }, [data, layers]);
+
+  useLivePriceOverlay(chartRef, livePriceOverlayIdRef, livePrice, data.bars, layers);
 
   // Klinecharts grows the canvas to fit oscillator panes — keep the
   // container at least that tall so the panes don't overflow behind
@@ -139,6 +157,40 @@ export function KlineChart({ data, layers, height = 480 }: KlineChartProps) {
       )}
     </div>
   );
+}
+
+/** Manage the live-price overlay. Kept out of the KlineChart body so
+ *  the component itself stays under the max-lines limit. Re-creates the
+ *  overlay after every applyOverlays() wipe (signalled by the parent
+ *  resetting the ref to null and the `layers`/`data.bars` deps changing). */
+function useLivePriceOverlay(
+  chartRef: React.RefObject<Chart | null>,
+  idRef: React.RefObject<string | null>,
+  livePrice: number | null | undefined,
+  bars: ChartData["bars"],
+  layers: LayerConfig
+): void {
+  useEffect(() => {
+    const chart = chartRef.current;
+    if (!chart) return;
+    if (livePrice == null || !isFinite(livePrice)) {
+      if (idRef.current) {
+        chart.removeOverlay({ id: idRef.current });
+        idRef.current = null;
+      }
+      return;
+    }
+    const lastBarTime = bars[bars.length - 1]?.time;
+    if (lastBarTime == null) return;
+    const extendData = { color: LIVE_PRICE_COLOR, text: fmtLivePrice(livePrice) };
+    const points = [{ timestamp: lastBarTime * 1000, value: livePrice }];
+    if (idRef.current) {
+      chart.overrideOverlay({ id: idRef.current, points, extendData });
+    } else {
+      const id = chart.createOverlay({ name: "livePriceLine", points, extendData });
+      if (typeof id === "string") idRef.current = id;
+    }
+  }, [chartRef, idRef, livePrice, bars, layers]);
 }
 
 const BIAS_COLOR: Record<"bullish" | "bearish" | "neutral", string> = {

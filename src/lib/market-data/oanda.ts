@@ -130,3 +130,27 @@ export async function fetchDailyPrices(
     .map(oandaToBar)
     .sort((a, b) => a.date.localeCompare(b.date));
 }
+
+/** Latest mid-price for a symbol — used by the chart's live-price line.
+ *  Hits OANDA's S5 (5-second) candles with count=1 and intentionally
+ *  reads the in-progress (incomplete) candle's close, which is the
+ *  current tick. No account ID required (uses the instruments endpoint
+ *  same as fetchDailyPrices). */
+export async function fetchOandaLatestPrice(
+  symbol: string
+): Promise<{ price: number; ts: string } | null> {
+  const token = process.env.OANDA_API_KEY;
+  if (!token) throw new Error("OANDA_API_KEY is not set");
+
+  const instrument = toOandaInstrument(symbol);
+  const url = `${BASE_URL}/v3/instruments/${instrument}/candles?granularity=S5&count=1&price=M`;
+
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+  if (!res.ok) {
+    throw new Error(`OANDA quote failed: ${res.status} ${await res.text()}`);
+  }
+  const data = (await res.json()) as OandaCandlesResponse;
+  const last = data.candles?.[data.candles.length - 1];
+  if (!last) return null;
+  return { price: parseFloat(last.mid.c), ts: last.time };
+}
