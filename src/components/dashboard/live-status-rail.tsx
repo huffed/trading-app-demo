@@ -5,19 +5,43 @@
  * primary action (Scan all). Two stacked `Surface` panels: status
  * snapshot + scan controls.
  */
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Loader2, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DataRow } from "@/components/ui/data-row";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Surface } from "@/components/ui/surface";
+import { HEARTBEAT_STALE_MS, useHeartbeat } from "@/hooks/use-heartbeat";
 import { usePaperTradingStats, useTriggerScan } from "@/hooks/use-paper-trading";
 import { EXIT_REASON_LABELS } from "@/lib/constants/algorithm";
 import type { ScanResult } from "@/lib/scan/engine";
 import { formatPnl, formatPriceValue, formatRelativeTime, pnlColorClass } from "@/lib/utils/pnl";
 
+/** Mounts a 30s ticker so the heartbeat-age color refreshes without a
+ *  page reload. Using state here keeps `Date.now()` out of render (the
+ *  lint rule blocks impure calls during render). */
+function useTickingNow(intervalMs = 30_000): number {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), intervalMs);
+    return () => clearInterval(id);
+  }, [intervalMs]);
+  return now;
+}
+
+function HeartbeatValue({ lastTick }: { lastTick: string | null | undefined }) {
+  const now = useTickingNow();
+  if (lastTick == null) return <span className="text-muted-foreground">no ticks yet</span>;
+  const ageMs = now - new Date(lastTick).getTime();
+  let klass = "";
+  if (ageMs > HEARTBEAT_STALE_MS) klass = "text-[var(--loss)]";
+  else if (ageMs > HEARTBEAT_STALE_MS / 3) klass = "text-amber-500";
+  return <span className={klass}>{formatRelativeTime(lastTick)}</span>;
+}
+
 function StatusPanel() {
   const { data, isLoading } = usePaperTradingStats();
+  const { data: heartbeat } = useHeartbeat();
   return (
     <Surface elevation="low" className="p-4">
       <p className="mb-2 text-xs uppercase tracking-wide text-muted-foreground">Live status</p>
@@ -29,6 +53,7 @@ function StatusPanel() {
         </div>
       ) : (
         <div className="flex flex-col">
+          <DataRow label="Cron heartbeat" value={<HeartbeatValue lastTick={heartbeat} />} />
           <DataRow label="Active algorithms" value={data?.active_algorithms ?? 0} />
           <DataRow
             label="Last scan"

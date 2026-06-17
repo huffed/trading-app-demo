@@ -15,8 +15,9 @@ export function ApiKeysCard() {
       </CardHeader>
       <CardContent>
         <p className="text-sm text-muted-foreground">
-          Twelve Data, Finnhub, and Alpha Vantage keys live in <code>.env.local</code> for now —
-          UI-managed market-data keys are on the roadmap.
+          Market-data keys (OANDA, Twelve Data, Finnhub, Alpha Vantage) and the Anthropic + Groq
+          LLM keys live in <code>.env.local</code> by design — single-operator app, no
+          UI-managed key rotation needed.
         </p>
       </CardContent>
     </Card>
@@ -41,8 +42,8 @@ export function BrokerConnectionsCard() {
       </CardHeader>
       <CardContent>
         <p className="text-sm text-muted-foreground">
-          Connect MT5/MT4 brokers (FTMO, ICMarkets, OANDA) via MetaApi to read live account state
-          and — soon — let algorithms execute real trades.
+          Connect MT5/MT4 brokers (FTMO, ICMarkets, OANDA) via MetaApi for live account state and
+          to mirror paper-validated algorithms onto a live account.
         </p>
       </CardContent>
     </Card>

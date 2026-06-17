@@ -28,9 +28,9 @@ export default function BrokersPage() {
             Broker Connections
           </h1>
           <p className="text-sm text-muted-foreground">
-            Connect MT5 / MT4 broker accounts (FTMO, ICMarkets, OANDA, etc.) so the platform can
-            read live balance, equity, and positions. Future phases will let algorithms place real
-            orders here.
+            Connect MT5 / MT4 broker accounts (FTMO, ICMarkets, OANDA, etc.) via MetaApi for live
+            balance / equity / positions and to mirror paper-validated algorithms onto a live
+            account.
           </p>
         </div>
       </div>

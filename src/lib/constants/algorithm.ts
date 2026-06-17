@@ -87,6 +87,13 @@ export const STATUS_LABELS: Record<string, string> = {
   archived: "Archived",
 };
 
+export const BROKER_STATUS_LABELS: Record<string, string> = {
+  active: "Active",
+  pending: "Pending",
+  error: "Error",
+  disabled: "Disabled",
+};
+
 export const EXIT_REASON_LABELS: Record<string, string> = {
   stop_loss: "Stop Loss",
   take_profit: "Take Profit",

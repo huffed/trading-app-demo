@@ -85,8 +85,8 @@ function PropFirmSelect({
         </SelectContent>
       </Select>
       <p className="text-xs text-muted-foreground">
-        Default rules.prop_firm shape used when generating new algorithms. Existing algos
-        keep their own settings.
+        Account-level default for new algorithm deploys. Existing algos keep whichever preset
+        their <code>rules.prop_firm</code> was deployed with.
       </p>
     </div>
   );
