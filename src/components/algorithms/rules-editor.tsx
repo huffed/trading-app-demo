@@ -1,101 +1,29 @@
 "use client";
 
 import { useState } from "react";
-import { X } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { SENTIMENT_OP_LABELS, TECHNICAL_OP_LABELS } from "@/lib/constants/algorithm";
 import {
   PROP_FIRM_LABELS,
   PROP_FIRM_PRESETS,
   type PropFirmPreset,
 } from "@/lib/constants/prop-firm";
-import {
-  isPatternCondition,
-  isTechnicalCondition,
-  type AlgorithmRules,
-  type EntryCondition,
-  type ExitCondition,
-  type PatternCondition,
-  type PropFirmRules,
-  type SentimentCondition,
+import type {
+  AlgorithmRules,
+  EntryCondition,
+  ExitCondition,
+  PatternCondition,
+  PropFirmRules,
+  SentimentCondition,
+  TechnicalCondition,
 } from "@/types/algorithm";
+import { ConditionRow } from "./condition-row";
 import { PatternConditionForm } from "./pattern-condition-form";
 import { PropFirmFields } from "./prop-firm-fields";
-
-function ConditionRow({
-  condition,
-  onRemove,
-}: {
-  condition: EntryCondition | ExitCondition;
-  onRemove: () => void;
-}) {
-  if (isTechnicalCondition(condition)) {
-    return (
-      <div className="flex items-center gap-1.5 text-sm group">
-        <Badge variant="outline" className="text-xs">
-          {condition.indicator}
-        </Badge>
-        <span className="text-muted-foreground">
-          {TECHNICAL_OP_LABELS[condition.operator] ?? condition.operator}
-        </span>
-        <span className="font-medium">{condition.value}</span>
-        <span className="text-xs text-muted-foreground">({condition.timeframe})</span>
-        <button
-          type="button"
-          onClick={onRemove}
-          className="ml-auto opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive"
-        >
-          <X className="h-3.5 w-3.5" />
-        </button>
-      </div>
-    );
-  }
-  if (isPatternCondition(condition)) {
-    return (
-      <div className="flex items-center gap-1.5 text-sm group">
-        <Badge className="text-xs bg-amber-500/10 text-amber-600">pattern</Badge>
-        <span className="text-muted-foreground">
-          {condition.pattern}
-          {condition.direction ? ` (${condition.direction})` : ""}
-        </span>
-        <span className="text-xs text-muted-foreground">({condition.timeframe})</span>
-        <button
-          type="button"
-          onClick={onRemove}
-          className="ml-auto opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive"
-        >
-          <X className="h-3.5 w-3.5" />
-        </button>
-      </div>
-    );
-  }
-  const sentiment = condition as SentimentCondition;
-  return (
-    <div className="flex items-center gap-1.5 text-sm group">
-      <Badge className="text-xs bg-primary/10 text-primary">sentiment</Badge>
-      <span className="text-muted-foreground">
-        {sentiment.metric} {SENTIMENT_OP_LABELS[sentiment.operator] ?? sentiment.operator}{" "}
-        {sentiment.threshold}
-      </span>
-      {sentiment.topics?.map((t) => (
-        <Badge key={t} variant="outline" className="text-xs">
-          {t}
-        </Badge>
-      ))}
-      <button
-        type="button"
-        onClick={onRemove}
-        className="ml-auto opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive"
-      >
-        <X className="h-3.5 w-3.5" />
-      </button>
-    </div>
-  );
-}
+import { SentimentConditionForm } from "./sentiment-condition-form";
+import { TechnicalConditionForm } from "./technical-condition-form";
 
 function NumericField({
   label,
@@ -189,6 +117,80 @@ function PropFirmSection({
   );
 }
 
+interface ConditionsListProps {
+  title: string;
+  conditions: (EntryCondition | ExitCondition)[];
+  onRemove: (index: number) => void;
+  onAddTechnical: (c: TechnicalCondition) => void;
+  onAddPattern: (c: PatternCondition) => void;
+  onAddSentiment: (c: SentimentCondition) => void;
+}
+
+function ConditionsList({
+  title,
+  conditions,
+  onRemove,
+  onAddTechnical,
+  onAddPattern,
+  onAddSentiment,
+}: ConditionsListProps) {
+  return (
+    <div className="space-y-1">
+      <h4 className="text-xs font-medium text-muted-foreground">{title}</h4>
+      {conditions.map((c, i) => (
+        <ConditionRow key={i} condition={c} onRemove={() => onRemove(i)} />
+      ))}
+      {conditions.length === 0 && (
+        <p className="text-xs text-muted-foreground">No {title.toLowerCase()}</p>
+      )}
+      <div className="pt-1 flex flex-wrap gap-2">
+        <TechnicalConditionForm onAdd={onAddTechnical} />
+        <PatternConditionForm onAdd={onAddPattern} />
+        <SentimentConditionForm onAdd={onAddSentiment} />
+      </div>
+    </div>
+  );
+}
+
+function RiskGrid({
+  draft,
+  setDraft,
+}: {
+  draft: AlgorithmRules;
+  setDraft: (next: (d: AlgorithmRules) => AlgorithmRules) => void;
+}) {
+  function updateRisk(field: "stop_loss" | "take_profit" | "position_sizing", value: number) {
+    setDraft((d) => ({ ...d, [field]: { ...d[field], value } }));
+  }
+  return (
+    <div className="grid gap-3 sm:grid-cols-2">
+      <NumericField
+        label="Stop Loss"
+        value={draft.stop_loss?.value ?? 5}
+        onChange={(v) => updateRisk("stop_loss", v)}
+        suffix="%"
+      />
+      <NumericField
+        label="Take Profit"
+        value={draft.take_profit?.value ?? 15}
+        onChange={(v) => updateRisk("take_profit", v)}
+        suffix="%"
+      />
+      <NumericField
+        label="Position Size"
+        value={draft.position_sizing?.value ?? 10}
+        onChange={(v) => updateRisk("position_sizing", v)}
+        suffix="% of capital"
+      />
+      <NumericField
+        label="Max Positions"
+        value={draft.max_positions ?? 3}
+        onChange={(v) => setDraft((d) => ({ ...d, max_positions: v }))}
+      />
+    </div>
+  );
+}
+
 interface RulesEditorProps {
   rules: AlgorithmRules;
   onSave: (rules: AlgorithmRules) => void;
@@ -199,25 +201,14 @@ interface RulesEditorProps {
 export function RulesEditor({ rules, onSave, onCancel, isSaving }: RulesEditorProps) {
   const [draft, setDraft] = useState<AlgorithmRules>(structuredClone(rules));
 
-  function removeEntry(index: number) {
-    setDraft((d) => ({ ...d, entry_conditions: d.entry_conditions.filter((_, i) => i !== index) }));
-  }
-
-  function removeExit(index: number) {
-    setDraft((d) => ({ ...d, exit_conditions: d.exit_conditions.filter((_, i) => i !== index) }));
-  }
-
-  function addEntryPattern(c: PatternCondition) {
+  const addEntry = (c: EntryCondition) =>
     setDraft((d) => ({ ...d, entry_conditions: [...d.entry_conditions, c] }));
-  }
-
-  function addExitPattern(c: PatternCondition) {
+  const addExit = (c: ExitCondition) =>
     setDraft((d) => ({ ...d, exit_conditions: [...d.exit_conditions, c] }));
-  }
-
-  function updateRisk(field: "stop_loss" | "take_profit" | "position_sizing", value: number) {
-    setDraft((d) => ({ ...d, [field]: { ...d[field], value } }));
-  }
+  const removeEntry = (i: number) =>
+    setDraft((d) => ({ ...d, entry_conditions: d.entry_conditions.filter((_, x) => x !== i) }));
+  const removeExit = (i: number) =>
+    setDraft((d) => ({ ...d, exit_conditions: d.exit_conditions.filter((_, x) => x !== i) }));
 
   return (
     <Card>
@@ -225,55 +216,23 @@ export function RulesEditor({ rules, onSave, onCancel, isSaving }: RulesEditorPr
         <CardTitle className="text-sm font-medium">Edit Trading Rules</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="space-y-1">
-          <h4 className="text-xs font-medium text-muted-foreground">Entry Conditions</h4>
-          {draft.entry_conditions.map((c, i) => (
-            <ConditionRow key={i} condition={c} onRemove={() => removeEntry(i)} />
-          ))}
-          {draft.entry_conditions.length === 0 && (
-            <p className="text-xs text-muted-foreground">No entry conditions</p>
-          )}
-          <div className="pt-1">
-            <PatternConditionForm onAdd={addEntryPattern} />
-          </div>
-        </div>
-        <div className="space-y-1">
-          <h4 className="text-xs font-medium text-muted-foreground">Exit Conditions</h4>
-          {draft.exit_conditions.map((c, i) => (
-            <ConditionRow key={i} condition={c} onRemove={() => removeExit(i)} />
-          ))}
-          {draft.exit_conditions.length === 0 && (
-            <p className="text-xs text-muted-foreground">No exit conditions</p>
-          )}
-          <div className="pt-1">
-            <PatternConditionForm onAdd={addExitPattern} />
-          </div>
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <NumericField
-            label="Stop Loss"
-            value={draft.stop_loss?.value ?? 5}
-            onChange={(v) => updateRisk("stop_loss", v)}
-            suffix="%"
-          />
-          <NumericField
-            label="Take Profit"
-            value={draft.take_profit?.value ?? 15}
-            onChange={(v) => updateRisk("take_profit", v)}
-            suffix="%"
-          />
-          <NumericField
-            label="Position Size"
-            value={draft.position_sizing?.value ?? 10}
-            onChange={(v) => updateRisk("position_sizing", v)}
-            suffix="% of capital"
-          />
-          <NumericField
-            label="Max Positions"
-            value={draft.max_positions ?? 3}
-            onChange={(v) => setDraft((d) => ({ ...d, max_positions: v }))}
-          />
-        </div>
+        <ConditionsList
+          title="Entry Conditions"
+          conditions={draft.entry_conditions}
+          onRemove={removeEntry}
+          onAddTechnical={addEntry}
+          onAddPattern={addEntry}
+          onAddSentiment={addEntry}
+        />
+        <ConditionsList
+          title="Exit Conditions"
+          conditions={draft.exit_conditions}
+          onRemove={removeExit}
+          onAddTechnical={addExit}
+          onAddPattern={addExit}
+          onAddSentiment={addExit}
+        />
+        <RiskGrid draft={draft} setDraft={setDraft} />
         <PropFirmSection
           propFirm={draft.prop_firm}
           onChange={(pf) => setDraft((d) => ({ ...d, prop_firm: pf }))}
