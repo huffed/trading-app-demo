@@ -136,7 +136,7 @@ const ZONE_RECT_OVERLAY = {
   needDefaultXAxisFigure: false,
   needDefaultYAxisFigure: false,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  createPointFigures: ({ overlay, coordinates, chart }: any) => {
+  createPointFigures: ({ overlay, coordinates, chart, xAxis }: any) => {
     if (!coordinates || coordinates.length < 2) return [];
     const data = overlay.extendData ?? {};
     const baseColor: string = data.color ?? NEUTRAL_COLOR;
@@ -145,22 +145,21 @@ const ZONE_RECT_OVERLAY = {
     const fill = baseColor.replace(/,[\d.]+\)$/, `,${fillAlpha})`);
     const border = baseColor.replace(/,[\d.]+\)$/, `,${borderAlpha})`);
 
-    // Find the last data bar's x — used to clamp the right edge so
-    // the rectangle doesn't extend into klinecharts' future space.
+    // Find the last data bar's pixel x — used to clamp the right edge
+    // so the rectangle doesn't extend into klinecharts' future space.
+    // Use xAxis.convertToPixel(dataIndex) which is more reliable than
+    // chart.convertToPixel(timestamp) for this. dataIndex of the last
+    // bar = dataList.length - 1.
     let lastBarX = Infinity;
     try {
-      const dataList = chart?.getDataList?.();
-      const lastBar = dataList?.[dataList.length - 1];
-      if (lastBar) {
-        const coord = chart.convertToPixel(
-          { timestamp: lastBar.timestamp },
-          { paneId: "candle_pane" }
-        );
-        const cx = Array.isArray(coord) ? coord[0]?.x : coord?.x;
-        if (typeof cx === "number" && isFinite(cx)) lastBarX = cx;
+      const dataList = chart?.getDataList?.() ?? [];
+      const lastIdx = dataList.length - 1;
+      if (lastIdx >= 0 && xAxis?.convertToPixel) {
+        const px = xAxis.convertToPixel(lastIdx);
+        if (typeof px === "number" && isFinite(px)) lastBarX = px;
       }
     } catch {
-      // If conversion fails for any reason, fall back to no clamp.
+      // Fallback: no clamp.
     }
 
     const rawLeftX = Math.min(coordinates[0].x, coordinates[1].x);
