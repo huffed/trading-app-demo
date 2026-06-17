@@ -73,6 +73,9 @@ export function CellDetail({
 }
 
 function PerYearTable({ cell, years }: { cell: GeometryCell; years: string[] }) {
+  const avgTrades = years.reduce((s, y) => s + cell.per_year[y].trades, 0) / years.length;
+  const avgPnl = years.reduce((s, y) => s + cell.per_year[y].pnl, 0) / years.length;
+  const avgWr = years.reduce((s, y) => s + cell.per_year[y].win_pct, 0) / years.length;
   return (
     <div className="space-y-1">
       <h4 className="text-[10px] uppercase tracking-wide text-muted-foreground">Per year</h4>
@@ -97,6 +100,12 @@ function PerYearTable({ cell, years }: { cell: GeometryCell; years: string[] }) 
               </tr>
             );
           })}
+          <tr className="border-t-2 border-muted/60 text-muted-foreground font-medium">
+            <td className="py-1">Avg</td>
+            <td className="text-right py-1">{avgTrades.toFixed(1)}</td>
+            <td className={cn("text-right py-1", pnlColorClass(avgPnl))}>{formatPnl(avgPnl)}</td>
+            <td className="text-right py-1">{avgWr.toFixed(0)}%</td>
+          </tr>
         </tbody>
       </table>
     </div>
