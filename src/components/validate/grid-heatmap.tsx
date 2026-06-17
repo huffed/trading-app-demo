@@ -1,5 +1,6 @@
 "use client";
 
+import { Star } from "lucide-react";
 import type { GeometryCell, GeometrySweep } from "@/app/(dashboard)/algorithms/[algoId]/validate/types";
 import { Surface } from "@/components/ui/surface";
 import { cn } from "@/lib/utils";
@@ -18,6 +19,29 @@ function cellBgClass(cell: GeometryCell, maxAbs: number): string {
   return ["bg-[var(--loss)]/5", "bg-[var(--loss)]/15", "bg-[var(--loss)]/25", "bg-[var(--loss)]/35"][bucket];
 }
 
+/** Best cell = highest Calmar among cells that:
+ *   (a) didn't breach the DD threshold,
+ *   (b) traded at least once,
+ *   (c) have a positive return.
+ *  Returns null when no cell qualifies (every cell breached DD or lost). */
+function pickWinner(
+  cells: GeometryCell[],
+  ddBreachThreshold: number | null
+): GeometryCell | null {
+  const eligible = cells.filter((c) => {
+    if (c.total_trades === 0) return false;
+    if (c.total_return <= 0) return false;
+    if (ddBreachThreshold != null && c.max_drawdown >= ddBreachThreshold) return false;
+    return true;
+  });
+  if (eligible.length === 0) return null;
+  return eligible.reduce((best, c) => {
+    const bestCalmar = best.calmar ?? -Infinity;
+    const cellCalmar = c.calmar ?? -Infinity;
+    return cellCalmar > bestCalmar ? c : best;
+  });
+}
+
 export function GridHeatmap({
   sweep,
   selectedKey,
@@ -31,12 +55,17 @@ export function GridHeatmap({
   ddBreachThreshold: number | null;
 }) {
   const maxAbs = Math.max(...sweep.cells.map((c) => Math.abs(c.total_return)));
+  const winner = pickWinner(sweep.cells, ddBreachThreshold);
+  const winnerKey = winner ? `${winner.rr}-${winner.lookback}` : null;
 
   return (
     <Surface elevation="low" className="p-4">
-      <p className="mb-3 text-xs uppercase tracking-wide text-muted-foreground">
-        RR × lookback geometry sweep
-      </p>
+      <div className="mb-3 flex items-baseline justify-between gap-3">
+        <p className="text-xs uppercase tracking-wide text-muted-foreground">
+          RR × lookback geometry sweep
+        </p>
+        <WinnerSummary winner={winner} />
+      </div>
       <div
         className="grid gap-1 text-xs"
         style={{
@@ -59,10 +88,46 @@ export function GridHeatmap({
             selectedKey={selectedKey}
             onSelect={onSelect}
             ddBreachThreshold={ddBreachThreshold}
+            winnerKey={winnerKey}
           />
         ))}
       </div>
+      <Legend ddBreachThreshold={ddBreachThreshold} />
     </Surface>
+  );
+}
+
+function WinnerSummary({ winner }: { winner: GeometryCell | null }) {
+  if (!winner) {
+    return (
+      <span className="text-[10px] text-muted-foreground">
+        no surviving cell (every cell breached DD or lost)
+      </span>
+    );
+  }
+  return (
+    <span className="flex items-center gap-1 text-[11px] text-amber-500 font-medium">
+      <Star className="h-3 w-3 fill-current" />
+      best: RR={winner.rr} · lb={winner.lookback} · {formatPnl(winner.total_return)} ·{" "}
+      DD {winner.max_drawdown.toFixed(1)}% · Calmar {winner.calmar?.toFixed(1) ?? "—"}
+    </span>
+  );
+}
+
+function Legend({ ddBreachThreshold }: { ddBreachThreshold: number | null }) {
+  return (
+    <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-muted-foreground">
+      <span className="flex items-center gap-1">
+        <Star className="h-3 w-3 text-amber-500 fill-amber-500" />
+        winner (highest Calmar, no DD breach, positive return)
+      </span>
+      {ddBreachThreshold != null && (
+        <span className="flex items-center gap-1">
+          <span className="inline-block h-2 w-2 rounded-sm ring-1 ring-[var(--loss)]/60" />
+          DD ≥ {ddBreachThreshold}% (would breach prop_firm halt)
+        </span>
+      )}
+    </div>
   );
 }
 
@@ -74,6 +139,7 @@ function CellRow({
   selectedKey,
   onSelect,
   ddBreachThreshold,
+  winnerKey,
 }: {
   rr: number;
   cells: GeometryCell[];
@@ -82,6 +148,7 @@ function CellRow({
   selectedKey: string | null;
   onSelect: (cell: GeometryCell) => void;
   ddBreachThreshold: number | null;
+  winnerKey: string | null;
 }) {
   return (
     <>
@@ -93,18 +160,23 @@ function CellRow({
         if (!cell) return <div key={lb} className="rounded-md border bg-muted/30 p-2" />;
         const key = `${cell.rr}-${cell.lookback}`;
         const ddBreached = ddBreachThreshold != null && cell.max_drawdown >= ddBreachThreshold;
+        const isWinner = key === winnerKey;
         return (
           <button
             key={lb}
             type="button"
             onClick={() => onSelect(cell)}
             className={cn(
-              "rounded-md border p-2 text-left hover:border-primary/60 transition-colors",
+              "rounded-md border p-2 text-left hover:border-primary/60 transition-colors relative",
               cellBgClass(cell, maxAbs),
               selectedKey === key && "border-primary ring-1 ring-primary/40",
-              ddBreached && "ring-1 ring-[var(--loss)]/60"
+              ddBreached && "ring-1 ring-[var(--loss)]/60",
+              isWinner && "ring-2 ring-amber-500/70 border-amber-500/60"
             )}
           >
+            {isWinner && (
+              <Star className="absolute top-1 right-1 h-3 w-3 text-amber-500 fill-amber-500" />
+            )}
             <div className={cn("font-semibold tabular-nums text-sm", pnlColorClass(cell.total_return))}>
               {cell.total_trades === 0 ? "—" : formatPnl(cell.total_return)}
             </div>
@@ -113,6 +185,9 @@ function CellRow({
             </div>
             <div className={cn("text-[10px] tabular-nums", ddBreached ? "text-[var(--loss)] font-medium" : "text-muted-foreground")}>
               DD {cell.max_drawdown.toFixed(1)}%{ddBreached && " ⚠"}
+            </div>
+            <div className="text-[10px] text-muted-foreground tabular-nums">
+              Calmar {cell.calmar?.toFixed(1) ?? "—"}
             </div>
           </button>
         );

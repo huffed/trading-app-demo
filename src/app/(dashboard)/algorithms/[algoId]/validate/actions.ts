@@ -64,6 +64,8 @@ function buildCell(
       max_drawdown: 0,
       total_trades: 0,
       win_rate: 0,
+      avg_pnl: 0,
+      calmar: null,
       dd_breached: false,
       per_year: {},
     };
@@ -97,16 +99,22 @@ function buildCell(
     perYear[y].pnl = Math.round(perYear[y].pnl * 100) / 100;
     perYear[y].win_pct = Math.round((yearWins[y] / perYear[y].trades) * 1000) / 10;
   }
+  const totalReturn = Math.round(cum * 100) / 100;
+  const maxDd = Math.round(maxDdPct * 100) / 100;
   return {
     rr,
     lookback,
-    total_return: Math.round(cum * 100) / 100,
-    max_drawdown: Math.round(maxDdPct * 100) / 100,
+    total_return: totalReturn,
+    max_drawdown: maxDd,
     total_trades: sorted.length,
     win_rate: Math.round((wins / sorted.length) * 1000) / 10,
-    // dd_breached: we'd need to inspect the engine state to know for sure;
-    // approximate by checking if max_drawdown >= the algo's prop_firm
-    // max_drawdown limit. Cell consumer can use this as a flag.
+    avg_pnl: Math.round((cum / sorted.length) * 100) / 100,
+    // Calmar = return / DD%. Higher is better. Caller uses this to
+    // surface the best risk-adjusted cell. Null when DD is 0 (avoid
+    // divide-by-zero) — caller treats null as 'no DD recorded'.
+    calmar: maxDd > 0 ? Math.round((totalReturn / maxDd) * 100) / 100 : null,
+    // dd_breached: would need engine state to know exactly. Cell consumer
+    // uses max_drawdown vs algo.prop_firm.max_drawdown to decide.
     dd_breached: false,
     per_year: perYear,
   };

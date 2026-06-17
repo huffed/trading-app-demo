@@ -60,10 +60,18 @@ export function CellDetail({
           </span>
           <span className="text-muted-foreground">Trades</span>
           <span className="tabular-nums text-right">{cell.total_trades}</span>
+          <span className="text-muted-foreground">Avg / trade</span>
+          <span className={cn("tabular-nums text-right", pnlColorClass(cell.avg_pnl))}>
+            {formatPnl(cell.avg_pnl)}
+          </span>
           <span className="text-muted-foreground">Win rate</span>
           <span className="tabular-nums text-right">{cell.win_rate.toFixed(1)}%</span>
           <span className="text-muted-foreground">Max DD</span>
           <span className="tabular-nums text-right">{cell.max_drawdown.toFixed(2)}%</span>
+          <span className="text-muted-foreground" title="total_return / max_drawdown% — risk-adjusted return">
+            Calmar
+          </span>
+          <span className="tabular-nums text-right">{cell.calmar?.toFixed(2) ?? "—"}</span>
         </div>
       </div>
 
