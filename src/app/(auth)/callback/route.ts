@@ -7,6 +7,7 @@ const ALLOWED_REDIRECTS = [
   "/trades",
   "/journal",
   "/algorithms",
+  "/performance",
   "/reports",
   "/analytics",
   "/settings",
