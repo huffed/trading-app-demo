@@ -126,15 +126,13 @@ export async function runAlgorithmBacktestAction(
       ? await fetchEconomicCalendarForRange(pricesByTicker)
       : [];
 
-    // Strip prop_firm so the engine emits the FULL trade history. With
-    // prop_firm enabled, the engine's drawdownBreached / killTriggered
-    // flags become terminal — a single 2021 DD would kill every trade
-    // for the next 4 years, leaving the replay missing 60-80% of the
-    // history the operator actually wants to see. For backtest replay
-    // we always want the raw trade list; FTMO survival simulation
-    // belongs in the prop-firm harness scripts.
-    const replayRules: AlgorithmRules = { ...rules, prop_firm: undefined };
-    const result = runPortfolioBacktest(replayRules, pricesByTicker, capital, events);
+    // Run with rules AS DEPLOYED — including prop_firm. /backtest's job
+    // is "what would live trading have produced at those times?", and
+    // live respects prop_firm halts (drawdownBreached / killTriggered).
+    // An algo whose simulated DD breached the prop_firm limit in 2021
+    // would have actually halted live; truncating the trade history at
+    // that point is the correct answer, not a bug.
+    const result = runPortfolioBacktest(rules, pricesByTicker, capital, events);
 
     const runAt = new Date().toISOString();
     await supabase

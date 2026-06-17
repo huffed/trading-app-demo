@@ -146,13 +146,12 @@ async function processAlgo(supabase: any, algo: AlgoRow): Promise<{ ok: boolean;
   if (pricesByTicker.size === 0) return { ok: false, trades: 0, note: "skip — no price history" };
 
   const events = algo.rules.news_veto?.enabled ? await fetchEventsForRange(pricesByTicker) : [];
-  // Strip prop_firm so the engine emits the FULL trade history — same
-  // reason as the server action: with prop_firm enabled, a 2021
-  // drawdown trips drawdownBreached permanently and kills every trade
-  // for the rest of the 6-year history. FTMO survival simulation is
-  // the harness scripts' job, not /backtest replay.
-  const replayRules: AlgorithmRules = { ...algo.rules, prop_firm: undefined };
-  const result = runPortfolioBacktest(replayRules, pricesByTicker, algo.capital, events);
+  // Run with rules AS DEPLOYED — including prop_firm halts. /backtest's
+  // job is "what would live trading have produced at those times?",
+  // and live respects prop_firm. If the simulated equity breached the
+  // 10% DD in 2021, the algo would have halted live; truncating the
+  // history at that point is the correct answer.
+  const result = runPortfolioBacktest(algo.rules, pricesByTicker, algo.capital, events);
 
   if (!APPLY) {
     return { ok: true, trades: result.trades.length, note: "dry-run" };
