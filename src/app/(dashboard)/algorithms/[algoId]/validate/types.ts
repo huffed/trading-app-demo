@@ -12,6 +12,7 @@
 export type AxisKey =
   | "rr"
   | "lookback"
+  | "sl_pct"
   | "risk_per_trade"
   | "sl_buffer"
   | "stagnant_max_bars"
@@ -33,6 +34,13 @@ export interface AxisDef {
 export const AXES: Record<AxisKey, AxisDef> = {
   rr: { key: "rr", label: "RR", kind: "numeric", values: [1.5, 2, 2.5, 3, 4, 5] },
   lookback: { key: "lookback", label: "Lookback", kind: "numeric", values: [3, 4, 5, 6, 8, 12] },
+  sl_pct: {
+    key: "sl_pct",
+    label: "SL %",
+    kind: "numeric",
+    unit: "%",
+    values: [0.15, 0.2, 0.3, 0.4, 0.5, 0.75],
+  },
   risk_per_trade: {
     key: "risk_per_trade",
     label: "Risk/trade",

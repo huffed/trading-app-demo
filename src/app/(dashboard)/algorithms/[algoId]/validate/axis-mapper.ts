@@ -21,6 +21,9 @@ export function applyAxis(rules: AlgorithmRules, key: AxisKey, value: number | b
     case "lookback":
       if (r.stop_loss && r.stop_loss.type === "swing_anchor") r.stop_loss.lookback = value;
       return;
+    case "sl_pct":
+      if (r.stop_loss && r.stop_loss.type === "percentage") r.stop_loss.value = value;
+      return;
     case "risk_per_trade":
       if (r.position_sizing && r.position_sizing.type === "risk_per_trade") {
         r.position_sizing.value = value;
@@ -78,6 +81,9 @@ export function snapshotFixedAxes(
         break;
       case "lookback":
         if (r.stop_loss?.type === "swing_anchor") out[key] = r.stop_loss.lookback ?? 4;
+        break;
+      case "sl_pct":
+        if (r.stop_loss?.type === "percentage") out[key] = r.stop_loss.value;
         break;
       case "risk_per_trade":
         if (r.position_sizing?.type === "risk_per_trade") out[key] = r.position_sizing.value;
