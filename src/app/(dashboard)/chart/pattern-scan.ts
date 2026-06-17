@@ -42,11 +42,6 @@ function fmtPrice(p: number): string {
 const FVG_FORWARD_BARS = 20;
 const OB_FORWARD_BARS = 30;
 
-function timeAt(chartBars: ChartBar[], idx: number): number {
-  const clamped = Math.max(0, Math.min(idx, chartBars.length - 1));
-  return chartBars[clamped].time;
-}
-
 function scanBosAndSweeps(
   bars: PriceBarLike[],
   chartBars: ChartBar[]
@@ -127,18 +122,44 @@ function scanBosAndSweeps(
   return { bos, sweep, choch, annotations };
 }
 
+/** Walk forward from the OB formation bar until price CLOSES through
+ *  the opposite side of the zone (mitigation), capped at
+ *  OB_FORWARD_BARS. Returns the bar index where the zone should end. */
+function findObEndIdx(
+  bars: PriceBarLike[],
+  ob: { ob_idx: number; ob_high: number; ob_low: number; direction: "bullish" | "bearish" }
+): number {
+  const cap = Math.min(ob.ob_idx + OB_FORWARD_BARS, bars.length - 1);
+  for (let j = ob.ob_idx + 1; j <= cap; j++) {
+    const mitigated =
+      ob.direction === "bullish" ? bars[j].close < ob.ob_low : bars[j].close > ob.ob_high;
+    if (mitigated) return j;
+  }
+  return cap;
+}
+
 function scanOrderBlocks(
   bars: PriceBarLike[],
   chartBars: ChartBar[]
 ): { points: PatternPoint[]; annotations: PatternAnnotation[] } {
   const points: PatternPoint[] = [];
   const annotations: PatternAnnotation[] = [];
+  // detectOrderBlock fires on EVERY bar where price is currently inside
+  // a prior OB zone. A 10-bar pullback into one OB therefore emits 10
+  // overlapping rectangles at the same level. Dedup by formation index
+  // so each unique OB renders exactly once, anchored at the OB candle
+  // (the trader-convention reference frame) and ending at first
+  // mitigation or +OB_FORWARD_BARS, whichever is first.
+  const seen = new Set<number>();
   for (let i = 2; i < bars.length; i++) {
     const r = detectOrderBlock(bars, i, {});
     if (!r.detected || !r.details) continue;
     const d = r.details;
+    if (seen.has(d.ob_idx)) continue;
+    seen.add(d.ob_idx);
+    const endIdx = findObEndIdx(bars, d);
     points.push({
-      time: chartBars[i].time,
+      time: chartBars[d.ob_idx].time,
       direction: d.direction,
       label: `OB ${d.direction} ${fmtPrice(d.ob_low)}-${fmtPrice(d.ob_high)}`,
       top: d.ob_high,
@@ -148,8 +169,8 @@ function scanOrderBlocks(
       pattern_type: "order_block",
       kind: "zone",
       direction: d.direction,
-      from_time: chartBars[i].time,
-      to_time: timeAt(chartBars, i + OB_FORWARD_BARS),
+      from_time: chartBars[d.ob_idx].time,
+      to_time: chartBars[endIdx].time,
       top: d.ob_high,
       bottom: d.ob_low,
       label: "OB",
