@@ -37,6 +37,7 @@ function fmtPrice(p: number): string {
 
 /** Forward-extension caps for unfilled / unmitigated zones. */
 const OB_FORWARD_BARS = 30;
+const FVG_FORWARD_BARS = 20;
 /** Cap how far forward an IFVG (filled FVG that flipped role) extends
  *  before it's deemed stale even without an explicit re-violation. */
 const IFVG_FORWARD_BARS = 40;
@@ -257,14 +258,16 @@ function scanFvgsAndIfvgs(
     });
 
     if (g.filled_at == null) {
-      // Unfilled gap — extend to the last bar (right edge of chart).
-      // The right-edge clamp in zoneRect handles the future-space issue.
+      // Unfilled gap — extend forward by FVG_FORWARD_BARS so each
+      // zone reads as a bounded rectangle rather than a band stretching
+      // to the chart edge.
+      const endIdx = Math.min(g.gap.created_at_idx + FVG_FORWARD_BARS, lastBarIdx);
       annotations.push({
         pattern_type: "fvg",
         kind: "zone",
         direction: g.gap.direction,
         from_time: chartBars[startIdx].time,
-        to_time: chartBars[lastBarIdx].time,
+        to_time: chartBars[endIdx].time,
         top: g.gap.gap_top,
         bottom: g.gap.gap_bottom,
         label: "FVG",
