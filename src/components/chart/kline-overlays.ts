@@ -208,8 +208,8 @@ function clearIndicators(chart: Chart): void {
 }
 
 /** Klinecharts indicators ship with default line colors that don't
- *  match our LAYER_META swatches. Override per indicator so the legend
- *  chip and the chart line agree.
+ *  match our LAYER_META swatches. Override per line so the legend chip
+ *  and the chart line agree.
  *
  *  IMPORTANT: must set size + style + smooth + dashedValue explicitly.
  *  When the override is `{ color }` only, klinecharts replaces the
@@ -217,9 +217,9 @@ function clearIndicators(chart: Chart): void {
  *  ends up at size=0 (invisible) which was why SMA20 wasn't rendering
  *  even though the legend label had the right color. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function lineStyles(color: string, count = 1): any {
+function lineStyles(colors: string[]): any {
   return {
-    lines: Array.from({ length: count }, () => ({
+    lines: colors.map((color) => ({
       color,
       size: 1,
       style: LineType.Solid,
@@ -229,61 +229,75 @@ function lineStyles(color: string, count = 1): any {
   };
 }
 
+/** Klinecharts treats the indicator NAME as the identity within a pane.
+ *  Calling createIndicator twice with name='MA' replaces the first one
+ *  instead of stacking — only the last call survives. To render multiple
+ *  MA periods (or multiple EMA periods) at once we MUST combine them
+ *  into a single createIndicator call with multiple calcParams and a
+ *  matching lines-styles array. */
 export function applyIndicators(chart: Chart, layers: LayerConfig): void {
   clearIndicators(chart);
   const main = { id: MAIN_PANE_ID };
+
+  const maPeriods: number[] = [];
+  const maColors: string[] = [];
   if (layers.sma20) {
-    chart.createIndicator(
-      { name: "MA", calcParams: [20], styles: lineStyles(LAYER_META.sma20.color) },
-      true,
-      main
-    );
+    maPeriods.push(20);
+    maColors.push(LAYER_META.sma20.color);
   }
   if (layers.sma50) {
-    chart.createIndicator(
-      { name: "MA", calcParams: [50], styles: lineStyles(LAYER_META.sma50.color) },
-      true,
-      main
-    );
+    maPeriods.push(50);
+    maColors.push(LAYER_META.sma50.color);
   }
   if (layers.sma200) {
+    maPeriods.push(200);
+    maColors.push(LAYER_META.sma200.color);
+  }
+  if (maPeriods.length > 0) {
     chart.createIndicator(
-      { name: "MA", calcParams: [200], styles: lineStyles(LAYER_META.sma200.color) },
+      { name: "MA", calcParams: maPeriods, styles: lineStyles(maColors) },
       true,
       main
     );
   }
+
+  const emaPeriods: number[] = [];
+  const emaColors: string[] = [];
   if (layers.ema12) {
-    chart.createIndicator(
-      { name: "EMA", calcParams: [12], styles: lineStyles(LAYER_META.ema12.color) },
-      true,
-      main
-    );
+    emaPeriods.push(12);
+    emaColors.push(LAYER_META.ema12.color);
   }
   if (layers.ema26) {
+    emaPeriods.push(26);
+    emaColors.push(LAYER_META.ema26.color);
+  }
+  if (emaPeriods.length > 0) {
     chart.createIndicator(
-      { name: "EMA", calcParams: [26], styles: lineStyles(LAYER_META.ema26.color) },
+      { name: "EMA", calcParams: emaPeriods, styles: lineStyles(emaColors) },
       true,
       main
     );
   }
+
   if (layers.bollinger) {
+    const c = LAYER_META.bollinger.color;
     chart.createIndicator(
-      { name: "BOLL", styles: lineStyles(LAYER_META.bollinger.color, 3) },
+      { name: "BOLL", styles: lineStyles([c, c, c]) },
       true,
       main
     );
   }
   if (layers.rsi) {
     chart.createIndicator(
-      { name: "RSI", calcParams: [14], styles: lineStyles(LAYER_META.rsi.color) },
+      { name: "RSI", calcParams: [14], styles: lineStyles([LAYER_META.rsi.color]) },
       false,
       { id: RSI_PANE_ID }
     );
   }
   if (layers.macd) {
+    const c = LAYER_META.macd.color;
     chart.createIndicator(
-      { name: "MACD", styles: lineStyles(LAYER_META.macd.color, 2) },
+      { name: "MACD", styles: lineStyles([c, c]) },
       false,
       { id: MACD_PANE_ID }
     );
