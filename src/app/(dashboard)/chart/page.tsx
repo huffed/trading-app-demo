@@ -3,9 +3,9 @@
 import { useState } from "react";
 import { AlertCircle, RefreshCw } from "lucide-react";
 import type { ChartTimeframe } from "@/app/(dashboard)/chart/actions";
+import { KlineChart } from "@/components/chart/kline-chart";
 import { DEFAULT_LAYERS, type LayerConfig } from "@/components/chart/layer-config";
 import { LayerTogglePanel } from "@/components/chart/layer-toggle-panel";
-import { TradingChart } from "@/components/chart/trading-chart";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -102,7 +102,7 @@ export default function ChartPage() {
                 markerCount={data.markers.length}
                 hasActiveAlgo={tickersWithAlgos.has(data.ticker)}
               />
-              <TradingChart data={data} layers={layers} />
+              <KlineChart data={data} layers={layers} />
             </CardContent>
           </Card>
           <LayerTogglePanel layers={layers} onChange={setLayers} />
