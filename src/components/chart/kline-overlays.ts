@@ -184,43 +184,10 @@ function swingOverlays(
   });
 }
 
-/** Per-pattern-type cap on rendered annotations. Zone annotations
- *  (FVG / IFVG / OB) are dense — without a cap, a 4999-bar 'Full'
- *  history produces hundreds of overlapping rectangles and the chart
- *  becomes a wash of red/green. Line annotations (BOS / ChoCh /
- *  Sweep) are much sparser and get a higher cap so the full history
- *  of structure breaks remains visible. */
-const CAP_PER_TYPE: Record<PatternAnnotation["pattern_type"], number> = {
-  // Lines — sparse, keep a long history.
-  bos: 500,
-  choch: 500,
-  sweep: 500,
-  // Zones — dense, cap tightly.
-  fvg: 30,
-  ifvg: 30,
-  order_block: 30,
-};
-
-function capRecent(annotations: PatternAnnotation[]): PatternAnnotation[] {
-  const buckets = new Map<PatternAnnotation["pattern_type"], PatternAnnotation[]>();
-  for (const a of annotations) {
-    const arr = buckets.get(a.pattern_type) ?? [];
-    arr.push(a);
-    buckets.set(a.pattern_type, arr);
-  }
-  const out: PatternAnnotation[] = [];
-  for (const [type, arr] of buckets) {
-    arr.sort((x, y) => y.to_time - x.to_time);
-    out.push(...arr.slice(0, CAP_PER_TYPE[type]));
-  }
-  return out;
-}
-
 export function applyOverlays(chart: Chart, data: ChartData, layers: LayerConfig): void {
   chart.removeOverlay();
   const overlays: OverlayCreate[] = [];
-  const capped = capRecent(data.patterns.annotations);
-  for (const a of capped) {
+  for (const a of data.patterns.annotations) {
     if (isAnnotationEnabled(a, layers)) overlays.push(...annotationOverlays(a, data.bars));
   }
   overlays.push(...swingOverlays(data.patterns.swings, layers.swings));
