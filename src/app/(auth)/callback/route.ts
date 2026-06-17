@@ -8,6 +8,7 @@ const ALLOWED_REDIRECTS = [
   "/journal",
   "/algorithms",
   "/chart",
+  "/backtest",
   "/performance",
   "/reports",
   "/analytics",
