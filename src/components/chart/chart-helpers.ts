@@ -106,14 +106,21 @@ const ANNOTATION_LABELS: Record<PatternAnnotation["pattern_type"], string> = {
   order_block: "OB",
 };
 
+/** Build a label marker centered on the annotation's time span.
+ *  Lightweight-charts requires a shape on markers, but `size: 0` hides
+ *  the shape while keeping the text visible — that's how we get a
+ *  text-only label without a circle dot at the end of the line.
+ *  The time falls on the midpoint between from_time and to_time; the
+ *  charting lib snaps to the closest actual bar. */
 function annotationLabelMarker(a: PatternAnnotation): SeriesMarker<Time> {
-  const labelText = ANNOTATION_LABELS[a.pattern_type];
+  const midTime = Math.floor((a.from_time + a.to_time) / 2);
   return {
-    time: a.to_time as UTCTimestamp,
+    time: midTime as UTCTimestamp,
     position: a.direction === "bullish" ? "aboveBar" : "belowBar",
     color: a.direction === "bullish" ? PROFIT_COLOR : LOSS_COLOR,
     shape: "circle",
-    text: labelText,
+    size: 0,
+    text: ANNOTATION_LABELS[a.pattern_type],
   };
 }
 
