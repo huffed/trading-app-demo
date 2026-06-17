@@ -1,0 +1,138 @@
+"use client";
+
+import { useState } from "react";
+import { CheckCircle2, Loader2 } from "lucide-react";
+import type { GeometryCell } from "@/app/(dashboard)/algorithms/[algoId]/validate/actions";
+import { Button } from "@/components/ui/button";
+import { Surface } from "@/components/ui/surface";
+import { useApplyGeometryConfig } from "@/hooks/use-geometry-sweep";
+import { cn } from "@/lib/utils";
+import { formatPnl, pnlColorClass } from "@/lib/utils/pnl";
+
+export function CellDetail({
+  algorithmId,
+  cell,
+  liveTradingEnabled,
+}: {
+  algorithmId: string;
+  cell: GeometryCell;
+  liveTradingEnabled: boolean;
+}) {
+  const apply = useApplyGeometryConfig();
+  const [applied, setApplied] = useState(false);
+  const years = Object.keys(cell.per_year).sort();
+
+  async function handleApply() {
+    await apply.mutateAsync({ algorithmId, rr: cell.rr, lookback: cell.lookback });
+    setApplied(true);
+    setTimeout(() => setApplied(false), 4000);
+  }
+
+  return (
+    <Surface elevation="low" className="p-4 space-y-3">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">Selected cell</p>
+          <p className="text-sm font-semibold tabular-nums mt-0.5">
+            RR={cell.rr} · lb={cell.lookback}
+          </p>
+        </div>
+        <ApplyButton
+          enabled={!liveTradingEnabled}
+          pending={apply.isPending}
+          applied={applied}
+          onApply={handleApply}
+        />
+      </div>
+      {apply.error && <p className="text-xs text-[var(--loss)]">{apply.error.message}</p>}
+      {liveTradingEnabled && (
+        <p className="text-xs text-muted-foreground">
+          Live trading is on — apply is disabled. Pause live or set <code>live_trading_enabled=false</code> first.
+        </p>
+      )}
+
+      <div className="space-y-1">
+        <h4 className="text-[10px] uppercase tracking-wide text-muted-foreground">Aggregate</h4>
+        <div className="grid grid-cols-2 gap-y-1 text-xs">
+          <span className="text-muted-foreground">Total P&L</span>
+          <span className={cn("tabular-nums text-right", pnlColorClass(cell.total_return))}>
+            {formatPnl(cell.total_return)}
+          </span>
+          <span className="text-muted-foreground">Trades</span>
+          <span className="tabular-nums text-right">{cell.total_trades}</span>
+          <span className="text-muted-foreground">Win rate</span>
+          <span className="tabular-nums text-right">{cell.win_rate.toFixed(1)}%</span>
+          <span className="text-muted-foreground">Max DD</span>
+          <span className="tabular-nums text-right">{cell.max_drawdown.toFixed(2)}%</span>
+        </div>
+      </div>
+
+      {years.length > 0 && <PerYearTable cell={cell} years={years} />}
+    </Surface>
+  );
+}
+
+function PerYearTable({ cell, years }: { cell: GeometryCell; years: string[] }) {
+  return (
+    <div className="space-y-1">
+      <h4 className="text-[10px] uppercase tracking-wide text-muted-foreground">Per year</h4>
+      <table className="w-full text-xs">
+        <thead>
+          <tr className="text-muted-foreground">
+            <th className="text-left font-normal pb-1">Year</th>
+            <th className="text-right font-normal pb-1">Trades</th>
+            <th className="text-right font-normal pb-1">P&L</th>
+            <th className="text-right font-normal pb-1">WR</th>
+          </tr>
+        </thead>
+        <tbody className="font-mono tabular-nums">
+          {years.map((y) => {
+            const r = cell.per_year[y];
+            return (
+              <tr key={y} className="border-t border-muted/40">
+                <td className="py-1">{y}</td>
+                <td className="text-right py-1">{r.trades}</td>
+                <td className={cn("text-right py-1", pnlColorClass(r.pnl))}>{formatPnl(r.pnl)}</td>
+                <td className="text-right py-1">{r.win_pct.toFixed(0)}%</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function ApplyButton({
+  enabled,
+  pending,
+  applied,
+  onApply,
+}: {
+  enabled: boolean;
+  pending: boolean;
+  applied: boolean;
+  onApply: () => void;
+}) {
+  if (applied) {
+    return (
+      <Button size="sm" disabled>
+        <CheckCircle2 className="mr-1.5 h-3.5 w-3.5 text-[var(--profit)]" />
+        Applied
+      </Button>
+    );
+  }
+  if (pending) {
+    return (
+      <Button size="sm" disabled>
+        <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+        Applying…
+      </Button>
+    );
+  }
+  return (
+    <Button size="sm" onClick={onApply} disabled={!enabled}>
+      Apply to paper
+    </Button>
+  );
+}
