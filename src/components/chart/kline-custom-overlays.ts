@@ -169,7 +169,8 @@ const ZONE_RECT_OVERLAY = {
     const width = Math.max(0, rightX - rawLeftX);
     const y = Math.min(coordinates[0].y, coordinates[1].y);
     const height = Math.abs(coordinates[1].y - coordinates[0].y);
-    return [
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const figures: any[] = [
       {
         type: "rect",
         attrs: { x, y, width, height },
@@ -184,6 +185,25 @@ const ZONE_RECT_OVERLAY = {
         ignoreEvent: true,
       },
     ];
+    // Optional label at the rectangle's visible center. Uses the
+    // CLAMPED right edge so the text stays inside the visible portion
+    // of zones that extend past the last bar.
+    const text = typeof data.text === "string" ? data.text : "";
+    if (text && width > 24) {
+      figures.push({
+        type: "text",
+        attrs: {
+          x: x + width / 2,
+          y: y + height / 2,
+          text,
+          align: "center",
+          baseline: "middle",
+        },
+        styles: { ...LABEL_STYLES, color: baseColor },
+        ignoreEvent: true,
+      });
+    }
+    return figures;
   },
 };
 

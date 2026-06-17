@@ -134,11 +134,11 @@ function annotationOverlays(a: PatternAnnotation, bars: ChartBar[]): OverlayCrea
   }
 
   const bottom = a.bottom ?? a.top;
-  // Zones render as a translucent shaded rectangle via the custom
-  // `zoneRect` overlay (no text label — the shape is the annotation).
-  // Klinecharts v9 has no built-in rectangle overlay; calling it 'rect'
-  // silently no-ops because 'rect' is a low-level figure name, not an
-  // overlay name. See kline-custom-overlays.ts ZONE_RECT_OVERLAY.
+  // Zones render as a translucent shaded rectangle with a centered
+  // label via the custom `zoneRect` overlay. Klinecharts v9 has no
+  // built-in rectangle overlay; calling it 'rect' silently no-ops
+  // because 'rect' is a low-level figure name, not an overlay name.
+  // See kline-custom-overlays.ts ZONE_RECT_OVERLAY.
   void tMid;
   return [
     {
@@ -147,7 +147,12 @@ function annotationOverlays(a: PatternAnnotation, bars: ChartBar[]): OverlayCrea
         { timestamp: t1, value: a.top },
         { timestamp: t2, value: bottom },
       ],
-      extendData: { color, fillAlpha: 0.18, borderAlpha: 0.5 },
+      extendData: {
+        color,
+        fillAlpha: 0.18,
+        borderAlpha: 0.5,
+        text: ANNOTATION_LABELS[a.pattern_type],
+      },
     },
   ];
 }

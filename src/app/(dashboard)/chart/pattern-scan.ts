@@ -7,11 +7,11 @@
 import { detectBos } from "@/lib/patterns/bos";
 import { detectChoch } from "@/lib/patterns/choch";
 import { detectDailyBias } from "@/lib/patterns/daily-bias";
-import { scanFvgs } from "@/lib/patterns/fvg";
 import { detectLiquiditySweep } from "@/lib/patterns/liquidity-sweep";
 import { detectOrderBlock } from "@/lib/patterns/order-block";
 import { detectSwingPoints } from "@/lib/patterns/swing-points";
 import { buildBosResult, buildChochResult, buildSweepResult } from "./pattern-builders";
+import { scanFvgsAndIfvgs } from "./pattern-scan-fvg";
 import type {
   ChartBar,
   ChartPatterns,
@@ -35,56 +35,8 @@ function fmtPrice(p: number): string {
   return p.toFixed(5);
 }
 
-/** Forward-extension caps for unfilled / unmitigated zones. */
+/** Forward-extension cap for unfilled / unmitigated zones. */
 const OB_FORWARD_BARS = 30;
-const FVG_FORWARD_BARS = 20;
-/** Cap how far forward an IFVG (filled FVG that flipped role) extends
- *  before it's deemed stale even without an explicit re-violation. */
-const IFVG_FORWARD_BARS = 40;
-
-/** Minimum FVG gap size as a multiple of ATR(14) at formation. Smaller
- *  gaps are noise — a 3-bar imbalance where the gap is a fraction of
- *  a typical bar's range isn't a meaningful zone. ICT convention only
- *  marks significant gaps; this threshold approximates that. */
-const FVG_MIN_ATR_RATIO = 0.25;
-
-function atr14(bars: PriceBarLike[], idx: number): number {
-  const period = 14;
-  if (idx < period) return 0;
-  let sum = 0;
-  for (let i = idx - period + 1; i <= idx; i++) {
-    if (i === 0) {
-      sum += bars[i].high - bars[i].low;
-      continue;
-    }
-    const prevClose = bars[i - 1].close;
-    sum += Math.max(
-      bars[i].high - bars[i].low,
-      Math.abs(bars[i].high - prevClose),
-      Math.abs(bars[i].low - prevClose)
-    );
-  }
-  return sum / period;
-}
-
-/** Find the bar where an IFVG is re-violated — price closes back through
- *  the zone in the ORIGINAL FVG's direction (which is opposite the
- *  IFVG's direction). Returns the cap when no violation is found. */
-function findIfvgEndIdx(
-  bars: PriceBarLike[],
-  fillIdx: number,
-  gapTop: number,
-  gapBottom: number,
-  originalDirection: "bullish" | "bearish"
-): number {
-  const cap = Math.min(fillIdx + IFVG_FORWARD_BARS, bars.length - 1);
-  for (let j = fillIdx + 1; j <= cap; j++) {
-    const violated =
-      originalDirection === "bullish" ? bars[j].close > gapTop : bars[j].close < gapBottom;
-    if (violated) return j;
-  }
-  return cap;
-}
 
 function scanBosAndSweeps(
   bars: PriceBarLike[],
@@ -221,92 +173,6 @@ function scanOrderBlocks(
     });
   }
   return { points, annotations };
-}
-
-function scanFvgsAndIfvgs(
-  bars: PriceBarLike[],
-  chartBars: ChartBar[]
-): {
-  fvg: PatternPoint[];
-  ifvg: PatternPoint[];
-  annotations: PatternAnnotation[];
-} {
-  const fvg: PatternPoint[] = [];
-  const ifvg: PatternPoint[] = [];
-  const annotations: PatternAnnotation[] = [];
-  const gaps = scanFvgs(bars);
-  const lastBarIdx = chartBars.length - 1;
-  for (const g of gaps) {
-    // Significance filter — drop micro-gaps that are noise. scanFvgs
-    // flags any 3-bar imbalance, including ones smaller than a typical
-    // wick. ICT convention only marks gaps with enough size to be
-    // actionable, threshold ≈ 0.25× ATR(14) at formation.
-    const gapSize = g.gap.gap_top - g.gap.gap_bottom;
-    const a = atr14(bars, g.gap.created_at_idx);
-    if (a > 0 && gapSize < a * FVG_MIN_ATR_RATIO) continue;
-
-    // Anchor the rectangle at the FIRST bar of the 3-bar pattern so it
-    // visually encompasses the gap candle, matching ICT convention.
-    const startIdx = Math.max(0, g.gap.created_at_idx - 1);
-
-    fvg.push({
-      time: chartBars[g.gap.created_at_idx].time,
-      direction: g.gap.direction,
-      label: `FVG ${g.gap.direction} ${fmtPrice(g.gap.gap_bottom)}-${fmtPrice(g.gap.gap_top)}`,
-      top: g.gap.gap_top,
-      bottom: g.gap.gap_bottom,
-    });
-
-    if (g.filled_at == null) {
-      // Unfilled gap — extend forward by FVG_FORWARD_BARS so each
-      // zone reads as a bounded rectangle rather than a band stretching
-      // to the chart edge.
-      const endIdx = Math.min(g.gap.created_at_idx + FVG_FORWARD_BARS, lastBarIdx);
-      annotations.push({
-        pattern_type: "fvg",
-        kind: "zone",
-        direction: g.gap.direction,
-        from_time: chartBars[startIdx].time,
-        to_time: chartBars[endIdx].time,
-        top: g.gap.gap_top,
-        bottom: g.gap.gap_bottom,
-        label: "FVG",
-      });
-      continue;
-    }
-
-    // Filled — the original FVG flips role into an IFVG anchored at the
-    // fill bar. End at first re-violation (close back through the zone
-    // in the original FVG's direction) or +IFVG_FORWARD_BARS cap.
-    if (g.filled_at < chartBars.length) {
-      const flipDir = g.gap.direction === "bullish" ? "bearish" : "bullish";
-      const endIdx = findIfvgEndIdx(
-        bars,
-        g.filled_at,
-        g.gap.gap_top,
-        g.gap.gap_bottom,
-        g.gap.direction
-      );
-      ifvg.push({
-        time: chartBars[g.filled_at].time,
-        direction: flipDir,
-        label: `IFVG ${flipDir} flip`,
-        top: g.gap.gap_top,
-        bottom: g.gap.gap_bottom,
-      });
-      annotations.push({
-        pattern_type: "ifvg",
-        kind: "zone",
-        direction: flipDir,
-        from_time: chartBars[g.filled_at].time,
-        to_time: chartBars[endIdx].time,
-        top: g.gap.gap_top,
-        bottom: g.gap.gap_bottom,
-        label: "IFVG",
-      });
-    }
-  }
-  return { fvg, ifvg, annotations };
 }
 
 function computeDailyBias(bars: PriceBarLike[]): ChartPatterns["daily_bias"] {
