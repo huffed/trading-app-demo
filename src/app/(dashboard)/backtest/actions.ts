@@ -6,6 +6,7 @@ import { runPortfolioBacktest } from "@/lib/market-data/portfolio-backtest";
 import { getCachedPrices, savePricesToCache } from "@/lib/market-data/price-cache";
 import { fetchDailyPrices } from "@/lib/market-data/prices";
 import type { BacktestTrade } from "@/lib/market-data/types";
+import type { Tables } from "@/lib/supabase/database.types";
 import { getAuthedUser } from "@/lib/supabase/get-authed-user";
 import { type ActionResult } from "@/lib/types/action-result";
 import type { AlgorithmRules } from "@/types/algorithm";
@@ -39,12 +40,7 @@ export async function getBacktestTradesAction(
   if (!algorithmId) return { success: false, error: "missing algorithm id" };
   try {
     const { supabase, user } = await getAuthedUser();
-    // backtest_trades isn't in the regenerated DB types yet (migration
-    // 00043). Drop typed schema for these new-table calls until types
-    // are regenerated post-apply.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const sb = supabase as any;
-    const { data, error } = await sb
+    const { data, error } = await supabase
       .from("backtest_trades")
       .select("*")
       .eq("user_id", user.id)
@@ -65,27 +61,14 @@ export async function getBacktestTradesAction(
   }
 }
 
-interface BacktestRowFromDb {
-  id: string;
-  algorithm_id: string;
-  ticker: string;
-  side: "long" | "short";
-  entry_date: string;
-  exit_date: string;
-  entry_price: number | string;
-  exit_price: number | string;
-  pnl: number | string;
-  r_multiple: number | string | null;
-  exit_reason: string | null;
-  run_at: string;
-}
+type DbRow = Tables<"backtest_trades">;
 
-function toRow(r: BacktestRowFromDb): BacktestTradeRow {
+function toRow(r: DbRow): BacktestTradeRow {
   return {
     id: r.id,
     algorithm_id: r.algorithm_id,
     ticker: r.ticker,
-    side: r.side,
+    side: r.side === "short" ? "short" : "long",
     entry_date: r.entry_date,
     exit_date: r.exit_date,
     entry_price: Number(r.entry_price),
@@ -146,9 +129,7 @@ export async function runAlgorithmBacktestAction(
     const result = runPortfolioBacktest(rules, pricesByTicker, capital, events);
 
     const runAt = new Date().toISOString();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const sb = supabase as any;
-    await sb
+    await supabase
       .from("backtest_trades")
       .delete()
       .eq("user_id", user.id)
@@ -156,7 +137,7 @@ export async function runAlgorithmBacktestAction(
 
     if (result.trades.length > 0) {
       const rows = result.trades.map((t) => toInsertRow(t, algorithmId, user.id, runAt, tickers[0]));
-      const ins = await sb.from("backtest_trades").insert(rows);
+      const ins = await supabase.from("backtest_trades").insert(rows);
       if (ins.error) return { success: false, error: ins.error.message };
     }
     return { success: true, data: { trade_count: result.trades.length, run_at: runAt } };

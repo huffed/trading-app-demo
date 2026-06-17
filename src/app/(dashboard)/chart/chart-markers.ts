@@ -3,12 +3,10 @@
  * array of ChartMarker entries (entry + exit pairs) ready to ship to
  * the client. Split so the actions file stays under the max-lines lint.
  */
+import type { createClient } from "@/lib/supabase/server";
 import type { ChartMarker } from "./actions";
 
-type Supa = {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  from: (table: string) => any;
-};
+type Supa = Awaited<ReturnType<typeof createClient>>;
 
 function isoToUnixSeconds(iso: string): number {
   return Math.floor(new Date(iso).getTime() / 1000);
