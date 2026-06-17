@@ -3,14 +3,21 @@
  * stay under max-lines and isolate the klinecharts-specific
  * style/option shaping from the React component.
  */
-import { LineType, PolygonType, registerOverlay, type Chart, type OverlayCreate } from "klinecharts";
+import { LineType, PolygonType, type Chart, type OverlayCreate } from "klinecharts";
 import type {
   ChartBar,
   ChartData,
   ChartMarker,
   PatternAnnotation,
 } from "@/app/(dashboard)/chart/actions";
+import {
+  ensureCustomOverlaysRegistered,
+  type LabelAnchor,
+} from "./kline-custom-overlays";
 import { LAYER_META, type LayerConfig } from "./layer-config";
+
+// Re-export so callers (kline-chart.tsx) can ensure registration.
+export { ensureCustomOverlaysRegistered as ensureTextLabelRegistered };
 
 /** Snap an arbitrary UTC-milliseconds timestamp to the closest actual
  *  bar's timestamp. Klinecharts overlay points whose timestamp falls
@@ -38,79 +45,23 @@ const PROFIT_COLOR = "rgba(74,196,142,1)";
 const LOSS_COLOR = "rgba(232,90,90,1)";
 const NEUTRAL_COLOR = "rgba(180,180,220,1)";
 
-/** Custom overlay: flat text at a single point. Built-in
- *  `simpleAnnotation` paints text inside a blue bubble + arrow +
- *  connector line because the global OverlayStyle.text default has
- *  backgroundColor=blue, borderColor=blue. Per-overlay style overrides
- *  pass through that same global text style.
- *
- *  This template draws ONE text figure with per-figure styles set
- *  explicitly to transparent background / no border. The per-figure
- *  styles bypass the global text style entirely.
- *
- *  extendData payload: `{ text, color, anchor }` — anchor is one of
- *  'above' | 'below' | 'middle' and shifts the label vertically by a
- *  fixed pixel amount so the label doesn't overlap whatever it's
- *  describing (segment lines, candle bodies, etc). */
-type LabelAnchor = "above" | "below" | "middle";
 
-const LABEL_Y_OFFSET = 12; // px
-
-const TEXT_LABEL_OVERLAY = {
-  name: "textLabel",
-  totalStep: 2,
-  needDefaultPointFigure: false,
-  needDefaultXAxisFigure: false,
-  needDefaultYAxisFigure: false,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  createPointFigures: ({ overlay, coordinates }: any) => {
-    const data = overlay.extendData ?? {};
-    const text = typeof data.text === "string" ? data.text : "";
-    const color = typeof data.color === "string" ? data.color : NEUTRAL_COLOR;
-    const anchor: LabelAnchor = data.anchor ?? "middle";
-    const DY: Record<LabelAnchor, number> = { above: -LABEL_Y_OFFSET, below: LABEL_Y_OFFSET, middle: 0 };
-    const BASELINE: Record<LabelAnchor, "bottom" | "top" | "middle"> = {
-      above: "bottom",
-      below: "top",
-      middle: "middle",
-    };
-    const dy = DY[anchor];
-    const baseline = BASELINE[anchor];
-    return [
-      {
-        type: "text",
-        attrs: {
-          x: coordinates[0].x,
-          y: coordinates[0].y + dy,
-          text,
-          align: "center",
-          baseline,
-        },
-        styles: {
-          color,
-          size: 11,
-          family: "system-ui",
-          weight: "600",
-          backgroundColor: "transparent",
-          borderColor: "transparent",
-          borderSize: 0,
-          paddingLeft: 0,
-          paddingRight: 0,
-          paddingTop: 0,
-          paddingBottom: 0,
-        },
-        ignoreEvent: true,
-      },
-    ];
-  },
-};
-
-let textLabelRegistered = false;
-export function ensureTextLabelRegistered(): void {
-  if (textLabelRegistered) return;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  registerOverlay(TEXT_LABEL_OVERLAY as any);
-  textLabelRegistered = true;
+function labeledSegment(
+  t1: number,
+  t2: number,
+  price: number,
+  text: string,
+  color: string,
+  anchor: "above" | "below"
+): OverlayCreate {
+  return {
+    name: "labeledSegment",
+    points: [
+      { timestamp: t1, value: price },
+      { timestamp: t2, value: price },
+    ],
+    extendData: { text, color, anchor },
+  };
 }
 
 function labelOverlay(
@@ -164,21 +115,16 @@ function annotationOverlays(a: PatternAnnotation, bars: ChartBar[]): OverlayCrea
   // klinecharts uses milliseconds; ChartData times are UTC seconds.
   const t1 = a.from_time * 1000;
   const t2 = a.to_time * 1000;
-  // Snap midpoint to nearest bar — see nearestBarMs.
+  // Zone-label midpoint can still use the timestamp-snap approach
+  // since rectangle labels sit inside the zone, not on a line. Lines
+  // use labeledSegment which computes a true pixel midpoint.
   const tMid = nearestBarMs((t1 + t2) / 2, bars);
 
   if (a.kind === "line") {
     return [
-      {
-        name: "segment",
-        points: [
-          { timestamp: t1, value: a.top },
-          { timestamp: t2, value: a.top },
-        ],
-        styles: { line: { color, style: LineType.Dashed, size: 2, dashedValue: [4, 4] } },
-      },
-      labelOverlay(
-        tMid,
+      labeledSegment(
+        t1,
+        t2,
         a.top,
         ANNOTATION_LABELS[a.pattern_type],
         color,
