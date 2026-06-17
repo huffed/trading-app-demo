@@ -40,6 +40,7 @@ export async function updateSession(request: NextRequest) {
     "/journal",
     "/algorithms",
     "/chart",
+    "/backtest",
     "/performance",
     "/reports",
     "/analytics",

@@ -1,5 +1,5 @@
 /**
- * Supabase database types — GENERATED from the live schema 2026-06-16
+ * Supabase database types — GENERATED from the live schema 2026-06-17
  * via the Supabase MCP (`generate_typescript_types`). Do not hand-edit;
  * regenerate after applying migrations. Single source of truth for row
  * shapes — local `interface XRow { ... }` duplicates and
@@ -302,6 +302,65 @@ export type Database = {
             columns: ["strategy_id"]
             isOneToOne: false
             referencedRelation: "strategies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      backtest_trades: {
+        Row: {
+          algorithm_id: string
+          created_at: string
+          entry_date: string
+          entry_price: number
+          exit_date: string
+          exit_price: number
+          exit_reason: string | null
+          id: string
+          pnl: number
+          r_multiple: number | null
+          run_at: string
+          side: string
+          ticker: string
+          user_id: string
+        }
+        Insert: {
+          algorithm_id: string
+          created_at?: string
+          entry_date: string
+          entry_price: number
+          exit_date: string
+          exit_price: number
+          exit_reason?: string | null
+          id?: string
+          pnl: number
+          r_multiple?: number | null
+          run_at?: string
+          side: string
+          ticker: string
+          user_id: string
+        }
+        Update: {
+          algorithm_id?: string
+          created_at?: string
+          entry_date?: string
+          entry_price?: number
+          exit_date?: string
+          exit_price?: number
+          exit_reason?: string | null
+          id?: string
+          pnl?: number
+          r_multiple?: number | null
+          run_at?: string
+          side?: string
+          ticker?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "backtest_trades_algorithm_id_fkey"
+            columns: ["algorithm_id"]
+            isOneToOne: false
+            referencedRelation: "algorithms"
             referencedColumns: ["id"]
           },
         ]

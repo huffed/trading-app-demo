@@ -27,6 +27,10 @@ interface KlineChartProps {
    *  via chart.updateData so the built-in priceMark.last (the green
    *  dashed line) tracks the live tick. null while loading. */
   livePrice?: number | null;
+  /** UTC seconds — when set, the chart scrolls to put this timestamp
+   *  near the center of the visible range. Used by /backtest to focus
+   *  on a clicked trade. */
+  focusTime?: number | null;
   /** Main pane height. Each oscillator pane (RSI, MACD) adds 140px. */
   height?: number;
 }
@@ -88,6 +92,7 @@ export function KlineChart({
   layers,
   timeframe,
   livePrice,
+  focusTime,
   height = 480,
 }: KlineChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -137,6 +142,7 @@ export function KlineChart({
   }, [data, layers]);
 
   useLiveBarUpdate(chartRef, livePrice, data.bars, timeframe);
+  useFocusOnTimestamp(chartRef, focusTime, data.bars);
 
   // Klinecharts grows the canvas to fit oscillator panes — keep the
   // container at least that tall so the panes don't overflow behind
@@ -212,6 +218,50 @@ function useLiveBarUpdate(
       volume: 0,
     });
   }, [chartRef, livePrice, bars, timeframe]);
+}
+
+/** Scroll the chart so `focusTime` (UTC seconds) sits ~30% from the
+ *  right edge. Klinecharts has no direct "center on timestamp" API, so
+ *  we set the offset distance from the last bar to (last - focus) bars
+ *  worth of pixels. Idempotent — no-op when focusTime is null or out
+ *  of range. */
+function useFocusOnTimestamp(
+  chartRef: React.RefObject<Chart | null>,
+  focusTime: number | null | undefined,
+  bars: ChartData["bars"]
+): void {
+  useEffect(() => {
+    const chart = chartRef.current;
+    if (!chart || focusTime == null || bars.length === 0) return;
+    const lastBar = bars[bars.length - 1];
+    if (focusTime > lastBar.time) {
+      chart.setOffsetRightDistance(0);
+      return;
+    }
+    // Find the bar index closest to focusTime.
+    let lo = 0;
+    let hi = bars.length - 1;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (bars[mid].time < focusTime) lo = mid + 1;
+      else hi = mid;
+    }
+    const idx = lo;
+    const barSpace = (chart.getBarSpace?.() as number | undefined) ?? 8;
+    // Put `focusTime` ~30% from the right edge: offsetRightDistance is
+    // the gap past the last bar, so to PULL the focus bar toward the
+    // right we offset by (lastIdx - focusIdx - ~30% of visible) bars.
+    const visibleBars = Math.max(40, Math.floor((containerWidth(chart) * 0.4) / barSpace));
+    const targetTrailing = Math.floor(visibleBars * 0.3);
+    const offsetBars = bars.length - 1 - idx - targetTrailing;
+    const offsetPx = Math.max(0, offsetBars * barSpace);
+    chart.setOffsetRightDistance(offsetPx);
+  }, [chartRef, focusTime, bars]);
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function containerWidth(chart: any): number {
+  return chart?.getDom?.()?.clientWidth ?? 800;
 }
 
 const BIAS_COLOR: Record<"bullish" | "bearish" | "neutral", string> = {
