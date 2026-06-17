@@ -5,11 +5,34 @@
  */
 import { LineType, PolygonType, registerOverlay, type Chart, type OverlayCreate } from "klinecharts";
 import type {
+  ChartBar,
   ChartData,
   ChartMarker,
   PatternAnnotation,
 } from "@/app/(dashboard)/chart/actions";
 import { LAYER_META, type LayerConfig } from "./layer-config";
+
+/** Snap an arbitrary UTC-milliseconds timestamp to the closest actual
+ *  bar's timestamp. Klinecharts overlay points whose timestamp falls
+ *  between bars get snapped to the NEXT-later bar rather than the
+ *  closest — for line/zone midpoint labels that meant labels drifted
+ *  rightward instead of sitting at the geometric centre. */
+function nearestBarMs(targetMs: number, bars: ChartBar[]): number {
+  if (bars.length === 0) return targetMs;
+  let lo = 0;
+  let hi = bars.length - 1;
+  // bars are time-ordered ascending; binary search to first bar whose
+  // ms-time >= target.
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (bars[mid].time * 1000 < targetMs) lo = mid + 1;
+    else hi = mid;
+  }
+  if (lo === 0) return bars[0].time * 1000;
+  const afterMs = bars[lo].time * 1000;
+  const beforeMs = bars[lo - 1].time * 1000;
+  return targetMs - beforeMs <= afterMs - targetMs ? beforeMs : afterMs;
+}
 
 const PROFIT_COLOR = "rgba(74,196,142,1)";
 const LOSS_COLOR = "rgba(232,90,90,1)";
@@ -25,8 +48,14 @@ const NEUTRAL_COLOR = "rgba(180,180,220,1)";
  *  explicitly to transparent background / no border. The per-figure
  *  styles bypass the global text style entirely.
  *
- *  extendData payload: `{ text: string, color: string }` so each label
- *  carries its own color. */
+ *  extendData payload: `{ text, color, anchor }` — anchor is one of
+ *  'above' | 'below' | 'middle' and shifts the label vertically by a
+ *  fixed pixel amount so the label doesn't overlap whatever it's
+ *  describing (segment lines, candle bodies, etc). */
+type LabelAnchor = "above" | "below" | "middle";
+
+const LABEL_Y_OFFSET = 12; // px
+
 const TEXT_LABEL_OVERLAY = {
   name: "textLabel",
   totalStep: 2,
@@ -38,15 +67,24 @@ const TEXT_LABEL_OVERLAY = {
     const data = overlay.extendData ?? {};
     const text = typeof data.text === "string" ? data.text : "";
     const color = typeof data.color === "string" ? data.color : NEUTRAL_COLOR;
+    const anchor: LabelAnchor = data.anchor ?? "middle";
+    const DY: Record<LabelAnchor, number> = { above: -LABEL_Y_OFFSET, below: LABEL_Y_OFFSET, middle: 0 };
+    const BASELINE: Record<LabelAnchor, "bottom" | "top" | "middle"> = {
+      above: "bottom",
+      below: "top",
+      middle: "middle",
+    };
+    const dy = DY[anchor];
+    const baseline = BASELINE[anchor];
     return [
       {
         type: "text",
         attrs: {
           x: coordinates[0].x,
-          y: coordinates[0].y,
+          y: coordinates[0].y + dy,
           text,
           align: "center",
-          baseline: "middle",
+          baseline,
         },
         styles: {
           color,
@@ -75,11 +113,17 @@ export function ensureTextLabelRegistered(): void {
   textLabelRegistered = true;
 }
 
-function labelOverlay(timestamp: number, value: number, text: string, color: string): OverlayCreate {
+function labelOverlay(
+  timestamp: number,
+  value: number,
+  text: string,
+  color: string,
+  anchor: LabelAnchor = "middle"
+): OverlayCreate {
   return {
     name: "textLabel",
     points: [{ timestamp, value }],
-    extendData: { text, color },
+    extendData: { text, color, anchor },
   };
 }
 
@@ -115,11 +159,13 @@ function isAnnotationEnabled(a: PatternAnnotation, layers: LayerConfig): boolean
   }
 }
 
-function annotationOverlays(a: PatternAnnotation): OverlayCreate[] {
+function annotationOverlays(a: PatternAnnotation, bars: ChartBar[]): OverlayCreate[] {
   const color = directionColor(a.direction);
   // klinecharts uses milliseconds; ChartData times are UTC seconds.
   const t1 = a.from_time * 1000;
   const t2 = a.to_time * 1000;
+  // Snap midpoint to nearest bar — see nearestBarMs.
+  const tMid = nearestBarMs((t1 + t2) / 2, bars);
 
   if (a.kind === "line") {
     return [
@@ -131,7 +177,13 @@ function annotationOverlays(a: PatternAnnotation): OverlayCreate[] {
         ],
         styles: { line: { color, style: LineType.Dashed, size: 2, dashedValue: [4, 4] } },
       },
-      labelOverlay((t1 + t2) / 2, a.top, ANNOTATION_LABELS[a.pattern_type], color),
+      labelOverlay(
+        tMid,
+        a.top,
+        ANNOTATION_LABELS[a.pattern_type],
+        color,
+        a.direction === "bullish" ? "above" : "below"
+      ),
     ];
   }
 
@@ -155,7 +207,7 @@ function annotationOverlays(a: PatternAnnotation): OverlayCreate[] {
         },
       },
     },
-    labelOverlay((t1 + t2) / 2, (a.top + bottom) / 2, ANNOTATION_LABELS[a.pattern_type], color),
+    labelOverlay(tMid, (a.top + bottom) / 2, ANNOTATION_LABELS[a.pattern_type], color),
   ];
 }
 
@@ -165,7 +217,12 @@ function tradeOverlays(markers: ChartMarker[], layers: LayerConfig): OverlayCrea
     if (m.kind === "entry" && !layers.trade_entries) continue;
     if (m.kind === "exit" && !layers.trade_exits) continue;
     const color = m.side === "long" ? PROFIT_COLOR : LOSS_COLOR;
-    out.push(labelOverlay(m.time * 1000, m.price, m.label, color));
+    // Entries get pushed BELOW the entry price (toward the SL); exits
+    // ABOVE — so the entry/exit pair don't overlap each other on a
+    // round-trip trade. Long entry below the bar reads as 'bought
+    // from this level'; short entry below reads similarly.
+    const anchor = m.kind === "entry" ? "below" : "above";
+    out.push(labelOverlay(m.time * 1000, m.price, m.label, color, anchor));
   }
   return out;
 }
@@ -177,8 +234,12 @@ function swingOverlays(
   if (!enabled) return [];
   return swings.map((s) => {
     const bullish = s.type === "HH" || s.type === "HL";
+    const isHigh = s.type === "HH" || s.type === "LH";
     const color = bullish ? PROFIT_COLOR : LOSS_COLOR;
-    return labelOverlay(s.time * 1000, s.price, s.type, color);
+    // Highs labeled above the swing, lows below — matches the
+    // trader-image reference (HH labels above the candle high, HL
+    // labels below the candle low).
+    return labelOverlay(s.time * 1000, s.price, s.type, color, isHigh ? "above" : "below");
   });
 }
 
@@ -186,7 +247,7 @@ export function applyOverlays(chart: Chart, data: ChartData, layers: LayerConfig
   chart.removeOverlay();
   const overlays: OverlayCreate[] = [];
   for (const a of data.patterns.annotations) {
-    if (isAnnotationEnabled(a, layers)) overlays.push(...annotationOverlays(a));
+    if (isAnnotationEnabled(a, layers)) overlays.push(...annotationOverlays(a, data.bars));
   }
   overlays.push(...swingOverlays(data.patterns.swings, layers.swings));
   overlays.push(...tradeOverlays(data.markers, layers));
