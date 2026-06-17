@@ -15,6 +15,7 @@
  * scans — keeps the engine deterministic for backtest replay.
  */
 import type { EconomicEvent } from "@/lib/market-data/economic-calendar";
+import { alignBarIndex } from "@/lib/market-data/resample";
 import type { PriceBar } from "@/lib/market-data/types";
 import type { PatternCondition } from "@/types/algorithm";
 import { detectAsianRangeBreak } from "./asian-range-break";
@@ -130,7 +131,19 @@ function evaluateClassicPattern(
     }
     case "daily_bias": {
       if (!higherTfBars || higherTfBars.length === 0) return false;
-      const r = detectDailyBias(higherTfBars, cond.ma_period ?? 20);
+      // detectDailyBias reads `bars.slice(-period)` — the LAST 20 daily
+      // bars regardless of which primary bar we're evaluating. That's
+      // correct for live trading (the last bar IS today) but is a
+      // look-ahead bias in backtest: every historical bar gets asked
+      // "is TODAY (June 2026) bullish?" instead of "was THAT day
+      // bullish?". The bug suppressed all entries on instruments whose
+      // present-day bias didn't match the rule's direction (the 7+
+      // zero-trade library algos). Align higherTfBars to the current
+      // primary bar's date first.
+      const dIdx = alignBarIndex(higherTfBars, bars[idx].date);
+      if (dIdx < 0) return false;
+      const alignedDaily = higherTfBars.slice(0, dIdx + 1);
+      const r = detectDailyBias(alignedDaily, cond.ma_period ?? 20);
       if (!r.detected || !r.details) return false;
       if (effectiveDir && r.details.bias !== effectiveDir) return false;
       return true;
