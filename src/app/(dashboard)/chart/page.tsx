@@ -29,8 +29,8 @@ const DEFAULT_TICKERS = ["XAU/USD", "USD/JPY", "EUR/USD", "GBP/USD"];
 
 export default function ChartPage() {
   const [ticker, setTicker] = useState("XAU/USD");
-  const [timeframe, setTimeframe] = useState<ChartTimeframe>("4h");
-  const [outputSize, setOutputSize] = useState<"compact" | "full">("compact");
+  const [timeframe, setTimeframe] = useState<ChartTimeframe>("1h");
+  const [outputSize, setOutputSize] = useState<"compact" | "full">("full");
   const [tickerDraft, setTickerDraft] = useState(ticker);
   const [layers, setLayers] = useState<LayerConfig>(DEFAULT_LAYERS);
 
