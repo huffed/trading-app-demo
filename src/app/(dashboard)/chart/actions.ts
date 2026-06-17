@@ -1,9 +1,10 @@
 "use server";
 
-import { sma } from "@/lib/market-data/indicators";
+import { bollingerBands, ema, macd, rsi, sma } from "@/lib/market-data/indicators";
 import { fetchDailyPrices } from "@/lib/market-data/prices";
 import { createClient } from "@/lib/supabase/server";
 import { type ActionResult } from "@/lib/types/action-result";
+import { computePatterns } from "./pattern-scan";
 
 export type ChartTimeframe = "15min" | "30min" | "1h" | "4h" | "1day";
 
@@ -27,13 +28,55 @@ export interface ChartMarker {
   label: string;
 }
 
+/** Per-bar indicator series — same length as `bars`, with null prefix
+ *  for periods before each indicator's warm-up window completes. */
+export interface ChartIndicators {
+  sma20: (number | null)[];
+  sma50: (number | null)[];
+  sma200: (number | null)[];
+  ema12: (number | null)[];
+  ema26: (number | null)[];
+  bb_upper: (number | null)[];
+  bb_middle: (number | null)[];
+  bb_lower: (number | null)[];
+  rsi: (number | null)[];
+  /** MACD = (EMA12 − EMA26); signal = EMA9(MACD); histogram = MACD − signal. */
+  macd_line: (number | null)[];
+  macd_signal: (number | null)[];
+  macd_histogram: (number | null)[];
+}
+
+/** A detected pattern at a specific bar. `time` is UTC seconds. */
+export interface PatternPoint {
+  time: number;
+  direction: "bullish" | "bearish" | "neutral";
+  label: string;
+  /** Optional price anchor (for FVG/OB zones — gap edges or block edges). */
+  top?: number;
+  bottom?: number;
+}
+
+export interface ChartPatterns {
+  fvg: PatternPoint[];
+  ifvg: PatternPoint[];
+  bos: PatternPoint[];
+  sweep: PatternPoint[];
+  order_block: PatternPoint[];
+  choch: PatternPoint[];
+  /** Daily bias is one-per-chart, not one-per-bar. */
+  daily_bias: {
+    bias: "bullish" | "bearish" | "neutral";
+    ma_value: number;
+    ma_period: number;
+  } | null;
+}
+
 export interface ChartData {
   ticker: string;
   timeframe: ChartTimeframe;
   bars: ChartBar[];
-  /** SMA20 overlay computed from bars closes. Aligned 1:1 with bars
-   *  (null for the first 19 indices). */
-  sma20: (number | null)[];
+  indicators: ChartIndicators;
+  patterns: ChartPatterns;
   markers: ChartMarker[];
 }
 
@@ -54,6 +97,55 @@ function computeR(
   return move / risk;
 }
 
+/** EMA-9 over the MACD line, NaN-safe. Used to derive the signal line +
+ *  histogram in the standard MACD(12,26,9) configuration. */
+function emaOfNullable(values: (number | null)[], period: number): (number | null)[] {
+  const out: (number | null)[] = new Array(values.length).fill(null);
+  const k = 2 / (period + 1);
+  let ema: number | null = null;
+  let seeded = 0;
+  let seedSum = 0;
+  for (let i = 0; i < values.length; i++) {
+    const v = values[i];
+    if (v == null) continue;
+    if (ema == null) {
+      seedSum += v;
+      seeded++;
+      if (seeded === period) {
+        ema = seedSum / period;
+        out[i] = ema;
+      }
+      continue;
+    }
+    ema = v * k + ema * (1 - k);
+    out[i] = ema;
+  }
+  return out;
+}
+
+function computeIndicators(closes: number[]): ChartIndicators {
+  const bb = bollingerBands(closes);
+  const macdLine = macd(closes);
+  const macdSignal = emaOfNullable(macdLine, 9);
+  const macdHistogram = macdLine.map((v, i) =>
+    v != null && macdSignal[i] != null ? v - (macdSignal[i] as number) : null
+  );
+  return {
+    sma20: sma(closes, 20),
+    sma50: sma(closes, 50),
+    sma200: sma(closes, 200),
+    ema12: ema(closes, 12),
+    ema26: ema(closes, 26),
+    bb_upper: bb.upper,
+    bb_middle: bb.middle,
+    bb_lower: bb.lower,
+    rsi: rsi(closes),
+    macd_line: macdLine,
+    macd_signal: macdSignal,
+    macd_histogram: macdHistogram,
+  };
+}
+
 export async function getChartDataAction(
   ticker: string,
   timeframe: ChartTimeframe,
@@ -70,8 +162,6 @@ export async function getChartDataAction(
     if (rawBars.length === 0) {
       return { success: false, error: `No bars returned for ${ticker} ${timeframe}` };
     }
-    // Sort ascending — fetchDailyPrices generally returns ascending but
-    // some providers flip; lightweight-charts requires ascending.
     const sortedBars = [...rawBars].sort(
       (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
     );
@@ -85,17 +175,16 @@ export async function getChartDataAction(
     }));
 
     const closes = bars.map((b) => b.close);
-    const sma20 = sma(closes, 20);
+    const indicators = computeIndicators(closes);
+    const patterns = computePatterns(sortedBars, bars);
 
-    // Trade markers from paper_positions on this ticker. Limit to the
-    // window the chart covers so we don't show off-screen markers.
     const firstBarTime = bars[0]?.time ?? 0;
     const sinceIso = new Date(firstBarTime * 1000).toISOString();
     const markers = await fetchTradeMarkers(supabase, ticker, sinceIso);
 
     return {
       success: true,
-      data: { ticker, timeframe, bars, sma20, markers },
+      data: { ticker, timeframe, bars, indicators, patterns, markers },
     };
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Chart data query failed";
@@ -158,4 +247,3 @@ async function fetchTradeMarkers(
   }
   return markers;
 }
-

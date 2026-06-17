@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { AlertCircle, RefreshCw } from "lucide-react";
 import type { ChartTimeframe } from "@/app/(dashboard)/chart/actions";
+import { DEFAULT_LAYERS, type LayerConfig } from "@/components/chart/layer-config";
+import { LayerTogglePanel } from "@/components/chart/layer-toggle-panel";
 import { TradingChart } from "@/components/chart/trading-chart";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -30,6 +32,7 @@ export default function ChartPage() {
   const [timeframe, setTimeframe] = useState<ChartTimeframe>("4h");
   const [outputSize, setOutputSize] = useState<"compact" | "full">("compact");
   const [tickerDraft, setTickerDraft] = useState(ticker);
+  const [layers, setLayers] = useState<LayerConfig>(DEFAULT_LAYERS);
 
   const { data, isLoading, isError, error, refetch, isFetching } = useChartData(
     ticker,
@@ -89,19 +92,21 @@ export default function ChartPage() {
       {isLoading && <Skeleton className="h-[480px] w-full rounded-md" />}
 
       {data && !isLoading && (
-        <Card>
-          <CardContent className="p-3 space-y-2">
-            <ChartHeader
-              ticker={data.ticker}
-              timeframe={data.timeframe}
-              barCount={data.bars.length}
-              markerCount={data.markers.length}
-              hasActiveAlgo={tickersWithAlgos.has(data.ticker)}
-            />
-            <TradingChart bars={data.bars} sma20={data.sma20} markers={data.markers} />
-            <Legend />
-          </CardContent>
-        </Card>
+        <>
+          <Card>
+            <CardContent className="p-3 space-y-2">
+              <ChartHeader
+                ticker={data.ticker}
+                timeframe={data.timeframe}
+                barCount={data.bars.length}
+                markerCount={data.markers.length}
+                hasActiveAlgo={tickersWithAlgos.has(data.ticker)}
+              />
+              <TradingChart data={data} layers={layers} />
+            </CardContent>
+          </Card>
+          <LayerTogglePanel layers={layers} onChange={setLayers} />
+        </>
       )}
     </div>
   );
@@ -264,24 +269,3 @@ function ChartHeader({
   );
 }
 
-function Legend() {
-  return (
-    <div className="flex flex-wrap items-center gap-3 px-1 text-[10px] text-muted-foreground">
-      <span className="inline-flex items-center gap-1">
-        <span className="h-1 w-3 bg-[rgba(120,180,230,0.9)] rounded-sm" /> SMA(20)
-      </span>
-      <span className="inline-flex items-center gap-1">
-        <span className="text-[var(--profit)]">▲</span> long entry
-      </span>
-      <span className="inline-flex items-center gap-1">
-        <span className="text-[var(--loss)]">▼</span> short entry
-      </span>
-      <span className="inline-flex items-center gap-1">
-        <span className="text-[var(--profit)]">●</span> winning exit
-      </span>
-      <span className="inline-flex items-center gap-1">
-        <span className="text-[var(--loss)]">■</span> losing exit
-      </span>
-    </div>
-  );
-}
