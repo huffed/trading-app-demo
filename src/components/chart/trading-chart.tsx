@@ -20,38 +20,32 @@ interface TradingChartProps {
   height?: number;
 }
 
-/** Resolve a CSS custom property on the container, falling back to a
- *  hardcoded color when the variable is unset or returns an oklch value
- *  lightweight-charts can't parse. Lightweight-charts accepts hex /
- *  rgb / rgba / named colors only. */
-function resolveColor(container: HTMLElement, varName: string, fallback: string): string {
-  const raw = getComputedStyle(container).getPropertyValue(varName).trim();
-  if (!raw) return fallback;
-  // lightweight-charts can't parse oklch/lch/hsl-modern — fall back.
-  if (/^(oklch|lch|color)/.test(raw)) return fallback;
-  return raw;
-}
+/** Lightweight-charts only accepts hex / rgb / rgba / named colors —
+ *  it can't parse var() / oklch / lch / lab / color(). And browsers
+ *  normalize CSS variables to different color spaces, so reading
+ *  `--color-foreground` via getComputedStyle is unreliable. Solution:
+ *  hardcode theme-neutral semi-transparent grays that read fine against
+ *  both light and dark backgrounds. The candle/SMA/marker colors are
+ *  already explicit rgba elsewhere in this file. */
+const TEXT_COLOR = "rgba(160,164,175,0.95)";
+const GRID_COLOR = "rgba(120,120,120,0.10)";
+const BORDER_COLOR = "rgba(120,120,120,0.30)";
 
 function makeChart(container: HTMLDivElement, height: number): IChartApi {
-  // Theme-aware text/grid colors. We can't pass `var(...)` directly to
-  // lightweight-charts (it doesn't parse CSS variables), and our oklch
-  // tokens don't parse either, so we resolve at mount with explicit
-  // theme-neutral fallbacks.
-  const textColor = resolveColor(container, "--color-foreground", "rgba(160,160,170,0.95)");
   return createChart(container, {
     width: container.clientWidth,
     height,
     layout: {
       background: { type: ColorType.Solid, color: "transparent" },
-      textColor,
+      textColor: TEXT_COLOR,
       fontSize: 11,
     },
     grid: {
-      vertLines: { color: "rgba(120,120,120,0.1)" },
-      horzLines: { color: "rgba(120,120,120,0.1)" },
+      vertLines: { color: GRID_COLOR },
+      horzLines: { color: GRID_COLOR },
     },
-    rightPriceScale: { borderColor: "rgba(120,120,120,0.3)" },
-    timeScale: { borderColor: "rgba(120,120,120,0.3)", timeVisible: true, secondsVisible: false },
+    rightPriceScale: { borderColor: BORDER_COLOR },
+    timeScale: { borderColor: BORDER_COLOR, timeVisible: true, secondsVisible: false },
     crosshair: { mode: 1 },
   });
 }
