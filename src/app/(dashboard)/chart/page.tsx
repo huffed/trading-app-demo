@@ -3,9 +3,9 @@
 import { useState } from "react";
 import { AlertCircle, RefreshCw } from "lucide-react";
 import type { ChartTimeframe } from "@/app/(dashboard)/chart/actions";
+import { ChartLayersRail } from "@/components/chart/chart-layers-rail";
 import { KlineChart } from "@/components/chart/kline-chart";
 import { DEFAULT_LAYERS, type LayerConfig } from "@/components/chart/layer-config";
-import { LayerTogglePanel } from "@/components/chart/layer-toggle-panel";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -94,23 +94,54 @@ export default function ChartPage() {
       {isLoading && <Skeleton className="h-[480px] w-full rounded-md" />}
 
       {data && !isLoading && (
-        <>
-          <Card>
-            <CardContent className="p-3 space-y-2">
-              <ChartHeader
-                ticker={data.ticker}
-                timeframe={data.timeframe}
-                barCount={data.bars.length}
-                markerCount={data.markers.length}
-                hasActiveAlgo={tickersWithAlgos.has(data.ticker)}
-              />
-              <KlineChart data={data} layers={layers} timeframe={data.timeframe} livePrice={live?.price ?? null} />
-            </CardContent>
-          </Card>
-          <LayerTogglePanel layers={layers} onChange={setLayers} />
-        </>
+        <ChartCard
+          data={data}
+          layers={layers}
+          onLayersChange={setLayers}
+          livePrice={live?.price ?? null}
+          hasActiveAlgo={tickersWithAlgos.has(data.ticker)}
+        />
       )}
     </div>
+  );
+}
+
+function ChartCard({
+  data,
+  layers,
+  onLayersChange,
+  livePrice,
+  hasActiveAlgo,
+}: {
+  data: NonNullable<ReturnType<typeof useChartData>["data"]>;
+  layers: LayerConfig;
+  onLayersChange: (next: LayerConfig) => void;
+  livePrice: number | null;
+  hasActiveAlgo: boolean;
+}) {
+  return (
+    <Card>
+      <CardContent className="p-3 space-y-2">
+        <ChartHeader
+          ticker={data.ticker}
+          timeframe={data.timeframe}
+          barCount={data.bars.length}
+          markerCount={data.markers.length}
+          hasActiveAlgo={hasActiveAlgo}
+        />
+        <div className="flex gap-3">
+          <div className="flex-1 min-w-0">
+            <KlineChart
+              data={data}
+              layers={layers}
+              timeframe={data.timeframe}
+              livePrice={livePrice}
+            />
+          </div>
+          <ChartLayersRail layers={layers} onChange={onLayersChange} />
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 

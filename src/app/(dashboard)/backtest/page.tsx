@@ -6,9 +6,9 @@ import type { BacktestTradeRow } from "@/app/(dashboard)/backtest/actions";
 import type { ChartTimeframe } from "@/app/(dashboard)/chart/actions";
 import { TradeDetail } from "@/components/backtest/trade-detail";
 import { TradeList } from "@/components/backtest/trade-list";
+import { ChartLayersRail } from "@/components/chart/chart-layers-rail";
 import { KlineChart } from "@/components/chart/kline-chart";
 import { DEFAULT_LAYERS, type LayerConfig } from "@/components/chart/layer-config";
-import { LayerTogglePanel } from "@/components/chart/layer-toggle-panel";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import {
@@ -87,26 +87,28 @@ export default function BacktestPage() {
         {ticker && chartLoading && <Skeleton className="h-[480px] w-full rounded-md" />}
         {ticker && chartData && !chartLoading && (
           <Card>
-            <CardContent className="p-3">
-              <KlineChart
-                data={chartData}
-                layers={layers}
-                timeframe={timeframe}
-                livePrice={live?.price ?? null}
-                focusTime={selected ? new Date(selected.opened_at).getTime() / 1000 : null}
-              />
+            <CardContent className="p-3 flex gap-3">
+              <div className="flex-1 min-w-0">
+                <KlineChart
+                  data={chartData}
+                  layers={layers}
+                  timeframe={timeframe}
+                  livePrice={live?.price ?? null}
+                  focusTime={selected ? new Date(selected.opened_at).getTime() / 1000 : null}
+                />
+              </div>
+              <ChartLayersRail layers={layers} onChange={setLayers} />
             </CardContent>
           </Card>
         )}
 
-        <div className="grid gap-4 lg:grid-cols-[2fr_1fr_minmax(280px,320px)]">
+        <div className="grid gap-4 lg:grid-cols-[2fr_minmax(280px,320px)]">
           <TradeList
             trades={trades}
             isLoading={tradesLoading}
             selectedId={selected?.id ?? null}
             onSelect={(t) => setSelectedTradeId(t.id)}
           />
-          <LayerTogglePanel layers={layers} onChange={setLayers} />
           {selected ? (
             // key remount on trade change so TradeDetail's data fetch
             // resets cleanly without setState-in-effect.
