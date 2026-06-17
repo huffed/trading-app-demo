@@ -109,6 +109,41 @@ export type Database = {
         }
         Relationships: []
       }
+      algorithm_geometry_sweeps: {
+        Row: {
+          algorithm_id: string
+          cells: Json
+          created_at: string
+          id: string
+          ran_at: string
+          user_id: string
+        }
+        Insert: {
+          algorithm_id: string
+          cells?: Json
+          created_at?: string
+          id?: string
+          ran_at?: string
+          user_id: string
+        }
+        Update: {
+          algorithm_id?: string
+          cells?: Json
+          created_at?: string
+          id?: string
+          ran_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "algorithm_geometry_sweeps_algorithm_id_fkey"
+            columns: ["algorithm_id"]
+            isOneToOne: false
+            referencedRelation: "algorithms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       algorithm_rule_changes: {
         Row: {
           after: Json

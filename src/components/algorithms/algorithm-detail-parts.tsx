@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, Pencil, Trash2 } from "lucide-react";
+import { ArrowLeft, Grid3X3, Pencil, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -14,12 +14,14 @@ import {
 import { STATUS_COLORS, STATUS_LABELS } from "@/lib/constants/algorithm";
 
 export function AlgoHeader({
+  algoId,
   name,
   status,
   isEditing,
   onEdit,
   onDelete,
 }: {
+  algoId: string;
   name: string;
   status: string;
   isEditing: boolean;
@@ -43,9 +45,20 @@ export function AlgoHeader({
         {STATUS_LABELS[status] ?? status}
       </Badge>
       {!isEditing && (
-        <Button variant="ghost" size="icon-sm" onClick={onEdit} title="Edit algorithm">
-          <Pencil className="h-4 w-4" />
-        </Button>
+        <>
+          <Button
+            variant="ghost"
+            size="sm"
+            render={<Link href={`/algorithms/${algoId}/validate`} />}
+            nativeButton={false}
+            title="Open validation grid"
+          >
+            <Grid3X3 className="mr-1.5 h-3.5 w-3.5" /> Validate
+          </Button>
+          <Button variant="ghost" size="icon-sm" onClick={onEdit} title="Edit algorithm">
+            <Pencil className="h-4 w-4" />
+          </Button>
+        </>
       )}
       <Button variant="ghost" size="icon-sm" onClick={onDelete}>
         <Trash2 className="h-4 w-4 text-destructive" />

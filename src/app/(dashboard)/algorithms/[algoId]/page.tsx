@@ -154,6 +154,7 @@ export default function AlgorithmDetailPage() {
     >
       <div className="mb-4">
         <AlgoHeader
+          algoId={algo.id}
           name={algo.name}
           status={algo.status}
           isEditing={s.isEditing}
