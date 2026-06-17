@@ -179,7 +179,9 @@ function Header({
                   onValueChange={(v) => v && onAlgorithmChange(v)}
                 >
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select an algorithm" />
+                    <SelectValue placeholder="Select an algorithm">
+                      {algos?.find((a) => a.id === algorithmId)?.name ?? ""}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {algos?.map((a) => (
