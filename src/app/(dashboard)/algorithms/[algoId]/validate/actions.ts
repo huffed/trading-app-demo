@@ -9,9 +9,10 @@ import type { BacktestTrade, PriceBar } from "@/lib/market-data/types";
 import { getAuthedUser } from "@/lib/supabase/get-authed-user";
 import { type ActionResult } from "@/lib/types/action-result";
 import type { AlgorithmRules } from "@/types/algorithm";
+import { cloneWithAxes, snapshotFixedAxes } from "./axis-mapper";
 import {
-  LOOKBACK_GRID,
-  RR_GRID,
+  AXES,
+  type AxisKey,
   type GeometryCell,
   type GeometrySweep,
 } from "./types";
@@ -30,36 +31,23 @@ export async function getGeometrySweepAction(
       .maybeSingle();
     if (error) return { success: false, error: error.message };
     if (!data) return { success: true, data: null };
-    const cells = data.cells as unknown as GeometrySweep;
-    return { success: true, data: { ...cells, ran_at: data.ran_at } };
+    const payload = data.cells as unknown as Omit<GeometrySweep, "ran_at">;
+    return { success: true, data: { ...payload, ran_at: data.ran_at } };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Load failed" };
   }
 }
 
-function cloneRulesWithGeometry(
-  rules: AlgorithmRules,
-  rr: number,
-  lookback: number
-): AlgorithmRules {
-  const next = JSON.parse(JSON.stringify(rules)) as AlgorithmRules;
-  if (!next.take_profit) next.take_profit = { type: "rr_multiple", value: rr };
-  else (next.take_profit as { type: string; value: number }).value = rr;
-  if (!next.stop_loss) next.stop_loss = { type: "swing_anchor", value: 0.1, lookback };
-  else (next.stop_loss as { type: string; lookback?: number }).lookback = lookback;
-  return next;
-}
-
 function buildCell(
-  rr: number,
-  lookback: number,
+  xVal: number | boolean,
+  yVal: number | boolean,
   trades: BacktestTrade[],
   capital: number
 ): GeometryCell {
   if (trades.length === 0) {
     return {
-      rr,
-      lookback,
+      x: xVal,
+      y: yVal,
       total_return: 0,
       max_drawdown: 0,
       total_trades: 0,
@@ -95,26 +83,21 @@ function buildCell(
     perYear[y].pnl += pnl;
     if (pnl > 0) yearWins[y]++;
   }
-  for (const y of Object.keys(perYear)) {
-    perYear[y].pnl = Math.round(perYear[y].pnl * 100) / 100;
-    perYear[y].win_pct = Math.round((yearWins[y] / perYear[y].trades) * 1000) / 10;
+  for (const yKey of Object.keys(perYear)) {
+    perYear[yKey].pnl = Math.round(perYear[yKey].pnl * 100) / 100;
+    perYear[yKey].win_pct = Math.round((yearWins[yKey] / perYear[yKey].trades) * 1000) / 10;
   }
   const totalReturn = Math.round(cum * 100) / 100;
   const maxDd = Math.round(maxDdPct * 100) / 100;
   return {
-    rr,
-    lookback,
+    x: xVal,
+    y: yVal,
     total_return: totalReturn,
     max_drawdown: maxDd,
     total_trades: sorted.length,
     win_rate: Math.round((wins / sorted.length) * 1000) / 10,
     avg_pnl: Math.round((cum / sorted.length) * 100) / 100,
-    // Calmar = return / DD%. Higher is better. Caller uses this to
-    // surface the best risk-adjusted cell. Null when DD is 0 (avoid
-    // divide-by-zero) — caller treats null as 'no DD recorded'.
     calmar: maxDd > 0 ? Math.round((totalReturn / maxDd) * 100) / 100 : null,
-    // dd_breached: would need engine state to know exactly. Cell consumer
-    // uses max_drawdown vs algo.prop_firm.max_drawdown to decide.
     dd_breached: false,
     per_year: perYear,
   };
@@ -141,9 +124,12 @@ async function loadPricesForTickers(
 }
 
 export async function runGeometrySweepAction(
-  algorithmId: string
+  algorithmId: string,
+  xAxis: AxisKey,
+  yAxis: AxisKey
 ): Promise<ActionResult<GeometrySweep>> {
   if (!algorithmId) return { success: false, error: "missing algorithm id" };
+  if (xAxis === yAxis) return { success: false, error: "X and Y axes must differ" };
   try {
     const { supabase, user } = await getAuthedUser();
     const algoRes = await supabase
@@ -156,18 +142,7 @@ export async function runGeometrySweepAction(
     const rules = (algoRes.data as unknown as { rules: AlgorithmRules }).rules;
     const capital = (algoRes.data as unknown as { capital: number }).capital;
     if (rules.llm_trader?.enabled) {
-      return {
-        success: false,
-        error: "Geometry sweep doesn't apply to LLM-trader algorithms.",
-      };
-    }
-    const slType = (rules.stop_loss as { type?: string } | undefined)?.type;
-    const tpType = (rules.take_profit as { type?: string } | undefined)?.type;
-    if (slType !== "swing_anchor" || tpType !== "rr_multiple") {
-      return {
-        success: false,
-        error: `Sweep requires stop_loss.type='swing_anchor' + take_profit.type='rr_multiple'. Algo has ${slType ?? "none"}/${tpType ?? "none"}.`,
-      };
+      return { success: false, error: "Geometry sweep doesn't apply to LLM-trader algorithms." };
     }
     const wlRes = await supabase
       .from("algorithm_watchlist")
@@ -187,19 +162,25 @@ export async function runGeometrySweepAction(
         )
       : [];
 
+    const xDef = AXES[xAxis];
+    const yDef = AXES[yAxis];
     const cells: GeometryCell[] = [];
-    for (const rr of RR_GRID) {
-      for (const lookback of LOOKBACK_GRID) {
-        const variant = cloneRulesWithGeometry(rules, rr, lookback);
+    for (const yVal of yDef.values) {
+      for (const xVal of xDef.values) {
+        const variant = cloneWithAxes(rules, xAxis, yAxis, xVal, yVal);
         const result = runPortfolioBacktest(variant, pricesByTicker, capital, events);
-        cells.push(buildCell(rr, lookback, result.trades, capital));
+        cells.push(buildCell(xVal, yVal, result.trades, capital));
       }
     }
 
     const ranAt = new Date().toISOString();
     const sweep: GeometrySweep = {
       cells,
-      grid: { rr: [...RR_GRID], lookback: [...LOOKBACK_GRID] },
+      x_axis: xAxis,
+      y_axis: yAxis,
+      x_values: [...xDef.values],
+      y_values: [...yDef.values],
+      fixed: snapshotFixedAxes(rules, xAxis, yAxis),
       ran_at: ranAt,
     };
     await supabase
@@ -217,11 +198,16 @@ export async function runGeometrySweepAction(
   }
 }
 
-export async function applyGeometryConfigAction(
+/** Apply a cell's full config to the algo's rules. Both axes get
+ *  written; the operator can re-sweep to explore other dimensions
+ *  after applying. REFUSES live_trading_enabled=true. */
+export async function applyCellConfigAction(
   algorithmId: string,
-  rr: number,
-  lookback: number
-): Promise<ActionResult<{ rr: number; lookback: number }>> {
+  xAxis: AxisKey,
+  yAxis: AxisKey,
+  xVal: number | boolean,
+  yVal: number | boolean
+): Promise<ActionResult<{ x: number | boolean; y: number | boolean }>> {
   if (!algorithmId) return { success: false, error: "missing algorithm id" };
   try {
     const { supabase, user } = await getAuthedUser();
@@ -240,17 +226,17 @@ export async function applyGeometryConfigAction(
       return {
         success: false,
         error:
-          "Refusing to update geometry on a live-trading algorithm. Disable live trading first; mirrors the scripts/update-library-geometry-*.ts safety rule.",
+          "Refusing to update geometry on a live-trading algorithm. Disable live trading first.",
       };
     }
-    const next = cloneRulesWithGeometry(row.rules, rr, lookback);
+    const next = cloneWithAxes(row.rules, xAxis, yAxis, xVal, yVal);
     const up = await supabase
       .from("algorithms")
       .update({ rules: next as never })
       .eq("id", algorithmId)
       .eq("user_id", user.id);
     if (up.error) return { success: false, error: up.error.message };
-    return { success: true, data: { rr, lookback } };
+    return { success: true, data: { x: xVal, y: yVal } };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Apply failed" };
   }

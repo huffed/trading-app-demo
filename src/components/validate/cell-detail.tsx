@@ -2,28 +2,44 @@
 
 import { useState } from "react";
 import { CheckCircle2, Loader2 } from "lucide-react";
-import type { GeometryCell } from "@/app/(dashboard)/algorithms/[algoId]/validate/types";
+import {
+  AXES,
+  type AxisKey,
+  type GeometryCell,
+} from "@/app/(dashboard)/algorithms/[algoId]/validate/types";
 import { Button } from "@/components/ui/button";
+import { DataRow } from "@/components/ui/data-row";
 import { Surface } from "@/components/ui/surface";
-import { useApplyGeometryConfig } from "@/hooks/use-geometry-sweep";
+import { useApplyCellConfig } from "@/hooks/use-geometry-sweep";
 import { cn } from "@/lib/utils";
 import { formatPnl, pnlColorClass } from "@/lib/utils/pnl";
+
+function fmtAxisValue(v: number | boolean, key: AxisKey): string {
+  const def = AXES[key];
+  if (def.kind === "boolean") return v ? "on" : "off";
+  const n = v as number;
+  return `${n}${def.unit ?? ""}`;
+}
 
 export function CellDetail({
   algorithmId,
   cell,
+  xAxis,
+  yAxis,
   liveTradingEnabled,
 }: {
   algorithmId: string;
   cell: GeometryCell;
+  xAxis: AxisKey;
+  yAxis: AxisKey;
   liveTradingEnabled: boolean;
 }) {
-  const apply = useApplyGeometryConfig();
+  const apply = useApplyCellConfig();
   const [applied, setApplied] = useState(false);
   const years = Object.keys(cell.per_year).sort();
 
   async function handleApply() {
-    await apply.mutateAsync({ algorithmId, rr: cell.rr, lookback: cell.lookback });
+    await apply.mutateAsync({ algorithmId, xAxis, yAxis, x: cell.x, y: cell.y });
     setApplied(true);
     setTimeout(() => setApplied(false), 4000);
   }
@@ -34,7 +50,8 @@ export function CellDetail({
         <div>
           <p className="text-xs uppercase tracking-wide text-muted-foreground">Selected cell</p>
           <p className="text-sm font-semibold tabular-nums mt-0.5">
-            RR={cell.rr} · lb={cell.lookback}
+            {AXES[yAxis].label}={fmtAxisValue(cell.y, yAxis)} ·{" "}
+            {AXES[xAxis].label}={fmtAxisValue(cell.x, xAxis)}
           </p>
         </div>
         <ApplyButton
@@ -51,32 +68,37 @@ export function CellDetail({
         </p>
       )}
 
-      <div className="space-y-1">
-        <h4 className="text-[10px] uppercase tracking-wide text-muted-foreground">Aggregate</h4>
-        <div className="grid grid-cols-2 gap-y-1 text-xs">
-          <span className="text-muted-foreground">Total P&L</span>
-          <span className={cn("tabular-nums text-right", pnlColorClass(cell.total_return))}>
-            {formatPnl(cell.total_return)}
-          </span>
-          <span className="text-muted-foreground">Trades</span>
-          <span className="tabular-nums text-right">{cell.total_trades}</span>
-          <span className="text-muted-foreground">Avg / trade</span>
-          <span className={cn("tabular-nums text-right", pnlColorClass(cell.avg_pnl))}>
-            {formatPnl(cell.avg_pnl)}
-          </span>
-          <span className="text-muted-foreground">Win rate</span>
-          <span className="tabular-nums text-right">{cell.win_rate.toFixed(1)}%</span>
-          <span className="text-muted-foreground">Max DD</span>
-          <span className="tabular-nums text-right">{cell.max_drawdown.toFixed(2)}%</span>
-          <span className="text-muted-foreground" title="total_return / max_drawdown% — risk-adjusted return">
-            Calmar
-          </span>
-          <span className="tabular-nums text-right">{cell.calmar?.toFixed(2) ?? "—"}</span>
-        </div>
-      </div>
-
+      <AggregateStats cell={cell} />
       {years.length > 0 && <PerYearTable cell={cell} years={years} />}
     </Surface>
+  );
+}
+
+function AggregateStats({ cell }: { cell: GeometryCell }) {
+  return (
+    <div className="space-y-1">
+      <h4 className="text-[10px] uppercase tracking-wide text-muted-foreground">Aggregate</h4>
+      <div className="grid grid-cols-2 gap-y-1 text-xs">
+        <span className="text-muted-foreground">Total P&L</span>
+        <span className={cn("tabular-nums text-right", pnlColorClass(cell.total_return))}>
+          {formatPnl(cell.total_return)}
+        </span>
+        <span className="text-muted-foreground">Trades</span>
+        <span className="tabular-nums text-right">{cell.total_trades}</span>
+        <span className="text-muted-foreground">Avg / trade</span>
+        <span className={cn("tabular-nums text-right", pnlColorClass(cell.avg_pnl))}>
+          {formatPnl(cell.avg_pnl)}
+        </span>
+        <span className="text-muted-foreground">Win rate</span>
+        <span className="tabular-nums text-right">{cell.win_rate.toFixed(1)}%</span>
+        <span className="text-muted-foreground">Max DD</span>
+        <span className="tabular-nums text-right">{cell.max_drawdown.toFixed(2)}%</span>
+        <span className="text-muted-foreground" title="total_return / max_drawdown% — risk-adjusted return">
+          Calmar
+        </span>
+        <span className="tabular-nums text-right">{cell.calmar?.toFixed(2) ?? "—"}</span>
+      </div>
+    </div>
   );
 }
 
@@ -119,6 +141,9 @@ function PerYearTable({ cell, years }: { cell: GeometryCell; years: string[] }) 
     </div>
   );
 }
+
+// keep DataRow imported for parity with sibling components (unused for now)
+void DataRow;
 
 function ApplyButton({
   enabled,

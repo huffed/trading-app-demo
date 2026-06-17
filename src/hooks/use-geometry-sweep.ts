@@ -2,10 +2,11 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  applyGeometryConfigAction,
+  applyCellConfigAction,
   getGeometrySweepAction,
   runGeometrySweepAction,
 } from "@/app/(dashboard)/algorithms/[algoId]/validate/actions";
+import type { AxisKey } from "@/app/(dashboard)/algorithms/[algoId]/validate/types";
 
 const KEY = (id: string) => ["geometry-sweep", id];
 
@@ -26,29 +27,40 @@ export function useGeometrySweep(algorithmId: string | null) {
 export function useRunGeometrySweep() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (algorithmId: string) => {
-      const r = await runGeometrySweepAction(algorithmId);
+    mutationFn: async (params: { algorithmId: string; xAxis: AxisKey; yAxis: AxisKey }) => {
+      const r = await runGeometrySweepAction(params.algorithmId, params.xAxis, params.yAxis);
       if (!r.success) throw new Error(r.error);
       return r.data;
     },
-    onSuccess: (_, algorithmId) => {
-      queryClient.invalidateQueries({ queryKey: KEY(algorithmId) });
+    onSuccess: (_, params) => {
+      queryClient.invalidateQueries({ queryKey: KEY(params.algorithmId) });
     },
   });
 }
 
-export function useApplyGeometryConfig() {
+export function useApplyCellConfig() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (params: { algorithmId: string; rr: number; lookback: number }) => {
-      const r = await applyGeometryConfigAction(params.algorithmId, params.rr, params.lookback);
+    mutationFn: async (params: {
+      algorithmId: string;
+      xAxis: AxisKey;
+      yAxis: AxisKey;
+      x: number | boolean;
+      y: number | boolean;
+    }) => {
+      const r = await applyCellConfigAction(
+        params.algorithmId,
+        params.xAxis,
+        params.yAxis,
+        params.x,
+        params.y
+      );
       if (!r.success) throw new Error(r.error);
       return r.data;
     },
     onSuccess: (_, params) => {
       queryClient.invalidateQueries({ queryKey: ["algorithms"] });
       queryClient.invalidateQueries({ queryKey: ["algorithm", params.algorithmId] });
-      // Also invalidate backtest_trades so /backtest reflects the new geometry.
       queryClient.invalidateQueries({ queryKey: ["backtest-trades", params.algorithmId] });
     },
   });
