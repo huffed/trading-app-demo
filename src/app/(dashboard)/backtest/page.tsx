@@ -89,32 +89,29 @@ export default function BacktestPage() {
         </Card>
       )}
 
-      <div className="grid gap-4 lg:grid-cols-[1fr_2fr_minmax(280px,320px)]">
-        <TradeList
-          trades={trades}
-          isLoading={tradesLoading}
-          selectedId={selected?.id ?? null}
-          onSelect={(t) => setSelectedTradeId(t.id)}
-        />
+      <div className="space-y-4">
+        {ticker && chartLoading && <Skeleton className="h-[480px] w-full rounded-md" />}
+        {ticker && chartData && !chartLoading && (
+          <Card>
+            <CardContent className="p-3">
+              <KlineChart
+                data={chartData}
+                layers={layers}
+                timeframe={timeframe}
+                focusTime={selected ? new Date(selected.opened_at).getTime() / 1000 : null}
+              />
+            </CardContent>
+          </Card>
+        )}
 
-        <div className="space-y-3">
-          {ticker && chartLoading && <Skeleton className="h-[480px] w-full rounded-md" />}
-          {ticker && chartData && !chartLoading && (
-            <Card>
-              <CardContent className="p-3">
-                <KlineChart
-                  data={chartData}
-                  layers={layers}
-                  timeframe={timeframe}
-                  focusTime={selected ? new Date(selected.opened_at).getTime() / 1000 : null}
-                />
-              </CardContent>
-            </Card>
-          )}
+        <div className="grid gap-4 lg:grid-cols-[2fr_1fr_minmax(280px,320px)]">
+          <TradeList
+            trades={trades}
+            isLoading={tradesLoading}
+            selectedId={selected?.id ?? null}
+            onSelect={(t) => setSelectedTradeId(t.id)}
+          />
           <LayerTogglePanel layers={layers} onChange={setLayers} />
-        </div>
-
-        <div>
           {selected ? (
             // key remount on trade change so TradeDetail's data fetch
             // resets cleanly without setState-in-effect.
@@ -123,7 +120,8 @@ export default function BacktestPage() {
             <Card>
               <CardContent className="p-4">
                 <p className="text-xs text-muted-foreground">
-                  Pick a trade on the left to see full details and zoom the chart to its window.
+                  Pick a trade on the left to see full details and focus the chart on its
+                  entry-time window.
                 </p>
               </CardContent>
             </Card>
