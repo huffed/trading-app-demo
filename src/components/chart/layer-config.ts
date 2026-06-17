@@ -1,8 +1,10 @@
 /**
  * Layer toggle configuration for the chart. Each boolean turns one
- * visual element on or off. Defaults reflect a sensible trader's
- * working setup: 20-period SMA + entry/exit markers visible by default,
- * everything else off until requested.
+ * visual element on or off. Defaults reflect a typical ICT/SMC
+ * trader's working setup: structure (BOS / ChoCh) + key zones (FVG /
+ * order blocks) + liquidity sweeps + the three classic SMAs + RSI +
+ * trade markers + daily bias. Advanced toggles (IFVG, EMA, Bollinger,
+ * MACD, swing labels) stay off until explicitly turned on.
  */
 export interface LayerConfig {
   // Moving averages (price-pane overlays)
@@ -32,21 +34,31 @@ export interface LayerConfig {
 }
 
 export const DEFAULT_LAYERS: LayerConfig = {
+  // The classic three SMAs — short / medium / long-term trend.
   sma20: true,
-  sma50: false,
-  sma200: false,
+  sma50: true,
+  sma200: true,
+  // EMA12/26 are mostly MACD inputs, not direct chart-reading tools.
   ema12: false,
   ema26: false,
+  // Bollinger adds visual noise on top of three SMAs; toggle on demand.
   bollinger: false,
-  rsi: false,
+  // One oscillator is enough; RSI is the standard glance metric. MACD
+  // off so the second pane doesn't crowd the chart.
+  rsi: true,
   macd: false,
-  fvg: false,
+  // Core ICT/SMC structure: BOS + ChoCh for trend direction; FVG +
+  // order blocks for entry zones; sweeps for trap detection.
+  fvg: true,
   ifvg: false,
-  bos: false,
-  sweep: false,
-  order_block: false,
-  choch: false,
+  bos: true,
+  sweep: true,
+  order_block: true,
+  choch: true,
+  // Daily bias is the regime header — always useful.
   daily_bias: true,
+  // Swing labels (HH/HL/LH/LL) add many small text labels; off until
+  // the trader explicitly wants the structure annotated.
   swings: false,
   trade_entries: true,
   trade_exits: true,
