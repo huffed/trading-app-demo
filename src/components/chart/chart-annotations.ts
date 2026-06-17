@@ -21,7 +21,10 @@ const DIRECTION_RGB: Record<"bullish" | "bearish" | "neutral", string> = {
 
 function colorFor(annotation: PatternAnnotation): string {
   const base = DIRECTION_RGB[annotation.direction];
-  const alpha = annotation.kind === "zone" ? 0.55 : 0.85;
+  // Zone brackets are quiet background; lines (BOS / sweep / ChoCh) are
+  // the trader's primary signal — bumped to near-opaque so the dashes
+  // read clearly even on a busy candle area.
+  const alpha = annotation.kind === "zone" ? 0.55 : 0.98;
   return `rgba(${base},${alpha})`;
 }
 
@@ -38,8 +41,11 @@ function annotationKey(a: PatternAnnotation): string {
 
 function makeLine(chart: IChartApi, color: string, dashed: boolean): ISeriesApi<"Line"> {
   return chart.addLineSeries({
+    // BOS / sweep / ChoCh dashed lines render thicker than zone brackets
+    // so the operator sees them as foreground signals against the
+    // candle area.
     color,
-    lineWidth: 1,
+    lineWidth: dashed ? 2 : 1,
     lineStyle: dashed ? LineStyle.Dashed : LineStyle.Solid,
     priceLineVisible: false,
     lastValueVisible: false,

@@ -3,6 +3,7 @@ import type {
   ChartBar,
   ChartMarker,
   ChartPatterns,
+  PatternAnnotation,
   SwingMarker,
 } from "@/app/(dashboard)/chart/actions";
 import type { LayerConfig } from "./layer-config";
@@ -88,18 +89,51 @@ function swingMarker(s: SwingMarker): SeriesMarker<Time> {
   };
 }
 
-/** Build the marker list for the main candle series. Pattern lines + zones
- *  are now rendered as LineSeries via chart-annotations.ts, so this
- *  function emits ONLY:
+function isLineAnnotationEnabled(a: PatternAnnotation, layers: LayerConfig): boolean {
+  if (a.kind !== "line") return false;
+  if (a.pattern_type === "bos") return layers.bos;
+  if (a.pattern_type === "choch") return layers.choch;
+  if (a.pattern_type === "sweep") return layers.sweep;
+  return false;
+}
+
+const ANNOTATION_LABELS: Record<PatternAnnotation["pattern_type"], string> = {
+  bos: "BOS",
+  choch: "ChoCh",
+  sweep: "Sweep",
+  fvg: "FVG",
+  ifvg: "IFVG",
+  order_block: "OB",
+};
+
+function annotationLabelMarker(a: PatternAnnotation): SeriesMarker<Time> {
+  const labelText = ANNOTATION_LABELS[a.pattern_type];
+  return {
+    time: a.to_time as UTCTimestamp,
+    position: a.direction === "bullish" ? "aboveBar" : "belowBar",
+    color: a.direction === "bullish" ? PROFIT_COLOR : LOSS_COLOR,
+    shape: "circle",
+    text: labelText,
+  };
+}
+
+/** Build the marker list for the main candle series. Renders:
+ *    - text labels at break/sweep bars for BOS / ChoCh / Sweep
+ *      annotations (lightweight-charts can't put labels on LineSeries
+ *      directly without full-width priceLines, so we anchor the label
+ *      as a marker at the right end of the dashed line)
  *    - swing structure labels (HH / HL / LH / LL) if layers.swings
  *    - trade entry / exit shapes if their respective layers are on
- *  Sort the markers by time per lightweight-charts requirement. */
+ *  Sort by time per lightweight-charts requirement. */
 export function collectMarkers(
   patterns: ChartPatterns,
   trades: ChartMarker[],
   layers: LayerConfig
 ): SeriesMarker<Time>[] {
   const out: SeriesMarker<Time>[] = [];
+  for (const a of patterns.annotations) {
+    if (isLineAnnotationEnabled(a, layers)) out.push(annotationLabelMarker(a));
+  }
   if (layers.swings) {
     for (const s of patterns.swings) out.push(swingMarker(s));
   }

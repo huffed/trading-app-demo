@@ -1,14 +1,8 @@
 /**
- * Server-side pattern scanning helpers for the chart actions.
- * Walks a PriceBar series and produces both:
- *   - PatternPoint[] — single-bar marker style (legacy display)
- *   - PatternAnnotation[] — trader-familiar lines + zones spanning the
- *     multi-bar structure each pattern actually occupies
- *   - SwingMarker[] — HH/HL/LH/LL labels at confirmed swing points
- *
- * All patterns are computed on the bars provided to the action — which
- * is the timeframe the operator selected. A 4h BOS is detected from
- * 4h swings; a 1h BOS from 1h swings. They're not cross-TF.
+ * Server-side pattern scanning for the chart. Produces PatternPoint[]
+ * (single-bar markers), PatternAnnotation[] (multi-bar lines + zones),
+ * and SwingMarker[] (HH/HL/LH/LL). Patterns are computed on the bars
+ * of the selected timeframe — not cross-TF.
  */
 import { detectBos } from "@/lib/patterns/bos";
 import { detectChoch } from "@/lib/patterns/choch";
@@ -17,6 +11,7 @@ import { scanFvgs } from "@/lib/patterns/fvg";
 import { detectLiquiditySweep } from "@/lib/patterns/liquidity-sweep";
 import { detectOrderBlock } from "@/lib/patterns/order-block";
 import { detectSwingPoints } from "@/lib/patterns/swing-points";
+import { buildBosResult, buildChochResult, buildSweepResult } from "./pattern-builders";
 import type {
   ChartBar,
   ChartPatterns,
@@ -65,44 +60,43 @@ function scanBosAndSweeps(
   const sweep: PatternPoint[] = [];
   const choch: PatternPoint[] = [];
   const annotations: PatternAnnotation[] = [];
+
+  // De-dup: BOS / ChoCh / Sweep fire EVERY bar where the condition
+  // holds. A sustained break stays detected for many bars, producing
+  // overlapping lines at the same level. We track which swing-point
+  // index we've already broken in each direction and only emit on
+  // the FIRST bar that breaks a NEW swing.
+  let lastBosHighIdx = -1;
+  let lastBosLowIdx = -1;
+  let lastSweepIdx = -1;
+  let lastChochHighIdx = -1;
+  let lastChochLowIdx = -1;
+
   for (let i = 5; i < bars.length; i++) {
     const time = chartBars[i].time;
+
     const b = detectBos(bars, i, 5);
     if (b.detected && b.details) {
-      bos.push({
-        time,
-        direction: b.details.direction,
-        label: `BOS ${b.details.direction} @ ${fmtPrice(b.details.broken_level)}`,
-        top: b.details.broken_level,
-      });
-      annotations.push({
-        pattern_type: "bos",
-        kind: "line",
-        direction: b.details.direction,
-        from_time: timeAt(chartBars, b.details.broken_swing_idx),
-        to_time: time,
-        top: b.details.broken_level,
-        label: "BOS",
-      });
+      const dir = b.details.direction;
+      const swingIdx = b.details.broken_swing_idx;
+      const isNew = dir === "bullish" ? swingIdx !== lastBosHighIdx : swingIdx !== lastBosLowIdx;
+      if (isNew) {
+        if (dir === "bullish") lastBosHighIdx = swingIdx;
+        else lastBosLowIdx = swingIdx;
+        const r = buildBosResult(b.details, time, chartBars);
+        bos.push(r.point);
+        annotations.push(r.annotation);
+      }
     }
+
     const s = detectLiquiditySweep(bars, i, 5);
-    if (s.detected && s.details) {
-      sweep.push({
-        time,
-        direction: s.details.direction,
-        label: `Sweep ${s.details.direction} of ${fmtPrice(s.details.swept_level)}`,
-        top: s.details.swept_level,
-      });
-      annotations.push({
-        pattern_type: "sweep",
-        kind: "line",
-        direction: s.details.direction,
-        from_time: timeAt(chartBars, s.details.swept_idx),
-        to_time: time,
-        top: s.details.swept_level,
-        label: "Sweep",
-      });
+    if (s.detected && s.details && s.details.swept_idx !== lastSweepIdx) {
+      lastSweepIdx = s.details.swept_idx;
+      const r = buildSweepResult(s.details, time, chartBars);
+      sweep.push(r.point);
+      annotations.push(r.annotation);
     }
+
     const c = detectChoch(bars, i, 5);
     if (c.detected && c.details) {
       const cd = c.details as {
@@ -111,17 +105,22 @@ function scanBosAndSweeps(
         broken_swing_idx?: number;
       };
       const d = cd.direction ?? "neutral";
-      choch.push({ time, direction: d, label: `ChoCh ${d}` });
       if (cd.broken_level != null && cd.broken_swing_idx != null) {
-        annotations.push({
-          pattern_type: "choch",
-          kind: "line",
-          direction: d,
-          from_time: timeAt(chartBars, cd.broken_swing_idx),
-          to_time: time,
-          top: cd.broken_level,
-          label: "ChoCh",
-        });
+        const isNew =
+          d === "bullish"
+            ? cd.broken_swing_idx !== lastChochHighIdx
+            : cd.broken_swing_idx !== lastChochLowIdx;
+        if (isNew) {
+          if (d === "bullish") lastChochHighIdx = cd.broken_swing_idx;
+          else lastChochLowIdx = cd.broken_swing_idx;
+          const r = buildChochResult(
+            { direction: d, broken_swing_idx: cd.broken_swing_idx, broken_level: cd.broken_level },
+            time,
+            chartBars
+          );
+          choch.push(r.point);
+          annotations.push(r.annotation);
+        }
       }
     }
   }

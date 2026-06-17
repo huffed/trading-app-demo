@@ -205,13 +205,14 @@ export function TradingChart({ data, layers, height = 480 }: TradingChartProps) 
       }))
     );
     syncOverlays(m.chart, m.overlays, data.bars, data.indicators, layers);
-    syncAnnotations(
-      m.chart,
-      m.annotations,
-      capRecent(data.patterns.annotations, 8),
-      layers
+    // Cap annotations BEFORE marker collection so the line count and the
+    // label-marker count match — without this we'd render a "BOS" label
+    // for every detected break, but only the most recent N lines.
+    const capped = capRecent(data.patterns.annotations, 8);
+    syncAnnotations(m.chart, m.annotations, capped, layers);
+    m.overlays.candle.setMarkers(
+      collectMarkers({ ...data.patterns, annotations: capped }, data.markers, layers)
     );
-    m.overlays.candle.setMarkers(collectMarkers(data.patterns, data.markers, layers));
     m.chart.timeScale().fitContent();
   }, [mainRef, data, layers]);
 
