@@ -47,10 +47,12 @@ export const DEFAULT_LAYERS: LayerConfig = {
   // off so the second pane doesn't crowd the chart.
   rsi: true,
   macd: false,
-  // Core ICT/SMC structure: BOS + ChoCh for trend direction; FVG +
-  // order blocks for entry zones; sweeps for trap detection.
-  fvg: true,
-  ifvg: false,
+  // Core ICT/SMC structure: BOS + ChoCh for trend direction; IFVG +
+  // order blocks for entry zones; sweeps for trap detection. Raw FVG
+  // is off by default — the operator trades the flipped (IFVG) zone,
+  // not the first-touch retrace.
+  fvg: false,
+  ifvg: true,
   bos: true,
   sweep: true,
   order_block: true,
