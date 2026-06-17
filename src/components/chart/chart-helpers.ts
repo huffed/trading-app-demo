@@ -106,18 +106,29 @@ const ANNOTATION_LABELS: Record<PatternAnnotation["pattern_type"], string> = {
   order_block: "OB",
 };
 
-/** Build a label marker centered on the annotation's time span.
- *  Lightweight-charts requires a shape on markers, but `size: 0` hides
- *  the shape while keeping the text visible — that's how we get a
- *  text-only label without a circle dot at the end of the line.
- *  The time falls on the midpoint between from_time and to_time; the
- *  charting lib snaps to the closest actual bar. */
+/** Build a text-only label marker for the annotation.
+ *
+ *  Lightweight-charts marker `position` is bar-relative ('aboveBar' /
+ *  'belowBar' / 'inBar'), NOT line-relative. So we can't say "put this
+ *  text below the dashed line at price X". The workaround:
+ *    - Bullish: midpoint time + aboveBar. The midpoint bar has its
+ *      candle ABOVE the broken swing high (price already pushed
+ *      through), so aboveBar reads as "above the line".
+ *    - Bearish: anchor at the BREAK bar (to_time) + belowBar. The
+ *      break bar's close is by definition below the broken swing low,
+ *      so its low is below the line — belowBar at that bar reads as
+ *      "below the line". Anchoring at midpoint instead would put the
+ *      bar inside the retest area where the candle low is still
+ *      ABOVE the line (visually wrong).
+ *
+ *  size: 0 hides the marker shape while keeping the text visible. */
 function annotationLabelMarker(a: PatternAnnotation): SeriesMarker<Time> {
-  const midTime = Math.floor((a.from_time + a.to_time) / 2);
+  const isBullish = a.direction === "bullish";
+  const time = isBullish ? Math.floor((a.from_time + a.to_time) / 2) : a.to_time;
   return {
-    time: midTime as UTCTimestamp,
-    position: a.direction === "bullish" ? "aboveBar" : "belowBar",
-    color: a.direction === "bullish" ? PROFIT_COLOR : LOSS_COLOR,
+    time: time as UTCTimestamp,
+    position: isBullish ? "aboveBar" : "belowBar",
+    color: isBullish ? PROFIT_COLOR : LOSS_COLOR,
     shape: "circle",
     size: 0,
     text: ANNOTATION_LABELS[a.pattern_type],
