@@ -40,10 +40,12 @@ function fmtPrice(p: number): string {
   return p.toFixed(5);
 }
 
-/** Forward-extension bars for unfilled zones (FVG, OB). Keeps the zone
- *  visible past the formation bar so the operator sees what level it
- *  occupies, without extending all the way to the right edge. */
-const ZONE_FORWARD_BARS = 30;
+/** Forward-extension bars for UNFILLED zones (FVG, OB) only. Keeps the
+ *  zone briefly visible past the formation bar so the operator sees the
+ *  level. Filled zones use their actual fill bar as the right edge.
+ *  Kept short — 6 bars rather than 30 — so toggling a layer on doesn't
+ *  flood the chart with overlapping lines. */
+const ZONE_FORWARD_BARS = 6;
 
 function timeAt(chartBars: ChartBar[], idx: number): number {
   const clamped = Math.max(0, Math.min(idx, chartBars.length - 1));

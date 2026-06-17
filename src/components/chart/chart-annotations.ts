@@ -111,18 +111,35 @@ export function syncAnnotations(
         { time: a.to_time as UTCTimestamp, value: a.bottom },
       ]);
     }
-    // Label as a PriceLine on the top series — appears near the right
-    // edge of the line, mirroring the trader-chart convention.
-    topSeries.createPriceLine({
-      price: a.top,
-      color,
-      lineWidth: 1,
-      lineStyle: LineStyle.Solid,
-      axisLabelVisible: false,
-      title: a.label,
-    });
+    // (We used to add a createPriceLine here as a label, but priceLines
+    // are full-chart-width by design — they extended each BOS line all
+    // the way across the chart. Operator's reference image puts the
+    // label at the right end of the line only. For now we rely on the
+    // line color (green/red by direction) to convey type, and lean on
+    // hover + the planned trade-replay page for the actual labels.)
     state.byKey.set(key, { key, topSeries, bottomSeries });
   }
+}
+
+/** Cap annotation density per pattern type — without this, IFVG / FVG
+ *  layers render as dozens of overlapping faint lines on a 100-bar chart
+ *  and become noise. Keeps the MOST RECENT N events of each kind. */
+export function capRecent(
+  annotations: PatternAnnotation[],
+  perTypeLimit = 8
+): PatternAnnotation[] {
+  const byType = new Map<PatternAnnotation["pattern_type"], PatternAnnotation[]>();
+  for (const a of annotations) {
+    const arr = byType.get(a.pattern_type) ?? [];
+    arr.push(a);
+    byType.set(a.pattern_type, arr);
+  }
+  const out: PatternAnnotation[] = [];
+  for (const [, arr] of byType) {
+    arr.sort((a, b) => b.to_time - a.to_time);
+    out.push(...arr.slice(0, perTypeLimit));
+  }
+  return out;
 }
 
 export function clearAnnotations(chart: IChartApi, state: AnnotationManagerState): void {

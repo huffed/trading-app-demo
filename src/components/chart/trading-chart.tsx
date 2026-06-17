@@ -12,6 +12,7 @@ import {
 } from "lightweight-charts";
 import type { ChartData } from "@/app/(dashboard)/chart/actions";
 import {
+  capRecent,
   clearAnnotations,
   newAnnotationState,
   syncAnnotations,
@@ -204,7 +205,12 @@ export function TradingChart({ data, layers, height = 480 }: TradingChartProps) 
       }))
     );
     syncOverlays(m.chart, m.overlays, data.bars, data.indicators, layers);
-    syncAnnotations(m.chart, m.annotations, data.patterns.annotations, layers);
+    syncAnnotations(
+      m.chart,
+      m.annotations,
+      capRecent(data.patterns.annotations, 8),
+      layers
+    );
     m.overlays.candle.setMarkers(collectMarkers(data.patterns, data.markers, layers));
     m.chart.timeScale().fitContent();
   }, [mainRef, data, layers]);
