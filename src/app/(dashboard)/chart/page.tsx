@@ -19,6 +19,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAlgorithmsList } from "@/hooks/use-algorithms";
 import { useChartData } from "@/hooks/use-chart-data";
+import { useLivePrice } from "@/hooks/use-live-price";
 
 const TIMEFRAMES: ChartTimeframe[] = ["15min", "30min", "1h", "4h", "1day"];
 
@@ -39,6 +40,7 @@ export default function ChartPage() {
     timeframe,
     outputSize
   );
+  const { data: live } = useLivePrice(ticker);
 
   // Available algorithms — used to inform the operator about which
   // tickers have an active strategy on them.
@@ -102,7 +104,7 @@ export default function ChartPage() {
                 markerCount={data.markers.length}
                 hasActiveAlgo={tickersWithAlgos.has(data.ticker)}
               />
-              <KlineChart data={data} layers={layers} />
+              <KlineChart data={data} layers={layers} timeframe={data.timeframe} livePrice={live?.price ?? null} />
             </CardContent>
           </Card>
           <LayerTogglePanel layers={layers} onChange={setLayers} />
