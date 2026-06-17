@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { AlertCircle } from "lucide-react";
 import type { BacktestTradeRow } from "@/app/(dashboard)/backtest/actions";
 import type { ChartTimeframe } from "@/app/(dashboard)/chart/actions";
+import { BacktestRunBar } from "@/components/backtest/backtest-run-bar";
 import { TradeDetail } from "@/components/backtest/trade-detail";
 import { TradeList } from "@/components/backtest/trade-list";
 import { ChartLayersRail } from "@/components/chart/chart-layers-rail";
@@ -19,7 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useAlgoTrades } from "@/hooks/use-algo-trades";
+import { useAlgoTrades, useRunAlgorithmBacktest } from "@/hooks/use-algo-trades";
 import { useAlgorithmsList } from "@/hooks/use-algorithms";
 import { useChartData } from "@/hooks/use-chart-data";
 import { useLivePrice } from "@/hooks/use-live-price";
@@ -34,6 +35,16 @@ function deriveTimeframeForAlgo(
   const tf = (a?.rules as unknown as { timeframe?: string } | undefined)?.timeframe;
   if (tf === "15min" || tf === "30min" || tf === "1h" || tf === "4h" || tf === "1day") return tf;
   return "1h";
+}
+
+function isLlmTrader(
+  algorithmId: string | null,
+  algos: ReturnType<typeof useAlgorithmsList>["data"]
+): boolean {
+  if (!algorithmId || !algos) return false;
+  const a = algos.find((x) => x.id === algorithmId);
+  return (a?.rules as unknown as { llm_trader?: { enabled?: boolean } } | undefined)
+    ?.llm_trader?.enabled === true;
 }
 
 export default function BacktestPage() {
@@ -56,12 +67,18 @@ export default function BacktestPage() {
     [algorithmId, algos]
   );
 
-  const { data: trades, isLoading: tradesLoading } = useAlgoTrades(algorithmId);
+  const { data: tradesPayload, isLoading: tradesLoading } = useAlgoTrades(algorithmId);
+  const trades = tradesPayload?.trades;
+  const meta = tradesPayload?.meta ?? null;
+  const llmTrader = isLlmTrader(algorithmId, algos);
+  const runBacktest = useRunAlgorithmBacktest();
+
   const { data: chartData, isLoading: chartLoading } = useChartData(
     ticker ?? "",
     timeframe,
     "full",
-    algorithmId
+    algorithmId,
+    "backtest"
   );
   const { data: live } = useLivePrice(ticker ?? "");
 
@@ -84,50 +101,112 @@ export default function BacktestPage() {
       {!ticker && !algosLoading && <NoTickerNotice />}
 
       <div className="space-y-4">
-        {ticker && chartLoading && <Skeleton className="h-[480px] w-full rounded-md" />}
-        {ticker && chartData && !chartLoading && (
-          <Card>
-            <CardContent className="p-3 flex gap-3">
-              <div className="flex-1 min-w-0">
-                <KlineChart
-                  data={chartData}
-                  layers={layers}
-                  timeframe={timeframe}
-                  livePrice={live?.price ?? null}
-                  focusTime={selected ? new Date(selected.opened_at).getTime() / 1000 : null}
-                />
-              </div>
-              <ChartLayersRail layers={layers} onChange={setLayers} />
-            </CardContent>
-          </Card>
-        )}
+        <ChartSection
+          ticker={ticker}
+          chartLoading={chartLoading}
+          chartData={chartData}
+          layers={layers}
+          onLayersChange={setLayers}
+          timeframe={timeframe}
+          livePrice={live?.price ?? null}
+          focusTime={selected ? new Date(selected.entry_date).getTime() / 1000 : null}
+        />
 
-        <div className="grid gap-4 lg:grid-cols-[2fr_minmax(280px,320px)]">
-          <TradeList
-            trades={trades}
-            isLoading={tradesLoading}
-            selectedId={selected?.id ?? null}
-            onSelect={(t) => setSelectedTradeId(t.id)}
-          />
-          {selected ? (
-            // key remount on trade change so TradeDetail's data fetch
-            // resets cleanly without setState-in-effect.
-            <TradeDetail key={selected.id} trade={selected} />
-          ) : (
-            <Card>
-              <CardContent className="p-4">
-                <p className="text-xs text-muted-foreground">
-                  Pick a trade on the left to see full details and focus the chart on its
-                  entry-time window.
-                </p>
-              </CardContent>
-            </Card>
-          )}
-        </div>
+        <BacktestRunBar
+          meta={meta}
+          llmTrader={llmTrader}
+          algorithmId={algorithmId}
+          isPending={runBacktest.isPending}
+          error={runBacktest.error?.message ?? null}
+          onRun={(id) => runBacktest.mutate(id)}
+        />
+
+        <BottomGrid
+          trades={trades}
+          tradesLoading={tradesLoading}
+          selected={selected}
+          onSelect={(id) => setSelectedTradeId(id)}
+        />
       </div>
     </div>
   );
 }
+
+function ChartSection({
+  ticker,
+  chartLoading,
+  chartData,
+  layers,
+  onLayersChange,
+  timeframe,
+  livePrice,
+  focusTime,
+}: {
+  ticker: string | null;
+  chartLoading: boolean;
+  chartData: ReturnType<typeof useChartData>["data"];
+  layers: LayerConfig;
+  onLayersChange: (next: LayerConfig) => void;
+  timeframe: ChartTimeframe;
+  livePrice: number | null;
+  focusTime: number | null;
+}) {
+  if (!ticker) return null;
+  if (chartLoading) return <Skeleton className="h-[480px] w-full rounded-md" />;
+  if (!chartData) return null;
+  return (
+    <Card>
+      <CardContent className="p-3 flex gap-3">
+        <div className="flex-1 min-w-0">
+          <KlineChart
+            data={chartData}
+            layers={layers}
+            timeframe={timeframe}
+            livePrice={livePrice}
+            focusTime={focusTime}
+          />
+        </div>
+        <ChartLayersRail layers={layers} onChange={onLayersChange} />
+      </CardContent>
+    </Card>
+  );
+}
+
+function BottomGrid({
+  trades,
+  tradesLoading,
+  selected,
+  onSelect,
+}: {
+  trades: BacktestTradeRow[] | undefined;
+  tradesLoading: boolean;
+  selected: BacktestTradeRow | null;
+  onSelect: (id: string) => void;
+}) {
+  return (
+    <div className="grid gap-4 lg:grid-cols-[2fr_minmax(280px,320px)]">
+      <TradeList
+        trades={trades}
+        isLoading={tradesLoading}
+        selectedId={selected?.id ?? null}
+        onSelect={(t) => onSelect(t.id)}
+      />
+      {selected ? (
+        <TradeDetail key={selected.id} trade={selected} />
+      ) : (
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-xs text-muted-foreground">
+              Pick a trade on the left to see full details and focus the chart on its
+              entry-time window.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
+
 
 function NoTickerNotice() {
   return (
