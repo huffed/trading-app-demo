@@ -22,6 +22,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useAlgoTrades } from "@/hooks/use-algo-trades";
 import { useAlgorithmsList } from "@/hooks/use-algorithms";
 import { useChartData } from "@/hooks/use-chart-data";
+import { useLivePrice } from "@/hooks/use-live-price";
 import { useWatchlist } from "@/hooks/use-watchlist";
 
 function deriveTimeframeForAlgo(
@@ -61,6 +62,7 @@ export default function BacktestPage() {
     timeframe,
     "full"
   );
+  const { data: live } = useLivePrice(ticker ?? "");
 
   // Derived selection — invalidates naturally when algorithm changes because
   // the trades list changes too. No setState-in-effect needed.
@@ -78,16 +80,7 @@ export default function BacktestPage() {
         timeframe={timeframe}
       />
 
-      {!ticker && !algosLoading && (
-        <Card>
-          <CardContent className="p-4 flex items-start gap-3 text-sm">
-            <AlertCircle className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
-            <p className="text-muted-foreground">
-              This algorithm has no watchlist ticker — pick one with a ticker to load chart history.
-            </p>
-          </CardContent>
-        </Card>
-      )}
+      {!ticker && !algosLoading && <NoTickerNotice />}
 
       <div className="space-y-4">
         {ticker && chartLoading && <Skeleton className="h-[480px] w-full rounded-md" />}
@@ -98,6 +91,7 @@ export default function BacktestPage() {
                 data={chartData}
                 layers={layers}
                 timeframe={timeframe}
+                livePrice={live?.price ?? null}
                 focusTime={selected ? new Date(selected.opened_at).getTime() / 1000 : null}
               />
             </CardContent>
@@ -129,6 +123,19 @@ export default function BacktestPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+function NoTickerNotice() {
+  return (
+    <Card>
+      <CardContent className="p-4 flex items-start gap-3 text-sm">
+        <AlertCircle className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
+        <p className="text-muted-foreground">
+          This algorithm has no watchlist ticker — pick one with a ticker to load chart history.
+        </p>
+      </CardContent>
+    </Card>
   );
 }
 
