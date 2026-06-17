@@ -78,7 +78,17 @@ export function KlineChart({ data, layers, height = 480 }: KlineChartProps) {
     // Capture container ref before init so cleanup sees the same node.
     const container = containerRef.current;
     const chart = init(container, { styles: chartStyles() });
-    if (chart) chartRef.current = chart;
+    if (chart) {
+      chartRef.current = chart;
+      // Klinecharts pads the right side past the last bar with empty
+      // "future space" (default ~50px). Our extend-to-edge zones use
+      // the last bar's timestamp as the right corner — but klinecharts
+      // maps timestamps near the end of the data range into that
+      // future space, so rectangles visually leak past the latest
+      // candle. Setting the offset to 0 puts the last bar at the
+      // right edge of the chart so the zone naturally stops there.
+      chart.setOffsetRightDistance(0);
+    }
     return () => {
       dispose(container);
       chartRef.current = null;
