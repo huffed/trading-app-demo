@@ -184,10 +184,36 @@ function swingOverlays(
   });
 }
 
+/** Per-pattern-type cap on rendered annotations. Without this, a
+ *  long corpus (e.g. 4999-bar 'Full' history) produces hundreds of
+ *  FVG / IFVG / OB zones and the chart becomes a solid wash of
+ *  overlapping red and green. Kept low enough that the most recent
+ *  signals dominate the picture. */
+const MAX_PER_PATTERN_TYPE = 25;
+
+function capRecent(
+  annotations: PatternAnnotation[],
+  perTypeLimit = MAX_PER_PATTERN_TYPE
+): PatternAnnotation[] {
+  const buckets = new Map<PatternAnnotation["pattern_type"], PatternAnnotation[]>();
+  for (const a of annotations) {
+    const arr = buckets.get(a.pattern_type) ?? [];
+    arr.push(a);
+    buckets.set(a.pattern_type, arr);
+  }
+  const out: PatternAnnotation[] = [];
+  for (const [, arr] of buckets) {
+    arr.sort((x, y) => y.to_time - x.to_time);
+    out.push(...arr.slice(0, perTypeLimit));
+  }
+  return out;
+}
+
 export function applyOverlays(chart: Chart, data: ChartData, layers: LayerConfig): void {
   chart.removeOverlay();
   const overlays: OverlayCreate[] = [];
-  for (const a of data.patterns.annotations) {
+  const capped = capRecent(data.patterns.annotations);
+  for (const a of capped) {
     if (isAnnotationEnabled(a, layers)) overlays.push(...annotationOverlays(a, data.bars));
   }
   overlays.push(...swingOverlays(data.patterns.swings, layers.swings));

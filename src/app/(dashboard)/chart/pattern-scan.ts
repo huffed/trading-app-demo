@@ -185,16 +185,22 @@ function scanFvgsAndIfvgs(
       top: g.gap.gap_top,
       bottom: g.gap.gap_bottom,
     });
-    annotations.push({
-      pattern_type: "fvg",
-      kind: "zone",
-      direction: g.gap.direction,
-      from_time: chartBars[startIdx].time,
-      to_time: chartBars[endIdx].time,
-      top: g.gap.gap_top,
-      bottom: g.gap.gap_bottom,
-      label: "FVG",
-    });
+    // FVG zone annotation: only emit for UNFILLED gaps. Once a gap
+    // is filled it's mitigated; the chart would be a mess of
+    // overlapping zones across a long history if we kept them all.
+    // Filled gaps surface as IFVG (inverse) zones below.
+    if (g.filled_at == null) {
+      annotations.push({
+        pattern_type: "fvg",
+        kind: "zone",
+        direction: g.gap.direction,
+        from_time: chartBars[startIdx].time,
+        to_time: chartBars[endIdx].time,
+        top: g.gap.gap_top,
+        bottom: g.gap.gap_bottom,
+        label: "FVG",
+      });
+    }
     if (g.filled_at != null && g.filled_at < chartBars.length) {
       const flipDir = g.gap.direction === "bullish" ? "bearish" : "bullish";
       ifvg.push({
