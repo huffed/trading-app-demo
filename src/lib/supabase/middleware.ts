@@ -39,6 +39,7 @@ export async function updateSession(request: NextRequest) {
     "/trades",
     "/journal",
     "/algorithms",
+    "/performance",
     "/reports",
     "/analytics",
     "/settings",
