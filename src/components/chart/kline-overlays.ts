@@ -75,7 +75,10 @@ function annotationOverlays(a: PatternAnnotation): OverlayCreate[] {
   const bottom = a.bottom ?? a.top;
   return [
     {
-      name: "rectangle",
+      // v9 calls this overlay "rect" (not "rectangle"). Passing a name
+      // klinecharts doesn't know throws "Cannot read properties of
+      // undefined (reading '0')" when it tries to look up the figure.
+      name: "rect",
       points: [
         { timestamp: t1, value: a.top },
         { timestamp: t2, value: bottom },

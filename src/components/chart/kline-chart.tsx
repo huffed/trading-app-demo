@@ -88,9 +88,10 @@ export function KlineChart({ data, layers, height = 480 }: KlineChartProps) {
     chart.applyNewData(toKLine(data.bars));
     applyIndicators(chart, layers);
     applyOverlays(chart, data, layers);
-    // Container height changes when oscillator layers toggle — make
-    // sure klinecharts repaints to the new size.
-    chart.resize();
+    // NOTE: don't call chart.resize() here — klinecharts has its own
+    // internal ResizeObserver on the container, and calling resize()
+    // on every data/layers change forces a full visible-range recompute
+    // that decouples panning (axes move but candles don't follow).
   }, [data, layers]);
 
   // Klinecharts grows the canvas to fit oscillator panes — keep the
