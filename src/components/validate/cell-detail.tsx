@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { CheckCircle2, Loader2 } from "lucide-react";
-import type { GeometryCell } from "@/app/(dashboard)/algorithms/[algoId]/validate/actions";
+import type { GeometryCell } from "@/app/(dashboard)/algorithms/[algoId]/validate/types";
 import { Button } from "@/components/ui/button";
 import { Surface } from "@/components/ui/surface";
 import { useApplyGeometryConfig } from "@/hooks/use-geometry-sweep";

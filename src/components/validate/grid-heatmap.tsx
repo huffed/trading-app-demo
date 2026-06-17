@@ -1,6 +1,6 @@
 "use client";
 
-import type { GeometryCell, GeometrySweep } from "@/app/(dashboard)/algorithms/[algoId]/validate/actions";
+import type { GeometryCell, GeometrySweep } from "@/app/(dashboard)/algorithms/[algoId]/validate/types";
 import { Surface } from "@/components/ui/surface";
 import { cn } from "@/lib/utils";
 import { formatPnl, pnlColorClass } from "@/lib/utils/pnl";

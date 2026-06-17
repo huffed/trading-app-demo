@@ -3,7 +3,7 @@
 import { use, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Loader2, Play } from "lucide-react";
-import type { GeometryCell } from "@/app/(dashboard)/algorithms/[algoId]/validate/actions";
+import type { GeometryCell } from "@/app/(dashboard)/algorithms/[algoId]/validate/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
