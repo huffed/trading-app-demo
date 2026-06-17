@@ -81,17 +81,24 @@ export function KlineChart({ data, layers, height = 480 }: KlineChartProps) {
     };
   }, []);
 
-  // Push data + indicators + overlays on every data/layers change.
+  // Bars-only effect — runs only when the bar data itself changes (NOT
+  // when layers toggle). `applyNewData` resets the chart's visible-time
+  // range, so we don't want it firing every time someone flips a layer
+  // checkbox (that's what made panning feel like the chart 'snapped
+  // back' on every interaction).
   useEffect(() => {
     const chart = chartRef.current;
     if (!chart) return;
     chart.applyNewData(toKLine(data.bars));
+  }, [data.bars]);
+
+  // Indicators + overlays effect — runs on data OR layers changes, but
+  // does NOT touch chart.applyNewData, so the visible range is preserved.
+  useEffect(() => {
+    const chart = chartRef.current;
+    if (!chart) return;
     applyIndicators(chart, layers);
     applyOverlays(chart, data, layers);
-    // NOTE: don't call chart.resize() here — klinecharts has its own
-    // internal ResizeObserver on the container, and calling resize()
-    // on every data/layers change forces a full visible-range recompute
-    // that decouples panning (axes move but candles don't follow).
   }, [data, layers]);
 
   // Klinecharts grows the canvas to fit oscillator panes — keep the

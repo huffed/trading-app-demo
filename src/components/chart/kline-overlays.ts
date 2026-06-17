@@ -165,10 +165,24 @@ function clearIndicators(chart: Chart): void {
 
 /** Klinecharts indicators ship with default line colors that don't
  *  match our LAYER_META swatches. Override per indicator so the legend
- *  chip and the chart line agree. */
+ *  chip and the chart line agree.
+ *
+ *  IMPORTANT: must set size + style + smooth + dashedValue explicitly.
+ *  When the override is `{ color }` only, klinecharts replaces the
+ *  lines array rather than deep-merging missing fields — so the line
+ *  ends up at size=0 (invisible) which was why SMA20 wasn't rendering
+ *  even though the legend label had the right color. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function lineStyles(color: string, count = 1): any {
-  return { lines: Array.from({ length: count }, () => ({ color })) };
+  return {
+    lines: Array.from({ length: count }, () => ({
+      color,
+      size: 1,
+      style: LineType.Solid,
+      smooth: false,
+      dashedValue: [2, 2],
+    })),
+  };
 }
 
 export function applyIndicators(chart: Chart, layers: LayerConfig): void {
