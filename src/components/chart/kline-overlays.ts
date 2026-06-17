@@ -134,11 +134,16 @@ function annotationOverlays(a: PatternAnnotation, bars: ChartBar[]): OverlayCrea
   }
 
   const bottom = a.bottom ?? a.top;
+  // Zones render as a translucent shaded rectangle — no text label
+  // (traders recognize FVG/IFVG/OB zones by the shape itself; labels
+  // inside the zone obscure the price action). Per ICT convention:
+  //   - Fill opacity ~18% — visible but candles read clearly through
+  //   - Thin border at ~45% opacity to delineate the zone edges
+  // v9 names this overlay "rect" (not "rectangle" — that's v10).
+  // `tMid` is retained for future hover-tooltip wiring.
+  void tMid;
   return [
     {
-      // v9 calls this overlay "rect" (not "rectangle"). Passing a name
-      // klinecharts doesn't know throws "Cannot read properties of
-      // undefined (reading '0')" when it tries to look up the figure.
       name: "rect",
       points: [
         { timestamp: t1, value: a.top },
@@ -147,13 +152,12 @@ function annotationOverlays(a: PatternAnnotation, bars: ChartBar[]): OverlayCrea
       styles: {
         polygon: {
           style: PolygonType.StrokeFill,
-          color: color.replace(",1)", ",0.10)"),
-          borderColor: color.replace(",1)", ",0.55)"),
+          color: color.replace(",1)", ",0.18)"),
+          borderColor: color.replace(",1)", ",0.45)"),
           borderSize: 1,
         },
       },
     },
-    labelOverlay(tMid, (a.top + bottom) / 2, ANNOTATION_LABELS[a.pattern_type], color),
   ];
 }
 

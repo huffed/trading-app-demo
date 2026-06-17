@@ -35,12 +35,11 @@ function fmtPrice(p: number): string {
   return p.toFixed(5);
 }
 
-/** Forward-extension bars for UNFILLED zones (FVG, OB) only. Keeps the
- *  zone briefly visible past the formation bar so the operator sees the
- *  level. Filled zones use their actual fill bar as the right edge.
- *  Kept short — 6 bars rather than 30 — so toggling a layer on doesn't
- *  flood the chart with overlapping lines. */
-const ZONE_FORWARD_BARS = 6;
+/** Forward-extension cap for UNFILLED zones (OB only — FVG / IFVG
+ *  extend to the chart's right edge per ICT convention so the operator
+ *  sees the active S/R level). Kept short for OBs so a 6yr corpus
+ *  doesn't smear hundreds of OB zones forward. */
+const OB_FORWARD_BARS = 30;
 
 function timeAt(chartBars: ChartBar[], idx: number): number {
   const clamped = Math.max(0, Math.min(idx, chartBars.length - 1));
@@ -149,7 +148,7 @@ function scanOrderBlocks(
       kind: "zone",
       direction: d.direction,
       from_time: chartBars[i].time,
-      to_time: timeAt(chartBars, i + ZONE_FORWARD_BARS),
+      to_time: timeAt(chartBars, i + OB_FORWARD_BARS),
       top: d.ob_high,
       bottom: d.ob_low,
       label: "OB",
@@ -170,14 +169,15 @@ function scanFvgsAndIfvgs(
   const ifvg: PatternPoint[] = [];
   const annotations: PatternAnnotation[] = [];
   const gaps = scanFvgs(bars);
+  const lastBarIdx = chartBars.length - 1;
   for (const g of gaps) {
-    // FVG zone — created at idx, extends until filled (or forward by
-    // a fixed window for visualization purposes).
-    const startIdx = Math.max(0, g.gap.created_at_idx - 1);
-    const endIdx =
-      g.filled_at != null
-        ? g.filled_at
-        : Math.min(g.gap.created_at_idx + ZONE_FORWARD_BARS, chartBars.length - 1);
+    // FVG zone per ICT convention: starts at the THIRD bar of the
+    // 3-bar pattern (created_at_idx + 1) — where the gap is fully
+    // confirmed. Extends RIGHTWARD until the gap is filled OR to the
+    // chart's right edge if still unfilled, so the operator sees
+    // the active S/R level.
+    const startIdx = Math.min(g.gap.created_at_idx + 1, lastBarIdx);
+    const endIdx = g.filled_at ?? lastBarIdx;
     fvg.push({
       time: chartBars[g.gap.created_at_idx].time,
       direction: g.gap.direction,
@@ -209,7 +209,9 @@ function scanFvgsAndIfvgs(
         kind: "zone",
         direction: flipDir,
         from_time: chartBars[g.filled_at].time,
-        to_time: chartBars[Math.min(g.filled_at + ZONE_FORWARD_BARS, chartBars.length - 1)].time,
+        // IFVG also extends to the chart's right edge — the role-flip
+        // is "active" until further notice.
+        to_time: chartBars[lastBarIdx].time,
         top: g.gap.gap_top,
         bottom: g.gap.gap_bottom,
         label: "IFVG",
