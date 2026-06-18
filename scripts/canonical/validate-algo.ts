@@ -48,9 +48,12 @@ import type { BacktestTrade, PriceBar } from "../../src/lib/market-data/types";
 import type { AlgorithmRules } from "../../src/types/algorithm";
 import {
   bootstrapStat,
+  bootstrapStatBlock,
+  bootstrapStatBlockWithSamples,
   bootstrapStatWithSamples,
   meanR,
   totalReturn,
+  wilsonIntervalProportion,
   type BootstrapResult,
 } from "../../src/lib/stats/bootstrap";
 import { bonferroniVerdict, type MccVerdict } from "../../src/lib/stats/multiple-comparisons";
@@ -88,6 +91,22 @@ const PREREG_PATH = process.env.PREREG_PATH ?? "scripts/canonical/preregistratio
 const BOOTSTRAP_ITERATIONS = Number(process.env.BOOTSTRAP_ITERATIONS ?? 2000);
 const BOOTSTRAP_SEED = Number(process.env.BOOTSTRAP_SEED ?? 42);
 const FAMILY_ALPHA = Number(process.env.FAMILY_ALPHA ?? 0.05);
+/** B.2.4: tests-per-algo for Bonferroni family-size calculation.
+ *
+ *  Default 1 = correct for "is mean R > 0?" as the SOLE per-algo statistical
+ *  test. The other gates (step2/3/6 verdicts, CI lower>0, pre-reg criteria)
+ *  are treated as a single composite ship hypothesis that the pre-registration
+ *  captures, NOT independent significance tests subject to MCC.
+ *
+ *  Set to a higher integer (e.g. 5) for strict cross-test family-wise
+ *  correction if treating every criterion as a separate test. Trade-off:
+ *  stricter alpha kills more candidates (good for false-discovery control,
+ *  bad for power). Operator-tunable. */
+const BONFERRONI_TESTS_PER_ALGO = Math.max(1, Number(process.env.BONFERRONI_TESTS_PER_ALGO ?? 1));
+/** Block bootstrap (B.2.5): use moving-block bootstrap rather than
+ *  trade-level. Default on — trades within regimes are correlated, so
+ *  trade-level bootstrap understates the CI width. */
+const ENABLE_BLOCK_BOOTSTRAP = process.env.BLOCK_BOOTSTRAP !== "0";
 
 const TRAIN_MONTHS = 12;
 const TEST_MONTHS = 3;
@@ -126,8 +145,16 @@ interface GateResults {
 interface StatisticalRigorBlock {
   bootstrap_iterations: number;
   bootstrap_seed: number;
+  /** B.2.5: block bootstrap on/off. */
+  block_bootstrap: boolean;
   family_alpha: number;
+  /** B.2.4: total family size = candidates × tests_per_algo. */
   n_tests: number;
+  /** B.2.4: per-algo test count used in family-size calc. Default 1 =
+   *  Bonferroni-corrects only the "mean R > 0" significance test. */
+  bonferroni_tests_per_algo: number;
+  /** Rationale string explaining the chosen family-size semantic. */
+  bonferroni_family_rationale: string;
   total_return_ci: BootstrapResult;
   mean_r_ci: BootstrapResult;
   mean_r_bonferroni: MccVerdict;
@@ -147,8 +174,12 @@ interface StepStats {
 interface WalkForwardStats {
   walk_forward_green_pct: number;
   walk_forward_n_windows: number;
+  /** B.2.6: Wilson 95% CI on the green-window proportion. */
+  walk_forward_green_ci: { point: number; lower: number; upper: number };
   per_year_green_pct: number;
   per_year_n_years: number;
+  /** B.2.6: Wilson 95% CI on the green-year proportion. */
+  per_year_green_ci: { point: number; lower: number; upper: number };
   verdict: "PASS" | "WEAK" | "FAIL" | "INSUFFICIENT_DATA";
   reason: string;
 }
@@ -158,6 +189,8 @@ interface OosStats {
   in_sample_mean_r: number;
   held_out_n: number;
   held_out_mean_r: number;
+  /** B.2.6: bootstrap CI on held-out mean R. Block bootstrap when enabled. */
+  held_out_mean_r_ci: { point: number; lower: number; upper: number };
   r_delta_pct: number;
   verdict: "TIER_1_PASS" | "TIER_2_PASS" | "FAIL" | "INSUFFICIENT_DATA";
   reason: string;
@@ -199,14 +232,21 @@ function analyzeStats(
   now: Date
 ): GateResults {
   const computedAt = now.toISOString();
+  const effectiveNTests = Math.max(1, nCandidates * BONFERRONI_TESTS_PER_ALGO);
+  const familyRationale = BONFERRONI_TESTS_PER_ALGO === 1
+    ? `n=${nCandidates} (one mean-R test per algo; step verdicts + pre-reg are a single composite ship hypothesis, not independent significance tests)`
+    : `n=${nCandidates} × tests_per_algo=${BONFERRONI_TESTS_PER_ALGO} = ${effectiveNTests} (strict cross-test family-wise correction)`;
   const emptyRigor: StatisticalRigorBlock = {
     bootstrap_iterations: BOOTSTRAP_ITERATIONS,
     bootstrap_seed: BOOTSTRAP_SEED,
+    block_bootstrap: ENABLE_BLOCK_BOOTSTRAP,
     family_alpha: FAMILY_ALPHA,
-    n_tests: nCandidates,
+    n_tests: effectiveNTests,
+    bonferroni_tests_per_algo: BONFERRONI_TESTS_PER_ALGO,
+    bonferroni_family_rationale: familyRationale,
     total_return_ci: { point: 0, lower: NaN, upper: NaN, n_iterations: 0, ci_level: 0.95 },
     mean_r_ci: { point: 0, lower: NaN, upper: NaN, n_iterations: 0, ci_level: 0.95 },
-    mean_r_bonferroni: { p_value: 1, bonferroni_alpha: FAMILY_ALPHA / Math.max(nCandidates, 1), passes: false, family_alpha: FAMILY_ALPHA, n_tests: nCandidates },
+    mean_r_bonferroni: { p_value: 1, bonferroni_alpha: FAMILY_ALPHA / effectiveNTests, passes: false, family_alpha: FAMILY_ALPHA, n_tests: effectiveNTests },
   };
   const empty: GateResults = {
     computed_at: computedAt,
@@ -215,8 +255,8 @@ function analyzeStats(
     friction,
     fidelity_gates_applied: fidelityGates,
     step2: { total_return: 0, total_trades: 0, win_rate: 0, max_drawdown: 0, max_static_dd: 0, max_daily_dd: 0, verdict: "EXCLUDED", reason: "zero trades" },
-    step3: { walk_forward_green_pct: 0, walk_forward_n_windows: 0, per_year_green_pct: 0, per_year_n_years: 0, verdict: "INSUFFICIENT_DATA", reason: "no trades" },
-    step6: { in_sample_n: 0, in_sample_mean_r: 0, held_out_n: 0, held_out_mean_r: 0, r_delta_pct: 0, verdict: "INSUFFICIENT_DATA", reason: "no trades" },
+    step3: { walk_forward_green_pct: 0, walk_forward_n_windows: 0, walk_forward_green_ci: { point: NaN, lower: NaN, upper: NaN }, per_year_green_pct: 0, per_year_n_years: 0, per_year_green_ci: { point: NaN, lower: NaN, upper: NaN }, verdict: "INSUFFICIENT_DATA", reason: "no trades" },
+    step6: { in_sample_n: 0, in_sample_mean_r: 0, held_out_n: 0, held_out_mean_r: 0, held_out_mean_r_ci: { point: NaN, lower: NaN, upper: NaN }, r_delta_pct: 0, verdict: "INSUFFICIENT_DATA", reason: "no trades" },
     statistical_rigor: emptyRigor,
     promotion_eligible: false,
     promotion_blockers: ["zero trades"],
@@ -269,6 +309,10 @@ function analyzeStats(
   }
   const wfGreen = windows.filter((w) => w.green).length;
   const wfGreenPct = windows.length === 0 ? 0 : Math.round(wfGreen / windows.length * 100);
+  // B.2.6: Wilson 95% CI on the walk-forward green proportion.
+  const wfGreenCI = windows.length > 0
+    ? wilsonIntervalProportion(wfGreen, windows.length, 0.95)
+    : { point: NaN, lower: NaN, upper: NaN };
 
   const byYear = new Map<string, number>();
   for (const t of sorted) {
@@ -277,6 +321,10 @@ function analyzeStats(
   }
   const yearsGreen = [...byYear.values()].filter((p) => p > 0).length;
   const yearsGreenPct = byYear.size === 0 ? 0 : Math.round(yearsGreen / byYear.size * 100);
+  // B.2.6: Wilson 95% CI on the per-year green proportion.
+  const yearsGreenCI = byYear.size > 0
+    ? wilsonIntervalProportion(yearsGreen, byYear.size, 0.95)
+    : { point: NaN, lower: NaN, upper: NaN };
 
   let step3Verdict: WalkForwardStats["verdict"], step3Reason: string;
   if (cum <= 0) { step3Verdict = "FAIL"; step3Reason = "aggregate negative"; }
@@ -292,6 +340,12 @@ function analyzeStats(
   const riskPerTrade = capital * (riskPct / 100);
   const inSampleR = meanR(inSampleT, riskPerTrade);
   const heldOutR = meanR(heldOutT, riskPerTrade);
+  // B.2.6: bootstrap CI on held-out mean R. Block bootstrap when enabled.
+  const heldOutMeanRCI = heldOutT.length > 0
+    ? (ENABLE_BLOCK_BOOTSTRAP
+        ? bootstrapStatBlock(heldOutT, (ts: BacktestTrade[]) => meanR(ts, riskPerTrade), { seed: BOOTSTRAP_SEED, n_iterations: BOOTSTRAP_ITERATIONS })
+        : bootstrapStat(heldOutT, (ts: BacktestTrade[]) => meanR(ts, riskPerTrade), { seed: BOOTSTRAP_SEED, n_iterations: BOOTSTRAP_ITERATIONS }))
+    : { point: NaN, lower: NaN, upper: NaN, n_iterations: 0, ci_level: 0.95 };
   let step6Verdict: OosStats["verdict"], step6Reason: string;
   let rDelta = 0;
   if (inSampleT.length < 10) { step6Verdict = "INSUFFICIENT_DATA"; step6Reason = `in-sample ${inSampleT.length} trades`; }
@@ -307,18 +361,31 @@ function analyzeStats(
 
   // Phase B.2 statistical rigor: bootstrap CIs on total_return + mean_R,
   // Bonferroni p-value for "mean R > 0" against family of nCandidates tests.
-  const totalReturnCI = bootstrapStat(sorted, totalReturn, { seed: BOOTSTRAP_SEED, n_iterations: BOOTSTRAP_ITERATIONS });
-  const meanRWithSamples = bootstrapStatWithSamples(
-    sorted,
-    (ts: BacktestTrade[]) => meanR(ts, riskPerTrade),
-    { seed: BOOTSTRAP_SEED, n_iterations: BOOTSTRAP_ITERATIONS }
-  );
-  const meanRBonferroni = bonferroniVerdict(meanRWithSamples.samples, FAMILY_ALPHA, nCandidates);
+  // B.2.5: block bootstrap (default) handles trade-to-trade correlation
+  // within regime windows; trade-level bootstrap UNDERSTATES CI width.
+  const totalReturnCI = ENABLE_BLOCK_BOOTSTRAP
+    ? bootstrapStatBlock(sorted, totalReturn, { seed: BOOTSTRAP_SEED, n_iterations: BOOTSTRAP_ITERATIONS })
+    : bootstrapStat(sorted, totalReturn, { seed: BOOTSTRAP_SEED, n_iterations: BOOTSTRAP_ITERATIONS });
+  const meanRWithSamples = ENABLE_BLOCK_BOOTSTRAP
+    ? bootstrapStatBlockWithSamples(
+        sorted,
+        (ts: BacktestTrade[]) => meanR(ts, riskPerTrade),
+        { seed: BOOTSTRAP_SEED, n_iterations: BOOTSTRAP_ITERATIONS }
+      )
+    : bootstrapStatWithSamples(
+        sorted,
+        (ts: BacktestTrade[]) => meanR(ts, riskPerTrade),
+        { seed: BOOTSTRAP_SEED, n_iterations: BOOTSTRAP_ITERATIONS }
+      );
+  const meanRBonferroni = bonferroniVerdict(meanRWithSamples.samples, FAMILY_ALPHA, effectiveNTests);
   const rigor: StatisticalRigorBlock = {
     bootstrap_iterations: BOOTSTRAP_ITERATIONS,
     bootstrap_seed: BOOTSTRAP_SEED,
+    block_bootstrap: ENABLE_BLOCK_BOOTSTRAP,
     family_alpha: FAMILY_ALPHA,
-    n_tests: nCandidates,
+    n_tests: effectiveNTests,
+    bonferroni_tests_per_algo: BONFERRONI_TESTS_PER_ALGO,
+    bonferroni_family_rationale: familyRationale,
     total_return_ci: totalReturnCI,
     mean_r_ci: {
       point: meanRWithSamples.point,
@@ -381,8 +448,8 @@ function analyzeStats(
       verdict: step2Pass ? "PASS" : "FAIL",
       reason: step2Pass ? undefined : step2Reasons.join("; "),
     },
-    step3: { walk_forward_green_pct: wfGreenPct, walk_forward_n_windows: windows.length, per_year_green_pct: yearsGreenPct, per_year_n_years: byYear.size, verdict: step3Verdict, reason: step3Reason },
-    step6: { in_sample_n: inSampleT.length, in_sample_mean_r: Math.round(inSampleR * 100) / 100, held_out_n: heldOutT.length, held_out_mean_r: Math.round(heldOutR * 100) / 100, r_delta_pct: Math.round(rDelta * 10) / 10, verdict: step6Verdict, reason: step6Reason },
+    step3: { walk_forward_green_pct: wfGreenPct, walk_forward_n_windows: windows.length, walk_forward_green_ci: wfGreenCI, per_year_green_pct: yearsGreenPct, per_year_n_years: byYear.size, per_year_green_ci: yearsGreenCI, verdict: step3Verdict, reason: step3Reason },
+    step6: { in_sample_n: inSampleT.length, in_sample_mean_r: Math.round(inSampleR * 100) / 100, held_out_n: heldOutT.length, held_out_mean_r: Math.round(heldOutR * 100) / 100, held_out_mean_r_ci: { point: heldOutMeanRCI.point, lower: heldOutMeanRCI.lower, upper: heldOutMeanRCI.upper }, r_delta_pct: Math.round(rDelta * 10) / 10, verdict: step6Verdict, reason: step6Reason },
     statistical_rigor: rigor,
     preregistration: preregCheck,
     promotion_eligible: eligible,
@@ -428,9 +495,10 @@ async function main(): Promise<void> {
   const nCandidates = Math.max(algos.length, 1);
   const nRegistered = Object.keys(preregs).filter((k) => algos.some((a) => a.name === k)).length;
   const NOW = new Date();
+  const effectiveNTests = Math.max(1, nCandidates * BONFERRONI_TESTS_PER_ALGO);
   console.log(`Phase B.2 statistical rigor:`);
-  console.log(`  bootstrap: ${BOOTSTRAP_ITERATIONS} iterations, seed=${BOOTSTRAP_SEED}`);
-  console.log(`  Bonferroni: family alpha ${FAMILY_ALPHA} ÷ ${nCandidates} candidates = ${(FAMILY_ALPHA / nCandidates).toFixed(5)} per-test`);
+  console.log(`  bootstrap: ${BOOTSTRAP_ITERATIONS} iterations, seed=${BOOTSTRAP_SEED}, block_bootstrap=${ENABLE_BLOCK_BOOTSTRAP}`);
+  console.log(`  Bonferroni: family alpha ${FAMILY_ALPHA} ÷ ${effectiveNTests} (= ${nCandidates} candidates × ${BONFERRONI_TESTS_PER_ALGO} test/algo) = ${(FAMILY_ALPHA / effectiveNTests).toFixed(5)} per-test`);
   console.log(`  pre-registration: ${nRegistered}/${algos.length} algos registered in ${PREREG_PATH}\n`);
 
   // For sibling sim: pre-run all algos to capture trades, then re-run each with siblings.

@@ -1,5 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { bootstrapStat, bootstrapStatWithSamples, meanR, sharpeRatio, totalReturn, winRate } from "./bootstrap";
+import {
+  bootstrapStat,
+  bootstrapStatBlock,
+  bootstrapStatBlockWithSamples,
+  bootstrapStatWithSamples,
+  meanR,
+  sharpeRatio,
+  totalReturn,
+  winRate,
+  wilsonIntervalProportion,
+} from "./bootstrap";
 import type { BacktestTrade } from "@/lib/market-data/types";
 
 function makeTrades(pnls: number[]): BacktestTrade[] {
@@ -150,6 +160,122 @@ function makeRandomTrades(n: number, mean: number, std: number, seed: number): B
   }
   return makeTrades(pnls);
 }
+
+describe("bootstrapStatBlock (B.2.5)", () => {
+  it("empty input returns NaN bounds + 0 point", () => {
+    const result = bootstrapStatBlock<number>([], (xs) => xs.length, { seed: 1 });
+    expect(result.point).toBe(0);
+    expect(result.lower).toBeNaN();
+    expect(result.upper).toBeNaN();
+  });
+
+  it("deterministic with same seed", () => {
+    const items = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+    const mean = (xs: number[]): number => xs.reduce((s, x) => s + x, 0) / xs.length;
+    const a = bootstrapStatBlock(items, mean, { seed: 7 });
+    const b = bootstrapStatBlock(items, mean, { seed: 7 });
+    expect(a.lower).toBe(b.lower);
+    expect(a.upper).toBe(b.upper);
+  });
+
+  it("CI brackets point estimate", () => {
+    const items = Array.from({ length: 50 }, (_, i) => i);
+    const mean = (xs: number[]): number => xs.reduce((s, x) => s + x, 0) / xs.length;
+    const result = bootstrapStatBlock(items, mean, { seed: 1, n_iterations: 500 });
+    expect(result.lower).toBeLessThanOrEqual(result.point);
+    expect(result.upper).toBeGreaterThanOrEqual(result.point);
+  });
+
+  it("default block_size is ceil(sqrt(n))", () => {
+    // Indirect test: passing block_size=undefined should match the explicit ceil(sqrt(n)).
+    const items = Array.from({ length: 100 }, (_, i) => i);
+    const mean = (xs: number[]): number => xs.reduce((s, x) => s + x, 0) / xs.length;
+    const def = bootstrapStatBlock(items, mean, { seed: 1, n_iterations: 200 });
+    const expl = bootstrapStatBlock(items, mean, { seed: 1, n_iterations: 200, block_size: Math.ceil(Math.sqrt(100)) });
+    expect(def.lower).toBe(expl.lower);
+    expect(def.upper).toBe(expl.upper);
+  });
+
+  it("larger block_size produces WIDER CI (more conservative)", () => {
+    // Highly autocorrelated series: alternating runs of 10. Trade-level
+    // bootstrap mistakenly treats them as IID → narrow CI. Block bootstrap
+    // captures the runs → wider CI.
+    const items: number[] = [];
+    for (let i = 0; i < 100; i++) items.push(i % 20 < 10 ? 1 : -1);
+    const mean = (xs: number[]): number => xs.reduce((s, x) => s + x, 0) / xs.length;
+    const block1 = bootstrapStatBlock(items, mean, { seed: 1, n_iterations: 1000, block_size: 1 });
+    const block10 = bootstrapStatBlock(items, mean, { seed: 1, n_iterations: 1000, block_size: 10 });
+    const w1 = block1.upper - block1.lower;
+    const w10 = block10.upper - block10.lower;
+    expect(w10).toBeGreaterThan(w1);
+  });
+
+  it("block_size = 1 ≈ trade-level bootstrap for IID series", () => {
+    // No autocorrelation → block size shouldn't matter much.
+    const items = Array.from({ length: 100 }, (_, i) => Math.sin(i * 12345.6789));
+    const mean = (xs: number[]): number => xs.reduce((s, x) => s + x, 0) / xs.length;
+    const trade = bootstrapStat(items, mean, { seed: 1, n_iterations: 2000 });
+    const blockOne = bootstrapStatBlock(items, mean, { seed: 1, n_iterations: 2000, block_size: 1 });
+    // Both should produce comparable CI widths (within ~30%) for IID input.
+    const wt = trade.upper - trade.lower;
+    const wb = blockOne.upper - blockOne.lower;
+    expect(Math.abs(wt - wb) / wt).toBeLessThan(0.3);
+  });
+
+  it("bootstrapStatBlockWithSamples returns samples array", () => {
+    const items = [1, 2, 3, 4, 5];
+    const mean = (xs: number[]): number => xs.reduce((s, x) => s + x, 0) / xs.length;
+    const result = bootstrapStatBlockWithSamples(items, mean, { seed: 1, n_iterations: 50 });
+    expect(result.samples).toHaveLength(50);
+    expect(result.samples.every((s) => Number.isFinite(s))).toBe(true);
+  });
+});
+
+describe("wilsonIntervalProportion (B.2.6)", () => {
+  it("returns NaN for zero trials", () => {
+    const result = wilsonIntervalProportion(0, 0);
+    expect(result.point).toBeNaN();
+    expect(result.lower).toBeNaN();
+    expect(result.upper).toBeNaN();
+  });
+
+  it("50% point estimate centred around 0.5 with N=100", () => {
+    // 50/100 → Wilson 95% CI ≈ [0.404, 0.596]
+    const result = wilsonIntervalProportion(50, 100);
+    expect(result.point).toBe(0.5);
+    expect(result.lower).toBeCloseTo(0.404, 2);
+    expect(result.upper).toBeCloseTo(0.596, 2);
+  });
+
+  it("zero successes has non-zero upper bound (Wilson advantage over normal)", () => {
+    // 0/10 → Wilson upper ≈ 0.278 (vs normal-approximation 0 which is wrong)
+    const result = wilsonIntervalProportion(0, 10);
+    expect(result.point).toBe(0);
+    expect(result.lower).toBe(0);
+    expect(result.upper).toBeGreaterThan(0.2);
+    expect(result.upper).toBeLessThan(0.4);
+  });
+
+  it("all successes has lower bound below 1", () => {
+    const result = wilsonIntervalProportion(10, 10);
+    expect(result.point).toBe(1);
+    expect(result.upper).toBe(1);
+    expect(result.lower).toBeLessThan(1);
+    expect(result.lower).toBeGreaterThan(0.6);
+  });
+
+  it("CI tightens with more trials at the same proportion", () => {
+    const small = wilsonIntervalProportion(7, 10);
+    const big = wilsonIntervalProportion(70, 100);
+    expect(big.upper - big.lower).toBeLessThan(small.upper - small.lower);
+  });
+
+  it("99% CI is wider than 95% CI", () => {
+    const ci95 = wilsonIntervalProportion(50, 100, 0.95);
+    const ci99 = wilsonIntervalProportion(50, 100, 0.99);
+    expect(ci99.upper - ci99.lower).toBeGreaterThan(ci95.upper - ci95.lower);
+  });
+});
 
 describe("bootstrap CI vs analytic CI (sanity check)", () => {
   it("bootstrap mean CI is close to 1.96*sigma/√n for normal sample", () => {
