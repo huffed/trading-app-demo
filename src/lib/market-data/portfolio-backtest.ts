@@ -432,12 +432,33 @@ function canEnter(rules: AlgorithmRules, cfg: SimConfig, gate: EntryGate): boole
  *
  *  Use `tradesAsSiblingWindows(otherAlgoTrades)` to derive these from
  *  another backtest run's trades. The engine checks at each candidate
- *  entry whether any window contains the bar date AND has opposite side. */
+ *  entry whether any window contains the bar date AND has opposite side.
+ *
+ *  `risk_dollars` (optional) attaches the at-risk $ for risk-pool halt
+ *  simulation. When present, the risk-pool gate sums risk_dollars of
+ *  all overlapping siblings + candidate, refuses if combined > cap %. */
 export interface SiblingTradeWindow {
   ticker: string;
   side: "long" | "short";
   entry_date: string;
   exit_date: string;
+  risk_dollars?: number;
+}
+
+/** Phase B.1 fidelity (2026-06-18 PM) — backtest equivalent of live
+ *  lib/scan/risk-pool-halt.ts. Caps combined open-$ risk across sibling
+ *  algos on the same broker. Refuses entries that would push (current
+ *  combined + candidate) above pool_cap_pct%.
+ *
+ *  Live default: 3% pool cap. Phase B.1 default: 4% (operator's accepted
+ *  cap per 2026-06-12 decision per [[project_funded_trading]]). */
+export interface RiskPoolConfig {
+  enabled: boolean;
+  /** Combined risk cap as % of reference_capital. Default 4%. */
+  pool_cap_pct: number;
+  /** Capital to convert combined-risk-$ → %. Defaults to algo's own
+   *  capital if not provided. */
+  reference_capital?: number;
 }
 
 /** Phase B.1 fidelity (2026-06-18 PM) — backtest equivalent of the live
@@ -460,18 +481,27 @@ export interface SpreadGateConfig {
 }
 
 /** Convert a trade list into sibling-window form for direction-conflict
- *  simulation. Trades without `ticker` (single-ticker legacy) are dropped
- *  — caller should ensure all trades carry ticker. */
-export function tradesAsSiblingWindows(trades: BacktestTrade[]): SiblingTradeWindow[] {
+ *  + risk-pool simulation. Trades without `ticker` (single-ticker legacy)
+ *  are dropped — caller should ensure all trades carry ticker.
+ *
+ *  Optional `riskDollarsPerTrade` attaches the at-risk $ per trade for
+ *  risk-pool halt. Pass `algo.capital × algo.position_sizing.value / 100`
+ *  when the algo uses risk_per_trade sizing. */
+export function tradesAsSiblingWindows(
+  trades: BacktestTrade[],
+  riskDollarsPerTrade?: number
+): SiblingTradeWindow[] {
   const out: SiblingTradeWindow[] = [];
   for (const t of trades) {
     if (!t.ticker || !t.side) continue;
-    out.push({
+    const w: SiblingTradeWindow = {
       ticker: t.ticker,
       side: t.side,
       entry_date: t.entry_date,
       exit_date: t.exit_date,
-    });
+    };
+    if (riskDollarsPerTrade != null) w.risk_dollars = riskDollarsPerTrade;
+    out.push(w);
   }
   return out;
 }
@@ -489,6 +519,29 @@ function hasDirectionConflict(
     if (s.entry_date <= currentDate && currentDate < s.exit_date) return true;
   }
   return false;
+}
+
+/** Phase B.1 risk-pool halt simulation. Sums risk_dollars of overlapping
+ *  siblings at `currentDate` and tests if (combined + candidate) > cap.
+ *  Mirrors lib/scan/risk-pool-halt.ts but operates on sibling windows
+ *  rather than DB-queried open positions. */
+function hasRiskPoolBreach(
+  siblings: SiblingTradeWindow[],
+  candidateRiskUsd: number,
+  currentDate: string,
+  referenceCapital: number,
+  poolCapPct: number
+): boolean {
+  if (referenceCapital <= 0) return false;
+  let combined = 0;
+  for (const s of siblings) {
+    if (s.risk_dollars == null) continue;
+    if (s.entry_date <= currentDate && currentDate < s.exit_date) {
+      combined += s.risk_dollars;
+    }
+  }
+  const combinedPct = ((combined + candidateRiskUsd) / referenceCapital) * 100;
+  return combinedPct > poolCapPct;
 }
 
 /** Phase B.1 spread-gate proxy. Returns true (refuse entry) when
@@ -532,7 +585,15 @@ function tryOpenEntry(
   siblingBlockingTrades: SiblingTradeWindow[] = [],
   /** Phase B.1 backtest fidelity — refuses entries when ATR-ratio proxy
    *  indicates wide-spread regime. Approximates live spread gate. */
-  spreadGate: SpreadGateConfig | null = null
+  spreadGate: SpreadGateConfig | null = null,
+  /** Phase B.1 backtest fidelity — caps combined open-risk-$ across
+   *  sibling algos. Refuses entry if (open siblings' risk + candidate
+   *  risk) / reference_capital > pool_cap_pct. */
+  riskPool: RiskPoolConfig | null = null,
+  /** Algo's own capital × risk_pct (in $) — used as candidate's risk
+   *  contribution for the risk-pool check. Caller computes this from
+   *  rules.position_sizing.value at top-level. */
+  algoRiskDollars: number = 0
 ): void {
   const vetoed = state.vetoCheck ? state.vetoCheck(state.bars[i].date) : false;
   const gate: EntryGate = {
@@ -594,6 +655,16 @@ function tryOpenEntry(
   // market = wide spread" regime without bid/ask data.
   if (spreadGate?.enabled && hasWideSpreadProxy(state.bars, i, spreadGate)) {
     return;
+  }
+  // Phase B.1 fidelity: risk-pool halt (mirrors lib/scan/risk-pool-halt.ts).
+  // Live caps combined open SL-$ across sibling algos sharing the broker.
+  // Backtest sums risk_dollars from overlapping sibling windows + candidate
+  // risk and refuses if combined > pool_cap_pct of reference_capital.
+  if (riskPool?.enabled && algoRiskDollars > 0) {
+    const refCapital = riskPool.reference_capital ?? s.equity;
+    if (hasRiskPoolBreach(siblingBlockingTrades, algoRiskDollars, state.bars[i].date, refCapital, riskPool.pool_cap_pct)) {
+      return;
+    }
   }
   // DXY directional gate. Opt-in per algo. Skips entries when the
   // dollar-index direction (via EUR/USD proxy) over the lookback
@@ -744,7 +815,11 @@ export function runPortfolioBacktest(
    *  Default null = no spread simulation. Recommended config: enabled=true,
    *  threshold_multiplier=2.5 (matches live SPREAD_GATE_MULTIPLIER),
    *  atr_lookback_bars=200. */
-  spreadGate: SpreadGateConfig | null = null
+  spreadGate: SpreadGateConfig | null = null,
+  /** Phase B.1 backtest fidelity — caps combined open-risk-$ across
+   *  sibling algos. Default null = no risk-pool simulation. Recommended:
+   *  enabled=true, pool_cap_pct=4 (operator's accepted cap per 2026-06-12). */
+  riskPool: RiskPoolConfig | null = null
 ): BacktestMetrics {
   const entry = normalize(rules.entry_conditions);
   const exit = normalize(rules.exit_conditions);
@@ -776,6 +851,11 @@ export function runPortfolioBacktest(
   const trades: BacktestTrade[] = [];
   let currentDayKey = "";
   let dailyHalted = false;
+  // Phase B.1: pre-compute candidate risk-$ for risk-pool halt simulation.
+  // Uses capital × risk_pct (risk_per_trade sizing convention).
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const sizingValue = ((rules as any).position_sizing?.value ?? 0) as number;
+  const algoRiskDollars = capital * (sizingValue / 100);
 
   for (const timestamp of timeline) {
     const dayKey = timestamp.split(/[ T]/)[0];
@@ -804,7 +884,7 @@ export function runPortfolioBacktest(
 
     // Phase 3: try to open new entries on each active ticker.
     for (const { ticker, state, i } of activeTickers) {
-      tryOpenEntry(state, i, ticker, rules, techEntry, cfg, s, states, dailyHalted, siblingBlockingTrades, spreadGate);
+      tryOpenEntry(state, i, ticker, rules, techEntry, cfg, s, states, dailyHalted, siblingBlockingTrades, spreadGate, riskPool, algoRiskDollars);
     }
   }
   if (currentDayKey !== "") finalizeDay(s, currentDayKey);

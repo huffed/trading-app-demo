@@ -33,6 +33,7 @@ import { timeframeToInterval } from "../../src/lib/market-data/interval";
 import {
   runPortfolioBacktest,
   tradesAsSiblingWindows,
+  type RiskPoolConfig,
   type SiblingTradeWindow,
   type SpreadGateConfig,
 } from "../../src/lib/market-data/portfolio-backtest";
@@ -56,6 +57,8 @@ const OOS_CUTOFF = process.env.OOS_CUTOFF ?? "2025-12-18";
 const PERSIST = process.env.PERSIST !== "0";
 const ENABLE_SIBLINGS = process.env.SIBLINGS !== "0";
 const ENABLE_SPREAD_GATE = process.env.SPREAD_GATE !== "0";
+const ENABLE_RISK_POOL = process.env.RISK_POOL !== "0";
+const POOL_CAP_PCT = Number(process.env.POOL_CAP_PCT ?? 4);
 
 const TRAIN_MONTHS = 12;
 const TEST_MONTHS = 3;
@@ -81,7 +84,7 @@ interface GateResults {
   sample_first: string | null;
   sample_last: string | null;
   friction: { slippage_bps: number; spread_bps: number; commission_per_lot: number };
-  fidelity_gates_applied: { siblings: boolean; spread_gate: boolean };
+  fidelity_gates_applied: { siblings: boolean; spread_gate: boolean; risk_pool: boolean };
   step2: StepStats;
   step3: WalkForwardStats;
   step6: OosStats;
@@ -297,7 +300,7 @@ async function loadAlgos(supabase: any, only: string | null): Promise<AlgoRow[]>
 async function main(): Promise<void> {
   console.log(`\n===== validate-algo @ ${new Date().toISOString().slice(0, 16)} =====`);
   console.log(`Mode: ${ONLY_ALGO ? `single algo "${ONLY_ALGO}"` : "all deployed"}`);
-  console.log(`Phase B fidelity gates: siblings=${ENABLE_SIBLINGS} spread_gate=${ENABLE_SPREAD_GATE}`);
+  console.log(`Phase B fidelity gates: siblings=${ENABLE_SIBLINGS} spread_gate=${ENABLE_SPREAD_GATE} risk_pool=${ENABLE_RISK_POOL} (cap=${POOL_CAP_PCT}%)`);
   console.log(`OOS cutoff: ${OOS_CUTOFF}`);
   console.log(`Persist to DB: ${PERSIST}\n`);
 
@@ -337,23 +340,34 @@ async function main(): Promise<void> {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const riskPct = ((algo.rules as any).position_sizing?.value ?? 1);
 
+    // Build sibling list. For risk-pool: attach risk_dollars per-sibling
+    // computed from THAT sibling's capital × risk_pct.
     let siblings: SiblingTradeWindow[] = [];
-    if (ENABLE_SIBLINGS) {
+    if (ENABLE_SIBLINGS || ENABLE_RISK_POOL) {
       for (const [otherId, otherTrades] of baselineTradesByAlgo) {
         if (otherId === algo.id) continue;
-        siblings = siblings.concat(tradesAsSiblingWindows(otherTrades));
+        const otherAlgo = algos.find((a) => a.id === otherId);
+        if (!otherAlgo) continue;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const otherRiskPct = ((otherAlgo.rules as any).position_sizing?.value ?? 0) as number;
+        const otherRiskDollars = otherAlgo.capital * (otherRiskPct / 100);
+        siblings = siblings.concat(tradesAsSiblingWindows(otherTrades, otherRiskDollars));
       }
     }
     const spreadGate: SpreadGateConfig | null = ENABLE_SPREAD_GATE ? SPREAD_GATE_CONFIG : null;
+    const riskPool: RiskPoolConfig | null = ENABLE_RISK_POOL
+      ? { enabled: true, pool_cap_pct: POOL_CAP_PCT }
+      : null;
+    const fidelityFlags = { siblings: ENABLE_SIBLINGS, spread_gate: ENABLE_SPREAD_GATE, risk_pool: ENABLE_RISK_POOL };
 
     let results: GateResults;
     if (!bars) {
-      results = analyzeStats([], algo.capital, friction, { siblings: ENABLE_SIBLINGS, spread_gate: ENABLE_SPREAD_GATE }, riskPct);
+      results = analyzeStats([], algo.capital, friction, fidelityFlags, riskPct);
       results.step2.reason = "no bars in cache";
       results.promotion_blockers = ["no bars in cache"];
     } else {
-      const result = runPortfolioBacktest(algo.rules, new Map([[algo.ticker, bars]]), algo.capital, [], null, null, siblings, spreadGate);
-      results = analyzeStats(result.trades, algo.capital, friction, { siblings: ENABLE_SIBLINGS, spread_gate: ENABLE_SPREAD_GATE }, riskPct);
+      const result = runPortfolioBacktest(algo.rules, new Map([[algo.ticker, bars]]), algo.capital, [], null, null, siblings, spreadGate, riskPool);
+      results = analyzeStats(result.trades, algo.capital, friction, fidelityFlags, riskPct);
     }
     if (results.promotion_eligible) pass++;
     else if (results.step2.verdict === "EXCLUDED") excluded++;
@@ -370,7 +384,7 @@ async function main(): Promise<void> {
   }
 
   console.log(`\nSUMMARY: ${pass} ELIGIBLE / ${fail} BLOCKED / ${excluded} EXCLUDED\n`);
-  console.log(`Phase B fidelity gates applied: siblings=${ENABLE_SIBLINGS}, spread_gate=${ENABLE_SPREAD_GATE}`);
+  console.log(`Phase B fidelity gates applied: siblings=${ENABLE_SIBLINGS}, spread_gate=${ENABLE_SPREAD_GATE}, risk_pool=${ENABLE_RISK_POOL} (cap=${POOL_CAP_PCT}%)`);
   console.log(`Compare to Phase A results (no gates) to measure fidelity impact.\n`);
 }
 
