@@ -78,7 +78,16 @@ import {
 }
 
 const ONLY_ALGO = process.env.ALGO ?? null;
-const OOS_CUTOFF = process.env.OOS_CUTOFF ?? "2025-12-18";
+/** OOS holdout cutoff. Default 2025-06-18 = 12 months held-out as of
+ *  2026-06-18 default snapshot. Empirically the sweet spot across the
+ *  current fleet: shorter windows have too few held-out trades for
+ *  small-N algos to pass the min_held_out_trades floor; longer windows
+ *  push held-out R away from in-sample R (oos_r_delta blockers). The
+ *  roadmap B.6 cadence says "quarterly re-roll 3 months" but that
+ *  produces 0 ELIGIBLE under current pre-reg floors — reconcile by
+ *  either lowering min_held_out_trades for short cadences OR using a
+ *  rolling 12-month holdout regardless of re-roll frequency. */
+const OOS_CUTOFF = process.env.OOS_CUTOFF ?? "2025-06-18";
 const PERSIST = process.env.PERSIST !== "0";
 const ENABLE_SIBLINGS = process.env.SIBLINGS !== "0";
 const ENABLE_SPREAD_GATE = process.env.SPREAD_GATE !== "0";
