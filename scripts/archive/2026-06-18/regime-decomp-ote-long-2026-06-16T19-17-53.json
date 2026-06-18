@@ -1,0 +1,94 @@
+{
+  "results": [
+    {
+      "key": "ungated",
+      "description": "Baseline: no gate (current OTE-Long config)",
+      "n": 209,
+      "mean_r": 0.284,
+      "total_r": 59.3,
+      "win_pct": 33,
+      "total_dollars": 35572,
+      "dd_pct": 11.59
+    },
+    {
+      "key": "G1_block_fast_div_bull",
+      "description": "Block mtf=fast_div_bull (V1.2 negative for longs)",
+      "n": 210,
+      "mean_r": 0.276,
+      "total_r": 58,
+      "win_pct": 32.9,
+      "total_dollars": 34791,
+      "dd_pct": 11.01
+    },
+    {
+      "key": "G2_block_usd_down",
+      "description": "Block dxy=usd_down (V1.2 negative for longs)",
+      "n": 149,
+      "mean_r": 0.333,
+      "total_r": 49.7,
+      "win_pct": 34.2,
+      "total_dollars": 29811,
+      "dd_pct": 7.26
+    },
+    {
+      "key": "G3_block_fast_div_bull_OR_usd_down",
+      "description": "Block mtf=fast_div_bull OR dxy=usd_down (same as Dip-Buyer's gate)",
+      "n": 146,
+      "mean_r": 0.331,
+      "total_r": 48.4,
+      "win_pct": 34.2,
+      "total_dollars": 29030,
+      "dd_pct": 6.68
+    },
+    {
+      "key": "G4_block_compressed",
+      "description": "Block range=compressed (V1.2 cluster signature element)",
+      "n": 152,
+      "mean_r": 0.313,
+      "total_r": 47.6,
+      "win_pct": 33.6,
+      "total_dollars": 28568,
+      "dd_pct": 9.04
+    },
+    {
+      "key": "G5_block_premium",
+      "description": "Block entry_zone=premium (don't long in premium)",
+      "n": 208,
+      "mean_r": 0.289,
+      "total_r": 60.2,
+      "win_pct": 33.2,
+      "total_dollars": 36112,
+      "dd_pct": 11.59
+    },
+    {
+      "key": "G6_allow_aligned_HH",
+      "description": "Allow only mtf=aligned_HH (trend-confirmation)",
+      "n": 2,
+      "mean_r": 0.959,
+      "total_r": 1.9,
+      "win_pct": 50,
+      "total_dollars": 1150,
+      "dd_pct": 0.58
+    },
+    {
+      "key": "G7_allow_discount",
+      "description": "Allow only entry_zone=discount (ICT discount-only rule)",
+      "n": 157,
+      "mean_r": 0.314,
+      "total_r": 49.2,
+      "win_pct": 33.8,
+      "total_dollars": 29536,
+      "dd_pct": 8.09
+    },
+    {
+      "key": "G8_block_v12_cluster",
+      "description": "Block V1.2 joint cluster (compressed ∩ discount ∩ london(7-13))",
+      "n": 199,
+      "mean_r": 0.251,
+      "total_r": 50,
+      "win_pct": 32.2,
+      "total_dollars": 30022,
+      "dd_pct": 11.51
+    }
+  ]
+}

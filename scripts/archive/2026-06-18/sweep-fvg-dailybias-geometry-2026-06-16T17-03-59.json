@@ -1,0 +1,103 @@
+{
+  "cells": [
+    {
+      "rr": 2,
+      "lookback": 3,
+      "windows": 58,
+      "windows_with_trades": 30,
+      "green_pct": 73.3,
+      "trades": 126,
+      "total_ret": 30956,
+      "worst_dd": 3.33,
+      "dd_breaches_gt5": 0
+    },
+    {
+      "rr": 2,
+      "lookback": 4,
+      "windows": 58,
+      "windows_with_trades": 30,
+      "green_pct": 73.3,
+      "trades": 124,
+      "total_ret": 32372,
+      "worst_dd": 3.34,
+      "dd_breaches_gt5": 0
+    },
+    {
+      "rr": 2,
+      "lookback": 6,
+      "windows": 58,
+      "windows_with_trades": 30,
+      "green_pct": 80,
+      "trades": 115,
+      "total_ret": 28562,
+      "worst_dd": 3.34,
+      "dd_breaches_gt5": 0
+    },
+    {
+      "rr": 3,
+      "lookback": 3,
+      "windows": 58,
+      "windows_with_trades": 30,
+      "green_pct": 60,
+      "trades": 96,
+      "total_ret": 24026,
+      "worst_dd": 2.93,
+      "dd_breaches_gt5": 0
+    },
+    {
+      "rr": 3,
+      "lookback": 4,
+      "windows": 58,
+      "windows_with_trades": 30,
+      "green_pct": 56.7,
+      "trades": 94,
+      "total_ret": 22841,
+      "worst_dd": 2.93,
+      "dd_breaches_gt5": 0
+    },
+    {
+      "rr": 3,
+      "lookback": 6,
+      "windows": 58,
+      "windows_with_trades": 30,
+      "green_pct": 60,
+      "trades": 87,
+      "total_ret": 19875,
+      "worst_dd": 2.92,
+      "dd_breaches_gt5": 0
+    },
+    {
+      "rr": 5,
+      "lookback": 3,
+      "windows": 58,
+      "windows_with_trades": 29,
+      "green_pct": 51.7,
+      "trades": 75,
+      "total_ret": 19619,
+      "worst_dd": 2.93,
+      "dd_breaches_gt5": 0
+    },
+    {
+      "rr": 5,
+      "lookback": 4,
+      "windows": 58,
+      "windows_with_trades": 29,
+      "green_pct": 51.7,
+      "trades": 69,
+      "total_ret": 15889,
+      "worst_dd": 2.93,
+      "dd_breaches_gt5": 0
+    },
+    {
+      "rr": 5,
+      "lookback": 6,
+      "windows": 58,
+      "windows_with_trades": 29,
+      "green_pct": 51.7,
+      "trades": 63,
+      "total_ret": 19525,
+      "worst_dd": 2.92,
+      "dd_breaches_gt5": 0
+    }
+  ]
+}

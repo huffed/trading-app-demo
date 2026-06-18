@@ -1,0 +1,87 @@
+===== LLM-trader walk-forward =====
+Provider: anthropic (model: claude-haiku-4-5-20251001)
+Ticker:    XAU/USD
+Prompt:    v2
+Timeframe: 4h
+Capital per window: $100,000
+Windows: 6 × 40d (non-overlapping, ending 2026-04-30)
+Coverage: 2025-10-12 (− 40d) → 2026-04-30
+Estimated cost: ~1440 LLM calls (~763K tokens). Anthropic Haiku ≈ $0.61.
+
+Loading XAU/USD 4h corpus (fetched at 4h)...
+  4h corpus: 12666 bars (2020-01-01 → 2026-05-15)
+  daily corpus: 9999 bars
+Loading EUR/USD 4h proxy...
+  EUR/USD 4h: 4999 bars
+Loading intermarket series (silver / yields / VIX)...
+[prices] OANDA failed for ^TNX: OANDA request failed: 400 {"errorMessage":"Invalid value specified for 'instrument'"}
+[prices] Twelve Data failed for ^TNX: **symbol** or **figi** parameter is missing or invalid. Please provide a valid symbol according to API documentation: https://twelvedata.com/docs#reference-data
+[prices] OANDA failed for ^VIX: OANDA request failed: 400 {"errorMessage":"Invalid value specified for 'instrument'"}
+[prices] Twelve Data failed for ^VIX: **symbol** or **figi** parameter is missing or invalid. Please provide a valid symbol according to API documentation: https://twelvedata.com/docs#reference-data
+  silver: 4999 bars · 10Y yield: 1256 bars · VIX: 1256 bars
+
+Pre-fetching economic calendar for 2025-09-02 → 2026-04-30...
+  1274 events loaded
+
+--- Window 1/6: ending 2025-10-12 (back 40d) ---
+  6 trades · 67% WR · $3141 (3.14%) · DD 0.73% · 230 LLM calls (38 fails) · 1661s
+--- Window 2/6: ending 2025-11-21 (back 40d) ---
+  8 trades · 38% WR · $2285 (2.29%) · DD 0.91% · 385 LLM calls (63 fails) · 2818s
+    Gates: atr=11 news=0 consec=0 ftmo=0 · stagnant_exits=0
+--- Window 3/6: ending 2025-12-31 (back 40d) ---
+  8 trades · 50% WR · $2747 (2.75%) · DD 0.72% · 372 LLM calls (23 fails) · 2721s
+    Gates: atr=3 news=0 consec=0 ftmo=0 · stagnant_exits=0
+--- Window 4/6: ending 2026-02-09 (back 40d) ---
+  15 trades · 33% WR · $2408 (2.41%) · DD 2.18% · 398 LLM calls (43 fails) · 2886s
+    Gates: atr=3 news=0 consec=0 ftmo=0 · stagnant_exits=0
+--- Window 5/6: ending 2026-03-21 (back 40d) ---
+  10 trades · 50% WR · $850 (0.85%) · DD 2.14% · 413 LLM calls (38 fails) · 3027s
+    Gates: atr=5 news=0 consec=0 ftmo=0 · stagnant_exits=0
+--- Window 6/6: ending 2026-04-30 (back 40d) ---
+  6 trades · 33% WR · $1401 (1.40%) · DD 1.27% · 294 LLM calls (33 fails) · 2165s
+    Gates: atr=1 news=0 consec=0 ftmo=0 · stagnant_exits=0
+
+===== Walk-forward summary =====
+
+Per-window results (oldest → newest):
+  #   end_date    trades  WR      return$     return%   DD%     LLM(fails)    
+  ✓   2025-10-12  6       67%     $3141       +3.14%    0.73%   230(38)       
+  ✓   2025-11-21  8       38%     $2285       +2.29%    0.91%   385(63)       
+  ✓   2025-12-31  8       50%     $2747       +2.75%    0.72%   372(23)       
+  ✓   2026-02-09  15      33%     $2408       +2.41%    2.18%   398(43)       
+  ✓   2026-03-21  10      50%     $850        +0.85%    2.14%   413(38)       
+  ✓   2026-04-30  6       33%     $1401       +1.40%    1.27%   294(33)       
+
+Walk-forward aggregate:
+  Windows                 : 6
+  Green windows           : 6/6 (100%)
+  Total trades            : 53
+  Mean WR (per window)    : 45.1%
+  Median WR (per window)  : 50.0%
+  Total return            : $12833 (12.83% on $100K base)
+  Mean return / window    : $2139
+  Max DD (worst window)   : 2.18%
+  Total LLM calls         : 2092 (238 failures)
+
+Per-regime breakdown (all trades, all windows):
+  regime    trades  WR      mean_R   $pnl        long(W/T)   short(W/T)  
+  HH        30      53%     0.58     $12981      16/30       0/0         
+  LH        23      30%     -0.01    $-148       0/0         7/23        
+
+Regime-flip cohort (regime changed mid-trade?):
+  cohort          trades  WR      mean_R   $pnl        
+  flipped         14      21%     -0.32    $-3394      
+  not_flipped     39      51%     0.55     $16227      
+
+LLM decision distribution per regime (all bars, all windows):
+  regime    enter_long  enter_short  hold    exit    
+  HH        46          0            831     5       
+  RANGING   0           2            560     3       
+  LH        0           30           374     3       
+
+Walk-forward summary saved: scripts/llm-trader-wf-summary-anthropic-4h-6x40d-v2-2026-05-15T12-39-20.json
+Combined trade log saved: scripts/llm-trader-wf-trades-anthropic-4h-6x40d-v2-2026-05-15T12-39-20.jsonl (53 trades)
+Per-window decision logs saved: scripts/llm-trader-wf-decisions-...-v2-<window-end>.jsonl (6 files)
+
+(No ALGO_ID set — cache not uploaded. To populate the readiness check,
+ re-run with ALGO_ID=<uuid> or write the cache from the saved summary file.)

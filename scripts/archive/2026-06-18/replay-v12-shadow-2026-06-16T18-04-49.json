@@ -1,0 +1,246 @@
+{
+  "results": [
+    {
+      "algo": "bear_short_4h",
+      "variant": "baseline",
+      "trades": 3,
+      "total_return": 2519,
+      "worst_dd": 0.57,
+      "per_year": {
+        "2026": {
+          "trades": 3,
+          "return": 2519
+        }
+      }
+    },
+    {
+      "algo": "bear_short_4h",
+      "variant": "with_v12",
+      "trades": 3,
+      "total_return": 2519,
+      "worst_dd": 0.57,
+      "per_year": {
+        "2026": {
+          "trades": 3,
+          "return": 2519
+        }
+      }
+    },
+    {
+      "algo": "coil_breakout_1h",
+      "variant": "baseline",
+      "trades": 58,
+      "total_return": 21727,
+      "worst_dd": 3.93,
+      "per_year": {
+        "2025": {
+          "trades": 36,
+          "return": 22402
+        },
+        "2026": {
+          "trades": 22,
+          "return": -675
+        }
+      }
+    },
+    {
+      "algo": "coil_breakout_1h",
+      "variant": "with_v12",
+      "trades": 58,
+      "total_return": 21727,
+      "worst_dd": 3.93,
+      "per_year": {
+        "2025": {
+          "trades": 36,
+          "return": 22402
+        },
+        "2026": {
+          "trades": 22,
+          "return": -675
+        }
+      }
+    },
+    {
+      "algo": "dip_buyer_4h",
+      "variant": "baseline",
+      "trades": 84,
+      "total_return": 16741,
+      "worst_dd": 2.95,
+      "per_year": {
+        "2020": {
+          "trades": 6,
+          "return": 3553
+        },
+        "2021": {
+          "trades": 13,
+          "return": -594
+        },
+        "2022": {
+          "trades": 10,
+          "return": 6009
+        },
+        "2023": {
+          "trades": 10,
+          "return": 3597
+        },
+        "2024": {
+          "trades": 27,
+          "return": 526
+        },
+        "2025": {
+          "trades": 14,
+          "return": 5887
+        },
+        "2026": {
+          "trades": 4,
+          "return": -2237
+        }
+      }
+    },
+    {
+      "algo": "dip_buyer_4h",
+      "variant": "with_v12",
+      "trades": 80,
+      "total_return": 16740,
+      "worst_dd": 2.95,
+      "per_year": {
+        "2020": {
+          "trades": 6,
+          "return": 3553
+        },
+        "2021": {
+          "trades": 13,
+          "return": -594
+        },
+        "2022": {
+          "trades": 10,
+          "return": 6009
+        },
+        "2023": {
+          "trades": 9,
+          "return": 1800
+        },
+        "2024": {
+          "trades": 26,
+          "return": 1131
+        },
+        "2025": {
+          "trades": 12,
+          "return": 7078
+        },
+        "2026": {
+          "trades": 4,
+          "return": -2237
+        }
+      }
+    },
+    {
+      "algo": "fvg_long_30m",
+      "variant": "baseline",
+      "trades": 102,
+      "total_return": 26775,
+      "worst_dd": 2.78,
+      "per_year": {
+        "2025": {
+          "trades": 20,
+          "return": 12178
+        },
+        "2026": {
+          "trades": 82,
+          "return": 14597
+        }
+      }
+    },
+    {
+      "algo": "fvg_long_30m",
+      "variant": "with_v12",
+      "trades": 102,
+      "total_return": 26775,
+      "worst_dd": 2.78,
+      "per_year": {
+        "2025": {
+          "trades": 20,
+          "return": 12178
+        },
+        "2026": {
+          "trades": 82,
+          "return": 14597
+        }
+      }
+    },
+    {
+      "algo": "fvg_dailybias_long_4h",
+      "variant": "baseline",
+      "trades": 124,
+      "total_return": 32372,
+      "worst_dd": 3.34,
+      "per_year": {
+        "2020": {
+          "trades": 14,
+          "return": 2293
+        },
+        "2021": {
+          "trades": 26,
+          "return": 2436
+        },
+        "2022": {
+          "trades": 20,
+          "return": 9667
+        },
+        "2023": {
+          "trades": 12,
+          "return": 5645
+        },
+        "2024": {
+          "trades": 15,
+          "return": 5266
+        },
+        "2025": {
+          "trades": 19,
+          "return": 4613
+        },
+        "2026": {
+          "trades": 18,
+          "return": 2451
+        }
+      }
+    },
+    {
+      "algo": "fvg_dailybias_long_4h",
+      "variant": "with_v12",
+      "trades": 124,
+      "total_return": 32372,
+      "worst_dd": 3.34,
+      "per_year": {
+        "2020": {
+          "trades": 14,
+          "return": 2293
+        },
+        "2021": {
+          "trades": 26,
+          "return": 2436
+        },
+        "2022": {
+          "trades": 20,
+          "return": 9667
+        },
+        "2023": {
+          "trades": 12,
+          "return": 5645
+        },
+        "2024": {
+          "trades": 15,
+          "return": 5266
+        },
+        "2025": {
+          "trades": 19,
+          "return": 4613
+        },
+        "2026": {
+          "trades": 18,
+          "return": 2451
+        }
+      }
+    }
+  ]
+}

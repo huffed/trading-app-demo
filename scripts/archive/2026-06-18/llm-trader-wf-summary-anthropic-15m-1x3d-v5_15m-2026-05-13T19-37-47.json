@@ -1,0 +1,89 @@
+{
+  "provider": "anthropic",
+  "model": "claude-haiku-4-5-20251001",
+  "prompt_version": "v5_15m",
+  "timeframe": "15m",
+  "window_days": 3,
+  "window_count": 1,
+  "end_date": "2026-05-13",
+  "capital": 100000,
+  "aggregate": {
+    "windows": 1,
+    "green_windows": 0,
+    "green_pct": 0,
+    "total_trades": 2,
+    "mean_win_rate_pct": 0,
+    "median_win_rate_pct": 0,
+    "total_return": -22.106237332263845,
+    "mean_return_per_window": -22.106237332263845,
+    "max_drawdown_across_windows": 0.022106237332263846,
+    "total_llm_calls": 280,
+    "total_llm_failures": 16
+  },
+  "per_window": [
+    {
+      "window_label": "2026-05-13 − 3d",
+      "start_date": "2026-05-10 21:00:00",
+      "end_date": "2026-05-13 18:45:00",
+      "num_bars": 280,
+      "trades": 2,
+      "wins": 0,
+      "return_usd": -22.106237332263845,
+      "max_drawdown_pct": 0.022106237332263846,
+      "llm_calls": 280,
+      "llm_failures": 16,
+      "gate_refusals": {
+        "atr_liquidity": 2,
+        "news_veto": 0,
+        "consec_loss_halt": 0,
+        "ftmo_consistency_halt": 0,
+        "stagnant_exits": 0,
+        "ranging_regime": 0
+      }
+    }
+  ],
+  "aggregate_gate_refusals": {
+    "atr_liquidity": 2,
+    "news_veto": 0,
+    "consec_loss_halt": 0,
+    "ftmo_consistency_halt": 0,
+    "stagnant_exits": 0
+  },
+  "by_regime": [
+    {
+      "regime": "RANGING",
+      "count": 2,
+      "wins": 0,
+      "win_rate_pct": 0,
+      "mean_r": -0.014737491554842035,
+      "sum_pnl": -22.106237332263,
+      "long_count": 1,
+      "long_wins": 0,
+      "short_count": 1,
+      "short_wins": 0
+    }
+  ],
+  "flip_cohort": {
+    "flipped": {
+      "count": 0,
+      "wins": 0,
+      "mean_r": 0,
+      "sum_pnl": 0
+    },
+    "not_flipped": {
+      "count": 2,
+      "wins": 0,
+      "mean_r": -0.014737491554842035,
+      "sum_pnl": -22.106237332263
+    }
+  },
+  "decisions_by_regime": {
+    "RANGING": {
+      "hold": 248,
+      "enter_long": 3,
+      "move_be": 10,
+      "exit": 2,
+      "enter_short": 1
+    }
+  }
+}

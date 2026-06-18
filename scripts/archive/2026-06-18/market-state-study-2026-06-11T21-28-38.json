@@ -1,0 +1,124 @@
+{
+  "risk_pct": 0.6,
+  "capital": 100000,
+  "files": [
+    "scripts/llm-trader-wf-trades-anthropic-4h-1x40d-v2-2026-06-10T20-12-42.jsonl",
+    "scripts/llm-trader-wf-trades-anthropic-4h-1x40d-v2-2026-06-11T10-09-48.jsonl",
+    "scripts/llm-trader-wf-trades-anthropic-4h-6x40d-2026-05-01T15-47-20.jsonl",
+    "scripts/llm-trader-wf-trades-anthropic-4h-6x40d-v1-2026-05-02T01-16-27.jsonl",
+    "scripts/llm-trader-wf-trades-anthropic-4h-6x40d-v2-2026-05-01T18-05-41.jsonl",
+    "scripts/llm-trader-wf-trades-anthropic-4h-6x40d-v2-2026-05-01T20-54-10.jsonl",
+    "scripts/llm-trader-wf-trades-anthropic-4h-6x40d-v2-2026-05-02T00-11-05.jsonl",
+    "scripts/llm-trader-wf-trades-anthropic-4h-6x40d-v2-2026-05-02T07-55-03.jsonl",
+    "scripts/llm-trader-wf-trades-anthropic-4h-6x40d-v2-2026-05-15T12-38-49.jsonl",
+    "scripts/llm-trader-wf-trades-anthropic-4h-6x40d-v2-2026-05-15T12-39-20.jsonl",
+    "scripts/llm-trader-wf-trades-anthropic-4h-6x40d-v2-2026-05-15T12-40-03.jsonl",
+    "scripts/llm-trader-wf-trades-anthropic-4h-6x40d-v2-2026-05-15T12-40-25.jsonl",
+    "scripts/llm-trader-wf-trades-anthropic-4h-6x40d-v2-2026-05-17T18-43-16.jsonl",
+    "scripts/llm-trader-wf-trades-anthropic-4h-6x40d-v2-2026-05-17T18-48-58.jsonl",
+    "scripts/llm-trader-wf-trades-anthropic-4h-6x40d-v2-2026-05-17T18-53-46.jsonl",
+    "scripts/llm-trader-wf-trades-anthropic-4h-6x40d-v2-2026-05-18T15-36-09.jsonl",
+    "scripts/llm-trader-wf-trades-anthropic-4h-6x40d-v2-2026-05-18T15-36-30.jsonl",
+    "scripts/llm-trader-wf-trades-anthropic-4h-6x40d-v2-2026-05-18T15-41-00.jsonl",
+    "scripts/llm-trader-wf-trades-anthropic-4h-6x40d-v2-2026-05-18T15-41-06.jsonl",
+    "scripts/llm-trader-wf-trades-anthropic-4h-6x40d-v2-2026-06-11T02-16-15.jsonl",
+    "scripts/llm-trader-wf-trades-anthropic-4h-6x40d-v2_generic-2026-05-18T10-15-28.jsonl",
+    "scripts/llm-trader-wf-trades-anthropic-4h-6x40d-v2_generic-2026-05-18T10-17-35.jsonl",
+    "scripts/llm-trader-wf-trades-anthropic-4h-6x40d-v2_generic-2026-05-18T10-44-34.jsonl",
+    "scripts/llm-trader-wf-trades-anthropic-4h-6x40d-v2_generic-2026-05-18T13-00-19.jsonl",
+    "scripts/llm-trader-wf-trades-anthropic-4h-6x40d-v2_mtf-2026-05-17T21-44-47.jsonl",
+    "scripts/llm-trader-wf-trades-anthropic-4h-6x40d-v2_mtf-2026-05-17T21-45-19.jsonl",
+    "scripts/llm-trader-wf-trades-anthropic-4h-6x40d-v2_mtf-2026-05-17T21-45-26.jsonl",
+    "scripts/llm-trader-wf-trades-anthropic-4h-6x40d-v2_mtf-2026-05-17T21-47-30.jsonl"
+  ],
+  "unmatched": 49,
+  "trades": 696,
+  "overall": {
+    "n": 696,
+    "wr": 55.89080459770115,
+    "meanR": 0.5662167387493254,
+    "sumR": 394.08685016953046
+  },
+  "features": {
+    "vol": {
+      "high": {
+        "n": 491,
+        "wr": 50.71283095723014,
+        "meanR": 0.40808187935503787,
+        "sumR": 200.36820276332358
+      },
+      "mid": {
+        "n": 177,
+        "wr": 70.62146892655367,
+        "meanR": 1.019641402141352,
+        "sumR": 180.4765281790193
+      },
+      "low": {
+        "n": 28,
+        "wr": 53.57142857142857,
+        "meanR": 0.47293282954241583,
+        "sumR": 13.242119227187644
+      }
+    },
+    "mtf_structure": {
+      "n/a": {
+        "n": 695,
+        "wr": 55.97122302158274,
+        "meanR": 0.5673070415203938,
+        "sumR": 394.2783938566737
+      },
+      "aligned_LH": {
+        "n": 1,
+        "wr": 0,
+        "meanR": -0.19154368714320583,
+        "sumR": -0.19154368714320583
+      }
+    },
+    "range": {
+      "expanded": {
+        "n": 431,
+        "wr": 53.82830626450116,
+        "meanR": 0.4522640767482361,
+        "sumR": 194.92581707848976
+      },
+      "normal": {
+        "n": 196,
+        "wr": 55.10204081632652,
+        "meanR": 0.617819896674772,
+        "sumR": 121.09269974825531
+      },
+      "compressed": {
+        "n": 69,
+        "wr": 71.01449275362319,
+        "meanR": 1.1314251209099329,
+        "sumR": 78.06833334278537
+      }
+    },
+    "dxy": {
+      "usd_flip": {
+        "n": 270,
+        "wr": 60,
+        "meanR": 0.6229293217765113,
+        "sumR": 168.19091687965803
+      },
+      "usd_down": {
+        "n": 236,
+        "wr": 44.06779661016949,
+        "meanR": 0.21637498858998142,
+        "sumR": 51.06449730723561
+      },
+      "usd_up": {
+        "n": 190,
+        "wr": 64.73684210526316,
+        "meanR": 0.9201654525401927,
+        "sumR": 174.8314359826366
+      }
+    }
+  },
+  "verdicts": [
+    "vol=mid: meanR 1.02 vs overall 0.57 (n=177) — favourable state",
+    "range=compressed: meanR 1.13 vs overall 0.57 (n=69) — favourable state",
+    "dxy=usd_down: meanR 0.22 vs overall 0.57 (n=236) — DOWNSHIFT candidate (shadow first)",
+    "dxy=usd_up: meanR 0.92 vs overall 0.57 (n=190) — favourable state"
+  ]
+}

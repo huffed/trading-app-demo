@@ -1,0 +1,2909 @@
+{
+  "results": [
+    {
+      "ticker": "XAU/USD",
+      "key": "ungated",
+      "description": "Baseline: no gate (current OTE-Long config)",
+      "n": 209,
+      "mean_r": 0.284,
+      "total_r": 59.3,
+      "win_pct": 33,
+      "total_dollars": 35572,
+      "dd_pct": 11.59,
+      "per_year": [
+        {
+          "year": "2020",
+          "n": 20,
+          "total_dollars": -378,
+          "win_pct": 25,
+          "year_peak_dd_pct": 4.91
+        },
+        {
+          "year": "2021",
+          "n": 19,
+          "total_dollars": -2294,
+          "win_pct": 21.1,
+          "year_peak_dd_pct": 4.3
+        },
+        {
+          "year": "2022",
+          "n": 23,
+          "total_dollars": -4669,
+          "win_pct": 17.4,
+          "year_peak_dd_pct": 8.03
+        },
+        {
+          "year": "2023",
+          "n": 21,
+          "total_dollars": 1095,
+          "win_pct": 28.6,
+          "year_peak_dd_pct": 3.14
+        },
+        {
+          "year": "2024",
+          "n": 33,
+          "total_dollars": 5662,
+          "win_pct": 33.3,
+          "year_peak_dd_pct": 3.86
+        },
+        {
+          "year": "2025",
+          "n": 35,
+          "total_dollars": 13765,
+          "win_pct": 42.9,
+          "year_peak_dd_pct": 2.46
+        },
+        {
+          "year": "2026",
+          "n": 58,
+          "total_dollars": 22392,
+          "win_pct": 41.4,
+          "year_peak_dd_pct": 3.34
+        }
+      ],
+      "worst_year_dd_pct": 8.03
+    },
+    {
+      "ticker": "XAU/USD",
+      "key": "G1_block_fast_div_bull",
+      "description": "Block mtf=fast_div_bull (V1.2 negative for longs)",
+      "n": 210,
+      "mean_r": 0.276,
+      "total_r": 58,
+      "win_pct": 32.9,
+      "total_dollars": 34791,
+      "dd_pct": 11.01,
+      "per_year": [
+        {
+          "year": "2020",
+          "n": 24,
+          "total_dollars": -479,
+          "win_pct": 25,
+          "year_peak_dd_pct": 4.91
+        },
+        {
+          "year": "2021",
+          "n": 19,
+          "total_dollars": -2294,
+          "win_pct": 21.1,
+          "year_peak_dd_pct": 4.3
+        },
+        {
+          "year": "2022",
+          "n": 22,
+          "total_dollars": -4090,
+          "win_pct": 18.2,
+          "year_peak_dd_pct": 7.45
+        },
+        {
+          "year": "2023",
+          "n": 21,
+          "total_dollars": 1095,
+          "win_pct": 28.6,
+          "year_peak_dd_pct": 3.14
+        },
+        {
+          "year": "2024",
+          "n": 32,
+          "total_dollars": 3863,
+          "win_pct": 31.3,
+          "year_peak_dd_pct": 3.86
+        },
+        {
+          "year": "2025",
+          "n": 35,
+          "total_dollars": 13765,
+          "win_pct": 42.9,
+          "year_peak_dd_pct": 2.46
+        },
+        {
+          "year": "2026",
+          "n": 57,
+          "total_dollars": 22931,
+          "win_pct": 42.1,
+          "year_peak_dd_pct": 3.34
+        }
+      ],
+      "worst_year_dd_pct": 7.45
+    },
+    {
+      "ticker": "XAU/USD",
+      "key": "G2_block_usd_down",
+      "description": "Block dxy=usd_down (V1.2 negative for longs)",
+      "n": 149,
+      "mean_r": 0.333,
+      "total_r": 49.7,
+      "win_pct": 34.2,
+      "total_dollars": 29811,
+      "dd_pct": 7.26,
+      "per_year": [
+        {
+          "year": "2020",
+          "n": 16,
+          "total_dollars": -318,
+          "win_pct": 25,
+          "year_peak_dd_pct": 4.82
+        },
+        {
+          "year": "2021",
+          "n": 12,
+          "total_dollars": 2145,
+          "win_pct": 33.3,
+          "year_peak_dd_pct": 1.85
+        },
+        {
+          "year": "2022",
+          "n": 20,
+          "total_dollars": -2772,
+          "win_pct": 20,
+          "year_peak_dd_pct": 7.26
+        },
+        {
+          "year": "2023",
+          "n": 14,
+          "total_dollars": 683,
+          "win_pct": 28.6,
+          "year_peak_dd_pct": 3.35
+        },
+        {
+          "year": "2024",
+          "n": 25,
+          "total_dollars": 3415,
+          "win_pct": 32,
+          "year_peak_dd_pct": 3.76
+        },
+        {
+          "year": "2025",
+          "n": 19,
+          "total_dollars": 9571,
+          "win_pct": 47.4,
+          "year_peak_dd_pct": 1.84
+        },
+        {
+          "year": "2026",
+          "n": 43,
+          "total_dollars": 17086,
+          "win_pct": 41.9,
+          "year_peak_dd_pct": 3.05
+        }
+      ],
+      "worst_year_dd_pct": 7.26
+    },
+    {
+      "ticker": "XAU/USD",
+      "key": "G3_block_fast_div_bull_OR_usd_down",
+      "description": "Block mtf=fast_div_bull OR dxy=usd_down (same as Dip-Buyer's gate)",
+      "n": 146,
+      "mean_r": 0.331,
+      "total_r": 48.4,
+      "win_pct": 34.2,
+      "total_dollars": 29030,
+      "dd_pct": 6.68,
+      "per_year": [
+        {
+          "year": "2020",
+          "n": 16,
+          "total_dollars": -318,
+          "win_pct": 25,
+          "year_peak_dd_pct": 4.82
+        },
+        {
+          "year": "2021",
+          "n": 12,
+          "total_dollars": 2145,
+          "win_pct": 33.3,
+          "year_peak_dd_pct": 1.85
+        },
+        {
+          "year": "2022",
+          "n": 19,
+          "total_dollars": -2194,
+          "win_pct": 21.1,
+          "year_peak_dd_pct": 6.68
+        },
+        {
+          "year": "2023",
+          "n": 14,
+          "total_dollars": 683,
+          "win_pct": 28.6,
+          "year_peak_dd_pct": 3.35
+        },
+        {
+          "year": "2024",
+          "n": 24,
+          "total_dollars": 1694,
+          "win_pct": 29.2,
+          "year_peak_dd_pct": 3.72
+        },
+        {
+          "year": "2025",
+          "n": 19,
+          "total_dollars": 9571,
+          "win_pct": 47.4,
+          "year_peak_dd_pct": 1.84
+        },
+        {
+          "year": "2026",
+          "n": 42,
+          "total_dollars": 17448,
+          "win_pct": 42.9,
+          "year_peak_dd_pct": 3.05
+        }
+      ],
+      "worst_year_dd_pct": 6.68
+    },
+    {
+      "ticker": "XAU/USD",
+      "key": "G4_block_compressed",
+      "description": "Block range=compressed (V1.2 cluster signature element)",
+      "n": 152,
+      "mean_r": 0.313,
+      "total_r": 47.6,
+      "win_pct": 33.6,
+      "total_dollars": 28568,
+      "dd_pct": 9.04,
+      "per_year": [
+        {
+          "year": "2020",
+          "n": 19,
+          "total_dollars": -2163,
+          "win_pct": 21.1,
+          "year_peak_dd_pct": 5.66
+        },
+        {
+          "year": "2021",
+          "n": 9,
+          "total_dollars": 1659,
+          "win_pct": 33.3,
+          "year_peak_dd_pct": 1.87
+        },
+        {
+          "year": "2022",
+          "n": 16,
+          "total_dollars": -5070,
+          "win_pct": 12.5,
+          "year_peak_dd_pct": 6.82
+        },
+        {
+          "year": "2023",
+          "n": 10,
+          "total_dollars": 906,
+          "win_pct": 30,
+          "year_peak_dd_pct": 1.99
+        },
+        {
+          "year": "2024",
+          "n": 22,
+          "total_dollars": 3159,
+          "win_pct": 31.8,
+          "year_peak_dd_pct": 3.19
+        },
+        {
+          "year": "2025",
+          "n": 27,
+          "total_dollars": 9225,
+          "win_pct": 40.7,
+          "year_peak_dd_pct": 3.2
+        },
+        {
+          "year": "2026",
+          "n": 49,
+          "total_dollars": 20853,
+          "win_pct": 42.9,
+          "year_peak_dd_pct": 3.27
+        }
+      ],
+      "worst_year_dd_pct": 6.82
+    },
+    {
+      "ticker": "XAU/USD",
+      "key": "G5_block_premium",
+      "description": "Block entry_zone=premium (don't long in premium)",
+      "n": 208,
+      "mean_r": 0.289,
+      "total_r": 60.2,
+      "win_pct": 33.2,
+      "total_dollars": 36112,
+      "dd_pct": 11.59,
+      "per_year": [
+        {
+          "year": "2020",
+          "n": 20,
+          "total_dollars": -378,
+          "win_pct": 25,
+          "year_peak_dd_pct": 4.91
+        },
+        {
+          "year": "2021",
+          "n": 19,
+          "total_dollars": -2294,
+          "win_pct": 21.1,
+          "year_peak_dd_pct": 4.3
+        },
+        {
+          "year": "2022",
+          "n": 23,
+          "total_dollars": -4669,
+          "win_pct": 17.4,
+          "year_peak_dd_pct": 8.03
+        },
+        {
+          "year": "2023",
+          "n": 21,
+          "total_dollars": 1095,
+          "win_pct": 28.6,
+          "year_peak_dd_pct": 3.14
+        },
+        {
+          "year": "2024",
+          "n": 33,
+          "total_dollars": 5662,
+          "win_pct": 33.3,
+          "year_peak_dd_pct": 3.86
+        },
+        {
+          "year": "2025",
+          "n": 35,
+          "total_dollars": 13765,
+          "win_pct": 42.9,
+          "year_peak_dd_pct": 2.46
+        },
+        {
+          "year": "2026",
+          "n": 57,
+          "total_dollars": 22931,
+          "win_pct": 42.1,
+          "year_peak_dd_pct": 3.34
+        }
+      ],
+      "worst_year_dd_pct": 8.03
+    },
+    {
+      "ticker": "XAU/USD",
+      "key": "G6_allow_aligned_HH",
+      "description": "Allow only mtf=aligned_HH (trend-confirmation)",
+      "n": 2,
+      "mean_r": 0.959,
+      "total_r": 1.9,
+      "win_pct": 50,
+      "total_dollars": 1150,
+      "dd_pct": 0.58,
+      "per_year": [
+        {
+          "year": "2026",
+          "n": 2,
+          "total_dollars": 1150,
+          "win_pct": 50,
+          "year_peak_dd_pct": 0.58
+        }
+      ],
+      "worst_year_dd_pct": 0.58
+    },
+    {
+      "ticker": "XAU/USD",
+      "key": "G7_allow_discount",
+      "description": "Allow only entry_zone=discount (ICT discount-only rule)",
+      "n": 157,
+      "mean_r": 0.314,
+      "total_r": 49.2,
+      "win_pct": 33.8,
+      "total_dollars": 29536,
+      "dd_pct": 8.09,
+      "per_year": [
+        {
+          "year": "2020",
+          "n": 16,
+          "total_dollars": -4994,
+          "win_pct": 12.5,
+          "year_peak_dd_pct": 6.71
+        },
+        {
+          "year": "2021",
+          "n": 13,
+          "total_dollars": 1413,
+          "win_pct": 30.8,
+          "year_peak_dd_pct": 3.2
+        },
+        {
+          "year": "2022",
+          "n": 17,
+          "total_dollars": -3407,
+          "win_pct": 17.6,
+          "year_peak_dd_pct": 6.27
+        },
+        {
+          "year": "2023",
+          "n": 14,
+          "total_dollars": 774,
+          "win_pct": 28.6,
+          "year_peak_dd_pct": 2.67
+        },
+        {
+          "year": "2024",
+          "n": 22,
+          "total_dollars": 7671,
+          "win_pct": 40.9,
+          "year_peak_dd_pct": 3.08
+        },
+        {
+          "year": "2025",
+          "n": 29,
+          "total_dollars": 8279,
+          "win_pct": 37.9,
+          "year_peak_dd_pct": 4.4
+        },
+        {
+          "year": "2026",
+          "n": 46,
+          "total_dollars": 19800,
+          "win_pct": 43.5,
+          "year_peak_dd_pct": 2.91
+        }
+      ],
+      "worst_year_dd_pct": 6.71
+    },
+    {
+      "ticker": "XAU/USD",
+      "key": "G8_block_v12_cluster",
+      "description": "Block V1.2 joint cluster (compressed ∩ discount ∩ london(7-13))",
+      "n": 199,
+      "mean_r": 0.251,
+      "total_r": 50,
+      "win_pct": 32.2,
+      "total_dollars": 30022,
+      "dd_pct": 11.51,
+      "per_year": [
+        {
+          "year": "2020",
+          "n": 20,
+          "total_dollars": -378,
+          "win_pct": 25,
+          "year_peak_dd_pct": 4.91
+        },
+        {
+          "year": "2021",
+          "n": 18,
+          "total_dollars": -1678,
+          "win_pct": 22.2,
+          "year_peak_dd_pct": 3.67
+        },
+        {
+          "year": "2022",
+          "n": 22,
+          "total_dollars": -4059,
+          "win_pct": 18.2,
+          "year_peak_dd_pct": 7.42
+        },
+        {
+          "year": "2023",
+          "n": 19,
+          "total_dollars": -43,
+          "win_pct": 26.3,
+          "year_peak_dd_pct": 2.65
+        },
+        {
+          "year": "2024",
+          "n": 31,
+          "total_dollars": 2234,
+          "win_pct": 29,
+          "year_peak_dd_pct": 5.24
+        },
+        {
+          "year": "2025",
+          "n": 34,
+          "total_dollars": 14425,
+          "win_pct": 44.1,
+          "year_peak_dd_pct": 2.46
+        },
+        {
+          "year": "2026",
+          "n": 55,
+          "total_dollars": 19522,
+          "win_pct": 40,
+          "year_peak_dd_pct": 3.23
+        }
+      ],
+      "worst_year_dd_pct": 7.42
+    },
+    {
+      "ticker": "XAU/USD",
+      "key": "G3+G7_block_dxy_mtf_AND_allow_discount",
+      "description": "G3 + G7 layered (block usd_down/fast_div_bull AND only enter in discount)",
+      "n": 107,
+      "mean_r": 0.345,
+      "total_r": 36.9,
+      "win_pct": 34.6,
+      "total_dollars": 22129,
+      "dd_pct": 6.13,
+      "per_year": [
+        {
+          "year": "2020",
+          "n": 12,
+          "total_dollars": -2579,
+          "win_pct": 16.7,
+          "year_peak_dd_pct": 4.3
+        },
+        {
+          "year": "2021",
+          "n": 8,
+          "total_dollars": 2205,
+          "win_pct": 37.5,
+          "year_peak_dd_pct": 1.85
+        },
+        {
+          "year": "2022",
+          "n": 14,
+          "total_dollars": -1518,
+          "win_pct": 21.4,
+          "year_peak_dd_pct": 6.13
+        },
+        {
+          "year": "2023",
+          "n": 9,
+          "total_dollars": 1559,
+          "win_pct": 33.3,
+          "year_peak_dd_pct": 2.51
+        },
+        {
+          "year": "2024",
+          "n": 16,
+          "total_dollars": 6550,
+          "win_pct": 43.8,
+          "year_peak_dd_pct": 2.5
+        },
+        {
+          "year": "2025",
+          "n": 15,
+          "total_dollars": 288,
+          "win_pct": 26.7,
+          "year_peak_dd_pct": 4.34
+        },
+        {
+          "year": "2026",
+          "n": 33,
+          "total_dollars": 15624,
+          "win_pct": 45.5,
+          "year_peak_dd_pct": 2.97
+        }
+      ],
+      "worst_year_dd_pct": 6.13
+    },
+    {
+      "ticker": "XAU/USD",
+      "key": "G2+G7_block_usd_down_AND_allow_discount",
+      "description": "G2 + G7 layered (block usd_down AND only enter in discount)",
+      "n": 109,
+      "mean_r": 0.316,
+      "total_r": 34.4,
+      "win_pct": 33.9,
+      "total_dollars": 20643,
+      "dd_pct": 6.13,
+      "per_year": [
+        {
+          "year": "2020",
+          "n": 12,
+          "total_dollars": -2579,
+          "win_pct": 16.7,
+          "year_peak_dd_pct": 4.3
+        },
+        {
+          "year": "2021",
+          "n": 8,
+          "total_dollars": 2205,
+          "win_pct": 37.5,
+          "year_peak_dd_pct": 1.85
+        },
+        {
+          "year": "2022",
+          "n": 14,
+          "total_dollars": -1518,
+          "win_pct": 21.4,
+          "year_peak_dd_pct": 6.13
+        },
+        {
+          "year": "2023",
+          "n": 9,
+          "total_dollars": 1559,
+          "win_pct": 33.3,
+          "year_peak_dd_pct": 2.51
+        },
+        {
+          "year": "2024",
+          "n": 16,
+          "total_dollars": 6550,
+          "win_pct": 43.8,
+          "year_peak_dd_pct": 2.5
+        },
+        {
+          "year": "2025",
+          "n": 15,
+          "total_dollars": 288,
+          "win_pct": 26.7,
+          "year_peak_dd_pct": 4.34
+        },
+        {
+          "year": "2026",
+          "n": 35,
+          "total_dollars": 14138,
+          "win_pct": 42.9,
+          "year_peak_dd_pct": 2.97
+        }
+      ],
+      "worst_year_dd_pct": 6.13
+    },
+    {
+      "ticker": "XAU/USD",
+      "key": "G4+G7_block_compressed_AND_allow_discount",
+      "description": "G4 + G7 layered (block compressed AND only enter in discount)",
+      "n": 113,
+      "mean_r": 0.347,
+      "total_r": 39.3,
+      "win_pct": 34.5,
+      "total_dollars": 23555,
+      "dd_pct": 6.08,
+      "per_year": [
+        {
+          "year": "2020",
+          "n": 15,
+          "total_dollars": -4363,
+          "win_pct": 13.3,
+          "year_peak_dd_pct": 6.08
+        },
+        {
+          "year": "2021",
+          "n": 6,
+          "total_dollars": 1035,
+          "win_pct": 33.3,
+          "year_peak_dd_pct": 1.86
+        },
+        {
+          "year": "2022",
+          "n": 12,
+          "total_dollars": -2644,
+          "win_pct": 16.7,
+          "year_peak_dd_pct": 4.4
+        },
+        {
+          "year": "2023",
+          "n": 7,
+          "total_dollars": 2801,
+          "win_pct": 42.9,
+          "year_peak_dd_pct": 1.88
+        },
+        {
+          "year": "2024",
+          "n": 14,
+          "total_dollars": 3159,
+          "win_pct": 35.7,
+          "year_peak_dd_pct": 2.45
+        },
+        {
+          "year": "2025",
+          "n": 21,
+          "total_dollars": 5969,
+          "win_pct": 38.1,
+          "year_peak_dd_pct": 2.58
+        },
+        {
+          "year": "2026",
+          "n": 38,
+          "total_dollars": 17598,
+          "win_pct": 44.7,
+          "year_peak_dd_pct": 2.68
+        }
+      ],
+      "worst_year_dd_pct": 6.08
+    },
+    {
+      "ticker": "EUR/USD",
+      "key": "ungated",
+      "description": "Baseline: no gate (current OTE-Long config)",
+      "n": 163,
+      "mean_r": -0.041,
+      "total_r": -6.7,
+      "win_pct": 25.8,
+      "total_dollars": -4035,
+      "dd_pct": 13.38,
+      "per_year": [
+        {
+          "year": "2020",
+          "n": 26,
+          "total_dollars": 2434,
+          "win_pct": 30.8,
+          "year_peak_dd_pct": 4.19
+        },
+        {
+          "year": "2021",
+          "n": 25,
+          "total_dollars": -8800,
+          "win_pct": 12,
+          "year_peak_dd_pct": 9.76
+        },
+        {
+          "year": "2022",
+          "n": 33,
+          "total_dollars": 5279,
+          "win_pct": 33.3,
+          "year_peak_dd_pct": 2.6
+        },
+        {
+          "year": "2023",
+          "n": 27,
+          "total_dollars": 1507,
+          "win_pct": 29.6,
+          "year_peak_dd_pct": 7.92
+        },
+        {
+          "year": "2024",
+          "n": 21,
+          "total_dollars": 5866,
+          "win_pct": 38.1,
+          "year_peak_dd_pct": 5.06
+        },
+        {
+          "year": "2025",
+          "n": 22,
+          "total_dollars": -9313,
+          "win_pct": 9.1,
+          "year_peak_dd_pct": 10.83
+        },
+        {
+          "year": "2026",
+          "n": 9,
+          "total_dollars": -1009,
+          "win_pct": 22.2,
+          "year_peak_dd_pct": 2.54
+        }
+      ],
+      "worst_year_dd_pct": 10.83
+    },
+    {
+      "ticker": "EUR/USD",
+      "key": "G1_block_fast_div_bull",
+      "description": "Block mtf=fast_div_bull (V1.2 negative for longs)",
+      "n": 164,
+      "mean_r": -0.025,
+      "total_r": -4,
+      "win_pct": 26.2,
+      "total_dollars": -2423,
+      "dd_pct": 13.42,
+      "per_year": [
+        {
+          "year": "2020",
+          "n": 26,
+          "total_dollars": 3,
+          "win_pct": 26.9,
+          "year_peak_dd_pct": 6.62
+        },
+        {
+          "year": "2021",
+          "n": 25,
+          "total_dollars": -8800,
+          "win_pct": 12,
+          "year_peak_dd_pct": 9.76
+        },
+        {
+          "year": "2022",
+          "n": 35,
+          "total_dollars": 8767,
+          "win_pct": 37.1,
+          "year_peak_dd_pct": 2.6
+        },
+        {
+          "year": "2023",
+          "n": 27,
+          "total_dollars": 1507,
+          "win_pct": 29.6,
+          "year_peak_dd_pct": 7.92
+        },
+        {
+          "year": "2024",
+          "n": 20,
+          "total_dollars": 6469,
+          "win_pct": 40,
+          "year_peak_dd_pct": 4.46
+        },
+        {
+          "year": "2025",
+          "n": 22,
+          "total_dollars": -9313,
+          "win_pct": 9.1,
+          "year_peak_dd_pct": 10.83
+        },
+        {
+          "year": "2026",
+          "n": 9,
+          "total_dollars": -1056,
+          "win_pct": 22.2,
+          "year_peak_dd_pct": 2.59
+        }
+      ],
+      "worst_year_dd_pct": 10.83
+    },
+    {
+      "ticker": "EUR/USD",
+      "key": "G2_block_usd_down",
+      "description": "Block dxy=usd_down (V1.2 negative for longs)",
+      "n": 163,
+      "mean_r": -0.041,
+      "total_r": -6.7,
+      "win_pct": 25.8,
+      "total_dollars": -4035,
+      "dd_pct": 13.38,
+      "per_year": [
+        {
+          "year": "2020",
+          "n": 26,
+          "total_dollars": 2434,
+          "win_pct": 30.8,
+          "year_peak_dd_pct": 4.19
+        },
+        {
+          "year": "2021",
+          "n": 25,
+          "total_dollars": -8800,
+          "win_pct": 12,
+          "year_peak_dd_pct": 9.76
+        },
+        {
+          "year": "2022",
+          "n": 33,
+          "total_dollars": 5279,
+          "win_pct": 33.3,
+          "year_peak_dd_pct": 2.6
+        },
+        {
+          "year": "2023",
+          "n": 27,
+          "total_dollars": 1507,
+          "win_pct": 29.6,
+          "year_peak_dd_pct": 7.92
+        },
+        {
+          "year": "2024",
+          "n": 21,
+          "total_dollars": 5866,
+          "win_pct": 38.1,
+          "year_peak_dd_pct": 5.06
+        },
+        {
+          "year": "2025",
+          "n": 22,
+          "total_dollars": -9313,
+          "win_pct": 9.1,
+          "year_peak_dd_pct": 10.83
+        },
+        {
+          "year": "2026",
+          "n": 9,
+          "total_dollars": -1009,
+          "win_pct": 22.2,
+          "year_peak_dd_pct": 2.54
+        }
+      ],
+      "worst_year_dd_pct": 10.83
+    },
+    {
+      "ticker": "EUR/USD",
+      "key": "G3_block_fast_div_bull_OR_usd_down",
+      "description": "Block mtf=fast_div_bull OR dxy=usd_down (same as Dip-Buyer's gate)",
+      "n": 163,
+      "mean_r": -0.041,
+      "total_r": -6.7,
+      "win_pct": 25.8,
+      "total_dollars": -4035,
+      "dd_pct": 13.38,
+      "per_year": [
+        {
+          "year": "2020",
+          "n": 26,
+          "total_dollars": 2434,
+          "win_pct": 30.8,
+          "year_peak_dd_pct": 4.19
+        },
+        {
+          "year": "2021",
+          "n": 25,
+          "total_dollars": -8800,
+          "win_pct": 12,
+          "year_peak_dd_pct": 9.76
+        },
+        {
+          "year": "2022",
+          "n": 33,
+          "total_dollars": 5279,
+          "win_pct": 33.3,
+          "year_peak_dd_pct": 2.6
+        },
+        {
+          "year": "2023",
+          "n": 27,
+          "total_dollars": 1507,
+          "win_pct": 29.6,
+          "year_peak_dd_pct": 7.92
+        },
+        {
+          "year": "2024",
+          "n": 21,
+          "total_dollars": 5866,
+          "win_pct": 38.1,
+          "year_peak_dd_pct": 5.06
+        },
+        {
+          "year": "2025",
+          "n": 22,
+          "total_dollars": -9313,
+          "win_pct": 9.1,
+          "year_peak_dd_pct": 10.83
+        },
+        {
+          "year": "2026",
+          "n": 9,
+          "total_dollars": -1009,
+          "win_pct": 22.2,
+          "year_peak_dd_pct": 2.54
+        }
+      ],
+      "worst_year_dd_pct": 10.83
+    },
+    {
+      "ticker": "EUR/USD",
+      "key": "G4_block_compressed",
+      "description": "Block range=compressed (V1.2 cluster signature element)",
+      "n": 105,
+      "mean_r": -0.043,
+      "total_r": -4.5,
+      "win_pct": 25.7,
+      "total_dollars": -2703,
+      "dd_pct": 11.26,
+      "per_year": [
+        {
+          "year": "2020",
+          "n": 15,
+          "total_dollars": -2440,
+          "win_pct": 20,
+          "year_peak_dd_pct": 3.37
+        },
+        {
+          "year": "2021",
+          "n": 15,
+          "total_dollars": -7138,
+          "win_pct": 6.7,
+          "year_peak_dd_pct": 8.82
+        },
+        {
+          "year": "2022",
+          "n": 20,
+          "total_dollars": 4008,
+          "win_pct": 35,
+          "year_peak_dd_pct": 2.19
+        },
+        {
+          "year": "2023",
+          "n": 20,
+          "total_dollars": -1023,
+          "win_pct": 25,
+          "year_peak_dd_pct": 5.87
+        },
+        {
+          "year": "2024",
+          "n": 16,
+          "total_dollars": 6701,
+          "win_pct": 43.8,
+          "year_peak_dd_pct": 3.11
+        },
+        {
+          "year": "2025",
+          "n": 12,
+          "total_dollars": -2944,
+          "win_pct": 16.7,
+          "year_peak_dd_pct": 4.46
+        },
+        {
+          "year": "2026",
+          "n": 7,
+          "total_dollars": 133,
+          "win_pct": 28.6,
+          "year_peak_dd_pct": 1.95
+        }
+      ],
+      "worst_year_dd_pct": 8.82
+    },
+    {
+      "ticker": "EUR/USD",
+      "key": "G5_block_premium",
+      "description": "Block entry_zone=premium (don't long in premium)",
+      "n": 163,
+      "mean_r": -0.042,
+      "total_r": -6.8,
+      "win_pct": 25.8,
+      "total_dollars": -4082,
+      "dd_pct": 13.42,
+      "per_year": [
+        {
+          "year": "2020",
+          "n": 26,
+          "total_dollars": 2434,
+          "win_pct": 30.8,
+          "year_peak_dd_pct": 4.19
+        },
+        {
+          "year": "2021",
+          "n": 25,
+          "total_dollars": -8800,
+          "win_pct": 12,
+          "year_peak_dd_pct": 9.76
+        },
+        {
+          "year": "2022",
+          "n": 33,
+          "total_dollars": 5279,
+          "win_pct": 33.3,
+          "year_peak_dd_pct": 2.6
+        },
+        {
+          "year": "2023",
+          "n": 27,
+          "total_dollars": 1507,
+          "win_pct": 29.6,
+          "year_peak_dd_pct": 7.92
+        },
+        {
+          "year": "2024",
+          "n": 21,
+          "total_dollars": 5866,
+          "win_pct": 38.1,
+          "year_peak_dd_pct": 5.06
+        },
+        {
+          "year": "2025",
+          "n": 22,
+          "total_dollars": -9313,
+          "win_pct": 9.1,
+          "year_peak_dd_pct": 10.83
+        },
+        {
+          "year": "2026",
+          "n": 9,
+          "total_dollars": -1056,
+          "win_pct": 22.2,
+          "year_peak_dd_pct": 2.59
+        }
+      ],
+      "worst_year_dd_pct": 10.83
+    },
+    {
+      "ticker": "EUR/USD",
+      "key": "G6_allow_aligned_HH",
+      "description": "Allow only mtf=aligned_HH (trend-confirmation)",
+      "n": 7,
+      "mean_r": -0.483,
+      "total_r": -3.4,
+      "win_pct": 14.3,
+      "total_dollars": -2027,
+      "dd_pct": 3.12,
+      "per_year": [
+        {
+          "year": "2020",
+          "n": 3,
+          "total_dollars": 478,
+          "win_pct": 33.3,
+          "year_peak_dd_pct": 0.67
+        },
+        {
+          "year": "2023",
+          "n": 1,
+          "total_dollars": -617,
+          "win_pct": 0,
+          "year_peak_dd_pct": 0.62
+        },
+        {
+          "year": "2024",
+          "n": 1,
+          "total_dollars": -654,
+          "win_pct": 0,
+          "year_peak_dd_pct": 0.65
+        },
+        {
+          "year": "2025",
+          "n": 2,
+          "total_dollars": -1234,
+          "win_pct": 0,
+          "year_peak_dd_pct": 1.23
+        }
+      ],
+      "worst_year_dd_pct": 1.23
+    },
+    {
+      "ticker": "EUR/USD",
+      "key": "G7_allow_discount",
+      "description": "Allow only entry_zone=discount (ICT discount-only rule)",
+      "n": 129,
+      "mean_r": -0.06,
+      "total_r": -7.7,
+      "win_pct": 25.6,
+      "total_dollars": -4610,
+      "dd_pct": 12.68,
+      "per_year": [
+        {
+          "year": "2020",
+          "n": 25,
+          "total_dollars": -6566,
+          "win_pct": 16,
+          "year_peak_dd_pct": 8.26
+        },
+        {
+          "year": "2021",
+          "n": 18,
+          "total_dollars": -4425,
+          "win_pct": 16.7,
+          "year_peak_dd_pct": 6.11
+        },
+        {
+          "year": "2022",
+          "n": 27,
+          "total_dollars": 8925,
+          "win_pct": 40.7,
+          "year_peak_dd_pct": 2.54
+        },
+        {
+          "year": "2023",
+          "n": 19,
+          "total_dollars": 1762,
+          "win_pct": 31.6,
+          "year_peak_dd_pct": 6.03
+        },
+        {
+          "year": "2024",
+          "n": 14,
+          "total_dollars": 3006,
+          "win_pct": 35.7,
+          "year_peak_dd_pct": 3.17
+        },
+        {
+          "year": "2025",
+          "n": 19,
+          "total_dollars": -5053,
+          "win_pct": 15.8,
+          "year_peak_dd_pct": 8.33
+        },
+        {
+          "year": "2026",
+          "n": 7,
+          "total_dollars": -2260,
+          "win_pct": 14.3,
+          "year_peak_dd_pct": 3.97
+        }
+      ],
+      "worst_year_dd_pct": 8.33
+    },
+    {
+      "ticker": "EUR/USD",
+      "key": "G8_block_v12_cluster",
+      "description": "Block V1.2 joint cluster (compressed ∩ discount ∩ london(7-13))",
+      "n": 155,
+      "mean_r": -0.013,
+      "total_r": -2,
+      "win_pct": 26.5,
+      "total_dollars": -1179,
+      "dd_pct": 11.4,
+      "per_year": [
+        {
+          "year": "2020",
+          "n": 26,
+          "total_dollars": 2434,
+          "win_pct": 30.8,
+          "year_peak_dd_pct": 4.19
+        },
+        {
+          "year": "2021",
+          "n": 23,
+          "total_dollars": -7457,
+          "win_pct": 13,
+          "year_peak_dd_pct": 8.43
+        },
+        {
+          "year": "2022",
+          "n": 31,
+          "total_dollars": 4146,
+          "win_pct": 32.3,
+          "year_peak_dd_pct": 2.63
+        },
+        {
+          "year": "2023",
+          "n": 26,
+          "total_dollars": 2177,
+          "win_pct": 30.8,
+          "year_peak_dd_pct": 7.25
+        },
+        {
+          "year": "2024",
+          "n": 21,
+          "total_dollars": 5866,
+          "win_pct": 38.1,
+          "year_peak_dd_pct": 5.06
+        },
+        {
+          "year": "2025",
+          "n": 19,
+          "total_dollars": -7337,
+          "win_pct": 10.5,
+          "year_peak_dd_pct": 8.86
+        },
+        {
+          "year": "2026",
+          "n": 9,
+          "total_dollars": -1009,
+          "win_pct": 22.2,
+          "year_peak_dd_pct": 2.54
+        }
+      ],
+      "worst_year_dd_pct": 8.86
+    },
+    {
+      "ticker": "EUR/USD",
+      "key": "G3+G7_block_dxy_mtf_AND_allow_discount",
+      "description": "G3 + G7 layered (block usd_down/fast_div_bull AND only enter in discount)",
+      "n": 129,
+      "mean_r": -0.06,
+      "total_r": -7.7,
+      "win_pct": 25.6,
+      "total_dollars": -4610,
+      "dd_pct": 12.68,
+      "per_year": [
+        {
+          "year": "2020",
+          "n": 25,
+          "total_dollars": -6566,
+          "win_pct": 16,
+          "year_peak_dd_pct": 8.26
+        },
+        {
+          "year": "2021",
+          "n": 18,
+          "total_dollars": -4425,
+          "win_pct": 16.7,
+          "year_peak_dd_pct": 6.11
+        },
+        {
+          "year": "2022",
+          "n": 27,
+          "total_dollars": 8925,
+          "win_pct": 40.7,
+          "year_peak_dd_pct": 2.54
+        },
+        {
+          "year": "2023",
+          "n": 19,
+          "total_dollars": 1762,
+          "win_pct": 31.6,
+          "year_peak_dd_pct": 6.03
+        },
+        {
+          "year": "2024",
+          "n": 14,
+          "total_dollars": 3006,
+          "win_pct": 35.7,
+          "year_peak_dd_pct": 3.17
+        },
+        {
+          "year": "2025",
+          "n": 19,
+          "total_dollars": -5053,
+          "win_pct": 15.8,
+          "year_peak_dd_pct": 8.33
+        },
+        {
+          "year": "2026",
+          "n": 7,
+          "total_dollars": -2260,
+          "win_pct": 14.3,
+          "year_peak_dd_pct": 3.97
+        }
+      ],
+      "worst_year_dd_pct": 8.33
+    },
+    {
+      "ticker": "EUR/USD",
+      "key": "G2+G7_block_usd_down_AND_allow_discount",
+      "description": "G2 + G7 layered (block usd_down AND only enter in discount)",
+      "n": 129,
+      "mean_r": -0.06,
+      "total_r": -7.7,
+      "win_pct": 25.6,
+      "total_dollars": -4610,
+      "dd_pct": 12.68,
+      "per_year": [
+        {
+          "year": "2020",
+          "n": 25,
+          "total_dollars": -6566,
+          "win_pct": 16,
+          "year_peak_dd_pct": 8.26
+        },
+        {
+          "year": "2021",
+          "n": 18,
+          "total_dollars": -4425,
+          "win_pct": 16.7,
+          "year_peak_dd_pct": 6.11
+        },
+        {
+          "year": "2022",
+          "n": 27,
+          "total_dollars": 8925,
+          "win_pct": 40.7,
+          "year_peak_dd_pct": 2.54
+        },
+        {
+          "year": "2023",
+          "n": 19,
+          "total_dollars": 1762,
+          "win_pct": 31.6,
+          "year_peak_dd_pct": 6.03
+        },
+        {
+          "year": "2024",
+          "n": 14,
+          "total_dollars": 3006,
+          "win_pct": 35.7,
+          "year_peak_dd_pct": 3.17
+        },
+        {
+          "year": "2025",
+          "n": 19,
+          "total_dollars": -5053,
+          "win_pct": 15.8,
+          "year_peak_dd_pct": 8.33
+        },
+        {
+          "year": "2026",
+          "n": 7,
+          "total_dollars": -2260,
+          "win_pct": 14.3,
+          "year_peak_dd_pct": 3.97
+        }
+      ],
+      "worst_year_dd_pct": 8.33
+    },
+    {
+      "ticker": "EUR/USD",
+      "key": "G4+G7_block_compressed_AND_allow_discount",
+      "description": "G4 + G7 layered (block compressed AND only enter in discount)",
+      "n": 87,
+      "mean_r": -0.019,
+      "total_r": -1.7,
+      "win_pct": 26.4,
+      "total_dollars": -992,
+      "dd_pct": 11.12,
+      "per_year": [
+        {
+          "year": "2020",
+          "n": 17,
+          "total_dollars": -6025,
+          "win_pct": 11.8,
+          "year_peak_dd_pct": 6.03
+        },
+        {
+          "year": "2021",
+          "n": 9,
+          "total_dollars": -3401,
+          "win_pct": 11.1,
+          "year_peak_dd_pct": 5.1
+        },
+        {
+          "year": "2022",
+          "n": 18,
+          "total_dollars": 5086,
+          "win_pct": 38.9,
+          "year_peak_dd_pct": 1.95
+        },
+        {
+          "year": "2023",
+          "n": 14,
+          "total_dollars": 442,
+          "win_pct": 28.6,
+          "year_peak_dd_pct": 4.62
+        },
+        {
+          "year": "2024",
+          "n": 12,
+          "total_dollars": 4358,
+          "win_pct": 41.7,
+          "year_peak_dd_pct": 2.5
+        },
+        {
+          "year": "2025",
+          "n": 11,
+          "total_dollars": 129,
+          "win_pct": 27.3,
+          "year_peak_dd_pct": 3.14
+        },
+        {
+          "year": "2026",
+          "n": 6,
+          "total_dollars": -1581,
+          "win_pct": 16.7,
+          "year_peak_dd_pct": 3.29
+        }
+      ],
+      "worst_year_dd_pct": 6.03
+    },
+    {
+      "ticker": "GBP/USD",
+      "key": "ungated",
+      "description": "Baseline: no gate (current OTE-Long config)",
+      "n": 146,
+      "mean_r": -0.025,
+      "total_r": -3.6,
+      "win_pct": 26,
+      "total_dollars": -2188,
+      "dd_pct": 12.8,
+      "per_year": [
+        {
+          "year": "2020",
+          "n": 32,
+          "total_dollars": -1007,
+          "win_pct": 25,
+          "year_peak_dd_pct": 6.06
+        },
+        {
+          "year": "2021",
+          "n": 19,
+          "total_dollars": -163,
+          "win_pct": 26.3,
+          "year_peak_dd_pct": 4.41
+        },
+        {
+          "year": "2022",
+          "n": 19,
+          "total_dollars": 2402,
+          "win_pct": 31.6,
+          "year_peak_dd_pct": 2.91
+        },
+        {
+          "year": "2023",
+          "n": 21,
+          "total_dollars": 1003,
+          "win_pct": 28.6,
+          "year_peak_dd_pct": 4.11
+        },
+        {
+          "year": "2024",
+          "n": 24,
+          "total_dollars": -5938,
+          "win_pct": 16.7,
+          "year_peak_dd_pct": 6.23
+        },
+        {
+          "year": "2025",
+          "n": 25,
+          "total_dollars": -1742,
+          "win_pct": 24,
+          "year_peak_dd_pct": 4.49
+        },
+        {
+          "year": "2026",
+          "n": 6,
+          "total_dollars": 3258,
+          "win_pct": 50,
+          "year_peak_dd_pct": 1.86
+        }
+      ],
+      "worst_year_dd_pct": 6.23
+    },
+    {
+      "ticker": "GBP/USD",
+      "key": "G1_block_fast_div_bull",
+      "description": "Block mtf=fast_div_bull (V1.2 negative for longs)",
+      "n": 145,
+      "mean_r": -0.074,
+      "total_r": -10.8,
+      "win_pct": 24.8,
+      "total_dollars": -6462,
+      "dd_pct": 13.93,
+      "per_year": [
+        {
+          "year": "2020",
+          "n": 34,
+          "total_dollars": -2317,
+          "win_pct": 23.5,
+          "year_peak_dd_pct": 6.06
+        },
+        {
+          "year": "2021",
+          "n": 19,
+          "total_dollars": -202,
+          "win_pct": 26.3,
+          "year_peak_dd_pct": 4.41
+        },
+        {
+          "year": "2022",
+          "n": 18,
+          "total_dollars": 618,
+          "win_pct": 27.8,
+          "year_peak_dd_pct": 2.91
+        },
+        {
+          "year": "2023",
+          "n": 21,
+          "total_dollars": 998,
+          "win_pct": 28.6,
+          "year_peak_dd_pct": 4.05
+        },
+        {
+          "year": "2024",
+          "n": 22,
+          "total_dollars": -7076,
+          "win_pct": 13.6,
+          "year_peak_dd_pct": 7.08
+        },
+        {
+          "year": "2025",
+          "n": 25,
+          "total_dollars": -1742,
+          "win_pct": 24,
+          "year_peak_dd_pct": 4.49
+        },
+        {
+          "year": "2026",
+          "n": 6,
+          "total_dollars": 3258,
+          "win_pct": 50,
+          "year_peak_dd_pct": 1.86
+        }
+      ],
+      "worst_year_dd_pct": 7.08
+    },
+    {
+      "ticker": "GBP/USD",
+      "key": "G2_block_usd_down",
+      "description": "Block dxy=usd_down (V1.2 negative for longs)",
+      "n": 118,
+      "mean_r": 0.056,
+      "total_r": 6.6,
+      "win_pct": 28,
+      "total_dollars": 3983,
+      "dd_pct": 9.16,
+      "per_year": [
+        {
+          "year": "2020",
+          "n": 24,
+          "total_dollars": 1662,
+          "win_pct": 29.2,
+          "year_peak_dd_pct": 4.5
+        },
+        {
+          "year": "2021",
+          "n": 15,
+          "total_dollars": -2382,
+          "win_pct": 20,
+          "year_peak_dd_pct": 4.58
+        },
+        {
+          "year": "2022",
+          "n": 16,
+          "total_dollars": 1844,
+          "win_pct": 31.3,
+          "year_peak_dd_pct": 2.68
+        },
+        {
+          "year": "2023",
+          "n": 18,
+          "total_dollars": 641,
+          "win_pct": 27.8,
+          "year_peak_dd_pct": 3.26
+        },
+        {
+          "year": "2024",
+          "n": 22,
+          "total_dollars": -4650,
+          "win_pct": 18.2,
+          "year_peak_dd_pct": 6.23
+        },
+        {
+          "year": "2025",
+          "n": 19,
+          "total_dollars": 2331,
+          "win_pct": 31.6,
+          "year_peak_dd_pct": 3.81
+        },
+        {
+          "year": "2026",
+          "n": 4,
+          "total_dollars": 4536,
+          "win_pct": 75,
+          "year_peak_dd_pct": 0.63
+        }
+      ],
+      "worst_year_dd_pct": 6.23
+    },
+    {
+      "ticker": "GBP/USD",
+      "key": "G3_block_fast_div_bull_OR_usd_down",
+      "description": "Block mtf=fast_div_bull OR dxy=usd_down (same as Dip-Buyer's gate)",
+      "n": 115,
+      "mean_r": 0.015,
+      "total_r": 1.8,
+      "win_pct": 27,
+      "total_dollars": 1052,
+      "dd_pct": 10.48,
+      "per_year": [
+        {
+          "year": "2020",
+          "n": 24,
+          "total_dollars": 1662,
+          "win_pct": 29.2,
+          "year_peak_dd_pct": 4.5
+        },
+        {
+          "year": "2021",
+          "n": 15,
+          "total_dollars": -2420,
+          "win_pct": 20,
+          "year_peak_dd_pct": 4.62
+        },
+        {
+          "year": "2022",
+          "n": 15,
+          "total_dollars": 88,
+          "win_pct": 26.7,
+          "year_peak_dd_pct": 2.68
+        },
+        {
+          "year": "2023",
+          "n": 18,
+          "total_dollars": 651,
+          "win_pct": 27.8,
+          "year_peak_dd_pct": 3.26
+        },
+        {
+          "year": "2024",
+          "n": 20,
+          "total_dollars": -5796,
+          "win_pct": 15,
+          "year_peak_dd_pct": 6.23
+        },
+        {
+          "year": "2025",
+          "n": 19,
+          "total_dollars": 2331,
+          "win_pct": 31.6,
+          "year_peak_dd_pct": 3.81
+        },
+        {
+          "year": "2026",
+          "n": 4,
+          "total_dollars": 4536,
+          "win_pct": 75,
+          "year_peak_dd_pct": 0.63
+        }
+      ],
+      "worst_year_dd_pct": 6.23
+    },
+    {
+      "ticker": "GBP/USD",
+      "key": "G4_block_compressed",
+      "description": "Block range=compressed (V1.2 cluster signature element)",
+      "n": 92,
+      "mean_r": -0.233,
+      "total_r": -21.4,
+      "win_pct": 20.7,
+      "total_dollars": -12853,
+      "dd_pct": 18.11,
+      "per_year": [
+        {
+          "year": "2020",
+          "n": 26,
+          "total_dollars": -2096,
+          "win_pct": 23.1,
+          "year_peak_dd_pct": 5.98
+        },
+        {
+          "year": "2021",
+          "n": 10,
+          "total_dollars": -3893,
+          "win_pct": 10,
+          "year_peak_dd_pct": 5
+        },
+        {
+          "year": "2022",
+          "n": 13,
+          "total_dollars": -3357,
+          "win_pct": 15.4,
+          "year_peak_dd_pct": 3.87
+        },
+        {
+          "year": "2023",
+          "n": 12,
+          "total_dollars": -2702,
+          "win_pct": 16.7,
+          "year_peak_dd_pct": 4.97
+        },
+        {
+          "year": "2024",
+          "n": 15,
+          "total_dollars": -4956,
+          "win_pct": 13.3,
+          "year_peak_dd_pct": 4.96
+        },
+        {
+          "year": "2025",
+          "n": 12,
+          "total_dollars": 4347,
+          "win_pct": 41.7,
+          "year_peak_dd_pct": 1.29
+        },
+        {
+          "year": "2026",
+          "n": 4,
+          "total_dollars": -196,
+          "win_pct": 25,
+          "year_peak_dd_pct": 1.86
+        }
+      ],
+      "worst_year_dd_pct": 5.98
+    },
+    {
+      "ticker": "GBP/USD",
+      "key": "G5_block_premium",
+      "description": "Block entry_zone=premium (don't long in premium)",
+      "n": 148,
+      "mean_r": -0.014,
+      "total_r": -2.1,
+      "win_pct": 26.4,
+      "total_dollars": -1232,
+      "dd_pct": 12.8,
+      "per_year": [
+        {
+          "year": "2020",
+          "n": 32,
+          "total_dollars": -1007,
+          "win_pct": 25,
+          "year_peak_dd_pct": 6.06
+        },
+        {
+          "year": "2021",
+          "n": 21,
+          "total_dollars": 802,
+          "win_pct": 28.6,
+          "year_peak_dd_pct": 3.85
+        },
+        {
+          "year": "2022",
+          "n": 19,
+          "total_dollars": 2392,
+          "win_pct": 31.6,
+          "year_peak_dd_pct": 2.92
+        },
+        {
+          "year": "2023",
+          "n": 21,
+          "total_dollars": 1003,
+          "win_pct": 28.6,
+          "year_peak_dd_pct": 4.11
+        },
+        {
+          "year": "2024",
+          "n": 24,
+          "total_dollars": -5938,
+          "win_pct": 16.7,
+          "year_peak_dd_pct": 6.23
+        },
+        {
+          "year": "2025",
+          "n": 25,
+          "total_dollars": -1742,
+          "win_pct": 24,
+          "year_peak_dd_pct": 4.49
+        },
+        {
+          "year": "2026",
+          "n": 6,
+          "total_dollars": 3258,
+          "win_pct": 50,
+          "year_peak_dd_pct": 1.86
+        }
+      ],
+      "worst_year_dd_pct": 6.23
+    },
+    {
+      "ticker": "GBP/USD",
+      "key": "G6_allow_aligned_HH",
+      "description": "Allow only mtf=aligned_HH (trend-confirmation)",
+      "n": 8,
+      "mean_r": -0.041,
+      "total_r": -0.3,
+      "win_pct": 25,
+      "total_dollars": -196,
+      "dd_pct": 1.86,
+      "per_year": [
+        {
+          "year": "2020",
+          "n": 2,
+          "total_dollars": -1238,
+          "win_pct": 0,
+          "year_peak_dd_pct": 1.24
+        },
+        {
+          "year": "2021",
+          "n": 2,
+          "total_dollars": 1136,
+          "win_pct": 50,
+          "year_peak_dd_pct": 0.62
+        },
+        {
+          "year": "2022",
+          "n": 2,
+          "total_dollars": 1157,
+          "win_pct": 50,
+          "year_peak_dd_pct": 0.61
+        },
+        {
+          "year": "2023",
+          "n": 1,
+          "total_dollars": -602,
+          "win_pct": 0,
+          "year_peak_dd_pct": 0.6
+        },
+        {
+          "year": "2025",
+          "n": 1,
+          "total_dollars": -648,
+          "win_pct": 0,
+          "year_peak_dd_pct": 0.65
+        }
+      ],
+      "worst_year_dd_pct": 1.24
+    },
+    {
+      "ticker": "GBP/USD",
+      "key": "G7_allow_discount",
+      "description": "Allow only entry_zone=discount (ICT discount-only rule)",
+      "n": 126,
+      "mean_r": -0.093,
+      "total_r": -11.7,
+      "win_pct": 24.6,
+      "total_dollars": -7002,
+      "dd_pct": 18.65,
+      "per_year": [
+        {
+          "year": "2020",
+          "n": 29,
+          "total_dollars": -1619,
+          "win_pct": 24.1,
+          "year_peak_dd_pct": 5.23
+        },
+        {
+          "year": "2021",
+          "n": 18,
+          "total_dollars": 2484,
+          "win_pct": 33.3,
+          "year_peak_dd_pct": 3.22
+        },
+        {
+          "year": "2022",
+          "n": 17,
+          "total_dollars": 3559,
+          "win_pct": 35.3,
+          "year_peak_dd_pct": 2.72
+        },
+        {
+          "year": "2023",
+          "n": 21,
+          "total_dollars": -1575,
+          "win_pct": 23.8,
+          "year_peak_dd_pct": 5.4
+        },
+        {
+          "year": "2024",
+          "n": 20,
+          "total_dollars": -8107,
+          "win_pct": 10,
+          "year_peak_dd_pct": 8.11
+        },
+        {
+          "year": "2025",
+          "n": 17,
+          "total_dollars": -3824,
+          "win_pct": 17.6,
+          "year_peak_dd_pct": 3.93
+        },
+        {
+          "year": "2026",
+          "n": 4,
+          "total_dollars": 2080,
+          "win_pct": 50,
+          "year_peak_dd_pct": 1.32
+        }
+      ],
+      "worst_year_dd_pct": 8.11
+    },
+    {
+      "ticker": "GBP/USD",
+      "key": "G8_block_v12_cluster",
+      "description": "Block V1.2 joint cluster (compressed ∩ discount ∩ london(7-13))",
+      "n": 141,
+      "mean_r": -0.014,
+      "total_r": -2,
+      "win_pct": 26.2,
+      "total_dollars": -1213,
+      "dd_pct": 10.79,
+      "per_year": [
+        {
+          "year": "2020",
+          "n": 32,
+          "total_dollars": -1007,
+          "win_pct": 25,
+          "year_peak_dd_pct": 6.06
+        },
+        {
+          "year": "2021",
+          "n": 18,
+          "total_dollars": 511,
+          "win_pct": 27.8,
+          "year_peak_dd_pct": 4.41
+        },
+        {
+          "year": "2022",
+          "n": 19,
+          "total_dollars": 2402,
+          "win_pct": 31.6,
+          "year_peak_dd_pct": 2.91
+        },
+        {
+          "year": "2023",
+          "n": 20,
+          "total_dollars": 1666,
+          "win_pct": 30,
+          "year_peak_dd_pct": 4.11
+        },
+        {
+          "year": "2024",
+          "n": 24,
+          "total_dollars": -5938,
+          "win_pct": 16.7,
+          "year_peak_dd_pct": 6.23
+        },
+        {
+          "year": "2025",
+          "n": 23,
+          "total_dollars": -391,
+          "win_pct": 26.1,
+          "year_peak_dd_pct": 3.8
+        },
+        {
+          "year": "2026",
+          "n": 5,
+          "total_dollars": 1545,
+          "win_pct": 40,
+          "year_peak_dd_pct": 1.86
+        }
+      ],
+      "worst_year_dd_pct": 6.23
+    },
+    {
+      "ticker": "GBP/USD",
+      "key": "G3+G7_block_dxy_mtf_AND_allow_discount",
+      "description": "G3 + G7 layered (block usd_down/fast_div_bull AND only enter in discount)",
+      "n": 104,
+      "mean_r": -0.075,
+      "total_r": -7.8,
+      "win_pct": 25,
+      "total_dollars": -4701,
+      "dd_pct": 14.7,
+      "per_year": [
+        {
+          "year": "2020",
+          "n": 20,
+          "total_dollars": 1761,
+          "win_pct": 30,
+          "year_peak_dd_pct": 3.29
+        },
+        {
+          "year": "2021",
+          "n": 16,
+          "total_dollars": -969,
+          "win_pct": 25,
+          "year_peak_dd_pct": 4.17
+        },
+        {
+          "year": "2022",
+          "n": 13,
+          "total_dollars": 1299,
+          "win_pct": 30.8,
+          "year_peak_dd_pct": 2.1
+        },
+        {
+          "year": "2023",
+          "n": 19,
+          "total_dollars": -263,
+          "win_pct": 26.3,
+          "year_peak_dd_pct": 5.23
+        },
+        {
+          "year": "2024",
+          "n": 18,
+          "total_dollars": -6826,
+          "win_pct": 11.1,
+          "year_peak_dd_pct": 6.83
+        },
+        {
+          "year": "2025",
+          "n": 14,
+          "total_dollars": -1784,
+          "win_pct": 21.4,
+          "year_peak_dd_pct": 3.24
+        },
+        {
+          "year": "2026",
+          "n": 4,
+          "total_dollars": 2080,
+          "win_pct": 50,
+          "year_peak_dd_pct": 1.32
+        }
+      ],
+      "worst_year_dd_pct": 6.83
+    },
+    {
+      "ticker": "GBP/USD",
+      "key": "G2+G7_block_usd_down_AND_allow_discount",
+      "description": "G2 + G7 layered (block usd_down AND only enter in discount)",
+      "n": 106,
+      "mean_r": -0.056,
+      "total_r": -5.9,
+      "win_pct": 25.5,
+      "total_dollars": -3556,
+      "dd_pct": 15.31,
+      "per_year": [
+        {
+          "year": "2020",
+          "n": 20,
+          "total_dollars": 1761,
+          "win_pct": 30,
+          "year_peak_dd_pct": 3.29
+        },
+        {
+          "year": "2021",
+          "n": 16,
+          "total_dollars": -969,
+          "win_pct": 25,
+          "year_peak_dd_pct": 4.17
+        },
+        {
+          "year": "2022",
+          "n": 14,
+          "total_dollars": 3056,
+          "win_pct": 35.7,
+          "year_peak_dd_pct": 2.1
+        },
+        {
+          "year": "2023",
+          "n": 19,
+          "total_dollars": -262,
+          "win_pct": 26.3,
+          "year_peak_dd_pct": 5.23
+        },
+        {
+          "year": "2024",
+          "n": 19,
+          "total_dollars": -7439,
+          "win_pct": 10.5,
+          "year_peak_dd_pct": 7.44
+        },
+        {
+          "year": "2025",
+          "n": 14,
+          "total_dollars": -1784,
+          "win_pct": 21.4,
+          "year_peak_dd_pct": 3.24
+        },
+        {
+          "year": "2026",
+          "n": 4,
+          "total_dollars": 2080,
+          "win_pct": 50,
+          "year_peak_dd_pct": 1.32
+        }
+      ],
+      "worst_year_dd_pct": 7.44
+    },
+    {
+      "ticker": "GBP/USD",
+      "key": "G4+G7_block_compressed_AND_allow_discount",
+      "description": "G4 + G7 layered (block compressed AND only enter in discount)",
+      "n": 84,
+      "mean_r": -0.312,
+      "total_r": -26.2,
+      "win_pct": 19,
+      "total_dollars": -15718,
+      "dd_pct": 19.92,
+      "per_year": [
+        {
+          "year": "2020",
+          "n": 25,
+          "total_dollars": -3938,
+          "win_pct": 20,
+          "year_peak_dd_pct": 4.77
+        },
+        {
+          "year": "2021",
+          "n": 9,
+          "total_dollars": -1181,
+          "win_pct": 22.2,
+          "year_peak_dd_pct": 4.61
+        },
+        {
+          "year": "2022",
+          "n": 11,
+          "total_dollars": -2197,
+          "win_pct": 18.2,
+          "year_peak_dd_pct": 3.77
+        },
+        {
+          "year": "2023",
+          "n": 12,
+          "total_dollars": -5259,
+          "win_pct": 8.3,
+          "year_peak_dd_pct": 7.01
+        },
+        {
+          "year": "2024",
+          "n": 16,
+          "total_dollars": -5569,
+          "win_pct": 12.5,
+          "year_peak_dd_pct": 5.57
+        },
+        {
+          "year": "2025",
+          "n": 8,
+          "total_dollars": 2063,
+          "win_pct": 37.5,
+          "year_peak_dd_pct": 1.29
+        },
+        {
+          "year": "2026",
+          "n": 3,
+          "total_dollars": 363,
+          "win_pct": 33.3,
+          "year_peak_dd_pct": 1.33
+        }
+      ],
+      "worst_year_dd_pct": 7.01
+    },
+    {
+      "ticker": "USD/JPY",
+      "key": "ungated",
+      "description": "Baseline: no gate (current OTE-Long config)",
+      "n": 141,
+      "mean_r": -0.199,
+      "total_r": -28.1,
+      "win_pct": 21.3,
+      "total_dollars": -16859,
+      "dd_pct": 25.62,
+      "per_year": [
+        {
+          "year": "2020",
+          "n": 18,
+          "total_dollars": -2615,
+          "win_pct": 22.2,
+          "year_peak_dd_pct": 8.79
+        },
+        {
+          "year": "2021",
+          "n": 21,
+          "total_dollars": 1960,
+          "win_pct": 28.6,
+          "year_peak_dd_pct": 7.3
+        },
+        {
+          "year": "2022",
+          "n": 23,
+          "total_dollars": -2806,
+          "win_pct": 21.7,
+          "year_peak_dd_pct": 4.58
+        },
+        {
+          "year": "2023",
+          "n": 30,
+          "total_dollars": 2901,
+          "win_pct": 30,
+          "year_peak_dd_pct": 5.03
+        },
+        {
+          "year": "2024",
+          "n": 19,
+          "total_dollars": -4662,
+          "win_pct": 15.8,
+          "year_peak_dd_pct": 5.63
+        },
+        {
+          "year": "2025",
+          "n": 27,
+          "total_dollars": -12122,
+          "win_pct": 7.4,
+          "year_peak_dd_pct": 13.76
+        },
+        {
+          "year": "2026",
+          "n": 3,
+          "total_dollars": 485,
+          "win_pct": 33.3,
+          "year_peak_dd_pct": 1.18
+        }
+      ],
+      "worst_year_dd_pct": 13.76
+    },
+    {
+      "ticker": "USD/JPY",
+      "key": "G1_block_fast_div_bull",
+      "description": "Block mtf=fast_div_bull (V1.2 negative for longs)",
+      "n": 147,
+      "mean_r": -0.269,
+      "total_r": -39.6,
+      "win_pct": 19.7,
+      "total_dollars": -23754,
+      "dd_pct": 31.91,
+      "per_year": [
+        {
+          "year": "2020",
+          "n": 18,
+          "total_dollars": -2615,
+          "win_pct": 22.2,
+          "year_peak_dd_pct": 8.79
+        },
+        {
+          "year": "2021",
+          "n": 21,
+          "total_dollars": -1198,
+          "win_pct": 23.8,
+          "year_peak_dd_pct": 9.85
+        },
+        {
+          "year": "2022",
+          "n": 25,
+          "total_dollars": -4122,
+          "win_pct": 20,
+          "year_peak_dd_pct": 6.71
+        },
+        {
+          "year": "2023",
+          "n": 29,
+          "total_dollars": 3544,
+          "win_pct": 31,
+          "year_peak_dd_pct": 5.03
+        },
+        {
+          "year": "2024",
+          "n": 18,
+          "total_dollars": -6379,
+          "win_pct": 11.1,
+          "year_peak_dd_pct": 6.8
+        },
+        {
+          "year": "2025",
+          "n": 33,
+          "total_dollars": -13470,
+          "win_pct": 9.1,
+          "year_peak_dd_pct": 15.1
+        },
+        {
+          "year": "2026",
+          "n": 3,
+          "total_dollars": 485,
+          "win_pct": 33.3,
+          "year_peak_dd_pct": 1.18
+        }
+      ],
+      "worst_year_dd_pct": 15.1
+    },
+    {
+      "ticker": "USD/JPY",
+      "key": "G2_block_usd_down",
+      "description": "Block dxy=usd_down (V1.2 negative for longs)",
+      "n": 96,
+      "mean_r": -0.157,
+      "total_r": -15.1,
+      "win_pct": 21.9,
+      "total_dollars": -9030,
+      "dd_pct": 17.81,
+      "per_year": [
+        {
+          "year": "2020",
+          "n": 7,
+          "total_dollars": 3736,
+          "win_pct": 42.9,
+          "year_peak_dd_pct": 1.82
+        },
+        {
+          "year": "2021",
+          "n": 14,
+          "total_dollars": -2176,
+          "win_pct": 21.4,
+          "year_peak_dd_pct": 4.88
+        },
+        {
+          "year": "2022",
+          "n": 20,
+          "total_dollars": -628,
+          "win_pct": 25,
+          "year_peak_dd_pct": 4.26
+        },
+        {
+          "year": "2023",
+          "n": 19,
+          "total_dollars": 2945,
+          "win_pct": 31.6,
+          "year_peak_dd_pct": 3.24
+        },
+        {
+          "year": "2024",
+          "n": 14,
+          "total_dollars": -6207,
+          "win_pct": 7.1,
+          "year_peak_dd_pct": 6.21
+        },
+        {
+          "year": "2025",
+          "n": 20,
+          "total_dollars": -7757,
+          "win_pct": 10,
+          "year_peak_dd_pct": 7.76
+        },
+        {
+          "year": "2026",
+          "n": 2,
+          "total_dollars": 1057,
+          "win_pct": 50,
+          "year_peak_dd_pct": 0.6
+        }
+      ],
+      "worst_year_dd_pct": 7.76
+    },
+    {
+      "ticker": "USD/JPY",
+      "key": "G3_block_fast_div_bull_OR_usd_down",
+      "description": "Block mtf=fast_div_bull OR dxy=usd_down (same as Dip-Buyer's gate)",
+      "n": 93,
+      "mean_r": -0.18,
+      "total_r": -16.8,
+      "win_pct": 21.5,
+      "total_dollars": -10061,
+      "dd_pct": 17.81,
+      "per_year": [
+        {
+          "year": "2020",
+          "n": 7,
+          "total_dollars": 3736,
+          "win_pct": 42.9,
+          "year_peak_dd_pct": 1.82
+        },
+        {
+          "year": "2021",
+          "n": 14,
+          "total_dollars": -5362,
+          "win_pct": 14.3,
+          "year_peak_dd_pct": 7.46
+        },
+        {
+          "year": "2022",
+          "n": 18,
+          "total_dollars": 880,
+          "win_pct": 27.8,
+          "year_peak_dd_pct": 3.57
+        },
+        {
+          "year": "2023",
+          "n": 18,
+          "total_dollars": 3593,
+          "win_pct": 33.3,
+          "year_peak_dd_pct": 3.24
+        },
+        {
+          "year": "2024",
+          "n": 14,
+          "total_dollars": -6207,
+          "win_pct": 7.1,
+          "year_peak_dd_pct": 6.21
+        },
+        {
+          "year": "2025",
+          "n": 20,
+          "total_dollars": -7757,
+          "win_pct": 10,
+          "year_peak_dd_pct": 7.76
+        },
+        {
+          "year": "2026",
+          "n": 2,
+          "total_dollars": 1057,
+          "win_pct": 50,
+          "year_peak_dd_pct": 0.6
+        }
+      ],
+      "worst_year_dd_pct": 7.76
+    },
+    {
+      "ticker": "USD/JPY",
+      "key": "G4_block_compressed",
+      "description": "Block range=compressed (V1.2 cluster signature element)",
+      "n": 106,
+      "mean_r": -0.216,
+      "total_r": -22.9,
+      "win_pct": 20.8,
+      "total_dollars": -13737,
+      "dd_pct": 19.34,
+      "per_year": [
+        {
+          "year": "2020",
+          "n": 13,
+          "total_dollars": -8129,
+          "win_pct": 7.7,
+          "year_peak_dd_pct": 8.13
+        },
+        {
+          "year": "2021",
+          "n": 18,
+          "total_dollars": 4359,
+          "win_pct": 33.3,
+          "year_peak_dd_pct": 4.9
+        },
+        {
+          "year": "2022",
+          "n": 21,
+          "total_dollars": 1984,
+          "win_pct": 28.6,
+          "year_peak_dd_pct": 3.84
+        },
+        {
+          "year": "2023",
+          "n": 18,
+          "total_dollars": 3356,
+          "win_pct": 33.3,
+          "year_peak_dd_pct": 2.86
+        },
+        {
+          "year": "2024",
+          "n": 13,
+          "total_dollars": -5663,
+          "win_pct": 7.7,
+          "year_peak_dd_pct": 6.21
+        },
+        {
+          "year": "2025",
+          "n": 20,
+          "total_dollars": -10129,
+          "win_pct": 5,
+          "year_peak_dd_pct": 11.76
+        },
+        {
+          "year": "2026",
+          "n": 3,
+          "total_dollars": 485,
+          "win_pct": 33.3,
+          "year_peak_dd_pct": 1.18
+        }
+      ],
+      "worst_year_dd_pct": 11.76
+    },
+    {
+      "ticker": "USD/JPY",
+      "key": "G5_block_premium",
+      "description": "Block entry_zone=premium (don't long in premium)",
+      "n": 138,
+      "mean_r": -0.213,
+      "total_r": -29.4,
+      "win_pct": 21,
+      "total_dollars": -17636,
+      "dd_pct": 26.4,
+      "per_year": [
+        {
+          "year": "2020",
+          "n": 18,
+          "total_dollars": -2615,
+          "win_pct": 22.2,
+          "year_peak_dd_pct": 8.79
+        },
+        {
+          "year": "2021",
+          "n": 22,
+          "total_dollars": 1110,
+          "win_pct": 27.3,
+          "year_peak_dd_pct": 8.15
+        },
+        {
+          "year": "2022",
+          "n": 23,
+          "total_dollars": -2806,
+          "win_pct": 21.7,
+          "year_peak_dd_pct": 4.58
+        },
+        {
+          "year": "2023",
+          "n": 29,
+          "total_dollars": 3544,
+          "win_pct": 31,
+          "year_peak_dd_pct": 5.03
+        },
+        {
+          "year": "2024",
+          "n": 17,
+          "total_dollars": -5785,
+          "win_pct": 11.8,
+          "year_peak_dd_pct": 6.21
+        },
+        {
+          "year": "2025",
+          "n": 26,
+          "total_dollars": -11569,
+          "win_pct": 7.7,
+          "year_peak_dd_pct": 13.2
+        },
+        {
+          "year": "2026",
+          "n": 3,
+          "total_dollars": 485,
+          "win_pct": 33.3,
+          "year_peak_dd_pct": 1.18
+        }
+      ],
+      "worst_year_dd_pct": 13.2
+    },
+    {
+      "ticker": "USD/JPY",
+      "key": "G6_allow_aligned_HH",
+      "description": "Allow only mtf=aligned_HH (trend-confirmation)",
+      "n": 10,
+      "mean_r": -0.281,
+      "total_r": -2.8,
+      "win_pct": 20,
+      "total_dollars": -1686,
+      "dd_pct": 2.98,
+      "per_year": [
+        {
+          "year": "2020",
+          "n": 1,
+          "total_dollars": -884,
+          "win_pct": 0,
+          "year_peak_dd_pct": 0.88
+        },
+        {
+          "year": "2022",
+          "n": 1,
+          "total_dollars": -802,
+          "win_pct": 0,
+          "year_peak_dd_pct": 0.8
+        },
+        {
+          "year": "2023",
+          "n": 1,
+          "total_dollars": -676,
+          "win_pct": 0,
+          "year_peak_dd_pct": 0.68
+        },
+        {
+          "year": "2024",
+          "n": 2,
+          "total_dollars": 1235,
+          "win_pct": 50,
+          "year_peak_dd_pct": 0.62
+        },
+        {
+          "year": "2025",
+          "n": 5,
+          "total_dollars": -559,
+          "win_pct": 20,
+          "year_peak_dd_pct": 1.23
+        }
+      ],
+      "worst_year_dd_pct": 1.23
+    },
+    {
+      "ticker": "USD/JPY",
+      "key": "G7_allow_discount",
+      "description": "Allow only entry_zone=discount (ICT discount-only rule)",
+      "n": 105,
+      "mean_r": -0.426,
+      "total_r": -44.7,
+      "win_pct": 17.1,
+      "total_dollars": -26831,
+      "dd_pct": 28.47,
+      "per_year": [
+        {
+          "year": "2020",
+          "n": 15,
+          "total_dollars": -6441,
+          "win_pct": 13.3,
+          "year_peak_dd_pct": 10.52
+        },
+        {
+          "year": "2021",
+          "n": 15,
+          "total_dollars": -3167,
+          "win_pct": 20,
+          "year_peak_dd_pct": 4.94
+        },
+        {
+          "year": "2022",
+          "n": 15,
+          "total_dollars": -5425,
+          "win_pct": 13.3,
+          "year_peak_dd_pct": 5.43
+        },
+        {
+          "year": "2023",
+          "n": 24,
+          "total_dollars": 1454,
+          "win_pct": 29.2,
+          "year_peak_dd_pct": 4.97
+        },
+        {
+          "year": "2024",
+          "n": 8,
+          "total_dollars": -2745,
+          "win_pct": 12.5,
+          "year_peak_dd_pct": 2.75
+        },
+        {
+          "year": "2025",
+          "n": 28,
+          "total_dollars": -10507,
+          "win_pct": 10.7,
+          "year_peak_dd_pct": 12.14
+        }
+      ],
+      "worst_year_dd_pct": 12.14
+    },
+    {
+      "ticker": "USD/JPY",
+      "key": "G8_block_v12_cluster",
+      "description": "Block V1.2 joint cluster (compressed ∩ discount ∩ london(7-13))",
+      "n": 136,
+      "mean_r": -0.161,
+      "total_r": -21.9,
+      "win_pct": 22.1,
+      "total_dollars": -13122,
+      "dd_pct": 21.89,
+      "per_year": [
+        {
+          "year": "2020",
+          "n": 18,
+          "total_dollars": -2615,
+          "win_pct": 22.2,
+          "year_peak_dd_pct": 8.79
+        },
+        {
+          "year": "2021",
+          "n": 21,
+          "total_dollars": 1960,
+          "win_pct": 28.6,
+          "year_peak_dd_pct": 7.3
+        },
+        {
+          "year": "2022",
+          "n": 22,
+          "total_dollars": -1907,
+          "win_pct": 22.7,
+          "year_peak_dd_pct": 4.58
+        },
+        {
+          "year": "2023",
+          "n": 27,
+          "total_dollars": 5089,
+          "win_pct": 33.3,
+          "year_peak_dd_pct": 3.59
+        },
+        {
+          "year": "2024",
+          "n": 19,
+          "total_dollars": -4662,
+          "win_pct": 15.8,
+          "year_peak_dd_pct": 5.63
+        },
+        {
+          "year": "2025",
+          "n": 26,
+          "total_dollars": -11471,
+          "win_pct": 7.7,
+          "year_peak_dd_pct": 13.11
+        },
+        {
+          "year": "2026",
+          "n": 3,
+          "total_dollars": 485,
+          "win_pct": 33.3,
+          "year_peak_dd_pct": 1.18
+        }
+      ],
+      "worst_year_dd_pct": 13.11
+    },
+    {
+      "ticker": "USD/JPY",
+      "key": "G3+G7_block_dxy_mtf_AND_allow_discount",
+      "description": "G3 + G7 layered (block usd_down/fast_div_bull AND only enter in discount)",
+      "n": 58,
+      "mean_r": -0.499,
+      "total_r": -29,
+      "win_pct": 15.5,
+      "total_dollars": -17371,
+      "dd_pct": 17.37,
+      "per_year": [
+        {
+          "year": "2020",
+          "n": 4,
+          "total_dollars": -200,
+          "win_pct": 25,
+          "year_peak_dd_pct": 2.69
+        },
+        {
+          "year": "2021",
+          "n": 12,
+          "total_dollars": -7089,
+          "win_pct": 8.3,
+          "year_peak_dd_pct": 7.09
+        },
+        {
+          "year": "2022",
+          "n": 9,
+          "total_dollars": -1035,
+          "win_pct": 22.2,
+          "year_peak_dd_pct": 2.48
+        },
+        {
+          "year": "2023",
+          "n": 14,
+          "total_dollars": -1700,
+          "win_pct": 21.4,
+          "year_peak_dd_pct": 3.65
+        },
+        {
+          "year": "2024",
+          "n": 4,
+          "total_dollars": -2549,
+          "win_pct": 0,
+          "year_peak_dd_pct": 2.55
+        },
+        {
+          "year": "2025",
+          "n": 15,
+          "total_dollars": -4798,
+          "win_pct": 13.3,
+          "year_peak_dd_pct": 4.8
+        }
+      ],
+      "worst_year_dd_pct": 7.09
+    },
+    {
+      "ticker": "USD/JPY",
+      "key": "G2+G7_block_usd_down_AND_allow_discount",
+      "description": "G2 + G7 layered (block usd_down AND only enter in discount)",
+      "n": 58,
+      "mean_r": -0.408,
+      "total_r": -23.6,
+      "win_pct": 17.2,
+      "total_dollars": -14184,
+      "dd_pct": 14.21,
+      "per_year": [
+        {
+          "year": "2020",
+          "n": 4,
+          "total_dollars": -200,
+          "win_pct": 25,
+          "year_peak_dd_pct": 2.69
+        },
+        {
+          "year": "2021",
+          "n": 12,
+          "total_dollars": -3903,
+          "win_pct": 16.7,
+          "year_peak_dd_pct": 4.13
+        },
+        {
+          "year": "2022",
+          "n": 9,
+          "total_dollars": -1035,
+          "win_pct": 22.2,
+          "year_peak_dd_pct": 2.48
+        },
+        {
+          "year": "2023",
+          "n": 14,
+          "total_dollars": -1700,
+          "win_pct": 21.4,
+          "year_peak_dd_pct": 3.65
+        },
+        {
+          "year": "2024",
+          "n": 4,
+          "total_dollars": -2549,
+          "win_pct": 0,
+          "year_peak_dd_pct": 2.55
+        },
+        {
+          "year": "2025",
+          "n": 15,
+          "total_dollars": -4798,
+          "win_pct": 13.3,
+          "year_peak_dd_pct": 4.8
+        }
+      ],
+      "worst_year_dd_pct": 4.8
+    },
+    {
+      "ticker": "USD/JPY",
+      "key": "G4+G7_block_compressed_AND_allow_discount",
+      "description": "G4 + G7 layered (block compressed AND only enter in discount)",
+      "n": 76,
+      "mean_r": -0.547,
+      "total_r": -41.5,
+      "win_pct": 14.5,
+      "total_dollars": -24921,
+      "dd_pct": 26.56,
+      "per_year": [
+        {
+          "year": "2020",
+          "n": 11,
+          "total_dollars": -9707,
+          "win_pct": 0,
+          "year_peak_dd_pct": 9.71
+        },
+        {
+          "year": "2021",
+          "n": 12,
+          "total_dollars": -716,
+          "win_pct": 25,
+          "year_peak_dd_pct": 2.69
+        },
+        {
+          "year": "2022",
+          "n": 12,
+          "total_dollars": -2945,
+          "win_pct": 16.7,
+          "year_peak_dd_pct": 3.55
+        },
+        {
+          "year": "2023",
+          "n": 13,
+          "total_dollars": 1397,
+          "win_pct": 30.8,
+          "year_peak_dd_pct": 3.53
+        },
+        {
+          "year": "2024",
+          "n": 5,
+          "total_dollars": -3250,
+          "win_pct": 0,
+          "year_peak_dd_pct": 3.25
+        },
+        {
+          "year": "2025",
+          "n": 23,
+          "total_dollars": -9700,
+          "win_pct": 8.7,
+          "year_peak_dd_pct": 11.33
+        }
+      ],
+      "worst_year_dd_pct": 11.33
+    }
+  ]
+}

@@ -1,3 +1,25 @@
+# scripts/ — directory layout (reorganized 2026-06-18 PM)
+
+```
+scripts/
+├── README.md                    (this file)
+├── *.sh                          production cron entrypoints (DO NOT MOVE — paths in crontab)
+├── cohort-report.ts              called by cohort-report-cron.sh; keep in root
+├── live-state.ts                 operator "is the system alive?" diagnostic
+├── launchd/                      operator's launchd plist (caffeinate)
+├── canonical/                    ⭐ THE LIBRARY — fully fleshed-out reusable scripts
+│   ├── validate-algo.ts          Full Phase A→B validation runner. Consolidates step2-6 + verify-* + analyze-* with Phase B fidelity gates. Replaces ~10 archive scripts.
+│   └── inspect-algo.ts           Per-algo backtest re-runner with per-trade detail.
+├── ad-hoc/                       throwaway investigations (default: don't commit)
+└── archive/                      old scripts kept for reference
+    └── 2026-06-18/               ~96 one-off scripts archived during reorg (step*, verify-*, analyze-*, diag-*, discovery-*, deploy-*, sweep-*, replay-*, phase1-*, phase2-*, etc)
+```
+
+**Discipline going forward** (2026-06-18 PM operator-set):
+- Don't create a new script every time you want to test something small. Use `scripts/ad-hoc/` for throwaway tests; only promote to `scripts/canonical/` when it's a tool we'll use repeatedly.
+- The canonical library stays small and fully documented. Each canonical script has full inline docs + usage examples + clear acceptance criteria.
+- Archive (don't delete) old one-offs — they're useful evidence of past investigations.
+
 # Cron scripts
 
 **Production cron runs on the operator's local macOS machine via the system

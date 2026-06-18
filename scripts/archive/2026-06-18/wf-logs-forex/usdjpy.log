@@ -1,0 +1,75 @@
+===== LLM-trader walk-forward =====
+Provider: anthropic (model: claude-haiku-4-5-20251001)
+Ticker:    USD/JPY
+Prompt:    v2
+Timeframe: 4h
+Capital per window: $100,000
+Windows: 6 × 40d (non-overlapping, ending 2026-04-30)
+Coverage: 2025-10-12 (− 40d) → 2026-04-30
+Estimated cost: ~1440 LLM calls (~763K tokens). Anthropic Haiku ≈ $0.61.
+
+Loading USD/JPY 4h corpus (fetched at 4h)...
+  4h corpus: 5000 bars (2023-02-27 → 2026-05-15)
+  daily corpus: 5000 bars
+Loading EUR/USD 4h proxy...
+  EUR/USD 4h: 5000 bars
+Skipping commodity intermarket load (asset class: forex).
+
+Pre-fetching economic calendar for 2025-09-02 → 2026-04-30...
+  1274 events loaded
+
+--- Window 1/6: ending 2025-10-12 (back 40d) ---
+  0 trades · 0% WR · $0 (0.00%) · DD 0.00% · 168 LLM calls (0 fails) · 1032s
+--- Window 2/6: ending 2025-11-21 (back 40d) ---
+  0 trades · 0% WR · $0 (0.00%) · DD 0.00% · 179 LLM calls (1 fails) · 1136s
+--- Window 3/6: ending 2025-12-31 (back 40d) ---
+  0 trades · 0% WR · $0 (0.00%) · DD 0.00% · 162 LLM calls (0 fails) · 1029s
+--- Window 4/6: ending 2026-02-09 (back 40d) ---
+  0 trades · 0% WR · $0 (0.00%) · DD 0.00% · 163 LLM calls (1 fails) · 1037s
+--- Window 5/6: ending 2026-03-21 (back 40d) ---
+  0 trades · 0% WR · $0 (0.00%) · DD 0.00% · 173 LLM calls (0 fails) · 1101s
+--- Window 6/6: ending 2026-04-30 (back 40d) ---
+  0 trades · 0% WR · $0 (0.00%) · DD 0.00% · 175 LLM calls (0 fails) · 1134s
+
+===== Walk-forward summary =====
+
+Per-window results (oldest → newest):
+  #   end_date    trades  WR      return$     return%   DD%     LLM(fails)    
+      2025-10-12  0       0%      $0          +0.00%    0.00%   168(0)        
+      2025-11-21  0       0%      $0          +0.00%    0.00%   179(1)        
+      2025-12-31  0       0%      $0          +0.00%    0.00%   162(0)        
+      2026-02-09  0       0%      $0          +0.00%    0.00%   163(1)        
+      2026-03-21  0       0%      $0          +0.00%    0.00%   173(0)        
+      2026-04-30  0       0%      $0          +0.00%    0.00%   175(0)        
+
+Walk-forward aggregate:
+  Windows                 : 6
+  Green windows           : 0/6 (0%)
+  Total trades            : 0
+  Mean WR (per window)    : 0.0%
+  Median WR (per window)  : 0.0%
+  Total return            : $0 (0.00% on $100K base)
+  Mean return / window    : $0
+  Max DD (worst window)   : 0.00%
+  Total LLM calls         : 1020 (2 failures)
+
+Per-regime breakdown (all trades, all windows):
+  regime    trades  WR      mean_R   $pnl        long(W/T)   short(W/T)  
+
+Regime-flip cohort (regime changed mid-trade?):
+  cohort          trades  WR      mean_R   $pnl        
+  flipped         0       0%      0.00     $0          
+  not_flipped     0       0%      0.00     $0          
+
+LLM decision distribution per regime (all bars, all windows):
+  regime    enter_long  enter_short  hold    exit    
+  HH        0           0            496     0       
+  RANGING   0           0            300     0       
+  LH        0           0            222     0       
+
+Walk-forward summary saved: scripts/llm-trader-wf-summary-anthropic-4h-6x40d-v2-2026-05-17T18-53-46.json
+Combined trade log saved: scripts/llm-trader-wf-trades-anthropic-4h-6x40d-v2-2026-05-17T18-53-46.jsonl (0 trades)
+Per-window decision logs saved: scripts/llm-trader-wf-decisions-...-v2-<window-end>.jsonl (6 files)
+
+(No ALGO_ID set — cache not uploaded. To populate the readiness check,
+ re-run with ALGO_ID=<uuid> or write the cache from the saved summary file.)

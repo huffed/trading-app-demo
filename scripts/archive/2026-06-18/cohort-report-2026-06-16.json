@@ -1,0 +1,227 @@
+{
+  "generated_at": "2026-06-16T23:32:55.670Z",
+  "source": "live",
+  "days": 14,
+  "activity_days": 7,
+  "min_n": 5,
+  "trades": 0,
+  "engine_activity": {
+    "window_days": 7,
+    "since": "2026-06-09T23:32:54.081Z",
+    "llm_decisions": 20,
+    "llm_avg_confidence": 58.5,
+    "llm_by_decision": {
+      "hold": 18,
+      "enter_short": 2
+    },
+    "llm_by_mtf": {
+      "mixed": 12,
+      "fast_div_bull": 7,
+      "aligned_LH": 1
+    },
+    "per_algo": [
+      {
+        "algorithm_id": "6b6b1907-c76d-4f1e-ad40-a8170183dd86",
+        "name": "Gold Swing 4h",
+        "evaluations": 33,
+        "gate_refusals": 0,
+        "condition_misses": 0,
+        "drift_refusals": 1,
+        "bar_staleness_refusals": 12,
+        "llm_holds": 18,
+        "other_refusals": 0,
+        "fires": 2
+      },
+      {
+        "algorithm_id": "1c9e9b77-95b9-4327-add3-08cbae018d28",
+        "name": "Library: EUR/USD Dip-Buyer-Long 4h",
+        "evaluations": 6,
+        "gate_refusals": 0,
+        "condition_misses": 6,
+        "drift_refusals": 0,
+        "bar_staleness_refusals": 0,
+        "llm_holds": 0,
+        "other_refusals": 0,
+        "fires": 0
+      },
+      {
+        "algorithm_id": "5172eaf4-6d6a-4741-898d-6acec8d08139",
+        "name": "Library: EUR/USD FVG-DailyBias-Long 4h",
+        "evaluations": 6,
+        "gate_refusals": 0,
+        "condition_misses": 6,
+        "drift_refusals": 0,
+        "bar_staleness_refusals": 0,
+        "llm_holds": 0,
+        "other_refusals": 0,
+        "fires": 0
+      },
+      {
+        "algorithm_id": "43834554-dc16-4ddf-bcab-9695a656f8cb",
+        "name": "Library: GBP/USD Dip-Buyer-Long 4h",
+        "evaluations": 6,
+        "gate_refusals": 0,
+        "condition_misses": 6,
+        "drift_refusals": 0,
+        "bar_staleness_refusals": 0,
+        "llm_holds": 0,
+        "other_refusals": 0,
+        "fires": 0
+      },
+      {
+        "algorithm_id": "e6a5f61e-5bed-4dd8-8e50-89305ba6e21a",
+        "name": "Library: GBP/USD FVG-DailyBias-Long 4h",
+        "evaluations": 6,
+        "gate_refusals": 0,
+        "condition_misses": 6,
+        "drift_refusals": 0,
+        "bar_staleness_refusals": 0,
+        "llm_holds": 0,
+        "other_refusals": 0,
+        "fires": 0
+      },
+      {
+        "algorithm_id": "b25b2bab-8202-44d8-9298-451769b5e34a",
+        "name": "Library: Gold Coil-Breakout 1h",
+        "evaluations": 462,
+        "gate_refusals": 0,
+        "condition_misses": 370,
+        "drift_refusals": 0,
+        "bar_staleness_refusals": 0,
+        "llm_holds": 0,
+        "other_refusals": 92,
+        "fires": 0
+      },
+      {
+        "algorithm_id": "7abcc933-07e2-44df-95ca-213cd03f3223",
+        "name": "Library: Gold Coil-Breakout 4h",
+        "evaluations": 31,
+        "gate_refusals": 19,
+        "condition_misses": 0,
+        "drift_refusals": 0,
+        "bar_staleness_refusals": 0,
+        "llm_holds": 0,
+        "other_refusals": 12,
+        "fires": 0
+      },
+      {
+        "algorithm_id": "2551f803-a5bf-44e6-8ef9-68cbf6f96094",
+        "name": "Library: Gold Dip-Buyer 4h",
+        "evaluations": 465,
+        "gate_refusals": 284,
+        "condition_misses": 103,
+        "drift_refusals": 0,
+        "bar_staleness_refusals": 0,
+        "llm_holds": 0,
+        "other_refusals": 78,
+        "fires": 0
+      },
+      {
+        "algorithm_id": "5f99ca15-c075-4c78-b0c6-4044b82f40dc",
+        "name": "Library: Gold FVG-DailyBias-Long 4h",
+        "evaluations": 25,
+        "gate_refusals": 0,
+        "condition_misses": 0,
+        "drift_refusals": 0,
+        "bar_staleness_refusals": 0,
+        "llm_holds": 0,
+        "other_refusals": 25,
+        "fires": 0
+      },
+      {
+        "algorithm_id": "6d3c60f1-1775-4799-9b00-72931f618fe3",
+        "name": "Library: Gold FVG-Long 30m",
+        "evaluations": 95,
+        "gate_refusals": 0,
+        "condition_misses": 0,
+        "drift_refusals": 0,
+        "bar_staleness_refusals": 0,
+        "llm_holds": 0,
+        "other_refusals": 95,
+        "fires": 0
+      },
+      {
+        "algorithm_id": "8cf42a49-4d61-457c-9163-0ed0fc4276d9",
+        "name": "Library: Gold OTE-Long 4h",
+        "evaluations": 35,
+        "gate_refusals": 0,
+        "condition_misses": 0,
+        "drift_refusals": 0,
+        "bar_staleness_refusals": 0,
+        "llm_holds": 0,
+        "other_refusals": 35,
+        "fires": 0
+      },
+      {
+        "algorithm_id": "1a548743-c7a0-49e7-bed4-85efbd954c05",
+        "name": "Library: Gold sweep_reclaim-DailyBias-Long 4h",
+        "evaluations": 6,
+        "gate_refusals": 0,
+        "condition_misses": 0,
+        "drift_refusals": 0,
+        "bar_staleness_refusals": 0,
+        "llm_holds": 0,
+        "other_refusals": 6,
+        "fires": 0
+      },
+      {
+        "algorithm_id": "29ccd317-854d-4aff-ae08-b31589ba14db",
+        "name": "Library: USD/JPY Coil-Breakout-Long 4h",
+        "evaluations": 6,
+        "gate_refusals": 0,
+        "condition_misses": 6,
+        "drift_refusals": 0,
+        "bar_staleness_refusals": 0,
+        "llm_holds": 0,
+        "other_refusals": 0,
+        "fires": 0
+      },
+      {
+        "algorithm_id": "3b4c7c70-5666-44d0-8fd2-d958cf1d8daf",
+        "name": "Library: USD/JPY Dip-Buyer-Long 4h",
+        "evaluations": 6,
+        "gate_refusals": 0,
+        "condition_misses": 6,
+        "drift_refusals": 0,
+        "bar_staleness_refusals": 0,
+        "llm_holds": 0,
+        "other_refusals": 0,
+        "fires": 0
+      },
+      {
+        "algorithm_id": "290ee500-944e-4280-b2e2-3e0c42c6202a",
+        "name": "Library: USD/JPY FVG-DailyBias-Long 4h",
+        "evaluations": 7,
+        "gate_refusals": 0,
+        "condition_misses": 7,
+        "drift_refusals": 0,
+        "bar_staleness_refusals": 0,
+        "llm_holds": 0,
+        "other_refusals": 0,
+        "fires": 0
+      },
+      {
+        "algorithm_id": "7be55636-74e8-4fc1-9319-6ade1cfde8a7",
+        "name": "Library: USD/JPY sweep_reclaim-DailyBias-Long 4h",
+        "evaluations": 6,
+        "gate_refusals": 0,
+        "condition_misses": 6,
+        "drift_refusals": 0,
+        "bar_staleness_refusals": 0,
+        "llm_holds": 0,
+        "other_refusals": 0,
+        "fires": 0
+      }
+    ],
+    "notable_saves": [
+      {
+        "when": "2026-06-15T04:00:28.48772+00:00",
+        "algorithm": "Gold Swing 4h",
+        "reason": "live_price_drift",
+        "confidence": 78,
+        "would_have_entered_side": "short",
+        "llm_reasoning": "LH regime (D1), price rejected from 20-bar high 4309 this bar with down close; short into upper-range resistance is the valid trigger in bearish structure. Intermarket neutral; regime is the edge."
+      }
+    ]
+  }
+}

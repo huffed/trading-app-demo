@@ -1,0 +1,3964 @@
+{
+  "cells": [
+    {
+      "pair": "XAU/USD",
+      "strategy": "coil_breakout",
+      "geometry": "sa-0.10/4",
+      "rr": 2,
+      "variant": "ungated",
+      "trades": 101,
+      "total_return": 20022,
+      "green_pct": 62.5,
+      "worst_dd": 2.3,
+      "per_year": {
+        "2020": {
+          "trades": 6,
+          "return": 19,
+          "green_pct": 67,
+          "windows": 3
+        },
+        "2021": {
+          "trades": 10,
+          "return": 3092,
+          "green_pct": 80,
+          "windows": 5
+        },
+        "2022": {
+          "trades": 14,
+          "return": 585,
+          "green_pct": 33,
+          "windows": 6
+        },
+        "2023": {
+          "trades": 10,
+          "return": 6594,
+          "green_pct": 75,
+          "windows": 4
+        },
+        "2024": {
+          "trades": 23,
+          "return": 8304,
+          "green_pct": 71,
+          "windows": 7
+        },
+        "2025": {
+          "trades": 29,
+          "return": 735,
+          "green_pct": 60,
+          "windows": 5
+        },
+        "2026": {
+          "trades": 9,
+          "return": 693,
+          "green_pct": 50,
+          "windows": 2
+        }
+      }
+    },
+    {
+      "pair": "XAU/USD",
+      "strategy": "coil_breakout",
+      "geometry": "sa-0.10/4",
+      "rr": 2,
+      "variant": "gated_v12",
+      "trades": 101,
+      "total_return": 20022,
+      "green_pct": 62.5,
+      "worst_dd": 2.3,
+      "per_year": {
+        "2020": {
+          "trades": 6,
+          "return": 19,
+          "green_pct": 67,
+          "windows": 3
+        },
+        "2021": {
+          "trades": 10,
+          "return": 3092,
+          "green_pct": 80,
+          "windows": 5
+        },
+        "2022": {
+          "trades": 14,
+          "return": 585,
+          "green_pct": 33,
+          "windows": 6
+        },
+        "2023": {
+          "trades": 10,
+          "return": 6594,
+          "green_pct": 75,
+          "windows": 4
+        },
+        "2024": {
+          "trades": 23,
+          "return": 8304,
+          "green_pct": 71,
+          "windows": 7
+        },
+        "2025": {
+          "trades": 29,
+          "return": 735,
+          "green_pct": 60,
+          "windows": 5
+        },
+        "2026": {
+          "trades": 9,
+          "return": 693,
+          "green_pct": 50,
+          "windows": 2
+        }
+      }
+    },
+    {
+      "pair": "XAU/USD",
+      "strategy": "coil_breakout",
+      "geometry": "sa-0.10/4",
+      "rr": 3,
+      "variant": "ungated",
+      "trades": 68,
+      "total_return": 10782,
+      "green_pct": 51.7,
+      "worst_dd": 2.3,
+      "per_year": {
+        "2020": {
+          "trades": 5,
+          "return": 1775,
+          "green_pct": 67,
+          "windows": 3
+        },
+        "2021": {
+          "trades": 6,
+          "return": 1164,
+          "green_pct": 40,
+          "windows": 5
+        },
+        "2022": {
+          "trades": 9,
+          "return": 1779,
+          "green_pct": 40,
+          "windows": 5
+        },
+        "2023": {
+          "trades": 3,
+          "return": 2982,
+          "green_pct": 67,
+          "windows": 3
+        },
+        "2024": {
+          "trades": 18,
+          "return": 4221,
+          "green_pct": 50,
+          "windows": 6
+        },
+        "2025": {
+          "trades": 19,
+          "return": -1620,
+          "green_pct": 60,
+          "windows": 5
+        },
+        "2026": {
+          "trades": 8,
+          "return": 482,
+          "green_pct": 50,
+          "windows": 2
+        }
+      }
+    },
+    {
+      "pair": "XAU/USD",
+      "strategy": "coil_breakout",
+      "geometry": "sa-0.10/4",
+      "rr": 3,
+      "variant": "gated_v12",
+      "trades": 68,
+      "total_return": 10782,
+      "green_pct": 51.7,
+      "worst_dd": 2.3,
+      "per_year": {
+        "2020": {
+          "trades": 5,
+          "return": 1775,
+          "green_pct": 67,
+          "windows": 3
+        },
+        "2021": {
+          "trades": 6,
+          "return": 1164,
+          "green_pct": 40,
+          "windows": 5
+        },
+        "2022": {
+          "trades": 9,
+          "return": 1779,
+          "green_pct": 40,
+          "windows": 5
+        },
+        "2023": {
+          "trades": 3,
+          "return": 2982,
+          "green_pct": 67,
+          "windows": 3
+        },
+        "2024": {
+          "trades": 18,
+          "return": 4221,
+          "green_pct": 50,
+          "windows": 6
+        },
+        "2025": {
+          "trades": 19,
+          "return": -1620,
+          "green_pct": 60,
+          "windows": 5
+        },
+        "2026": {
+          "trades": 8,
+          "return": 482,
+          "green_pct": 50,
+          "windows": 2
+        }
+      }
+    },
+    {
+      "pair": "XAU/USD",
+      "strategy": "coil_breakout",
+      "geometry": "sa-0.10/4",
+      "rr": 5,
+      "variant": "ungated",
+      "trades": 53,
+      "total_return": 1977,
+      "green_pct": 29.2,
+      "worst_dd": 2.3,
+      "per_year": {
+        "2020": {
+          "trades": 3,
+          "return": -1757,
+          "green_pct": 0,
+          "windows": 2
+        },
+        "2021": {
+          "trades": 4,
+          "return": -2345,
+          "green_pct": 0,
+          "windows": 4
+        },
+        "2022": {
+          "trades": 8,
+          "return": -1224,
+          "green_pct": 25,
+          "windows": 4
+        },
+        "2023": {
+          "trades": 2,
+          "return": 2399,
+          "green_pct": 50,
+          "windows": 2
+        },
+        "2024": {
+          "trades": 12,
+          "return": 755,
+          "green_pct": 20,
+          "windows": 5
+        },
+        "2025": {
+          "trades": 16,
+          "return": 1218,
+          "green_pct": 60,
+          "windows": 5
+        },
+        "2026": {
+          "trades": 8,
+          "return": 2931,
+          "green_pct": 50,
+          "windows": 2
+        }
+      }
+    },
+    {
+      "pair": "XAU/USD",
+      "strategy": "coil_breakout",
+      "geometry": "sa-0.10/4",
+      "rr": 5,
+      "variant": "gated_v12",
+      "trades": 53,
+      "total_return": 1977,
+      "green_pct": 29.2,
+      "worst_dd": 2.3,
+      "per_year": {
+        "2020": {
+          "trades": 3,
+          "return": -1757,
+          "green_pct": 0,
+          "windows": 2
+        },
+        "2021": {
+          "trades": 4,
+          "return": -2345,
+          "green_pct": 0,
+          "windows": 4
+        },
+        "2022": {
+          "trades": 8,
+          "return": -1224,
+          "green_pct": 25,
+          "windows": 4
+        },
+        "2023": {
+          "trades": 2,
+          "return": 2399,
+          "green_pct": 50,
+          "windows": 2
+        },
+        "2024": {
+          "trades": 12,
+          "return": 755,
+          "green_pct": 20,
+          "windows": 5
+        },
+        "2025": {
+          "trades": 16,
+          "return": 1218,
+          "green_pct": 60,
+          "windows": 5
+        },
+        "2026": {
+          "trades": 8,
+          "return": 2931,
+          "green_pct": 50,
+          "windows": 2
+        }
+      }
+    },
+    {
+      "pair": "XAU/USD",
+      "strategy": "coil_breakout",
+      "geometry": "pct-0.30",
+      "rr": 2,
+      "variant": "ungated",
+      "trades": 674,
+      "total_return": -70090,
+      "green_pct": 33.3,
+      "worst_dd": 26.57,
+      "per_year": {
+        "2020": {
+          "trades": 34,
+          "return": -2475,
+          "green_pct": 33,
+          "windows": 3
+        },
+        "2021": {
+          "trades": 52,
+          "return": 2912,
+          "green_pct": 67,
+          "windows": 6
+        },
+        "2022": {
+          "trades": 118,
+          "return": 6707,
+          "green_pct": 33,
+          "windows": 6
+        },
+        "2023": {
+          "trades": 62,
+          "return": -3095,
+          "green_pct": 25,
+          "windows": 4
+        },
+        "2024": {
+          "trades": 130,
+          "return": -12987,
+          "green_pct": 29,
+          "windows": 7
+        },
+        "2025": {
+          "trades": 149,
+          "return": -26418,
+          "green_pct": 20,
+          "windows": 5
+        },
+        "2026": {
+          "trades": 129,
+          "return": -34733,
+          "green_pct": 0,
+          "windows": 2
+        }
+      }
+    },
+    {
+      "pair": "XAU/USD",
+      "strategy": "coil_breakout",
+      "geometry": "pct-0.30",
+      "rr": 2,
+      "variant": "gated_v12",
+      "trades": 674,
+      "total_return": -70090,
+      "green_pct": 33.3,
+      "worst_dd": 26.57,
+      "per_year": {
+        "2020": {
+          "trades": 34,
+          "return": -2475,
+          "green_pct": 33,
+          "windows": 3
+        },
+        "2021": {
+          "trades": 52,
+          "return": 2912,
+          "green_pct": 67,
+          "windows": 6
+        },
+        "2022": {
+          "trades": 118,
+          "return": 6707,
+          "green_pct": 33,
+          "windows": 6
+        },
+        "2023": {
+          "trades": 62,
+          "return": -3095,
+          "green_pct": 25,
+          "windows": 4
+        },
+        "2024": {
+          "trades": 130,
+          "return": -12987,
+          "green_pct": 29,
+          "windows": 7
+        },
+        "2025": {
+          "trades": 149,
+          "return": -26418,
+          "green_pct": 20,
+          "windows": 5
+        },
+        "2026": {
+          "trades": 129,
+          "return": -34733,
+          "green_pct": 0,
+          "windows": 2
+        }
+      }
+    },
+    {
+      "pair": "XAU/USD",
+      "strategy": "coil_breakout",
+      "geometry": "pct-0.30",
+      "rr": 3,
+      "variant": "ungated",
+      "trades": 560,
+      "total_return": -59659,
+      "green_pct": 30.3,
+      "worst_dd": 24.82,
+      "per_year": {
+        "2020": {
+          "trades": 26,
+          "return": -1328,
+          "green_pct": 0,
+          "windows": 3
+        },
+        "2021": {
+          "trades": 46,
+          "return": 3430,
+          "green_pct": 67,
+          "windows": 6
+        },
+        "2022": {
+          "trades": 83,
+          "return": 434,
+          "green_pct": 33,
+          "windows": 6
+        },
+        "2023": {
+          "trades": 54,
+          "return": -1448,
+          "green_pct": 25,
+          "windows": 4
+        },
+        "2024": {
+          "trades": 102,
+          "return": -1176,
+          "green_pct": 29,
+          "windows": 7
+        },
+        "2025": {
+          "trades": 127,
+          "return": -28680,
+          "green_pct": 20,
+          "windows": 5
+        },
+        "2026": {
+          "trades": 122,
+          "return": -30892,
+          "green_pct": 0,
+          "windows": 2
+        }
+      }
+    },
+    {
+      "pair": "XAU/USD",
+      "strategy": "coil_breakout",
+      "geometry": "pct-0.30",
+      "rr": 3,
+      "variant": "gated_v12",
+      "trades": 560,
+      "total_return": -59659,
+      "green_pct": 30.3,
+      "worst_dd": 24.82,
+      "per_year": {
+        "2020": {
+          "trades": 26,
+          "return": -1328,
+          "green_pct": 0,
+          "windows": 3
+        },
+        "2021": {
+          "trades": 46,
+          "return": 3430,
+          "green_pct": 67,
+          "windows": 6
+        },
+        "2022": {
+          "trades": 83,
+          "return": 434,
+          "green_pct": 33,
+          "windows": 6
+        },
+        "2023": {
+          "trades": 54,
+          "return": -1448,
+          "green_pct": 25,
+          "windows": 4
+        },
+        "2024": {
+          "trades": 102,
+          "return": -1176,
+          "green_pct": 29,
+          "windows": 7
+        },
+        "2025": {
+          "trades": 127,
+          "return": -28680,
+          "green_pct": 20,
+          "windows": 5
+        },
+        "2026": {
+          "trades": 122,
+          "return": -30892,
+          "green_pct": 0,
+          "windows": 2
+        }
+      }
+    },
+    {
+      "pair": "XAU/USD",
+      "strategy": "coil_breakout",
+      "geometry": "pct-0.30",
+      "rr": 5,
+      "variant": "ungated",
+      "trades": 444,
+      "total_return": -18349,
+      "green_pct": 48.5,
+      "worst_dd": 19.85,
+      "per_year": {
+        "2020": {
+          "trades": 19,
+          "return": -738,
+          "green_pct": 67,
+          "windows": 3
+        },
+        "2021": {
+          "trades": 31,
+          "return": 2706,
+          "green_pct": 67,
+          "windows": 6
+        },
+        "2022": {
+          "trades": 71,
+          "return": 14938,
+          "green_pct": 67,
+          "windows": 6
+        },
+        "2023": {
+          "trades": 43,
+          "return": -776,
+          "green_pct": 25,
+          "windows": 4
+        },
+        "2024": {
+          "trades": 73,
+          "return": 13921,
+          "green_pct": 57,
+          "windows": 7
+        },
+        "2025": {
+          "trades": 105,
+          "return": -25034,
+          "green_pct": 20,
+          "windows": 5
+        },
+        "2026": {
+          "trades": 102,
+          "return": -23366,
+          "green_pct": 0,
+          "windows": 2
+        }
+      }
+    },
+    {
+      "pair": "XAU/USD",
+      "strategy": "coil_breakout",
+      "geometry": "pct-0.30",
+      "rr": 5,
+      "variant": "gated_v12",
+      "trades": 444,
+      "total_return": -18349,
+      "green_pct": 48.5,
+      "worst_dd": 19.85,
+      "per_year": {
+        "2020": {
+          "trades": 19,
+          "return": -738,
+          "green_pct": 67,
+          "windows": 3
+        },
+        "2021": {
+          "trades": 31,
+          "return": 2706,
+          "green_pct": 67,
+          "windows": 6
+        },
+        "2022": {
+          "trades": 71,
+          "return": 14938,
+          "green_pct": 67,
+          "windows": 6
+        },
+        "2023": {
+          "trades": 43,
+          "return": -776,
+          "green_pct": 25,
+          "windows": 4
+        },
+        "2024": {
+          "trades": 73,
+          "return": 13921,
+          "green_pct": 57,
+          "windows": 7
+        },
+        "2025": {
+          "trades": 105,
+          "return": -25034,
+          "green_pct": 20,
+          "windows": 5
+        },
+        "2026": {
+          "trades": 102,
+          "return": -23366,
+          "green_pct": 0,
+          "windows": 2
+        }
+      }
+    },
+    {
+      "pair": "XAU/USD",
+      "strategy": "coil_breakout",
+      "geometry": "pct-0.50",
+      "rr": 2,
+      "variant": "ungated",
+      "trades": 419,
+      "total_return": -37894,
+      "green_pct": 39.4,
+      "worst_dd": 20.14,
+      "per_year": {
+        "2020": {
+          "trades": 19,
+          "return": -627,
+          "green_pct": 33,
+          "windows": 3
+        },
+        "2021": {
+          "trades": 31,
+          "return": -657,
+          "green_pct": 33,
+          "windows": 6
+        },
+        "2022": {
+          "trades": 73,
+          "return": -2545,
+          "green_pct": 50,
+          "windows": 6
+        },
+        "2023": {
+          "trades": 42,
+          "return": -129,
+          "green_pct": 75,
+          "windows": 4
+        },
+        "2024": {
+          "trades": 74,
+          "return": 452,
+          "green_pct": 43,
+          "windows": 7
+        },
+        "2025": {
+          "trades": 81,
+          "return": -6860,
+          "green_pct": 20,
+          "windows": 5
+        },
+        "2026": {
+          "trades": 99,
+          "return": -27528,
+          "green_pct": 0,
+          "windows": 2
+        }
+      }
+    },
+    {
+      "pair": "XAU/USD",
+      "strategy": "coil_breakout",
+      "geometry": "pct-0.50",
+      "rr": 2,
+      "variant": "gated_v12",
+      "trades": 419,
+      "total_return": -37894,
+      "green_pct": 39.4,
+      "worst_dd": 20.14,
+      "per_year": {
+        "2020": {
+          "trades": 19,
+          "return": -627,
+          "green_pct": 33,
+          "windows": 3
+        },
+        "2021": {
+          "trades": 31,
+          "return": -657,
+          "green_pct": 33,
+          "windows": 6
+        },
+        "2022": {
+          "trades": 73,
+          "return": -2545,
+          "green_pct": 50,
+          "windows": 6
+        },
+        "2023": {
+          "trades": 42,
+          "return": -129,
+          "green_pct": 75,
+          "windows": 4
+        },
+        "2024": {
+          "trades": 74,
+          "return": 452,
+          "green_pct": 43,
+          "windows": 7
+        },
+        "2025": {
+          "trades": 81,
+          "return": -6860,
+          "green_pct": 20,
+          "windows": 5
+        },
+        "2026": {
+          "trades": 99,
+          "return": -27528,
+          "green_pct": 0,
+          "windows": 2
+        }
+      }
+    },
+    {
+      "pair": "XAU/USD",
+      "strategy": "coil_breakout",
+      "geometry": "pct-0.50",
+      "rr": 3,
+      "variant": "ungated",
+      "trades": 326,
+      "total_return": -13910,
+      "green_pct": 39.4,
+      "worst_dd": 16.32,
+      "per_year": {
+        "2020": {
+          "trades": 14,
+          "return": -1216,
+          "green_pct": 33,
+          "windows": 3
+        },
+        "2021": {
+          "trades": 24,
+          "return": -113,
+          "green_pct": 50,
+          "windows": 6
+        },
+        "2022": {
+          "trades": 52,
+          "return": 4639,
+          "green_pct": 33,
+          "windows": 6
+        },
+        "2023": {
+          "trades": 34,
+          "return": 1108,
+          "green_pct": 50,
+          "windows": 4
+        },
+        "2024": {
+          "trades": 54,
+          "return": 8347,
+          "green_pct": 57,
+          "windows": 7
+        },
+        "2025": {
+          "trades": 62,
+          "return": -5581,
+          "green_pct": 20,
+          "windows": 5
+        },
+        "2026": {
+          "trades": 86,
+          "return": -21094,
+          "green_pct": 0,
+          "windows": 2
+        }
+      }
+    },
+    {
+      "pair": "XAU/USD",
+      "strategy": "coil_breakout",
+      "geometry": "pct-0.50",
+      "rr": 3,
+      "variant": "gated_v12",
+      "trades": 326,
+      "total_return": -13910,
+      "green_pct": 39.4,
+      "worst_dd": 16.32,
+      "per_year": {
+        "2020": {
+          "trades": 14,
+          "return": -1216,
+          "green_pct": 33,
+          "windows": 3
+        },
+        "2021": {
+          "trades": 24,
+          "return": -113,
+          "green_pct": 50,
+          "windows": 6
+        },
+        "2022": {
+          "trades": 52,
+          "return": 4639,
+          "green_pct": 33,
+          "windows": 6
+        },
+        "2023": {
+          "trades": 34,
+          "return": 1108,
+          "green_pct": 50,
+          "windows": 4
+        },
+        "2024": {
+          "trades": 54,
+          "return": 8347,
+          "green_pct": 57,
+          "windows": 7
+        },
+        "2025": {
+          "trades": 62,
+          "return": -5581,
+          "green_pct": 20,
+          "windows": 5
+        },
+        "2026": {
+          "trades": 86,
+          "return": -21094,
+          "green_pct": 0,
+          "windows": 2
+        }
+      }
+    },
+    {
+      "pair": "XAU/USD",
+      "strategy": "coil_breakout",
+      "geometry": "pct-0.50",
+      "rr": 5,
+      "variant": "ungated",
+      "trades": 232,
+      "total_return": 12052,
+      "green_pct": 36.4,
+      "worst_dd": 14.23,
+      "per_year": {
+        "2020": {
+          "trades": 12,
+          "return": 3568,
+          "green_pct": 67,
+          "windows": 3
+        },
+        "2021": {
+          "trades": 15,
+          "return": -1886,
+          "green_pct": 17,
+          "windows": 6
+        },
+        "2022": {
+          "trades": 39,
+          "return": 5451,
+          "green_pct": 33,
+          "windows": 6
+        },
+        "2023": {
+          "trades": 24,
+          "return": 3542,
+          "green_pct": 50,
+          "windows": 4
+        },
+        "2024": {
+          "trades": 35,
+          "return": 4381,
+          "green_pct": 29,
+          "windows": 7
+        },
+        "2025": {
+          "trades": 39,
+          "return": 5322,
+          "green_pct": 60,
+          "windows": 5
+        },
+        "2026": {
+          "trades": 68,
+          "return": -8326,
+          "green_pct": 0,
+          "windows": 2
+        }
+      }
+    },
+    {
+      "pair": "XAU/USD",
+      "strategy": "coil_breakout",
+      "geometry": "pct-0.50",
+      "rr": 5,
+      "variant": "gated_v12",
+      "trades": 232,
+      "total_return": 12052,
+      "green_pct": 36.4,
+      "worst_dd": 14.23,
+      "per_year": {
+        "2020": {
+          "trades": 12,
+          "return": 3568,
+          "green_pct": 67,
+          "windows": 3
+        },
+        "2021": {
+          "trades": 15,
+          "return": -1886,
+          "green_pct": 17,
+          "windows": 6
+        },
+        "2022": {
+          "trades": 39,
+          "return": 5451,
+          "green_pct": 33,
+          "windows": 6
+        },
+        "2023": {
+          "trades": 24,
+          "return": 3542,
+          "green_pct": 50,
+          "windows": 4
+        },
+        "2024": {
+          "trades": 35,
+          "return": 4381,
+          "green_pct": 29,
+          "windows": 7
+        },
+        "2025": {
+          "trades": 39,
+          "return": 5322,
+          "green_pct": 60,
+          "windows": 5
+        },
+        "2026": {
+          "trades": 68,
+          "return": -8326,
+          "green_pct": 0,
+          "windows": 2
+        }
+      }
+    },
+    {
+      "pair": "XAU/USD",
+      "strategy": "dip_buyer",
+      "geometry": "sa-0.10/4",
+      "rr": 2,
+      "variant": "ungated",
+      "trades": 96,
+      "total_return": 9057,
+      "green_pct": 62.5,
+      "worst_dd": 2.95,
+      "per_year": {
+        "2020": {
+          "trades": 7,
+          "return": 2944,
+          "green_pct": 67,
+          "windows": 3
+        },
+        "2021": {
+          "trades": 14,
+          "return": 572,
+          "green_pct": 67,
+          "windows": 6
+        },
+        "2022": {
+          "trades": 10,
+          "return": 3024,
+          "green_pct": 67,
+          "windows": 6
+        },
+        "2023": {
+          "trades": 10,
+          "return": 2974,
+          "green_pct": 100,
+          "windows": 3
+        },
+        "2024": {
+          "trades": 28,
+          "return": -2425,
+          "green_pct": 29,
+          "windows": 7
+        },
+        "2025": {
+          "trades": 21,
+          "return": 1698,
+          "green_pct": 60,
+          "windows": 5
+        },
+        "2026": {
+          "trades": 6,
+          "return": 271,
+          "green_pct": 100,
+          "windows": 2
+        }
+      }
+    },
+    {
+      "pair": "XAU/USD",
+      "strategy": "dip_buyer",
+      "geometry": "sa-0.10/4",
+      "rr": 2,
+      "variant": "gated_v12",
+      "trades": 92,
+      "total_return": 7883,
+      "green_pct": 62.5,
+      "worst_dd": 2.95,
+      "per_year": {
+        "2020": {
+          "trades": 7,
+          "return": 2944,
+          "green_pct": 67,
+          "windows": 3
+        },
+        "2021": {
+          "trades": 14,
+          "return": 572,
+          "green_pct": 67,
+          "windows": 6
+        },
+        "2022": {
+          "trades": 10,
+          "return": 3024,
+          "green_pct": 67,
+          "windows": 6
+        },
+        "2023": {
+          "trades": 9,
+          "return": 1791,
+          "green_pct": 100,
+          "windows": 3
+        },
+        "2024": {
+          "trades": 27,
+          "return": -1827,
+          "green_pct": 43,
+          "windows": 7
+        },
+        "2025": {
+          "trades": 19,
+          "return": 1108,
+          "green_pct": 40,
+          "windows": 5
+        },
+        "2026": {
+          "trades": 6,
+          "return": 271,
+          "green_pct": 100,
+          "windows": 2
+        }
+      }
+    },
+    {
+      "pair": "XAU/USD",
+      "strategy": "dip_buyer",
+      "geometry": "sa-0.10/4",
+      "rr": 3,
+      "variant": "ungated",
+      "trades": 89,
+      "total_return": 13943,
+      "green_pct": 58.1,
+      "worst_dd": 2.95,
+      "per_year": {
+        "2020": {
+          "trades": 6,
+          "return": 3553,
+          "green_pct": 100,
+          "windows": 2
+        },
+        "2021": {
+          "trades": 13,
+          "return": -594,
+          "green_pct": 50,
+          "windows": 6
+        },
+        "2022": {
+          "trades": 10,
+          "return": 6009,
+          "green_pct": 67,
+          "windows": 6
+        },
+        "2023": {
+          "trades": 10,
+          "return": 3597,
+          "green_pct": 67,
+          "windows": 3
+        },
+        "2024": {
+          "trades": 27,
+          "return": 526,
+          "green_pct": 57,
+          "windows": 7
+        },
+        "2025": {
+          "trades": 18,
+          "return": 3507,
+          "green_pct": 60,
+          "windows": 5
+        },
+        "2026": {
+          "trades": 5,
+          "return": -2656,
+          "green_pct": 0,
+          "windows": 2
+        }
+      }
+    },
+    {
+      "pair": "XAU/USD",
+      "strategy": "dip_buyer",
+      "geometry": "sa-0.10/4",
+      "rr": 3,
+      "variant": "gated_v12",
+      "trades": 85,
+      "total_return": 13935,
+      "green_pct": 58.1,
+      "worst_dd": 2.95,
+      "per_year": {
+        "2020": {
+          "trades": 6,
+          "return": 3553,
+          "green_pct": 100,
+          "windows": 2
+        },
+        "2021": {
+          "trades": 13,
+          "return": -594,
+          "green_pct": 50,
+          "windows": 6
+        },
+        "2022": {
+          "trades": 10,
+          "return": 6009,
+          "green_pct": 67,
+          "windows": 6
+        },
+        "2023": {
+          "trades": 9,
+          "return": 1800,
+          "green_pct": 67,
+          "windows": 3
+        },
+        "2024": {
+          "trades": 26,
+          "return": 1131,
+          "green_pct": 57,
+          "windows": 7
+        },
+        "2025": {
+          "trades": 16,
+          "return": 4692,
+          "green_pct": 60,
+          "windows": 5
+        },
+        "2026": {
+          "trades": 5,
+          "return": -2656,
+          "green_pct": 0,
+          "windows": 2
+        }
+      }
+    },
+    {
+      "pair": "XAU/USD",
+      "strategy": "dip_buyer",
+      "geometry": "sa-0.10/4",
+      "rr": 5,
+      "variant": "ungated",
+      "trades": 69,
+      "total_return": 12682,
+      "green_pct": 46.7,
+      "worst_dd": 2.37,
+      "per_year": {
+        "2020": {
+          "trades": 3,
+          "return": 1743,
+          "green_pct": 50,
+          "windows": 2
+        },
+        "2021": {
+          "trades": 13,
+          "return": -613,
+          "green_pct": 33,
+          "windows": 6
+        },
+        "2022": {
+          "trades": 9,
+          "return": 5448,
+          "green_pct": 40,
+          "windows": 5
+        },
+        "2023": {
+          "trades": 6,
+          "return": 3588,
+          "green_pct": 67,
+          "windows": 3
+        },
+        "2024": {
+          "trades": 19,
+          "return": -637,
+          "green_pct": 43,
+          "windows": 7
+        },
+        "2025": {
+          "trades": 14,
+          "return": 5810,
+          "green_pct": 80,
+          "windows": 5
+        },
+        "2026": {
+          "trades": 5,
+          "return": -2656,
+          "green_pct": 0,
+          "windows": 2
+        }
+      }
+    },
+    {
+      "pair": "XAU/USD",
+      "strategy": "dip_buyer",
+      "geometry": "sa-0.10/4",
+      "rr": 5,
+      "variant": "gated_v12",
+      "trades": 66,
+      "total_return": 10892,
+      "green_pct": 43.3,
+      "worst_dd": 2.37,
+      "per_year": {
+        "2020": {
+          "trades": 3,
+          "return": 1743,
+          "green_pct": 50,
+          "windows": 2
+        },
+        "2021": {
+          "trades": 13,
+          "return": -613,
+          "green_pct": 33,
+          "windows": 6
+        },
+        "2022": {
+          "trades": 9,
+          "return": 5448,
+          "green_pct": 40,
+          "windows": 5
+        },
+        "2023": {
+          "trades": 5,
+          "return": 615,
+          "green_pct": 33,
+          "windows": 3
+        },
+        "2024": {
+          "trades": 18,
+          "return": -46,
+          "green_pct": 43,
+          "windows": 7
+        },
+        "2025": {
+          "trades": 13,
+          "return": 6401,
+          "green_pct": 80,
+          "windows": 5
+        },
+        "2026": {
+          "trades": 5,
+          "return": -2656,
+          "green_pct": 0,
+          "windows": 2
+        }
+      }
+    },
+    {
+      "pair": "XAU/USD",
+      "strategy": "dip_buyer",
+      "geometry": "pct-0.30",
+      "rr": 2,
+      "variant": "ungated",
+      "trades": 125,
+      "total_return": -22604,
+      "green_pct": 21.9,
+      "worst_dd": 5.24,
+      "per_year": {
+        "2020": {
+          "trades": 11,
+          "return": -2980,
+          "green_pct": 0,
+          "windows": 3
+        },
+        "2021": {
+          "trades": 18,
+          "return": -1822,
+          "green_pct": 33,
+          "windows": 6
+        },
+        "2022": {
+          "trades": 13,
+          "return": 4737,
+          "green_pct": 67,
+          "windows": 6
+        },
+        "2023": {
+          "trades": 12,
+          "return": -1826,
+          "green_pct": 33,
+          "windows": 3
+        },
+        "2024": {
+          "trades": 36,
+          "return": -8949,
+          "green_pct": 0,
+          "windows": 7
+        },
+        "2025": {
+          "trades": 27,
+          "return": -8842,
+          "green_pct": 0,
+          "windows": 5
+        },
+        "2026": {
+          "trades": 8,
+          "return": -2921,
+          "green_pct": 0,
+          "windows": 2
+        }
+      }
+    },
+    {
+      "pair": "XAU/USD",
+      "strategy": "dip_buyer",
+      "geometry": "pct-0.30",
+      "rr": 2,
+      "variant": "gated_v12",
+      "trades": 121,
+      "total_return": -21982,
+      "green_pct": 25,
+      "worst_dd": 5.24,
+      "per_year": {
+        "2020": {
+          "trades": 11,
+          "return": -2980,
+          "green_pct": 0,
+          "windows": 3
+        },
+        "2021": {
+          "trades": 18,
+          "return": -1822,
+          "green_pct": 33,
+          "windows": 6
+        },
+        "2022": {
+          "trades": 13,
+          "return": 4737,
+          "green_pct": 67,
+          "windows": 6
+        },
+        "2023": {
+          "trades": 11,
+          "return": -2979,
+          "green_pct": 33,
+          "windows": 3
+        },
+        "2024": {
+          "trades": 35,
+          "return": -8349,
+          "green_pct": 14,
+          "windows": 7
+        },
+        "2025": {
+          "trades": 25,
+          "return": -7668,
+          "green_pct": 0,
+          "windows": 5
+        },
+        "2026": {
+          "trades": 8,
+          "return": -2921,
+          "green_pct": 0,
+          "windows": 2
+        }
+      }
+    },
+    {
+      "pair": "XAU/USD",
+      "strategy": "dip_buyer",
+      "geometry": "pct-0.30",
+      "rr": 3,
+      "variant": "ungated",
+      "trades": 123,
+      "total_return": -18499,
+      "green_pct": 37.5,
+      "worst_dd": 5.24,
+      "per_year": {
+        "2020": {
+          "trades": 11,
+          "return": -1793,
+          "green_pct": 33,
+          "windows": 3
+        },
+        "2021": {
+          "trades": 18,
+          "return": -1229,
+          "green_pct": 50,
+          "windows": 6
+        },
+        "2022": {
+          "trades": 13,
+          "return": 6528,
+          "green_pct": 83,
+          "windows": 6
+        },
+        "2023": {
+          "trades": 12,
+          "return": -2397,
+          "green_pct": 33,
+          "windows": 3
+        },
+        "2024": {
+          "trades": 34,
+          "return": -8382,
+          "green_pct": 14,
+          "windows": 7
+        },
+        "2025": {
+          "trades": 27,
+          "return": -8897,
+          "green_pct": 0,
+          "windows": 5
+        },
+        "2026": {
+          "trades": 8,
+          "return": -2330,
+          "green_pct": 50,
+          "windows": 2
+        }
+      }
+    },
+    {
+      "pair": "XAU/USD",
+      "strategy": "dip_buyer",
+      "geometry": "pct-0.30",
+      "rr": 3,
+      "variant": "gated_v12",
+      "trades": 119,
+      "total_return": -18439,
+      "green_pct": 37.5,
+      "worst_dd": 5.24,
+      "per_year": {
+        "2020": {
+          "trades": 11,
+          "return": -1793,
+          "green_pct": 33,
+          "windows": 3
+        },
+        "2021": {
+          "trades": 18,
+          "return": -1229,
+          "green_pct": 50,
+          "windows": 6
+        },
+        "2022": {
+          "trades": 13,
+          "return": 6528,
+          "green_pct": 83,
+          "windows": 6
+        },
+        "2023": {
+          "trades": 11,
+          "return": -4114,
+          "green_pct": 33,
+          "windows": 3
+        },
+        "2024": {
+          "trades": 33,
+          "return": -7790,
+          "green_pct": 14,
+          "windows": 7
+        },
+        "2025": {
+          "trades": 25,
+          "return": -7713,
+          "green_pct": 0,
+          "windows": 5
+        },
+        "2026": {
+          "trades": 8,
+          "return": -2330,
+          "green_pct": 50,
+          "windows": 2
+        }
+      }
+    },
+    {
+      "pair": "XAU/USD",
+      "strategy": "dip_buyer",
+      "geometry": "pct-0.30",
+      "rr": 5,
+      "variant": "ungated",
+      "trades": 118,
+      "total_return": -23885,
+      "green_pct": 29,
+      "worst_dd": 5.24,
+      "per_year": {
+        "2020": {
+          "trades": 11,
+          "return": -2970,
+          "green_pct": 33,
+          "windows": 3
+        },
+        "2021": {
+          "trades": 18,
+          "return": -3546,
+          "green_pct": 33,
+          "windows": 6
+        },
+        "2022": {
+          "trades": 12,
+          "return": 3489,
+          "green_pct": 60,
+          "windows": 5
+        },
+        "2023": {
+          "trades": 12,
+          "return": -76,
+          "green_pct": 33,
+          "windows": 3
+        },
+        "2024": {
+          "trades": 31,
+          "return": -11217,
+          "green_pct": 14,
+          "windows": 7
+        },
+        "2025": {
+          "trades": 27,
+          "return": -5462,
+          "green_pct": 20,
+          "windows": 5
+        },
+        "2026": {
+          "trades": 7,
+          "return": -4104,
+          "green_pct": 0,
+          "windows": 2
+        }
+      }
+    },
+    {
+      "pair": "XAU/USD",
+      "strategy": "dip_buyer",
+      "geometry": "pct-0.30",
+      "rr": 5,
+      "variant": "gated_v12",
+      "trades": 114,
+      "total_return": -24960,
+      "green_pct": 29,
+      "worst_dd": 5.24,
+      "per_year": {
+        "2020": {
+          "trades": 11,
+          "return": -2970,
+          "green_pct": 33,
+          "windows": 3
+        },
+        "2021": {
+          "trades": 18,
+          "return": -3546,
+          "green_pct": 33,
+          "windows": 6
+        },
+        "2022": {
+          "trades": 12,
+          "return": 3489,
+          "green_pct": 60,
+          "windows": 5
+        },
+        "2023": {
+          "trades": 11,
+          "return": -2927,
+          "green_pct": 33,
+          "windows": 3
+        },
+        "2024": {
+          "trades": 30,
+          "return": -10624,
+          "green_pct": 14,
+          "windows": 7
+        },
+        "2025": {
+          "trades": 25,
+          "return": -4278,
+          "green_pct": 20,
+          "windows": 5
+        },
+        "2026": {
+          "trades": 7,
+          "return": -4104,
+          "green_pct": 0,
+          "windows": 2
+        }
+      }
+    },
+    {
+      "pair": "XAU/USD",
+      "strategy": "dip_buyer",
+      "geometry": "pct-0.50",
+      "rr": 2,
+      "variant": "ungated",
+      "trades": 98,
+      "total_return": 2236,
+      "green_pct": 45.2,
+      "worst_dd": 2.34,
+      "per_year": {
+        "2020": {
+          "trades": 10,
+          "return": 1169,
+          "green_pct": 33,
+          "windows": 3
+        },
+        "2021": {
+          "trades": 16,
+          "return": 2911,
+          "green_pct": 67,
+          "windows": 6
+        },
+        "2022": {
+          "trades": 11,
+          "return": 573,
+          "green_pct": 40,
+          "windows": 5
+        },
+        "2023": {
+          "trades": 8,
+          "return": 2360,
+          "green_pct": 100,
+          "windows": 3
+        },
+        "2024": {
+          "trades": 22,
+          "return": -615,
+          "green_pct": 29,
+          "windows": 7
+        },
+        "2025": {
+          "trades": 23,
+          "return": -2990,
+          "green_pct": 40,
+          "windows": 5
+        },
+        "2026": {
+          "trades": 8,
+          "return": -1171,
+          "green_pct": 0,
+          "windows": 2
+        }
+      }
+    },
+    {
+      "pair": "XAU/USD",
+      "strategy": "dip_buyer",
+      "geometry": "pct-0.50",
+      "rr": 2,
+      "variant": "gated_v12",
+      "trades": 95,
+      "total_return": 2207,
+      "green_pct": 41.9,
+      "worst_dd": 2.34,
+      "per_year": {
+        "2020": {
+          "trades": 10,
+          "return": 1169,
+          "green_pct": 33,
+          "windows": 3
+        },
+        "2021": {
+          "trades": 16,
+          "return": 2911,
+          "green_pct": 67,
+          "windows": 6
+        },
+        "2022": {
+          "trades": 11,
+          "return": 573,
+          "green_pct": 40,
+          "windows": 5
+        },
+        "2023": {
+          "trades": 7,
+          "return": 1170,
+          "green_pct": 67,
+          "windows": 3
+        },
+        "2024": {
+          "trades": 22,
+          "return": -615,
+          "green_pct": 29,
+          "windows": 7
+        },
+        "2025": {
+          "trades": 21,
+          "return": -1829,
+          "green_pct": 40,
+          "windows": 5
+        },
+        "2026": {
+          "trades": 8,
+          "return": -1171,
+          "green_pct": 0,
+          "windows": 2
+        }
+      }
+    },
+    {
+      "pair": "XAU/USD",
+      "strategy": "dip_buyer",
+      "geometry": "pct-0.50",
+      "rr": 3,
+      "variant": "ungated",
+      "trades": 90,
+      "total_return": 3415,
+      "green_pct": 48.4,
+      "worst_dd": 2.92,
+      "per_year": {
+        "2020": {
+          "trades": 9,
+          "return": 1759,
+          "green_pct": 67,
+          "windows": 3
+        },
+        "2021": {
+          "trades": 12,
+          "return": -22,
+          "green_pct": 50,
+          "windows": 6
+        },
+        "2022": {
+          "trades": 11,
+          "return": 567,
+          "green_pct": 40,
+          "windows": 5
+        },
+        "2023": {
+          "trades": 8,
+          "return": 4730,
+          "green_pct": 100,
+          "windows": 3
+        },
+        "2024": {
+          "trades": 20,
+          "return": -76,
+          "green_pct": 43,
+          "windows": 7
+        },
+        "2025": {
+          "trades": 23,
+          "return": 566,
+          "green_pct": 40,
+          "windows": 5
+        },
+        "2026": {
+          "trades": 7,
+          "return": -4109,
+          "green_pct": 0,
+          "windows": 2
+        }
+      }
+    },
+    {
+      "pair": "XAU/USD",
+      "strategy": "dip_buyer",
+      "geometry": "pct-0.50",
+      "rr": 3,
+      "variant": "gated_v12",
+      "trades": 87,
+      "total_return": 2796,
+      "green_pct": 48.4,
+      "worst_dd": 2.92,
+      "per_year": {
+        "2020": {
+          "trades": 9,
+          "return": 1759,
+          "green_pct": 67,
+          "windows": 3
+        },
+        "2021": {
+          "trades": 12,
+          "return": -22,
+          "green_pct": 50,
+          "windows": 6
+        },
+        "2022": {
+          "trades": 11,
+          "return": 567,
+          "green_pct": 40,
+          "windows": 5
+        },
+        "2023": {
+          "trades": 7,
+          "return": 2951,
+          "green_pct": 100,
+          "windows": 3
+        },
+        "2024": {
+          "trades": 20,
+          "return": -76,
+          "green_pct": 43,
+          "windows": 7
+        },
+        "2025": {
+          "trades": 21,
+          "return": 1727,
+          "green_pct": 40,
+          "windows": 5
+        },
+        "2026": {
+          "trades": 7,
+          "return": -4109,
+          "green_pct": 0,
+          "windows": 2
+        }
+      }
+    },
+    {
+      "pair": "XAU/USD",
+      "strategy": "dip_buyer",
+      "geometry": "pct-0.50",
+      "rr": 5,
+      "variant": "ungated",
+      "trades": 79,
+      "total_return": -4411,
+      "green_pct": 35.5,
+      "worst_dd": 2.92,
+      "per_year": {
+        "2020": {
+          "trades": 6,
+          "return": -3560,
+          "green_pct": 0,
+          "windows": 3
+        },
+        "2021": {
+          "trades": 11,
+          "return": 598,
+          "green_pct": 33,
+          "windows": 6
+        },
+        "2022": {
+          "trades": 11,
+          "return": -2916,
+          "green_pct": 20,
+          "windows": 5
+        },
+        "2023": {
+          "trades": 6,
+          "return": 3551,
+          "green_pct": 67,
+          "windows": 3
+        },
+        "2024": {
+          "trades": 16,
+          "return": 1028,
+          "green_pct": 43,
+          "windows": 7
+        },
+        "2025": {
+          "trades": 22,
+          "return": 997,
+          "green_pct": 60,
+          "windows": 5
+        },
+        "2026": {
+          "trades": 7,
+          "return": -4109,
+          "green_pct": 0,
+          "windows": 2
+        }
+      }
+    },
+    {
+      "pair": "XAU/USD",
+      "strategy": "dip_buyer",
+      "geometry": "pct-0.50",
+      "rr": 5,
+      "variant": "gated_v12",
+      "trades": 76,
+      "total_return": -6166,
+      "green_pct": 32.3,
+      "worst_dd": 2.92,
+      "per_year": {
+        "2020": {
+          "trades": 6,
+          "return": -3560,
+          "green_pct": 0,
+          "windows": 3
+        },
+        "2021": {
+          "trades": 11,
+          "return": 598,
+          "green_pct": 33,
+          "windows": 6
+        },
+        "2022": {
+          "trades": 11,
+          "return": -2916,
+          "green_pct": 20,
+          "windows": 5
+        },
+        "2023": {
+          "trades": 5,
+          "return": 601,
+          "green_pct": 33,
+          "windows": 3
+        },
+        "2024": {
+          "trades": 16,
+          "return": 1028,
+          "green_pct": 43,
+          "windows": 7
+        },
+        "2025": {
+          "trades": 20,
+          "return": 2192,
+          "green_pct": 60,
+          "windows": 5
+        },
+        "2026": {
+          "trades": 7,
+          "return": -4109,
+          "green_pct": 0,
+          "windows": 2
+        }
+      }
+    },
+    {
+      "pair": "XAU/USD",
+      "strategy": "fvg_dailybias",
+      "geometry": "sa-0.10/4",
+      "rr": 2,
+      "variant": "ungated",
+      "trades": 124,
+      "total_return": 32372,
+      "green_pct": 73.3,
+      "worst_dd": 3.34,
+      "per_year": {
+        "2020": {
+          "trades": 14,
+          "return": 2293,
+          "green_pct": 100,
+          "windows": 3
+        },
+        "2021": {
+          "trades": 26,
+          "return": 2436,
+          "green_pct": 50,
+          "windows": 6
+        },
+        "2022": {
+          "trades": 20,
+          "return": 9667,
+          "green_pct": 67,
+          "windows": 6
+        },
+        "2023": {
+          "trades": 12,
+          "return": 5645,
+          "green_pct": 100,
+          "windows": 4
+        },
+        "2024": {
+          "trades": 15,
+          "return": 5266,
+          "green_pct": 60,
+          "windows": 5
+        },
+        "2025": {
+          "trades": 19,
+          "return": 4613,
+          "green_pct": 75,
+          "windows": 4
+        },
+        "2026": {
+          "trades": 18,
+          "return": 2451,
+          "green_pct": 100,
+          "windows": 2
+        }
+      }
+    },
+    {
+      "pair": "XAU/USD",
+      "strategy": "fvg_dailybias",
+      "geometry": "sa-0.10/4",
+      "rr": 2,
+      "variant": "gated_v12",
+      "trades": 124,
+      "total_return": 32372,
+      "green_pct": 73.3,
+      "worst_dd": 3.34,
+      "per_year": {
+        "2020": {
+          "trades": 14,
+          "return": 2293,
+          "green_pct": 100,
+          "windows": 3
+        },
+        "2021": {
+          "trades": 26,
+          "return": 2436,
+          "green_pct": 50,
+          "windows": 6
+        },
+        "2022": {
+          "trades": 20,
+          "return": 9667,
+          "green_pct": 67,
+          "windows": 6
+        },
+        "2023": {
+          "trades": 12,
+          "return": 5645,
+          "green_pct": 100,
+          "windows": 4
+        },
+        "2024": {
+          "trades": 15,
+          "return": 5266,
+          "green_pct": 60,
+          "windows": 5
+        },
+        "2025": {
+          "trades": 19,
+          "return": 4613,
+          "green_pct": 75,
+          "windows": 4
+        },
+        "2026": {
+          "trades": 18,
+          "return": 2451,
+          "green_pct": 100,
+          "windows": 2
+        }
+      }
+    },
+    {
+      "pair": "XAU/USD",
+      "strategy": "fvg_dailybias",
+      "geometry": "sa-0.10/4",
+      "rr": 3,
+      "variant": "ungated",
+      "trades": 94,
+      "total_return": 22841,
+      "green_pct": 56.7,
+      "worst_dd": 2.93,
+      "per_year": {
+        "2020": {
+          "trades": 12,
+          "return": 2310,
+          "green_pct": 67,
+          "windows": 3
+        },
+        "2021": {
+          "trades": 20,
+          "return": -6883,
+          "green_pct": 17,
+          "windows": 6
+        },
+        "2022": {
+          "trades": 19,
+          "return": 12712,
+          "green_pct": 67,
+          "windows": 6
+        },
+        "2023": {
+          "trades": 9,
+          "return": 4159,
+          "green_pct": 75,
+          "windows": 4
+        },
+        "2024": {
+          "trades": 13,
+          "return": 4204,
+          "green_pct": 60,
+          "windows": 5
+        },
+        "2025": {
+          "trades": 11,
+          "return": 233,
+          "green_pct": 50,
+          "windows": 4
+        },
+        "2026": {
+          "trades": 10,
+          "return": 6105,
+          "green_pct": 100,
+          "windows": 2
+        }
+      }
+    },
+    {
+      "pair": "XAU/USD",
+      "strategy": "fvg_dailybias",
+      "geometry": "sa-0.10/4",
+      "rr": 3,
+      "variant": "gated_v12",
+      "trades": 94,
+      "total_return": 22841,
+      "green_pct": 56.7,
+      "worst_dd": 2.93,
+      "per_year": {
+        "2020": {
+          "trades": 12,
+          "return": 2310,
+          "green_pct": 67,
+          "windows": 3
+        },
+        "2021": {
+          "trades": 20,
+          "return": -6883,
+          "green_pct": 17,
+          "windows": 6
+        },
+        "2022": {
+          "trades": 19,
+          "return": 12712,
+          "green_pct": 67,
+          "windows": 6
+        },
+        "2023": {
+          "trades": 9,
+          "return": 4159,
+          "green_pct": 75,
+          "windows": 4
+        },
+        "2024": {
+          "trades": 13,
+          "return": 4204,
+          "green_pct": 60,
+          "windows": 5
+        },
+        "2025": {
+          "trades": 11,
+          "return": 233,
+          "green_pct": 50,
+          "windows": 4
+        },
+        "2026": {
+          "trades": 10,
+          "return": 6105,
+          "green_pct": 100,
+          "windows": 2
+        }
+      }
+    },
+    {
+      "pair": "XAU/USD",
+      "strategy": "fvg_dailybias",
+      "geometry": "sa-0.10/4",
+      "rr": 5,
+      "variant": "ungated",
+      "trades": 69,
+      "total_return": 15889,
+      "green_pct": 51.7,
+      "worst_dd": 2.93,
+      "per_year": {
+        "2020": {
+          "trades": 6,
+          "return": 3543,
+          "green_pct": 67,
+          "windows": 3
+        },
+        "2021": {
+          "trades": 18,
+          "return": -3322,
+          "green_pct": 33,
+          "windows": 6
+        },
+        "2022": {
+          "trades": 10,
+          "return": 8292,
+          "green_pct": 60,
+          "windows": 5
+        },
+        "2023": {
+          "trades": 10,
+          "return": 4692,
+          "green_pct": 75,
+          "windows": 4
+        },
+        "2024": {
+          "trades": 11,
+          "return": 589,
+          "green_pct": 40,
+          "windows": 5
+        },
+        "2025": {
+          "trades": 7,
+          "return": -780,
+          "green_pct": 25,
+          "windows": 4
+        },
+        "2026": {
+          "trades": 7,
+          "return": 2876,
+          "green_pct": 100,
+          "windows": 2
+        }
+      }
+    },
+    {
+      "pair": "XAU/USD",
+      "strategy": "fvg_dailybias",
+      "geometry": "sa-0.10/4",
+      "rr": 5,
+      "variant": "gated_v12",
+      "trades": 69,
+      "total_return": 15889,
+      "green_pct": 51.7,
+      "worst_dd": 2.93,
+      "per_year": {
+        "2020": {
+          "trades": 6,
+          "return": 3543,
+          "green_pct": 67,
+          "windows": 3
+        },
+        "2021": {
+          "trades": 18,
+          "return": -3322,
+          "green_pct": 33,
+          "windows": 6
+        },
+        "2022": {
+          "trades": 10,
+          "return": 8292,
+          "green_pct": 60,
+          "windows": 5
+        },
+        "2023": {
+          "trades": 10,
+          "return": 4692,
+          "green_pct": 75,
+          "windows": 4
+        },
+        "2024": {
+          "trades": 11,
+          "return": 589,
+          "green_pct": 40,
+          "windows": 5
+        },
+        "2025": {
+          "trades": 7,
+          "return": -780,
+          "green_pct": 25,
+          "windows": 4
+        },
+        "2026": {
+          "trades": 7,
+          "return": 2876,
+          "green_pct": 100,
+          "windows": 2
+        }
+      }
+    },
+    {
+      "pair": "XAU/USD",
+      "strategy": "fvg_dailybias",
+      "geometry": "pct-0.30",
+      "rr": 2,
+      "variant": "ungated",
+      "trades": 379,
+      "total_return": 91203,
+      "green_pct": 68.8,
+      "worst_dd": 4.12,
+      "per_year": {
+        "2020": {
+          "trades": 36,
+          "return": 3589,
+          "green_pct": 33,
+          "windows": 3
+        },
+        "2021": {
+          "trades": 73,
+          "return": 10247,
+          "green_pct": 67,
+          "windows": 6
+        },
+        "2022": {
+          "trades": 82,
+          "return": 36639,
+          "green_pct": 100,
+          "windows": 6
+        },
+        "2023": {
+          "trades": 38,
+          "return": 7824,
+          "green_pct": 75,
+          "windows": 4
+        },
+        "2024": {
+          "trades": 53,
+          "return": 16901,
+          "green_pct": 71,
+          "windows": 7
+        },
+        "2025": {
+          "trades": 37,
+          "return": 1047,
+          "green_pct": 50,
+          "windows": 4
+        },
+        "2026": {
+          "trades": 60,
+          "return": 14956,
+          "green_pct": 50,
+          "windows": 2
+        }
+      }
+    },
+    {
+      "pair": "XAU/USD",
+      "strategy": "fvg_dailybias",
+      "geometry": "pct-0.30",
+      "rr": 2,
+      "variant": "gated_v12",
+      "trades": 379,
+      "total_return": 91203,
+      "green_pct": 68.8,
+      "worst_dd": 4.12,
+      "per_year": {
+        "2020": {
+          "trades": 36,
+          "return": 3589,
+          "green_pct": 33,
+          "windows": 3
+        },
+        "2021": {
+          "trades": 73,
+          "return": 10247,
+          "green_pct": 67,
+          "windows": 6
+        },
+        "2022": {
+          "trades": 82,
+          "return": 36639,
+          "green_pct": 100,
+          "windows": 6
+        },
+        "2023": {
+          "trades": 38,
+          "return": 7824,
+          "green_pct": 75,
+          "windows": 4
+        },
+        "2024": {
+          "trades": 53,
+          "return": 16901,
+          "green_pct": 71,
+          "windows": 7
+        },
+        "2025": {
+          "trades": 37,
+          "return": 1047,
+          "green_pct": 50,
+          "windows": 4
+        },
+        "2026": {
+          "trades": 60,
+          "return": 14956,
+          "green_pct": 50,
+          "windows": 2
+        }
+      }
+    },
+    {
+      "pair": "XAU/USD",
+      "strategy": "fvg_dailybias",
+      "geometry": "pct-0.30",
+      "rr": 3,
+      "variant": "ungated",
+      "trades": 335,
+      "total_return": 113704,
+      "green_pct": 71.9,
+      "worst_dd": 4.11,
+      "per_year": {
+        "2020": {
+          "trades": 34,
+          "return": 8346,
+          "green_pct": 100,
+          "windows": 3
+        },
+        "2021": {
+          "trades": 66,
+          "return": 15471,
+          "green_pct": 83,
+          "windows": 6
+        },
+        "2022": {
+          "trades": 68,
+          "return": 39600,
+          "green_pct": 83,
+          "windows": 6
+        },
+        "2023": {
+          "trades": 36,
+          "return": 12272,
+          "green_pct": 50,
+          "windows": 4
+        },
+        "2024": {
+          "trades": 44,
+          "return": 14566,
+          "green_pct": 57,
+          "windows": 7
+        },
+        "2025": {
+          "trades": 33,
+          "return": 1674,
+          "green_pct": 50,
+          "windows": 4
+        },
+        "2026": {
+          "trades": 54,
+          "return": 21776,
+          "green_pct": 100,
+          "windows": 2
+        }
+      }
+    },
+    {
+      "pair": "XAU/USD",
+      "strategy": "fvg_dailybias",
+      "geometry": "pct-0.30",
+      "rr": 3,
+      "variant": "gated_v12",
+      "trades": 335,
+      "total_return": 113704,
+      "green_pct": 71.9,
+      "worst_dd": 4.11,
+      "per_year": {
+        "2020": {
+          "trades": 34,
+          "return": 8346,
+          "green_pct": 100,
+          "windows": 3
+        },
+        "2021": {
+          "trades": 66,
+          "return": 15471,
+          "green_pct": 83,
+          "windows": 6
+        },
+        "2022": {
+          "trades": 68,
+          "return": 39600,
+          "green_pct": 83,
+          "windows": 6
+        },
+        "2023": {
+          "trades": 36,
+          "return": 12272,
+          "green_pct": 50,
+          "windows": 4
+        },
+        "2024": {
+          "trades": 44,
+          "return": 14566,
+          "green_pct": 57,
+          "windows": 7
+        },
+        "2025": {
+          "trades": 33,
+          "return": 1674,
+          "green_pct": 50,
+          "windows": 4
+        },
+        "2026": {
+          "trades": 54,
+          "return": 21776,
+          "green_pct": 100,
+          "windows": 2
+        }
+      }
+    },
+    {
+      "pair": "XAU/USD",
+      "strategy": "fvg_dailybias",
+      "geometry": "pct-0.30",
+      "rr": 5,
+      "variant": "ungated",
+      "trades": 273,
+      "total_return": 120902,
+      "green_pct": 62.5,
+      "worst_dd": 5.89,
+      "per_year": {
+        "2020": {
+          "trades": 27,
+          "return": 5403,
+          "green_pct": 67,
+          "windows": 3
+        },
+        "2021": {
+          "trades": 50,
+          "return": 9462,
+          "green_pct": 67,
+          "windows": 6
+        },
+        "2022": {
+          "trades": 57,
+          "return": 47568,
+          "green_pct": 83,
+          "windows": 6
+        },
+        "2023": {
+          "trades": 27,
+          "return": 20317,
+          "green_pct": 75,
+          "windows": 4
+        },
+        "2024": {
+          "trades": 35,
+          "return": 15224,
+          "green_pct": 43,
+          "windows": 7
+        },
+        "2025": {
+          "trades": 29,
+          "return": 3905,
+          "green_pct": 50,
+          "windows": 4
+        },
+        "2026": {
+          "trades": 48,
+          "return": 19023,
+          "green_pct": 50,
+          "windows": 2
+        }
+      }
+    },
+    {
+      "pair": "XAU/USD",
+      "strategy": "fvg_dailybias",
+      "geometry": "pct-0.30",
+      "rr": 5,
+      "variant": "gated_v12",
+      "trades": 273,
+      "total_return": 120902,
+      "green_pct": 62.5,
+      "worst_dd": 5.89,
+      "per_year": {
+        "2020": {
+          "trades": 27,
+          "return": 5403,
+          "green_pct": 67,
+          "windows": 3
+        },
+        "2021": {
+          "trades": 50,
+          "return": 9462,
+          "green_pct": 67,
+          "windows": 6
+        },
+        "2022": {
+          "trades": 57,
+          "return": 47568,
+          "green_pct": 83,
+          "windows": 6
+        },
+        "2023": {
+          "trades": 27,
+          "return": 20317,
+          "green_pct": 75,
+          "windows": 4
+        },
+        "2024": {
+          "trades": 35,
+          "return": 15224,
+          "green_pct": 43,
+          "windows": 7
+        },
+        "2025": {
+          "trades": 29,
+          "return": 3905,
+          "green_pct": 50,
+          "windows": 4
+        },
+        "2026": {
+          "trades": 48,
+          "return": 19023,
+          "green_pct": 50,
+          "windows": 2
+        }
+      }
+    },
+    {
+      "pair": "XAU/USD",
+      "strategy": "fvg_dailybias",
+      "geometry": "pct-0.50",
+      "rr": 2,
+      "variant": "ungated",
+      "trades": 298,
+      "total_return": 80498,
+      "green_pct": 80.6,
+      "worst_dd": 4.1,
+      "per_year": {
+        "2020": {
+          "trades": 31,
+          "return": 8327,
+          "green_pct": 100,
+          "windows": 3
+        },
+        "2021": {
+          "trades": 54,
+          "return": 10636,
+          "green_pct": 83,
+          "windows": 6
+        },
+        "2022": {
+          "trades": 63,
+          "return": 23869,
+          "green_pct": 83,
+          "windows": 6
+        },
+        "2023": {
+          "trades": 31,
+          "return": 10294,
+          "green_pct": 50,
+          "windows": 4
+        },
+        "2024": {
+          "trades": 39,
+          "return": 14369,
+          "green_pct": 100,
+          "windows": 6
+        },
+        "2025": {
+          "trades": 29,
+          "return": 4117,
+          "green_pct": 50,
+          "windows": 4
+        },
+        "2026": {
+          "trades": 51,
+          "return": 8887,
+          "green_pct": 100,
+          "windows": 2
+        }
+      }
+    },
+    {
+      "pair": "XAU/USD",
+      "strategy": "fvg_dailybias",
+      "geometry": "pct-0.50",
+      "rr": 2,
+      "variant": "gated_v12",
+      "trades": 298,
+      "total_return": 80498,
+      "green_pct": 80.6,
+      "worst_dd": 4.1,
+      "per_year": {
+        "2020": {
+          "trades": 31,
+          "return": 8327,
+          "green_pct": 100,
+          "windows": 3
+        },
+        "2021": {
+          "trades": 54,
+          "return": 10636,
+          "green_pct": 83,
+          "windows": 6
+        },
+        "2022": {
+          "trades": 63,
+          "return": 23869,
+          "green_pct": 83,
+          "windows": 6
+        },
+        "2023": {
+          "trades": 31,
+          "return": 10294,
+          "green_pct": 50,
+          "windows": 4
+        },
+        "2024": {
+          "trades": 39,
+          "return": 14369,
+          "green_pct": 100,
+          "windows": 6
+        },
+        "2025": {
+          "trades": 29,
+          "return": 4117,
+          "green_pct": 50,
+          "windows": 4
+        },
+        "2026": {
+          "trades": 51,
+          "return": 8887,
+          "green_pct": 100,
+          "windows": 2
+        }
+      }
+    },
+    {
+      "pair": "XAU/USD",
+      "strategy": "fvg_dailybias",
+      "geometry": "pct-0.50",
+      "rr": 3,
+      "variant": "ungated",
+      "trades": 252,
+      "total_return": 72136,
+      "green_pct": 74.2,
+      "worst_dd": 7.42,
+      "per_year": {
+        "2020": {
+          "trades": 26,
+          "return": 3464,
+          "green_pct": 67,
+          "windows": 3
+        },
+        "2021": {
+          "trades": 43,
+          "return": 5197,
+          "green_pct": 50,
+          "windows": 6
+        },
+        "2022": {
+          "trades": 54,
+          "return": 28166,
+          "green_pct": 83,
+          "windows": 6
+        },
+        "2023": {
+          "trades": 26,
+          "return": 13353,
+          "green_pct": 100,
+          "windows": 4
+        },
+        "2024": {
+          "trades": 30,
+          "return": 13235,
+          "green_pct": 83,
+          "windows": 6
+        },
+        "2025": {
+          "trades": 27,
+          "return": 2952,
+          "green_pct": 50,
+          "windows": 4
+        },
+        "2026": {
+          "trades": 46,
+          "return": 5769,
+          "green_pct": 100,
+          "windows": 2
+        }
+      }
+    },
+    {
+      "pair": "XAU/USD",
+      "strategy": "fvg_dailybias",
+      "geometry": "pct-0.50",
+      "rr": 3,
+      "variant": "gated_v12",
+      "trades": 252,
+      "total_return": 72136,
+      "green_pct": 74.2,
+      "worst_dd": 7.42,
+      "per_year": {
+        "2020": {
+          "trades": 26,
+          "return": 3464,
+          "green_pct": 67,
+          "windows": 3
+        },
+        "2021": {
+          "trades": 43,
+          "return": 5197,
+          "green_pct": 50,
+          "windows": 6
+        },
+        "2022": {
+          "trades": 54,
+          "return": 28166,
+          "green_pct": 83,
+          "windows": 6
+        },
+        "2023": {
+          "trades": 26,
+          "return": 13353,
+          "green_pct": 100,
+          "windows": 4
+        },
+        "2024": {
+          "trades": 30,
+          "return": 13235,
+          "green_pct": 83,
+          "windows": 6
+        },
+        "2025": {
+          "trades": 27,
+          "return": 2952,
+          "green_pct": 50,
+          "windows": 4
+        },
+        "2026": {
+          "trades": 46,
+          "return": 5769,
+          "green_pct": 100,
+          "windows": 2
+        }
+      }
+    },
+    {
+      "pair": "XAU/USD",
+      "strategy": "fvg_dailybias",
+      "geometry": "pct-0.50",
+      "rr": 5,
+      "variant": "ungated",
+      "trades": 193,
+      "total_return": 70946,
+      "green_pct": 67.7,
+      "worst_dd": 8.02,
+      "per_year": {
+        "2020": {
+          "trades": 21,
+          "return": 5186,
+          "green_pct": 67,
+          "windows": 3
+        },
+        "2021": {
+          "trades": 36,
+          "return": 6970,
+          "green_pct": 67,
+          "windows": 6
+        },
+        "2022": {
+          "trades": 36,
+          "return": 25802,
+          "green_pct": 83,
+          "windows": 6
+        },
+        "2023": {
+          "trades": 20,
+          "return": 9635,
+          "green_pct": 75,
+          "windows": 4
+        },
+        "2024": {
+          "trades": 23,
+          "return": 11307,
+          "green_pct": 50,
+          "windows": 6
+        },
+        "2025": {
+          "trades": 21,
+          "return": 5332,
+          "green_pct": 50,
+          "windows": 4
+        },
+        "2026": {
+          "trades": 36,
+          "return": 6713,
+          "green_pct": 100,
+          "windows": 2
+        }
+      }
+    },
+    {
+      "pair": "XAU/USD",
+      "strategy": "fvg_dailybias",
+      "geometry": "pct-0.50",
+      "rr": 5,
+      "variant": "gated_v12",
+      "trades": 193,
+      "total_return": 70946,
+      "green_pct": 67.7,
+      "worst_dd": 8.02,
+      "per_year": {
+        "2020": {
+          "trades": 21,
+          "return": 5186,
+          "green_pct": 67,
+          "windows": 3
+        },
+        "2021": {
+          "trades": 36,
+          "return": 6970,
+          "green_pct": 67,
+          "windows": 6
+        },
+        "2022": {
+          "trades": 36,
+          "return": 25802,
+          "green_pct": 83,
+          "windows": 6
+        },
+        "2023": {
+          "trades": 20,
+          "return": 9635,
+          "green_pct": 75,
+          "windows": 4
+        },
+        "2024": {
+          "trades": 23,
+          "return": 11307,
+          "green_pct": 50,
+          "windows": 6
+        },
+        "2025": {
+          "trades": 21,
+          "return": 5332,
+          "green_pct": 50,
+          "windows": 4
+        },
+        "2026": {
+          "trades": 36,
+          "return": 6713,
+          "green_pct": 100,
+          "windows": 2
+        }
+      }
+    },
+    {
+      "pair": "XAU/USD",
+      "strategy": "sweep_reclaim_dailybias",
+      "geometry": "sa-0.10/4",
+      "rr": 2,
+      "variant": "ungated",
+      "trades": 76,
+      "total_return": 9778,
+      "green_pct": 48.4,
+      "worst_dd": 2.35,
+      "per_year": {
+        "2020": {
+          "trades": 5,
+          "return": 592,
+          "green_pct": 50,
+          "windows": 2
+        },
+        "2021": {
+          "trades": 14,
+          "return": -1248,
+          "green_pct": 33,
+          "windows": 6
+        },
+        "2022": {
+          "trades": 10,
+          "return": 4737,
+          "green_pct": 67,
+          "windows": 6
+        },
+        "2023": {
+          "trades": 8,
+          "return": 2338,
+          "green_pct": 67,
+          "windows": 3
+        },
+        "2024": {
+          "trades": 22,
+          "return": 1193,
+          "green_pct": 43,
+          "windows": 7
+        },
+        "2025": {
+          "trades": 14,
+          "return": 3916,
+          "green_pct": 60,
+          "windows": 5
+        },
+        "2026": {
+          "trades": 3,
+          "return": -1750,
+          "green_pct": 0,
+          "windows": 2
+        }
+      }
+    },
+    {
+      "pair": "XAU/USD",
+      "strategy": "sweep_reclaim_dailybias",
+      "geometry": "sa-0.10/4",
+      "rr": 2,
+      "variant": "gated_v12",
+      "trades": 76,
+      "total_return": 9775,
+      "green_pct": 48.4,
+      "worst_dd": 2.35,
+      "per_year": {
+        "2020": {
+          "trades": 5,
+          "return": 592,
+          "green_pct": 50,
+          "windows": 2
+        },
+        "2021": {
+          "trades": 14,
+          "return": -1250,
+          "green_pct": 33,
+          "windows": 6
+        },
+        "2022": {
+          "trades": 10,
+          "return": 4737,
+          "green_pct": 67,
+          "windows": 6
+        },
+        "2023": {
+          "trades": 8,
+          "return": 2338,
+          "green_pct": 67,
+          "windows": 3
+        },
+        "2024": {
+          "trades": 22,
+          "return": 1193,
+          "green_pct": 43,
+          "windows": 7
+        },
+        "2025": {
+          "trades": 14,
+          "return": 3916,
+          "green_pct": 60,
+          "windows": 5
+        },
+        "2026": {
+          "trades": 3,
+          "return": -1750,
+          "green_pct": 0,
+          "windows": 2
+        }
+      }
+    },
+    {
+      "pair": "XAU/USD",
+      "strategy": "sweep_reclaim_dailybias",
+      "geometry": "sa-0.10/4",
+      "rr": 3,
+      "variant": "ungated",
+      "trades": 64,
+      "total_return": 16401,
+      "green_pct": 54.8,
+      "worst_dd": 2.36,
+      "per_year": {
+        "2020": {
+          "trades": 3,
+          "return": 596,
+          "green_pct": 50,
+          "windows": 2
+        },
+        "2021": {
+          "trades": 14,
+          "return": -1172,
+          "green_pct": 33,
+          "windows": 6
+        },
+        "2022": {
+          "trades": 9,
+          "return": 8888,
+          "green_pct": 83,
+          "windows": 6
+        },
+        "2023": {
+          "trades": 5,
+          "return": 1745,
+          "green_pct": 67,
+          "windows": 3
+        },
+        "2024": {
+          "trades": 17,
+          "return": 4080,
+          "green_pct": 57,
+          "windows": 7
+        },
+        "2025": {
+          "trades": 13,
+          "return": 4014,
+          "green_pct": 60,
+          "windows": 5
+        },
+        "2026": {
+          "trades": 3,
+          "return": -1750,
+          "green_pct": 0,
+          "windows": 2
+        }
+      }
+    },
+    {
+      "pair": "XAU/USD",
+      "strategy": "sweep_reclaim_dailybias",
+      "geometry": "sa-0.10/4",
+      "rr": 3,
+      "variant": "gated_v12",
+      "trades": 64,
+      "total_return": 16398,
+      "green_pct": 54.8,
+      "worst_dd": 2.36,
+      "per_year": {
+        "2020": {
+          "trades": 3,
+          "return": 596,
+          "green_pct": 50,
+          "windows": 2
+        },
+        "2021": {
+          "trades": 14,
+          "return": -1175,
+          "green_pct": 33,
+          "windows": 6
+        },
+        "2022": {
+          "trades": 9,
+          "return": 8888,
+          "green_pct": 83,
+          "windows": 6
+        },
+        "2023": {
+          "trades": 5,
+          "return": 1745,
+          "green_pct": 67,
+          "windows": 3
+        },
+        "2024": {
+          "trades": 17,
+          "return": 4080,
+          "green_pct": 57,
+          "windows": 7
+        },
+        "2025": {
+          "trades": 13,
+          "return": 4014,
+          "green_pct": 60,
+          "windows": 5
+        },
+        "2026": {
+          "trades": 3,
+          "return": -1750,
+          "green_pct": 0,
+          "windows": 2
+        }
+      }
+    },
+    {
+      "pair": "XAU/USD",
+      "strategy": "sweep_reclaim_dailybias",
+      "geometry": "sa-0.10/4",
+      "rr": 5,
+      "variant": "ungated",
+      "trades": 48,
+      "total_return": 14141,
+      "green_pct": 41.4,
+      "worst_dd": 2.36,
+      "per_year": {
+        "2020": {
+          "trades": 3,
+          "return": 1783,
+          "green_pct": 50,
+          "windows": 2
+        },
+        "2021": {
+          "trades": 12,
+          "return": -10,
+          "green_pct": 33,
+          "windows": 6
+        },
+        "2022": {
+          "trades": 6,
+          "return": 3579,
+          "green_pct": 40,
+          "windows": 5
+        },
+        "2023": {
+          "trades": 5,
+          "return": 4093,
+          "green_pct": 67,
+          "windows": 3
+        },
+        "2024": {
+          "trades": 12,
+          "return": 3452,
+          "green_pct": 50,
+          "windows": 6
+        },
+        "2025": {
+          "trades": 7,
+          "return": 2995,
+          "green_pct": 40,
+          "windows": 5
+        },
+        "2026": {
+          "trades": 3,
+          "return": -1750,
+          "green_pct": 0,
+          "windows": 2
+        }
+      }
+    },
+    {
+      "pair": "XAU/USD",
+      "strategy": "sweep_reclaim_dailybias",
+      "geometry": "sa-0.10/4",
+      "rr": 5,
+      "variant": "gated_v12",
+      "trades": 48,
+      "total_return": 14138,
+      "green_pct": 41.4,
+      "worst_dd": 2.36,
+      "per_year": {
+        "2020": {
+          "trades": 3,
+          "return": 1783,
+          "green_pct": 50,
+          "windows": 2
+        },
+        "2021": {
+          "trades": 12,
+          "return": -13,
+          "green_pct": 33,
+          "windows": 6
+        },
+        "2022": {
+          "trades": 6,
+          "return": 3579,
+          "green_pct": 40,
+          "windows": 5
+        },
+        "2023": {
+          "trades": 5,
+          "return": 4093,
+          "green_pct": 67,
+          "windows": 3
+        },
+        "2024": {
+          "trades": 12,
+          "return": 3452,
+          "green_pct": 50,
+          "windows": 6
+        },
+        "2025": {
+          "trades": 7,
+          "return": 2995,
+          "green_pct": 40,
+          "windows": 5
+        },
+        "2026": {
+          "trades": 3,
+          "return": -1750,
+          "green_pct": 0,
+          "windows": 2
+        }
+      }
+    },
+    {
+      "pair": "XAU/USD",
+      "strategy": "sweep_reclaim_dailybias",
+      "geometry": "pct-0.30",
+      "rr": 2,
+      "variant": "ungated",
+      "trades": 155,
+      "total_return": -25963,
+      "green_pct": 25,
+      "worst_dd": 7.49,
+      "per_year": {
+        "2020": {
+          "trades": 14,
+          "return": -1193,
+          "green_pct": 33,
+          "windows": 3
+        },
+        "2021": {
+          "trades": 26,
+          "return": -6568,
+          "green_pct": 17,
+          "windows": 6
+        },
+        "2022": {
+          "trades": 16,
+          "return": 4795,
+          "green_pct": 50,
+          "windows": 6
+        },
+        "2023": {
+          "trades": 11,
+          "return": -2962,
+          "green_pct": 33,
+          "windows": 3
+        },
+        "2024": {
+          "trades": 38,
+          "return": -8287,
+          "green_pct": 14,
+          "windows": 7
+        },
+        "2025": {
+          "trades": 37,
+          "return": -9363,
+          "green_pct": 20,
+          "windows": 5
+        },
+        "2026": {
+          "trades": 13,
+          "return": -2385,
+          "green_pct": 0,
+          "windows": 2
+        }
+      }
+    },
+    {
+      "pair": "XAU/USD",
+      "strategy": "sweep_reclaim_dailybias",
+      "geometry": "pct-0.30",
+      "rr": 2,
+      "variant": "gated_v12",
+      "trades": 153,
+      "total_return": -24781,
+      "green_pct": 25,
+      "worst_dd": 7.49,
+      "per_year": {
+        "2020": {
+          "trades": 14,
+          "return": -1193,
+          "green_pct": 33,
+          "windows": 3
+        },
+        "2021": {
+          "trades": 25,
+          "return": -5968,
+          "green_pct": 17,
+          "windows": 6
+        },
+        "2022": {
+          "trades": 16,
+          "return": 4795,
+          "green_pct": 50,
+          "windows": 6
+        },
+        "2023": {
+          "trades": 11,
+          "return": -2962,
+          "green_pct": 33,
+          "windows": 3
+        },
+        "2024": {
+          "trades": 37,
+          "return": -7687,
+          "green_pct": 14,
+          "windows": 7
+        },
+        "2025": {
+          "trades": 37,
+          "return": -9381,
+          "green_pct": 20,
+          "windows": 5
+        },
+        "2026": {
+          "trades": 13,
+          "return": -2385,
+          "green_pct": 0,
+          "windows": 2
+        }
+      }
+    },
+    {
+      "pair": "XAU/USD",
+      "strategy": "sweep_reclaim_dailybias",
+      "geometry": "pct-0.30",
+      "rr": 3,
+      "variant": "ungated",
+      "trades": 144,
+      "total_return": -14231,
+      "green_pct": 28.1,
+      "worst_dd": 5.83,
+      "per_year": {
+        "2020": {
+          "trades": 14,
+          "return": -1227,
+          "green_pct": 33,
+          "windows": 3
+        },
+        "2021": {
+          "trades": 25,
+          "return": -5395,
+          "green_pct": 17,
+          "windows": 6
+        },
+        "2022": {
+          "trades": 12,
+          "return": 7337,
+          "green_pct": 50,
+          "windows": 6
+        },
+        "2023": {
+          "trades": 11,
+          "return": -1792,
+          "green_pct": 33,
+          "windows": 3
+        },
+        "2024": {
+          "trades": 34,
+          "return": -6012,
+          "green_pct": 14,
+          "windows": 7
+        },
+        "2025": {
+          "trades": 36,
+          "return": -7136,
+          "green_pct": 20,
+          "windows": 5
+        },
+        "2026": {
+          "trades": 12,
+          "return": -5,
+          "green_pct": 50,
+          "windows": 2
+        }
+      }
+    },
+    {
+      "pair": "XAU/USD",
+      "strategy": "sweep_reclaim_dailybias",
+      "geometry": "pct-0.30",
+      "rr": 3,
+      "variant": "gated_v12",
+      "trades": 142,
+      "total_return": -13056,
+      "green_pct": 31.3,
+      "worst_dd": 5.83,
+      "per_year": {
+        "2020": {
+          "trades": 14,
+          "return": -1227,
+          "green_pct": 33,
+          "windows": 3
+        },
+        "2021": {
+          "trades": 24,
+          "return": -4796,
+          "green_pct": 17,
+          "windows": 6
+        },
+        "2022": {
+          "trades": 12,
+          "return": 7337,
+          "green_pct": 50,
+          "windows": 6
+        },
+        "2023": {
+          "trades": 11,
+          "return": -1792,
+          "green_pct": 33,
+          "windows": 3
+        },
+        "2024": {
+          "trades": 33,
+          "return": -5419,
+          "green_pct": 29,
+          "windows": 7
+        },
+        "2025": {
+          "trades": 36,
+          "return": -7153,
+          "green_pct": 20,
+          "windows": 5
+        },
+        "2026": {
+          "trades": 12,
+          "return": -5,
+          "green_pct": 50,
+          "windows": 2
+        }
+      }
+    },
+    {
+      "pair": "XAU/USD",
+      "strategy": "sweep_reclaim_dailybias",
+      "geometry": "pct-0.30",
+      "rr": 5,
+      "variant": "ungated",
+      "trades": 137,
+      "total_return": -13645,
+      "green_pct": 31.3,
+      "worst_dd": 5.25,
+      "per_year": {
+        "2020": {
+          "trades": 14,
+          "return": 2325,
+          "green_pct": 67,
+          "windows": 3
+        },
+        "2021": {
+          "trades": 25,
+          "return": -4148,
+          "green_pct": 50,
+          "windows": 6
+        },
+        "2022": {
+          "trades": 12,
+          "return": 7375,
+          "green_pct": 33,
+          "windows": 6
+        },
+        "2023": {
+          "trades": 11,
+          "return": 553,
+          "green_pct": 33,
+          "windows": 3
+        },
+        "2024": {
+          "trades": 31,
+          "return": -7718,
+          "green_pct": 29,
+          "windows": 7
+        },
+        "2025": {
+          "trades": 34,
+          "return": -6187,
+          "green_pct": 0,
+          "windows": 5
+        },
+        "2026": {
+          "trades": 10,
+          "return": -5846,
+          "green_pct": 0,
+          "windows": 2
+        }
+      }
+    },
+    {
+      "pair": "XAU/USD",
+      "strategy": "sweep_reclaim_dailybias",
+      "geometry": "pct-0.30",
+      "rr": 5,
+      "variant": "gated_v12",
+      "trades": 135,
+      "total_return": -12465,
+      "green_pct": 31.3,
+      "worst_dd": 5.25,
+      "per_year": {
+        "2020": {
+          "trades": 14,
+          "return": 2325,
+          "green_pct": 67,
+          "windows": 3
+        },
+        "2021": {
+          "trades": 24,
+          "return": -3570,
+          "green_pct": 50,
+          "windows": 6
+        },
+        "2022": {
+          "trades": 12,
+          "return": 7375,
+          "green_pct": 33,
+          "windows": 6
+        },
+        "2023": {
+          "trades": 11,
+          "return": 553,
+          "green_pct": 33,
+          "windows": 3
+        },
+        "2024": {
+          "trades": 30,
+          "return": -7118,
+          "green_pct": 29,
+          "windows": 7
+        },
+        "2025": {
+          "trades": 34,
+          "return": -6185,
+          "green_pct": 0,
+          "windows": 5
+        },
+        "2026": {
+          "trades": 10,
+          "return": -5846,
+          "green_pct": 0,
+          "windows": 2
+        }
+      }
+    },
+    {
+      "pair": "XAU/USD",
+      "strategy": "sweep_reclaim_dailybias",
+      "geometry": "pct-0.50",
+      "rr": 2,
+      "variant": "ungated",
+      "trades": 101,
+      "total_return": 11197,
+      "green_pct": 50,
+      "worst_dd": 2.37,
+      "per_year": {
+        "2020": {
+          "trades": 11,
+          "return": 566,
+          "green_pct": 67,
+          "windows": 3
+        },
+        "2021": {
+          "trades": 18,
+          "return": 1752,
+          "green_pct": 33,
+          "windows": 6
+        },
+        "2022": {
+          "trades": 11,
+          "return": 6030,
+          "green_pct": 67,
+          "windows": 6
+        },
+        "2023": {
+          "trades": 10,
+          "return": 1184,
+          "green_pct": 67,
+          "windows": 3
+        },
+        "2024": {
+          "trades": 22,
+          "return": 1114,
+          "green_pct": 43,
+          "windows": 7
+        },
+        "2025": {
+          "trades": 20,
+          "return": 2335,
+          "green_pct": 40,
+          "windows": 5
+        },
+        "2026": {
+          "trades": 9,
+          "return": -1784,
+          "green_pct": 50,
+          "windows": 2
+        }
+      }
+    },
+    {
+      "pair": "XAU/USD",
+      "strategy": "sweep_reclaim_dailybias",
+      "geometry": "pct-0.50",
+      "rr": 2,
+      "variant": "gated_v12",
+      "trades": 101,
+      "total_return": 11196,
+      "green_pct": 50,
+      "worst_dd": 2.37,
+      "per_year": {
+        "2020": {
+          "trades": 11,
+          "return": 566,
+          "green_pct": 67,
+          "windows": 3
+        },
+        "2021": {
+          "trades": 18,
+          "return": 1752,
+          "green_pct": 33,
+          "windows": 6
+        },
+        "2022": {
+          "trades": 11,
+          "return": 6030,
+          "green_pct": 67,
+          "windows": 6
+        },
+        "2023": {
+          "trades": 10,
+          "return": 1184,
+          "green_pct": 67,
+          "windows": 3
+        },
+        "2024": {
+          "trades": 22,
+          "return": 1114,
+          "green_pct": 43,
+          "windows": 7
+        },
+        "2025": {
+          "trades": 20,
+          "return": 2335,
+          "green_pct": 40,
+          "windows": 5
+        },
+        "2026": {
+          "trades": 9,
+          "return": -1784,
+          "green_pct": 50,
+          "windows": 2
+        }
+      }
+    },
+    {
+      "pair": "XAU/USD",
+      "strategy": "sweep_reclaim_dailybias",
+      "geometry": "pct-0.50",
+      "rr": 3,
+      "variant": "ungated",
+      "trades": 93,
+      "total_return": 13665,
+      "green_pct": 43.8,
+      "worst_dd": 2.94,
+      "per_year": {
+        "2020": {
+          "trades": 11,
+          "return": 564,
+          "green_pct": 33,
+          "windows": 3
+        },
+        "2021": {
+          "trades": 16,
+          "return": 17,
+          "green_pct": 50,
+          "windows": 6
+        },
+        "2022": {
+          "trades": 11,
+          "return": 5422,
+          "green_pct": 50,
+          "windows": 6
+        },
+        "2023": {
+          "trades": 10,
+          "return": 3574,
+          "green_pct": 67,
+          "windows": 3
+        },
+        "2024": {
+          "trades": 18,
+          "return": 1104,
+          "green_pct": 43,
+          "windows": 7
+        },
+        "2025": {
+          "trades": 20,
+          "return": 4781,
+          "green_pct": 40,
+          "windows": 5
+        },
+        "2026": {
+          "trades": 7,
+          "return": -1797,
+          "green_pct": 0,
+          "windows": 2
+        }
+      }
+    },
+    {
+      "pair": "XAU/USD",
+      "strategy": "sweep_reclaim_dailybias",
+      "geometry": "pct-0.50",
+      "rr": 3,
+      "variant": "gated_v12",
+      "trades": 93,
+      "total_return": 13664,
+      "green_pct": 43.8,
+      "worst_dd": 2.95,
+      "per_year": {
+        "2020": {
+          "trades": 11,
+          "return": 564,
+          "green_pct": 33,
+          "windows": 3
+        },
+        "2021": {
+          "trades": 16,
+          "return": 17,
+          "green_pct": 50,
+          "windows": 6
+        },
+        "2022": {
+          "trades": 11,
+          "return": 5422,
+          "green_pct": 50,
+          "windows": 6
+        },
+        "2023": {
+          "trades": 10,
+          "return": 3574,
+          "green_pct": 67,
+          "windows": 3
+        },
+        "2024": {
+          "trades": 18,
+          "return": 1104,
+          "green_pct": 43,
+          "windows": 7
+        },
+        "2025": {
+          "trades": 20,
+          "return": 4781,
+          "green_pct": 40,
+          "windows": 5
+        },
+        "2026": {
+          "trades": 7,
+          "return": -1797,
+          "green_pct": 0,
+          "windows": 2
+        }
+      }
+    },
+    {
+      "pair": "XAU/USD",
+      "strategy": "sweep_reclaim_dailybias",
+      "geometry": "pct-0.50",
+      "rr": 5,
+      "variant": "ungated",
+      "trades": 80,
+      "total_return": 16217,
+      "green_pct": 46.9,
+      "worst_dd": 2.94,
+      "per_year": {
+        "2020": {
+          "trades": 8,
+          "return": -1230,
+          "green_pct": 33,
+          "windows": 3
+        },
+        "2021": {
+          "trades": 15,
+          "return": 1885,
+          "green_pct": 33,
+          "windows": 6
+        },
+        "2022": {
+          "trades": 10,
+          "return": 4670,
+          "green_pct": 50,
+          "windows": 6
+        },
+        "2023": {
+          "trades": 9,
+          "return": 1721,
+          "green_pct": 33,
+          "windows": 3
+        },
+        "2024": {
+          "trades": 14,
+          "return": 5812,
+          "green_pct": 57,
+          "windows": 7
+        },
+        "2025": {
+          "trades": 17,
+          "return": 3994,
+          "green_pct": 60,
+          "windows": 5
+        },
+        "2026": {
+          "trades": 7,
+          "return": -634,
+          "green_pct": 50,
+          "windows": 2
+        }
+      }
+    },
+    {
+      "pair": "XAU/USD",
+      "strategy": "sweep_reclaim_dailybias",
+      "geometry": "pct-0.50",
+      "rr": 5,
+      "variant": "gated_v12",
+      "trades": 80,
+      "total_return": 16217,
+      "green_pct": 46.9,
+      "worst_dd": 2.95,
+      "per_year": {
+        "2020": {
+          "trades": 8,
+          "return": -1230,
+          "green_pct": 33,
+          "windows": 3
+        },
+        "2021": {
+          "trades": 15,
+          "return": 1884,
+          "green_pct": 33,
+          "windows": 6
+        },
+        "2022": {
+          "trades": 10,
+          "return": 4670,
+          "green_pct": 50,
+          "windows": 6
+        },
+        "2023": {
+          "trades": 9,
+          "return": 1721,
+          "green_pct": 33,
+          "windows": 3
+        },
+        "2024": {
+          "trades": 14,
+          "return": 5812,
+          "green_pct": 57,
+          "windows": 7
+        },
+        "2025": {
+          "trades": 17,
+          "return": 3994,
+          "green_pct": 60,
+          "windows": 5
+        },
+        "2026": {
+          "trades": 7,
+          "return": -634,
+          "green_pct": 50,
+          "windows": 2
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,482 @@
+{
+  "locked_design": {
+    "capital": 100000,
+    "risk_pct": 0.6,
+    "chunk_days": 90,
+    "friction": {
+      "slippage_bps": 0.5,
+      "spread_bps": 0.4
+    },
+    "features": [
+      "side",
+      "ticker",
+      "regime",
+      "entry_zone",
+      "entry_hour_bucket",
+      "mtf",
+      "vol",
+      "range",
+      "dxy"
+    ],
+    "hard_gates": {
+      "MIN_POOLED_N": 20,
+      "MIN_HALF_N": 8,
+      "MIN_POOLED_MEAN_R": 0.4,
+      "MIN_TRAIN_MEAN_R": 0,
+      "MIN_TEST_MEAN_R": 0
+    },
+    "split": "per-algo midpoint by trade count",
+    "aggregation": "pooled across 6 deployed configs",
+    "algos": [
+      "bear_short_4h",
+      "breakdown_rider_4h",
+      "coil_breakout_1h",
+      "coil_breakout_4h",
+      "dip_buyer_4h",
+      "fvg_long_30m",
+      "mean_reversion_long_4h",
+      "mean_reversion_short_4h"
+    ],
+    "tickers": [
+      "XAU/USD",
+      "EUR/USD",
+      "GBP/USD",
+      "USD/JPY"
+    ]
+  },
+  "total_trades": 4967,
+  "total_winners": 1263,
+  "pool_mean_r": -0.028498456479431052,
+  "survivors": 4,
+  "survivor_rows": [
+    {
+      "f1": "entry_zone",
+      "f2": "dxy",
+      "b1": "equilibrium",
+      "b2": "usd_down",
+      "pooledN": 218,
+      "pooledMeanR": 0.4237943425076453,
+      "trainN": 100,
+      "trainMeanR": 0.43751183333333343,
+      "testN": 118,
+      "testMeanR": 0.41216935028248597,
+      "algos": [
+        "breakdown_rider_4h",
+        "coil_breakout_1h",
+        "coil_breakout_4h",
+        "dip_buyer_4h",
+        "fvg_long_30m",
+        "mean_reversion_long_4h",
+        "mean_reversion_short_4h"
+      ],
+      "score": 92.38716666666667,
+      "passed": true
+    },
+    {
+      "f1": "ticker",
+      "f2": "entry_zone",
+      "b1": "XAU/USD",
+      "b2": "equilibrium",
+      "pooledN": 169,
+      "pooledMeanR": 0.41740848126232744,
+      "trainN": 80,
+      "trainMeanR": 0.4283518749999997,
+      "testN": 89,
+      "testMeanR": 0.407571722846442,
+      "algos": [
+        "breakdown_rider_4h",
+        "coil_breakout_1h",
+        "coil_breakout_4h",
+        "dip_buyer_4h",
+        "fvg_long_30m",
+        "mean_reversion_long_4h",
+        "mean_reversion_short_4h"
+      ],
+      "score": 70.54203333333334,
+      "passed": true
+    },
+    {
+      "f1": "ticker",
+      "f2": "mtf",
+      "b1": "XAU/USD",
+      "b2": "mixed",
+      "pooledN": 87,
+      "pooledMeanR": 0.45688927203065116,
+      "trainN": 22,
+      "trainMeanR": 1.21614696969697,
+      "testN": 65,
+      "testMeanR": 0.19990974358974362,
+      "algos": [
+        "coil_breakout_1h",
+        "coil_breakout_4h",
+        "dip_buyer_4h",
+        "fvg_long_30m",
+        "mean_reversion_long_4h",
+        "mean_reversion_short_4h"
+      ],
+      "score": 39.74936666666665,
+      "passed": true
+    },
+    {
+      "f1": "mtf",
+      "f2": "dxy",
+      "b1": "aligned_HH",
+      "b2": "usd_flip",
+      "pooledN": 70,
+      "pooledMeanR": 0.4666304761904761,
+      "trainN": 18,
+      "trainMeanR": 0.7901351851851852,
+      "testN": 52,
+      "testMeanR": 0.354648076923077,
+      "algos": [
+        "coil_breakout_1h",
+        "coil_breakout_4h",
+        "fvg_long_30m",
+        "mean_reversion_short_4h"
+      ],
+      "score": 32.664133333333325,
+      "passed": true
+    }
+  ],
+  "all_ranked_top": [
+    {
+      "f1": "side",
+      "f2": "entry_zone",
+      "b1": "long",
+      "b2": "equilibrium",
+      "pooledN": 791,
+      "pooledMeanR": 0.1800375895490937,
+      "trainN": 392,
+      "trainMeanR": 0.19632210884353718,
+      "testN": 399,
+      "testMeanR": 0.16403876357560584,
+      "algos": [
+        "coil_breakout_1h",
+        "coil_breakout_4h",
+        "dip_buyer_4h",
+        "fvg_long_30m",
+        "mean_reversion_long_4h"
+      ],
+      "score": 142.40973333333312,
+      "passed": false,
+      "fail_reason": "pooledMeanR 0.18 < 0.4"
+    },
+    {
+      "f1": "side",
+      "f2": "mtf",
+      "b1": "long",
+      "b2": "mixed",
+      "pooledN": 775,
+      "pooledMeanR": 0.17595615053763417,
+      "trainN": 307,
+      "trainMeanR": 0.11720510314875139,
+      "testN": 468,
+      "testMeanR": 0.21449583333333316,
+      "algos": [
+        "coil_breakout_1h",
+        "coil_breakout_4h",
+        "dip_buyer_4h",
+        "fvg_long_30m",
+        "mean_reversion_long_4h"
+      ],
+      "score": 136.36601666666647,
+      "passed": false,
+      "fail_reason": "pooledMeanR 0.18 < 0.4"
+    },
+    {
+      "f1": "mtf",
+      "f2": "vol",
+      "b1": "mixed",
+      "b2": "high",
+      "pooledN": 339,
+      "pooledMeanR": 0.31325860373647996,
+      "trainN": 136,
+      "trainMeanR": 0.2738952205882351,
+      "testN": 203,
+      "testMeanR": 0.3396301313628897,
+      "algos": [
+        "coil_breakout_1h",
+        "coil_breakout_4h",
+        "dip_buyer_4h",
+        "fvg_long_30m",
+        "mean_reversion_long_4h",
+        "mean_reversion_short_4h"
+      ],
+      "score": 106.1946666666667,
+      "passed": false,
+      "fail_reason": "pooledMeanR 0.31 < 0.4"
+    },
+    {
+      "f1": "regime",
+      "f2": "entry_zone",
+      "b1": "LH",
+      "b2": "equilibrium",
+      "pooledN": 368,
+      "pooledMeanR": 0.28759859601449284,
+      "trainN": 182,
+      "trainMeanR": 0.3248240842490843,
+      "testN": 186,
+      "testMeanR": 0.25117365591397844,
+      "algos": [
+        "coil_breakout_1h",
+        "dip_buyer_4h",
+        "fvg_long_30m",
+        "mean_reversion_long_4h",
+        "mean_reversion_short_4h"
+      ],
+      "score": 105.83628333333337,
+      "passed": false,
+      "fail_reason": "pooledMeanR 0.29 < 0.4"
+    },
+    {
+      "f1": "side",
+      "f2": "regime",
+      "b1": "long",
+      "b2": "LH",
+      "pooledN": 1512,
+      "pooledMeanR": 0.06956877204585543,
+      "trainN": 792,
+      "trainMeanR": -0.012406691919191937,
+      "testN": 720,
+      "testMeanR": 0.1597417824074074,
+      "algos": [
+        "coil_breakout_1h",
+        "coil_breakout_4h",
+        "dip_buyer_4h",
+        "fvg_long_30m",
+        "mean_reversion_long_4h"
+      ],
+      "score": 105.1879833333334,
+      "passed": false,
+      "fail_reason": "pooledMeanR 0.07 < 0.4"
+    },
+    {
+      "f1": "regime",
+      "f2": "range",
+      "b1": "LH",
+      "b2": "normal",
+      "pooledN": 703,
+      "pooledMeanR": 0.14664165481270747,
+      "trainN": 344,
+      "trainMeanR": 0.16163638565891472,
+      "testN": 359,
+      "testMeanR": 0.13227344475394617,
+      "algos": [
+        "bear_short_4h",
+        "coil_breakout_1h",
+        "dip_buyer_4h",
+        "fvg_long_30m",
+        "mean_reversion_long_4h",
+        "mean_reversion_short_4h"
+      ],
+      "score": 103.08908333333335,
+      "passed": false,
+      "fail_reason": "pooledMeanR 0.15 < 0.4"
+    },
+    {
+      "f1": "entry_zone",
+      "f2": "mtf",
+      "b1": "equilibrium",
+      "b2": "mixed",
+      "pooledN": 262,
+      "pooledMeanR": 0.37704376590330807,
+      "trainN": 103,
+      "trainMeanR": 0.24772508090614886,
+      "testN": 159,
+      "testMeanR": 0.4608162473794553,
+      "algos": [
+        "coil_breakout_1h",
+        "coil_breakout_4h",
+        "dip_buyer_4h",
+        "fvg_long_30m",
+        "mean_reversion_long_4h",
+        "mean_reversion_short_4h"
+      ],
+      "score": 98.78546666666672,
+      "passed": false,
+      "fail_reason": "pooledMeanR 0.38 < 0.4"
+    },
+    {
+      "f1": "entry_hour_bucket",
+      "f2": "range",
+      "b1": "asia(0-7)",
+      "b2": "normal",
+      "pooledN": 423,
+      "pooledMeanR": 0.22009026792750191,
+      "trainN": 184,
+      "trainMeanR": 0.03370688405797107,
+      "testN": 239,
+      "testMeanR": 0.3635820781032078,
+      "algos": [
+        "bear_short_4h",
+        "breakdown_rider_4h",
+        "coil_breakout_1h",
+        "dip_buyer_4h",
+        "fvg_long_30m",
+        "mean_reversion_long_4h",
+        "mean_reversion_short_4h"
+      ],
+      "score": 93.09818333333331,
+      "passed": false,
+      "fail_reason": "pooledMeanR 0.22 < 0.4"
+    },
+    {
+      "f1": "side",
+      "f2": "range",
+      "b1": "long",
+      "b2": "normal",
+      "pooledN": 1287,
+      "pooledMeanR": 0.0720385133385134,
+      "trainN": 608,
+      "trainMeanR": 0.05283338815789471,
+      "testN": 679,
+      "testMeanR": 0.08923544428080518,
+      "algos": [
+        "coil_breakout_1h",
+        "dip_buyer_4h",
+        "fvg_long_30m",
+        "mean_reversion_long_4h"
+      ],
+      "score": 92.71356666666674,
+      "passed": false,
+      "fail_reason": "pooledMeanR 0.07 < 0.4"
+    },
+    {
+      "f1": "entry_zone",
+      "f2": "dxy",
+      "b1": "equilibrium",
+      "b2": "usd_down",
+      "pooledN": 218,
+      "pooledMeanR": 0.4237943425076453,
+      "trainN": 100,
+      "trainMeanR": 0.43751183333333343,
+      "testN": 118,
+      "testMeanR": 0.41216935028248597,
+      "algos": [
+        "breakdown_rider_4h",
+        "coil_breakout_1h",
+        "coil_breakout_4h",
+        "dip_buyer_4h",
+        "fvg_long_30m",
+        "mean_reversion_long_4h",
+        "mean_reversion_short_4h"
+      ],
+      "score": 92.38716666666667,
+      "passed": true
+    },
+    {
+      "f1": "side",
+      "f2": "ticker",
+      "b1": "long",
+      "b2": "XAU/USD",
+      "pooledN": 504,
+      "pooledMeanR": 0.17849937169312147,
+      "trainN": 251,
+      "trainMeanR": 0.2729073041168657,
+      "testN": 253,
+      "testMeanR": 0.0848377470355731,
+      "algos": [
+        "coil_breakout_1h",
+        "coil_breakout_4h",
+        "dip_buyer_4h",
+        "fvg_long_30m",
+        "mean_reversion_long_4h"
+      ],
+      "score": 89.96368333333322,
+      "passed": false,
+      "fail_reason": "pooledMeanR 0.18 < 0.4"
+    },
+    {
+      "f1": "ticker",
+      "f2": "regime",
+      "b1": "USD/JPY",
+      "b2": "LH",
+      "pooledN": 415,
+      "pooledMeanR": 0.2151706024096385,
+      "trainN": 225,
+      "trainMeanR": 0.15379125925925924,
+      "testN": 190,
+      "testMeanR": 0.2878566666666666,
+      "algos": [
+        "bear_short_4h",
+        "coil_breakout_1h",
+        "coil_breakout_4h",
+        "dip_buyer_4h",
+        "fvg_long_30m",
+        "mean_reversion_long_4h",
+        "mean_reversion_short_4h"
+      ],
+      "score": 89.29579999999999,
+      "passed": false,
+      "fail_reason": "pooledMeanR 0.22 < 0.4"
+    },
+    {
+      "f1": "regime",
+      "f2": "vol",
+      "b1": "LH",
+      "b2": "high",
+      "pooledN": 781,
+      "pooledMeanR": 0.11387326077678181,
+      "trainN": 462,
+      "trainMeanR": 0.056699314574314534,
+      "testN": 319,
+      "testMeanR": 0.19667690700104495,
+      "algos": [
+        "bear_short_4h",
+        "coil_breakout_1h",
+        "coil_breakout_4h",
+        "dip_buyer_4h",
+        "fvg_long_30m",
+        "mean_reversion_long_4h",
+        "mean_reversion_short_4h"
+      ],
+      "score": 88.9350166666666,
+      "passed": false,
+      "fail_reason": "pooledMeanR 0.11 < 0.4"
+    },
+    {
+      "f1": "side",
+      "f2": "entry_hour_bucket",
+      "b1": "long",
+      "b2": "asia(0-7)",
+      "pooledN": 738,
+      "pooledMeanR": 0.11914026648599808,
+      "trainN": 347,
+      "trainMeanR": 0.013685254562920336,
+      "testN": 391,
+      "testMeanR": 0.21272821824381913,
+      "algos": [
+        "coil_breakout_1h",
+        "coil_breakout_4h",
+        "dip_buyer_4h",
+        "fvg_long_30m",
+        "mean_reversion_long_4h"
+      ],
+      "score": 87.92551666666658,
+      "passed": false,
+      "fail_reason": "pooledMeanR 0.12 < 0.4"
+    },
+    {
+      "f1": "mtf",
+      "f2": "range",
+      "b1": "mixed",
+      "b2": "normal",
+      "pooledN": 358,
+      "pooledMeanR": 0.232686824953445,
+      "trainN": 111,
+      "trainMeanR": 0.24961831831831818,
+      "testN": 247,
+      "testMeanR": 0.22507793522267217,
+      "algos": [
+        "coil_breakout_1h",
+        "dip_buyer_4h",
+        "fvg_long_30m",
+        "mean_reversion_long_4h",
+        "mean_reversion_short_4h"
+      ],
+      "score": 83.30188333333331,
+      "passed": false,
+      "fail_reason": "pooledMeanR 0.23 < 0.4"
+    }
+  ]
+}

@@ -1,0 +1,113 @@
+{
+  "provider": "anthropic",
+  "model": "claude-haiku-4-5-20251001",
+  "prompt_version": "v5_15m",
+  "timeframe": "15m",
+  "window_days": 30,
+  "window_count": 1,
+  "end_date": "2025-02-28",
+  "capital": 100000,
+  "aggregate": {
+    "windows": 1,
+    "green_windows": 1,
+    "green_pct": 100,
+    "total_trades": 17,
+    "mean_win_rate_pct": 41.17647058823529,
+    "median_win_rate_pct": 41.17647058823529,
+    "total_return": 1875.5808437505766,
+    "mean_return_per_window": 1875.5808437505766,
+    "max_drawdown_across_windows": 0.4926330029000153,
+    "total_llm_calls": 2010,
+    "total_llm_failures": 302
+  },
+  "per_window": [
+    {
+      "window_label": "2025-02-28 − 30d",
+      "start_date": "2025-01-30 00:00:00",
+      "end_date": "2025-02-28 21:45:00",
+      "num_bars": 2010,
+      "trades": 17,
+      "wins": 7,
+      "return_usd": 1875.5808437505766,
+      "max_drawdown_pct": 0.4926330029000153,
+      "llm_calls": 2010,
+      "llm_failures": 302,
+      "gate_refusals": {
+        "atr_liquidity": 2,
+        "news_veto": 1,
+        "consec_loss_halt": 0,
+        "ftmo_consistency_halt": 0,
+        "stagnant_exits": 0,
+        "ranging_regime": 27
+      }
+    }
+  ],
+  "aggregate_gate_refusals": {
+    "atr_liquidity": 2,
+    "news_veto": 1,
+    "consec_loss_halt": 0,
+    "ftmo_consistency_halt": 0,
+    "stagnant_exits": 0
+  },
+  "by_regime": [
+    {
+      "regime": "HH",
+      "count": 10,
+      "wins": 5,
+      "win_rate_pct": 50,
+      "mean_r": 0.2683311893064722,
+      "sum_pnl": 2012.4839197985382,
+      "long_count": 7,
+      "long_wins": 5,
+      "short_count": 3,
+      "short_wins": 0
+    },
+    {
+      "regime": "LH",
+      "count": 7,
+      "wins": 2,
+      "win_rate_pct": 28.57142857142857,
+      "mean_r": -0.026076776390090713,
+      "sum_pnl": -136.90307604797601,
+      "long_count": 1,
+      "long_wins": 1,
+      "short_count": 6,
+      "short_wins": 1
+    }
+  ],
+  "flip_cohort": {
+    "flipped": {
+      "count": 0,
+      "wins": 0,
+      "mean_r": 0,
+      "sum_pnl": 0
+    },
+    "not_flipped": {
+      "count": 17,
+      "wins": 7,
+      "mean_r": 0.14710437990200514,
+      "sum_pnl": 1875.5808437505623
+    }
+  },
+  "decisions_by_regime": {
+    "HH": {
+      "hold": 628,
+      "enter_long": 8,
+      "move_be": 325,
+      "exit": 8,
+      "enter_short": 3
+    },
+    "RANGING": {
+      "hold": 497,
+      "enter_long": 22,
+      "enter_short": 5
+    },
+    "LH": {
+      "hold": 192,
+      "enter_short": 7,
+      "exit": 6,
+      "enter_long": 2,
+      "move_be": 5
+    }
+  }
+}

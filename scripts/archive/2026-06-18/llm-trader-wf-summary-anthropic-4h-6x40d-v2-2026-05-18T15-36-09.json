@@ -1,0 +1,209 @@
+{
+  "provider": "anthropic",
+  "model": "claude-haiku-4-5-20251001",
+  "prompt_version": "v2",
+  "timeframe": "4h",
+  "window_days": 40,
+  "window_count": 6,
+  "end_date": "2026-04-30",
+  "capital": 100000,
+  "aggregate": {
+    "windows": 6,
+    "green_windows": 3,
+    "green_pct": 50,
+    "total_trades": 20,
+    "mean_win_rate_pct": 28.888888888888886,
+    "median_win_rate_pct": 33.33333333333333,
+    "total_return": 6157.583994591041,
+    "mean_return_per_window": 1026.263999098507,
+    "max_drawdown_across_windows": 1.6255779164990154,
+    "total_llm_calls": 2092,
+    "total_llm_failures": 1543
+  },
+  "per_window": [
+    {
+      "window_label": "2025-10-12 − 40d",
+      "start_date": "2025-09-03 01:00:00",
+      "end_date": "2025-10-13 00:00:00",
+      "num_bars": 230,
+      "trades": 10,
+      "wins": 4,
+      "return_usd": 1477.0889677532687,
+      "max_drawdown_pct": 1.0734635696334194,
+      "llm_calls": 230,
+      "llm_failures": 41,
+      "gate_refusals": {
+        "atr_liquidity": 0,
+        "news_veto": 0,
+        "consec_loss_halt": 0,
+        "ftmo_consistency_halt": 0,
+        "stagnant_exits": 0,
+        "ranging_regime": 1
+      }
+    },
+    {
+      "window_label": "2025-11-21 − 40d",
+      "start_date": "2025-10-13 01:00:00",
+      "end_date": "2025-11-21 20:00:00",
+      "num_bars": 385,
+      "trades": 9,
+      "wins": 3,
+      "return_usd": 3568.079206915543,
+      "max_drawdown_pct": 1.6255779164990154,
+      "llm_calls": 385,
+      "llm_failures": 52,
+      "gate_refusals": {
+        "atr_liquidity": 8,
+        "news_veto": 0,
+        "consec_loss_halt": 0,
+        "ftmo_consistency_halt": 0,
+        "stagnant_exits": 0,
+        "ranging_regime": 0
+      }
+    },
+    {
+      "window_label": "2025-12-31 − 40d",
+      "start_date": "2025-11-22 00:00:00",
+      "end_date": "2025-12-31 20:00:00",
+      "num_bars": 372,
+      "trades": 1,
+      "wins": 1,
+      "return_usd": 1112.4158199222293,
+      "max_drawdown_pct": 0,
+      "llm_calls": 372,
+      "llm_failures": 345,
+      "gate_refusals": {
+        "atr_liquidity": 1,
+        "news_veto": 0,
+        "consec_loss_halt": 0,
+        "ftmo_consistency_halt": 0,
+        "stagnant_exits": 0,
+        "ranging_regime": 0
+      }
+    },
+    {
+      "window_label": "2026-02-09 − 40d",
+      "start_date": "2026-01-01 00:00:00",
+      "end_date": "2026-02-09 22:00:00",
+      "num_bars": 398,
+      "trades": 0,
+      "wins": 0,
+      "return_usd": 0,
+      "max_drawdown_pct": 0,
+      "llm_calls": 398,
+      "llm_failures": 398,
+      "gate_refusals": {
+        "atr_liquidity": 0,
+        "news_veto": 0,
+        "consec_loss_halt": 0,
+        "ftmo_consistency_halt": 0,
+        "stagnant_exits": 0,
+        "ranging_regime": 0
+      }
+    },
+    {
+      "window_label": "2026-03-21 − 40d",
+      "start_date": "2026-02-10 00:00:00",
+      "end_date": "2026-03-21 20:00:00",
+      "num_bars": 413,
+      "trades": 0,
+      "wins": 0,
+      "return_usd": 0,
+      "max_drawdown_pct": 0,
+      "llm_calls": 413,
+      "llm_failures": 413,
+      "gate_refusals": {
+        "atr_liquidity": 0,
+        "news_veto": 0,
+        "consec_loss_halt": 0,
+        "ftmo_consistency_halt": 0,
+        "stagnant_exits": 0,
+        "ranging_regime": 0
+      }
+    },
+    {
+      "window_label": "2026-04-30 − 40d",
+      "start_date": "2026-03-22 00:00:00",
+      "end_date": "2026-04-30 21:00:00",
+      "num_bars": 294,
+      "trades": 0,
+      "wins": 0,
+      "return_usd": 0,
+      "max_drawdown_pct": 0,
+      "llm_calls": 294,
+      "llm_failures": 294,
+      "gate_refusals": {
+        "atr_liquidity": 0,
+        "news_veto": 0,
+        "consec_loss_halt": 0,
+        "ftmo_consistency_halt": 0,
+        "stagnant_exits": 0,
+        "ranging_regime": 0
+      }
+    }
+  ],
+  "aggregate_gate_refusals": {
+    "atr_liquidity": 9,
+    "news_veto": 0,
+    "consec_loss_halt": 0,
+    "ftmo_consistency_halt": 0,
+    "stagnant_exits": 0
+  },
+  "by_regime": [
+    {
+      "regime": "HH",
+      "count": 16,
+      "wins": 7,
+      "win_rate_pct": 43.75,
+      "mean_r": 0.47278916341483057,
+      "sum_pnl": 4492.739183024751,
+      "long_count": 16,
+      "long_wins": 7,
+      "short_count": 0,
+      "short_wins": 0
+    },
+    {
+      "regime": "LH",
+      "count": 4,
+      "wins": 1,
+      "win_rate_pct": 25,
+      "mean_r": -0.19786639563652242,
+      "sum_pnl": 1664.8448115662773,
+      "long_count": 0,
+      "long_wins": 0,
+      "short_count": 4,
+      "short_wins": 1
+    }
+  ],
+  "flip_cohort": {
+    "flipped": {
+      "count": 6,
+      "wins": 0,
+      "mean_r": -0.5180242386922836,
+      "sum_pnl": -2400.7542888887006
+    },
+    "not_flipped": {
+      "count": 14,
+      "wins": 8,
+      "mean_r": 0.7058076045889213,
+      "sum_pnl": 8558.338283479728
+    }
+  },
+  "decisions_by_regime": {
+    "HH": {
+      "hold": 253,
+      "enter_long": 20,
+      "exit": 5
+    },
+    "RANGING": {
+      "hold": 155,
+      "exit": 2,
+      "enter_short": 1
+    },
+    "LH": {
+      "hold": 103,
+      "enter_short": 9,
+      "exit": 1
+    }
+  }
+}

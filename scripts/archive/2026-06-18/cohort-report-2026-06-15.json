@@ -1,0 +1,88 @@
+{
+  "generated_at": "2026-06-15T23:38:02.146Z",
+  "source": "live",
+  "days": 14,
+  "activity_days": 7,
+  "min_n": 5,
+  "trades": 0,
+  "engine_activity": {
+    "window_days": 7,
+    "llm_decisions": 14,
+    "llm_avg_confidence": 53,
+    "llm_by_decision": {
+      "hold": 13,
+      "enter_short": 1
+    },
+    "llm_by_mtf": {
+      "mixed": 9,
+      "fast_div_bull": 5
+    },
+    "per_algo": [
+      {
+        "name": "Gold Swing 4h",
+        "gate_refusals": 0,
+        "condition_misses": 0,
+        "drift_refusals": 1,
+        "bar_staleness_refusals": 12,
+        "llm_holds": 13,
+        "other_refusals": 0,
+        "fires": 0,
+        "evaluations": 26
+      },
+      {
+        "name": "Library: Gold Bear-Short Sentinel 4h",
+        "gate_refusals": 371,
+        "condition_misses": 0,
+        "drift_refusals": 0,
+        "bar_staleness_refusals": 0,
+        "llm_holds": 0,
+        "other_refusals": 0,
+        "fires": 0,
+        "evaluations": 371
+      },
+      {
+        "name": "Library: Gold Coil-Breakout 1h",
+        "gate_refusals": 0,
+        "condition_misses": 368,
+        "drift_refusals": 0,
+        "bar_staleness_refusals": 0,
+        "llm_holds": 0,
+        "other_refusals": 0,
+        "fires": 0,
+        "evaluations": 368
+      },
+      {
+        "name": "Library: Gold Dip-Buyer 4h",
+        "gate_refusals": 269,
+        "condition_misses": 102,
+        "drift_refusals": 0,
+        "bar_staleness_refusals": 0,
+        "llm_holds": 0,
+        "other_refusals": 0,
+        "fires": 0,
+        "evaluations": 371
+      },
+      {
+        "name": "Library: Gold FVG-Long 30m",
+        "gate_refusals": 0,
+        "condition_misses": 0,
+        "drift_refusals": 0,
+        "bar_staleness_refusals": 0,
+        "llm_holds": 0,
+        "other_refusals": 1,
+        "fires": 0,
+        "evaluations": 1
+      }
+    ],
+    "notable_saves": [
+      {
+        "when": "2026-06-15T04:00:28.48772+00:00",
+        "algorithm": "Gold Swing 4h",
+        "reason": "live_price_drift",
+        "confidence": 78,
+        "would_have_entered_side": "short",
+        "llm_reasoning": "LH regime (D1), price rejected from 20-bar high 4309 this bar with down close; short into upper-range resistance is the valid trigger in bearish structure. Intermarket neutral; regime is the edge."
+      }
+    ]
+  }
+}

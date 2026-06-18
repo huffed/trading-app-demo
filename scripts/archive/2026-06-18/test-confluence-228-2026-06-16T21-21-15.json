@@ -1,0 +1,55 @@
+{
+  "baseline_key": "B0_fvg+bias",
+  "results": [
+    {
+      "key": "B0_fvg+bias",
+      "description": "BASELINE: fvg + daily_bias (current FVG-DailyBias-Long 4h)",
+      "n": 141,
+      "win_pct": 46.1,
+      "mean_r": 0.38,
+      "total_r": 53.5,
+      "total_dollars": 32120,
+      "dd_pct": 4.15
+    },
+    {
+      "key": "B1_fvg+bias+eql",
+      "description": "TRIPLE: fvg + daily_bias + equal_levels (audit #228 main test)",
+      "n": 27,
+      "win_pct": 48.1,
+      "mean_r": 0.435,
+      "total_r": 11.8,
+      "total_dollars": 7051,
+      "dd_pct": 2.39
+    },
+    {
+      "key": "B2_fvg+bias+reclaim",
+      "description": "TRIPLE: fvg + daily_bias + liquidity_sweep_reclaim",
+      "n": 16,
+      "win_pct": 31.3,
+      "mean_r": -0.061,
+      "total_r": -1,
+      "total_dollars": -583,
+      "dd_pct": 2.82
+    },
+    {
+      "key": "B3_quad",
+      "description": "QUAD: fvg + daily_bias + sweep_reclaim + equal_levels",
+      "n": 6,
+      "win_pct": 16.7,
+      "mean_r": -0.484,
+      "total_r": -2.9,
+      "total_dollars": -1741,
+      "dd_pct": 2.31
+    },
+    {
+      "key": "B4_fvg+eql",
+      "description": "PAIR: fvg + equal_levels (without daily_bias)",
+      "n": 52,
+      "win_pct": 46.2,
+      "mean_r": 0.372,
+      "total_r": 19.3,
+      "total_dollars": 11591,
+      "dd_pct": 1.9
+    }
+  ]
+}

@@ -1,0 +1,156 @@
+{
+  "risk_pct": 0.6,
+  "capital": 100000,
+  "files": [
+    "scripts/llm-trader-wf-trades-anthropic-4h-1x40d-v2-2026-06-10T20-12-42.jsonl",
+    "scripts/llm-trader-wf-trades-anthropic-4h-1x40d-v2-2026-06-11T10-09-48.jsonl",
+    "scripts/llm-trader-wf-trades-anthropic-4h-6x40d-2026-05-01T15-47-20.jsonl",
+    "scripts/llm-trader-wf-trades-anthropic-4h-6x40d-v1-2026-05-02T01-16-27.jsonl",
+    "scripts/llm-trader-wf-trades-anthropic-4h-6x40d-v2-2026-05-01T18-05-41.jsonl",
+    "scripts/llm-trader-wf-trades-anthropic-4h-6x40d-v2-2026-05-01T20-54-10.jsonl",
+    "scripts/llm-trader-wf-trades-anthropic-4h-6x40d-v2-2026-05-02T00-11-05.jsonl",
+    "scripts/llm-trader-wf-trades-anthropic-4h-6x40d-v2-2026-05-02T07-55-03.jsonl",
+    "scripts/llm-trader-wf-trades-anthropic-4h-6x40d-v2-2026-05-15T12-38-49.jsonl",
+    "scripts/llm-trader-wf-trades-anthropic-4h-6x40d-v2-2026-05-15T12-39-20.jsonl",
+    "scripts/llm-trader-wf-trades-anthropic-4h-6x40d-v2-2026-05-15T12-40-03.jsonl",
+    "scripts/llm-trader-wf-trades-anthropic-4h-6x40d-v2-2026-05-15T12-40-25.jsonl",
+    "scripts/llm-trader-wf-trades-anthropic-4h-6x40d-v2-2026-05-17T18-43-16.jsonl",
+    "scripts/llm-trader-wf-trades-anthropic-4h-6x40d-v2-2026-05-17T18-48-58.jsonl",
+    "scripts/llm-trader-wf-trades-anthropic-4h-6x40d-v2-2026-05-17T18-53-46.jsonl",
+    "scripts/llm-trader-wf-trades-anthropic-4h-6x40d-v2-2026-05-18T15-36-09.jsonl",
+    "scripts/llm-trader-wf-trades-anthropic-4h-6x40d-v2-2026-05-18T15-36-30.jsonl",
+    "scripts/llm-trader-wf-trades-anthropic-4h-6x40d-v2-2026-05-18T15-41-00.jsonl",
+    "scripts/llm-trader-wf-trades-anthropic-4h-6x40d-v2-2026-05-18T15-41-06.jsonl",
+    "scripts/llm-trader-wf-trades-anthropic-4h-6x40d-v2-2026-06-11T02-16-15.jsonl",
+    "scripts/llm-trader-wf-trades-anthropic-4h-6x40d-v2_generic-2026-05-18T10-15-28.jsonl",
+    "scripts/llm-trader-wf-trades-anthropic-4h-6x40d-v2_generic-2026-05-18T10-17-35.jsonl",
+    "scripts/llm-trader-wf-trades-anthropic-4h-6x40d-v2_generic-2026-05-18T10-44-34.jsonl",
+    "scripts/llm-trader-wf-trades-anthropic-4h-6x40d-v2_generic-2026-05-18T13-00-19.jsonl",
+    "scripts/llm-trader-wf-trades-anthropic-4h-6x40d-v2_mtf-2026-05-17T21-44-47.jsonl",
+    "scripts/llm-trader-wf-trades-anthropic-4h-6x40d-v2_mtf-2026-05-17T21-45-19.jsonl",
+    "scripts/llm-trader-wf-trades-anthropic-4h-6x40d-v2_mtf-2026-05-17T21-45-26.jsonl",
+    "scripts/llm-trader-wf-trades-anthropic-4h-6x40d-v2_mtf-2026-05-17T21-47-30.jsonl"
+  ],
+  "unmatched": 49,
+  "trades": 696,
+  "overall": {
+    "n": 696,
+    "wr": 56.03448275862068,
+    "meanR": 0.5662612231738742,
+    "sumR": 394.11781132901643
+  },
+  "features": {
+    "vol": {
+      "high": {
+        "n": 491,
+        "wr": 50.509164969450104,
+        "meanR": 0.3979314545094203,
+        "sumR": 195.38434416412537
+      },
+      "mid": {
+        "n": 177,
+        "wr": 71.75141242937853,
+        "meanR": 1.046682232229695,
+        "sumR": 185.262755104656
+      },
+      "low": {
+        "n": 28,
+        "wr": 53.57142857142857,
+        "meanR": 0.4810968592941029,
+        "sumR": 13.47071206023488
+      }
+    },
+    "mtf_structure": {
+      "mixed": {
+        "n": 257,
+        "wr": 50.19455252918288,
+        "meanR": 0.45031851770124404,
+        "sumR": 115.73185904921972
+      },
+      "aligned_HH": {
+        "n": 126,
+        "wr": 61.111111111111114,
+        "meanR": 0.7973333512993919,
+        "sumR": 100.46400226372337
+      },
+      "fast_div_bear": {
+        "n": 125,
+        "wr": 71.2,
+        "meanR": 0.9616560409585633,
+        "sumR": 120.20700511982041
+      },
+      "aligned_LH": {
+        "n": 85,
+        "wr": 60,
+        "meanR": 0.3817561173417302,
+        "sumR": 32.44926997404707
+      },
+      "fast_div_bull": {
+        "n": 69,
+        "wr": 34.78260869565217,
+        "meanR": 0.09880849725772188,
+        "sumR": 6.81778631078281
+      },
+      "ranging_all": {
+        "n": 29,
+        "wr": 68.96551724137932,
+        "meanR": 0.8085478831525087,
+        "sumR": 23.44788861142275
+      },
+      "n/a": {
+        "n": 5,
+        "wr": 0,
+        "meanR": -0.9999999999999997,
+        "sumR": -4.999999999999998
+      }
+    },
+    "range": {
+      "expanded": {
+        "n": 432,
+        "wr": 53.70370370370371,
+        "meanR": 0.4423784253441368,
+        "sumR": 191.1074797486671
+      },
+      "normal": {
+        "n": 195,
+        "wr": 55.38461538461539,
+        "meanR": 0.6209024239565943,
+        "sumR": 121.0759726715359
+      },
+      "compressed": {
+        "n": 69,
+        "wr": 72.46376811594203,
+        "meanR": 1.1874544769393194,
+        "sumR": 81.93435890881304
+      }
+    },
+    "dxy": {
+      "usd_flip": {
+        "n": 270,
+        "wr": 60,
+        "meanR": 0.6216851308698038,
+        "sumR": 167.85498533484704
+      },
+      "usd_down": {
+        "n": 236,
+        "wr": 44.49152542372881,
+        "meanR": 0.23201769412321563,
+        "sumR": 54.75617581307889
+      },
+      "usd_up": {
+        "n": 190,
+        "wr": 64.73684210526316,
+        "meanR": 0.902666579900475,
+        "sumR": 171.50665018109027
+      }
+    }
+  },
+  "verdicts": [
+    "vol=mid: meanR 1.05 vs overall 0.57 (n=177) — favourable state",
+    "mtf_structure=fast_div_bear: meanR 0.96 vs overall 0.57 (n=125) — favourable state",
+    "mtf_structure=fast_div_bull: meanR 0.10 vs overall 0.57 (n=69) — DOWNSHIFT candidate (shadow first)",
+    "range=compressed: meanR 1.19 vs overall 0.57 (n=69) — favourable state",
+    "dxy=usd_down: meanR 0.23 vs overall 0.57 (n=236) — DOWNSHIFT candidate (shadow first)",
+    "dxy=usd_up: meanR 0.90 vs overall 0.57 (n=190) — favourable state"
+  ]
+}

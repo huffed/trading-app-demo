@@ -1,0 +1,83 @@
+===== LLM-trader walk-forward =====
+Provider: anthropic (model: claude-haiku-4-5-20251001)
+Prompt:    v2
+Timeframe: 4h
+Capital per window: $100,000
+Windows: 6 × 40d (non-overlapping, ending 2025-10-11)
+Coverage: 2025-03-25 (− 40d) → 2025-10-11
+Estimated cost: ~1440 LLM calls (~763K tokens). Anthropic Haiku ≈ $0.61.
+
+Loading XAU/USD 4h corpus (fetched at 1h, resampled to 4h)...
+  4h corpus: 3723 bars (2023-12-06 → 2026-04-30)
+  daily corpus: 5000 bars
+Loading EUR/USD 4h proxy...
+  EUR/USD 4h: 5000 bars
+Loading intermarket series (silver / yields / VIX)...
+[prices] Twelve Data failed for XAG/USD: This symbol is available starting with the Grow or Venture plan. Consider upgrading now at https://twelvedata.com/pricing
+[prices] Twelve Data failed for ^TNX: **symbol** or **figi** parameter is missing or invalid. Please provide a valid symbol according to API documentation: https://twelvedata.com/docs#reference-data
+[prices] Twelve Data failed for ^VIX: **symbol** or **figi** parameter is missing or invalid. Please provide a valid symbol according to API documentation: https://twelvedata.com/docs#reference-data
+  silver: 1258 bars · 10Y yield: 1256 bars · VIX: 1256 bars
+
+Pre-fetching economic calendar for 2025-02-13 → 2025-10-11...
+  1168 events loaded
+
+--- Window 1/6: ending 2025-03-25 (back 40d) ---
+  0 trades · 0% WR · $0 (0.00%) · DD 0.00% · 169 LLM calls (61 fails) · 520s
+    Gates: atr=1 news=0 consec=0 ftmo=0 · stagnant_exits=0
+--- Window 2/6: ending 2025-05-04 (back 40d) ---
+  7 trades · 14% WR · $-1816 (-1.82%) · DD 2.55% · 169 LLM calls (68 fails) · 521s
+--- Window 3/6: ending 2025-06-13 (back 40d) ---
+  1 trades · 100% WR · $64 (0.06%) · DD 0.00% · 184 LLM calls (103 fails) · 574s
+    Gates: atr=2 news=0 consec=0 ftmo=0 · stagnant_exits=0
+--- Window 4/6: ending 2025-07-23 (back 40d) ---
+  0 trades · 0% WR · $0 (0.00%) · DD 0.00% · 168 LLM calls (75 fails) · 525s
+    Gates: atr=1 news=0 consec=0 ftmo=0 · stagnant_exits=0
+--- Window 5/6: ending 2025-09-01 (back 40d) ---
+  3 trades · 33% WR · $79 (0.08%) · DD 1.50% · 167 LLM calls (72 fails) · 515s
+--- Window 6/6: ending 2025-10-11 (back 40d) ---
+  3 trades · 67% WR · $2599 (2.60%) · DD 0.73% · 174 LLM calls (42 fails) · 534s
+
+===== Walk-forward summary =====
+
+Per-window results (oldest → newest):
+  #   end_date    trades  WR      return$     return%   DD%     LLM(fails)    
+      2025-03-25  0       0%      $0          +0.00%    0.00%   169(61)       
+  ✗   2025-05-04  7       14%     $-1816      -1.82%    2.55%   169(68)       
+  ✓   2025-06-13  1       100%    $64         +0.06%    0.00%   184(103)      
+      2025-07-23  0       0%      $0          +0.00%    0.00%   168(75)       
+  ✓   2025-09-01  3       33%     $79         +0.08%    1.50%   167(72)       
+  ✓   2025-10-11  3       67%     $2599       +2.60%    0.73%   174(42)       
+
+Walk-forward aggregate:
+  Windows                 : 6
+  Green windows           : 3/6 (50%)
+  Total trades            : 14
+  Mean WR (per window)    : 35.7%
+  Median WR (per window)  : 33.3%
+  Total return            : $926 (0.93% on $100K base)
+  Mean return / window    : $154
+  Max DD (worst window)   : 2.55%
+  Total LLM calls         : 1031 (421 failures)
+
+Per-regime breakdown (all trades, all windows):
+  regime    trades  WR      mean_R   $pnl        long(W/T)   short(W/T)  
+  HH        12      42%     0.27     $2426       5/12        0/0         
+  LH        2       0%      -1.00    $-1500      0/0         0/2         
+
+Regime-flip cohort (regime changed mid-trade?):
+  cohort          trades  WR      mean_R   $pnl        
+  flipped         1       0%      -0.42    $-316       
+  not_flipped     13      38%     0.13     $1242       
+
+LLM decision distribution per regime (all bars, all windows):
+  regime    enter_long  enter_short  hold    exit    
+  RANGING   0           0            125     0       
+  HH        16          0            362     0       
+  LH        0           2            104     1       
+
+Walk-forward summary saved: scripts/llm-trader-wf-summary-anthropic-4h-6x40d-v2-2026-05-02T07-55-03.json
+Combined trade log saved: scripts/llm-trader-wf-trades-anthropic-4h-6x40d-v2-2026-05-02T07-55-03.jsonl (14 trades)
+Per-window decision logs saved: scripts/llm-trader-wf-decisions-...-v2-<window-end>.jsonl (6 files)
+
+(No ALGO_ID set — cache not uploaded. To populate the readiness check,
+ re-run with ALGO_ID=<uuid> or write the cache from the saved summary file.)

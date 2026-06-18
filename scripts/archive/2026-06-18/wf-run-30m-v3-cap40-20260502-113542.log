@@ -1,0 +1,175 @@
+Loading XAU/USD 30m corpus (fetched at 15min, resampled to 30m)...
+  30m corpus: 2499 bars (2026-03-11 → 2026-05-02)
+  daily corpus: 5000 bars
+Loading EUR/USD 4h proxy...
+  EUR/USD 4h: 5000 bars
+Loading intermarket series (silver / yields / VIX)...
+[prices] Twelve Data failed for XAG/USD: This symbol is available starting with the Grow or Venture plan. Consider upgrading now at https://twelvedata.com/pricing
+[prices] Twelve Data failed for ^TNX: **symbol** or **figi** parameter is missing or invalid. Please provide a valid symbol according to API documentation: https://twelvedata.com/docs#reference-data
+[prices] Twelve Data failed for ^VIX: **symbol** or **figi** parameter is missing or invalid. Please provide a valid symbol according to API documentation: https://twelvedata.com/docs#reference-data
+  silver: 1258 bars · 10Y yield: 1256 bars · VIX: 1256 bars
+
+Window: 2026-04-30 − 60d · est ~1526K tokens (Groq free 100K/day, Dev 6M/day)
+Provider: anthropic (model: claude-haiku-4-5-20251001)
+Prompt:   v3
+
+  News calendar: 1239 events for window
+Replaying 2413 30m bars (2026-04-30 − 60d: 2026-03-11 → 2026-05-01)...
+  20/2413 bars · cash $99837 · 1 closed · 20 LLM calls (2 fails)
+  40/2413 bars · cash $99837 · 1 closed · 40 LLM calls (5 fails)
+  60/2413 bars · cash $99860 · 3 closed · 60 LLM calls (8 fails)
+  80/2413 bars · cash $99860 · 3 closed · 80 LLM calls (9 fails)
+  100/2413 bars · cash $99860 · 3 closed · 100 LLM calls (11 fails)
+  120/2413 bars · cash $99860 · 3 closed · 120 LLM calls (11 fails)
+  140/2413 bars · cash $99860 · 3 closed · 140 LLM calls (11 fails)
+  160/2413 bars · cash $99860 · 3 closed · 160 LLM calls (11 fails)
+  180/2413 bars · cash $99860 · 3 closed · 180 LLM calls (11 fails)
+  200/2413 bars · cash $99860 · 3 closed · 200 LLM calls (11 fails)
+  220/2413 bars · cash $99860 · 3 closed · 220 LLM calls (11 fails)
+  240/2413 bars · cash $100812 · 5 closed · 240 LLM calls (15 fails)
+  260/2413 bars · cash $100812 · 5 closed · 260 LLM calls (18 fails)
+  280/2413 bars · cash $100692 · 6 closed · 280 LLM calls (22 fails)
+  300/2413 bars · cash $100692 · 6 closed · 300 LLM calls (24 fails)
+  340/2413 bars · cash $100692 · 6 closed · 340 LLM calls (28 fails)
+  360/2413 bars · cash $100692 · 6 closed · 360 LLM calls (28 fails)
+  380/2413 bars · cash $100692 · 6 closed · 380 LLM calls (28 fails)
+  400/2413 bars · cash $104442 · 9 closed · 400 LLM calls (29 fails)
+  420/2413 bars · cash $104188 · 10 closed · 420 LLM calls (32 fails)
+  440/2413 bars · cash $104188 · 10 closed · 440 LLM calls (32 fails)
+  460/2413 bars · cash $106438 · 11 closed · 460 LLM calls (32 fails)
+  480/2413 bars · cash $106438 · 11 closed · 480 LLM calls (32 fails)
+  500/2413 bars · cash $106438 · 11 closed · 500 LLM calls (33 fails)
+  520/2413 bars · cash $106438 · 11 closed · 520 LLM calls (34 fails)
+  540/2413 bars · cash $106438 · 11 closed · 540 LLM calls (35 fails)
+  560/2413 bars · cash $106055 · 12 closed · 560 LLM calls (38 fails)
+  580/2413 bars · cash $107765 · 14 closed · 580 LLM calls (39 fails)
+  600/2413 bars · cash $107230 · 15 closed · 600 LLM calls (44 fails)
+  620/2413 bars · cash $107230 · 15 closed · 620 LLM calls (44 fails)
+  640/2413 bars · cash $107025 · 16 closed · 640 LLM calls (45 fails)
+  660/2413 bars · cash $106142 · 18 closed · 660 LLM calls (46 fails)
+  700/2413 bars · cash $106142 · 18 closed · 700 LLM calls (49 fails)
+  720/2413 bars · cash $106142 · 18 closed · 720 LLM calls (49 fails)
+  740/2413 bars · cash $108392 · 19 closed · 740 LLM calls (49 fails)
+  760/2413 bars · cash $108028 · 21 closed · 760 LLM calls (51 fails)
+  780/2413 bars · cash $108209 · 22 closed · 780 LLM calls (53 fails)
+  800/2413 bars · cash $108209 · 22 closed · 800 LLM calls (53 fails)
+  820/2413 bars · cash $108209 · 22 closed · 820 LLM calls (53 fails)
+  840/2413 bars · cash $108209 · 22 closed · 840 LLM calls (53 fails)
+  860/2413 bars · cash $108209 · 22 closed · 860 LLM calls (53 fails)
+  880/2413 bars · cash $108209 · 22 closed · 880 LLM calls (53 fails)
+  900/2413 bars · cash $108209 · 22 closed · 900 LLM calls (54 fails)
+  940/2413 bars · cash $107983 · 23 closed · 940 LLM calls (61 fails)
+  960/2413 bars · cash $107983 · 23 closed · 960 LLM calls (64 fails)
+  980/2413 bars · cash $107983 · 23 closed · 980 LLM calls (64 fails)
+  1000/2413 bars · cash $107983 · 23 closed · 1000 LLM calls (66 fails)
+  1020/2413 bars · cash $109921 · 25 closed · 1020 LLM calls (67 fails)
+  1040/2413 bars · cash $109921 · 25 closed · 1040 LLM calls (67 fails)
+  1060/2413 bars · cash $108622 · 29 closed · 1060 LLM calls (68 fails)
+  1080/2413 bars · cash $108240 · 31 closed · 1080 LLM calls (71 fails)
+  1100/2413 bars · cash $108240 · 31 closed · 1100 LLM calls (71 fails)
+  1120/2413 bars · cash $108240 · 31 closed · 1120 LLM calls (71 fails)
+  1140/2413 bars · cash $108240 · 31 closed · 1140 LLM calls (72 fails)
+  1160/2413 bars · cash $108240 · 31 closed · 1160 LLM calls (72 fails)
+  1180/2413 bars · cash $108240 · 31 closed · 1180 LLM calls (72 fails)
+  1200/2413 bars · cash $108240 · 31 closed · 1200 LLM calls (72 fails)
+  1220/2413 bars · cash $108240 · 31 closed · 1220 LLM calls (72 fails)
+  1240/2413 bars · cash $107880 · 32 closed · 1240 LLM calls (76 fails)
+  1260/2413 bars · cash $107670 · 33 closed · 1260 LLM calls (77 fails)
+  1280/2413 bars · cash $107604 · 34 closed · 1280 LLM calls (77 fails)
+  1320/2413 bars · cash $107604 · 34 closed · 1320 LLM calls (80 fails)
+  1340/2413 bars · cash $107604 · 34 closed · 1340 LLM calls (81 fails)
+  1360/2413 bars · cash $108435 · 35 closed · 1360 LLM calls (82 fails)
+  1380/2413 bars · cash $108068 · 37 closed · 1380 LLM calls (84 fails)
+  1400/2413 bars · cash $108068 · 37 closed · 1400 LLM calls (85 fails)
+  1420/2413 bars · cash $108068 · 37 closed · 1420 LLM calls (85 fails)
+  1440/2413 bars · cash $108068 · 37 closed · 1440 LLM calls (90 fails)
+  1460/2413 bars · cash $108068 · 37 closed · 1460 LLM calls (91 fails)
+  1480/2413 bars · cash $108068 · 37 closed · 1480 LLM calls (92 fails)
+  1520/2413 bars · cash $108068 · 37 closed · 1520 LLM calls (94 fails)
+  1540/2413 bars · cash $108068 · 37 closed · 1540 LLM calls (94 fails)
+  1580/2413 bars · cash $107318 · 38 closed · 1580 LLM calls (99 fails)
+  1600/2413 bars · cash $107318 · 38 closed · 1600 LLM calls (99 fails)
+  1620/2413 bars · cash $107318 · 38 closed · 1620 LLM calls (99 fails)
+  1640/2413 bars · cash $106919 · 40 closed · 1640 LLM calls (104 fails)
+  Reached maxTrades=40 at bar 1640/2413 — stopping early.
+
+===== Backtest complete =====
+Trades         : 40
+Win rate       : 25.0%
+Total P&L      : $6919 (6.92%)
+Max drawdown   : 3.01%
+Avg hold       : 28.9 bars
+LLM calls      : 1640 (104 fails)
+
+Trade log (last 15):
+  2026-04-02 00:00 → 2026-04-02 11:00  long  $-445  -0.59R   HH→HH  22b  llm_exit
+    entry: HH regime (D1 structure + close 2.28% above SMA20) + 3-bar bullish momentum +0.33% into upper half of 20-bar range (4741 vs 4671-4762) + last 3 bars show consecutive closes higher with higher highs (4
+    exit : D1 HH regime intact but 30m shows LH structure (sweep 4799 HH → close 4699 below 10:30 low 4785 = bearish BOS). 3-bar momentum -1.79% confirms downside acceleration. Position down 0.89% (near SL 4670 
+  2026-04-02 13:00 → 2026-04-02 14:00  long  $-299  -0.40R   HH→HH  2b  llm_exit
+    entry: HH regime + close above SMA20 (4694 > 4645) + 13:00 bar is bullish reversal (L4677 = recent swing low from 12:30, close 4694 > 4688 open) into lower half of 20-bar range; 3-bar mom weak but EU session
+    exit : D1 HH regime intact but 30m structure flipped to LH (13:00 high 4700 > 13:30 high 4694 > 14:00 high 4680). Three consecutive lower highs + 3-bar momentum -0.47% = bearish regime on your timeframe. Pos
+  2026-04-02 15:30 → 2026-04-02 17:00  short  $-295  -0.39R   HH→HH  3b  llm_exit
+    entry: LH regime (recent swing high 4799 unmatched, current 4676 lower), 15:30 bar closes at 4594 (sweep of 20-bar low 4579 + break below prior support), strong bearish momentum (-1.53% on 3-bar), EU session
+    exit : D1 HH regime + price 0.66% above SMA20 at session high + 3-bar bullish momentum +0.59% + last 2 bars higher lows (4585→4598) = regime conflict. SHORT thesis broken; exit at 4621 close.
+  2026-04-02 17:30 → 2026-04-02 18:30  long  $-260  -0.35R   HH→HH  2b  llm_exit
+    entry: HH regime (D1 + 3-bar +1.18% momentum); price 4644 retesting upper half of 20-bar range (4555-4799) after three consecutive bullish bars; close above SMA20 (4645); US session (17:30 UTC) = peak liquid
+    exit : D1 structure remains HH (close above SMA20 confirms), but 30m momentum has turned decisively bearish: 3-bar downtrend (-0.04% momentum, 3 consecutive lower closes 4644→4634→4620). Price now breaks bel
+  2026-04-02 20:30 → 2026-04-02 21:30  long  $-253  -0.34R   HH→HH  2b  llm_exit
+    entry: HH regime (D1) + close above SMA20 + 20:30 bar closes bullish off 20:00 low (swing low retest + reversal candle) + 3-bar mom positive; US session (20:30 UTC) open continuation with overnight structure
+    exit : D1 HH regime intact, but 30m shows 3-bar bearish momentum (-0.38%), price broke below 20-bar mid (4629.5) and retested lower. Last 3 bars: lower highs (4632→4630→4619) + lower lows (4614→4618→4595) = 
+  2026-04-03 00:00 → 2026-04-03 02:00  long  $-129  -0.17R   HH→HH  4b  llm_exit
+    entry: HH regime (D1 structure) + 3-bar bullish momentum +1.33% into upper half of 20-bar range (4664 vs 4618 midpoint) + last 2 bars close near highs with higher lows (4645→4664) = scalp-grade long trigger;
+    exit : 3-bar momentum is -0.77% (bearish); price has broken below 30m SMA20 (4627) and is now testing lower half of 20-bar range (1.6% from lo). D1 HH regime is intact, but on 30m the structure has rolled in
+  2026-04-03 04:30 → 2026-04-06 07:00  long  $-360  -0.48R  ↻HH→RANGING  149b  llm_exit
+    entry: HH regime + close 1.06% above SMA20 (bullish bias); 3-bar momentum +0.38% off recent swing low (4649) with consecutive up closes (04:00, 04:30); price in upper half of 20-bar range (4670 vs 4579–4696)
+    exit : D1 RANGING regime + 3-bar momentum -0.85% into lower half of 20-bar range (4619 touched) = structural thesis broken; price rejected at SMA20 (4637 vs 4576 = only +1.0% buffer); exit at this bar's clos
+  2026-04-06 16:30 → 2026-04-06 21:00  long  $-209  -0.28R   RANGING→RANGING  9b  llm_exit
+    entry: D1 RANGING but price +1.61% above SMA20 (4650 vs 4576) = upper-half bias; 30m shows 3-bar momentum +0.63% off 4650 low, sweep + immediate retest into 20-bar range upper extreme (4687 = 0.0% from hi); 
+    exit : D1 RANGING regime + 3-bar momentum -0.51% (bearish) + close (4666) now below 30m SMA20 (~4680) + price testing lower half of 20-bar range (4625-4706) = structural thesis break for long. Exit at market
+  2026-04-07 07:00 → 2026-04-07 08:00  long  $-66  -0.09R   RANGING→RANGING  2b  llm_exit
+    entry: D1 RANGING but price +3% above SMA20 in upper half; 30m shows 3-bar +0.26% momentum off 4650 swing low (sweep + bullish continuation into range); EU session open with intact bullish micro-structure; D
+    exit : D1 RANGING regime + last 3 bars show bearish momentum (LLs at 4650→4657→4654, closes progressively lower). You're long into a structural breakdown within the range; no HH confirmation yet. Exit at mar
+  2026-04-08 01:00 → 2026-04-08 23:30  long  $831  +1.11R   HH→HH  45b  llm_exit
+    entry: HH regime + 3-bar bullish momentum +0.62% off recent structure low (4627 at 00:00) + close 4662 above SMA20 + DXY weak (-0.48% 7d) + VIX collapse is safe-haven relief → scalp long setup valid. Price 1
+    exit : D1 HH regime intact but 30m shows LH (3 consecutive lower highs: 4792→4791→4772) + 3-bar momentum -1.08% + price at 20-bar range low (0.1% from 4736) = regime flip to bearish on 30m. Exit long at curr
+  2026-04-09 04:30 → 2026-04-09 08:00  long  $-204  -0.27R   HH→HH  7b  llm_exit
+    entry: HH regime + 3-bar bullish momentum (+0.17%) off recent 04:00 low (4700) into upper half of 20-bar range (4700-4806); DXY weakening (-0.56% 24h) is tailwind; Asia session but structure is clean—sweep o
+    exit : 3-bar momentum is -0.40% (lower lows + lower highs into range low); you're holding long into bearish momentum at range midpoint with no structural support below. Regime is HH but scalp thesis is broke
+  2026-04-09 10:30 → 2026-04-09 12:00  long  $-163  -0.22R   HH→HH  3b  llm_exit
+    entry: HH regime (D1 structure) + 30m close 4728 at upper edge of 20-bar range (0.8% from hi) + 3-bar bullish momentum +0.40% + last bar is bullish reversal (10:00 low 4696 swept, 10:30 closes upper half) + 
+    exit : D1 HH regime intact, but 30m shows 3-bar bearish momentum -0.33% into lower half of 20-bar range (4712 vs 4696-4754 mid 4725); price below SMA20 confluence; DXY flat/slightly positive is headwind; VIX
+  2026-04-09 13:30 → 2026-04-13 07:00  long  $-750  -1.00R  ↻HH→RANGING  179b  stop_loss
+    entry: HH regime + 3-bar bullish momentum +0.21% into upper half of 20-bar range (4722 vs 4696-4733 mid ~4715); price 3bp below 30m swing high 4725 with consecutive higher closes 13:00→13:30; EU session acti
+    exit : (price exit — SL/TP fill)
+  2026-04-14 14:30 → 2026-04-14 17:00  short  $-260  -0.35R   LH→LH  5b  llm_exit
+    entry: LH regime (D1 structure) + 3-bar bearish momentum (-0.32%) + rally into upper half of 20-bar range (4761 vs 4738-4777 mid ~4757) + DXY falling hard (-1.99% 7d) is minor headwind but VIX down 4.0% = ri
+    exit : D1 LH regime intact BUT 30m shows 3-bar bullish momentum (+0.08%) + close 4786 now 0.2% below 20-bar hi (4797), price holding in upper half of range. More critically: DXY -1.80% 7d + VIX down 4.0% sig
+  2026-04-14 19:30 → 2026-04-14 22:00  short  $-140  -0.19R   LH→LH  5b  llm_exit
+    entry: LH regime (D1 primary) + 3-bar negative momentum (-0.23%) + latest bar closes below 19:00 high (4770 < 4784) = bearish continuation setup; DXY falling is headwind but VIX compression + silver outperfo
+    exit : D1 structure is LH (bearish regime valid for short), but close at 4842 is +3.86% above SMA20 (4662)—a massive bullish divergence. Last 3 bars show strong 2-bar bullish momentum (+0.11% 3-bar, two cons
+
+Decision distribution:
+  hold           1464 (95.3%)
+  enter_long     22 (1.4%)
+  exit           31 (2.0%)
+  enter_short    19 (1.2%)
+
+Per-regime trade stats (entry-regime):
+  regime    trades  WR      mean_R   $pnl      long(W/T)   short(W/T)  
+  HH        20      20%     -0.06    $-938     4/19        0/1         
+  LH        18      33%     0.60     $8132     0/0         6/18        
+  RANGING   2       0%      -0.18    $-276     0/2         0/0         
+
+Regime-flip cohort (did regime change between entry and exit?):
+  cohort          trades  WR      mean_R   $pnl      
+  flipped         4       50%     0.43     $1290     
+  not_flipped     36      22%     0.21     $5629     
+
+LLM decisions per regime (does the regime hierarchy hold?):
+  regime    enter_long  enter_short  hold    exit    
+  RANGING   2           0            466     3       
+  HH        20          1            406     16      
+  LH        0           18           592     12      
+
+Decision audit trail: scripts/llm-trader-decisions-anthropic-30m-60d-v3.jsonl (1536 entries)
+Trade log: scripts/llm-trader-trades-anthropic-30m-60d-v3.jsonl (40 entries)

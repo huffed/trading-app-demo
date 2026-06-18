@@ -1,0 +1,37 @@
+Loading XAU/USD 30m corpus (fetched at 15min, resampled to 30m)...
+  30m corpus: 2499 bars (2026-03-11 → 2026-05-02)
+  daily corpus: 5000 bars
+Loading EUR/USD 4h proxy...
+  EUR/USD 4h: 5000 bars
+Loading intermarket series (silver / yields / VIX)...
+[prices] Twelve Data failed for XAG/USD: This symbol is available starting with the Grow or Venture plan. Consider upgrading now at https://twelvedata.com/pricing
+[prices] Twelve Data failed for ^TNX: **symbol** or **figi** parameter is missing or invalid. Please provide a valid symbol according to API documentation: https://twelvedata.com/docs#reference-data
+[prices] Twelve Data failed for ^VIX: **symbol** or **figi** parameter is missing or invalid. Please provide a valid symbol according to API documentation: https://twelvedata.com/docs#reference-data
+  silver: 1258 bars · 10Y yield: 1256 bars · VIX: 1256 bars
+
+Window: 2026-04-30 − 60d · est ~1526K tokens (Groq free 100K/day, Dev 6M/day)
+Provider: anthropic (model: claude-haiku-4-5-20251001)
+Prompt:   v3
+
+  News calendar: 1239 events for window
+Replaying 2414 30m bars (2026-04-30 − 60d: 2026-03-11 → 2026-05-01)...
+  60/2414 bars · cash $99708 · 2 closed · 60 LLM calls (8 fails)
+  80/2414 bars · cash $99858 · 3 closed · 80 LLM calls (8 fails)
+  100/2414 bars · cash $99858 · 3 closed · 100 LLM calls (11 fails)
+  120/2414 bars · cash $99858 · 3 closed · 120 LLM calls (11 fails)
+  140/2414 bars · cash $99858 · 3 closed · 140 LLM calls (11 fails)
+  160/2414 bars · cash $99858 · 3 closed · 160 LLM calls (11 fails)
+  180/2414 bars · cash $99858 · 3 closed · 180 LLM calls (11 fails)
+  200/2414 bars · cash $99858 · 3 closed · 200 LLM calls (11 fails)
+  220/2414 bars · cash $99858 · 3 closed · 220 LLM calls (12 fails)
+  240/2414 bars · cash $100942 · 5 closed · 240 LLM calls (13 fails)
+  280/2414 bars · cash $100833 · 6 closed · 280 LLM calls (17 fails)
+  320/2414 bars · cash $100831 · 8 closed · 320 LLM calls (24 fails)
+  340/2414 bars · cash $100831 · 8 closed · 340 LLM calls (26 fails)
+  360/2414 bars · cash $101905 · 9 closed · 360 LLM calls (31 fails)
+  380/2414 bars · cash $101905 · 9 closed · 380 LLM calls (33 fails)
+  400/2414 bars · cash $104155 · 10 closed · 400 LLM calls (33 fails)
+  420/2414 bars · cash $103405 · 11 closed · 420 LLM calls (39 fails)
+  440/2414 bars · cash $103405 · 11 closed · 440 LLM calls (41 fails)
+  460/2414 bars · cash $105655 · 12 closed · 460 LLM calls (42 fails)
+  480/2414 bars · cash $105655 · 12 closed · 480 LLM calls (44 fails)

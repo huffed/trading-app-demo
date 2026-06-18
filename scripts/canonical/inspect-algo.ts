@@ -14,11 +14,11 @@
  */
 import { readFileSync } from "fs";
 import { createClient } from "@supabase/supabase-js";
-import { runPortfolioBacktest } from "../src/lib/market-data/portfolio-backtest";
-import { fetchDailyPrices } from "../src/lib/market-data/prices";
-import { timeframeToInterval, type BarInterval } from "../src/lib/market-data/interval";
-import type { BacktestMetrics, BacktestTrade, PriceBar } from "../src/lib/market-data/types";
-import type { AlgorithmRules } from "../src/types/algorithm";
+import { runPortfolioBacktest } from "../../src/lib/market-data/portfolio-backtest";
+import { fetchDailyPrices } from "../../src/lib/market-data/prices";
+import { timeframeToInterval, type BarInterval } from "../../src/lib/market-data/interval";
+import type { BacktestMetrics, BacktestTrade, PriceBar } from "../../src/lib/market-data/types";
+import type { AlgorithmRules } from "../../src/types/algorithm";
 
 // Manual env loader.
 {

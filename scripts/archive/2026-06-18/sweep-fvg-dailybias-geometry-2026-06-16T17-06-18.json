@@ -1,0 +1,499 @@
+{
+  "cells": [
+    {
+      "rr": 2,
+      "lookback": 3,
+      "windows": 58,
+      "windows_with_trades": 30,
+      "green_pct": 73.3,
+      "trades": 126,
+      "total_ret": 30956,
+      "worst_dd": 3.33,
+      "dd_breaches_gt5": 0,
+      "per_year": {
+        "2020": {
+          "trades": 14,
+          "return": 2346,
+          "green_pct": 100,
+          "windows": 3
+        },
+        "2021": {
+          "trades": 27,
+          "return": 1901,
+          "green_pct": 50,
+          "windows": 6
+        },
+        "2022": {
+          "trades": 20,
+          "return": 9629,
+          "green_pct": 67,
+          "windows": 6
+        },
+        "2023": {
+          "trades": 12,
+          "return": 5299,
+          "green_pct": 100,
+          "windows": 4
+        },
+        "2024": {
+          "trades": 16,
+          "return": 4693,
+          "green_pct": 60,
+          "windows": 5
+        },
+        "2025": {
+          "trades": 19,
+          "return": 4621,
+          "green_pct": 75,
+          "windows": 4
+        },
+        "2026": {
+          "trades": 18,
+          "return": 2467,
+          "green_pct": 100,
+          "windows": 2
+        }
+      }
+    },
+    {
+      "rr": 2,
+      "lookback": 4,
+      "windows": 58,
+      "windows_with_trades": 30,
+      "green_pct": 73.3,
+      "trades": 124,
+      "total_ret": 32372,
+      "worst_dd": 3.34,
+      "dd_breaches_gt5": 0,
+      "per_year": {
+        "2020": {
+          "trades": 14,
+          "return": 2293,
+          "green_pct": 100,
+          "windows": 3
+        },
+        "2021": {
+          "trades": 26,
+          "return": 2436,
+          "green_pct": 50,
+          "windows": 6
+        },
+        "2022": {
+          "trades": 20,
+          "return": 9667,
+          "green_pct": 67,
+          "windows": 6
+        },
+        "2023": {
+          "trades": 12,
+          "return": 5645,
+          "green_pct": 100,
+          "windows": 4
+        },
+        "2024": {
+          "trades": 15,
+          "return": 5266,
+          "green_pct": 60,
+          "windows": 5
+        },
+        "2025": {
+          "trades": 19,
+          "return": 4613,
+          "green_pct": 75,
+          "windows": 4
+        },
+        "2026": {
+          "trades": 18,
+          "return": 2451,
+          "green_pct": 100,
+          "windows": 2
+        }
+      }
+    },
+    {
+      "rr": 2,
+      "lookback": 6,
+      "windows": 58,
+      "windows_with_trades": 30,
+      "green_pct": 80,
+      "trades": 115,
+      "total_ret": 28562,
+      "worst_dd": 3.34,
+      "dd_breaches_gt5": 0,
+      "per_year": {
+        "2020": {
+          "trades": 14,
+          "return": 2344,
+          "green_pct": 100,
+          "windows": 3
+        },
+        "2021": {
+          "trades": 23,
+          "return": 748,
+          "green_pct": 67,
+          "windows": 6
+        },
+        "2022": {
+          "trades": 20,
+          "return": 9692,
+          "green_pct": 67,
+          "windows": 6
+        },
+        "2023": {
+          "trades": 9,
+          "return": 3513,
+          "green_pct": 100,
+          "windows": 4
+        },
+        "2024": {
+          "trades": 15,
+          "return": 5253,
+          "green_pct": 80,
+          "windows": 5
+        },
+        "2025": {
+          "trades": 16,
+          "return": 4541,
+          "green_pct": 75,
+          "windows": 4
+        },
+        "2026": {
+          "trades": 18,
+          "return": 2472,
+          "green_pct": 100,
+          "windows": 2
+        }
+      }
+    },
+    {
+      "rr": 3,
+      "lookback": 3,
+      "windows": 58,
+      "windows_with_trades": 30,
+      "green_pct": 60,
+      "trades": 96,
+      "total_ret": 24026,
+      "worst_dd": 2.93,
+      "dd_breaches_gt5": 0,
+      "per_year": {
+        "2020": {
+          "trades": 13,
+          "return": 1760,
+          "green_pct": 67,
+          "windows": 3
+        },
+        "2021": {
+          "trades": 22,
+          "return": -5695,
+          "green_pct": 33,
+          "windows": 6
+        },
+        "2022": {
+          "trades": 17,
+          "return": 11490,
+          "green_pct": 67,
+          "windows": 6
+        },
+        "2023": {
+          "trades": 9,
+          "return": 4144,
+          "green_pct": 75,
+          "windows": 4
+        },
+        "2024": {
+          "trades": 14,
+          "return": 5976,
+          "green_pct": 60,
+          "windows": 5
+        },
+        "2025": {
+          "trades": 11,
+          "return": 239,
+          "green_pct": 50,
+          "windows": 4
+        },
+        "2026": {
+          "trades": 10,
+          "return": 6113,
+          "green_pct": 100,
+          "windows": 2
+        }
+      }
+    },
+    {
+      "rr": 3,
+      "lookback": 4,
+      "windows": 58,
+      "windows_with_trades": 30,
+      "green_pct": 56.7,
+      "trades": 94,
+      "total_ret": 22841,
+      "worst_dd": 2.93,
+      "dd_breaches_gt5": 0,
+      "per_year": {
+        "2020": {
+          "trades": 12,
+          "return": 2310,
+          "green_pct": 67,
+          "windows": 3
+        },
+        "2021": {
+          "trades": 20,
+          "return": -6883,
+          "green_pct": 17,
+          "windows": 6
+        },
+        "2022": {
+          "trades": 19,
+          "return": 12712,
+          "green_pct": 67,
+          "windows": 6
+        },
+        "2023": {
+          "trades": 9,
+          "return": 4159,
+          "green_pct": 75,
+          "windows": 4
+        },
+        "2024": {
+          "trades": 13,
+          "return": 4204,
+          "green_pct": 60,
+          "windows": 5
+        },
+        "2025": {
+          "trades": 11,
+          "return": 233,
+          "green_pct": 50,
+          "windows": 4
+        },
+        "2026": {
+          "trades": 10,
+          "return": 6105,
+          "green_pct": 100,
+          "windows": 2
+        }
+      }
+    },
+    {
+      "rr": 3,
+      "lookback": 6,
+      "windows": 58,
+      "windows_with_trades": 30,
+      "green_pct": 60,
+      "trades": 87,
+      "total_ret": 19875,
+      "worst_dd": 2.92,
+      "dd_breaches_gt5": 0,
+      "per_year": {
+        "2020": {
+          "trades": 10,
+          "return": 3527,
+          "green_pct": 67,
+          "windows": 3
+        },
+        "2021": {
+          "trades": 19,
+          "return": -6278,
+          "green_pct": 33,
+          "windows": 6
+        },
+        "2022": {
+          "trades": 17,
+          "return": 11521,
+          "green_pct": 67,
+          "windows": 6
+        },
+        "2023": {
+          "trades": 9,
+          "return": 4095,
+          "green_pct": 75,
+          "windows": 4
+        },
+        "2024": {
+          "trades": 12,
+          "return": 2342,
+          "green_pct": 60,
+          "windows": 5
+        },
+        "2025": {
+          "trades": 10,
+          "return": 894,
+          "green_pct": 50,
+          "windows": 4
+        },
+        "2026": {
+          "trades": 10,
+          "return": 3776,
+          "green_pct": 100,
+          "windows": 2
+        }
+      }
+    },
+    {
+      "rr": 5,
+      "lookback": 3,
+      "windows": 58,
+      "windows_with_trades": 29,
+      "green_pct": 51.7,
+      "trades": 75,
+      "total_ret": 19619,
+      "worst_dd": 2.93,
+      "dd_breaches_gt5": 0,
+      "per_year": {
+        "2020": {
+          "trades": 7,
+          "return": 2981,
+          "green_pct": 67,
+          "windows": 3
+        },
+        "2021": {
+          "trades": 19,
+          "return": -3912,
+          "green_pct": 33,
+          "windows": 6
+        },
+        "2022": {
+          "trades": 12,
+          "return": 10739,
+          "green_pct": 60,
+          "windows": 5
+        },
+        "2023": {
+          "trades": 12,
+          "return": 7122,
+          "green_pct": 75,
+          "windows": 4
+        },
+        "2024": {
+          "trades": 11,
+          "return": 589,
+          "green_pct": 40,
+          "windows": 5
+        },
+        "2025": {
+          "trades": 7,
+          "return": -775,
+          "green_pct": 25,
+          "windows": 4
+        },
+        "2026": {
+          "trades": 7,
+          "return": 2876,
+          "green_pct": 100,
+          "windows": 2
+        }
+      }
+    },
+    {
+      "rr": 5,
+      "lookback": 4,
+      "windows": 58,
+      "windows_with_trades": 29,
+      "green_pct": 51.7,
+      "trades": 69,
+      "total_ret": 15889,
+      "worst_dd": 2.93,
+      "dd_breaches_gt5": 0,
+      "per_year": {
+        "2020": {
+          "trades": 6,
+          "return": 3543,
+          "green_pct": 67,
+          "windows": 3
+        },
+        "2021": {
+          "trades": 18,
+          "return": -3322,
+          "green_pct": 33,
+          "windows": 6
+        },
+        "2022": {
+          "trades": 10,
+          "return": 8292,
+          "green_pct": 60,
+          "windows": 5
+        },
+        "2023": {
+          "trades": 10,
+          "return": 4692,
+          "green_pct": 75,
+          "windows": 4
+        },
+        "2024": {
+          "trades": 11,
+          "return": 589,
+          "green_pct": 40,
+          "windows": 5
+        },
+        "2025": {
+          "trades": 7,
+          "return": -780,
+          "green_pct": 25,
+          "windows": 4
+        },
+        "2026": {
+          "trades": 7,
+          "return": 2876,
+          "green_pct": 100,
+          "windows": 2
+        }
+      }
+    },
+    {
+      "rr": 5,
+      "lookback": 6,
+      "windows": 58,
+      "windows_with_trades": 29,
+      "green_pct": 51.7,
+      "trades": 63,
+      "total_ret": 19525,
+      "worst_dd": 2.92,
+      "dd_breaches_gt5": 0,
+      "per_year": {
+        "2020": {
+          "trades": 4,
+          "return": 4764,
+          "green_pct": 67,
+          "windows": 3
+        },
+        "2021": {
+          "trades": 17,
+          "return": -2716,
+          "green_pct": 33,
+          "windows": 6
+        },
+        "2022": {
+          "trades": 10,
+          "return": 8335,
+          "green_pct": 60,
+          "windows": 5
+        },
+        "2023": {
+          "trades": 9,
+          "return": 5312,
+          "green_pct": 75,
+          "windows": 4
+        },
+        "2024": {
+          "trades": 10,
+          "return": 1143,
+          "green_pct": 40,
+          "windows": 5
+        },
+        "2025": {
+          "trades": 6,
+          "return": -184,
+          "green_pct": 25,
+          "windows": 4
+        },
+        "2026": {
+          "trades": 7,
+          "return": 2870,
+          "green_pct": 100,
+          "windows": 2
+        }
+      }
+    }
+  ]
+}

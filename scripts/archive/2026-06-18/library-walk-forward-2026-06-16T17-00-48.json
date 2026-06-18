@@ -1,0 +1,78 @@
+{
+  "window_days": 40,
+  "step_days": 40,
+  "capital": 100000,
+  "candidates": [
+    {
+      "key": "fvg_long",
+      "rules": {
+        "entry_conditions": [
+          {
+            "type": "pattern",
+            "pattern": "fvg",
+            "direction": "bullish",
+            "timeframe": "30m"
+          },
+          {
+            "type": "pattern",
+            "pattern": "daily_bias",
+            "direction": "bullish",
+            "ma_period": 20,
+            "timeframe": "30m"
+          }
+        ],
+        "exit_conditions": [],
+        "stop_loss": {
+          "type": "swing_anchor",
+          "value": 0.1,
+          "lookback": 4
+        },
+        "take_profit": {
+          "type": "rr_multiple",
+          "value": 3
+        },
+        "position_sizing": {
+          "type": "risk_per_trade",
+          "value": 0.6
+        },
+        "max_positions": 1,
+        "leverage": 9,
+        "timeframe": "30m",
+        "asset_class": "commodity",
+        "side": "long",
+        "stagnant_exit": {
+          "enabled": true
+        },
+        "market_state_gate": {
+          "mode": "block_joint",
+          "states": {
+            "range": [
+              "compressed"
+            ],
+            "entry_zone": [
+              "discount"
+            ],
+            "entry_hour_bucket": [
+              "london(7-13)"
+            ]
+          },
+          "on_unreadable": "allow"
+        }
+      }
+    }
+  ],
+  "reports": [
+    {
+      "candidate": "fvg_long",
+      "variant": "ungated",
+      "windows": 4,
+      "windows_with_trades": 3,
+      "green_of_traded_pct": 66.66666666666666,
+      "total_trades": 37,
+      "total_return": 6388,
+      "mean_return": 1597,
+      "worst_dd": 3.36,
+      "dd_breaches_gt5": 0
+    }
+  ]
+}

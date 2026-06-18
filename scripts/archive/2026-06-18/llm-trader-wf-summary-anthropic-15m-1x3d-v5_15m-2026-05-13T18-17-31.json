@@ -1,0 +1,72 @@
+{
+  "provider": "anthropic",
+  "model": "claude-haiku-4-5-20251001",
+  "prompt_version": "v5_15m",
+  "timeframe": "15m",
+  "window_days": 3,
+  "window_count": 1,
+  "end_date": "2026-05-13",
+  "capital": 100000,
+  "aggregate": {
+    "windows": 1,
+    "green_windows": 0,
+    "green_pct": 0,
+    "total_trades": 0,
+    "mean_win_rate_pct": 0,
+    "median_win_rate_pct": 0,
+    "total_return": 0,
+    "mean_return_per_window": 0,
+    "max_drawdown_across_windows": 0,
+    "total_llm_calls": 275,
+    "total_llm_failures": 0
+  },
+  "per_window": [
+    {
+      "window_label": "2026-05-13 − 3d",
+      "start_date": "2026-05-10 21:00:00",
+      "end_date": "2026-05-13 17:30:00",
+      "num_bars": 275,
+      "trades": 0,
+      "wins": 0,
+      "return_usd": 0,
+      "max_drawdown_pct": 0,
+      "llm_calls": 275,
+      "llm_failures": 0,
+      "gate_refusals": {
+        "atr_liquidity": 0,
+        "news_veto": 0,
+        "consec_loss_halt": 0,
+        "ftmo_consistency_halt": 0,
+        "stagnant_exits": 0,
+        "ranging_regime": 0
+      }
+    }
+  ],
+  "aggregate_gate_refusals": {
+    "atr_liquidity": 0,
+    "news_veto": 0,
+    "consec_loss_halt": 0,
+    "ftmo_consistency_halt": 0,
+    "stagnant_exits": 0
+  },
+  "by_regime": [],
+  "flip_cohort": {
+    "flipped": {
+      "count": 0,
+      "wins": 0,
+      "mean_r": 0,
+      "sum_pnl": 0
+    },
+    "not_flipped": {
+      "count": 0,
+      "wins": 0,
+      "mean_r": 0,
+      "sum_pnl": 0
+    }
+  },
+  "decisions_by_regime": {
+    "RANGING": {
+      "hold": 275
+    }
+  }
+}

@@ -1,0 +1,225 @@
+{
+  "baseline_key": "B0_fvg+bias",
+  "results": [
+    {
+      "ticker": "XAU/USD",
+      "key": "B0_fvg+bias",
+      "description": "BASELINE: fvg + daily_bias (current FVG-DailyBias-Long 4h)",
+      "n": 141,
+      "win_pct": 46.1,
+      "mean_r": 0.38,
+      "total_r": 53.5,
+      "total_dollars": 32120,
+      "dd_pct": 4.15
+    },
+    {
+      "ticker": "XAU/USD",
+      "key": "B1_fvg+bias+eql",
+      "description": "TRIPLE: fvg + daily_bias + equal_levels (audit #228 main test)",
+      "n": 27,
+      "win_pct": 48.1,
+      "mean_r": 0.435,
+      "total_r": 11.8,
+      "total_dollars": 7051,
+      "dd_pct": 2.39
+    },
+    {
+      "ticker": "XAU/USD",
+      "key": "B2_fvg+bias+reclaim",
+      "description": "TRIPLE: fvg + daily_bias + liquidity_sweep_reclaim",
+      "n": 16,
+      "win_pct": 31.3,
+      "mean_r": -0.061,
+      "total_r": -1,
+      "total_dollars": -583,
+      "dd_pct": 2.82
+    },
+    {
+      "ticker": "XAU/USD",
+      "key": "B3_quad",
+      "description": "QUAD: fvg + daily_bias + sweep_reclaim + equal_levels",
+      "n": 6,
+      "win_pct": 16.7,
+      "mean_r": -0.484,
+      "total_r": -2.9,
+      "total_dollars": -1741,
+      "dd_pct": 2.31
+    },
+    {
+      "ticker": "XAU/USD",
+      "key": "B4_fvg+eql",
+      "description": "PAIR: fvg + equal_levels (without daily_bias)",
+      "n": 52,
+      "win_pct": 46.2,
+      "mean_r": 0.372,
+      "total_r": 19.3,
+      "total_dollars": 11591,
+      "dd_pct": 1.9
+    },
+    {
+      "ticker": "EUR/USD",
+      "key": "B0_fvg+bias",
+      "description": "BASELINE: fvg + daily_bias (current FVG-DailyBias-Long 4h)",
+      "n": 238,
+      "win_pct": 44.5,
+      "mean_r": 0.297,
+      "total_r": 70.8,
+      "total_dollars": 42457,
+      "dd_pct": 8.4
+    },
+    {
+      "ticker": "EUR/USD",
+      "key": "B1_fvg+bias+eql",
+      "description": "TRIPLE: fvg + daily_bias + equal_levels (audit #228 main test)",
+      "n": 82,
+      "win_pct": 45.1,
+      "mean_r": 0.307,
+      "total_r": 25.2,
+      "total_dollars": 15121,
+      "dd_pct": 2.04
+    },
+    {
+      "ticker": "EUR/USD",
+      "key": "B2_fvg+bias+reclaim",
+      "description": "TRIPLE: fvg + daily_bias + liquidity_sweep_reclaim",
+      "n": 14,
+      "win_pct": 28.6,
+      "mean_r": -0.19,
+      "total_r": -2.7,
+      "total_dollars": -1593,
+      "dd_pct": 2.5
+    },
+    {
+      "ticker": "EUR/USD",
+      "key": "B3_quad",
+      "description": "QUAD: fvg + daily_bias + sweep_reclaim + equal_levels",
+      "n": 5,
+      "win_pct": 40,
+      "mean_r": 0.154,
+      "total_r": 0.8,
+      "total_dollars": 461,
+      "dd_pct": 1.25
+    },
+    {
+      "ticker": "EUR/USD",
+      "key": "B4_fvg+eql",
+      "description": "PAIR: fvg + equal_levels (without daily_bias)",
+      "n": 191,
+      "win_pct": 42.4,
+      "mean_r": 0.227,
+      "total_r": 43.4,
+      "total_dollars": 26025,
+      "dd_pct": 8.17
+    },
+    {
+      "ticker": "GBP/USD",
+      "key": "B0_fvg+bias",
+      "description": "BASELINE: fvg + daily_bias (current FVG-DailyBias-Long 4h)",
+      "n": 236,
+      "win_pct": 43.6,
+      "mean_r": 0.267,
+      "total_r": 62.9,
+      "total_dollars": 37743,
+      "dd_pct": 6.31
+    },
+    {
+      "ticker": "GBP/USD",
+      "key": "B1_fvg+bias+eql",
+      "description": "TRIPLE: fvg + daily_bias + equal_levels (audit #228 main test)",
+      "n": 76,
+      "win_pct": 38.2,
+      "mean_r": 0.104,
+      "total_r": 7.9,
+      "total_dollars": 4755,
+      "dd_pct": 4.33
+    },
+    {
+      "ticker": "GBP/USD",
+      "key": "B2_fvg+bias+reclaim",
+      "description": "TRIPLE: fvg + daily_bias + liquidity_sweep_reclaim",
+      "n": 23,
+      "win_pct": 65.2,
+      "mean_r": 0.912,
+      "total_r": 21,
+      "total_dollars": 12585,
+      "dd_pct": 1.25
+    },
+    {
+      "ticker": "GBP/USD",
+      "key": "B3_quad",
+      "description": "QUAD: fvg + daily_bias + sweep_reclaim + equal_levels",
+      "n": 11,
+      "win_pct": 63.6,
+      "mean_r": 0.864,
+      "total_r": 9.5,
+      "total_dollars": 5703,
+      "dd_pct": 1.25
+    },
+    {
+      "ticker": "GBP/USD",
+      "key": "B4_fvg+eql",
+      "description": "PAIR: fvg + equal_levels (without daily_bias)",
+      "n": 158,
+      "win_pct": 41.8,
+      "mean_r": 0.209,
+      "total_r": 33,
+      "total_dollars": 19827,
+      "dd_pct": 7.45
+    },
+    {
+      "ticker": "USD/JPY",
+      "key": "B0_fvg+bias",
+      "description": "BASELINE: fvg + daily_bias (current FVG-DailyBias-Long 4h)",
+      "n": 302,
+      "win_pct": 51.7,
+      "mean_r": 0.598,
+      "total_r": 180.7,
+      "total_dollars": 108421,
+      "dd_pct": 5.25
+    },
+    {
+      "ticker": "USD/JPY",
+      "key": "B1_fvg+bias+eql",
+      "description": "TRIPLE: fvg + daily_bias + equal_levels (audit #228 main test)",
+      "n": 77,
+      "win_pct": 63.6,
+      "mean_r": 1.051,
+      "total_r": 80.9,
+      "total_dollars": 48552,
+      "dd_pct": 3.41
+    },
+    {
+      "ticker": "USD/JPY",
+      "key": "B2_fvg+bias+reclaim",
+      "description": "TRIPLE: fvg + daily_bias + liquidity_sweep_reclaim",
+      "n": 22,
+      "win_pct": 59.1,
+      "mean_r": 0.812,
+      "total_r": 17.9,
+      "total_dollars": 10724,
+      "dd_pct": 1.77
+    },
+    {
+      "ticker": "USD/JPY",
+      "key": "B3_quad",
+      "description": "QUAD: fvg + daily_bias + sweep_reclaim + equal_levels",
+      "n": 2,
+      "win_pct": 100,
+      "mean_r": 2.309,
+      "total_r": 4.6,
+      "total_dollars": 2771,
+      "dd_pct": 0
+    },
+    {
+      "ticker": "USD/JPY",
+      "key": "B4_fvg+eql",
+      "description": "PAIR: fvg + equal_levels (without daily_bias)",
+      "n": 119,
+      "win_pct": 55.5,
+      "mean_r": 0.778,
+      "total_r": 92.5,
+      "total_dollars": 55525,
+      "dd_pct": 5.71
+    }
+  ]
+}
