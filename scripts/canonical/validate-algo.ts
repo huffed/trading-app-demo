@@ -88,6 +88,15 @@ const ENABLE_FTMO_TERMINATION = process.env.FTMO_TERMINATION !== "0";
 const ENABLE_RE_ENTRY_COOLDOWN = process.env.RE_ENTRY_COOLDOWN !== "0";
 const ENABLE_PORTFOLIO_HALT = process.env.PORTFOLIO_HALT !== "0";
 const PORTFOLIO_DLL_PCT = Number(process.env.PORTFOLIO_DLL_PCT ?? 5);
+/** Portfolio-level capital basis for the portfolio-halt DLL check. When
+ *  unset, falls back to each algo's own capital (conservative — over-
+ *  strict because real FTMO account capital is typically 5-20× a single
+ *  algo's allocation). Operator should pass their real account size for
+ *  full-fleet validate-algo runs. Example: PORTFOLIO_CAPITAL_USD=100000
+ *  for a 10-algo $100K FTMO Test account. */
+const PORTFOLIO_CAPITAL_USD = process.env.PORTFOLIO_CAPITAL_USD
+  ? Number(process.env.PORTFOLIO_CAPITAL_USD)
+  : undefined;
 const PREREG_PATH = process.env.PREREG_PATH ?? "scripts/canonical/preregistration.json";
 const BOOTSTRAP_ITERATIONS = Number(process.env.BOOTSTRAP_ITERATIONS ?? 2000);
 const BOOTSTRAP_SEED = Number(process.env.BOOTSTRAP_SEED ?? 42);
@@ -480,7 +489,7 @@ async function loadAlgos(supabase: any, only: string | null): Promise<AlgoRow[]>
 async function main(): Promise<void> {
   console.log(`\n===== validate-algo @ ${new Date().toISOString().slice(0, 16)} =====`);
   console.log(`Mode: ${ONLY_ALGO ? `single algo "${ONLY_ALGO}"` : "all deployed"}`);
-  console.log(`Phase B fidelity gates: siblings=${ENABLE_SIBLINGS} spread_gate=${ENABLE_SPREAD_GATE} risk_pool=${ENABLE_RISK_POOL} (cap=${POOL_CAP_PCT}%) ftmo_termination=${ENABLE_FTMO_TERMINATION} re_entry_cooldown=${ENABLE_RE_ENTRY_COOLDOWN} portfolio_halt=${ENABLE_PORTFOLIO_HALT} (dll=${PORTFOLIO_DLL_PCT}%)`);
+  console.log(`Phase B fidelity gates: siblings=${ENABLE_SIBLINGS} spread_gate=${ENABLE_SPREAD_GATE} risk_pool=${ENABLE_RISK_POOL} (cap=${POOL_CAP_PCT}%) ftmo_termination=${ENABLE_FTMO_TERMINATION} re_entry_cooldown=${ENABLE_RE_ENTRY_COOLDOWN} portfolio_halt=${ENABLE_PORTFOLIO_HALT} (dll=${PORTFOLIO_DLL_PCT}%, cap=${PORTFOLIO_CAPITAL_USD ?? "per-algo"})`);
   console.log(`OOS cutoff: ${OOS_CUTOFF}`);
   console.log(`Persist to DB: ${PERSIST}\n`);
 
@@ -578,6 +587,11 @@ async function main(): Promise<void> {
       portfolioHalt = {
         enabled: true,
         daily_loss_limit_pct: PORTFOLIO_DLL_PCT,
+        // D3 fix: when PORTFOLIO_CAPITAL_USD is set, use it as the
+        // reference_capital so the DLL math reflects the real account
+        // size (not per-algo allocation). Falls back to algo.capital
+        // when unset — conservative default for safety.
+        ...(PORTFOLIO_CAPITAL_USD !== undefined ? { reference_capital: PORTFOLIO_CAPITAL_USD } : {}),
         sibling_daily_pnl: siblingDailyPnl,
       };
     }
