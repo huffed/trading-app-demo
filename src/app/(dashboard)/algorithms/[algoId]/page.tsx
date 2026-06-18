@@ -16,6 +16,7 @@ import {
 } from "@/components/algorithms/algorithm-detail-parts";
 import { AlgorithmEditView } from "@/components/algorithms/algorithm-edit-view";
 import { ClosedPositionsCard, OpenPositionsCard } from "@/components/algorithms/position-cards";
+import { PromotionEligibility } from "@/components/algorithms/promotion-eligibility";
 import { ContentShell } from "@/components/layout/content-shell";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -51,6 +52,9 @@ function ReadView({ algo }: { algo: Algorithm }) {
       )}
       <div className="mt-4">
         <AlgoEvaluationLogSection algorithmId={algo.id} />
+      </div>
+      <div className="mt-4">
+        <PromotionEligibility algo={algo} />
       </div>
       <div className="mt-4">
         <AlgoSetupZone algo={algo} />
