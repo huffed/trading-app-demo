@@ -427,6 +427,51 @@ function canEnter(rules: AlgorithmRules, cfg: SimConfig, gate: EntryGate): boole
   return gate.onTickerCount < perTickerCap;
 }
 
+/** A sibling algo's open position window — passed to `runPortfolioBacktest`
+ *  for direction-conflict simulation (Phase B.1 backtest fidelity).
+ *
+ *  Use `tradesAsSiblingWindows(otherAlgoTrades)` to derive these from
+ *  another backtest run's trades. The engine checks at each candidate
+ *  entry whether any window contains the bar date AND has opposite side. */
+export interface SiblingTradeWindow {
+  ticker: string;
+  side: "long" | "short";
+  entry_date: string;
+  exit_date: string;
+}
+
+/** Convert a trade list into sibling-window form for direction-conflict
+ *  simulation. Trades without `ticker` (single-ticker legacy) are dropped
+ *  — caller should ensure all trades carry ticker. */
+export function tradesAsSiblingWindows(trades: BacktestTrade[]): SiblingTradeWindow[] {
+  const out: SiblingTradeWindow[] = [];
+  for (const t of trades) {
+    if (!t.ticker || !t.side) continue;
+    out.push({
+      ticker: t.ticker,
+      side: t.side,
+      entry_date: t.entry_date,
+      exit_date: t.exit_date,
+    });
+  }
+  return out;
+}
+
+function hasDirectionConflict(
+  ticker: string,
+  proposedSide: "long" | "short",
+  currentDate: string,
+  siblings: SiblingTradeWindow[]
+): boolean {
+  const opposite: "long" | "short" = proposedSide === "long" ? "short" : "long";
+  for (const s of siblings) {
+    if (s.ticker !== ticker) continue;
+    if (s.side !== opposite) continue;
+    if (s.entry_date <= currentDate && currentDate < s.exit_date) return true;
+  }
+  return false;
+}
+
 function tryOpenEntry(
   state: TickerState,
   i: number,
@@ -436,7 +481,10 @@ function tryOpenEntry(
   cfg: SimConfig,
   s: SimState,
   states: Map<string, TickerState>,
-  dailyHalted: boolean
+  dailyHalted: boolean,
+  /** Phase B.1 backtest fidelity — sibling-algo open positions block
+   *  opposite-direction entries (live behavior; previously unsimulated). */
+  siblingBlockingTrades: SiblingTradeWindow[] = []
 ): void {
   const vetoed = state.vetoCheck ? state.vetoCheck(state.bars[i].date) : false;
   const gate: EntryGate = {
@@ -481,6 +529,16 @@ function tryOpenEntry(
   const resolved = resolveSide(rules.side ?? "long", state.higherTfBars, state.bars[i].date);
   if (resolved === null) return;
   const side = resolved.side;
+  // Phase B.1 fidelity: direction-conflict gate (mirrors scan/entry.ts:417).
+  // When a sibling algo has an OPEN opposite-direction position on the
+  // same ticker at this bar date, the live engine refuses the entry to
+  // avoid net-zero exposure with double spread cost. Backtest now
+  // simulates this; caller passes siblingBlockingTrades from another
+  // algo's backtest result (use tradesAsSiblingWindows helper).
+  if (siblingBlockingTrades.length > 0
+      && hasDirectionConflict(ticker, side, state.bars[i].date, siblingBlockingTrades)) {
+    return;
+  }
   // DXY directional gate. Opt-in per algo. Skips entries when the
   // dollar-index direction (via EUR/USD proxy) over the lookback
   // contradicts the proposed side. Per-algo, not blanket — empirically
@@ -620,7 +678,12 @@ export function runPortfolioBacktest(
    *  validating a gated algo; without it the gate fails closed and the
    *  run produces zero entries (loudly wrong rather than silently
    *  unfaithful). See MarketStateSeries. */
-  marketStateSeries: MarketStateSeries | null = null
+  marketStateSeries: MarketStateSeries | null = null,
+  /** Phase B.1 backtest fidelity (2026-06-18 PM) — sibling algos' open
+   *  position windows that block opposite-direction entries on the same
+   *  ticker. Pass `tradesAsSiblingWindows(otherAlgoTrades)`. Empty by
+   *  default = no direction-conflict simulation (legacy behaviour). */
+  siblingBlockingTrades: SiblingTradeWindow[] = []
 ): BacktestMetrics {
   const entry = normalize(rules.entry_conditions);
   const exit = normalize(rules.exit_conditions);
@@ -680,7 +743,7 @@ export function runPortfolioBacktest(
 
     // Phase 3: try to open new entries on each active ticker.
     for (const { ticker, state, i } of activeTickers) {
-      tryOpenEntry(state, i, ticker, rules, techEntry, cfg, s, states, dailyHalted);
+      tryOpenEntry(state, i, ticker, rules, techEntry, cfg, s, states, dailyHalted, siblingBlockingTrades);
     }
   }
   if (currentDayKey !== "") finalizeDay(s, currentDayKey);
