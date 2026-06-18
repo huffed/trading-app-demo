@@ -144,6 +144,11 @@ interface TickerState {
   /** Index of the most recently processed bar (for fast lookup as the
    *  unified timeline advances). */
   cursor: number;
+  /** Phase B.1.2: timestamp of the most recent LOSS exit on this ticker.
+   *  Drives re-entry cooldown gate (mirrors live re-entry-cooldown.ts).
+   *  Only updated on losses (pnl < 0); wins/break-evens leave it untouched
+   *  (matches live: wins don't trigger cooldown). null = no prior loss exit. */
+  lastLossExitDate: string | null;
 }
 
 /** Full-depth (NOT window-sliced) series for market_state_gate
@@ -230,6 +235,7 @@ function initTickerStates(
         };
       })(),
       cursor: -1,
+      lastLossExitDate: null,
     });
   }
   return out;
@@ -376,6 +382,9 @@ function runCloseLoop(
       // Tag the just-recorded trade with its ticker for portfolio breakdown.
       const t = trades[trades.length - 1];
       if (t) t.ticker = ticker;
+      // B.1.2: record loss-exit timestamp for re-entry cooldown gate.
+      // Matches live re-entry-cooldown.ts: only LOSS exits trigger cooldown.
+      if (t && t.pnl < 0) state.lastLossExitDate = dayKey;
       state.positions.splice(p, 1);
       if (pf) dailyHalted = enforcePropFirm(pf, s, capital, dayKey, dailyHalted);
     }
@@ -399,6 +408,8 @@ function forceCloseTicker(
     closeSimPosition(state.positions[p], dayKey, exitPrice, capital, cfg, s, trades, ticker, "force_close");
     const t = trades[trades.length - 1];
     if (t) t.ticker = ticker;
+    // B.1.2: record loss-exit for re-entry cooldown gate.
+    if (t && t.pnl < 0) state.lastLossExitDate = dayKey;
     state.positions.splice(p, 1);
   }
 }
@@ -459,6 +470,94 @@ export interface RiskPoolConfig {
   /** Capital to convert combined-risk-$ → %. Defaults to algo's own
    *  capital if not provided. */
   reference_capital?: number;
+}
+
+/** Phase B.1.3 fidelity (2026-06-18 EVE) — portfolio-level DLL halt.
+ *
+ *  Live behaviour (`src/lib/scan/portfolio-halt.ts`): sums REALIZED P&L
+ *  today across every algo in the portfolio, force-closes everything when
+ *  combined P&L breaches `daily_loss_limit_pct` of `reference_capital`.
+ *
+ *  Backtest equivalent: caller pre-aggregates sibling daily P&L (a
+ *  Map<dateKey, totalPnl>) from their baseline runs. On each timeline
+ *  tick, the gate sums (this algo's realized PnL today) + (sibling map
+ *  entry for this dateKey) and refuses entry + force-closes positions
+ *  when combined <= -daily_loss_limit_pct × reference_capital.
+ *
+ *  Distinct from `risk_pool` which caps OPEN exposure; portfolio-halt
+ *  fires on REALIZED losses. Both gates can be on simultaneously. */
+export interface PortfolioHaltConfig {
+  enabled: boolean;
+  /** Portfolio-level daily-loss-limit as % of reference_capital. E.g. 5
+   *  for FTMO's 5% DLL. */
+  daily_loss_limit_pct: number;
+  /** Capital basis for the % calc. Defaults to algo's own capital. For
+   *  real fidelity to live behaviour, pass the portfolio's combined
+   *  capital (sum of all algos sharing the broker connection). */
+  reference_capital?: number;
+  /** Map<dateKey, total realized PnL on that date> aggregated across
+   *  sibling algos. dateKey format = "YYYY-MM-DD". Caller computes from
+   *  sibling baseline trades. Empty map = no sibling contribution → this
+   *  reduces to a per-algo DLL check (no value vs existing prop-firm DLL). */
+  sibling_daily_pnl: Map<string, number>;
+}
+
+/** Phase B.1.2 fidelity (2026-06-18 EVE) — re-entry cooldown gate.
+ *
+ *  Live behaviour (`src/lib/algorithm/re-entry-cooldown.ts`): refuses new
+ *  entries on the same ticker within N minutes of a loss exit. Default
+ *  cooldown = 1× primary-timeframe bar duration ("wait for one fresh bar
+ *  of information before re-firing"). Only loss exits trigger; wins do not.
+ *
+ *  Backtest equivalent: track `lastLossExitDate` per ticker. On entry
+ *  attempt, refuse if (current_bar_date - lastLossExitDate) < cooldown_ms.
+ *
+ *  Disabled by default (legacy). Recommended config when matching live:
+ *  enabled=true, cooldown_minutes=undefined (auto-derives from rules.timeframe). */
+export interface ReEntryCooldownConfig {
+  enabled: boolean;
+  /** Explicit cooldown in minutes. When undefined, derives from rules.timeframe
+   *  using `barDurationMinutes` (15m→15, 30m→30, 1h→60, 4h→240). */
+  cooldown_minutes?: number;
+}
+
+function barDurationMinutes(timeframe: string): number {
+  switch (timeframe) {
+    case "15m": return 15;
+    case "30m": return 30;
+    case "1h": return 60;
+    case "4h": return 240;
+    case "1day": return 1440;
+    default: return 240; // conservative default
+  }
+}
+
+function hasReEntryCooldownActive(
+  state: TickerState,
+  currentBarDate: string,
+  cooldownMinutes: number
+): boolean {
+  if (state.lastLossExitDate === null) return false;
+  const elapsedMs = new Date(currentBarDate).getTime() - new Date(state.lastLossExitDate).getTime();
+  if (!Number.isFinite(elapsedMs) || elapsedMs < 0) return false;
+  return elapsedMs / 60_000 < cooldownMinutes;
+}
+
+/** Phase B.1.3 portfolio-halt check. Sums this algo's realized PnL today
+ *  + sibling realized PnL from config map; trips when combined breaches
+ *  `daily_loss_limit_pct` of `reference_capital`. */
+function hasPortfolioHaltBreach(
+  config: PortfolioHaltConfig,
+  dayKey: string,
+  myDailyPnl: number,
+  fallbackCapital: number
+): boolean {
+  const siblingPnl = config.sibling_daily_pnl.get(dayKey) ?? 0;
+  const combined = myDailyPnl + siblingPnl;
+  const refCapital = config.reference_capital ?? fallbackCapital;
+  if (refCapital <= 0) return false;
+  const combinedPct = (combined / refCapital) * 100;
+  return combinedPct <= -config.daily_loss_limit_pct;
 }
 
 /** Phase B.1 fidelity (2026-06-18 PM) — FTMO challenge-fail termination.
@@ -618,7 +717,18 @@ function tryOpenEntry(
   /** Algo's own capital × risk_pct (in $) — used as candidate's risk
    *  contribution for the risk-pool check. Caller computes this from
    *  rules.position_sizing.value at top-level. */
-  algoRiskDollars: number = 0
+  algoRiskDollars: number = 0,
+  /** Phase B.1.2: re-entry cooldown gate. Default null = no cooldown
+   *  simulation (legacy behaviour). When enabled, refuses entries within
+   *  `cooldown_minutes` of a loss exit on this ticker. */
+  reEntryCooldown: ReEntryCooldownConfig | null = null,
+  /** Phase B.1.3: portfolio-level DLL gate. Default null = no portfolio
+   *  halt simulation. When enabled, refuses entries when combined
+   *  realized PnL (this algo today + sibling map) breaches the cap. */
+  portfolioHalt: PortfolioHaltConfig | null = null,
+  /** Capital for the portfolio-halt fallback (when config.reference_capital
+   *  is undefined). Caller passes `capital`. */
+  algoCapital: number = 0
 ): void {
   const vetoed = state.vetoCheck ? state.vetoCheck(state.bars[i].date) : false;
   const gate: EntryGate = {
@@ -690,6 +800,27 @@ function tryOpenEntry(
   if (riskPool?.enabled && algoRiskDollars > 0) {
     const refCapital = riskPool.reference_capital ?? s.equity;
     if (hasRiskPoolBreach(riskPoolSiblings, algoRiskDollars, state.bars[i].date, refCapital, riskPool.pool_cap_pct)) {
+      return;
+    }
+  }
+  // Phase B.1.2 fidelity: re-entry cooldown (mirrors lib/algorithm/re-entry-cooldown.ts).
+  // Live refuses entries within N minutes of a LOSS exit on the same ticker.
+  // Default cooldown = 1× primary-TF bar duration (wait for one fresh bar
+  // of information). Backtest tracks state.lastLossExitDate, set in the
+  // close loop only on losses (wins don't trigger cooldown — matches live).
+  if (reEntryCooldown?.enabled) {
+    const cooldownMin = reEntryCooldown.cooldown_minutes ?? barDurationMinutes(rules.timeframe);
+    if (hasReEntryCooldownActive(state, state.bars[i].date, cooldownMin)) {
+      return;
+    }
+  }
+  // Phase B.1.3 fidelity: portfolio-halt entry block (mirrors
+  // lib/scan/portfolio-halt.ts). Refuses new entries when combined
+  // realized PnL (this algo today + sibling map) breaches DLL.
+  if (portfolioHalt?.enabled) {
+    const dayKey = state.bars[i].date.slice(0, 10);
+    const myDailyPnl = s.dailyPnl[dayKey] ?? 0;
+    if (hasPortfolioHaltBreach(portfolioHalt, dayKey, myDailyPnl, algoCapital)) {
       return;
     }
   }
@@ -860,7 +991,17 @@ export function runPortfolioBacktest(
    *  gate ONLY. When undefined, falls back to `siblingBlockingTrades` to
    *  preserve legacy "one list for both gates" behaviour. Pass an empty
    *  array (or different list) to toggle the two gates independently. */
-  riskPoolSiblings: SiblingTradeWindow[] | undefined = undefined
+  riskPoolSiblings: SiblingTradeWindow[] | undefined = undefined,
+  /** Phase B.1.2 fidelity — re-entry cooldown gate. Default null = no
+   *  cooldown simulation. Recommended config when matching live:
+   *  enabled=true, cooldown_minutes=undefined (auto-derives from
+   *  rules.timeframe via barDurationMinutes). */
+  reEntryCooldown: ReEntryCooldownConfig | null = null,
+  /** Phase B.1.3 fidelity — portfolio-level DLL halt. Caller pre-computes
+   *  sibling_daily_pnl from baseline runs of other algos in the portfolio.
+   *  Default null = no portfolio-halt simulation (per-algo DLL still
+   *  applies via the existing prop_firm.daily_loss_limit). */
+  portfolioHalt: PortfolioHaltConfig | null = null
 ): BacktestMetrics {
   // Resolve risk-pool siblings: if caller didn't provide a separate list,
   // fall back to siblingBlockingTrades (legacy "one list for both gates").
@@ -938,9 +1079,26 @@ export function runPortfolioBacktest(
       break;
     }
 
+    // Phase B.1.3 fidelity: portfolio-halt force-close. When combined
+    // daily PnL (this algo's day + sibling map) breaches DLL, live
+    // executePortfolioHalt flattens all positions across the portfolio.
+    // Backtest mirrors by force-closing all this-algo positions today.
+    // Daily PnL rolls over next day; sibling map for the new day might
+    // or might not breach again.
+    if (portfolioHalt?.enabled) {
+      const myDailyPnl = s.dailyPnl[dayKey] ?? 0;
+      if (hasPortfolioHaltBreach(portfolioHalt, dayKey, myDailyPnl, capital)) {
+        for (const { ticker, state, i } of activeTickers) {
+          forceCloseTicker(state, ticker, state.closes[i], dayKey, cfg, capital, s, trades);
+        }
+        // Mark dailyHalted so entries are blocked for the rest of the day too.
+        dailyHalted = true;
+      }
+    }
+
     // Phase 3: try to open new entries on each active ticker.
     for (const { ticker, state, i } of activeTickers) {
-      tryOpenEntry(state, i, ticker, rules, techEntry, cfg, s, states, dailyHalted, siblingBlockingTrades, spreadGate, riskPool, resolvedRiskPoolSiblings, algoRiskDollars);
+      tryOpenEntry(state, i, ticker, rules, techEntry, cfg, s, states, dailyHalted, siblingBlockingTrades, spreadGate, riskPool, resolvedRiskPoolSiblings, algoRiskDollars, reEntryCooldown, portfolioHalt, capital);
     }
   }
   if (currentDayKey !== "") finalizeDay(s, currentDayKey);

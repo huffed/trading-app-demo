@@ -67,6 +67,12 @@ export interface SimConfig {
   takeProfit: TakeProfit;
 }
 
+/** Significant-loss cutoff for R-aware consecutive-loss counting. Mirrors
+ *  the live `SIGNIFICANT_LOSS_R_THRESHOLD` in `src/lib/scan/consec-loss-halt.ts`.
+ *  Losses below 0.25R don't count toward the daily streak (avoids micro
+ *  stagnant-cut nips falsely tripping the halt). Wins still reset. */
+const SIGNIFICANT_LOSS_R_THRESHOLD = 0.25;
+
 export function closeSimPosition(
   pos: {
     entryPrice: number;
@@ -74,6 +80,12 @@ export function closeSimPosition(
     notionalValue: number;
     marginRequired?: number;
     side?: "long" | "short";
+    /** Optional SL distance in price units (captured at entry in
+     *  portfolio-backtest). When provided + > 0, enables R-aware
+     *  consecutive-loss counting to match live behaviour. When omitted,
+     *  legacy "any loss counts" behaviour is preserved for backtest-engine
+     *  callers using the simpler position type. */
+    slDistance?: number;
   },
   day: string,
   exitPrice: number,
@@ -137,11 +149,25 @@ export function closeSimPosition(
   // for stats so backtest cells can be filtered on the real rule.
   s.peakStaticDdPct = Math.max(s.peakStaticDdPct, Math.max(0, ((capital - s.equity) / capital) * 100));
   s.dailyPnl[day] = (s.dailyPnl[day] ?? 0) + pnl;
-  if (pnl < 0) {
+  // Streak counter. R-aware when slDistance provided (mirrors live
+  // consec-loss-halt.ts): wins reset, significant losses (≥ 0.25R)
+  // increment, micro losses (< 0.25R) are SKIPPED (don't reset, don't
+  // count). When slDistance is missing, legacy "any loss counts"
+  // behaviour preserved for backtest-engine callers.
+  if (pnl >= 0) {
+    s.consecutiveLosses = 0;
+  } else if (pos.slDistance != null && pos.slDistance > 0 && pos.entryPrice > 0) {
+    // R-aware path: oneR (in $) = notional × (slDistance / entryPrice).
+    const oneR = pos.notionalValue * (pos.slDistance / pos.entryPrice);
+    if (oneR > 0 && Math.abs(pnl) / oneR >= SIGNIFICANT_LOSS_R_THRESHOLD) {
+      s.consecutiveLosses++;
+      s.maxConsecLosses = Math.max(s.maxConsecLosses, s.consecutiveLosses);
+    }
+    // Micro loss → skip (don't increment, don't reset).
+  } else {
+    // Legacy path: any loss counts.
     s.consecutiveLosses++;
     s.maxConsecLosses = Math.max(s.maxConsecLosses, s.consecutiveLosses);
-  } else {
-    s.consecutiveLosses = 0;
   }
 }
 

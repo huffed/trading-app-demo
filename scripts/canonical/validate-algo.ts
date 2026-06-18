@@ -38,6 +38,8 @@ import {
   runPortfolioBacktest,
   tradesAsSiblingWindows,
   type FtmoTerminationConfig,
+  type PortfolioHaltConfig,
+  type ReEntryCooldownConfig,
   type RiskPoolConfig,
   type SiblingTradeWindow,
   type SpreadGateConfig,
@@ -79,6 +81,9 @@ const ENABLE_SPREAD_GATE = process.env.SPREAD_GATE !== "0";
 const ENABLE_RISK_POOL = process.env.RISK_POOL !== "0";
 const POOL_CAP_PCT = Number(process.env.POOL_CAP_PCT ?? 4);
 const ENABLE_FTMO_TERMINATION = process.env.FTMO_TERMINATION !== "0";
+const ENABLE_RE_ENTRY_COOLDOWN = process.env.RE_ENTRY_COOLDOWN !== "0";
+const ENABLE_PORTFOLIO_HALT = process.env.PORTFOLIO_HALT !== "0";
+const PORTFOLIO_DLL_PCT = Number(process.env.PORTFOLIO_DLL_PCT ?? 5);
 const PREREG_PATH = process.env.PREREG_PATH ?? "scripts/canonical/preregistration.json";
 const BOOTSTRAP_ITERATIONS = Number(process.env.BOOTSTRAP_ITERATIONS ?? 2000);
 const BOOTSTRAP_SEED = Number(process.env.BOOTSTRAP_SEED ?? 42);
@@ -108,7 +113,7 @@ interface GateResults {
   sample_first: string | null;
   sample_last: string | null;
   friction: { slippage_bps: number; spread_bps: number; commission_per_lot: number };
-  fidelity_gates_applied: { siblings: boolean; spread_gate: boolean; risk_pool: boolean; ftmo_termination: boolean };
+  fidelity_gates_applied: { siblings: boolean; spread_gate: boolean; risk_pool: boolean; ftmo_termination: boolean; re_entry_cooldown: boolean; portfolio_halt: boolean };
   step2: StepStats;
   step3: WalkForwardStats;
   step6: OosStats;
@@ -407,7 +412,7 @@ async function loadAlgos(supabase: any, only: string | null): Promise<AlgoRow[]>
 async function main(): Promise<void> {
   console.log(`\n===== validate-algo @ ${new Date().toISOString().slice(0, 16)} =====`);
   console.log(`Mode: ${ONLY_ALGO ? `single algo "${ONLY_ALGO}"` : "all deployed"}`);
-  console.log(`Phase B fidelity gates: siblings=${ENABLE_SIBLINGS} spread_gate=${ENABLE_SPREAD_GATE} risk_pool=${ENABLE_RISK_POOL} (cap=${POOL_CAP_PCT}%) ftmo_termination=${ENABLE_FTMO_TERMINATION}`);
+  console.log(`Phase B fidelity gates: siblings=${ENABLE_SIBLINGS} spread_gate=${ENABLE_SPREAD_GATE} risk_pool=${ENABLE_RISK_POOL} (cap=${POOL_CAP_PCT}%) ftmo_termination=${ENABLE_FTMO_TERMINATION} re_entry_cooldown=${ENABLE_RE_ENTRY_COOLDOWN} portfolio_halt=${ENABLE_PORTFOLIO_HALT} (dll=${PORTFOLIO_DLL_PCT}%)`);
   console.log(`OOS cutoff: ${OOS_CUTOFF}`);
   console.log(`Persist to DB: ${PERSIST}\n`);
 
@@ -492,7 +497,27 @@ async function main(): Promise<void> {
     const ftmoTermination: FtmoTerminationConfig | null = ENABLE_FTMO_TERMINATION
       ? { enabled: true }
       : null;
-    const fidelityFlags = { siblings: ENABLE_SIBLINGS, spread_gate: ENABLE_SPREAD_GATE, risk_pool: ENABLE_RISK_POOL, ftmo_termination: ENABLE_FTMO_TERMINATION };
+    const reEntryCooldown: ReEntryCooldownConfig | null = ENABLE_RE_ENTRY_COOLDOWN
+      ? { enabled: true }  // cooldown_minutes undefined → auto-derives from rules.timeframe
+      : null;
+    // Portfolio-halt: pre-compute sibling daily PnL by date from baseline runs.
+    let portfolioHalt: PortfolioHaltConfig | null = null;
+    if (ENABLE_PORTFOLIO_HALT) {
+      const siblingDailyPnl = new Map<string, number>();
+      for (const [otherId, otherTrades] of baselineTradesByAlgo) {
+        if (otherId === algo.id) continue;
+        for (const t of otherTrades) {
+          const day = t.exit_date.slice(0, 10);
+          siblingDailyPnl.set(day, (siblingDailyPnl.get(day) ?? 0) + t.pnl);
+        }
+      }
+      portfolioHalt = {
+        enabled: true,
+        daily_loss_limit_pct: PORTFOLIO_DLL_PCT,
+        sibling_daily_pnl: siblingDailyPnl,
+      };
+    }
+    const fidelityFlags = { siblings: ENABLE_SIBLINGS, spread_gate: ENABLE_SPREAD_GATE, risk_pool: ENABLE_RISK_POOL, ftmo_termination: ENABLE_FTMO_TERMINATION, re_entry_cooldown: ENABLE_RE_ENTRY_COOLDOWN, portfolio_halt: ENABLE_PORTFOLIO_HALT };
 
     let results: GateResults;
     if (!bars) {
@@ -500,7 +525,7 @@ async function main(): Promise<void> {
       results.step2.reason = "no bars in cache";
       results.promotion_blockers = ["no bars in cache"];
     } else {
-      const result = runPortfolioBacktest(algo.rules, new Map([[algo.ticker, bars]]), algo.capital, [], null, null, directionConflictSiblings, spreadGate, riskPool, ftmoTermination, riskPoolSiblings);
+      const result = runPortfolioBacktest(algo.rules, new Map([[algo.ticker, bars]]), algo.capital, [], null, null, directionConflictSiblings, spreadGate, riskPool, ftmoTermination, riskPoolSiblings, reEntryCooldown, portfolioHalt);
       results = analyzeStats(result.trades, algo.capital, friction, fidelityFlags, riskPct, algo.name, nCandidates, preregs, NOW);
     }
     if (results.promotion_eligible) pass++;
@@ -523,7 +548,7 @@ async function main(): Promise<void> {
   }
 
   console.log(`\nSUMMARY: ${pass} ELIGIBLE / ${fail} BLOCKED / ${excluded} EXCLUDED\n`);
-  console.log(`Phase B fidelity gates applied: siblings=${ENABLE_SIBLINGS}, spread_gate=${ENABLE_SPREAD_GATE}, risk_pool=${ENABLE_RISK_POOL} (cap=${POOL_CAP_PCT}%), ftmo_termination=${ENABLE_FTMO_TERMINATION}`);
+  console.log(`Phase B fidelity gates applied: siblings=${ENABLE_SIBLINGS}, spread_gate=${ENABLE_SPREAD_GATE}, risk_pool=${ENABLE_RISK_POOL} (cap=${POOL_CAP_PCT}%), ftmo_termination=${ENABLE_FTMO_TERMINATION}, re_entry_cooldown=${ENABLE_RE_ENTRY_COOLDOWN}, portfolio_halt=${ENABLE_PORTFOLIO_HALT} (dll=${PORTFOLIO_DLL_PCT}%)`);
   console.log(`Compare to Phase A results (no gates) to measure fidelity impact.\n`);
 }
 
