@@ -162,13 +162,13 @@ export function PromotionEligibility({ algo }: Props) {
           <Badge variant="outline" className="text-xs">{verdictLabel(gates.step6?.verdict)}</Badge>
         </div>
 
-        {/* Paper-mirror milestone — placeholder until STEP 7.4 */}
+        {/* Broker DEMO alignment — replaces paper-mirror milestone per 2026-06-18 reshape */}
         <div className="flex items-start gap-2 rounded-md border border-glass-border border-dashed p-3 opacity-70">
           <Clock className="h-4 w-4 text-muted-foreground" />
           <div className="flex-1">
-            <div className="text-sm font-medium">Paper-mirror milestone</div>
+            <div className="text-sm font-medium">Broker DEMO alignment</div>
             <div className="mt-1 text-xs text-muted-foreground">
-              ≥15 days paper · ≥5 closed trades · each within ±50% of expected R. Live tracking ships in STEP 7.4.
+              ≥10 broker DEMO trades within ±30% of backtest expected R. Live tracking ships after Phase B (backtest fidelity) completes.
             </div>
           </div>
           <Badge variant="outline" className="text-xs">Pending</Badge>
