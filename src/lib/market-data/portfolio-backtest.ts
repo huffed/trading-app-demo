@@ -588,7 +588,21 @@ export interface FtmoTerminationConfig {
  *
  *  Rationale: real broker spreads widen during high-volatility periods
  *  (events, low-liquidity hours). ATR is the available proxy for "market
- *  stress." When ATR is 2.5× its median, spreads are likely 2.5× typical. */
+ *  stress." When ATR is 2.5× its median, spreads are likely 2.5× typical.
+ *
+ *  B.1.8 honesty note (2026-06-18 EVE LATE): this is a STRESS-PERIOD
+ *  INFERENCE, NOT a validated correlation. No empirical study has
+ *  benchmarked observed broker spread ratios against the ATR ratio on
+ *  any of our instruments. The 2.5× multiplier was carried over from the
+ *  live gate's catalog-typical multiplier (which IS calibrated against
+ *  actual bid/ask). The mapping "ATR ratio = spread ratio" is plausible
+ *  but unproven.
+ *
+ *  To validate properly: capture ≥50 broker spread samples per symbol
+ *  + matching ATR samples at the same timestamps + compute correlation.
+ *  If correlation < ~0.6, this proxy isn't doing useful work. Until then,
+ *  treat backtest spread-gate effects as DIRECTIONALLY correct (high
+ *  vol → more refusals) but NOT MAGNITUDE-correct. */
 export interface SpreadGateConfig {
   enabled: boolean;
   /** Trigger refusal when current ATR / median ATR > this. Default 2.5
@@ -949,6 +963,30 @@ function buildPerTickerSummary(
   return summaries.sort((a, b) => b.return_pct - a.return_pct);
 }
 
+/** B.1.9 caller policy (2026-06-18 EVE LATE):
+ *
+ *  This engine has SEVEN optional Phase B.1 fidelity gates (direction-conflict,
+ *  spread-gate proxy, risk-pool, FTMO termination, re-entry cooldown,
+ *  portfolio-halt, plus the in-engine R-aware consec-loss-halt). Each is
+ *  default OFF. Callers fall into two camps:
+ *
+ *  1. CANONICAL VALIDATION — `scripts/canonical/validate-algo.ts` enables
+ *     ALL gates with the operator's locked Phase B configuration. This is
+ *     the only path whose verdicts are trusted for ship/no-ship decisions.
+ *
+ *  2. EXPLORATORY / DIAGNOSTIC — the 6 other callers
+ *     (`src/app/(dashboard)/backtest/actions.ts`, `algorithms/backtest-run-actions.ts`,
+ *     `algorithms/[algoId]/validate/actions.ts`, `api/admin/loser-analysis/route.ts`,
+ *     `api/admin/inspect-backtest/route.ts`, `src/lib/market-data/walk-forward.ts`)
+ *     call with gates OFF intentionally. Their numbers are for
+ *     trade-flow inspection, walk-forward sensitivity, loser cohort
+ *     analysis, and similar diagnostic work where modelling cross-algo
+ *     portfolio dynamics would obscure the per-algo signal under study.
+ *
+ *  This is an explicit policy choice, NOT a bug. If you find yourself
+ *  comparing these callers' numbers to validate-algo numbers and seeing
+ *  divergence, that divergence is the fidelity-gate impact — investigate
+ *  via validate-algo, don't try to "fix" the diagnostic callers. */
 export function runPortfolioBacktest(
   rules: AlgorithmRules,
   pricesByTicker: Map<string, PriceBar[]>,
@@ -1036,8 +1074,24 @@ export function runPortfolioBacktest(
   const trades: BacktestTrade[] = [];
   let currentDayKey = "";
   let dailyHalted = false;
-  // Phase B.1: pre-compute candidate risk-$ for risk-pool halt simulation.
-  // Uses capital × risk_pct (risk_per_trade sizing convention).
+  // Phase B.1.6 fidelity note: candidate risk-$ for risk-pool halt.
+  //
+  // Live `risk-pool-halt.ts` uses ACTUAL committed risk per position:
+  //   risk = (entry_price - SL_price) × quantity
+  // The backtest here uses NOMINAL risk:
+  //   risk = capital × risk_pct / 100
+  //
+  // For algos with `position_sizing.type = "risk_per_trade"`, position
+  // size is calibrated at entry so that actual == nominal (this is
+  // exactly how `sizeForBacktest` works in prop-firm-backtest.ts). So
+  // for these algos there's no fidelity gap.
+  //
+  // For algos using fixed-lot or percentage sizing, the actual committed
+  // risk varies per trade with SL distance. The backtest would understate
+  // risk on tight-SL positions and overstate on wide-SL ones. Currently
+  // 100% of deployed algos use risk_per_trade sizing (verified
+  // 2026-06-18 EVE LATE), so this drift is zero. Revisit if non-RPT
+  // sizing modes become live.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const sizingValue = ((rules as any).position_sizing?.value ?? 0) as number;
   const algoRiskDollars = capital * (sizingValue / 100);

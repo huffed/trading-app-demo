@@ -69,7 +69,7 @@ describe("evaluatePatternCondition for fvg (causal call-site)", () => {
   // CONFIRMING bar (third bar) of an FVG?" — so we anchor the detector
   // at idx-1 (the middle bar). This is what the 2026-06-18 fix shipped.
 
-  const fvgCond: PatternCondition = { type: "pattern", pattern: "fvg" };
+  const fvgCond: PatternCondition = { type: "pattern", pattern: "fvg", timeframe: "4h" };
 
   it("fires bullish at idx=2 (confirming bar) for the bullish fixture", () => {
     const bars = makeBullishFvgFixture();
@@ -89,7 +89,7 @@ describe("evaluatePatternCondition for fvg (causal call-site)", () => {
 
   it("direction filter: bullish FVG does NOT fire on direction=bearish", () => {
     const bars = makeBullishFvgFixture();
-    const cond: PatternCondition = { type: "pattern", pattern: "fvg", direction: "bearish" };
+    const cond: PatternCondition = { type: "pattern", pattern: "fvg", direction: "bearish", timeframe: "4h" };
     expect(evaluatePatternCondition(cond, bars, 2)).toBe(false);
   });
 

@@ -11,8 +11,8 @@ const baseRules: AlgorithmRules = {
   asset_class: "commodity",
   side: "long",
   timeframe: "4h",
-  entry_conditions: [{ type: "technical", indicator: "rsi", operator: "less_than", value: 50 }],
-  exit_conditions: [{ type: "technical", indicator: "rsi", operator: "greater_than", value: 70 }],
+  entry_conditions: [{ type: "technical", indicator: "rsi", operator: "less_than", value: 50, timeframe: "4h" }],
+  exit_conditions: [{ type: "technical", indicator: "rsi", operator: "greater_than", value: 70, timeframe: "4h" }],
   entry_logic: "all",
   stop_loss: { type: "percentage", value: 1.5 },
   take_profit: { type: "percentage", value: 3 },
@@ -61,19 +61,21 @@ describe("portfolio-backtest spread gate (Phase B.1)", () => {
 
   it("baseline (no spread gate) allows entries regardless of ATR ratio", () => {
     const result = runPortfolioBacktest(baseRules, prices, 10000);
-    expect(result.trades.length).toBeGreaterThanOrEqual(0);
+    // B.1.10: assert fixture produces trades so the gate tests are meaningful.
+    expect(result.trades.length).toBeGreaterThan(0);
   });
 
   it("spread gate enabled refuses entries in high-ATR-ratio bars", () => {
     const baseline = runPortfolioBacktest(baseRules, prices, 10000);
+    expect(baseline.trades.length).toBeGreaterThan(0);
     const gate: SpreadGateConfig = {
       enabled: true,
       threshold_multiplier: 2.5,
       atr_lookback_bars: 200,
     };
     const gated = runPortfolioBacktest(baseRules, prices, 10000, [], null, null, [], gate);
-    // Gated run should produce <= trades than baseline (some refused, none added)
-    expect(gated.trades.length).toBeLessThanOrEqual(baseline.trades.length);
+    // B.1.10: strict < (not <=) so a no-op gate would fail the test.
+    expect(gated.trades.length).toBeLessThan(baseline.trades.length);
   });
 
   it("spread gate disabled is identical to no spread gate", () => {

@@ -12,8 +12,8 @@ const rules: AlgorithmRules = {
   asset_class: "commodity",
   side: "long",
   timeframe: "4h",
-  entry_conditions: [{ type: "technical", indicator: "rsi", operator: "less_than", value: 30 }],
-  exit_conditions: [{ type: "technical", indicator: "rsi", operator: "greater_than", value: 70 }],
+  entry_conditions: [{ type: "technical", indicator: "rsi", operator: "less_than", value: 30, timeframe: "4h" }],
+  exit_conditions: [{ type: "technical", indicator: "rsi", operator: "greater_than", value: 70, timeframe: "4h" }],
   entry_logic: "all",
   stop_loss: { type: "percentage", value: 1.5 },
   take_profit: { type: "percentage", value: 3 },
@@ -61,28 +61,27 @@ describe("portfolio-backtest direction conflict simulation (Phase B.1)", () => {
 
   it("baseline: no siblings means no direction-conflict blocking", () => {
     const result = runPortfolioBacktest(rules, prices, 10000);
-    // We just need SOME trades to verify the engine produces a baseline.
-    // If the fixture is too lean, this test will surface that.
-    expect(result.trades.length).toBeGreaterThanOrEqual(0);
+    // B.1.10: assert fixture actually produces trades. Without this,
+    // downstream tests' silent-skip patterns become invisible no-ops.
+    expect(result.trades.length).toBeGreaterThan(0);
   });
 
   it("sibling SHORT on same ticker BLOCKS the LONG entry when overlapping", () => {
     const baselineResult = runPortfolioBacktest(rules, prices, 10000);
-    if (baselineResult.trades.length === 0) {
-      // Fixture didn't generate trades — direction-conflict test is moot
-      return;
-    }
+    // B.1.10: fixture MUST produce trades or this test is meaningless.
+    expect(baselineResult.trades.length).toBeGreaterThan(0);
     // Sibling holds SHORT XAU/USD covering the entire backtest window.
     const blockingSibling: SiblingTradeWindow[] = [
       { ticker: "XAU/USD", side: "short", entry_date: "2026-01-01T00:00:00Z", exit_date: "2026-02-01T00:00:00Z" },
     ];
     const conflictResult = runPortfolioBacktest(rules, prices, 10000, [], null, null, blockingSibling);
+    // B.1.10: strict < (not <=) so a no-op gate would fail the test.
     expect(conflictResult.trades.length).toBeLessThan(baselineResult.trades.length);
   });
 
   it("sibling LONG on same ticker DOES NOT block the LONG entry (same direction = OK)", () => {
     const baselineResult = runPortfolioBacktest(rules, prices, 10000);
-    if (baselineResult.trades.length === 0) return;
+    expect(baselineResult.trades.length).toBeGreaterThan(0);
     const sameSideSibling: SiblingTradeWindow[] = [
       { ticker: "XAU/USD", side: "long", entry_date: "2026-01-01T00:00:00Z", exit_date: "2026-02-01T00:00:00Z" },
     ];
@@ -92,7 +91,7 @@ describe("portfolio-backtest direction conflict simulation (Phase B.1)", () => {
 
   it("sibling SHORT on DIFFERENT ticker does NOT block (cross-instrument is fine)", () => {
     const baselineResult = runPortfolioBacktest(rules, prices, 10000);
-    if (baselineResult.trades.length === 0) return;
+    expect(baselineResult.trades.length).toBeGreaterThan(0);
     const diffTickerSibling: SiblingTradeWindow[] = [
       { ticker: "USD/JPY", side: "short", entry_date: "2026-01-01T00:00:00Z", exit_date: "2026-02-01T00:00:00Z" },
     ];
@@ -102,7 +101,7 @@ describe("portfolio-backtest direction conflict simulation (Phase B.1)", () => {
 
   it("sibling SHORT outside the entry window does NOT block (date check)", () => {
     const baselineResult = runPortfolioBacktest(rules, prices, 10000);
-    if (baselineResult.trades.length === 0) return;
+    expect(baselineResult.trades.length).toBeGreaterThan(0);
     // Sibling closed before fixture starts → no block
     const outsideSibling: SiblingTradeWindow[] = [
       { ticker: "XAU/USD", side: "short", entry_date: "2025-01-01T00:00:00Z", exit_date: "2025-12-01T00:00:00Z" },

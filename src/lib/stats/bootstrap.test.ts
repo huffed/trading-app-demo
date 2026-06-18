@@ -20,11 +20,8 @@ function makeTrades(pnls: number[]): BacktestTrade[] {
     exit_date: `2026-01-${(i + 1).toString().padStart(2, "0")}T04:00:00Z`,
     entry_price: 100,
     exit_price: 100 + pnl / 10,
-    quantity: 1,
     pnl,
-    pnl_percent: pnl,
-    exit_reason: pnl > 0 ? "tp_hit" : "sl_hit",
-    bars_held: 1,
+    exit_reason: pnl > 0 ? "take_profit_hit" : "stop_loss_hit",
   } as BacktestTrade));
 }
 

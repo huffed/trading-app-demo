@@ -1,13 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { closeSimPosition, initialSimState } from "./prop-firm-backtest";
+import { closeSimPosition, initialSimState, type SimConfig } from "./prop-firm-backtest";
 import type { BacktestTrade } from "./types";
 
-const cfg = {
+// B.1.12: complete SimConfig so the file passes strict tsc --noEmit.
+const cfg: SimConfig = {
   slippageBps: 0,
   spreadBps: 0,
   commissionPct: 0,
   commissionPerLot: 0,
   maxPos: 1,
+  posSize: 100,
+  stopLoss: { type: "percentage", value: 1.5 },
+  takeProfit: { type: "percentage", value: 3 },
 };
 
 describe("R-aware consecutive-loss counter (B.1.1)", () => {
