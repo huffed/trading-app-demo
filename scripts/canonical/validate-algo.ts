@@ -88,15 +88,6 @@ const ENABLE_FTMO_TERMINATION = process.env.FTMO_TERMINATION !== "0";
 const ENABLE_RE_ENTRY_COOLDOWN = process.env.RE_ENTRY_COOLDOWN !== "0";
 const ENABLE_PORTFOLIO_HALT = process.env.PORTFOLIO_HALT !== "0";
 const PORTFOLIO_DLL_PCT = Number(process.env.PORTFOLIO_DLL_PCT ?? 5);
-/** Portfolio-level capital basis for the portfolio-halt DLL check. When
- *  unset, falls back to each algo's own capital (conservative — over-
- *  strict because real FTMO account capital is typically 5-20× a single
- *  algo's allocation). Operator should pass their real account size for
- *  full-fleet validate-algo runs. Example: PORTFOLIO_CAPITAL_USD=100000
- *  for a 10-algo $100K FTMO Test account. */
-const PORTFOLIO_CAPITAL_USD = process.env.PORTFOLIO_CAPITAL_USD
-  ? Number(process.env.PORTFOLIO_CAPITAL_USD)
-  : undefined;
 const PREREG_PATH = process.env.PREREG_PATH ?? "scripts/canonical/preregistration.json";
 const BOOTSTRAP_ITERATIONS = Number(process.env.BOOTSTRAP_ITERATIONS ?? 2000);
 const BOOTSTRAP_SEED = Number(process.env.BOOTSTRAP_SEED ?? 42);
@@ -135,6 +126,17 @@ interface AlgoRow {
   rules: AlgorithmRules;
   ticker: string;
   status: string;
+  /** broker_connection_id groups algos sharing a broker account for
+   *  portfolio-halt + risk-pool sibling aggregation. Null = solo. */
+  broker_connection_id: string | null;
+}
+
+interface BrokerConnectionRow {
+  id: string;
+  label: string;
+  /** Real account starting capital (USD). Null = no portfolio capital
+   *  set; validate-algo falls back to per-algo capital (conservative). */
+  account_capital: number | null;
 }
 
 interface GateResults {
@@ -469,7 +471,7 @@ function analyzeStats(
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function loadAlgos(supabase: any, only: string | null): Promise<AlgoRow[]> {
-  let query = supabase.from("algorithms").select("id, name, capital, rules, status");
+  let query = supabase.from("algorithms").select("id, name, capital, rules, status, broker_connection_id");
   if (only) query = query.eq("name", only);
   else query = query.or("name.like.Library:%,name.eq.Gold Swing 4h");
   const res = await query;
@@ -486,10 +488,27 @@ async function loadAlgos(supabase: any, only: string | null): Promise<AlgoRow[]>
   return out;
 }
 
+/** Fetch broker_connections referenced by any of the loaded algos. Returns
+ *  a Map<broker_connection_id, account_capital|null>. account_capital is
+ *  null for connections without an explicit value set; portfolio-halt and
+ *  risk-pool then fall back to per-algo capital (conservative). */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function loadBrokerCapitals(supabase: any, algos: AlgoRow[]): Promise<Map<string, number | null>> {
+  const brokerIds = Array.from(new Set(algos.map((a) => a.broker_connection_id).filter((id): id is string => !!id)));
+  const out = new Map<string, number | null>();
+  if (brokerIds.length === 0) return out;
+  const res = await supabase.from("broker_connections").select("id, label, account_capital").in("id", brokerIds);
+  if (res.error) { console.warn(`broker_connections fetch failed: ${res.error.message} — falling back to per-algo capital`); return out; }
+  for (const r of (res.data ?? []) as BrokerConnectionRow[]) {
+    out.set(r.id, r.account_capital);
+  }
+  return out;
+}
+
 async function main(): Promise<void> {
   console.log(`\n===== validate-algo @ ${new Date().toISOString().slice(0, 16)} =====`);
   console.log(`Mode: ${ONLY_ALGO ? `single algo "${ONLY_ALGO}"` : "all deployed"}`);
-  console.log(`Phase B fidelity gates: siblings=${ENABLE_SIBLINGS} spread_gate=${ENABLE_SPREAD_GATE} risk_pool=${ENABLE_RISK_POOL} (cap=${POOL_CAP_PCT}%) ftmo_termination=${ENABLE_FTMO_TERMINATION} re_entry_cooldown=${ENABLE_RE_ENTRY_COOLDOWN} portfolio_halt=${ENABLE_PORTFOLIO_HALT} (dll=${PORTFOLIO_DLL_PCT}%, cap=${PORTFOLIO_CAPITAL_USD ?? "per-algo"})`);
+  console.log(`Phase B fidelity gates: siblings=${ENABLE_SIBLINGS} spread_gate=${ENABLE_SPREAD_GATE} risk_pool=${ENABLE_RISK_POOL} (cap=${POOL_CAP_PCT}%) ftmo_termination=${ENABLE_FTMO_TERMINATION} re_entry_cooldown=${ENABLE_RE_ENTRY_COOLDOWN} portfolio_halt=${ENABLE_PORTFOLIO_HALT} (dll=${PORTFOLIO_DLL_PCT}%)`);
   console.log(`OOS cutoff: ${OOS_CUTOFF}`);
   console.log(`Persist to DB: ${PERSIST}\n`);
 
@@ -498,7 +517,24 @@ async function main(): Promise<void> {
   const supabase = createClient(url, key, { auth: { persistSession: false } });
 
   const algos = await loadAlgos(supabase, ONLY_ALGO);
-  console.log(`Loaded ${algos.length} algos.\n`);
+  console.log(`Loaded ${algos.length} algos.`);
+
+  // Phase B.1.7/B.1.3 portfolio modelling: fetch per-broker account_capital
+  // for portfolio-halt + risk-pool reference. Algos sharing a broker_connection_id
+  // form a portfolio sharing one account's capital. Algos with null
+  // broker_connection_id or null account_capital fall back to per-algo capital.
+  const brokerCapitals = await loadBrokerCapitals(supabase, algos);
+  const brokerGroupCount = new Map<string, number>();
+  for (const a of algos) {
+    if (!a.broker_connection_id) continue;
+    brokerGroupCount.set(a.broker_connection_id, (brokerGroupCount.get(a.broker_connection_id) ?? 0) + 1);
+  }
+  const groupSummaries = Array.from(brokerGroupCount.entries()).map(([id, count]) => {
+    const cap = brokerCapitals.get(id);
+    return `${count} algos on ${id.slice(0, 8)} (cap=${cap != null ? `$${cap.toLocaleString()}` : "per-algo"})`;
+  });
+  const soloAlgos = algos.filter((a) => !a.broker_connection_id).length;
+  console.log(`Broker grouping: ${groupSummaries.length > 0 ? groupSummaries.join(", ") : "(none)"}${soloAlgos > 0 ? ` + ${soloAlgos} solo (no broker)` : ""}\n`);
 
   // Phase B.2 statistical-rigor inputs.
   const preregs = loadPreregistrations(PREREG_PATH);
@@ -549,12 +585,25 @@ async function main(): Promise<void> {
     // and risk-pool so SIBLINGS=0 + RISK_POOL=1 (and the inverse) toggle
     // independently. Both lists derive from the same baseline-trade pool but
     // are gated separately by the env flags.
+    //
+    // B.1.7 fix: filter siblings to ONLY those sharing the same
+    // broker_connection_id. Algos on different brokers (different FTMO
+    // accounts) are not portfolio-mates; their positions don't compete for
+    // the same capital pool. Algos with null broker_connection_id are solo
+    // (no siblings — treat as their own portfolio of one).
     let allSiblings: SiblingTradeWindow[] = [];
-    if (ENABLE_SIBLINGS || ENABLE_RISK_POOL) {
+    // An algo with null broker_connection_id isn't deployed anywhere — it has
+    // no portfolio dynamics with anything else. Sibling list stays empty.
+    // (Without this guard, null === null would lump every unlinked algo into
+    // one implicit "no-broker" group, which is wrong: those are just
+    // standalone backtests with no shared account.)
+    if ((ENABLE_SIBLINGS || ENABLE_RISK_POOL) && algo.broker_connection_id !== null) {
       for (const [otherId, otherTrades] of baselineTradesByAlgo) {
         if (otherId === algo.id) continue;
         const otherAlgo = algos.find((a) => a.id === otherId);
         if (!otherAlgo) continue;
+        // Skip cross-broker siblings — different accounts don't share capital.
+        if (algo.broker_connection_id !== otherAlgo.broker_connection_id) continue;
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const otherRiskPct = ((otherAlgo.rules as any).position_sizing?.value ?? 0) as number;
         const otherRiskDollars = otherAlgo.capital * (otherRiskPct / 100);
@@ -564,8 +613,12 @@ async function main(): Promise<void> {
     const directionConflictSiblings: SiblingTradeWindow[] = ENABLE_SIBLINGS ? allSiblings : [];
     const riskPoolSiblings: SiblingTradeWindow[] = ENABLE_RISK_POOL ? allSiblings : [];
     const spreadGate: SpreadGateConfig | null = ENABLE_SPREAD_GATE ? SPREAD_GATE_CONFIG : null;
+    // B.1.7 portfolio reference_capital: use this algo's broker account_capital
+    // when available; else fall back to per-algo capital (conservative).
+    const brokerCap = algo.broker_connection_id ? brokerCapitals.get(algo.broker_connection_id) ?? null : null;
+    const portfolioReferenceCapital = brokerCap ?? undefined;
     const riskPool: RiskPoolConfig | null = ENABLE_RISK_POOL
-      ? { enabled: true, pool_cap_pct: POOL_CAP_PCT }
+      ? { enabled: true, pool_cap_pct: POOL_CAP_PCT, ...(portfolioReferenceCapital !== undefined ? { reference_capital: portfolioReferenceCapital } : {}) }
       : null;
     const ftmoTermination: FtmoTerminationConfig | null = ENABLE_FTMO_TERMINATION
       ? { enabled: true }
@@ -573,25 +626,35 @@ async function main(): Promise<void> {
     const reEntryCooldown: ReEntryCooldownConfig | null = ENABLE_RE_ENTRY_COOLDOWN
       ? { enabled: true }  // cooldown_minutes undefined → auto-derives from rules.timeframe
       : null;
-    // Portfolio-halt: pre-compute sibling daily PnL by date from baseline runs.
+    // Portfolio-halt: pre-compute sibling daily PnL from baseline runs,
+    // restricted to same-broker siblings (B.1.7). Same null-broker semantic
+    // as direction-conflict + risk-pool: an algo without a broker connection
+    // has no portfolio dynamics — its sibling map stays empty (it's a
+    // standalone backtest, not part of any account).
     let portfolioHalt: PortfolioHaltConfig | null = null;
     if (ENABLE_PORTFOLIO_HALT) {
       const siblingDailyPnl = new Map<string, number>();
-      for (const [otherId, otherTrades] of baselineTradesByAlgo) {
-        if (otherId === algo.id) continue;
-        for (const t of otherTrades) {
-          const day = t.exit_date.slice(0, 10);
-          siblingDailyPnl.set(day, (siblingDailyPnl.get(day) ?? 0) + t.pnl);
+      if (algo.broker_connection_id !== null) {
+        for (const [otherId, otherTrades] of baselineTradesByAlgo) {
+          if (otherId === algo.id) continue;
+          const otherAlgo = algos.find((a) => a.id === otherId);
+          if (!otherAlgo) continue;
+          // Only same-broker siblings contribute to this algo's portfolio DLL.
+          if (algo.broker_connection_id !== otherAlgo.broker_connection_id) continue;
+          for (const t of otherTrades) {
+            const day = t.exit_date.slice(0, 10);
+            siblingDailyPnl.set(day, (siblingDailyPnl.get(day) ?? 0) + t.pnl);
+          }
         }
       }
       portfolioHalt = {
         enabled: true,
         daily_loss_limit_pct: PORTFOLIO_DLL_PCT,
-        // D3 fix: when PORTFOLIO_CAPITAL_USD is set, use it as the
-        // reference_capital so the DLL math reflects the real account
-        // size (not per-algo allocation). Falls back to algo.capital
-        // when unset — conservative default for safety.
-        ...(PORTFOLIO_CAPITAL_USD !== undefined ? { reference_capital: PORTFOLIO_CAPITAL_USD } : {}),
+        // B.1.7: use broker's account_capital when set; else fall back
+        // to algo.capital via the in-engine default. portfolioReferenceCapital
+        // is undefined when no broker capital available — preserves conservative
+        // per-algo behaviour.
+        ...(portfolioReferenceCapital !== undefined ? { reference_capital: portfolioReferenceCapital } : {}),
         sibling_daily_pnl: siblingDailyPnl,
       };
     }

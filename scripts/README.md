@@ -34,7 +34,12 @@ Defaults match the operator's locked Phase B configuration; override only when i
 - `RE_ENTRY_COOLDOWN` — refuse entry within N minutes of a loss exit (default = 1× bar duration).
 - `PORTFOLIO_HALT` — portfolio-level DLL across siblings' realized P&L map.
 - `PORTFOLIO_DLL_PCT` — portfolio DLL as % of reference capital (default `5`).
-- `PORTFOLIO_CAPITAL_USD` — reference capital for the portfolio DLL calc. Unset = per-algo capital (conservative). Set to real account size for full-fleet runs. Example: `PORTFOLIO_CAPITAL_USD=100000` for a 10-algo $100K FTMO Test account.
+
+**Portfolio modelling (B.1.7).** Validate-algo groups algos by their `algorithms.broker_connection_id` and treats each group as one portfolio sharing the broker's capital. Siblings (direction-conflict, risk-pool, portfolio-halt) are computed WITHIN groups only — algos on different broker connections don't share capital. Set `broker_connections.account_capital` per account to use the real broker capital as `reference_capital`; algos with unset broker capital (or no broker connection) fall back to per-algo capital (conservative). Example SQL:
+```sql
+UPDATE broker_connections SET account_capital = 100000
+  WHERE label = 'FTMO Test $100k';
+```
 
 **Phase B.2 statistical rigor**
 - `BLOCK_BOOTSTRAP` — `1` (default) uses moving-block bootstrap; `0` falls back to trade-level i.i.d. (NB: shifts verdicts — see [[feedback_block_bootstrap_verdict_shift]]).
