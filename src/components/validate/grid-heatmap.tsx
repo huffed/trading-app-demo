@@ -46,11 +46,11 @@ function pickWinner(
     return true;
   });
   if (eligible.length === 0) return null;
-  return eligible.reduce((best, c) => {
-    const bestCalmar = best.calmar ?? -Infinity;
-    const cellCalmar = c.calmar ?? -Infinity;
-    return cellCalmar > bestCalmar ? c : best;
-  });
+  // Pick by total_return per [[feedback_winner_rule_return_within_ftmo]].
+  // Calmar stays visible per-cell as secondary info, but ranking is by
+  // return. Operator targets max return inside FTMO safety, not max
+  // risk-adjusted return.
+  return eligible.reduce((best, c) => (c.total_return > best.total_return ? c : best));
 }
 
 export function GridHeatmap({
@@ -140,7 +140,7 @@ function Legend({ ddBreachThreshold }: { ddBreachThreshold: number | null }) {
     <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-muted-foreground">
       <span className="flex items-center gap-1">
         <Star className="h-3 w-3 text-amber-500 fill-amber-500" />
-        winner (highest Calmar · positive return · DD passes · WR &ge; {WINNER_MIN_WR}%)
+        winner (highest return · positive · DD passes · WR &ge; {WINNER_MIN_WR}%)
       </span>
       {ddBreachThreshold != null && (
         <span className="flex items-center gap-1">
