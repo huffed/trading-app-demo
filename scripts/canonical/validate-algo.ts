@@ -53,6 +53,7 @@ import {
   bootstrapStatBlockWithSamples,
   bootstrapStatWithSamples,
   meanR,
+  sharpeRatio,
   totalReturn,
   wilsonIntervalProportion,
   type BootstrapResult,
@@ -179,6 +180,11 @@ interface StatisticalRigorBlock {
   total_return_ci: BootstrapResult;
   mean_r_ci: BootstrapResult;
   mean_r_bonferroni: MccVerdict;
+  /** B.2.10: per-trade Sharpe ratio (mean R / std R). Not annualised —
+   *  consumer scales by sqrt(trades_per_year) if it wants annual. */
+  sharpe_ratio: number;
+  /** B.2.10: bootstrap CI on Sharpe ratio. Uses block bootstrap when enabled. */
+  sharpe_ratio_ci: BootstrapResult;
 }
 
 interface StepStats {
@@ -241,17 +247,20 @@ function tradesInWindow(trades: BacktestTrade[], start: Date, end: Date): Backte
   });
 }
 
-function analyzeStats(
-  trades: BacktestTrade[],
-  capital: number,
-  friction: GateResults["friction"],
-  fidelityGates: GateResults["fidelity_gates_applied"],
-  riskPct: number,
-  algoName: string,
-  nCandidates: number,
-  preregs: ReturnType<typeof loadPreregistrations>,
-  now: Date
-): GateResults {
+interface AnalyzeStatsArgs {
+  trades: BacktestTrade[];
+  capital: number;
+  friction: GateResults["friction"];
+  fidelityGates: GateResults["fidelity_gates_applied"];
+  riskPct: number;
+  algoName: string;
+  nCandidates: number;
+  preregs: ReturnType<typeof loadPreregistrations>;
+  now: Date;
+}
+
+function analyzeStats(args: AnalyzeStatsArgs): GateResults {
+  const { trades, capital, friction, fidelityGates, riskPct, algoName, nCandidates, preregs, now } = args;
   const computedAt = now.toISOString();
   const effectiveNTests = Math.max(1, nCandidates * BONFERRONI_TESTS_PER_ALGO);
   const familyRationale = BONFERRONI_TESTS_PER_ALGO === 1
@@ -268,6 +277,8 @@ function analyzeStats(
     total_return_ci: { point: 0, lower: NaN, upper: NaN, n_iterations: 0, ci_level: 0.95 },
     mean_r_ci: { point: 0, lower: NaN, upper: NaN, n_iterations: 0, ci_level: 0.95 },
     mean_r_bonferroni: { p_value: 1, bonferroni_alpha: FAMILY_ALPHA / effectiveNTests, passes: false, family_alpha: FAMILY_ALPHA, n_tests: effectiveNTests },
+    sharpe_ratio: 0,
+    sharpe_ratio_ci: { point: 0, lower: NaN, upper: NaN, n_iterations: 0, ci_level: 0.95 },
   };
   const empty: GateResults = {
     computed_at: computedAt,
@@ -399,6 +410,11 @@ function analyzeStats(
         { seed: BOOTSTRAP_SEED, n_iterations: BOOTSTRAP_ITERATIONS }
       );
   const meanRBonferroni = bonferroniVerdict(meanRWithSamples.samples, FAMILY_ALPHA, effectiveNTests);
+  // B.2.10: per-trade Sharpe + bootstrap CI.
+  const sharpePoint = sharpeRatio(sorted, riskPerTrade);
+  const sharpeCI = ENABLE_BLOCK_BOOTSTRAP
+    ? bootstrapStatBlock(sorted, (ts: BacktestTrade[]) => sharpeRatio(ts, riskPerTrade), { seed: BOOTSTRAP_SEED, n_iterations: BOOTSTRAP_ITERATIONS })
+    : bootstrapStat(sorted, (ts: BacktestTrade[]) => sharpeRatio(ts, riskPerTrade), { seed: BOOTSTRAP_SEED, n_iterations: BOOTSTRAP_ITERATIONS });
   const rigor: StatisticalRigorBlock = {
     bootstrap_iterations: BOOTSTRAP_ITERATIONS,
     bootstrap_seed: BOOTSTRAP_SEED,
@@ -416,6 +432,8 @@ function analyzeStats(
       ci_level: meanRWithSamples.ci_level,
     },
     mean_r_bonferroni: meanRBonferroni,
+    sharpe_ratio: sharpePoint,
+    sharpe_ratio_ci: sharpeCI,
   };
 
   // Phase B.2 pre-registration check: if algo is registered, the registered
@@ -604,7 +622,9 @@ async function main(): Promise<void> {
   console.log(`Pass 1 (baseline): collected trades for ${baselineTradesByAlgo.size} algos.\n`);
 
   // Pass 2: run each algo with sibling-blocking trades from all OTHER algos.
-  let pass = 0, fail = 0, excluded = 0;
+  let pass = 0, excluded = 0;
+  // B.2.13: split fail bucketing so operator can triage by cause.
+  let bonfFail = 0, preregFail = 0, stepFail = 0;
   for (const algo of algos) {
     const interval = timeframeToInterval(algo.rules.timeframe);
     const bars = await getBarsNoTtl(supabase, algo.ticker, interval);
@@ -697,18 +717,27 @@ async function main(): Promise<void> {
     }
     const fidelityFlags = { siblings: ENABLE_SIBLINGS, spread_gate: ENABLE_SPREAD_GATE, risk_pool: ENABLE_RISK_POOL, ftmo_termination: ENABLE_FTMO_TERMINATION, re_entry_cooldown: ENABLE_RE_ENTRY_COOLDOWN, portfolio_halt: ENABLE_PORTFOLIO_HALT };
 
+    const baseAnalyzeArgs: Omit<AnalyzeStatsArgs, "trades"> = {
+      capital: algo.capital, friction, fidelityGates: fidelityFlags, riskPct,
+      algoName: algo.name, nCandidates, preregs, now: NOW,
+    };
     let results: GateResults;
     if (!bars) {
-      results = analyzeStats([], algo.capital, friction, fidelityFlags, riskPct, algo.name, nCandidates, preregs, NOW);
+      results = analyzeStats({ ...baseAnalyzeArgs, trades: [] });
       results.step2.reason = "no bars in cache";
       results.promotion_blockers = ["no bars in cache"];
     } else {
       const result = runPortfolioBacktest(algo.rules, new Map([[algo.ticker, bars]]), algo.capital, [], null, null, directionConflictSiblings, spreadGate, riskPool, ftmoTermination, riskPoolSiblings, reEntryCooldown, portfolioHalt);
-      results = analyzeStats(result.trades, algo.capital, friction, fidelityFlags, riskPct, algo.name, nCandidates, preregs, NOW);
+      results = analyzeStats({ ...baseAnalyzeArgs, trades: result.trades });
     }
+    // B.2.13: triage bucketing — split failures by cause so operator can
+    // see at a glance whether candidates die on stats, pre-reg, step gates,
+    // or data shortage.
     if (results.promotion_eligible) pass++;
     else if (results.step2.verdict === "EXCLUDED") excluded++;
-    else fail++;
+    else if (results.preregistration?.has_preregistration && !results.preregistration.passed) preregFail++;
+    else if (!results.statistical_rigor.mean_r_bonferroni.passes) bonfFail++;
+    else stepFail++;
 
     if (PERSIST) {
       await supabase.from("algorithms").update({ backtest_results: results }).eq("id", algo.id);
@@ -722,7 +751,9 @@ async function main(): Promise<void> {
     const preregTag = results.preregistration?.has_preregistration
       ? `${results.preregistration.registration_type === "true-prereg" ? "PREREG" : "P-LOCK"}${results.preregistration.passed ? "✓" : "✗"}`
       : "no-prereg";
-    console.log(`  ${flag.padEnd(11)} ${algo.name.padEnd(50)} $${results.step2.total_return.toString().padStart(8)} ${results.step2.total_trades.toString().padStart(4)}t WR${results.step2.win_rate}% R[${ci.lower.toFixed(2)},${ci.upper.toFixed(2)}] p=${mcc.p_value.toFixed(4)}${mcc.passes ? "*" : ""} ${preregTag}`);
+    // B.2.12: explicit bonf=PASS/FAIL instead of cryptic `*` after p-value.
+    const bonfTag = `bonf=${mcc.passes ? "PASS" : "FAIL"}`;
+    console.log(`  ${flag.padEnd(11)} ${algo.name.padEnd(50)} $${results.step2.total_return.toString().padStart(8)} ${results.step2.total_trades.toString().padStart(4)}t WR${results.step2.win_rate}% R[${ci.lower.toFixed(2)},${ci.upper.toFixed(2)}] p=${mcc.p_value.toFixed(4)} ${bonfTag} ${preregTag}`);
     // B.2.6: surface step3 + step6 CIs on a sub-line for operator visibility.
     const wfCi = results.step3.walk_forward_green_ci;
     const yrCi = results.step3.per_year_green_ci;
@@ -737,7 +768,8 @@ async function main(): Promise<void> {
     }
   }
 
-  console.log(`\nSUMMARY: ${pass} ELIGIBLE / ${fail} BLOCKED / ${excluded} EXCLUDED\n`);
+  const totalFail = bonfFail + preregFail + stepFail;
+  console.log(`\nSUMMARY: ${pass} ELIGIBLE / ${totalFail} BLOCKED (${preregFail} prereg, ${bonfFail} bonferroni, ${stepFail} step-verdict) / ${excluded} EXCLUDED\n`);
   console.log(`Phase B fidelity gates applied: siblings=${ENABLE_SIBLINGS}, spread_gate=${ENABLE_SPREAD_GATE}, risk_pool=${ENABLE_RISK_POOL} (cap=${POOL_CAP_PCT}%), ftmo_termination=${ENABLE_FTMO_TERMINATION}, re_entry_cooldown=${ENABLE_RE_ENTRY_COOLDOWN}, portfolio_halt=${ENABLE_PORTFOLIO_HALT} (dll=${PORTFOLIO_DLL_PCT}%)`);
   console.log(`Compare to Phase A results (no gates) to measure fidelity impact.\n`);
 }
