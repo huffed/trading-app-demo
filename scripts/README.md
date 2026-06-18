@@ -9,10 +9,54 @@ scripts/
 ├── launchd/                      operator's launchd plist (caffeinate)
 ├── canonical/                    ⭐ THE LIBRARY — fully fleshed-out reusable scripts
 │   ├── validate-algo.ts          Full Phase A→B validation runner. Consolidates step2-6 + verify-* + analyze-* with Phase B fidelity gates. Replaces ~10 archive scripts.
+│   ├── preregistration.json      Pre-registered acceptance criteria per algo (loaded by validate-algo).
 │   └── inspect-algo.ts           Per-algo backtest re-runner with per-trade detail.
 ├── ad-hoc/                       throwaway investigations (default: don't commit)
 └── archive/                      old scripts kept for reference
     └── 2026-06-18/               ~96 one-off scripts archived during reorg (step*, verify-*, analyze-*, diag-*, discovery-*, deploy-*, sweep-*, replay-*, phase1-*, phase2-*, etc)
+```
+
+## validate-algo.ts env vars (Phase B reference)
+
+Defaults match the operator's locked Phase B configuration; override only when investigating one specific gate or comparing methodologies.
+
+**Selection / persistence**
+- `ALGO` — exact-match algo name. Omit to run against all deployed algos. Example: `ALGO="Library: Gold sweep_reclaim-DailyBias-Long 4h"`
+- `PERSIST` — `1` (default) writes `backtest_results` JSONB to DB. `0` for dry-run.
+- `OOS_CUTOFF` — date for STEP 6 holdout split. Default `2025-12-18`. Re-roll quarterly (per B.6 cadence).
+
+**Phase B.1 fidelity gates** (each default on; set to `0` to disable for diagnostics)
+- `SIBLINGS` — direction-conflict gate (sibling opposite-side blocks entry).
+- `SPREAD_GATE` — ATR-ratio proxy for live broker spread.
+- `RISK_POOL` — combined open SL-$ cap across siblings.
+- `POOL_CAP_PCT` — risk-pool cap as % of capital (default `4`).
+- `FTMO_TERMINATION` — force-close all + break timeline on static-DD breach.
+- `RE_ENTRY_COOLDOWN` — refuse entry within N minutes of a loss exit (default = 1× bar duration).
+- `PORTFOLIO_HALT` — portfolio-level DLL across siblings' realized P&L map.
+- `PORTFOLIO_DLL_PCT` — portfolio DLL as % of reference capital (default `5`).
+
+**Phase B.2 statistical rigor**
+- `BLOCK_BOOTSTRAP` — `1` (default) uses moving-block bootstrap; `0` falls back to trade-level i.i.d. (NB: shifts verdicts — see [[feedback_block_bootstrap_verdict_shift]]).
+- `BOOTSTRAP_ITERATIONS` — default `2000`.
+- `BOOTSTRAP_SEED` — deterministic resampling seed, default `42`.
+- `FAMILY_ALPHA` — Bonferroni family-wise alpha, default `0.05`.
+- `BONFERRONI_TESTS_PER_ALGO` — per-algo test count for family-size calc. Default `1` (treats step verdicts + pre-reg as a composite hypothesis). Set to ≥5 for strict cross-test correction.
+- `PREREG_PATH` — pre-registration file location, default `scripts/canonical/preregistration.json`.
+
+**Usage examples**
+```bash
+# Default: all gates + block bootstrap + strict pre-reg
+pnpm dlx tsx scripts/canonical/validate-algo.ts
+
+# One algo, dry-run, baseline (no gates) for comparing to Phase A
+PERSIST=0 SIBLINGS=0 SPREAD_GATE=0 RISK_POOL=0 FTMO_TERMINATION=0 RE_ENTRY_COOLDOWN=0 PORTFOLIO_HALT=0 \
+  ALGO="Library: Gold sweep_reclaim-DailyBias-Long 4h" pnpm dlx tsx scripts/canonical/validate-algo.ts
+
+# Re-roll OOS holdout for quarterly cadence
+OOS_CUTOFF=2026-03-18 pnpm dlx tsx scripts/canonical/validate-algo.ts
+
+# Trade-level bootstrap (to compare against block bootstrap verdicts)
+BLOCK_BOOTSTRAP=0 PERSIST=0 pnpm dlx tsx scripts/canonical/validate-algo.ts
 ```
 
 **Discipline going forward** (2026-06-18 PM operator-set):

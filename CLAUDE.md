@@ -318,7 +318,7 @@ Plus opt-in `regime_filter` (daily ATR percentile) and `adx_filter` (trend stren
 `lib/algorithm/stagnant-exit.ts` — closes positions open ≥ N bars that never reached `min_excursion_r` favourable and currently sit at `≤ min_pnl_r`. `max_bars` auto-derived from `SL_distance / ATR(14)` (clamped 6-48) when not pinned. Runs FIRST in `manageExistingPosition` so it preempts SL hits.
 
 ### R-Aware Consecutive-Loss Halt
-`lib/scan/consec-loss-halt.ts` — 3-strikes daily halt counting only losses ≥ 0.5R. Micro stagnant-cut nips (< 0.5R) don't reset OR count toward the streak.
+`lib/scan/consec-loss-halt.ts` (live) — 3-strikes daily halt counting only losses ≥ 0.25R (the file's `SIGNIFICANT_LOSS_R_THRESHOLD`). Micro stagnant-cut nips don't reset OR count toward the streak. **Backtest equivalent (Phase B.1.1, 2026-06-18):** `closeSimPosition` in `lib/market-data/prop-firm-backtest.ts` applies the same 0.25R filter when the position carries `slDistance`. PortfolioPosition (portfolio-backtest) populates slDistance; backtest-engine.ts simpler positions don't, so those callers preserve legacy "any loss counts" behaviour.
 
 ### FTMO Consistency Halt
 `lib/scan/consistency-halt.ts` — refuses new entries on a day whose net profit ≥ N% of total accumulated profit (FTMO challenge: 40%). Live-only; backtest flags violations end-of-run.

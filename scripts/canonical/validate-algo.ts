@@ -44,6 +44,7 @@ import {
   type SiblingTradeWindow,
   type SpreadGateConfig,
 } from "../../src/lib/market-data/portfolio-backtest";
+import { assertTradeSidePopulated } from "../../src/lib/market-data/assert-trade-side";
 import type { BacktestTrade, PriceBar } from "../../src/lib/market-data/types";
 import type { AlgorithmRules } from "../../src/types/algorithm";
 import {
@@ -510,15 +511,10 @@ async function main(): Promise<void> {
     const bars = await getBarsNoTtl(supabase, algo.ticker, interval);
     if (!bars) continue;
     const result = runPortfolioBacktest(algo.rules, new Map([[algo.ticker, bars]]), algo.capital, []);
-    // B.1.5 fix: BacktestTrade.side is required by the type. The previous
-    // `?? "long"` fallback silently labelled any SHORT trade as LONG if the
-    // engine had a side-population bug — masking the bug in direction-conflict
-    // sibling matching. Remove the fallback; assert side is set.
+    // B.1.5 fix: assertTradeSidePopulated throws if engine had a side bug.
     const tagged: (BacktestTrade & { ticker: string })[] = [];
     for (const t of result.trades) {
-      if (t.side !== "long" && t.side !== "short") {
-        throw new Error(`validate-algo: algo "${algo.name}" produced trade without valid side (got ${JSON.stringify(t.side)}). Engine side-population bug — fix before continuing.`);
-      }
+      assertTradeSidePopulated(t, algo.name);
       tagged.push({ ...t, ticker: algo.ticker });
     }
     baselineTradesByAlgo.set(algo.id, tagged);
@@ -610,6 +606,15 @@ async function main(): Promise<void> {
       ? (results.preregistration.passed ? "PREREG✓" : "PREREG✗")
       : "no-prereg";
     console.log(`  ${flag.padEnd(11)} ${algo.name.padEnd(50)} $${results.step2.total_return.toString().padStart(8)} ${results.step2.total_trades.toString().padStart(4)}t WR${results.step2.win_rate}% R[${ci.lower.toFixed(2)},${ci.upper.toFixed(2)}] p=${mcc.p_value.toFixed(4)}${mcc.passes ? "*" : ""} ${preregTag}`);
+    // B.2.6: surface step3 + step6 CIs on a sub-line for operator visibility.
+    const wfCi = results.step3.walk_forward_green_ci;
+    const yrCi = results.step3.per_year_green_ci;
+    const hoCi = results.step6.held_out_mean_r_ci;
+    const fmtCi = (v: { lower: number; upper: number }): string =>
+      Number.isFinite(v.lower) && Number.isFinite(v.upper) ? `[${(v.lower * 100).toFixed(0)}%-${(v.upper * 100).toFixed(0)}%]` : "n/a";
+    const fmtR = (v: { lower: number; upper: number }): string =>
+      Number.isFinite(v.lower) && Number.isFinite(v.upper) ? `[${v.lower.toFixed(2)},${v.upper.toFixed(2)}]` : "n/a";
+    console.log(`               step3 wf=${results.step3.walk_forward_green_pct}% ${fmtCi(wfCi)} yr=${results.step3.per_year_green_pct}% ${fmtCi(yrCi)}  step6 heldR=${results.step6.held_out_mean_r} ${fmtR(hoCi)}`);
     if (results.promotion_blockers.length > 0 && !results.promotion_eligible) {
       console.log(`    Blockers: ${results.promotion_blockers.slice(0, 3).join(" | ")}`);
     }

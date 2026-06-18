@@ -134,6 +134,25 @@ describe("portfolio-backtest portfolio-halt (Phase B.1.3)", () => {
     expect(tightResult.trades.length).toBeLessThanOrEqual(baseline.trades.length);  // breached
   });
 
+  it("config.reference_capital undefined falls back to algoCapital", () => {
+    // Confirm the fallback path: when reference_capital is undefined,
+    // the gate uses the algo's own capital (which validate-algo passes
+    // as algoCapital). Sibling -$400/day on $10K algo capital = 4% < 5% DLL → no breach.
+    const siblingMap = new Map<string, number>();
+    for (let d = 1; d <= 28; d++) siblingMap.set(`2026-01-${d.toString().padStart(2, "0")}`, -400);
+    const config: PortfolioHaltConfig = {
+      enabled: true,
+      daily_loss_limit_pct: 5,
+      // reference_capital intentionally omitted → fall back to algoCapital
+      sibling_daily_pnl: siblingMap,
+    };
+    const baseline = runPortfolioBacktest(baseRules, prices, 10000);
+    const result = runPortfolioBacktest(
+      baseRules, prices, 10000, [], null, null, [], null, null, null, undefined, null, config
+    );
+    expect(result.trades.length).toBe(baseline.trades.length);
+  });
+
   it("date not in sibling map contributes 0 to combined (no spurious breach)", () => {
     // Sibling map has a date OUTSIDE the fixture's window.
     const siblingMap = new Map<string, number>([["2025-12-15", -9999]]);
