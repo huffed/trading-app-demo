@@ -7,7 +7,8 @@
  *   - Empirical friction (slippage_bps=3, spread_bps=0 — from real fills)
  *   - Direction-conflict simulation (sibling open positions block)
  *   - Spread-gate ATR-proxy (refuse high-vol entries)
- *   - [pending: risk-pool halt, FTMO termination]
+ *   - Risk-pool halt (combined open SL-$ across siblings vs cap %)
+ *   - FTMO termination (force-close + stop on static-DD breach)
  *
  * Output: per-algo {step2 stats, step3 walk-forward, step6 OOS-tiered,
  * promotion_eligible boolean, blockers list}. Persisted to
@@ -18,11 +19,14 @@
  *   pnpm dlx tsx scripts/canonical/validate-algo.ts ALGO="Library: Gold sweep_reclaim-DailyBias-Long 4h"
  *
  * Env:
- *   ALGO          (optional) — algo name (exact match)
- *   OOS_CUTOFF    (optional) — date for OOS holdout, default 2025-12-18
- *   PERSIST       (default 1) — write backtest_results to DB. Set 0 for dry-run.
- *   SIBLINGS      (default 1) — include direction-conflict simulation
- *   SPREAD_GATE   (default 1) — include spread-gate ATR proxy
+ *   ALGO              (optional) — algo name (exact match)
+ *   OOS_CUTOFF        (optional) — date for OOS holdout, default 2025-12-18
+ *   PERSIST           (default 1) — write backtest_results to DB. Set 0 for dry-run.
+ *   SIBLINGS          (default 1) — include direction-conflict simulation
+ *   SPREAD_GATE       (default 1) — include spread-gate ATR proxy
+ *   RISK_POOL         (default 1) — include risk-pool halt simulation
+ *   POOL_CAP_PCT      (default 4) — risk-pool cap as % of capital
+ *   FTMO_TERMINATION  (default 1) — force-close + stop on static-DD breach
  *
  * Acceptance: every result includes friction config + sample window +
  * step verdicts. Re-run anytime; same input → same output.
@@ -33,6 +37,7 @@ import { timeframeToInterval } from "../../src/lib/market-data/interval";
 import {
   runPortfolioBacktest,
   tradesAsSiblingWindows,
+  type FtmoTerminationConfig,
   type RiskPoolConfig,
   type SiblingTradeWindow,
   type SpreadGateConfig,
@@ -59,6 +64,7 @@ const ENABLE_SIBLINGS = process.env.SIBLINGS !== "0";
 const ENABLE_SPREAD_GATE = process.env.SPREAD_GATE !== "0";
 const ENABLE_RISK_POOL = process.env.RISK_POOL !== "0";
 const POOL_CAP_PCT = Number(process.env.POOL_CAP_PCT ?? 4);
+const ENABLE_FTMO_TERMINATION = process.env.FTMO_TERMINATION !== "0";
 
 const TRAIN_MONTHS = 12;
 const TEST_MONTHS = 3;
@@ -84,7 +90,7 @@ interface GateResults {
   sample_first: string | null;
   sample_last: string | null;
   friction: { slippage_bps: number; spread_bps: number; commission_per_lot: number };
-  fidelity_gates_applied: { siblings: boolean; spread_gate: boolean; risk_pool: boolean };
+  fidelity_gates_applied: { siblings: boolean; spread_gate: boolean; risk_pool: boolean; ftmo_termination: boolean };
   step2: StepStats;
   step3: WalkForwardStats;
   step6: OosStats;
@@ -300,7 +306,7 @@ async function loadAlgos(supabase: any, only: string | null): Promise<AlgoRow[]>
 async function main(): Promise<void> {
   console.log(`\n===== validate-algo @ ${new Date().toISOString().slice(0, 16)} =====`);
   console.log(`Mode: ${ONLY_ALGO ? `single algo "${ONLY_ALGO}"` : "all deployed"}`);
-  console.log(`Phase B fidelity gates: siblings=${ENABLE_SIBLINGS} spread_gate=${ENABLE_SPREAD_GATE} risk_pool=${ENABLE_RISK_POOL} (cap=${POOL_CAP_PCT}%)`);
+  console.log(`Phase B fidelity gates: siblings=${ENABLE_SIBLINGS} spread_gate=${ENABLE_SPREAD_GATE} risk_pool=${ENABLE_RISK_POOL} (cap=${POOL_CAP_PCT}%) ftmo_termination=${ENABLE_FTMO_TERMINATION}`);
   console.log(`OOS cutoff: ${OOS_CUTOFF}`);
   console.log(`Persist to DB: ${PERSIST}\n`);
 
@@ -358,7 +364,10 @@ async function main(): Promise<void> {
     const riskPool: RiskPoolConfig | null = ENABLE_RISK_POOL
       ? { enabled: true, pool_cap_pct: POOL_CAP_PCT }
       : null;
-    const fidelityFlags = { siblings: ENABLE_SIBLINGS, spread_gate: ENABLE_SPREAD_GATE, risk_pool: ENABLE_RISK_POOL };
+    const ftmoTermination: FtmoTerminationConfig | null = ENABLE_FTMO_TERMINATION
+      ? { enabled: true }
+      : null;
+    const fidelityFlags = { siblings: ENABLE_SIBLINGS, spread_gate: ENABLE_SPREAD_GATE, risk_pool: ENABLE_RISK_POOL, ftmo_termination: ENABLE_FTMO_TERMINATION };
 
     let results: GateResults;
     if (!bars) {
@@ -366,7 +375,7 @@ async function main(): Promise<void> {
       results.step2.reason = "no bars in cache";
       results.promotion_blockers = ["no bars in cache"];
     } else {
-      const result = runPortfolioBacktest(algo.rules, new Map([[algo.ticker, bars]]), algo.capital, [], null, null, siblings, spreadGate, riskPool);
+      const result = runPortfolioBacktest(algo.rules, new Map([[algo.ticker, bars]]), algo.capital, [], null, null, siblings, spreadGate, riskPool, ftmoTermination);
       results = analyzeStats(result.trades, algo.capital, friction, fidelityFlags, riskPct);
     }
     if (results.promotion_eligible) pass++;
@@ -384,7 +393,7 @@ async function main(): Promise<void> {
   }
 
   console.log(`\nSUMMARY: ${pass} ELIGIBLE / ${fail} BLOCKED / ${excluded} EXCLUDED\n`);
-  console.log(`Phase B fidelity gates applied: siblings=${ENABLE_SIBLINGS}, spread_gate=${ENABLE_SPREAD_GATE}, risk_pool=${ENABLE_RISK_POOL} (cap=${POOL_CAP_PCT}%)`);
+  console.log(`Phase B fidelity gates applied: siblings=${ENABLE_SIBLINGS}, spread_gate=${ENABLE_SPREAD_GATE}, risk_pool=${ENABLE_RISK_POOL} (cap=${POOL_CAP_PCT}%), ftmo_termination=${ENABLE_FTMO_TERMINATION}`);
   console.log(`Compare to Phase A results (no gates) to measure fidelity impact.\n`);
 }
 

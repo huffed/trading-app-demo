@@ -461,6 +461,25 @@ export interface RiskPoolConfig {
   reference_capital?: number;
 }
 
+/** Phase B.1 fidelity (2026-06-18 PM) — FTMO challenge-fail termination.
+ *
+ *  Live behaviour: when static-DD breach happens (equity drops below
+ *  starting_capital × (1 - max_drawdown%)), the FTMO challenge FAILS.
+ *  Broker closes all open positions at market; trader can't open new
+ *  positions; account is terminated.
+ *
+ *  Without this gate, the backtest engine sets drawdownBreached=true
+ *  and blocks NEW entries, but existing open positions continue to play
+ *  out naturally and the corpus loop keeps iterating. The post-breach
+ *  trades shouldn't count — the account is gone.
+ *
+ *  With this gate enabled: on breach, force-close all open positions at
+ *  the current bar's close price AND stop processing the rest of the
+ *  timeline (no more trades happen ever). */
+export interface FtmoTerminationConfig {
+  enabled: boolean;
+}
+
 /** Phase B.1 fidelity (2026-06-18 PM) — backtest equivalent of the live
  *  broker spread gate (`src/lib/algorithm/spread-gate.ts`). Live checks
  *  `(ask - bid) / pip > catalog_typical × 2.5`. Backtest has no bid/ask
@@ -819,7 +838,12 @@ export function runPortfolioBacktest(
   /** Phase B.1 backtest fidelity — caps combined open-risk-$ across
    *  sibling algos. Default null = no risk-pool simulation. Recommended:
    *  enabled=true, pool_cap_pct=4 (operator's accepted cap per 2026-06-12). */
-  riskPool: RiskPoolConfig | null = null
+  riskPool: RiskPoolConfig | null = null,
+  /** Phase B.1 backtest fidelity — FTMO challenge-fail termination.
+   *  Default null = legacy behaviour (corpus keeps iterating post-breach,
+   *  open positions naturally exit). Enable=true to force-close all + stop
+   *  timeline on breach, mirroring real FTMO challenge failure. */
+  ftmoTermination: FtmoTerminationConfig | null = null
 ): BacktestMetrics {
   const entry = normalize(rules.entry_conditions);
   const exit = normalize(rules.exit_conditions);
@@ -880,6 +904,18 @@ export function runPortfolioBacktest(
       for (const { ticker, state, i } of activeTickers) {
         forceCloseTicker(state, ticker, state.closes[i], dayKey, cfg, capital, s, trades);
       }
+    }
+
+    // Phase B.1 fidelity: FTMO challenge-fail termination. When static-DD
+    // breach happens, real FTMO closes all open positions + fails the
+    // challenge. Without this gate the corpus keeps iterating and post-
+    // breach trades accumulate. With ftmoTermination.enabled, force-close
+    // all + break the timeline (account is gone).
+    if (ftmoTermination?.enabled && s.drawdownBreached) {
+      for (const { ticker, state, i } of activeTickers) {
+        forceCloseTicker(state, ticker, state.closes[i], dayKey, cfg, capital, s, trades);
+      }
+      break;
     }
 
     // Phase 3: try to open new entries on each active ticker.
