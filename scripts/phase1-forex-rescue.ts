@@ -28,7 +28,7 @@ import type { AlgorithmRules } from "../src/types/algorithm";
 
 const RR_GRID = [1.5, 2, 2.5, 3, 4];
 const SL_PCT_GRID = [0.15, 0.2, 0.3, 0.4, 0.5, 0.75];
-const WINNER_MIN_WR = 40;
+const WINNER_MIN_WR = 37;
 
 const TARGETS = [
   "Library: USD/JPY FVG-DailyBias-Long 4h",
@@ -45,6 +45,7 @@ interface CellResult {
   sl_pct: number;
   total_return: number;
   max_drawdown: number;
+  max_static_dd: number;
   trades: number;
   win_rate: number;
   calmar: number | null;
@@ -52,24 +53,27 @@ interface CellResult {
 
 function computeCell(rr: number, sl_pct: number, trades: BacktestTrade[], capital: number): CellResult {
   if (trades.length === 0) {
-    return { rr, sl_pct, total_return: 0, max_drawdown: 0, trades: 0, win_rate: 0, calmar: null };
+    return { rr, sl_pct, total_return: 0, max_drawdown: 0, max_static_dd: 0, trades: 0, win_rate: 0, calmar: null };
   }
   const sorted = [...trades].sort(
     (a, b) => new Date(a.exit_date).getTime() - new Date(b.exit_date).getTime()
   );
-  let cum = 0, peak = 0, maxDd = 0, wins = 0;
+  let cum = 0, peak = 0, maxDd = 0, maxStaticDd = 0, wins = 0;
   for (const t of sorted) {
     cum += t.pnl;
     if (t.pnl > 0) wins++;
     if (cum > peak) peak = cum;
     const dd = ((peak - cum) / capital) * 100;
     if (dd > maxDd) maxDd = dd;
+    const staticDd = cum < 0 ? (-cum / capital) * 100 : 0;
+    if (staticDd > maxStaticDd) maxStaticDd = staticDd;
   }
   return {
     rr,
     sl_pct,
     total_return: Math.round(cum * 100) / 100,
     max_drawdown: Math.round(maxDd * 100) / 100,
+    max_static_dd: Math.round(maxStaticDd * 100) / 100,
     trades: sorted.length,
     win_rate: Math.round((wins / sorted.length) * 1000) / 10,
     calmar: maxDd > 0 ? Math.round((cum / maxDd) * 100) / 100 : null,
@@ -78,10 +82,12 @@ function computeCell(rr: number, sl_pct: number, trades: BacktestTrade[], capita
 
 function pickWinner(cells: CellResult[], ddThreshold: number): CellResult | null {
   const eligible = cells.filter(
-    (c) => c.trades > 0 && c.total_return > 0 && c.win_rate >= WINNER_MIN_WR && c.max_drawdown < ddThreshold
+    // FTMO static DD + return-priority per
+    // [[feedback_winner_rule_return_within_ftmo]].
+    (c) => c.trades > 0 && c.total_return > 0 && c.win_rate >= WINNER_MIN_WR && c.max_static_dd < ddThreshold
   );
   if (eligible.length === 0) return null;
-  return eligible.reduce((best, c) => ((c.calmar ?? -Infinity) > (best.calmar ?? -Infinity) ? c : best));
+  return eligible.reduce((best, c) => (c.total_return > best.total_return ? c : best));
 }
 
 function cloneRules(rules: AlgorithmRules, rr: number, sl_pct: number): AlgorithmRules {

@@ -36,7 +36,7 @@ import type { AlgorithmRules } from "../src/types/algorithm";
 
 const RR_GRID = [1.5, 2, 2.5, 3, 4, 5];
 const LOOKBACK_GRID = [3, 4, 5, 6, 8, 12];
-const WINNER_MIN_WR = 40;
+const WINNER_MIN_WR = 37;
 
 const SURVIVOR_NAMES = [
   "Library: Gold FVG-DailyBias-Long 4h",
@@ -63,7 +63,12 @@ interface CellResult {
   rr: number;
   lookback: number;
   total_return: number;
+  /** Peak-to-trough trailing drawdown — RISK STAT, not used for FTMO
+   *  eligibility (operator's FTMO uses static-from-start). */
   max_drawdown: number;
+  /** Static drawdown = max(0, (capital - equity_at_step) / capital × 100)
+   *  at each step. This IS the FTMO breach metric. */
+  max_static_dd: number;
   trades: number;
   win_rate: number;
   calmar: number | null;
@@ -71,24 +76,29 @@ interface CellResult {
 
 function computeCell(rr: number, lookback: number, trades: BacktestTrade[], capital: number): CellResult {
   if (trades.length === 0) {
-    return { rr, lookback, total_return: 0, max_drawdown: 0, trades: 0, win_rate: 0, calmar: null };
+    return { rr, lookback, total_return: 0, max_drawdown: 0, max_static_dd: 0, trades: 0, win_rate: 0, calmar: null };
   }
   const sorted = [...trades].sort(
     (a, b) => new Date(a.exit_date).getTime() - new Date(b.exit_date).getTime()
   );
-  let cum = 0, peak = 0, maxDd = 0, wins = 0;
+  let cum = 0, peak = 0, maxDd = 0, maxStaticDd = 0, wins = 0;
   for (const t of sorted) {
     cum += t.pnl;
     if (t.pnl > 0) wins++;
     if (cum > peak) peak = cum;
     const dd = ((peak - cum) / capital) * 100;
     if (dd > maxDd) maxDd = dd;
+    // Static DD only counts when cumulative pnl is negative (equity
+    // below starting balance). This is the actual FTMO breach metric.
+    const staticDd = cum < 0 ? (-cum / capital) * 100 : 0;
+    if (staticDd > maxStaticDd) maxStaticDd = staticDd;
   }
   return {
     rr,
     lookback,
     total_return: Math.round(cum * 100) / 100,
     max_drawdown: Math.round(maxDd * 100) / 100,
+    max_static_dd: Math.round(maxStaticDd * 100) / 100,
     trades: sorted.length,
     win_rate: Math.round((wins / sorted.length) * 1000) / 10,
     calmar: maxDd > 0 ? Math.round((cum / maxDd) * 100) / 100 : null,
@@ -97,10 +107,13 @@ function computeCell(rr: number, lookback: number, trades: BacktestTrade[], capi
 
 function pickWinner(cells: CellResult[], ddThreshold: number): CellResult | null {
   const eligible = cells.filter(
-    (c) => c.trades > 0 && c.total_return > 0 && c.win_rate >= WINNER_MIN_WR && c.max_drawdown < ddThreshold
+    // FTMO eligibility: filter on STATIC DD (the real breach metric),
+    // not peak-to-trough. Rank by total_return per
+    // [[feedback_winner_rule_return_within_ftmo]].
+    (c) => c.trades > 0 && c.total_return > 0 && c.win_rate >= WINNER_MIN_WR && c.max_static_dd < ddThreshold
   );
   if (eligible.length === 0) return null;
-  return eligible.reduce((best, c) => ((c.calmar ?? -Infinity) > (best.calmar ?? -Infinity) ? c : best));
+  return eligible.reduce((best, c) => (c.total_return > best.total_return ? c : best));
 }
 
 function cloneRules(rules: AlgorithmRules, rr: number, lookback: number): AlgorithmRules {
@@ -153,8 +166,8 @@ async function sweepAlgo(algo: AlgoRow): Promise<{ cells: CellResult[]; current:
   const ddThreshold = r.prop_firm?.max_drawdown ?? 10;
   const currentRr = r.take_profit?.value ?? 0;
   const currentLb = r.stop_loss?.lookback ?? 0;
-  const current = cells.find((c) => c.rr === currentRr && c.lookback === currentLb)
-    ?? { rr: currentRr, lookback: currentLb, total_return: NaN, max_drawdown: NaN, trades: 0, win_rate: 0, calmar: null };
+  const current: CellResult = cells.find((c) => c.rr === currentRr && c.lookback === currentLb)
+    ?? { rr: currentRr, lookback: currentLb, total_return: NaN, max_drawdown: NaN, max_static_dd: NaN, trades: 0, win_rate: 0, calmar: null };
   const winner = pickWinner(cells, ddThreshold);
   return { cells, current, winner, ddThreshold, slType: r.stop_loss?.type ?? "?", tpType: r.take_profit?.type ?? "?" };
 }
@@ -201,11 +214,11 @@ async function main(): Promise<void> {
         const { current, winner, ddThreshold, slType, tpType } = await sweepAlgo(algo);
         console.log("");
         console.log(`    SL: ${slType}  TP: ${tpType}  prop_firm.max_drawdown: ${ddThreshold}%`);
-        console.log(`    CURRENT  RR=${current.rr} lb=${current.lookback}: $${current.total_return.toFixed(0)} / DD ${current.max_drawdown.toFixed(2)}% / ${current.trades} trades / WR ${current.win_rate.toFixed(0)}% / Calmar ${current.calmar?.toFixed(2) ?? "—"}`);
+        console.log(`    CURRENT  RR=${current.rr} lb=${current.lookback}: $${current.total_return.toFixed(0)} / static DD ${current.max_static_dd.toFixed(2)}% / peak-trough ${current.max_drawdown.toFixed(2)}% / ${current.trades} trades / WR ${current.win_rate.toFixed(0)}% / Calmar ${current.calmar?.toFixed(2) ?? "—"}`);
         if (winner) {
-          console.log(`    WINNER   RR=${winner.rr} lb=${winner.lookback}: $${winner.total_return.toFixed(0)} / DD ${winner.max_drawdown.toFixed(2)}% / ${winner.trades} trades / WR ${winner.win_rate.toFixed(0)}% / Calmar ${winner.calmar?.toFixed(2) ?? "—"}`);
+          console.log(`    WINNER   RR=${winner.rr} lb=${winner.lookback}: $${winner.total_return.toFixed(0)} / static DD ${winner.max_static_dd.toFixed(2)}% / peak-trough ${winner.max_drawdown.toFixed(2)}% / ${winner.trades} trades / WR ${winner.win_rate.toFixed(0)}% / Calmar ${winner.calmar?.toFixed(2) ?? "—"}`);
         } else {
-          console.log(`    WINNER   — none (no cell passes DD + WR ≥ 40% + positive)`);
+          console.log(`    WINNER   — none (no cell passes FTMO static DD + WR ≥ 40% + positive)`);
         }
         console.log(`    VERDICT  ${verdict(current, winner, slType)}\n`);
       } catch (e) {

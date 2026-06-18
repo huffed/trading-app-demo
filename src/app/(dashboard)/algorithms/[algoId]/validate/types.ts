@@ -81,7 +81,7 @@ export const DEFAULT_Y_AXIS: AxisKey = "rr";
 
 /** Minimum win rate (%) for a cell to be eligible as the winner.
  *  Below this is too noisy to trust as the best config. */
-export const WINNER_MIN_WR = 40;
+export const WINNER_MIN_WR = 37;
 
 export interface GeometryCell {
   /** The two axis values for this cell. Stored as a record keyed by

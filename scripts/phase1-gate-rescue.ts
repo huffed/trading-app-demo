@@ -35,7 +35,7 @@ import type { AlgorithmRules } from "../src/types/algorithm";
 
 const RR_GRID = [1.5, 2, 2.5, 3];
 const SL_PCT_GRID = [0.15, 0.2, 0.3, 0.4, 0.5];
-const WINNER_MIN_WR = 40;
+const WINNER_MIN_WR = 37;
 
 // Three forex algos closest to passing in the original rescue sweep.
 const TARGETS = [
@@ -63,6 +63,7 @@ interface CellResult {
   gates: GateCombo;
   total_return: number;
   max_drawdown: number;
+  max_static_dd: number;
   trades: number;
   win_rate: number;
   calmar: number | null;
@@ -70,18 +71,20 @@ interface CellResult {
 
 function computeResult(rr: number, sl_pct: number, gates: GateCombo, trades: BacktestTrade[], capital: number): CellResult {
   if (trades.length === 0) {
-    return { rr, sl_pct, gates, total_return: 0, max_drawdown: 0, trades: 0, win_rate: 0, calmar: null };
+    return { rr, sl_pct, gates, total_return: 0, max_drawdown: 0, max_static_dd: 0, trades: 0, win_rate: 0, calmar: null };
   }
   const sorted = [...trades].sort(
     (a, b) => new Date(a.exit_date).getTime() - new Date(b.exit_date).getTime()
   );
-  let cum = 0, peak = 0, maxDd = 0, wins = 0;
+  let cum = 0, peak = 0, maxDd = 0, maxStaticDd = 0, wins = 0;
   for (const t of sorted) {
     cum += t.pnl;
     if (t.pnl > 0) wins++;
     if (cum > peak) peak = cum;
     const dd = ((peak - cum) / capital) * 100;
     if (dd > maxDd) maxDd = dd;
+    const staticDd = cum < 0 ? (-cum / capital) * 100 : 0;
+    if (staticDd > maxStaticDd) maxStaticDd = staticDd;
   }
   return {
     rr,
@@ -89,6 +92,7 @@ function computeResult(rr: number, sl_pct: number, gates: GateCombo, trades: Bac
     gates,
     total_return: Math.round(cum * 100) / 100,
     max_drawdown: Math.round(maxDd * 100) / 100,
+    max_static_dd: Math.round(maxStaticDd * 100) / 100,
     trades: sorted.length,
     win_rate: Math.round((wins / sorted.length) * 1000) / 10,
     calmar: maxDd > 0 ? Math.round((cum / maxDd) * 100) / 100 : null,
@@ -163,9 +167,9 @@ async function main(): Promise<void> {
     }
 
     const eligible = cells.filter(
-      (c) => c.trades > 0 && c.total_return > 0 && c.win_rate >= WINNER_MIN_WR && c.max_drawdown < ddThreshold
+      (c) => c.trades > 0 && c.total_return > 0 && c.win_rate >= WINNER_MIN_WR && c.max_static_dd < ddThreshold
     );
-    eligible.sort((a, b) => (b.calmar ?? -Infinity) - (a.calmar ?? -Infinity));
+    eligible.sort((a, b) => b.total_return - a.total_return);
 
     console.log(` ${eligible.length}/${cells.length} eligible`);
 

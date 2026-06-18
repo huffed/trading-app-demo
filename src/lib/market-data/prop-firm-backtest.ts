@@ -18,7 +18,13 @@ import type { BacktestTrade, PropFirmReport } from "./types";
 export interface SimState {
   equity: number;
   peakEquity: number;
+  /** Peak-to-trough trailing drawdown as % of starting capital.
+   *  RISK STAT — not used for halt decisions (FTMO uses static). */
   peakDrawdownPct: number;
+  /** Static-from-start drawdown — max(0, (capital - equity) / capital × 100).
+   *  This is the actual FTMO breach metric. Only positive when equity
+   *  is BELOW starting capital. */
+  peakStaticDdPct: number;
   consecutiveLosses: number;
   maxConsecLosses: number;
   /** Streak of consecutive losing CALENDAR DAYS (resets on a positive day). */
@@ -123,7 +129,13 @@ export function closeSimPosition(
   });
   s.equity += pnl;
   s.peakEquity = Math.max(s.peakEquity, s.equity);
+  // Peak-to-trough trailing — kept as a RISK STAT, not used for the
+  // halt decision below (FTMO uses static from-start drawdown).
   s.peakDrawdownPct = Math.max(s.peakDrawdownPct, ((s.peakEquity - s.equity) / capital) * 100);
+  // Static-from-start drawdown — only positive when equity is below
+  // starting capital. This is the actual FTMO breach metric, exposed
+  // for stats so backtest cells can be filtered on the real rule.
+  s.peakStaticDdPct = Math.max(s.peakStaticDdPct, Math.max(0, ((capital - s.equity) / capital) * 100));
   s.dailyPnl[day] = (s.dailyPnl[day] ?? 0) + pnl;
   if (pnl < 0) {
     s.consecutiveLosses++;
@@ -140,7 +152,24 @@ export function enforcePropFirm(
   day: string,
   dailyHalted: boolean
 ): boolean {
-  const ddPct = ((s.peakEquity - s.equity) / capital) * 100;
+  // FTMO standard challenge: breach when CURRENT equity drops below
+  // (starting_capital × (1 - max_drawdown_pct/100)). Static floor from
+  // initial balance — does NOT trail with peak equity. Equivalent
+  // formulation: (capital - equity) / capital × 100 >= max_drawdown_pct.
+  //
+  // Engine previously used peak-to-trough trailing which is stricter
+  // than FTMO's actual rule — it would halt algos in profit after a
+  // routine pullback even when actual equity was well above the FTMO
+  // $9K floor (for $10K accounts). Diagnostic 2026-06-18 confirmed
+  // USD/JPY FVG-DailyBias-Long 4h was a false failure under the old
+  // rule — actual FTMO-compliant return was +$18,285 (+183%) over
+  // 6yr, never below starting capital. Operator's FTMO dashboard
+  // numbers ($5K daily limit + $8,977.86 max permitted on a $100K
+  // account with $1,022 already lost) confirmed static-from-start
+  // is the right rule. See [[feedback_target_recalibrated_2_to_3_pct]]
+  // — that target reset was based on the buggy engine and may be
+  // re-evaluated.
+  const ddPct = ((capital - s.equity) / capital) * 100;
   if (pf.max_drawdown > 0 && ddPct >= pf.max_drawdown) {
     s.drawdownBreached = true;
   }
@@ -177,6 +206,7 @@ export function initialSimState(capital: number): SimState {
     equity: capital,
     peakEquity: capital,
     peakDrawdownPct: 0,
+    peakStaticDdPct: 0,
     consecutiveLosses: 0,
     maxConsecLosses: 0,
     consecutiveLosingDays: 0,

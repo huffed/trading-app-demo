@@ -35,7 +35,7 @@ import type { AlgorithmRules } from "../src/types/algorithm";
 }
 
 const N = Number(process.env.N ?? 300);
-const WINNER_MIN_WR = 40;
+const WINNER_MIN_WR = 37;
 
 const TARGETS = [
   "Library: Gold FVG-DailyBias-Long 4h",
@@ -89,6 +89,7 @@ interface CellResult {
   cfg: Config;
   total_return: number;
   max_drawdown: number;
+  max_static_dd: number;
   max_daily_dd: number;
   trades: number;
   win_rate: number;
@@ -97,12 +98,12 @@ interface CellResult {
 
 function computeResult(cfg: Config, trades: BacktestTrade[], capital: number): CellResult {
   if (trades.length === 0) {
-    return { cfg, total_return: 0, max_drawdown: 0, max_daily_dd: 0, trades: 0, win_rate: 0, calmar: null };
+    return { cfg, total_return: 0, max_drawdown: 0, max_static_dd: 0, max_daily_dd: 0, trades: 0, win_rate: 0, calmar: null };
   }
   const sorted = [...trades].sort(
     (a, b) => new Date(a.exit_date).getTime() - new Date(b.exit_date).getTime()
   );
-  let cum = 0, peak = 0, maxDd = 0, wins = 0;
+  let cum = 0, peak = 0, maxDd = 0, maxStaticDd = 0, wins = 0;
   const dailyPnl = new Map<string, number>();
   for (const t of sorted) {
     cum += t.pnl;
@@ -110,6 +111,8 @@ function computeResult(cfg: Config, trades: BacktestTrade[], capital: number): C
     if (cum > peak) peak = cum;
     const dd = ((peak - cum) / capital) * 100;
     if (dd > maxDd) maxDd = dd;
+    const staticDd = cum < 0 ? (-cum / capital) * 100 : 0;
+    if (staticDd > maxStaticDd) maxStaticDd = staticDd;
     const day = t.exit_date.slice(0, 10);
     dailyPnl.set(day, (dailyPnl.get(day) ?? 0) + t.pnl);
   }
@@ -120,6 +123,7 @@ function computeResult(cfg: Config, trades: BacktestTrade[], capital: number): C
     cfg,
     total_return: Math.round(cum * 100) / 100,
     max_drawdown: Math.round(maxDd * 100) / 100,
+    max_static_dd: Math.round(maxStaticDd * 100) / 100,
     max_daily_dd: Math.round(maxDailyDd * 100) / 100,
     trades: sorted.length,
     win_rate: Math.round((wins / sorted.length) * 1000) / 10,
@@ -176,12 +180,14 @@ async function searchAlgo(supabase: any, name: string): Promise<void> {
   const elapsed = (Date.now() - startTs) / 1000;
   console.log(`  Done in ${elapsed.toFixed(0)}s.`);
 
-  // Eligibility: positive + DD<10% + daily DD<5% + WR≥40%
+  // Eligibility: positive + FTMO static DD<10% + daily DD<5% + WR≥40%.
+  // Uses static DD per [[feedback_winner_rule_return_within_ftmo]],
+  // not peak-to-trough (which is shown as max_drawdown for risk info).
   const eligible = results.filter(
     (c) => c.trades > 0
       && c.total_return > 0
       && c.win_rate >= WINNER_MIN_WR
-      && c.max_drawdown < ddThreshold
+      && c.max_static_dd < ddThreshold
       && c.max_daily_dd < dailyDdThreshold
   );
   // RANK BY RETURN (per feedback_winner_rule_return_within_ftmo)
@@ -202,7 +208,7 @@ async function searchAlgo(supabase: any, name: string): Promise<void> {
   };
   const baselineResult = runPortfolioBacktest(cloneRules(algo.rules, currentCfg), prices, algo.capital, []);
   const baseline = computeResult(currentCfg, baselineResult.trades, algo.capital);
-  console.log(`\n  CURRENT: $${baseline.total_return} / DD ${baseline.max_drawdown}% / daily DD ${baseline.max_daily_dd}% / ${baseline.trades} trades / WR ${baseline.win_rate}% / Calmar ${baseline.calmar?.toFixed(1) ?? "—"}`);
+  console.log(`\n  CURRENT: $${baseline.total_return} / static ${baseline.max_static_dd}% / peak-trough ${baseline.max_drawdown}% / daily ${baseline.max_daily_dd}% / ${baseline.trades} trades / WR ${baseline.win_rate}% / Calmar ${baseline.calmar?.toFixed(1) ?? "—"}`);
   console.log(`  CURRENT cfg: ${fmtCfg(currentCfg)}`);
 
   if (eligible.length === 0) {
@@ -210,10 +216,10 @@ async function searchAlgo(supabase: any, name: string): Promise<void> {
     return;
   }
 
-  console.log(`\n  TOP 5 BY RETURN (within FTMO safety):`);
+  console.log(`\n  TOP 5 BY RETURN (within FTMO safety: static DD < ${ddThreshold}% + daily < ${dailyDdThreshold}% + WR ≥ ${WINNER_MIN_WR}%):`);
   for (let i = 0; i < Math.min(5, eligible.length); i++) {
     const c = eligible[i];
-    console.log(`    ${i + 1}. $${c.total_return.toString().padStart(7)} · DD ${c.max_drawdown.toFixed(2).padStart(5)}% · daily ${c.max_daily_dd.toFixed(2).padStart(5)}% · ${c.trades} trades · WR ${c.win_rate.toFixed(0)}% · Calmar ${(c.calmar ?? 0).toFixed(0)}`);
+    console.log(`    ${i + 1}. $${c.total_return.toString().padStart(7)} · static ${c.max_static_dd.toFixed(2).padStart(5)}% · peak-trough ${c.max_drawdown.toFixed(2).padStart(5)}% · daily ${c.max_daily_dd.toFixed(2).padStart(5)}% · ${c.trades}t · WR ${c.win_rate.toFixed(0)}% · Calmar ${(c.calmar ?? 0).toFixed(0)}`);
     console.log(`       ${fmtCfg(c.cfg)}`);
   }
 

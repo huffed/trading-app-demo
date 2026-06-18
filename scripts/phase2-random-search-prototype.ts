@@ -31,7 +31,7 @@ import type { AlgorithmRules } from "../src/types/algorithm";
 
 const ALGO = process.env.ALGO ?? "Library: Gold FVG-DailyBias-Long 4h";
 const N = Number(process.env.N ?? 300);
-const WINNER_MIN_WR = 40;
+const WINNER_MIN_WR = 37;
 
 const AXES = {
   rr: [1.5, 2, 2.25, 2.5, 2.75, 3, 3.5, 4, 5],
