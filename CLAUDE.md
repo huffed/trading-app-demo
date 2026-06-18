@@ -329,6 +329,33 @@ Plus opt-in `regime_filter` (daily ATR percentile) and `adx_filter` (trend stren
 ### Position-Size Sanity Gate
 `lib/scan/live-execution.ts` — refuses live orders with implied notional > 30× capital. The CHF/JPY blow-up was 67× — this gate would have caught it.
 
+### Phase B.1 backtest fidelity gates (B.1.13)
+
+Seven live-only behaviours now simulated in `lib/market-data/portfolio-backtest.ts` so backtest verdicts reflect live execution. Each defaults OFF for backwards-compat; the canonical validator (`scripts/canonical/validate-algo.ts`) enables all seven via env vars (`SIBLINGS`, `SPREAD_GATE`, `RISK_POOL`, `FTMO_TERMINATION`, `RE_ENTRY_COOLDOWN`, `PORTFOLIO_HALT`, plus the in-engine R-aware consec-loss; the 7th, R-aware consec-loss, fires automatically when positions carry `slDistance`).
+
+| Gate | Live counterpart | Backtest implementation | Test file |
+|---|---|---|---|
+| Direction conflict | `scan/entry.ts:checkDirectionConflict` | `hasDirectionConflict` — sibling opposite-side window blocks entry | `portfolio-backtest-direction-conflict.test.ts` |
+| Spread (ATR proxy) | `algorithm/spread-gate.ts` (bid/ask) | `hasWideSpreadProxy` — current ATR / median ATR > 2.5× | `portfolio-backtest-spread-gate.test.ts` |
+| Risk-pool halt | `scan/risk-pool-halt.ts` | `hasRiskPoolBreach` — combined sibling risk_dollars vs pool_cap_pct | `portfolio-backtest-risk-pool.test.ts` |
+| FTMO termination | implicit (FTMO closes account on DD breach) | force-close all + break timeline on `s.drawdownBreached` | `portfolio-backtest-ftmo-termination.test.ts` |
+| R-aware consec-loss | `scan/consec-loss-halt.ts` | `closeSimPosition` skips losses < 0.25R when slDistance present | `portfolio-backtest-consec-loss.test.ts` |
+| Re-entry cooldown | `algorithm/re-entry-cooldown.ts` | `state.lastLossExitDate` + `hasReEntryCooldownActive` | `portfolio-backtest-re-entry-cooldown.test.ts` |
+| Portfolio DLL halt | `scan/portfolio-halt.ts` | `hasPortfolioHaltBreach` — sibling daily PnL map + DLL pct | `portfolio-backtest-portfolio-halt.test.ts` |
+
+Integration test (`portfolio-backtest-gates-integration.test.ts`) verifies all seven compose without crashes/NaN.
+
+**Caller policy (B.1.9, READ BEFORE EDITING).** Only `scripts/canonical/validate-algo.ts` is trusted for ship/no-ship verdicts. Six other `runPortfolioBacktest` callers (`walk-forward.ts`, `(dashboard)/backtest/actions.ts`, `algorithms/backtest-run-actions.ts`, `algorithms/[algoId]/validate/actions.ts`, `api/admin/loser-analysis/route.ts`, `api/admin/inspect-backtest/route.ts`) intentionally run with gates OFF for diagnostic work — trade-flow inspection, sensitivity analysis, cohort review. If their numbers diverge from validate-algo's, that divergence IS the fidelity-gate impact; don't "fix" the diagnostic callers.
+
+**Portfolio modelling (B.1.7).** Algos sharing `algorithms.broker_connection_id` form a portfolio sharing one account. Validate-algo filters siblings to same-broker only and uses `broker_connections.account_capital` (migration 00045) as `reference_capital`. Cross-broker contamination was killing 84% of sweep_reclaim 4h's entries pre-fix. Algos with null `broker_connection_id` are treated as standalone (empty sibling list — `null === null` would have lumped them into an implicit no-broker group, wrong).
+
+**Known semantic notes:**
+- **Risk-pool nominal vs actual (B.1.6):** backtest uses `capital × risk_pct` (nominal); live uses `(entry - SL) × qty` (actual). Under `risk_per_trade` sizing these converge — 100% of deployed algos use RPT sizing so the gap is zero. Revisit only if non-RPT sizing modes go live.
+- **Spread-gate proxy (B.1.8):** ATR-ratio proxy for live bid/ask is a stress-period inference, NOT a validated correlation. 2.5× multiplier carried from the live gate's catalog calibration; the ATR↔spread mapping is plausible but unproven. Directionally correct (high vol → more refusals), not magnitude-correct. To validate properly, capture ≥50 broker spread samples per symbol + matching ATRs + measure correlation.
+- **Portfolio-halt unrealized P&L:** backtest sums sibling REALIZED P&L only; live sums realized + unrealized. Risk-pool's 4% cap (vs DLL 5%) bounds the unrealized contribution below the threshold, so the scenario where realized-only would miss the trip is mathematically prevented. See `feedback_portfolio_halt_realized_only.md` for the reasoning.
+
+See `project_roadmap_2026_06.md` Phase B.1 for the implementation history + the resolved 33-issue audit punch list.
+
 ### Broker Adapter Quote Method
 `adapter.fetchQuote(conn, appSymbol)` returns `BrokerQuote | null`. MetaApi MT5 implements via `/symbols/{symbol}/current-price`. cTrader returns `null` (proto streams only). Spread gate falls back to "skipped" when null.
 
