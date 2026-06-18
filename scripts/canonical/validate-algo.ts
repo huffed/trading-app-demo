@@ -193,6 +193,7 @@ function analyzeStats(
   preregs: ReturnType<typeof loadPreregistrations>,
   now: Date
 ): GateResults {
+  const computedAt = now.toISOString();
   const emptyRigor: StatisticalRigorBlock = {
     bootstrap_iterations: BOOTSTRAP_ITERATIONS,
     bootstrap_seed: BOOTSTRAP_SEED,
@@ -203,7 +204,7 @@ function analyzeStats(
     mean_r_bonferroni: { p_value: 1, bonferroni_alpha: FAMILY_ALPHA / Math.max(nCandidates, 1), passes: false, family_alpha: FAMILY_ALPHA, n_tests: nCandidates },
   };
   const empty: GateResults = {
-    computed_at: "2026-06-18T16:00:00Z",
+    computed_at: computedAt,
     sample_first: null,
     sample_last: null,
     friction,
@@ -360,7 +361,7 @@ function analyzeStats(
   const eligible = blockers.length === 0;
 
   return {
-    computed_at: "2026-06-18T16:00:00Z",
+    computed_at: computedAt,
     sample_first: sorted[0].exit_date.slice(0, 10),
     sample_last: sorted[sorted.length - 1].exit_date.slice(0, 10),
     friction,
@@ -421,7 +422,7 @@ async function main(): Promise<void> {
   const preregs = loadPreregistrations(PREREG_PATH);
   const nCandidates = Math.max(algos.length, 1);
   const nRegistered = Object.keys(preregs).filter((k) => algos.some((a) => a.name === k)).length;
-  const NOW = new Date(`2026-06-18T${new Date().toISOString().slice(11, 16)}:00Z`);
+  const NOW = new Date();
   console.log(`Phase B.2 statistical rigor:`);
   console.log(`  bootstrap: ${BOOTSTRAP_ITERATIONS} iterations, seed=${BOOTSTRAP_SEED}`);
   console.log(`  Bonferroni: family alpha ${FAMILY_ALPHA} ÷ ${nCandidates} candidates = ${(FAMILY_ALPHA / nCandidates).toFixed(5)} per-test`);
@@ -436,7 +437,17 @@ async function main(): Promise<void> {
     const bars = await getBarsNoTtl(supabase, algo.ticker, interval);
     if (!bars) continue;
     const result = runPortfolioBacktest(algo.rules, new Map([[algo.ticker, bars]]), algo.capital, []);
-    const tagged = result.trades.map((t) => ({ ...t, ticker: algo.ticker, side: t.side ?? "long" }));
+    // B.1.5 fix: BacktestTrade.side is required by the type. The previous
+    // `?? "long"` fallback silently labelled any SHORT trade as LONG if the
+    // engine had a side-population bug — masking the bug in direction-conflict
+    // sibling matching. Remove the fallback; assert side is set.
+    const tagged: (BacktestTrade & { ticker: string })[] = [];
+    for (const t of result.trades) {
+      if (t.side !== "long" && t.side !== "short") {
+        throw new Error(`validate-algo: algo "${algo.name}" produced trade without valid side (got ${JSON.stringify(t.side)}). Engine side-population bug — fix before continuing.`);
+      }
+      tagged.push({ ...t, ticker: algo.ticker });
+    }
     baselineTradesByAlgo.set(algo.id, tagged);
   }
   console.log(`Pass 1 (baseline): collected trades for ${baselineTradesByAlgo.size} algos.\n`);
@@ -456,9 +467,11 @@ async function main(): Promise<void> {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const riskPct = ((algo.rules as any).position_sizing?.value ?? 1);
 
-    // Build sibling list. For risk-pool: attach risk_dollars per-sibling
-    // computed from THAT sibling's capital × risk_pct.
-    let siblings: SiblingTradeWindow[] = [];
+    // Build sibling lists. B.1.4 fix: pass separate lists to direction-conflict
+    // and risk-pool so SIBLINGS=0 + RISK_POOL=1 (and the inverse) toggle
+    // independently. Both lists derive from the same baseline-trade pool but
+    // are gated separately by the env flags.
+    let allSiblings: SiblingTradeWindow[] = [];
     if (ENABLE_SIBLINGS || ENABLE_RISK_POOL) {
       for (const [otherId, otherTrades] of baselineTradesByAlgo) {
         if (otherId === algo.id) continue;
@@ -467,9 +480,11 @@ async function main(): Promise<void> {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const otherRiskPct = ((otherAlgo.rules as any).position_sizing?.value ?? 0) as number;
         const otherRiskDollars = otherAlgo.capital * (otherRiskPct / 100);
-        siblings = siblings.concat(tradesAsSiblingWindows(otherTrades, otherRiskDollars));
+        allSiblings = allSiblings.concat(tradesAsSiblingWindows(otherTrades, otherRiskDollars));
       }
     }
+    const directionConflictSiblings: SiblingTradeWindow[] = ENABLE_SIBLINGS ? allSiblings : [];
+    const riskPoolSiblings: SiblingTradeWindow[] = ENABLE_RISK_POOL ? allSiblings : [];
     const spreadGate: SpreadGateConfig | null = ENABLE_SPREAD_GATE ? SPREAD_GATE_CONFIG : null;
     const riskPool: RiskPoolConfig | null = ENABLE_RISK_POOL
       ? { enabled: true, pool_cap_pct: POOL_CAP_PCT }
@@ -485,7 +500,7 @@ async function main(): Promise<void> {
       results.step2.reason = "no bars in cache";
       results.promotion_blockers = ["no bars in cache"];
     } else {
-      const result = runPortfolioBacktest(algo.rules, new Map([[algo.ticker, bars]]), algo.capital, [], null, null, siblings, spreadGate, riskPool, ftmoTermination);
+      const result = runPortfolioBacktest(algo.rules, new Map([[algo.ticker, bars]]), algo.capital, [], null, null, directionConflictSiblings, spreadGate, riskPool, ftmoTermination, riskPoolSiblings);
       results = analyzeStats(result.trades, algo.capital, friction, fidelityFlags, riskPct, algo.name, nCandidates, preregs, NOW);
     }
     if (results.promotion_eligible) pass++;

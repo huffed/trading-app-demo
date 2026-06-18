@@ -600,8 +600,10 @@ function tryOpenEntry(
   states: Map<string, TickerState>,
   dailyHalted: boolean,
   /** Phase B.1 backtest fidelity — sibling-algo open positions block
-   *  opposite-direction entries (live behavior; previously unsimulated). */
-  siblingBlockingTrades: SiblingTradeWindow[] = [],
+   *  opposite-direction entries (live behavior; previously unsimulated).
+   *  Decoupled from risk-pool siblings (B.1.4 fix 2026-06-18) so callers
+   *  can enable each gate independently. */
+  directionConflictSiblings: SiblingTradeWindow[] = [],
   /** Phase B.1 backtest fidelity — refuses entries when ATR-ratio proxy
    *  indicates wide-spread regime. Approximates live spread gate. */
   spreadGate: SpreadGateConfig | null = null,
@@ -609,6 +611,10 @@ function tryOpenEntry(
    *  sibling algos. Refuses entry if (open siblings' risk + candidate
    *  risk) / reference_capital > pool_cap_pct. */
   riskPool: RiskPoolConfig | null = null,
+  /** Sibling windows whose `risk_dollars` are summed for the risk-pool
+   *  cap. Separate from directionConflictSiblings so SIBLINGS=off +
+   *  RISK_POOL=on doesn't silently apply direction-conflict (B.1.4 fix). */
+  riskPoolSiblings: SiblingTradeWindow[] = [],
   /** Algo's own capital × risk_pct (in $) — used as candidate's risk
    *  contribution for the risk-pool check. Caller computes this from
    *  rules.position_sizing.value at top-level. */
@@ -661,10 +667,10 @@ function tryOpenEntry(
   // When a sibling algo has an OPEN opposite-direction position on the
   // same ticker at this bar date, the live engine refuses the entry to
   // avoid net-zero exposure with double spread cost. Backtest now
-  // simulates this; caller passes siblingBlockingTrades from another
+  // simulates this; caller passes directionConflictSiblings from another
   // algo's backtest result (use tradesAsSiblingWindows helper).
-  if (siblingBlockingTrades.length > 0
-      && hasDirectionConflict(ticker, side, state.bars[i].date, siblingBlockingTrades)) {
+  if (directionConflictSiblings.length > 0
+      && hasDirectionConflict(ticker, side, state.bars[i].date, directionConflictSiblings)) {
     return;
   }
   // Phase B.1 fidelity: spread gate (mirrors lib/algorithm/spread-gate.ts).
@@ -679,9 +685,11 @@ function tryOpenEntry(
   // Live caps combined open SL-$ across sibling algos sharing the broker.
   // Backtest sums risk_dollars from overlapping sibling windows + candidate
   // risk and refuses if combined > pool_cap_pct of reference_capital.
+  // Uses riskPoolSiblings (separate from directionConflictSiblings — B.1.4)
+  // so the two gates can be toggled independently.
   if (riskPool?.enabled && algoRiskDollars > 0) {
     const refCapital = riskPool.reference_capital ?? s.equity;
-    if (hasRiskPoolBreach(siblingBlockingTrades, algoRiskDollars, state.bars[i].date, refCapital, riskPool.pool_cap_pct)) {
+    if (hasRiskPoolBreach(riskPoolSiblings, algoRiskDollars, state.bars[i].date, refCapital, riskPool.pool_cap_pct)) {
       return;
     }
   }
@@ -828,7 +836,11 @@ export function runPortfolioBacktest(
   /** Phase B.1 backtest fidelity (2026-06-18 PM) — sibling algos' open
    *  position windows that block opposite-direction entries on the same
    *  ticker. Pass `tradesAsSiblingWindows(otherAlgoTrades)`. Empty by
-   *  default = no direction-conflict simulation (legacy behaviour). */
+   *  default = no direction-conflict simulation (legacy behaviour).
+   *
+   *  Also feeds the risk-pool gate's combined-risk sum UNLESS `riskPoolSiblings`
+   *  is explicitly provided. Backwards-compatible: legacy callers passing
+   *  one list get both gates applied (the original behaviour). */
   siblingBlockingTrades: SiblingTradeWindow[] = [],
   /** Phase B.1 backtest fidelity — ATR-ratio proxy for live spread gate.
    *  Default null = no spread simulation. Recommended config: enabled=true,
@@ -843,8 +855,16 @@ export function runPortfolioBacktest(
    *  Default null = legacy behaviour (corpus keeps iterating post-breach,
    *  open positions naturally exit). Enable=true to force-close all + stop
    *  timeline on breach, mirroring real FTMO challenge failure. */
-  ftmoTermination: FtmoTerminationConfig | null = null
+  ftmoTermination: FtmoTerminationConfig | null = null,
+  /** Phase B.1.4 fix (2026-06-18 EVE) — sibling windows for the risk-pool
+   *  gate ONLY. When undefined, falls back to `siblingBlockingTrades` to
+   *  preserve legacy "one list for both gates" behaviour. Pass an empty
+   *  array (or different list) to toggle the two gates independently. */
+  riskPoolSiblings: SiblingTradeWindow[] | undefined = undefined
 ): BacktestMetrics {
+  // Resolve risk-pool siblings: if caller didn't provide a separate list,
+  // fall back to siblingBlockingTrades (legacy "one list for both gates").
+  const resolvedRiskPoolSiblings = riskPoolSiblings ?? siblingBlockingTrades;
   const entry = normalize(rules.entry_conditions);
   const exit = normalize(rules.exit_conditions);
   const techEntry = entry.filter(
@@ -920,7 +940,7 @@ export function runPortfolioBacktest(
 
     // Phase 3: try to open new entries on each active ticker.
     for (const { ticker, state, i } of activeTickers) {
-      tryOpenEntry(state, i, ticker, rules, techEntry, cfg, s, states, dailyHalted, siblingBlockingTrades, spreadGate, riskPool, algoRiskDollars);
+      tryOpenEntry(state, i, ticker, rules, techEntry, cfg, s, states, dailyHalted, siblingBlockingTrades, spreadGate, riskPool, resolvedRiskPoolSiblings, algoRiskDollars);
     }
   }
   if (currentDayKey !== "") finalizeDay(s, currentDayKey);

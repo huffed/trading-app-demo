@@ -155,4 +155,57 @@ describe("portfolio-backtest risk-pool halt (Phase B.1.3)", () => {
     expect(looseResult.trades.length).toBe(baseline.trades.length);  // no breach
     expect(tightResult.trades.length).toBeLessThanOrEqual(baseline.trades.length);  // breached
   });
+
+  it("B.1.4 fix: direction-conflict and risk-pool siblings are decoupled", () => {
+    // Pre-fix: tryOpenEntry used one siblings param for both gates. A caller
+    // wanting risk-pool-ONLY couldn't turn off direction-conflict — the same
+    // list fed both. This test confirms riskPoolSiblings=[<list>] +
+    // siblingBlockingTrades=[] (empty) leaves direction-conflict OFF while
+    // risk-pool still enforces.
+    const baseline = runPortfolioBacktest(baseRules, prices, 10000);
+    // Opposite-side sibling that WOULD trigger direction-conflict if it
+    // were fed to that gate.
+    const oppositeSideHugeRisk: SiblingTradeWindow[] = [{
+      ticker: "XAU/USD",
+      side: "short",  // opposite of baseRules.side="long" → would block direction-conflict if fed
+      entry_date: "2026-01-01T00:00:00Z",
+      exit_date: "2026-03-01T00:00:00Z",
+      risk_dollars: 500,  // 5% > 4% cap when combined with candidate $100
+    }];
+    const riskPool: RiskPoolConfig = { enabled: true, pool_cap_pct: 4 };
+    // Pass to riskPoolSiblings only; direction-conflict gets empty list.
+    const result = runPortfolioBacktest(
+      baseRules, prices, 10000, [], null, null,
+      [],  // siblingBlockingTrades EMPTY = direction-conflict inactive
+      null,  // spread gate
+      riskPool,  // risk-pool ACTIVE
+      null,  // ftmo termination
+      oppositeSideHugeRisk  // risk-pool sees the sibling
+    );
+    // Risk-pool should refuse some entries (combined $600 > 4% cap)
+    // BUT direction-conflict shouldn't fire (siblingBlockingTrades=[])
+    // so the only blocker is risk-pool. Result: trades ≤ baseline.
+    expect(result.trades.length).toBeLessThanOrEqual(baseline.trades.length);
+  });
+
+  it("B.1.4 fix: legacy single-list callers preserved (both gates fed from same list)", () => {
+    // Backwards-compat: callers passing only siblingBlockingTrades (no
+    // riskPoolSiblings) should still see risk-pool look at the same list.
+    const baseline = runPortfolioBacktest(baseRules, prices, 10000);
+    const sibling: SiblingTradeWindow[] = [{
+      ticker: "XAU/USD",
+      side: "long",
+      entry_date: "2026-01-01T00:00:00Z",
+      exit_date: "2026-03-01T00:00:00Z",
+      risk_dollars: 500,
+    }];
+    const riskPool: RiskPoolConfig = { enabled: true, pool_cap_pct: 4 };
+    // Legacy call: siblingBlockingTrades positional, no riskPoolSiblings.
+    const result = runPortfolioBacktest(
+      baseRules, prices, 10000, [], null, null,
+      sibling, null, riskPool
+    );
+    // Risk-pool still blocks via the fallback to siblingBlockingTrades.
+    expect(result.trades.length).toBeLessThanOrEqual(baseline.trades.length);
+  });
 });

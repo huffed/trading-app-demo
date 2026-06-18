@@ -189,6 +189,26 @@ describe("checkPreregistration", () => {
     expect(check.failed_criteria[0]).toMatch(/held_out_trades/);
   });
 
+  it("NaN observed value with active criterion fails loudly (regression: B.2.1)", () => {
+    // Pre-fix: NaN < threshold returned false → criterion silently passed.
+    // Post-fix: NaN observation against ANY active criterion is a failure.
+    const file: PreregistrationFile = {
+      "ZeroTrade": {
+        hypothesis: "edge exists",
+        registered_at: "2026-06-01T00:00:00Z",
+        expires_at: "2026-07-01T00:00:00Z",
+        min_mean_r_ci_lower: 0,
+      },
+    };
+    const observedWithNaN: ObservedStats = {
+      ...baseObserved,
+      mean_r_ci_lower: NaN,
+    };
+    const check = checkPreregistration("ZeroTrade", observedWithNaN, file, NOW);
+    expect(check.passed).toBe(false);
+    expect(check.failed_criteria[0]).toMatch(/mean_r_ci_lower.*NaN/);
+  });
+
   it("collects ALL failed criteria, not just the first", () => {
     const file: PreregistrationFile = {
       "Test": {
