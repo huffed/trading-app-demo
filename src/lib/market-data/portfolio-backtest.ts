@@ -440,6 +440,25 @@ export interface SiblingTradeWindow {
   exit_date: string;
 }
 
+/** Phase B.1 fidelity (2026-06-18 PM) — backtest equivalent of the live
+ *  broker spread gate (`src/lib/algorithm/spread-gate.ts`). Live checks
+ *  `(ask - bid) / pip > catalog_typical × 2.5`. Backtest has no bid/ask
+ *  data, so substitutes ATR-ratio proxy: `current_ATR(14) / median_ATR
+ *  (last N bars) > threshold_multiplier` → infer wide-spread regime →
+ *  refuse entry.
+ *
+ *  Rationale: real broker spreads widen during high-volatility periods
+ *  (events, low-liquidity hours). ATR is the available proxy for "market
+ *  stress." When ATR is 2.5× its median, spreads are likely 2.5× typical. */
+export interface SpreadGateConfig {
+  enabled: boolean;
+  /** Trigger refusal when current ATR / median ATR > this. Default 2.5
+   *  matches the live SPREAD_GATE_MULTIPLIER on bid/ask. */
+  threshold_multiplier: number;
+  /** Lookback bars for the rolling median ATR baseline. Default 200. */
+  atr_lookback_bars: number;
+}
+
 /** Convert a trade list into sibling-window form for direction-conflict
  *  simulation. Trades without `ticker` (single-ticker legacy) are dropped
  *  — caller should ensure all trades carry ticker. */
@@ -472,6 +491,32 @@ function hasDirectionConflict(
   return false;
 }
 
+/** Phase B.1 spread-gate proxy. Returns true (refuse entry) when
+ *  current ATR(14) / median ATR over `lookback` bars exceeds the
+ *  multiplier. Approximation for "broker spread blown out" in absence
+ *  of bid/ask data. */
+function hasWideSpreadProxy(
+  bars: PriceBar[],
+  idx: number,
+  config: SpreadGateConfig
+): boolean {
+  if (idx < 14) return false;
+  const currentAtr = atr14(bars, idx);
+  if (currentAtr == null || currentAtr <= 0) return false;
+  // Collect median ATR over lookback window
+  const start = Math.max(14, idx - config.atr_lookback_bars);
+  const samples: number[] = [];
+  for (let j = start; j < idx; j++) {
+    const v = atr14(bars, j);
+    if (v != null && v > 0) samples.push(v);
+  }
+  if (samples.length < 30) return false; // not enough history; don't refuse
+  samples.sort((a, b) => a - b);
+  const median = samples[Math.floor(samples.length / 2)];
+  if (median <= 0) return false;
+  return currentAtr / median > config.threshold_multiplier;
+}
+
 function tryOpenEntry(
   state: TickerState,
   i: number,
@@ -484,7 +529,10 @@ function tryOpenEntry(
   dailyHalted: boolean,
   /** Phase B.1 backtest fidelity — sibling-algo open positions block
    *  opposite-direction entries (live behavior; previously unsimulated). */
-  siblingBlockingTrades: SiblingTradeWindow[] = []
+  siblingBlockingTrades: SiblingTradeWindow[] = [],
+  /** Phase B.1 backtest fidelity — refuses entries when ATR-ratio proxy
+   *  indicates wide-spread regime. Approximates live spread gate. */
+  spreadGate: SpreadGateConfig | null = null
 ): void {
   const vetoed = state.vetoCheck ? state.vetoCheck(state.bars[i].date) : false;
   const gate: EntryGate = {
@@ -537,6 +585,14 @@ function tryOpenEntry(
   // algo's backtest result (use tradesAsSiblingWindows helper).
   if (siblingBlockingTrades.length > 0
       && hasDirectionConflict(ticker, side, state.bars[i].date, siblingBlockingTrades)) {
+    return;
+  }
+  // Phase B.1 fidelity: spread gate (mirrors lib/algorithm/spread-gate.ts).
+  // Live refuses entries when broker spread exceeds catalog typical × 2.5.
+  // Backtest substitutes ATR-ratio proxy: refuse when current ATR(14) >
+  // threshold_multiplier × rolling median ATR. Approximates "stressed
+  // market = wide spread" regime without bid/ask data.
+  if (spreadGate?.enabled && hasWideSpreadProxy(state.bars, i, spreadGate)) {
     return;
   }
   // DXY directional gate. Opt-in per algo. Skips entries when the
@@ -683,7 +739,12 @@ export function runPortfolioBacktest(
    *  position windows that block opposite-direction entries on the same
    *  ticker. Pass `tradesAsSiblingWindows(otherAlgoTrades)`. Empty by
    *  default = no direction-conflict simulation (legacy behaviour). */
-  siblingBlockingTrades: SiblingTradeWindow[] = []
+  siblingBlockingTrades: SiblingTradeWindow[] = [],
+  /** Phase B.1 backtest fidelity — ATR-ratio proxy for live spread gate.
+   *  Default null = no spread simulation. Recommended config: enabled=true,
+   *  threshold_multiplier=2.5 (matches live SPREAD_GATE_MULTIPLIER),
+   *  atr_lookback_bars=200. */
+  spreadGate: SpreadGateConfig | null = null
 ): BacktestMetrics {
   const entry = normalize(rules.entry_conditions);
   const exit = normalize(rules.exit_conditions);
@@ -743,7 +804,7 @@ export function runPortfolioBacktest(
 
     // Phase 3: try to open new entries on each active ticker.
     for (const { ticker, state, i } of activeTickers) {
-      tryOpenEntry(state, i, ticker, rules, techEntry, cfg, s, states, dailyHalted, siblingBlockingTrades);
+      tryOpenEntry(state, i, ticker, rules, techEntry, cfg, s, states, dailyHalted, siblingBlockingTrades, spreadGate);
     }
   }
   if (currentDayKey !== "") finalizeDay(s, currentDayKey);
