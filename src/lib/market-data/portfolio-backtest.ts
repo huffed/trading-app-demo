@@ -478,7 +478,7 @@ function tryOpenEntry(
   // Resolve active side from rules.side (auto mode reads D1 bias on this
   // ticker — different tickers can trade different directions in the
   // same scan when the algo is regime-adaptive).
-  const resolved = resolveSide(rules.side ?? "long", state.higherTfBars, i);
+  const resolved = resolveSide(rules.side ?? "long", state.higherTfBars, state.bars[i].date);
   if (resolved === null) return;
   const side = resolved.side;
   // DXY directional gate. Opt-in per algo. Skips entries when the

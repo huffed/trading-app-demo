@@ -10,6 +10,7 @@
  * applies in replay and in production.
  */
 import { detectDailyBias } from "@/lib/patterns";
+import { lastIdxAtOrBefore } from "./market-state";
 import type { PriceBar } from "./types";
 
 export interface ResolvedSide {
@@ -20,26 +21,31 @@ export interface ResolvedSide {
 }
 
 /**
- * Pass undefined `idx` for the live path (uses the latest D1 bar).
- * For backtest replay, pass the simulation's bar index — D1 bias is
- * computed against `higherTfBars[..idx]` so it reflects only the
- * information available at that point in time.
+ * Live path passes `currentDate=undefined` (higherTfBars is already
+ * "now"). Backtest replay MUST pass the primary bar's date so we slice
+ * higherTfBars to bars dated ≤ currentDate before computing D1 bias —
+ * otherwise detectDailyBias reads "today's bias" (look-ahead), the
+ * same bug fixed at evaluate.ts:143 for the pattern-condition path.
+ * Previously this was thought "acceptable for daily-bias" because D1
+ * cardinality is small, but that's still N days of look-ahead for an
+ * algo making decisions on historical bars — real bug.
  */
 export function resolveSide(
   configured: "long" | "short" | "auto",
   higherTfBars: PriceBar[] | undefined,
-  intradayIdx?: number
+  currentDate?: string
 ): ResolvedSide | null {
   if (configured === "long") return { side: "long" };
   if (configured === "short") return { side: "short" };
   // auto — gate on D1 bias.
   if (!higherTfBars || higherTfBars.length === 0) return null;
-  // Only D1 bars up to "now" should influence the decision; in the live
-  // path that's the entire array, in backtest we'd ideally slice by date
-  // but the resampled D1 cardinality is much smaller than intraday so the
-  // simpler approach (use all D1 bars) is acceptable for daily-bias.
-  void intradayIdx;
-  const r = detectDailyBias(higherTfBars, 20);
+  let alignedBars = higherTfBars;
+  if (currentDate) {
+    const dIdx = lastIdxAtOrBefore(higherTfBars, currentDate);
+    if (dIdx < 0) return null;
+    alignedBars = higherTfBars.slice(0, dIdx + 1);
+  }
+  const r = detectDailyBias(alignedBars, 20);
   if (!r.detected || !r.details) return null;
   if (r.details.bias === "bullish") {
     return { side: "long", directionOverride: "bullish" };

@@ -109,7 +109,15 @@ function evaluateClassicPattern(
       return true;
     }
     case "fvg": {
-      const r = detectFvg(bars, idx);
+      // detectFvg is anchored at the MIDDLE bar of the 3-bar pattern and
+      // reads bars[middle+1] — i.e. the bar AFTER the middle confirms the
+      // gap. For a causal entry signal, fire when the CONFIRMING bar
+      // (third bar of the pattern) is the current bar, so pass idx-1 as
+      // the middle. Without this, backtest reads bars[idx+1] (future) and
+      // live (where idx = bars.length-1) hits the detector's guard and
+      // never fires. Sister of the daily_bias call-site fix 2026-06-17.
+      if (idx < 2) return false;
+      const r = detectFvg(bars, idx - 1);
       if (!r.detected || !r.details) return false;
       if (effectiveDir && r.details.direction !== effectiveDir) return false;
       return true;

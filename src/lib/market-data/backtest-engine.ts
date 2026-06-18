@@ -243,7 +243,7 @@ function runSimulation(
     // Resolve the active side for THIS bar. Fixed sides pass through; auto
     // mode reads the resampled D1 bias and trades whichever direction it
     // points to. Returns null when bias is neutral — entry skipped.
-    const resolved = resolveSide(fixedSide, higherTfBars, i);
+    const resolved = resolveSide(fixedSide, higherTfBars, bar.date);
     // Build per-timeframe bundles aligned to the primary bar's date.
     let byTimeframe: Map<string, BarsBundle> | undefined;
     if (otherTfs.length > 0) {

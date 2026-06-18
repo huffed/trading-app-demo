@@ -31,7 +31,11 @@ export function detectLiquiditySweep(
   if (idx < 0 || idx >= bars.length) return { detected: false };
 
   const bar = bars[idx];
-  const swings = detectSwingPoints(bars, lookback);
+  // Pre-slice to bars[0..idx] so swing detection only sees historical bars.
+  // detectSwingPoints uses ±lookback windows to confirm swings; passing the
+  // full array would let a swing at idx-1 be "confirmed" using future bars
+  // (look-ahead bias, sister of the daily_bias bug fix 2026-06-17).
+  const swings = detectSwingPoints(bars.slice(0, idx + 1), lookback);
 
   // Bearish sweep — pierced a previous swing high, then closed back below.
   const swingHigh = lastSwingBefore(swings, idx, "high");
