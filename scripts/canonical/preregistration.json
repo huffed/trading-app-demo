@@ -1,8 +1,9 @@
 {
   "Library: Gold sweep_reclaim-DailyBias-Long 4h": {
-    "hypothesis": "Post Phase B.1 fidelity-gated backtest still shows positive expectancy with 95% CI lower bound above zero. Demo deployment 2026-06-18; ≥10 demo trades within ±30% R triggers real-money path.",
+    "hypothesis": "Forward commitment to NOT relax these criteria. Original ship bar locked 2026-06-18 EVE under Phase A leaky engine + i.i.d. bootstrap (later upgraded to per-broker grouping + block bootstrap). Under Phase B fidelity gates + 12mo holdout (2025-06-18 cutoff), algo passes p=0.0070 + mean-R CI [0.07, 0.83] + step3 wf 60% / yr 86% + step6 held-out R=0.42. Demo deployment 2026-06-18; ≥10 demo trades within ±30% R triggers real-money path.",
     "registered_at": "2026-06-18T17:10:00Z",
     "expires_at": "2026-09-18T00:00:00Z",
+    "registration_type": "post-hoc-locked",
     "min_total_return": 0,
     "min_win_rate": 37,
     "max_static_dd": 10,
@@ -13,9 +14,10 @@
     "min_held_out_trades": 10
   },
   "Library: Gold FVG-DailyBias-Long 4h": {
-    "hypothesis": "Phase A surviving algo retains positive expectancy under Phase B fidelity gates (direction conflict + spread + risk-pool + FTMO termination). Pre-Phase-B numbers ($2,849 / DD 6.01% / WR 44%) may degrade — pre-register the BAR rather than the OUTCOME.",
+    "hypothesis": "Forward commitment to NOT relax these criteria. Original ship bar locked 2026-06-18 EVE after Phase A surfaced this as a Gold survivor (RR=2.5 lb=3 → +$2,849 / DD 6.01% / WR 44%). Phase B numbers may degrade — we pre-register the BAR, not the OUTCOME. Under per-broker grouping + 12mo holdout + block bootstrap, algo passes p=0.0005 + R[0.19, 0.73] + step3 wf 64% / yr 86%.",
     "registered_at": "2026-06-18T17:10:00Z",
     "expires_at": "2026-09-18T00:00:00Z",
+    "registration_type": "post-hoc-locked",
     "min_total_return": 0,
     "min_win_rate": 37,
     "max_static_dd": 10,
@@ -26,9 +28,10 @@
     "min_held_out_trades": 10
   },
   "Library: Gold FVG-Long 30m": {
-    "hypothesis": "Phase A surviving 30m algo retains positive expectancy under Phase B fidelity gates. 30m cadence stress-tests gates that fire more often (spread + risk-pool); may degrade more than 4h algos.",
+    "hypothesis": "Forward commitment to NOT relax these criteria. Original ship bar locked 2026-06-18 EVE for a Phase A survivor on shorter timeframe. 30m cadence stress-tests gates that fire more often (spread + risk-pool); may degrade more than 4h algos.",
     "registered_at": "2026-06-18T17:10:00Z",
     "expires_at": "2026-09-18T00:00:00Z",
+    "registration_type": "post-hoc-locked",
     "min_total_return": 0,
     "min_win_rate": 37,
     "max_static_dd": 10,
@@ -39,9 +42,10 @@
     "min_held_out_trades": 10
   },
   "Library: Gold Coil-Breakout 4h": {
-    "hypothesis": "Phase A surviving algo with thinnest edge (+$963) is most likely to be killed by Phase B fidelity gates. Pre-registration locks ship bar = positive after gates; if Phase B re-run flips negative, accept the kill.",
+    "hypothesis": "Forward commitment to NOT relax these criteria. Original ship bar locked 2026-06-18 EVE for the thinnest-edge Phase A survivor (+$963). If Phase B re-runs flip negative, accept the kill.",
     "registered_at": "2026-06-18T17:10:00Z",
     "expires_at": "2026-09-18T00:00:00Z",
+    "registration_type": "post-hoc-locked",
     "min_total_return": 0,
     "min_win_rate": 37,
     "max_static_dd": 10,

@@ -1,7 +1,11 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { mkdtempSync, rmSync, writeFileSync } from "fs";
+import { tmpdir } from "os";
+import { join } from "path";
 import {
   checkPreregistration,
   getPreregistration,
+  loadPreregistrations,
   type ObservedStats,
   type PreregistrationFile,
 } from "./preregistration";
@@ -31,6 +35,7 @@ describe("getPreregistration", () => {
         hypothesis: "test",
         registered_at: "2026-06-01T00:00:00Z",
         expires_at: "2026-07-01T00:00:00Z",
+        registration_type: "post-hoc-locked",
       },
     };
     const entry = getPreregistration(file, "Test Algo", NOW);
@@ -44,6 +49,7 @@ describe("getPreregistration", () => {
         hypothesis: "test",
         registered_at: "2026-04-01T00:00:00Z",
         expires_at: "2026-05-01T00:00:00Z",
+        registration_type: "post-hoc-locked",
       },
     };
     expect(getPreregistration(file, "Test Algo", NOW)).toBeNull();
@@ -55,6 +61,7 @@ describe("getPreregistration", () => {
         hypothesis: "test",
         registered_at: "2026-06-01T00:00:00Z",
         expires_at: "not-a-date",
+        registration_type: "post-hoc-locked",
       },
     };
     expect(getPreregistration(file, "Test Algo", NOW)).toBeNull();
@@ -75,6 +82,7 @@ describe("checkPreregistration", () => {
         hypothesis: "edge exists",
         registered_at: "2026-06-01T00:00:00Z",
         expires_at: "2026-07-01T00:00:00Z",
+        registration_type: "post-hoc-locked",
         min_total_return: 500,
         min_win_rate: 40,
         max_static_dd: 10,
@@ -97,6 +105,7 @@ describe("checkPreregistration", () => {
         hypothesis: "min return",
         registered_at: "2026-06-01T00:00:00Z",
         expires_at: "2026-07-01T00:00:00Z",
+        registration_type: "post-hoc-locked",
         min_total_return: 5000,
       },
     };
@@ -111,6 +120,7 @@ describe("checkPreregistration", () => {
         hypothesis: "wr",
         registered_at: "2026-06-01T00:00:00Z",
         expires_at: "2026-07-01T00:00:00Z",
+        registration_type: "post-hoc-locked",
         min_win_rate: 50,
       },
     };
@@ -125,6 +135,7 @@ describe("checkPreregistration", () => {
         hypothesis: "dd",
         registered_at: "2026-06-01T00:00:00Z",
         expires_at: "2026-07-01T00:00:00Z",
+        registration_type: "post-hoc-locked",
         max_static_dd: 5,
       },
     };
@@ -139,6 +150,7 @@ describe("checkPreregistration", () => {
         hypothesis: "ci-floor",
         registered_at: "2026-06-01T00:00:00Z",
         expires_at: "2026-07-01T00:00:00Z",
+        registration_type: "post-hoc-locked",
         min_mean_r_ci_lower: 0.5,
       },
     };
@@ -153,6 +165,7 @@ describe("checkPreregistration", () => {
         hypothesis: "mcc",
         registered_at: "2026-06-01T00:00:00Z",
         expires_at: "2026-07-01T00:00:00Z",
+        registration_type: "post-hoc-locked",
         max_bonferroni_p_value: 0.0001,
       },
     };
@@ -167,6 +180,7 @@ describe("checkPreregistration", () => {
         hypothesis: "oos-stable",
         registered_at: "2026-06-01T00:00:00Z",
         expires_at: "2026-07-01T00:00:00Z",
+        registration_type: "post-hoc-locked",
         max_oos_r_delta_pct: 10,
       },
     };
@@ -181,6 +195,7 @@ describe("checkPreregistration", () => {
         hypothesis: "min-n",
         registered_at: "2026-06-01T00:00:00Z",
         expires_at: "2026-07-01T00:00:00Z",
+        registration_type: "post-hoc-locked",
         min_held_out_trades: 30,
       },
     };
@@ -197,6 +212,7 @@ describe("checkPreregistration", () => {
         hypothesis: "edge exists",
         registered_at: "2026-06-01T00:00:00Z",
         expires_at: "2026-07-01T00:00:00Z",
+        registration_type: "post-hoc-locked",
         min_mean_r_ci_lower: 0,
       },
     };
@@ -215,6 +231,7 @@ describe("checkPreregistration", () => {
         hypothesis: "strict",
         registered_at: "2026-06-01T00:00:00Z",
         expires_at: "2026-07-01T00:00:00Z",
+        registration_type: "post-hoc-locked",
         min_total_return: 5000,
         min_win_rate: 60,
         min_held_out_trades: 30,
@@ -223,5 +240,137 @@ describe("checkPreregistration", () => {
     const check = checkPreregistration("Test", baseObserved, file, NOW);
     expect(check.passed).toBe(false);
     expect(check.failed_criteria.length).toBe(3);
+  });
+
+  it("B.2.7: registration_type surfaced in check result", () => {
+    const file: PreregistrationFile = {
+      "Test": {
+        hypothesis: "type-test",
+        registered_at: "2026-06-01T00:00:00Z",
+        expires_at: "2026-07-01T00:00:00Z",
+        registration_type: "true-prereg",
+      },
+    };
+    const check = checkPreregistration("Test", baseObserved, file, NOW);
+    expect(check.registration_type).toBe("true-prereg");
+  });
+});
+
+describe("loadPreregistrations Zod schema (B.2.8)", () => {
+  let tmp: string;
+  let path: string;
+
+  beforeEach(() => {
+    tmp = mkdtempSync(join(tmpdir(), "prereg-test-"));
+    path = join(tmp, "preregistration.json");
+  });
+
+  afterEach(() => {
+    rmSync(tmp, { recursive: true, force: true });
+  });
+
+  it("loads a valid file", () => {
+    writeFileSync(path, JSON.stringify({
+      "Algo A": {
+        hypothesis: "real",
+        registered_at: "2026-06-01T00:00:00Z",
+        expires_at: "2026-07-01T00:00:00Z",
+        registration_type: "post-hoc-locked",
+        max_bonferroni_p_value: 0.01,
+      },
+    }));
+    const file = loadPreregistrations(path);
+    expect(file["Algo A"]).toBeDefined();
+    expect(file["Algo A"].registration_type).toBe("post-hoc-locked");
+  });
+
+  it("returns empty for non-existent file (no throw)", () => {
+    expect(loadPreregistrations(join(tmp, "missing.json"))).toEqual({});
+  });
+
+  it("THROWS on missing registration_type (B.2.7 required)", () => {
+    writeFileSync(path, JSON.stringify({
+      "Algo A": {
+        hypothesis: "missing type",
+        registered_at: "2026-06-01T00:00:00Z",
+        expires_at: "2026-07-01T00:00:00Z",
+      },
+    }));
+    expect(() => loadPreregistrations(path)).toThrowError(/registration_type/);
+  });
+
+  it("THROWS on invalid registration_type value", () => {
+    writeFileSync(path, JSON.stringify({
+      "Algo A": {
+        hypothesis: "bad type",
+        registered_at: "2026-06-01T00:00:00Z",
+        expires_at: "2026-07-01T00:00:00Z",
+        registration_type: "guessing",
+      },
+    }));
+    expect(() => loadPreregistrations(path)).toThrow();
+  });
+
+  it("THROWS on typo'd field (strict schema — B.2.8 core motivation)", () => {
+    writeFileSync(path, JSON.stringify({
+      "Algo A": {
+        hypothesis: "typo",
+        registered_at: "2026-06-01T00:00:00Z",
+        expires_at: "2026-07-01T00:00:00Z",
+        registration_type: "post-hoc-locked",
+        min_static_dd: 5,
+      },
+    }));
+    expect(() => loadPreregistrations(path)).toThrowError(/min_static_dd/);
+  });
+
+  it("THROWS on invalid date string in registered_at", () => {
+    writeFileSync(path, JSON.stringify({
+      "Algo A": {
+        hypothesis: "bad date",
+        registered_at: "yesterday",
+        expires_at: "2026-07-01T00:00:00Z",
+        registration_type: "post-hoc-locked",
+      },
+    }));
+    expect(() => loadPreregistrations(path)).toThrow();
+  });
+
+  it("THROWS on empty hypothesis string", () => {
+    writeFileSync(path, JSON.stringify({
+      "Algo A": {
+        hypothesis: "",
+        registered_at: "2026-06-01T00:00:00Z",
+        expires_at: "2026-07-01T00:00:00Z",
+        registration_type: "post-hoc-locked",
+      },
+    }));
+    expect(() => loadPreregistrations(path)).toThrow();
+  });
+
+  it("accepts true-prereg as a valid registration_type", () => {
+    writeFileSync(path, JSON.stringify({
+      "Algo A": {
+        hypothesis: "real prereg",
+        registered_at: "2026-06-01T00:00:00Z",
+        expires_at: "2026-07-01T00:00:00Z",
+        registration_type: "true-prereg",
+      },
+    }));
+    const file = loadPreregistrations(path);
+    expect(file["Algo A"].registration_type).toBe("true-prereg");
+  });
+
+  it("error message identifies the failing field path", () => {
+    writeFileSync(path, JSON.stringify({
+      "Algo A": {
+        hypothesis: "x",
+        registered_at: "2026-06-01T00:00:00Z",
+        expires_at: "2026-07-01T00:00:00Z",
+        registration_type: "post-hoc-locked",
+        max_static_dd: "ten",
+      },
+    }));
+    expect(() => loadPreregistrations(path)).toThrowError(/max_static_dd/);
   });
 });

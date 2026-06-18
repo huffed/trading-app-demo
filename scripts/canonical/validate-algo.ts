@@ -549,7 +549,35 @@ async function main(): Promise<void> {
   const preregs = loadPreregistrations(PREREG_PATH);
   const nCandidates = Math.max(algos.length, 1);
   const nRegistered = Object.keys(preregs).filter((k) => algos.some((a) => a.name === k)).length;
+  // B.2.9: surface expired + expiring-soon preregs loudly. The previous
+  // silent fallback to legacy step verdicts meant operator wouldn't notice
+  // a locked bar quietly going stale. Warn loudly at run start so they can
+  // re-register before deploying anything that depends on the stale bar.
+  const PREREG_WARN_DAYS = 14;
   const NOW = new Date();
+  const expired: string[] = [];
+  const expiringSoon: string[] = [];
+  for (const [algoName, entry] of Object.entries(preregs)) {
+    if (!algos.some((a) => a.name === algoName)) continue;
+    const expires = new Date(entry.expires_at);
+    if (Number.isNaN(expires.getTime())) continue;
+    const daysToExpiry = (expires.getTime() - NOW.getTime()) / 86_400_000;
+    if (daysToExpiry < 0) {
+      expired.push(`${algoName} (expired ${Math.abs(Math.round(daysToExpiry))}d ago)`);
+    } else if (daysToExpiry < PREREG_WARN_DAYS) {
+      expiringSoon.push(`${algoName} (expires in ${Math.round(daysToExpiry)}d)`);
+    }
+  }
+  if (expired.length > 0) {
+    console.log(`⚠️  PREREG EXPIRED — these algos have silently fallen back to legacy step verdicts:`);
+    for (const e of expired) console.log(`    - ${e}`);
+    console.log(`    Re-register or remove from preregistration.json before relying on their verdicts.`);
+  }
+  if (expiringSoon.length > 0) {
+    console.log(`⏳  PREREG EXPIRING within ${PREREG_WARN_DAYS}d:`);
+    for (const e of expiringSoon) console.log(`    - ${e}`);
+  }
+  if (expired.length > 0 || expiringSoon.length > 0) console.log("");
   const effectiveNTests = Math.max(1, nCandidates * BONFERRONI_TESTS_PER_ALGO);
   console.log(`Phase B.2 statistical rigor:`);
   console.log(`  bootstrap: ${BOOTSTRAP_ITERATIONS} iterations, seed=${BOOTSTRAP_SEED}, block_bootstrap=${ENABLE_BLOCK_BOOTSTRAP}`);
@@ -688,8 +716,11 @@ async function main(): Promise<void> {
     const flag = results.promotion_eligible ? "✓ ELIGIBLE" : (results.step2.verdict === "EXCLUDED" ? "— excluded" : "✗ blocked");
     const ci = results.statistical_rigor.mean_r_ci;
     const mcc = results.statistical_rigor.mean_r_bonferroni;
+    // B.2.7: distinguish post-hoc-locked from true-prereg in the tag so the
+    // reader knows whether the pass is statistical evidence or a discipline
+    // promise. "P-LOCK✓" = post-hoc-locked passed; "PREREG✓" = true-prereg passed.
     const preregTag = results.preregistration?.has_preregistration
-      ? (results.preregistration.passed ? "PREREG✓" : "PREREG✗")
+      ? `${results.preregistration.registration_type === "true-prereg" ? "PREREG" : "P-LOCK"}${results.preregistration.passed ? "✓" : "✗"}`
       : "no-prereg";
     console.log(`  ${flag.padEnd(11)} ${algo.name.padEnd(50)} $${results.step2.total_return.toString().padStart(8)} ${results.step2.total_trades.toString().padStart(4)}t WR${results.step2.win_rate}% R[${ci.lower.toFixed(2)},${ci.upper.toFixed(2)}] p=${mcc.p_value.toFixed(4)}${mcc.passes ? "*" : ""} ${preregTag}`);
     // B.2.6: surface step3 + step6 CIs on a sub-line for operator visibility.

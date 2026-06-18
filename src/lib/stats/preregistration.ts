@@ -17,35 +17,60 @@
  *  validation; algos that matter eventually get registered. */
 
 import { readFileSync, existsSync } from "fs";
+import { z } from "zod";
 
-export interface PreregisteredCriteria {
-  /** Free-form text explaining the hypothesis ("WR ≥ 40% on FTMO challenge"). */
-  hypothesis: string;
-  /** ISO-8601. Registered BEFORE data was re-run. */
-  registered_at: string;
-  /** ISO-8601. After this, the registration is stale; validator re-prompts for fresh criteria. */
-  expires_at: string;
-  /** Optional step-2 floor on point-estimate stats. */
-  min_total_return?: number;
-  min_win_rate?: number;
-  max_static_dd?: number;
-  max_daily_dd?: number;
-  /** Bootstrap-CI lower-bound floor on mean R. Tightens "edge exists" to "edge exists at 95% CI". */
-  min_mean_r_ci_lower?: number;
-  /** Bonferroni-corrected p-value ceiling on "mean R > 0". */
-  max_bonferroni_p_value?: number;
-  /** Out-of-sample R-delta tolerance vs in-sample. */
-  max_oos_r_delta_pct?: number;
-  /** Minimum held-out trade count (Phase B drops the SMALL_N exception by default). */
-  min_held_out_trades?: number;
-}
+/** B.2.7: distinguishes true pre-registration (criteria set BEFORE seeing
+ *  the data) from post-hoc forward commitments (criteria locked AFTER
+ *  initial validation, treated as a "do not relax this bar" promise for
+ *  future re-runs). Reporting + interpretation differ between the two:
+ *  - "true-prereg" entries can claim statistical novelty
+ *  - "post-hoc-locked" entries cannot — they're discipline, not science */
+export const RegistrationTypeSchema = z.enum(["true-prereg", "post-hoc-locked"]);
+export type RegistrationType = z.infer<typeof RegistrationTypeSchema>;
 
-export type PreregistrationFile = Record<string, PreregisteredCriteria>;
+/** B.2.8: Zod schema for a single prereg entry. Strict (`.strict()`)
+ *  rejects unknown fields → typos in field names (e.g. `min_static_dd`
+ *  instead of `max_static_dd`) fail the load loudly instead of silently
+ *  being ignored. */
+export const PreregisteredCriteriaSchema = z.object({
+  hypothesis: z.string().min(1),
+  registered_at: z.string().datetime({ offset: true }),
+  expires_at: z.string().datetime({ offset: true }),
+  /** B.2.7: must be declared explicitly. No silent default. */
+  registration_type: RegistrationTypeSchema,
+  min_total_return: z.number().optional(),
+  min_win_rate: z.number().optional(),
+  max_static_dd: z.number().optional(),
+  max_daily_dd: z.number().optional(),
+  min_mean_r_ci_lower: z.number().optional(),
+  max_bonferroni_p_value: z.number().optional(),
+  max_oos_r_delta_pct: z.number().optional(),
+  min_held_out_trades: z.number().int().nonnegative().optional(),
+}).strict();
 
+export type PreregisteredCriteria = z.infer<typeof PreregisteredCriteriaSchema>;
+
+export const PreregistrationFileSchema = z.record(z.string(), PreregisteredCriteriaSchema);
+export type PreregistrationFile = z.infer<typeof PreregistrationFileSchema>;
+
+/** Loads + validates the pre-registration file. THROWS on schema failure
+ *  (typo in field name, missing required field, invalid type, etc.) so
+ *  a malformed file can never silently disable criteria. */
 export function loadPreregistrations(path: string): PreregistrationFile {
   if (!existsSync(path)) return {};
   const raw = readFileSync(path, "utf8");
-  return JSON.parse(raw) as PreregistrationFile;
+  const parsed = JSON.parse(raw) as unknown;
+  const result = PreregistrationFileSchema.safeParse(parsed);
+  if (!result.success) {
+    const issues = result.error.issues
+      .slice(0, 5)
+      .map((i) => `${i.path.join(".") || "(root)"}: ${i.message}`)
+      .join("; ");
+    throw new Error(
+      `Preregistration file ${path} failed schema validation: ${issues}${result.error.issues.length > 5 ? ` (+ ${result.error.issues.length - 5} more)` : ""}`
+    );
+  }
+  return result.data;
 }
 
 export function getPreregistration(
@@ -65,6 +90,11 @@ export interface PreregistrationCheck {
   algo_name: string;
   has_preregistration: boolean;
   expires_at?: string;
+  /** B.2.7: surfaces whether the registration is true-prereg (criteria
+   *  set before seeing data) or post-hoc-locked (criteria set after,
+   *  enforced as forward commitment). Affects interpretation: only
+   *  true-prereg passes claim statistical novelty. */
+  registration_type?: RegistrationType;
   passed: boolean;
   failed_criteria: string[];
 }
@@ -124,6 +154,7 @@ export function checkPreregistration(
     algo_name: algoName,
     has_preregistration: true,
     expires_at: entry.expires_at,
+    registration_type: entry.registration_type,
     passed: failed.length === 0,
     failed_criteria: failed,
   };
