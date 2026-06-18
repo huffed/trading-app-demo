@@ -1,0 +1,54 @@
+{
+  "Library: Gold sweep_reclaim-DailyBias-Long 4h": {
+    "hypothesis": "Post Phase B.1 fidelity-gated backtest still shows positive expectancy with 95% CI lower bound above zero. Demo deployment 2026-06-18; ≥10 demo trades within ±30% R triggers real-money path.",
+    "registered_at": "2026-06-18T17:10:00Z",
+    "expires_at": "2026-09-18T00:00:00Z",
+    "min_total_return": 0,
+    "min_win_rate": 37,
+    "max_static_dd": 10,
+    "max_daily_dd": 5,
+    "min_mean_r_ci_lower": 0,
+    "max_bonferroni_p_value": 0.01,
+    "max_oos_r_delta_pct": 50,
+    "min_held_out_trades": 10
+  },
+  "Library: Gold FVG-DailyBias-Long 4h": {
+    "hypothesis": "Phase A surviving algo retains positive expectancy under Phase B fidelity gates (direction conflict + spread + risk-pool + FTMO termination). Pre-Phase-B numbers ($2,849 / DD 6.01% / WR 44%) may degrade — pre-register the BAR rather than the OUTCOME.",
+    "registered_at": "2026-06-18T17:10:00Z",
+    "expires_at": "2026-09-18T00:00:00Z",
+    "min_total_return": 0,
+    "min_win_rate": 37,
+    "max_static_dd": 10,
+    "max_daily_dd": 5,
+    "min_mean_r_ci_lower": 0,
+    "max_bonferroni_p_value": 0.01,
+    "max_oos_r_delta_pct": 50,
+    "min_held_out_trades": 10
+  },
+  "Library: Gold FVG-Long 30m": {
+    "hypothesis": "Phase A surviving 30m algo retains positive expectancy under Phase B fidelity gates. 30m cadence stress-tests gates that fire more often (spread + risk-pool); may degrade more than 4h algos.",
+    "registered_at": "2026-06-18T17:10:00Z",
+    "expires_at": "2026-09-18T00:00:00Z",
+    "min_total_return": 0,
+    "min_win_rate": 37,
+    "max_static_dd": 10,
+    "max_daily_dd": 5,
+    "min_mean_r_ci_lower": 0,
+    "max_bonferroni_p_value": 0.01,
+    "max_oos_r_delta_pct": 50,
+    "min_held_out_trades": 10
+  },
+  "Library: Gold Coil-Breakout 4h": {
+    "hypothesis": "Phase A surviving algo with thinnest edge (+$963) is most likely to be killed by Phase B fidelity gates. Pre-registration locks ship bar = positive after gates; if Phase B re-run flips negative, accept the kill.",
+    "registered_at": "2026-06-18T17:10:00Z",
+    "expires_at": "2026-09-18T00:00:00Z",
+    "min_total_return": 0,
+    "min_win_rate": 37,
+    "max_static_dd": 10,
+    "max_daily_dd": 5,
+    "min_mean_r_ci_lower": 0,
+    "max_bonferroni_p_value": 0.01,
+    "max_oos_r_delta_pct": 50,
+    "min_held_out_trades": 10
+  }
+}

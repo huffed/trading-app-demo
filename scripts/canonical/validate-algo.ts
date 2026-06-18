@@ -44,6 +44,20 @@ import {
 } from "../../src/lib/market-data/portfolio-backtest";
 import type { BacktestTrade, PriceBar } from "../../src/lib/market-data/types";
 import type { AlgorithmRules } from "../../src/types/algorithm";
+import {
+  bootstrapStat,
+  bootstrapStatWithSamples,
+  meanR,
+  totalReturn,
+  type BootstrapResult,
+} from "../../src/lib/stats/bootstrap";
+import { bonferroniVerdict, type MccVerdict } from "../../src/lib/stats/multiple-comparisons";
+import {
+  checkPreregistration,
+  loadPreregistrations,
+  type ObservedStats,
+  type PreregistrationCheck,
+} from "../../src/lib/stats/preregistration";
 
 {
   try {
@@ -65,6 +79,10 @@ const ENABLE_SPREAD_GATE = process.env.SPREAD_GATE !== "0";
 const ENABLE_RISK_POOL = process.env.RISK_POOL !== "0";
 const POOL_CAP_PCT = Number(process.env.POOL_CAP_PCT ?? 4);
 const ENABLE_FTMO_TERMINATION = process.env.FTMO_TERMINATION !== "0";
+const PREREG_PATH = process.env.PREREG_PATH ?? "scripts/canonical/preregistration.json";
+const BOOTSTRAP_ITERATIONS = Number(process.env.BOOTSTRAP_ITERATIONS ?? 2000);
+const BOOTSTRAP_SEED = Number(process.env.BOOTSTRAP_SEED ?? 42);
+const FAMILY_ALPHA = Number(process.env.FAMILY_ALPHA ?? 0.05);
 
 const TRAIN_MONTHS = 12;
 const TEST_MONTHS = 3;
@@ -94,8 +112,20 @@ interface GateResults {
   step2: StepStats;
   step3: WalkForwardStats;
   step6: OosStats;
+  statistical_rigor: StatisticalRigorBlock;
+  preregistration?: PreregistrationCheck;
   promotion_eligible: boolean;
   promotion_blockers: string[];
+}
+
+interface StatisticalRigorBlock {
+  bootstrap_iterations: number;
+  bootstrap_seed: number;
+  family_alpha: number;
+  n_tests: number;
+  total_return_ci: BootstrapResult;
+  mean_r_ci: BootstrapResult;
+  mean_r_bonferroni: MccVerdict;
 }
 
 interface StepStats {
@@ -152,7 +182,26 @@ function tradesInWindow(trades: BacktestTrade[], start: Date, end: Date): Backte
   });
 }
 
-function analyzeStats(trades: BacktestTrade[], capital: number, friction: GateResults["friction"], fidelityGates: GateResults["fidelity_gates_applied"], riskPct: number): GateResults {
+function analyzeStats(
+  trades: BacktestTrade[],
+  capital: number,
+  friction: GateResults["friction"],
+  fidelityGates: GateResults["fidelity_gates_applied"],
+  riskPct: number,
+  algoName: string,
+  nCandidates: number,
+  preregs: ReturnType<typeof loadPreregistrations>,
+  now: Date
+): GateResults {
+  const emptyRigor: StatisticalRigorBlock = {
+    bootstrap_iterations: BOOTSTRAP_ITERATIONS,
+    bootstrap_seed: BOOTSTRAP_SEED,
+    family_alpha: FAMILY_ALPHA,
+    n_tests: nCandidates,
+    total_return_ci: { point: 0, lower: NaN, upper: NaN, n_iterations: 0, ci_level: 0.95 },
+    mean_r_ci: { point: 0, lower: NaN, upper: NaN, n_iterations: 0, ci_level: 0.95 },
+    mean_r_bonferroni: { p_value: 1, bonferroni_alpha: FAMILY_ALPHA / Math.max(nCandidates, 1), passes: false, family_alpha: FAMILY_ALPHA, n_tests: nCandidates },
+  };
   const empty: GateResults = {
     computed_at: "2026-06-18T16:00:00Z",
     sample_first: null,
@@ -162,6 +211,7 @@ function analyzeStats(trades: BacktestTrade[], capital: number, friction: GateRe
     step2: { total_return: 0, total_trades: 0, win_rate: 0, max_drawdown: 0, max_static_dd: 0, max_daily_dd: 0, verdict: "EXCLUDED", reason: "zero trades" },
     step3: { walk_forward_green_pct: 0, walk_forward_n_windows: 0, per_year_green_pct: 0, per_year_n_years: 0, verdict: "INSUFFICIENT_DATA", reason: "no trades" },
     step6: { in_sample_n: 0, in_sample_mean_r: 0, held_out_n: 0, held_out_mean_r: 0, r_delta_pct: 0, verdict: "INSUFFICIENT_DATA", reason: "no trades" },
+    statistical_rigor: emptyRigor,
     promotion_eligible: false,
     promotion_blockers: ["zero trades"],
   };
@@ -234,9 +284,8 @@ function analyzeStats(trades: BacktestTrade[], capital: number, friction: GateRe
   const inSampleT = sorted.filter((t) => new Date(t.exit_date).getTime() < cutoffMs);
   const heldOutT = sorted.filter((t) => new Date(t.exit_date).getTime() >= cutoffMs);
   const riskPerTrade = capital * (riskPct / 100);
-  const meanR = (ts: BacktestTrade[]) => riskPerTrade <= 0 || ts.length === 0 ? 0 : ts.reduce((s, t) => s + t.pnl, 0) / ts.length / riskPerTrade;
-  const inSampleR = meanR(inSampleT);
-  const heldOutR = meanR(heldOutT);
+  const inSampleR = meanR(inSampleT, riskPerTrade);
+  const heldOutR = meanR(heldOutT, riskPerTrade);
   let step6Verdict: OosStats["verdict"], step6Reason: string;
   let rDelta = 0;
   if (inSampleT.length < 10) { step6Verdict = "INSUFFICIENT_DATA"; step6Reason = `in-sample ${inSampleT.length} trades`; }
@@ -250,14 +299,63 @@ function analyzeStats(trades: BacktestTrade[], capital: number, friction: GateRe
     else { step6Verdict = "FAIL"; step6Reason = `diverges ${rDelta.toFixed(0)}%, n=${heldOutT.length} large enough`; }
   }
 
-  // Promotion eligibility (Phase B.4 strict reading): step2 PASS + step3 PASS + step6 TIER_1 or TIER_2
+  // Phase B.2 statistical rigor: bootstrap CIs on total_return + mean_R,
+  // Bonferroni p-value for "mean R > 0" against family of nCandidates tests.
+  const totalReturnCI = bootstrapStat(sorted, totalReturn, { seed: BOOTSTRAP_SEED, n_iterations: BOOTSTRAP_ITERATIONS });
+  const meanRWithSamples = bootstrapStatWithSamples(
+    sorted,
+    (ts: BacktestTrade[]) => meanR(ts, riskPerTrade),
+    { seed: BOOTSTRAP_SEED, n_iterations: BOOTSTRAP_ITERATIONS }
+  );
+  const meanRBonferroni = bonferroniVerdict(meanRWithSamples.samples, FAMILY_ALPHA, nCandidates);
+  const rigor: StatisticalRigorBlock = {
+    bootstrap_iterations: BOOTSTRAP_ITERATIONS,
+    bootstrap_seed: BOOTSTRAP_SEED,
+    family_alpha: FAMILY_ALPHA,
+    n_tests: nCandidates,
+    total_return_ci: totalReturnCI,
+    mean_r_ci: {
+      point: meanRWithSamples.point,
+      lower: meanRWithSamples.lower,
+      upper: meanRWithSamples.upper,
+      n_iterations: meanRWithSamples.n_iterations,
+      ci_level: meanRWithSamples.ci_level,
+    },
+    mean_r_bonferroni: meanRBonferroni,
+  };
+
+  // Phase B.2 pre-registration check: if algo is registered, the registered
+  // criteria are the SOLE ship gate (locked before re-running). If unregistered,
+  // fall back to legacy Phase B.4 step-verdict eligibility.
+  const observed: ObservedStats = {
+    total_return: cum,
+    win_rate: wr,
+    max_static_dd: maxSdd,
+    max_daily_dd: ddd,
+    mean_r_ci_lower: meanRWithSamples.lower,
+    bonferroni_p_value: meanRBonferroni.p_value,
+    oos_r_delta_pct: rDelta,
+    held_out_trades: heldOutT.length,
+  };
+  const preregCheck = checkPreregistration(algoName, observed, preregs, now);
+
+  // Promotion eligibility:
+  //   - If pre-registered: pre-registration criteria are sole gate (and we want
+  //     CI lower > 0 + Bonferroni pass baked in via the preregistration entry).
+  //   - Otherwise: legacy Phase B.4 step verdicts.
   const blockers: string[] = [];
-  if (!step2Pass) blockers.push(`STEP 2: ${step2Reasons.join("; ")}`);
-  if (step3Verdict === "FAIL") blockers.push(`STEP 3: ${step3Reason}`);
-  if (step3Verdict === "WEAK") blockers.push(`STEP 3: WEAK (not strict 70% — Phase B reads strict only)`);
-  if (step6Verdict === "FAIL") blockers.push(`STEP 6: ${step6Reason}`);
-  if (step3Verdict === "INSUFFICIENT_DATA" || step6Verdict === "INSUFFICIENT_DATA") {
-    blockers.push("history too short for full validation — revisit with more data");
+  if (preregCheck.has_preregistration) {
+    if (!preregCheck.passed) {
+      for (const c of preregCheck.failed_criteria) blockers.push(`PREREG: ${c}`);
+    }
+  } else {
+    if (!step2Pass) blockers.push(`STEP 2: ${step2Reasons.join("; ")}`);
+    if (step3Verdict === "FAIL") blockers.push(`STEP 3: ${step3Reason}`);
+    if (step3Verdict === "WEAK") blockers.push(`STEP 3: WEAK (not strict 70% — Phase B reads strict only)`);
+    if (step6Verdict === "FAIL") blockers.push(`STEP 6: ${step6Reason}`);
+    if (step3Verdict === "INSUFFICIENT_DATA" || step6Verdict === "INSUFFICIENT_DATA") {
+      blockers.push("history too short for full validation — revisit with more data");
+    }
   }
   const eligible = blockers.length === 0;
 
@@ -279,6 +377,8 @@ function analyzeStats(trades: BacktestTrade[], capital: number, friction: GateRe
     },
     step3: { walk_forward_green_pct: wfGreenPct, walk_forward_n_windows: windows.length, per_year_green_pct: yearsGreenPct, per_year_n_years: byYear.size, verdict: step3Verdict, reason: step3Reason },
     step6: { in_sample_n: inSampleT.length, in_sample_mean_r: Math.round(inSampleR * 100) / 100, held_out_n: heldOutT.length, held_out_mean_r: Math.round(heldOutR * 100) / 100, r_delta_pct: Math.round(rDelta * 10) / 10, verdict: step6Verdict, reason: step6Reason },
+    statistical_rigor: rigor,
+    preregistration: preregCheck,
     promotion_eligible: eligible,
     promotion_blockers: blockers,
   };
@@ -316,6 +416,16 @@ async function main(): Promise<void> {
 
   const algos = await loadAlgos(supabase, ONLY_ALGO);
   console.log(`Loaded ${algos.length} algos.\n`);
+
+  // Phase B.2 statistical-rigor inputs.
+  const preregs = loadPreregistrations(PREREG_PATH);
+  const nCandidates = Math.max(algos.length, 1);
+  const nRegistered = Object.keys(preregs).filter((k) => algos.some((a) => a.name === k)).length;
+  const NOW = new Date(`2026-06-18T${new Date().toISOString().slice(11, 16)}:00Z`);
+  console.log(`Phase B.2 statistical rigor:`);
+  console.log(`  bootstrap: ${BOOTSTRAP_ITERATIONS} iterations, seed=${BOOTSTRAP_SEED}`);
+  console.log(`  Bonferroni: family alpha ${FAMILY_ALPHA} ÷ ${nCandidates} candidates = ${(FAMILY_ALPHA / nCandidates).toFixed(5)} per-test`);
+  console.log(`  pre-registration: ${nRegistered}/${algos.length} algos registered in ${PREREG_PATH}\n`);
 
   // For sibling sim: pre-run all algos to capture trades, then re-run each with siblings.
   // Two-pass approach — pass 1 produces sibling pool, pass 2 applies it per-algo.
@@ -371,12 +481,12 @@ async function main(): Promise<void> {
 
     let results: GateResults;
     if (!bars) {
-      results = analyzeStats([], algo.capital, friction, fidelityFlags, riskPct);
+      results = analyzeStats([], algo.capital, friction, fidelityFlags, riskPct, algo.name, nCandidates, preregs, NOW);
       results.step2.reason = "no bars in cache";
       results.promotion_blockers = ["no bars in cache"];
     } else {
       const result = runPortfolioBacktest(algo.rules, new Map([[algo.ticker, bars]]), algo.capital, [], null, null, siblings, spreadGate, riskPool, ftmoTermination);
-      results = analyzeStats(result.trades, algo.capital, friction, fidelityFlags, riskPct);
+      results = analyzeStats(result.trades, algo.capital, friction, fidelityFlags, riskPct, algo.name, nCandidates, preregs, NOW);
     }
     if (results.promotion_eligible) pass++;
     else if (results.step2.verdict === "EXCLUDED") excluded++;
@@ -386,7 +496,12 @@ async function main(): Promise<void> {
       await supabase.from("algorithms").update({ backtest_results: results }).eq("id", algo.id);
     }
     const flag = results.promotion_eligible ? "✓ ELIGIBLE" : (results.step2.verdict === "EXCLUDED" ? "— excluded" : "✗ blocked");
-    console.log(`  ${flag.padEnd(11)} ${algo.name.padEnd(50)} $${results.step2.total_return.toString().padStart(8)} ${results.step2.total_trades.toString().padStart(4)}t WR${results.step2.win_rate}% S2:${results.step2.verdict} S3:${results.step3.verdict} S6:${results.step6.verdict}`);
+    const ci = results.statistical_rigor.mean_r_ci;
+    const mcc = results.statistical_rigor.mean_r_bonferroni;
+    const preregTag = results.preregistration?.has_preregistration
+      ? (results.preregistration.passed ? "PREREG✓" : "PREREG✗")
+      : "no-prereg";
+    console.log(`  ${flag.padEnd(11)} ${algo.name.padEnd(50)} $${results.step2.total_return.toString().padStart(8)} ${results.step2.total_trades.toString().padStart(4)}t WR${results.step2.win_rate}% R[${ci.lower.toFixed(2)},${ci.upper.toFixed(2)}] p=${mcc.p_value.toFixed(4)}${mcc.passes ? "*" : ""} ${preregTag}`);
     if (results.promotion_blockers.length > 0 && !results.promotion_eligible) {
       console.log(`    Blockers: ${results.promotion_blockers.slice(0, 3).join(" | ")}`);
     }
