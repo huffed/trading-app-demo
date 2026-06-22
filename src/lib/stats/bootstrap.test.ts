@@ -13,16 +13,19 @@ import {
 import type { BacktestTrade } from "@/lib/market-data/types";
 
 function makeTrades(pnls: number[]): BacktestTrade[] {
-  return pnls.map((pnl, i) => ({
-    ticker: "XAU/USD",
-    side: "long",
-    entry_date: `2026-01-${(i + 1).toString().padStart(2, "0")}T00:00:00Z`,
-    exit_date: `2026-01-${(i + 1).toString().padStart(2, "0")}T04:00:00Z`,
-    entry_price: 100,
-    exit_price: 100 + pnl / 10,
-    pnl,
-    exit_reason: pnl > 0 ? "take_profit_hit" : "stop_loss_hit",
-  } as BacktestTrade));
+  return pnls.map((pnl, i): BacktestTrade => {
+    const trade: Partial<BacktestTrade> = {
+      ticker: "XAU/USD",
+      side: "long",
+      entry_date: `2026-01-${(i + 1).toString().padStart(2, "0")}T00:00:00Z`,
+      exit_date: `2026-01-${(i + 1).toString().padStart(2, "0")}T04:00:00Z`,
+      entry_price: 100,
+      exit_price: 100 + pnl / 10,
+      pnl,
+      exit_reason: pnl > 0 ? "take_profit_hit" : "stop_loss_hit",
+    };
+    return trade as BacktestTrade;
+  });
 }
 
 describe("statistics helpers", () => {
@@ -287,5 +290,103 @@ describe("bootstrap CI vs analytic CI (sanity check)", () => {
     // Should be within 50% of analytic ≈ 1.96 (loose for small-n stability)
     expect(halfWidth).toBeGreaterThan(1.0);
     expect(halfWidth).toBeLessThan(3.5);
+  });
+});
+
+// B.2.15 + B.2.28 (Stage 3, 2026-06-19 EVE): degenerate-input regression
+// tests. Pre-fix, n=1 silently produced lower=NaN/upper=NaN; post-fix,
+// degenerate input returns tight [point, point] CI with point repeated
+// in the sample array.
+describe("bootstrap degenerate-input handling (B.2.15)", () => {
+  it("n=1 produces tight CI [point, point] without crashing", () => {
+    const r1 = bootstrapStatWithSamples([42], (xs: number[]) => xs[0] ?? 0);
+    expect(r1.point).toBe(42);
+    expect(r1.lower).toBe(42);
+    expect(r1.upper).toBe(42);
+    expect(r1.samples.length).toBe(r1.n_iterations);
+    expect(r1.samples.every((s) => s === 42)).toBe(true);
+  });
+
+  it("block bootstrap n=1 produces tight CI without crashing", () => {
+    const r1 = bootstrapStatBlockWithSamples([42], (xs: number[]) => xs[0] ?? 0);
+    expect(r1.point).toBe(42);
+    expect(r1.lower).toBe(42);
+    expect(r1.upper).toBe(42);
+  });
+
+  it("n=0 returns NaN bounds + empty samples (existing behaviour preserved)", () => {
+    const r0 = bootstrapStatWithSamples<number>([], () => 0);
+    expect(r0.lower).toBeNaN();
+    expect(r0.upper).toBeNaN();
+    expect(r0.samples.length).toBe(0);
+  });
+
+  it("block bootstrap block_size > items.length is clamped (B.2.16)", () => {
+    // Without the clamp, block_size=10 on items.length=3 would wrap
+    // circularly several times, over-weighting early items. Clamp ensures
+    // the bootstrap behaviour stays well-defined.
+    const items = [1, 2, 3];
+    const r = bootstrapStatBlock(items, (xs) => xs.reduce((a, b) => a + b, 0) / xs.length, {
+      block_size: 100,
+      seed: 7,
+      n_iterations: 200,
+    });
+    // Point estimate is the true mean (2).
+    expect(r.point).toBeCloseTo(2, 6);
+    // CI bounds are finite numbers (no NaN, no Infinity).
+    expect(Number.isFinite(r.lower)).toBe(true);
+    expect(Number.isFinite(r.upper)).toBe(true);
+  });
+});
+
+// B.2.29 (Stage 3, 2026-06-19 EVE): NaN-in-pnl regression test. Trade
+// records with a NaN pnl shouldn't silently propagate as NaN-everywhere
+// CI bounds; the statFn caller is responsible for handling NaN in its
+// own logic, but the bootstrap loop itself must not crash.
+describe("bootstrap robustness to NaN in input (B.2.29)", () => {
+  it("statFn that returns NaN produces NaN samples without crashing", () => {
+    const items = [1, 2, 3, 4];
+    const result = bootstrapStat(items, () => NaN, { seed: 1, n_iterations: 100 });
+    // point=NaN; lower/upper come from sorted NaN array (V8 sort puts NaN at end).
+    expect(Number.isNaN(result.point)).toBe(true);
+    expect(result.n_iterations).toBe(100);
+  });
+
+  it("trade with NaN pnl: bootstrap doesn't crash, statFn caller surfaces NaN", () => {
+    const trades: BacktestTrade[] = [
+      { ...makeTrades([10])[0], pnl: 10 },
+      { ...makeTrades([20])[0], pnl: NaN },
+      { ...makeTrades([30])[0], pnl: 30 },
+    ];
+    const mean = (ts: BacktestTrade[]): number =>
+      ts.reduce((s, t) => s + t.pnl, 0) / ts.length;
+    const result = bootstrapStat(trades, mean, { seed: 1, n_iterations: 100 });
+    // Most resamples include the NaN trade → most samples NaN.
+    // Critical: function doesn't crash + returns a defined result object.
+    expect(result.n_iterations).toBe(100);
+    expect(typeof result.point).toBe("number");
+  });
+});
+
+// B.2.35 (Stage 3, 2026-06-19 EVE): Wilson interval edge cases regression.
+describe("wilsonIntervalProportion edge cases (B.2.35)", () => {
+  it("ci_level = 1.0 doesn't return Infinity bounds (clamp prevents Acklam blowup)", () => {
+    const ci = wilsonIntervalProportion(5, 10, 1.0);
+    expect(Number.isFinite(ci.lower)).toBe(true);
+    expect(Number.isFinite(ci.upper)).toBe(true);
+    expect(ci.lower).toBeGreaterThanOrEqual(0);
+    expect(ci.upper).toBeLessThanOrEqual(1);
+  });
+
+  it("ci_level = 0.0 doesn't return -Infinity bounds", () => {
+    const ci = wilsonIntervalProportion(5, 10, 0.0);
+    expect(Number.isFinite(ci.lower)).toBe(true);
+    expect(Number.isFinite(ci.upper)).toBe(true);
+  });
+
+  it("ci_level beyond [0,1] is clamped (defensive)", () => {
+    const ci = wilsonIntervalProportion(5, 10, 1.5);
+    expect(Number.isFinite(ci.lower)).toBe(true);
+    expect(Number.isFinite(ci.upper)).toBe(true);
   });
 });

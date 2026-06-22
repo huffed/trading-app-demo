@@ -74,7 +74,7 @@ describe("portfolio-backtest direction conflict simulation (Phase B.1)", () => {
     const blockingSibling: SiblingTradeWindow[] = [
       { ticker: "XAU/USD", side: "short", entry_date: "2026-01-01T00:00:00Z", exit_date: "2026-02-01T00:00:00Z" },
     ];
-    const conflictResult = runPortfolioBacktest(rules, prices, 10000, [], null, null, blockingSibling);
+    const conflictResult = runPortfolioBacktest(rules, prices, 10000, { siblingBlockingTrades: blockingSibling });
     // B.1.10: strict < (not <=) so a no-op gate would fail the test.
     expect(conflictResult.trades.length).toBeLessThan(baselineResult.trades.length);
   });
@@ -85,7 +85,7 @@ describe("portfolio-backtest direction conflict simulation (Phase B.1)", () => {
     const sameSideSibling: SiblingTradeWindow[] = [
       { ticker: "XAU/USD", side: "long", entry_date: "2026-01-01T00:00:00Z", exit_date: "2026-02-01T00:00:00Z" },
     ];
-    const sameDirResult = runPortfolioBacktest(rules, prices, 10000, [], null, null, sameSideSibling);
+    const sameDirResult = runPortfolioBacktest(rules, prices, 10000, { siblingBlockingTrades: sameSideSibling });
     expect(sameDirResult.trades.length).toBe(baselineResult.trades.length);
   });
 
@@ -95,7 +95,7 @@ describe("portfolio-backtest direction conflict simulation (Phase B.1)", () => {
     const diffTickerSibling: SiblingTradeWindow[] = [
       { ticker: "USD/JPY", side: "short", entry_date: "2026-01-01T00:00:00Z", exit_date: "2026-02-01T00:00:00Z" },
     ];
-    const diffResult = runPortfolioBacktest(rules, prices, 10000, [], null, null, diffTickerSibling);
+    const diffResult = runPortfolioBacktest(rules, prices, 10000, { siblingBlockingTrades: diffTickerSibling });
     expect(diffResult.trades.length).toBe(baselineResult.trades.length);
   });
 
@@ -106,7 +106,7 @@ describe("portfolio-backtest direction conflict simulation (Phase B.1)", () => {
     const outsideSibling: SiblingTradeWindow[] = [
       { ticker: "XAU/USD", side: "short", entry_date: "2025-01-01T00:00:00Z", exit_date: "2025-12-01T00:00:00Z" },
     ];
-    const outsideResult = runPortfolioBacktest(rules, prices, 10000, [], null, null, outsideSibling);
+    const outsideResult = runPortfolioBacktest(rules, prices, 10000, { siblingBlockingTrades: outsideSibling });
     expect(outsideResult.trades.length).toBe(baselineResult.trades.length);
   });
 });

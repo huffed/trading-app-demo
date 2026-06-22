@@ -81,7 +81,7 @@ describe("portfolio-backtest FTMO termination (Phase B.1.4)", () => {
   it("ftmoTermination disabled passes through unchanged", () => {
     const disabled: FtmoTerminationConfig = { enabled: false };
     const baseline = runPortfolioBacktest(baseRules, prices, 10000);
-    const result = runPortfolioBacktest(baseRules, prices, 10000, [], null, null, [], null, null, disabled);
+    const result = runPortfolioBacktest(baseRules, prices, 10000, { ftmoTermination: disabled });
     expect(result.trades.length).toBe(baseline.trades.length);
     expect(result.prop_firm_report?.drawdown_breached).toBe(baseline.prop_firm_report?.drawdown_breached);
   });
@@ -89,7 +89,7 @@ describe("portfolio-backtest FTMO termination (Phase B.1.4)", () => {
   it("ftmoTermination enabled — stops generating new trades after breach", () => {
     const enabled: FtmoTerminationConfig = { enabled: true };
     const baseline = runPortfolioBacktest(baseRules, prices, 10000);
-    const terminated = runPortfolioBacktest(baseRules, prices, 10000, [], null, null, [], null, null, enabled);
+    const terminated = runPortfolioBacktest(baseRules, prices, 10000, { ftmoTermination: enabled });
 
     expect(baseline.prop_firm_report?.drawdown_breached).toBe(true);
     expect(terminated.prop_firm_report?.drawdown_breached).toBe(true);
@@ -114,7 +114,7 @@ describe("portfolio-backtest FTMO termination (Phase B.1.4)", () => {
 
   it("ftmoTermination preserves trades opened BEFORE breach (force-close, not retroactive)", () => {
     const enabled: FtmoTerminationConfig = { enabled: true };
-    const result = runPortfolioBacktest(baseRules, prices, 10000, [], null, null, [], null, null, enabled);
+    const result = runPortfolioBacktest(baseRules, prices, 10000, { ftmoTermination: enabled });
     // We should still have recorded at least one trade — the run isn't a no-op
     expect(result.trades.length).toBeGreaterThanOrEqual(1);
   });
@@ -127,7 +127,7 @@ describe("portfolio-backtest FTMO termination (Phase B.1.4)", () => {
     };
     const enabled: FtmoTerminationConfig = { enabled: true };
     const baseline = runPortfolioBacktest(safeRules, prices, 10000);
-    const result = runPortfolioBacktest(safeRules, prices, 10000, [], null, null, [], null, null, enabled);
+    const result = runPortfolioBacktest(safeRules, prices, 10000, { ftmoTermination: enabled });
     expect(baseline.prop_firm_report?.drawdown_breached).toBe(false);
     expect(result.prop_firm_report?.drawdown_breached).toBe(false);
     expect(result.trades.length).toBe(baseline.trades.length);

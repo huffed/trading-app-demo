@@ -361,6 +361,26 @@ describe("loadPreregistrations Zod schema (B.2.8)", () => {
     expect(file["Algo A"].registration_type).toBe("true-prereg");
   });
 
+  // B.2.39 (2026-06-19 EVE): JSON.parse failures now produce a focused
+  // error identifying the file + the parse problem, rather than the V8
+  // default `SyntaxError: Unexpected end of JSON input` with no path.
+  it("THROWS focused error on invalid JSON (B.2.39 — distinguishes from schema fail)", () => {
+    writeFileSync(path, "{ this is not json");
+    expect(() => loadPreregistrations(path)).toThrowError(/contains invalid JSON/);
+  });
+
+  it("error from JSON.parse is distinguishable from schema validation error", () => {
+    writeFileSync(path, '{"truncated"');
+    let jsonErr: Error | null = null;
+    try {
+      loadPreregistrations(path);
+    } catch (e) {
+      jsonErr = e as Error;
+    }
+    expect(jsonErr?.message).toMatch(/contains invalid JSON/);
+    expect(jsonErr?.message).not.toMatch(/failed schema validation/);
+  });
+
   it("error message identifies the failing field path", () => {
     writeFileSync(path, JSON.stringify({
       "Algo A": {
@@ -372,5 +392,35 @@ describe("loadPreregistrations Zod schema (B.2.8)", () => {
       },
     }));
     expect(() => loadPreregistrations(path)).toThrowError(/max_static_dd/);
+  });
+
+  // B.2.32 (Stage 3.2, 2026-06-20): third registration_type value
+  // "forward-pre-registered" is accepted + distinguishable from the
+  // other two values.
+  it("accepts forward-pre-registered (B.2.32 third value)", () => {
+    writeFileSync(path, JSON.stringify({
+      "Algo A": {
+        hypothesis: "criteria informed by historical analysis but evaluated post-lock-only",
+        registered_at: "2026-06-01T00:00:00Z",
+        expires_at: "2026-07-01T00:00:00Z",
+        registration_type: "forward-pre-registered",
+      },
+    }));
+    const file = loadPreregistrations(path);
+    expect(file["Algo A"].registration_type).toBe("forward-pre-registered");
+  });
+
+  it("rejects garbage registration_type values (Zod enum exhaustiveness)", () => {
+    // Defensive — pre-B.2.32 the schema accepted exactly 2 values; post-B.2.32
+    // it accepts exactly 3. Anything outside the enum must still fail loudly.
+    writeFileSync(path, JSON.stringify({
+      "Algo A": {
+        hypothesis: "x",
+        registered_at: "2026-06-01T00:00:00Z",
+        expires_at: "2026-07-01T00:00:00Z",
+        registration_type: "post-hoc-locked-forward",  // close-to-valid but wrong
+      },
+    }));
+    expect(() => loadPreregistrations(path)).toThrow();
   });
 });

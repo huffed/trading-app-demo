@@ -62,12 +62,10 @@ describe("portfolio-backtest portfolio-halt (Phase B.1.3)", () => {
     const disabled: PortfolioHaltConfig = {
       enabled: false,
       daily_loss_limit_pct: 5,
-      sibling_daily_pnl: new Map(),
+      sibling_daily_pnl: {},
     };
     const baseline = runPortfolioBacktest(baseRules, prices, 10000);
-    const result = runPortfolioBacktest(
-      baseRules, prices, 10000, [], null, null, [], null, null, null, undefined, null, disabled
-    );
+    const result = runPortfolioBacktest(baseRules, prices, 10000, { portfolioHalt: disabled });
     expect(result.trades.length).toBe(baseline.trades.length);
   });
 
@@ -75,12 +73,10 @@ describe("portfolio-backtest portfolio-halt (Phase B.1.3)", () => {
     const config: PortfolioHaltConfig = {
       enabled: true,
       daily_loss_limit_pct: 5,
-      sibling_daily_pnl: new Map(),
+      sibling_daily_pnl: {},
     };
     const baseline = runPortfolioBacktest(baseRules, prices, 10000);
-    const result = runPortfolioBacktest(
-      baseRules, prices, 10000, [], null, null, [], null, null, null, undefined, null, config
-    );
+    const result = runPortfolioBacktest(baseRules, prices, 10000, { portfolioHalt: config });
     // No sibling contribution + this algo's 1% risk per trade → no portfolio
     // breach at 5% DLL. Trade count should equal baseline.
     expect(result.trades.length).toBe(baseline.trades.length);
@@ -89,9 +85,9 @@ describe("portfolio-backtest portfolio-halt (Phase B.1.3)", () => {
   it("massive sibling daily loss on a date in the trading window → breach", () => {
     // Inject huge sibling loss on every date the fixture covers, so any open
     // entry attempt that day is blocked.
-    const siblingMap = new Map<string, number>();
+    const siblingMap: Record<string, number> = {};
     for (let d = 1; d <= 28; d++) {
-      siblingMap.set(`2026-01-${d.toString().padStart(2, "0")}`, -800);  // 8% of $10K
+      siblingMap[`2026-01-${d.toString().padStart(2, "0")}`] = -800;  // 8% of $10K
     }
     const config: PortfolioHaltConfig = {
       enabled: true,
@@ -99,18 +95,19 @@ describe("portfolio-backtest portfolio-halt (Phase B.1.3)", () => {
       sibling_daily_pnl: siblingMap,
     };
     const baseline = runPortfolioBacktest(baseRules, prices, 10000);
-    const result = runPortfolioBacktest(
-      baseRules, prices, 10000, [], null, null, [], null, null, null, undefined, null, config
-    );
-    // Sibling -$800 = 8% loss > 5% DLL → ALL entries on dates in map blocked
-    expect(result.trades.length).toBeLessThanOrEqual(baseline.trades.length);
+    const result = runPortfolioBacktest(baseRules, prices, 10000, { portfolioHalt: config });
+    // B.1.27 (Stage 3, 2026-06-19 EVE): strict `<` — test asserts blocking
+    // actually happened. `<=` was vacuous (would pass even with 0 entries
+    // blocked, defeating the purpose of the regression test).
+    // Sibling -$800 = 8% loss > 5% DLL → entries on dates in map blocked.
+    expect(result.trades.length).toBeLessThan(baseline.trades.length);
   });
 
   it("reference_capital override changes the breach threshold", () => {
     // Sibling -$400 on each date. With reference_capital=$10K, -$400 = 4% < 5% DLL → no breach.
     // With reference_capital=$5K (override), -$400 = 8% > 5% DLL → breach.
-    const siblingMap = new Map<string, number>();
-    for (let d = 1; d <= 28; d++) siblingMap.set(`2026-01-${d.toString().padStart(2, "0")}`, -400);
+    const siblingMap: Record<string, number> = {};
+    for (let d = 1; d <= 28; d++) siblingMap[`2026-01-${d.toString().padStart(2, "0")}`] = -400;
     const looseRef: PortfolioHaltConfig = {
       enabled: true,
       daily_loss_limit_pct: 5,
@@ -124,22 +121,19 @@ describe("portfolio-backtest portfolio-halt (Phase B.1.3)", () => {
       sibling_daily_pnl: siblingMap,
     };
     const baseline = runPortfolioBacktest(baseRules, prices, 10000);
-    const looseResult = runPortfolioBacktest(
-      baseRules, prices, 10000, [], null, null, [], null, null, null, undefined, null, looseRef
-    );
-    const tightResult = runPortfolioBacktest(
-      baseRules, prices, 10000, [], null, null, [], null, null, null, undefined, null, tightRef
-    );
+    const looseResult = runPortfolioBacktest(baseRules, prices, 10000, { portfolioHalt: looseRef });
+    const tightResult = runPortfolioBacktest(baseRules, prices, 10000, { portfolioHalt: tightRef });
     expect(looseResult.trades.length).toBe(baseline.trades.length);  // no breach
-    expect(tightResult.trades.length).toBeLessThanOrEqual(baseline.trades.length);  // breached
+    // B.1.27 strict `<` — breach must actually reduce trade count.
+    expect(tightResult.trades.length).toBeLessThan(baseline.trades.length);
   });
 
   it("config.reference_capital undefined falls back to algoCapital", () => {
     // Confirm the fallback path: when reference_capital is undefined,
     // the gate uses the algo's own capital (which validate-algo passes
     // as algoCapital). Sibling -$400/day on $10K algo capital = 4% < 5% DLL → no breach.
-    const siblingMap = new Map<string, number>();
-    for (let d = 1; d <= 28; d++) siblingMap.set(`2026-01-${d.toString().padStart(2, "0")}`, -400);
+    const siblingMap: Record<string, number> = {};
+    for (let d = 1; d <= 28; d++) siblingMap[`2026-01-${d.toString().padStart(2, "0")}`] = -400;
     const config: PortfolioHaltConfig = {
       enabled: true,
       daily_loss_limit_pct: 5,
@@ -147,24 +141,20 @@ describe("portfolio-backtest portfolio-halt (Phase B.1.3)", () => {
       sibling_daily_pnl: siblingMap,
     };
     const baseline = runPortfolioBacktest(baseRules, prices, 10000);
-    const result = runPortfolioBacktest(
-      baseRules, prices, 10000, [], null, null, [], null, null, null, undefined, null, config
-    );
+    const result = runPortfolioBacktest(baseRules, prices, 10000, { portfolioHalt: config });
     expect(result.trades.length).toBe(baseline.trades.length);
   });
 
   it("date not in sibling map contributes 0 to combined (no spurious breach)", () => {
     // Sibling map has a date OUTSIDE the fixture's window.
-    const siblingMap = new Map<string, number>([["2025-12-15", -9999]]);
+    const siblingMap: Record<string, number> = { "2025-12-15": -9999 };
     const config: PortfolioHaltConfig = {
       enabled: true,
       daily_loss_limit_pct: 5,
       sibling_daily_pnl: siblingMap,
     };
     const baseline = runPortfolioBacktest(baseRules, prices, 10000);
-    const result = runPortfolioBacktest(
-      baseRules, prices, 10000, [], null, null, [], null, null, null, undefined, null, config
-    );
+    const result = runPortfolioBacktest(baseRules, prices, 10000, { portfolioHalt: config });
     // The sibling loss is on a date that doesn't intersect the fixture.
     expect(result.trades.length).toBe(baseline.trades.length);
   });

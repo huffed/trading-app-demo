@@ -19,13 +19,31 @@
 import { readFileSync, existsSync } from "fs";
 import { z } from "zod";
 
-/** B.2.7: distinguishes true pre-registration (criteria set BEFORE seeing
- *  the data) from post-hoc forward commitments (criteria locked AFTER
- *  initial validation, treated as a "do not relax this bar" promise for
- *  future re-runs). Reporting + interpretation differ between the two:
- *  - "true-prereg" entries can claim statistical novelty
- *  - "post-hoc-locked" entries cannot — they're discipline, not science */
-export const RegistrationTypeSchema = z.enum(["true-prereg", "post-hoc-locked"]);
+/** B.2.7 + B.2.32 (Stage 3.2, 2026-06-20): three registration kinds.
+ *
+ *  - `"true-prereg"` — criteria set BEFORE the data existed. Highest
+ *    evidentiary status. The evaluation is genuinely held-out; passing
+ *    is statistical novelty (subject to multiple-comparison correction).
+ *
+ *  - `"forward-pre-registered"` — criteria informed by historical
+ *    analysis but EVALUATED only against data accumulated AFTER the
+ *    `registered_at` timestamp. The historical analysis "snooped" the
+ *    in-sample distribution, but the forward-only evaluation window is
+ *    a clean held-out test. Between true-prereg and post-hoc on the
+ *    evidence-strength spectrum.
+ *
+ *  - `"post-hoc-locked"` — criteria set AFTER seeing the full data + applied
+ *    to BOTH past and future runs. NOT statistical novelty; it's a
+ *    discipline commitment ("don't relax this bar even when next month's
+ *    re-run nudges it"). Useful for operator hygiene; not publishable.
+ *
+ *  Evaluation semantics for all three are identical (same observed-vs-criteria
+ *  comparison). Difference is in interpretation + reporting. */
+export const RegistrationTypeSchema = z.enum([
+  "true-prereg",
+  "forward-pre-registered",
+  "post-hoc-locked",
+]);
 export type RegistrationType = z.infer<typeof RegistrationTypeSchema>;
 
 /** B.2.8: Zod schema for a single prereg entry. Strict (`.strict()`)
@@ -55,11 +73,67 @@ export type PreregistrationFile = z.infer<typeof PreregistrationFileSchema>;
 
 /** Loads + validates the pre-registration file. THROWS on schema failure
  *  (typo in field name, missing required field, invalid type, etc.) so
- *  a malformed file can never silently disable criteria. */
+ *  a malformed file can never silently disable criteria.
+ *
+ *  B.2.39 fix (2026-06-19 EVE): JSON.parse is now wrapped to distinguish
+ *  JSON-syntax errors (raw file contains invalid JSON) from schema
+ *  validation errors (JSON parses but doesn't match the expected shape).
+ *  Previously a missing closing brace bubbled up as the V8 default
+ *  `SyntaxError: Unexpected end of JSON input` with no path context — the
+ *  operator couldn't tell whether the issue was in the prereg JSON or
+ *  somewhere else in the validator pipeline.
+ *
+ *  B.2.34 (Stage 3.2, 2026-06-20) — DESIGN DECISION RECORDED HERE.
+ *  The "throw mid-run on any schema failure" behaviour is INTENTIONAL +
+ *  KEPT. Rejected alternative: catch per-algo + warn + fall back to default
+ *  criteria for the bad entry. Reasoning:
+ *
+ *  1. Typos are easier to fix when they fail loudly. Per-algo fallback
+ *     would mask the typo until weeks later (when the operator notices
+ *     the algo's ELIGIBLE verdict isn't being gated by the criteria they
+ *     thought they registered).
+ *  2. The operator now has a 50ms standalone smoke check —
+ *     `pnpm dlx tsx scripts/canonical/validate-preregistration.ts` — that
+ *     catches schema errors BEFORE committing to a long PERSIST=1 fleet
+ *     run. The "throw mid-run on a long run" risk is bounded by running
+ *     the smoke check first (or scheduling it as a pre-commit hook).
+ *  3. Per-algo fallback would have to choose what "default criteria"
+ *     means — an unconfigured algo currently flows through legacy step
+ *     verdicts (step2/3/6). That's NOT a default criteria set; it's a
+ *     different code path. Conflating "registered but broken" with
+ *     "unregistered" would produce confusing operator-facing verdicts.
+ *
+ *  Escape hatch: if a future need arises (e.g. a giant prereg file where
+ *  one bad entry blocks ~30 valid entries), introduce
+ *  `STRICT_PREREG=0` env that switches to per-algo skip-with-warn mode.
+ *  Until that need surfaces, default-throw stays. */
 export function loadPreregistrations(path: string): PreregistrationFile {
+  // B.2.45 (Stage 3, 2026-06-19 EVE): TOCTOU-resilient — readFileSync is
+  // wrapped in try/catch so a file deleted between existsSync and
+  // readFileSync (or unreadable due to permissions) surfaces a focused
+  // error rather than an uncaught ENOENT. existsSync stays as a fast-path
+  // for the common "file legitimately absent" case.
   if (!existsSync(path)) return {};
-  const raw = readFileSync(path, "utf8");
-  const parsed = JSON.parse(raw) as unknown;
+  let raw: string;
+  try {
+    raw = readFileSync(path, "utf8");
+  } catch (e) {
+    const detail = e instanceof Error ? e.message : String(e);
+    throw new Error(
+      `Preregistration file ${path} exists but could not be read: ${detail}. ` +
+      `Check file permissions or whether the file was deleted between existence-check and read.`
+    );
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (e) {
+    const detail = e instanceof Error ? e.message : String(e);
+    throw new Error(
+      `Preregistration file ${path} contains invalid JSON: ${detail}. ` +
+      `Open the file and verify it parses (e.g. \`pnpm dlx tsx -e "JSON.parse(require('fs').readFileSync('${path}','utf8'))"\`).`
+    );
+  }
   const result = PreregistrationFileSchema.safeParse(parsed);
   if (!result.success) {
     const issues = result.error.issues
@@ -73,6 +147,12 @@ export function loadPreregistrations(path: string): PreregistrationFile {
   return result.data;
 }
 
+/** B.2.17 + B.2.46 (Stage 3, 2026-06-19 EVE): malformed dates surface as
+ *  a `console.warn` BEFORE silently returning null. Previously a typo in
+ *  `expires_at` (e.g. "2027-31-12" instead of "2027-12-31") would skip
+ *  the entry without operator notice — the algo would silently fall back
+ *  to default criteria, and the operator wouldn't realise the prereg
+ *  was effectively dead. */
 export function getPreregistration(
   file: PreregistrationFile,
   algoName: string,
@@ -81,7 +161,20 @@ export function getPreregistration(
   const entry = file[algoName];
   if (!entry) return null;
   const expires = new Date(entry.expires_at);
-  if (Number.isNaN(expires.getTime())) return null;
+  if (Number.isNaN(expires.getTime())) {
+    console.warn(
+      `[preregistration] ${algoName}: malformed expires_at="${entry.expires_at}" — entry SKIPPED (algo falls back to defaults). Fix the date or remove the entry.`
+    );
+    return null;
+  }
+  // Also validate registered_at — it's not used for expiry math but a
+  // malformed value indicates broken provenance (when was this locked?).
+  const registered = new Date(entry.registered_at);
+  if (Number.isNaN(registered.getTime())) {
+    console.warn(
+      `[preregistration] ${algoName}: malformed registered_at="${entry.registered_at}" — entry will be used but provenance is unverifiable. Fix the timestamp.`
+    );
+  }
   if (expires.getTime() < now.getTime()) return null;
   return entry;
 }
@@ -90,10 +183,12 @@ export interface PreregistrationCheck {
   algo_name: string;
   has_preregistration: boolean;
   expires_at?: string;
-  /** B.2.7: surfaces whether the registration is true-prereg (criteria
-   *  set before seeing data) or post-hoc-locked (criteria set after,
-   *  enforced as forward commitment). Affects interpretation: only
-   *  true-prereg passes claim statistical novelty. */
+  /** B.2.7 + B.2.32: surfaces which registration kind this entry uses.
+   *  Three values — see `RegistrationTypeSchema` jsdoc for evidence-
+   *  strength implications. Only `true-prereg` passes can claim
+   *  statistical novelty; `forward-pre-registered` passes claim clean
+   *  held-out evidence (without the BEFORE-the-data property);
+   *  `post-hoc-locked` passes claim only operator-discipline commitment. */
   registration_type?: RegistrationType;
   passed: boolean;
   failed_criteria: string[];

@@ -23,14 +23,28 @@ describe("assertTradeSidePopulated (B.1.5)", () => {
     expect(() => assertTradeSidePopulated(makeTrade("short"), "TestAlgo")).not.toThrow();
   });
 
-  it("throws on undefined side with algo name + raw value in message", () => {
-    expect(() => assertTradeSidePopulated(makeTrade(undefined), "TestAlgo"))
-      .toThrowError(/TestAlgo.*undefined/);
+  // B.2.38 (Stage 3, 2026-06-19 EVE): switched from regex-substring matching
+  // to structural assertions. The previous pattern `/TestAlgo.*undefined/`
+  // would break on benign rewording (e.g. "for TestAlgo" → "of TestAlgo");
+  // the contract we care about is "the error carries enough context to
+  // identify which algo + what raw value caused it." Verify properties
+  // explicitly rather than the exact word order.
+  it("throws on undefined side; error carries algo name + a value marker", () => {
+    let err: Error | null = null;
+    try { assertTradeSidePopulated(makeTrade(undefined), "TestAlgo"); }
+    catch (e) { err = e as Error; }
+    expect(err).toBeInstanceOf(Error);
+    expect(err?.message).toContain("TestAlgo");
+    expect(err?.message).toMatch(/undefined|missing|empty/i);
   });
 
-  it("throws on null side", () => {
-    expect(() => assertTradeSidePopulated(makeTrade(null), "TestAlgo"))
-      .toThrowError(/TestAlgo.*null/);
+  it("throws on null side; error carries algo name + a value marker", () => {
+    let err: Error | null = null;
+    try { assertTradeSidePopulated(makeTrade(null), "TestAlgo"); }
+    catch (e) { err = e as Error; }
+    expect(err).toBeInstanceOf(Error);
+    expect(err?.message).toContain("TestAlgo");
+    expect(err?.message).toMatch(/null|missing|empty/i);
   });
 
   it("throws on empty string side", () => {

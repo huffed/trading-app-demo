@@ -25,7 +25,17 @@ import {
   updateTrailingState,
   type TrailingState,
 } from "@/lib/algorithm/trailing-stop";
-import { atr14 } from "./market-state";
+// CB.C6 (2026-06-20): condition-evaluation utilities migrated to a
+// neutral module. portfolio-backtest.ts is in lib/market-data but is
+// architecturally a backtest harness — it can legitimately import from
+// backtest-engine, but using the neutral module is cleaner (consistent
+// with live scan path).
+import {
+  checkConditions,
+  collectOtherTimeframes,
+  convictionMultiplierForRules,
+  normalize,
+} from "@/lib/conditions/evaluate";
 import {
   DEFAULT_MAX_POSITIONS,
   DEFAULT_POSITION_SIZE_PCT,
@@ -46,12 +56,7 @@ import {
 } from "@/types/algorithm";
 import { isWeakTrendByAdx } from "./adx-filter";
 import { resolveSide } from "./auto-side";
-import {
-  checkConditions,
-  collectOtherTimeframes,
-  convictionMultiplierForRules,
-  normalize,
-} from "./backtest-engine";
+import { atr14 } from "./market-state";
 import { calculateMetrics } from "./backtest-metrics";
 import { type BarsBundle } from "./condition-evaluator";
 import {
@@ -106,7 +111,7 @@ interface PortfolioPosition {
   trailingState?: TrailingState;
 }
 
-interface TickerState {
+export interface TickerState {
   bars: PriceBar[];
   /** Resampled D1 view of `bars`, used by daily_bias pattern conditions. */
   higherTfBars: PriceBar[];
@@ -384,7 +389,11 @@ function runCloseLoop(
       if (t) t.ticker = ticker;
       // B.1.2: record loss-exit timestamp for re-entry cooldown gate.
       // Matches live re-entry-cooldown.ts: only LOSS exits trigger cooldown.
-      if (t && t.pnl < 0) state.lastLossExitDate = dayKey;
+      // B.1.16 follow-up (2026-06-19): store the FULL bar timestamp, not
+      // dayKey (which is sliced YYYY-MM-DD). `hasReEntryCooldownActive`
+      // compares against the full bar.date — format mismatch produced
+      // negative elapsed on the very next bar (loud throw now surfaces it).
+      if (t && t.pnl < 0) state.lastLossExitDate = bar.date;
       state.positions.splice(p, 1);
       if (pf) dailyHalted = enforcePropFirm(pf, s, capital, dayKey, dailyHalted);
     }
@@ -404,12 +413,16 @@ function forceCloseTicker(
 ): void {
   if (state.positions.length === 0) return;
   const exitPrice = applySlippage(closePrice, cfg.slippageBps, false);
+  // B.1.16 follow-up (2026-06-19): full bar timestamp for re-entry cooldown
+  // cookie — see runCloseLoop for rationale. dayKey is the fallback when
+  // state.cursor is somehow out of sync (defensive; shouldn't happen on
+  // the production code path).
+  const exitTimestamp = state.bars[state.cursor]?.date ?? dayKey;
   for (let p = state.positions.length - 1; p >= 0; p--) {
     closeSimPosition(state.positions[p], dayKey, exitPrice, capital, cfg, s, trades, ticker, "force_close");
     const t = trades[trades.length - 1];
     if (t) t.ticker = ticker;
-    // B.1.2: record loss-exit for re-entry cooldown gate.
-    if (t && t.pnl < 0) state.lastLossExitDate = dayKey;
+    if (t && t.pnl < 0) state.lastLossExitDate = exitTimestamp;
     state.positions.splice(p, 1);
   }
 }
@@ -461,8 +474,9 @@ export interface SiblingTradeWindow {
  *  algos on the same broker. Refuses entries that would push (current
  *  combined + candidate) above pool_cap_pct%.
  *
- *  Live default: 3% pool cap. Phase B.1 default: 4% (operator's accepted
- *  cap per 2026-06-12 decision per [[project_funded_trading]]). */
+ *  Live default: 3% pool cap. Phase B.1 default: 4% (my choice — earlier
+ *  comment claimed operator-set 2026-06-12 but attribution unverifiable in
+ *  project_funded_trading; logged as unilateral default in roadmap OD.2). */
 export interface RiskPoolConfig {
   enabled: boolean;
   /** Combined risk cap as % of reference_capital. Default 4%. */
@@ -495,11 +509,17 @@ export interface PortfolioHaltConfig {
    *  real fidelity to live behaviour, pass the portfolio's combined
    *  capital (sum of all algos sharing the broker connection). */
   reference_capital?: number;
-  /** Map<dateKey, total realized PnL on that date> aggregated across
+  /** Record<dateKey, total realized PnL on that date> aggregated across
    *  sibling algos. dateKey format = "YYYY-MM-DD". Caller computes from
-   *  sibling baseline trades. Empty map = no sibling contribution → this
-   *  reduces to a per-algo DLL check (no value vs existing prop-firm DLL). */
-  sibling_daily_pnl: Map<string, number>;
+   *  sibling baseline trades. Empty record = no sibling contribution → this
+   *  reduces to a per-algo DLL check (no value vs existing prop-firm DLL).
+   *
+   *  B.4.5 fix (2026-06-19): switched Map → Record so the config remains
+   *  JSON-serialisable. JSON.stringify(Map) silently produces "{}" and any
+   *  caller that records the config in persisted output (audit trail,
+   *  diagnostic dump) would lose the data without a runtime error. Plain
+   *  object eliminates the bug class. */
+  sibling_daily_pnl: Record<string, number>;
 }
 
 /** Phase B.1.2 fidelity (2026-06-18 EVE) — re-entry cooldown gate.
@@ -532,30 +552,55 @@ function barDurationMinutes(timeframe: string): number {
   }
 }
 
-function hasReEntryCooldownActive(
+/** Exported for B.1.16 unit tests — direct access lets us exercise
+ *  invalid-date branches that are unreachable through `runPortfolioBacktest`
+ *  (which gates its own date inputs via the PriceBar contract). */
+export function hasReEntryCooldownActive(
   state: TickerState,
   currentBarDate: string,
   cooldownMinutes: number
 ): boolean {
   if (state.lastLossExitDate === null) return false;
-  const elapsedMs = new Date(currentBarDate).getTime() - new Date(state.lastLossExitDate).getTime();
-  if (!Number.isFinite(elapsedMs) || elapsedMs < 0) return false;
+  // B.1.16 fix (2026-06-19): truly invalid dates (NaN) throw loud —
+  // these are unrecoverable programmer errors. Format-induced negative
+  // elapsed (price_cache mixes ISO + space-separated formats; the
+  // latter parses as LOCAL time so cross-format subtraction drifts) is
+  // CLAMPED to 0 — treat as same-bar / loss-just-happened, fail-safe
+  // to cooldown-active. The previous silent return-false was unsafe
+  // (re-enabled blocked entries on confused state). Underlying
+  // bar.date format inconsistency tracked separately as a data-quality
+  // punch item — fix it at the price-cache loader, not here.
+  const currentMs = new Date(currentBarDate).getTime();
+  const lastMs = new Date(state.lastLossExitDate).getTime();
+  if (!Number.isFinite(currentMs) || !Number.isFinite(lastMs)) {
+    throw new Error(
+      `hasReEntryCooldownActive: invalid date input (current=${currentBarDate}, lastLossExit=${state.lastLossExitDate})`
+    );
+  }
+  const elapsedMs = Math.max(0, currentMs - lastMs);
   return elapsedMs / 60_000 < cooldownMinutes;
 }
 
 /** Phase B.1.3 portfolio-halt check. Sums this algo's realized PnL today
  *  + sibling realized PnL from config map; trips when combined breaches
  *  `daily_loss_limit_pct` of `reference_capital`. */
-function hasPortfolioHaltBreach(
+/** Exported for B.1.17/B.1.18 unit tests — the run-loop is the only
+ *  production caller; tests need direct access to exercise edge cases
+ *  (refCapital ≤ 0, same-day boundary collision) that are awkward to
+ *  trigger through `runPortfolioBacktest`. */
+export function hasPortfolioHaltBreach(
   config: PortfolioHaltConfig,
   dayKey: string,
   myDailyPnl: number,
   fallbackCapital: number
 ): boolean {
-  const siblingPnl = config.sibling_daily_pnl.get(dayKey) ?? 0;
+  const siblingPnl = config.sibling_daily_pnl[dayKey] ?? 0;
   const combined = myDailyPnl + siblingPnl;
   const refCapital = config.reference_capital ?? fallbackCapital;
-  if (refCapital <= 0) return false;
+  // B.1.17 fix (2026-06-19): refCapital ≤ 0 means the account is dead
+  // (or config is broken). Previously returned false (NO breach → entry
+  // allowed) — the unsafe default. Block entries in this state.
+  if (refCapital <= 0) return true;
   const combinedPct = (combined / refCapital) * 100;
   return combinedPct <= -config.daily_loss_limit_pct;
 }
@@ -638,7 +683,8 @@ export function tradesAsSiblingWindows(
   return out;
 }
 
-function hasDirectionConflict(
+/** Exported for B.1.18 unit tests — see hasPortfolioHaltBreach note. */
+export function hasDirectionConflict(
   ticker: string,
   proposedSide: "long" | "short",
   currentDate: string,
@@ -648,7 +694,9 @@ function hasDirectionConflict(
   for (const s of siblings) {
     if (s.ticker !== ticker) continue;
     if (s.side !== opposite) continue;
-    if (s.entry_date <= currentDate && currentDate < s.exit_date) return true;
+    // B.1.18 fix (2026-06-19): inclusive exit boundary. See hasRiskPoolBreach
+    // for the same fix + rationale.
+    if (s.entry_date <= currentDate && currentDate <= s.exit_date) return true;
   }
   return false;
 }
@@ -657,18 +705,28 @@ function hasDirectionConflict(
  *  siblings at `currentDate` and tests if (combined + candidate) > cap.
  *  Mirrors lib/scan/risk-pool-halt.ts but operates on sibling windows
  *  rather than DB-queried open positions. */
-function hasRiskPoolBreach(
+/** Exported for B.1.17/B.1.18 unit tests — see hasPortfolioHaltBreach note. */
+export function hasRiskPoolBreach(
   siblings: SiblingTradeWindow[],
   candidateRiskUsd: number,
   currentDate: string,
   referenceCapital: number,
   poolCapPct: number
 ): boolean {
-  if (referenceCapital <= 0) return false;
+  // B.1.17 fix (2026-06-19): refCapital ≤ 0 → block (account dead /
+  // config corrupt). Previously returned false (NO breach → entry
+  // allowed).
+  if (referenceCapital <= 0) return true;
   let combined = 0;
   for (const s of siblings) {
     if (s.risk_dollars == null) continue;
-    if (s.entry_date <= currentDate && currentDate < s.exit_date) {
+    // B.1.18 fix (2026-06-19): exit_date is INCLUSIVE — a sibling that
+    // closes at bar T was open during bar T, and our candidate evaluates
+    // at the close of bar T (after runCloseLoop). Treating the boundary
+    // as exclusive let the candidate slip past during same-bar close+open
+    // coincidences. Live `checkDirectionConflict` uses status='open' (no
+    // date boundary), so this is the closest in-engine analogue.
+    if (s.entry_date <= currentDate && currentDate <= s.exit_date) {
       combined += s.risk_dollars;
     }
   }
@@ -741,8 +799,12 @@ function tryOpenEntry(
    *  realized PnL (this algo today + sibling map) breaches the cap. */
   portfolioHalt: PortfolioHaltConfig | null = null,
   /** Capital for the portfolio-halt fallback (when config.reference_capital
-   *  is undefined). Caller passes `capital`. */
-  algoCapital: number = 0
+   *  is undefined). Caller passes `capital`. B.1.21 (Stage 3, 2026-06-19 EVE):
+   *  removed `=0` default. Silent 0-fallback was a footgun — a caller that
+   *  forgot to pass capital would have all portfolio-halt math reference
+   *  zero, which (post-B.1.17) blocks every entry. Required param surfaces
+   *  the bug at compile time. */
+  algoCapital: number
 ): void {
   const vetoed = state.vetoCheck ? state.vetoCheck(state.bars[i].date) : false;
   const gate: EntryGate = {
@@ -947,11 +1009,22 @@ function buildPerTickerSummary(
   trades: BacktestTrade[],
   capital: number
 ): PerTickerSummary[] {
+  const tradesByTicker = new Map<string, BacktestTrade[]>();
+  for (const trade of trades) {
+    if (!trade.ticker) continue;
+    const list = tradesByTicker.get(trade.ticker);
+    if (list) list.push(trade);
+    else tradesByTicker.set(trade.ticker, [trade]);
+  }
   const summaries: PerTickerSummary[] = [];
   for (const ticker of states.keys()) {
-    const tickerTrades = trades.filter((t) => t.ticker === ticker);
-    const wins = tickerTrades.filter((t) => t.pnl > 0).length;
-    const pnl = tickerTrades.reduce((sum, t) => sum + t.pnl, 0);
+    const tickerTrades = tradesByTicker.get(ticker) ?? [];
+    let wins = 0;
+    let pnl = 0;
+    for (const t of tickerTrades) {
+      if (t.pnl > 0) wins += 1;
+      pnl += t.pnl;
+    }
     summaries.push({
       ticker,
       trades: tickerTrades.length,
@@ -987,21 +1060,30 @@ function buildPerTickerSummary(
  *  comparing these callers' numbers to validate-algo numbers and seeing
  *  divergence, that divergence is the fidelity-gate impact — investigate
  *  via validate-algo, don't try to "fix" the diagnostic callers. */
-export function runPortfolioBacktest(
-  rules: AlgorithmRules,
-  pricesByTicker: Map<string, PriceBar[]>,
-  capital: number,
-  events: EconomicEvent[] = [],
+/** B.1.25 (Stage 3.1, 2026-06-20) — options-bag refactor. The 13-positional
+ *  signature was fragile (same anti-pattern I refactored away on analyzeStats /
+ *  B.2.11). Every field below is optional with the same default as the prior
+ *  positional arg. Adding a new gate becomes one field on this interface +
+ *  one read inside runPortfolioBacktest — no breaking caller updates.
+ *
+ *  CALLER POLICY (preserved from prior docs): only `scripts/canonical/validate-algo.ts`
+ *  is the canonical caller (enables all Phase B fidelity gates). The 6 other
+ *  callers — backtest UI actions, walk-forward, admin diagnostic routes —
+ *  pass `{}` or partial options intentionally for naked-strategy diagnostic
+ *  work. Their numbers are NOT comparable to validate-algo verdicts. */
+export interface RunPortfolioBacktestOptions {
+  /** Economic calendar events for news_veto evaluation. Default `[]`. */
+  events?: EconomicEvent[];
   /** Optional EUR/USD bars used as DXY proxy for the dxy_filter gate.
    *  When null AND the algo has dxy_filter enabled, the gate behaves
    *  as a no-op (logs no_data status). Required when validating the
    *  filter via inspect-algo overlay. */
-  proxyBars: PriceBar[] | null = null,
+  proxyBars?: PriceBar[] | null;
   /** Full-depth series for market_state_gate evaluation — REQUIRED when
    *  validating a gated algo; without it the gate fails closed and the
    *  run produces zero entries (loudly wrong rather than silently
    *  unfaithful). See MarketStateSeries. */
-  marketStateSeries: MarketStateSeries | null = null,
+  marketStateSeries?: MarketStateSeries | null;
   /** Phase B.1 backtest fidelity (2026-06-18 PM) — sibling algos' open
    *  position windows that block opposite-direction entries on the same
    *  ticker. Pass `tradesAsSiblingWindows(otherAlgoTrades)`. Empty by
@@ -1010,39 +1092,72 @@ export function runPortfolioBacktest(
    *  Also feeds the risk-pool gate's combined-risk sum UNLESS `riskPoolSiblings`
    *  is explicitly provided. Backwards-compatible: legacy callers passing
    *  one list get both gates applied (the original behaviour). */
-  siblingBlockingTrades: SiblingTradeWindow[] = [],
+  siblingBlockingTrades?: SiblingTradeWindow[];
   /** Phase B.1 backtest fidelity — ATR-ratio proxy for live spread gate.
    *  Default null = no spread simulation. Recommended config: enabled=true,
    *  threshold_multiplier=2.5 (matches live SPREAD_GATE_MULTIPLIER),
    *  atr_lookback_bars=200. */
-  spreadGate: SpreadGateConfig | null = null,
+  spreadGate?: SpreadGateConfig | null;
   /** Phase B.1 backtest fidelity — caps combined open-risk-$ across
    *  sibling algos. Default null = no risk-pool simulation. Recommended:
-   *  enabled=true, pool_cap_pct=4 (operator's accepted cap per 2026-06-12). */
-  riskPool: RiskPoolConfig | null = null,
+   *  enabled=true, pool_cap_pct=4 (my unilateral choice; prior comment claimed
+   *  "operator-set 2026-06-12" — attribution unverifiable; roadmap OD.2). */
+  riskPool?: RiskPoolConfig | null;
   /** Phase B.1 backtest fidelity — FTMO challenge-fail termination.
    *  Default null = legacy behaviour (corpus keeps iterating post-breach,
    *  open positions naturally exit). Enable=true to force-close all + stop
    *  timeline on breach, mirroring real FTMO challenge failure. */
-  ftmoTermination: FtmoTerminationConfig | null = null,
+  ftmoTermination?: FtmoTerminationConfig | null;
   /** Phase B.1.4 fix (2026-06-18 EVE) — sibling windows for the risk-pool
    *  gate ONLY. When undefined, falls back to `siblingBlockingTrades` to
    *  preserve legacy "one list for both gates" behaviour. Pass an empty
    *  array (or different list) to toggle the two gates independently. */
-  riskPoolSiblings: SiblingTradeWindow[] | undefined = undefined,
+  riskPoolSiblings?: SiblingTradeWindow[];
   /** Phase B.1.2 fidelity — re-entry cooldown gate. Default null = no
    *  cooldown simulation. Recommended config when matching live:
    *  enabled=true, cooldown_minutes=undefined (auto-derives from
    *  rules.timeframe via barDurationMinutes). */
-  reEntryCooldown: ReEntryCooldownConfig | null = null,
+  reEntryCooldown?: ReEntryCooldownConfig | null;
   /** Phase B.1.3 fidelity — portfolio-level DLL halt. Caller pre-computes
    *  sibling_daily_pnl from baseline runs of other algos in the portfolio.
    *  Default null = no portfolio-halt simulation (per-algo DLL still
    *  applies via the existing prop_firm.daily_loss_limit). */
-  portfolioHalt: PortfolioHaltConfig | null = null
+  portfolioHalt?: PortfolioHaltConfig | null;
+}
+
+export function runPortfolioBacktest(
+  rules: AlgorithmRules,
+  pricesByTicker: Map<string, PriceBar[]>,
+  capital: number,
+  options: RunPortfolioBacktestOptions = {}
 ): BacktestMetrics {
-  // Resolve risk-pool siblings: if caller didn't provide a separate list,
-  // fall back to siblingBlockingTrades (legacy "one list for both gates").
+  const events = options.events ?? [];
+  const proxyBars = options.proxyBars ?? null;
+  const marketStateSeries = options.marketStateSeries ?? null;
+  const siblingBlockingTrades = options.siblingBlockingTrades ?? [];
+  const spreadGate = options.spreadGate ?? null;
+  const riskPool = options.riskPool ?? null;
+  const ftmoTermination = options.ftmoTermination ?? null;
+  const riskPoolSiblings = options.riskPoolSiblings; // undefined-preserving (B.1.20 semantic)
+  const reEntryCooldown = options.reEntryCooldown ?? null;
+  const portfolioHalt = options.portfolioHalt ?? null;
+  // B.1.20 (Stage 3, 2026-06-19 EVE): explicit fallback semantics. When
+  // `riskPoolSiblings` is undefined, callers historically inherited the
+  // direction-conflict list — that was a "lazy default" not a clean
+  // disable. The B.1.4 split intentionally decoupled the two lists. We
+  // preserve the legacy behaviour BUT log a warning so callers migrate
+  // to passing `[]` explicitly when they want risk-pool off without
+  // touching direction-conflict.
+  if (riskPoolSiblings === undefined && siblingBlockingTrades.length > 0) {
+    // Note: emitted once per runPortfolioBacktest call (acceptable since the
+    // call is the unit of work). 2026-06-19 plan: migrate validate-algo first
+    // (already passes both explicitly), then `walk-forward.ts` + UI callers.
+    if (process.env.PORTFOLIO_BACKTEST_FALLBACK_WARN !== "0") {
+      console.warn(
+        `[portfolio-backtest] riskPoolSiblings undefined; inheriting direction-conflict list (${siblingBlockingTrades.length} sibling windows). Pass [] explicitly to disable, or RPS=... to silence (PORTFOLIO_BACKTEST_FALLBACK_WARN=0).`
+      );
+    }
+  }
   const resolvedRiskPoolSiblings = riskPoolSiblings ?? siblingBlockingTrades;
   const entry = normalize(rules.entry_conditions);
   const exit = normalize(rules.exit_conditions);
@@ -1108,7 +1223,11 @@ export function runPortfolioBacktest(
     const activeTickers: { ticker: string; state: TickerState; i: number }[] = [];
     for (const [ticker, state] of states) {
       const i = advanceCursor(state, timestamp);
-      if (i < 1) continue;
+      // B.1.15 fix (2026-06-19): advanceCursor returns -1 on no match, else
+      // a valid bar index ≥ 0. Previous `i < 1` silently dropped bar index 0
+      // (the first bar of the corpus) for every ticker — a real entry could
+      // never fire on the very first bar.
+      if (i < 0) continue;
       activeTickers.push({ ticker, state, i });
       const r = runCloseLoop(state, i, ticker, rules, techExit, cfg, capital, s, trades, dayKey, dailyHalted);
       dailyHalted = r.dailyHalted;
@@ -1116,8 +1235,21 @@ export function runPortfolioBacktest(
 
     // Phase 2: if DLL halted mid-bar, force-close every ticker's positions.
     if (dailyHalted) {
+      // B.1.32 (Stage 3, 2026-06-19 EVE): per-ticker try/catch so a single
+      // ticker's bug doesn't abort the force-close batch mid-loop and
+      // leave the remaining tickers' positions open (FTMO termination +
+      // portfolio-halt partial-close bug). Errors logged + propagated
+      // AFTER the loop so the operator still sees what failed.
+      const errors: string[] = [];
       for (const { ticker, state, i } of activeTickers) {
-        forceCloseTicker(state, ticker, state.closes[i], dayKey, cfg, capital, s, trades);
+        try {
+          forceCloseTicker(state, ticker, state.closes[i], dayKey, cfg, capital, s, trades);
+        } catch (e) {
+          errors.push(`${ticker}: ${e instanceof Error ? e.message : String(e)}`);
+        }
+      }
+      if (errors.length > 0) {
+        throw new Error(`Phase-2 DLL-halt force-close failed on ${errors.length} ticker(s): ${errors.join("; ")}`);
       }
     }
 
@@ -1127,8 +1259,19 @@ export function runPortfolioBacktest(
     // breach trades accumulate. With ftmoTermination.enabled, force-close
     // all + break the timeline (account is gone).
     if (ftmoTermination?.enabled && s.drawdownBreached) {
+      // B.1.32 (Stage 3, 2026-06-19 EVE): per-ticker try/catch — same rationale
+      // as Phase 2. FTMO termination is a hard stop; we MUST flush every open
+      // position. A single ticker's failure can't be allowed to leave others open.
+      const errors: string[] = [];
       for (const { ticker, state, i } of activeTickers) {
-        forceCloseTicker(state, ticker, state.closes[i], dayKey, cfg, capital, s, trades);
+        try {
+          forceCloseTicker(state, ticker, state.closes[i], dayKey, cfg, capital, s, trades);
+        } catch (e) {
+          errors.push(`${ticker}: ${e instanceof Error ? e.message : String(e)}`);
+        }
+      }
+      if (errors.length > 0) {
+        throw new Error(`FTMO termination force-close failed on ${errors.length} ticker(s): ${errors.join("; ")}`);
       }
       break;
     }
@@ -1142,8 +1285,18 @@ export function runPortfolioBacktest(
     if (portfolioHalt?.enabled) {
       const myDailyPnl = s.dailyPnl[dayKey] ?? 0;
       if (hasPortfolioHaltBreach(portfolioHalt, dayKey, myDailyPnl, capital)) {
+        // B.1.32 (Stage 3, 2026-06-19 EVE): per-ticker try/catch — same rationale
+        // as Phase 2 + FTMO termination above.
+        const errors: string[] = [];
         for (const { ticker, state, i } of activeTickers) {
-          forceCloseTicker(state, ticker, state.closes[i], dayKey, cfg, capital, s, trades);
+          try {
+            forceCloseTicker(state, ticker, state.closes[i], dayKey, cfg, capital, s, trades);
+          } catch (e) {
+            errors.push(`${ticker}: ${e instanceof Error ? e.message : String(e)}`);
+          }
+        }
+        if (errors.length > 0) {
+          throw new Error(`Portfolio-halt force-close failed on ${errors.length} ticker(s): ${errors.join("; ")}`);
         }
         // Mark dailyHalted so entries are blocked for the rest of the day too.
         dailyHalted = true;

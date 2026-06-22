@@ -73,7 +73,7 @@ describe("portfolio-backtest spread gate (Phase B.1)", () => {
       threshold_multiplier: 2.5,
       atr_lookback_bars: 200,
     };
-    const gated = runPortfolioBacktest(baseRules, prices, 10000, [], null, null, [], gate);
+    const gated = runPortfolioBacktest(baseRules, prices, 10000, { spreadGate: gate });
     // B.1.10: strict < (not <=) so a no-op gate would fail the test.
     expect(gated.trades.length).toBeLessThan(baseline.trades.length);
   });
@@ -85,22 +85,22 @@ describe("portfolio-backtest spread gate (Phase B.1)", () => {
       atr_lookback_bars: 200,
     };
     const baseline = runPortfolioBacktest(baseRules, prices, 10000);
-    const disabledResult = runPortfolioBacktest(baseRules, prices, 10000, [], null, null, [], disabled);
+    const disabledResult = runPortfolioBacktest(baseRules, prices, 10000, { spreadGate: disabled });
     expect(disabledResult.trades.length).toBe(baseline.trades.length);
   });
 
   it("stricter threshold (1.5x) refuses more entries than 2.5x", () => {
     const strict: SpreadGateConfig = { enabled: true, threshold_multiplier: 1.5, atr_lookback_bars: 200 };
     const loose: SpreadGateConfig = { enabled: true, threshold_multiplier: 2.5, atr_lookback_bars: 200 };
-    const strictResult = runPortfolioBacktest(baseRules, prices, 10000, [], null, null, [], strict);
-    const looseResult = runPortfolioBacktest(baseRules, prices, 10000, [], null, null, [], loose);
+    const strictResult = runPortfolioBacktest(baseRules, prices, 10000, { spreadGate: strict });
+    const looseResult = runPortfolioBacktest(baseRules, prices, 10000, { spreadGate: loose });
     expect(strictResult.trades.length).toBeLessThanOrEqual(looseResult.trades.length);
   });
 
   it("very loose threshold (10x) is effectively a no-op", () => {
     const noop: SpreadGateConfig = { enabled: true, threshold_multiplier: 10, atr_lookback_bars: 200 };
     const baseline = runPortfolioBacktest(baseRules, prices, 10000);
-    const noopResult = runPortfolioBacktest(baseRules, prices, 10000, [], null, null, [], noop);
+    const noopResult = runPortfolioBacktest(baseRules, prices, 10000, { spreadGate: noop });
     expect(noopResult.trades.length).toBe(baseline.trades.length);
   });
 
@@ -109,7 +109,7 @@ describe("portfolio-backtest spread gate (Phase B.1)", () => {
     const shortPrices = new Map([["XAU/USD", shortBars]]);
     const gate: SpreadGateConfig = { enabled: true, threshold_multiplier: 2.5, atr_lookback_bars: 200 };
     const baseline = runPortfolioBacktest(baseRules, shortPrices, 10000);
-    const gated = runPortfolioBacktest(baseRules, shortPrices, 10000, [], null, null, [], gate);
+    const gated = runPortfolioBacktest(baseRules, shortPrices, 10000, { spreadGate: gate });
     // With <30 ATR samples gate skips → behaves same as baseline
     expect(gated.trades.length).toBe(baseline.trades.length);
   });

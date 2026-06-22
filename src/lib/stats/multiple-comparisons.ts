@@ -29,13 +29,26 @@ export function passesAtBonferroni(pValue: number, familyAlpha: number, nTests: 
  *  mean is > 0. Use against family-wise alpha (corrected via Bonferroni)
  *  to decide ship/no-ship.
  *
- *  Returns p in [0, 1]; never 0 (clamped to 1/(N+1) for stability). */
+ *  B.2.23 (Stage 3, 2026-06-19 EVE): use mid-rank corrected estimator
+ *  `(count + 0.5) / (N + 1)` (Davison & Hinkley 1997, §4.4.2) instead of
+ *  the `Math.max(count/N, 1/(N+1))` floor-clamp. The clamp was
+ *  systematically upward-biased near p=0 (count=0 → 1/(N+1) which is
+ *  ~2× the unbiased value). Mid-rank correction:
+ *    - count=0:    0.5/(N+1)        (was 1/(N+1) — 2× tighter)
+ *    - count=N:    (N+0.5)/(N+1)    (was N/N=1)
+ *    - count=k:    (k+0.5)/(N+1)    (was k/N — slight shift)
+ *  Smoother, less integer-jumpy, conservative-enough for ship/no-ship.
+ *  Returns p in (0, 1) — strictly positive (no log(0) downstream). */
+function midRankP(count: number, total: number): number {
+  if (total <= 0) return 1;
+  return (count + 0.5) / (total + 1);
+}
+
 export function bootstrapPValueGtZero(samples: number[]): number {
   if (samples.length === 0) return 1;
   let nonPositive = 0;
   for (const s of samples) if (s <= 0) nonPositive++;
-  const p = nonPositive / samples.length;
-  return Math.max(p, 1 / (samples.length + 1));
+  return midRankP(nonPositive, samples.length);
 }
 
 /** Bootstrap p-value for "true mean < 0" (one-sided, the dangerous direction). */
@@ -43,8 +56,7 @@ export function bootstrapPValueLtZero(samples: number[]): number {
   if (samples.length === 0) return 1;
   let nonNegative = 0;
   for (const s of samples) if (s >= 0) nonNegative++;
-  const p = nonNegative / samples.length;
-  return Math.max(p, 1 / (samples.length + 1));
+  return midRankP(nonNegative, samples.length);
 }
 
 /** Two-sided bootstrap p-value for "true mean ≠ 0". */

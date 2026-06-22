@@ -26,7 +26,7 @@ function synthetic4hBars(n: number): PriceBar[] {
 }
 
 function baseRules(): AlgorithmRules {
-  return {
+  const rules: AlgorithmRules = {
     entry_conditions: [
       // RSI > 0 is true on every bar after warm-up — a deterministic
       // always-fire trigger so the test isolates the gate's effect.
@@ -40,7 +40,8 @@ function baseRules(): AlgorithmRules {
     timeframe: "4h",
     asset_class: "commodities",
     side: "long",
-  } as AlgorithmRules;
+  };
+  return rules;
 }
 
 describe("runPortfolioBacktest market_state_gate", () => {
@@ -70,7 +71,7 @@ describe("runPortfolioBacktest market_state_gate", () => {
       oneHour: new Map([["XAU/USD", []]]),
       eurusd4h: [],
     };
-    const gated = runPortfolioBacktest(rules, prices, 100_000, [], null, series);
+    const gated = runPortfolioBacktest(rules, prices, 100_000, { marketStateSeries: series });
     const ungated = runPortfolioBacktest(baseRules(), prices, 100_000);
     expect(gated.total_trades).toBeGreaterThan(0);
     expect(gated.total_trades).toBeLessThanOrEqual(ungated.total_trades);
@@ -90,7 +91,7 @@ describe("runPortfolioBacktest market_state_gate", () => {
     };
     // Blocking every readable vol value + allowing unreadable means only
     // the warm-up bars (vol n/a) can trade.
-    const result = runPortfolioBacktest(rules, prices, 100_000, [], null, series);
+    const result = runPortfolioBacktest(rules, prices, 100_000, { marketStateSeries: series });
     const ungated = runPortfolioBacktest(baseRules(), prices, 100_000);
     expect(result.total_trades).toBeLessThan(ungated.total_trades);
   });

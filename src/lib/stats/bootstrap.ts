@@ -32,6 +32,10 @@ function mulberry32(seed: number): () => number {
   };
 }
 
+/** B.2.18 (Stage 3, 2026-06-19 EVE): empty-input contract is documented +
+ *  surfaced via NaN. Direct callers must check `sorted.length` upstream or
+ *  treat the NaN return as their "no data" signal. The bootstrap wrappers
+ *  short-circuit on empty `items` before reaching here (line ~95). */
 function quantile(sorted: number[], q: number): number {
   if (sorted.length === 0) return NaN;
   const pos = q * (sorted.length - 1);
@@ -70,9 +74,18 @@ export function bootstrapStatWithSamples<T>(
   const n_iterations = opts.n_iterations ?? 1000;
   const ci_level = opts.ci_level ?? 0.95;
   const seed = opts.seed ?? 42;
+  // B.2.15 (Stage 3, 2026-06-19 EVE): degenerate-input guards.
+  // - items.length === 0: point estimate is whatever statFn returns on
+  //   an empty array (caller's contract); CI is undefined → NaN bounds.
+  // - items.length === 1: bootstrap is meaningless (only one resampling
+  //   outcome possible — the single item repeated). Return point with
+  //   tight CI [point, point] to surface the degeneracy without crashing.
   const point = statFn(items);
   if (items.length === 0) {
     return { point, lower: NaN, upper: NaN, n_iterations, ci_level, samples: [] };
+  }
+  if (items.length === 1) {
+    return { point, lower: point, upper: point, n_iterations, ci_level, samples: new Array(n_iterations).fill(point) };
   }
   const rng = mulberry32(seed);
   const samples: number[] = new Array(n_iterations);
@@ -140,10 +153,24 @@ export function bootstrapStatBlockWithSamples<T>(
   const n_iterations = opts.n_iterations ?? 1000;
   const ci_level = opts.ci_level ?? 0.95;
   const seed = opts.seed ?? 42;
-  const blockSize = Math.max(1, opts.block_size ?? Math.ceil(Math.sqrt(items.length)));
+  // B.2.16 (Stage 3, 2026-06-19 EVE): clamp blockSize to items.length.
+  // Without the upper bound, block_size > items.length produces a single
+  // block that visits every item PLUS wraps to revisit (items[(start+j) %
+  // items.length] for j > items.length). This silently inflates the
+  // weight of items near the start of the wrap, breaking the block
+  // bootstrap's variance properties. Cap = items.length is the standard
+  // Politis & Romano (1992) circular bound.
+  const blockSize = Math.min(
+    items.length || 1,
+    Math.max(1, opts.block_size ?? Math.ceil(Math.sqrt(items.length)))
+  );
   const point = statFn(items);
+  // B.2.15: same degenerate-input guards as the trade-level bootstrap.
   if (items.length === 0) {
     return { point, lower: NaN, upper: NaN, n_iterations, ci_level, samples: [] };
+  }
+  if (items.length === 1) {
+    return { point, lower: point, upper: point, n_iterations, ci_level, samples: new Array(n_iterations).fill(point) };
   }
   const rng = mulberry32(seed);
   const samples: number[] = new Array(n_iterations);
@@ -185,8 +212,14 @@ export function wilsonIntervalProportion(
   ci_level: number = 0.95
 ): { point: number; lower: number; upper: number } {
   if (trials <= 0) return { point: NaN, lower: NaN, upper: NaN };
+  // B.2.35 (Stage 3, 2026-06-19 EVE): clamp ci_level to (0, 1) — at 1.0
+  // (or beyond), Acklam's inverse-normal returns +Infinity which propagates
+  // to NaN bounds. At 0.0 or negative, returns -Infinity. Both are
+  // operator errors (ci_level outside the open interval (0,1) has no
+  // statistical meaning); clamp to a tight epsilon for graceful behavior.
+  const safe = Math.max(0.0001, Math.min(0.9999, ci_level));
   // 95% → z=1.96; 99% → z=2.576. Two-sided.
-  const z = inverseStandardNormalCdf(1 - (1 - ci_level) / 2);
+  const z = inverseStandardNormalCdf(1 - (1 - safe) / 2);
   const p = successes / trials;
   const denominator = 1 + (z * z) / trials;
   const centre = p + (z * z) / (2 * trials);

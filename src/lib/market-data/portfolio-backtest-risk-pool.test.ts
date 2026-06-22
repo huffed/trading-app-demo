@@ -67,7 +67,7 @@ describe("portfolio-backtest risk-pool halt (Phase B.1.3)", () => {
   it("risk-pool disabled passes through unchanged", () => {
     const disabled: RiskPoolConfig = { enabled: false, pool_cap_pct: 4 };
     const baseline = runPortfolioBacktest(baseRules, prices, 10000);
-    const result = runPortfolioBacktest(baseRules, prices, 10000, [], null, null, [], null, disabled);
+    const result = runPortfolioBacktest(baseRules, prices, 10000, { riskPool: disabled });
     expect(result.trades.length).toBe(baseline.trades.length);
   });
 
@@ -84,9 +84,10 @@ describe("portfolio-backtest risk-pool halt (Phase B.1.3)", () => {
       risk_dollars: 400,
     }];
     const riskPool: RiskPoolConfig = { enabled: true, pool_cap_pct: 4 };
-    const gated = runPortfolioBacktest(baseRules, prices, 10000, [], null, null, sibling, null, riskPool);
-    // Some entries should be refused since $100 + $400 = $500 = 5% > 4% cap
-    expect(gated.trades.length).toBeLessThanOrEqual(baseline.trades.length);
+    const gated = runPortfolioBacktest(baseRules, prices, 10000, { siblingBlockingTrades: sibling, riskPool: riskPool });
+    // B.1.27 strict `<` — refusal must actually fire.
+    // $100 + $400 = $500 = 5% > 4% cap → entries blocked.
+    expect(gated.trades.length).toBeLessThan(baseline.trades.length);
   });
 
   it("risk-pool allows when sibling risk leaves headroom under cap", () => {
@@ -101,7 +102,7 @@ describe("portfolio-backtest risk-pool halt (Phase B.1.3)", () => {
       risk_dollars: 200,
     }];
     const riskPool: RiskPoolConfig = { enabled: true, pool_cap_pct: 4 };
-    const result = runPortfolioBacktest(baseRules, prices, 10000, [], null, null, sibling, null, riskPool);
+    const result = runPortfolioBacktest(baseRules, prices, 10000, { siblingBlockingTrades: sibling, riskPool: riskPool });
     // Same trade count as baseline since combined risk stays under cap
     expect(result.trades.length).toBe(baseline.trades.length);
   });
@@ -117,7 +118,7 @@ describe("portfolio-backtest risk-pool halt (Phase B.1.3)", () => {
     }];
     const riskPool: RiskPoolConfig = { enabled: true, pool_cap_pct: 4 };
     const baseline = runPortfolioBacktest(baseRules, prices, 10000);
-    const result = runPortfolioBacktest(baseRules, prices, 10000, [], null, null, sibling, null, riskPool);
+    const result = runPortfolioBacktest(baseRules, prices, 10000, { siblingBlockingTrades: sibling, riskPool: riskPool });
     expect(result.trades.length).toBe(baseline.trades.length);
   });
 
@@ -132,7 +133,7 @@ describe("portfolio-backtest risk-pool halt (Phase B.1.3)", () => {
     }];
     const riskPool: RiskPoolConfig = { enabled: true, pool_cap_pct: 4 };
     const baseline = runPortfolioBacktest(baseRules, prices, 10000);
-    const result = runPortfolioBacktest(baseRules, prices, 10000, [], null, null, sibling, null, riskPool);
+    const result = runPortfolioBacktest(baseRules, prices, 10000, { siblingBlockingTrades: sibling, riskPool: riskPool });
     expect(result.trades.length).toBe(baseline.trades.length);
   });
 
@@ -150,10 +151,11 @@ describe("portfolio-backtest risk-pool halt (Phase B.1.3)", () => {
     const baseline = runPortfolioBacktest(baseRules, prices, 10000);
     const looseRef: RiskPoolConfig = { enabled: true, pool_cap_pct: 4, reference_capital: 100000 };
     const tightRef: RiskPoolConfig = { enabled: true, pool_cap_pct: 4, reference_capital: 5000 };
-    const looseResult = runPortfolioBacktest(baseRules, prices, 10000, [], null, null, sibling, null, looseRef);
-    const tightResult = runPortfolioBacktest(baseRules, prices, 10000, [], null, null, sibling, null, tightRef);
+    const looseResult = runPortfolioBacktest(baseRules, prices, 10000, { siblingBlockingTrades: sibling, riskPool: looseRef });
+    const tightResult = runPortfolioBacktest(baseRules, prices, 10000, { siblingBlockingTrades: sibling, riskPool: tightRef });
     expect(looseResult.trades.length).toBe(baseline.trades.length);  // no breach
-    expect(tightResult.trades.length).toBeLessThanOrEqual(baseline.trades.length);  // breached
+    // B.1.27 strict `<` — breached state must actually reduce trade count.
+    expect(tightResult.trades.length).toBeLessThan(baseline.trades.length);
   });
 
   it("B.1.4 fix: direction-conflict and risk-pool siblings are decoupled", () => {
@@ -174,18 +176,15 @@ describe("portfolio-backtest risk-pool halt (Phase B.1.3)", () => {
     }];
     const riskPool: RiskPoolConfig = { enabled: true, pool_cap_pct: 4 };
     // Pass to riskPoolSiblings only; direction-conflict gets empty list.
-    const result = runPortfolioBacktest(
-      baseRules, prices, 10000, [], null, null,
-      [],  // siblingBlockingTrades EMPTY = direction-conflict inactive
-      null,  // spread gate
-      riskPool,  // risk-pool ACTIVE
-      null,  // ftmo termination
-      oppositeSideHugeRisk  // risk-pool sees the sibling
-    );
-    // Risk-pool should refuse some entries (combined $600 > 4% cap)
-    // BUT direction-conflict shouldn't fire (siblingBlockingTrades=[])
-    // so the only blocker is risk-pool. Result: trades ≤ baseline.
-    expect(result.trades.length).toBeLessThanOrEqual(baseline.trades.length);
+    const result = runPortfolioBacktest(baseRules, prices, 10000, {
+      siblingBlockingTrades: [],  // direction-conflict inactive
+      riskPool,
+      riskPoolSiblings: oppositeSideHugeRisk,  // risk-pool sees the sibling
+    });
+    // B.1.27 strict `<` — risk-pool MUST refuse some entries (combined
+    // $600 > 4% cap). Vacuous `<=` would silently pass a regression
+    // where the gate fires 0 times.
+    expect(result.trades.length).toBeLessThan(baseline.trades.length);
   });
 
   it("B.1.4 fix: legacy single-list callers preserved (both gates fed from same list)", () => {
@@ -200,12 +199,13 @@ describe("portfolio-backtest risk-pool halt (Phase B.1.3)", () => {
       risk_dollars: 500,
     }];
     const riskPool: RiskPoolConfig = { enabled: true, pool_cap_pct: 4 };
-    // Legacy call: siblingBlockingTrades positional, no riskPoolSiblings.
-    const result = runPortfolioBacktest(
-      baseRules, prices, 10000, [], null, null,
-      sibling, null, riskPool
-    );
-    // Risk-pool still blocks via the fallback to siblingBlockingTrades.
-    expect(result.trades.length).toBeLessThanOrEqual(baseline.trades.length);
+    // Legacy fallback: siblingBlockingTrades passed; riskPoolSiblings undefined →
+    // risk-pool inherits the direction-conflict list (per B.1.20 warning).
+    const result = runPortfolioBacktest(baseRules, prices, 10000, {
+      siblingBlockingTrades: sibling,
+      riskPool,
+    });
+    // B.1.27 strict `<` — fallback path MUST actually block.
+    expect(result.trades.length).toBeLessThan(baseline.trades.length);
   });
 });

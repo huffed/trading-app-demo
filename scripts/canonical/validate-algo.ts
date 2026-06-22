@@ -32,8 +32,10 @@
  * step verdicts. Re-run anytime; same input → same output.
  */
 import { readFileSync } from "fs";
-import { createClient } from "@supabase/supabase-js";
+import { resolve as resolvePath } from "path";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { timeframeToInterval } from "../../src/lib/market-data/interval";
+import type { Database } from "../../src/lib/supabase/database.types";
 import {
   runPortfolioBacktest,
   tradesAsSiblingWindows,
@@ -65,6 +67,10 @@ import {
   type ObservedStats,
   type PreregistrationCheck,
 } from "../../src/lib/stats/preregistration";
+import {
+  buildBonferroniFamilyRationale,
+  classifyPreregExpiry,
+} from "../../src/lib/stats/validator-output";
 
 {
   try {
@@ -79,6 +85,21 @@ import {
 }
 
 const ONLY_ALGO = process.env.ALGO ?? null;
+/** Stage 4.3 (2026-06-20): `ALGOS` env CSV-overrides the canonical
+ *  algorithm-set filter. Use when running a targeted subset (e.g.
+ *  sensitivity analysis on 2 algos) without changing the script.
+ *  Mutually exclusive with `ALGO` (which targets a single name). */
+const ALGOS_CSV = process.env.ALGOS ?? null;
+/** Stage 4.3 (2026-06-20): print the selected algos + exit without
+ *  running backtests. Used to verify the filter before a long-running
+ *  PERSIST=1 fleet pass. */
+const LIST_ONLY = process.env.LIST_ONLY === "1";
+/** B.2.31 (Stage 3.2, 2026-06-20): suppress per-algo result lines for
+ *  fleet runs where the operator only cares about the SUMMARY row
+ *  (e.g. monthly cron-driven verification). Startup config + warnings
+ *  + final SUMMARY are always shown — only the ~3-line-per-algo body
+ *  is silenced. With 17 algos this cuts ~60 lines of console noise. */
+const QUIET = process.env.QUIET === "1";
 /** OOS holdout cutoff. Default 2025-06-18 = 12 months held-out as of
  *  2026-06-18 default snapshot. Empirically the sweet spot across the
  *  current fleet: shorter windows have too few held-out trades for
@@ -98,22 +119,50 @@ const ENABLE_FTMO_TERMINATION = process.env.FTMO_TERMINATION !== "0";
 const ENABLE_RE_ENTRY_COOLDOWN = process.env.RE_ENTRY_COOLDOWN !== "0";
 const ENABLE_PORTFOLIO_HALT = process.env.PORTFOLIO_HALT !== "0";
 const PORTFOLIO_DLL_PCT = Number(process.env.PORTFOLIO_DLL_PCT ?? 5);
-const PREREG_PATH = process.env.PREREG_PATH ?? "scripts/canonical/preregistration.json";
+/** B.2.47 (Stage 3, 2026-06-19 EVE): resolve to absolute path so a run
+ *  from a different cwd doesn't silently fall through `existsSync → false →
+ *  empty preregs object` (which would defeat the entire pre-reg discipline).
+ *  Documented default lives in the source tree; operator override is also
+ *  resolved against cwd for explicit relative paths to work as expected. */
+const PREREG_PATH = resolvePath(process.env.PREREG_PATH ?? "scripts/canonical/preregistration.json");
 const BOOTSTRAP_ITERATIONS = Number(process.env.BOOTSTRAP_ITERATIONS ?? 2000);
 const BOOTSTRAP_SEED = Number(process.env.BOOTSTRAP_SEED ?? 42);
 const FAMILY_ALPHA = Number(process.env.FAMILY_ALPHA ?? 0.05);
-/** B.2.4: tests-per-algo for Bonferroni family-size calculation.
+/** B.2.4 + B.2.19 + OD.2a (2026-06-22 rename): STATISTICAL-tests-per-algo
+ *  for Bonferroni family-size calculation. Renamed from
+ *  `BONFERRONI_TESTS_PER_ALGO` to `BONFERRONI_STATISTICAL_TESTS_PER_ALGO`
+ *  to honestly name what it counts (statistical tests, not all gates).
+ *  The old env var name is read as a fallback to preserve external
+ *  invocations (operator's local cron + any scripts that set it).
  *
- *  Default 1 = correct for "is mean R > 0?" as the SOLE per-algo statistical
- *  test. The other gates (step2/3/6 verdicts, CI lower>0, pre-reg criteria)
- *  are treated as a single composite ship hypothesis that the pre-registration
- *  captures, NOT independent significance tests subject to MCC.
+ *  Default 1 = correct for "is mean R > 0?" as the SOLE per-algo
+ *  *statistical* test. The other 6 criteria in `preregistration.ts:134-152`
+ *  (min_win_rate, max_static_dd, max_daily_dd, min_mean_r_ci_lower,
+ *  max_oos_r_delta_pct, min_held_out_trades) are DETERMINISTIC GATES
+ *  (deploy-readiness floors / DD limits), NOT significance tests subject
+ *  to MCC. Treating them as N independent significance tests would over-
+ *  correct alpha — the WR floor of 37% isn't a hypothesis test, it's an
+ *  operator-locked deploy floor (see [[feedback_winner_rule_return_within_ftmo]]).
  *
- *  Set to a higher integer (e.g. 5) for strict cross-test family-wise
- *  correction if treating every criterion as a separate test. Trade-off:
- *  stricter alpha kills more candidates (good for false-discovery control,
- *  bad for power). Operator-tunable. */
-const BONFERRONI_TESTS_PER_ALGO = Math.max(1, Number(process.env.BONFERRONI_TESTS_PER_ALGO ?? 1));
+ *  The JSONB `bonferroni_correction_scope` field surfaced in
+ *  `statistical_rigor` documents this so the verdict is hostile-critic-
+ *  ready: "one bootstrap mean-R p-value per algo; other 5 criteria are
+ *  deterministic gates not significance tests."
+ *
+ *  Set higher (e.g. 5) for cross-test strict-family correction if treating
+ *  every criterion as an independent significance test. */
+const BONFERRONI_STATISTICAL_TESTS_PER_ALGO = Math.max(
+  1,
+  Number(
+    process.env.BONFERRONI_STATISTICAL_TESTS_PER_ALGO ??
+      process.env.BONFERRONI_TESTS_PER_ALGO ??
+      1
+  )
+);
+/** @deprecated — kept as a local alias for grep-continuity during the rename. */
+const BONFERRONI_TESTS_PER_ALGO = BONFERRONI_STATISTICAL_TESTS_PER_ALGO;
+const BONFERRONI_CORRECTION_SCOPE =
+  "one bootstrap mean-R p-value per algo; other criteria (WR floor, DD limits, OOS-delta, held-out N) are deterministic deploy gates, not significance tests subject to MCC";
 /** Block bootstrap (B.2.5): use moving-block bootstrap rather than
  *  trade-level. Default on — trades within regimes are correlated, so
  *  trade-level bootstrap understates the CI width. */
@@ -154,19 +203,54 @@ interface GateResults {
   sample_first: string | null;
   sample_last: string | null;
   friction: { slippage_bps: number; spread_bps: number; commission_per_lot: number };
+  /** Stage 4.2.b (2026-06-20): provenance disclosure for the friction
+   *  values used in THIS run. Operator can audit whether the verdict was
+   *  produced under (a) measured friction from real broker fills,
+   *  (b) literature default pending real-fill capture, or (c) the algo's
+   *  own override. Without this, a "ELIGIBLE" verdict produced under
+   *  literature defaults could be mistaken for one produced under measured
+   *  friction — the latter is shippable, the former is not. */
+  friction_source: "measured" | "literature_default" | "algo_override" | "zero_no_friction";
+  friction_source_disclosure: string;
   fidelity_gates_applied: { siblings: boolean; spread_gate: boolean; risk_pool: boolean; ftmo_termination: boolean; re_entry_cooldown: boolean; portfolio_halt: boolean };
   step2: StepStats;
   step3: WalkForwardStats;
   step6: OosStats;
   statistical_rigor: StatisticalRigorBlock;
   preregistration?: PreregistrationCheck;
+  /** Stage 4.6 / B.5 (2026-06-20): demo-phase alignment gate. Derived from
+   *  the in-sample mean-R bootstrap CI; used at Stage 5.2 to check whether
+   *  demo-mirror trades fall within the in-sample distribution before
+   *  green-lighting a real $10K challenge. */
+  demo_gate?: DemoGateSpec;
   promotion_eligible: boolean;
   promotion_blockers: string[];
+}
+
+/** Stage 4.6 / B.5 (2026-06-20): the alignment spec a Stage-5-deployed algo
+ *  must meet on broker DEMO before the operator green-lights real $10K
+ *  capital. Built from the in-sample mean-R bootstrap CI + min_trades floor. */
+interface DemoGateSpec {
+  /** Minimum demo trades before evaluating alignment. Bootstrap CI on
+   *  small N is too wide to fail anything; 10 is the operator's floor. */
+  min_trades: number;
+  /** In-sample point estimate the demo distribution should track. */
+  expected_mean_r: number;
+  /** In-sample 95% CI bounds. Demo mean-R must fall WITHIN this window
+   *  for alignment-pass. Computed from `statistical_rigor.mean_r_ci`. */
+  expected_mean_r_lower: number;
+  expected_mean_r_upper: number;
+  /** Operator-readable contract string explaining the gate semantics. */
+  evaluation_contract: string;
 }
 
 interface StatisticalRigorBlock {
   bootstrap_iterations: number;
   bootstrap_seed: number;
+  /** B.2.24 (Stage 3, 2026-06-19 EVE): per-algo seed actually used,
+   *  derived as `bootstrap_seed ^ hash(algo_name)`. Surfaced so the
+   *  exact reseed used for THIS algo's CIs is reproducible. */
+  bootstrap_seed_effective: number;
   /** B.2.5: block bootstrap on/off. */
   block_bootstrap: boolean;
   family_alpha: number;
@@ -177,6 +261,10 @@ interface StatisticalRigorBlock {
   bonferroni_tests_per_algo: number;
   /** Rationale string explaining the chosen family-size semantic. */
   bonferroni_family_rationale: string;
+  /** B.2.19 + OD.2a (2026-06-22): explicit scope-of-correction disclosure
+   *  so a hostile critic reading the JSONB can tell what the Bonferroni
+   *  count covers vs what's a deterministic deploy gate. */
+  bonferroni_correction_scope: string;
   total_return_ci: BootstrapResult;
   mean_r_ci: BootstrapResult;
   mean_r_bonferroni: MccVerdict;
@@ -185,6 +273,13 @@ interface StatisticalRigorBlock {
   sharpe_ratio: number;
   /** B.2.10: bootstrap CI on Sharpe ratio. Uses block bootstrap when enabled. */
   sharpe_ratio_ci: BootstrapResult;
+  /** B.2.36 (Stage 3, 2026-06-19 EVE): OOS_CUTOFF data-snooping
+   *  disclosure. Personal-operator context (no hostile evaluator)
+   *  permits the data-snooped cutoff selection — but the disclosure
+   *  owed to a future-self / hostile auditor MUST be on the row, not
+   *  buried in a memory file. */
+  oos_cutoff_used: string;
+  oos_cutoff_selection_disclosure: string;
 }
 
 interface StepStats {
@@ -207,7 +302,12 @@ interface WalkForwardStats {
   per_year_n_years: number;
   /** B.2.6: Wilson 95% CI on the green-year proportion. */
   per_year_green_ci: { point: number; lower: number; upper: number };
-  verdict: "PASS" | "WEAK" | "FAIL" | "INSUFFICIENT_DATA";
+  /** B.3 (Stage 4.1, 2026-06-20): collapsed PASS|WEAK|FAIL → PASS|FAIL.
+   *  Phase B has been reading "strict 70% only" since the gates landed;
+   *  the WEAK middle tier had no decision power and only existed to
+   *  preserve operator triage signal. That signal is now embedded in the
+   *  FAIL reason string (`step3_distance_to_pass`). */
+  verdict: "PASS" | "FAIL" | "INSUFFICIENT_DATA";
   reason: string;
 }
 
@@ -219,13 +319,20 @@ interface OosStats {
   /** B.2.6: bootstrap CI on held-out mean R. Block bootstrap when enabled. */
   held_out_mean_r_ci: { point: number; lower: number; upper: number };
   r_delta_pct: number;
-  verdict: "TIER_1_PASS" | "TIER_2_PASS" | "FAIL" | "INSUFFICIENT_DATA";
+  /** B.3 (Stage 4.1, 2026-06-20): collapsed TIER_1_PASS|TIER_2_PASS|FAIL
+   *  → PASS|FAIL. TIER_2_PASS (±75% OR n<15) was a small-N caveat that
+   *  Phase B reads as FAIL; merge for clarity. Small-N + close-to-pass
+   *  diagnostic preserved in the FAIL reason string. */
+  verdict: "PASS" | "FAIL" | "INSUFFICIENT_DATA";
   reason: string;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function getBarsNoTtl(supabase: any, ticker: string, interval: string): Promise<PriceBar[] | null> {
-  const { data } = await supabase
+async function getBarsNoTtl(
+  supabase: SupabaseClient<Database>,
+  ticker: string,
+  interval: string
+): Promise<PriceBar[] | null> {
+  const { data, error } = await supabase
     .from("price_cache")
     .select("bars")
     .eq("ticker", ticker.toUpperCase())
@@ -233,7 +340,21 @@ async function getBarsNoTtl(supabase: any, ticker: string, interval: string): Pr
     .eq("interval", interval)
     .limit(1)
     .single();
-  return (data as { bars: PriceBar[] } | null)?.bars ?? null;
+  // B.2.43 (Stage 3, 2026-06-19 EVE): distinguish "no row" (legitimate
+  // — algo's ticker not in cache yet) from "Supabase error" (transient
+  // outage or permission issue). Previously both returned null → entire
+  // fleet appeared as "no bars" → all EXCLUDED → silently wrong verdicts.
+  // PGRST116 = "no rows" for .single() → expected.
+  if (error && error.code !== "PGRST116") {
+    throw new Error(
+      `getBarsNoTtl: price_cache query failed for ${ticker} (${interval}) — message="${error.message}" code="${error.code ?? "n/a"}" details="${error.details ?? "n/a"}"`
+    );
+  }
+  // CB.C3 (2026-06-19 EVE): price_cache.bars is `Json` per DB schema;
+  // application contract is `PriceBar[]`. Runtime narrowing is the
+  // operator's responsibility (DB rows here are produced by our own
+  // writers in price-cache.ts, which always emit PriceBar[]).
+  return (data?.bars as PriceBar[] | null) ?? null;
 }
 
 function pnlOf(trades: BacktestTrade[]): number {
@@ -251,6 +372,8 @@ interface AnalyzeStatsArgs {
   trades: BacktestTrade[];
   capital: number;
   friction: GateResults["friction"];
+  /** Stage 4.2.b (2026-06-20): asset-class for friction-source disclosure. */
+  ticker?: string;
   fidelityGates: GateResults["fidelity_gates_applied"];
   riskPct: number;
   algoName: string;
@@ -259,32 +382,75 @@ interface AnalyzeStatsArgs {
   now: Date;
 }
 
+/** B.2.24 (Stage 3, 2026-06-19 EVE): derive a per-algo bootstrap seed so
+ *  resampling sequences are independent across algos. Without this, all
+ *  algos share the same PRNG sequence — the `Math.floor(rng() * N)`
+ *  indices are correlated across algos, so the Bonferroni independence
+ *  assumption is violated and FWE > nominal 0.05 in practice.
+ *
+ *  Strategy: XOR base seed with a deterministic hash of the algo name.
+ *  Same `algoName + base_seed` → same effective seed → reproducible runs.
+ *  Different `algoName` → independent PRNG sequence. */
+function deriveAlgoSeed(baseSeed: number, algoName: string): number {
+  // 32-bit djb2-style hash. Sufficient bit-mixing for PRNG seed derivation;
+  // we're not doing crypto, just making sure different names produce
+  // structurally independent seeds.
+  let h = 5381;
+  for (let i = 0; i < algoName.length; i++) {
+    h = ((h * 33) ^ algoName.charCodeAt(i)) >>> 0;
+  }
+  return (baseSeed ^ h) >>> 0;
+}
+
+/** B.2.36 (Stage 3, 2026-06-19 EVE): build the data-snooping disclosure
+ *  string from the env-resolved cutoff. Operator can grep
+ *  `oos_cutoff_selection_disclosure` in the JSONB output to audit
+ *  whether the verdict was produced under the documented 12-month sweet
+ *  spot OR a different cutoff (e.g. `OOS_CUTOFF=2025-09-18` for sensitivity
+ *  analysis). */
+function buildOosCutoffDisclosure(cutoff: string): string {
+  if (cutoff === "2025-06-18") {
+    return "12mo holdout (default) — empirically chosen from sweep across [3,6,9,12,15]mo on 2026-06-18 to maximise eligible-algo count from 1→2 per feedback_oos_cutoff_sweet_spot. Data-snooped: ACCEPT in personal-operator context (no hostile evaluator + full visibility into criteria selection). Quant-firm-grade true-held-out OOS deferred to Phase D.5.";
+  }
+  return `${cutoff} — operator override (env OOS_CUTOFF=${cutoff}). Sensitivity-analysis or alternative-methodology run; NOT the default 12mo holdout.`;
+}
+
 function analyzeStats(args: AnalyzeStatsArgs): GateResults {
   const { trades, capital, friction, fidelityGates, riskPct, algoName, nCandidates, preregs, now } = args;
   const computedAt = now.toISOString();
   const effectiveNTests = Math.max(1, nCandidates * BONFERRONI_TESTS_PER_ALGO);
-  const familyRationale = BONFERRONI_TESTS_PER_ALGO === 1
-    ? `n=${nCandidates} (one mean-R test per algo; step verdicts + pre-reg are a single composite ship hypothesis, not independent significance tests)`
-    : `n=${nCandidates} × tests_per_algo=${BONFERRONI_TESTS_PER_ALGO} = ${effectiveNTests} (strict cross-test family-wise correction)`;
+  const algoSeed = deriveAlgoSeed(BOOTSTRAP_SEED, algoName);
+  const oosCutoffDisclosure = buildOosCutoffDisclosure(OOS_CUTOFF);
+  // B.2.4/B.2.26 (extracted 2026-06-22 NIGHT LATE): family-rationale
+  // string derived in src/lib/stats/validator-output.ts so the format
+  // contract has a unit test guarding against silent template drift.
+  const familyRationale = buildBonferroniFamilyRationale(nCandidates, BONFERRONI_TESTS_PER_ALGO);
   const emptyRigor: StatisticalRigorBlock = {
     bootstrap_iterations: BOOTSTRAP_ITERATIONS,
     bootstrap_seed: BOOTSTRAP_SEED,
+    bootstrap_seed_effective: algoSeed,
     block_bootstrap: ENABLE_BLOCK_BOOTSTRAP,
     family_alpha: FAMILY_ALPHA,
     n_tests: effectiveNTests,
     bonferroni_tests_per_algo: BONFERRONI_TESTS_PER_ALGO,
     bonferroni_family_rationale: familyRationale,
+    bonferroni_correction_scope: BONFERRONI_CORRECTION_SCOPE,
     total_return_ci: { point: 0, lower: NaN, upper: NaN, n_iterations: 0, ci_level: 0.95 },
     mean_r_ci: { point: 0, lower: NaN, upper: NaN, n_iterations: 0, ci_level: 0.95 },
     mean_r_bonferroni: { p_value: 1, bonferroni_alpha: FAMILY_ALPHA / effectiveNTests, passes: false, family_alpha: FAMILY_ALPHA, n_tests: effectiveNTests },
     sharpe_ratio: 0,
     sharpe_ratio_ci: { point: 0, lower: NaN, upper: NaN, n_iterations: 0, ci_level: 0.95 },
+    oos_cutoff_used: OOS_CUTOFF,
+    oos_cutoff_selection_disclosure: oosCutoffDisclosure,
   };
+  const frictionClass = classifyFriction(args.ticker ?? "UNKNOWN", friction);
   const empty: GateResults = {
     computed_at: computedAt,
     sample_first: null,
     sample_last: null,
     friction,
+    friction_source: frictionClass.source,
+    friction_source_disclosure: frictionClass.disclosure,
     fidelity_gates_applied: fidelityGates,
     step2: { total_return: 0, total_trades: 0, win_rate: 0, max_drawdown: 0, max_static_dd: 0, max_daily_dd: 0, verdict: "EXCLUDED", reason: "zero trades" },
     step3: { walk_forward_green_pct: 0, walk_forward_n_windows: 0, walk_forward_green_ci: { point: NaN, lower: NaN, upper: NaN }, per_year_green_pct: 0, per_year_n_years: 0, per_year_green_ci: { point: NaN, lower: NaN, upper: NaN }, verdict: "INSUFFICIENT_DATA", reason: "no trades" },
@@ -358,12 +524,20 @@ function analyzeStats(args: AnalyzeStatsArgs): GateResults {
     ? wilsonIntervalProportion(yearsGreen, byYear.size, 0.95)
     : { point: NaN, lower: NaN, upper: NaN };
 
+  // B.3 (Stage 4.1, 2026-06-20): strict PASS|FAIL only. Reason strings
+  // preserve operator triage signal — "near-miss" (≥50%/≥50% but <70%
+  // on at least one axis), "well-short" (any axis <50%), "aggregate
+  // negative" — so removing the WEAK tier doesn't blind the operator
+  // to "close-but-not-quite" vs "way-off".
   let step3Verdict: WalkForwardStats["verdict"], step3Reason: string;
   if (cum <= 0) { step3Verdict = "FAIL"; step3Reason = "aggregate negative"; }
   else if (windows.length === 0) { step3Verdict = "INSUFFICIENT_DATA"; step3Reason = "history too short for 12mo train + 3mo test"; }
   else if (wfGreenPct >= 70 && yearsGreenPct >= 70) { step3Verdict = "PASS"; step3Reason = "both gates pass strict 70%"; }
-  else if (wfGreenPct >= 50 && yearsGreenPct >= 50) { step3Verdict = "WEAK"; step3Reason = `WF ${wfGreenPct}% / per-year ${yearsGreenPct}%`; }
-  else { step3Verdict = "FAIL"; step3Reason = `WF ${wfGreenPct}% / per-year ${yearsGreenPct}% — both below 50`; }
+  else if (wfGreenPct >= 50 && yearsGreenPct >= 50) {
+    step3Verdict = "FAIL";
+    step3Reason = `near-miss WF ${wfGreenPct}% / per-year ${yearsGreenPct}% — strict 70% required (B.3)`;
+  }
+  else { step3Verdict = "FAIL"; step3Reason = `well-short WF ${wfGreenPct}% / per-year ${yearsGreenPct}% — at least one axis below 50%`; }
 
   // STEP 6 OOS tiered
   const cutoffMs = new Date(OOS_CUTOFF).getTime();
@@ -375,9 +549,13 @@ function analyzeStats(args: AnalyzeStatsArgs): GateResults {
   // B.2.6: bootstrap CI on held-out mean R. Block bootstrap when enabled.
   const heldOutMeanRCI = heldOutT.length > 0
     ? (ENABLE_BLOCK_BOOTSTRAP
-        ? bootstrapStatBlock(heldOutT, (ts: BacktestTrade[]) => meanR(ts, riskPerTrade), { seed: BOOTSTRAP_SEED, n_iterations: BOOTSTRAP_ITERATIONS })
-        : bootstrapStat(heldOutT, (ts: BacktestTrade[]) => meanR(ts, riskPerTrade), { seed: BOOTSTRAP_SEED, n_iterations: BOOTSTRAP_ITERATIONS }))
+        ? bootstrapStatBlock(heldOutT, (ts: BacktestTrade[]) => meanR(ts, riskPerTrade), { seed: algoSeed, n_iterations: BOOTSTRAP_ITERATIONS })
+        : bootstrapStat(heldOutT, (ts: BacktestTrade[]) => meanR(ts, riskPerTrade), { seed: algoSeed, n_iterations: BOOTSTRAP_ITERATIONS }))
     : { point: NaN, lower: NaN, upper: NaN, n_iterations: 0, ci_level: 0.95 };
+  // B.3 (Stage 4.1, 2026-06-20): strict PASS|FAIL only. The TIER_2_PASS
+  // branch (±75% OR small-N) was a leniency Phase B never honoured; merge
+  // into FAIL with a diagnostic reason that preserves the "small-N
+  // caveat" vs "large-divergence" distinction.
   let step6Verdict: OosStats["verdict"], step6Reason: string;
   let rDelta = 0;
   if (inSampleT.length < 10) { step6Verdict = "INSUFFICIENT_DATA"; step6Reason = `in-sample ${inSampleT.length} trades`; }
@@ -386,8 +564,15 @@ function analyzeStats(args: AnalyzeStatsArgs): GateResults {
   else {
     rDelta = (heldOutR - inSampleR) / Math.abs(inSampleR) * 100;
     if (heldOutR <= 0) { step6Verdict = "FAIL"; step6Reason = `held-out R=${heldOutR.toFixed(2)} (≤ 0)`; }
-    else if (Math.abs(rDelta) <= 50) { step6Verdict = "TIER_1_PASS"; step6Reason = `clean ±50%`; }
-    else if (Math.abs(rDelta) <= 75 || heldOutT.length < SMALL_N) { step6Verdict = "TIER_2_PASS"; step6Reason = `held-out positive (n=${heldOutT.length}); ±75% OR small-N`; }
+    else if (Math.abs(rDelta) <= 50) { step6Verdict = "PASS"; step6Reason = `clean ±50%`; }
+    else if (heldOutT.length < SMALL_N) {
+      step6Verdict = "FAIL";
+      step6Reason = `small-N caveat n=${heldOutT.length}<${SMALL_N}, rDelta=${rDelta.toFixed(0)}% — Phase B requires ±50% regardless of N (B.3)`;
+    }
+    else if (Math.abs(rDelta) <= 75) {
+      step6Verdict = "FAIL";
+      step6Reason = `near-miss rDelta=${rDelta.toFixed(0)}%, n=${heldOutT.length} — Phase B requires ±50% (B.3)`;
+    }
     else { step6Verdict = "FAIL"; step6Reason = `diverges ${rDelta.toFixed(0)}%, n=${heldOutT.length} large enough`; }
   }
 
@@ -396,33 +581,35 @@ function analyzeStats(args: AnalyzeStatsArgs): GateResults {
   // B.2.5: block bootstrap (default) handles trade-to-trade correlation
   // within regime windows; trade-level bootstrap UNDERSTATES CI width.
   const totalReturnCI = ENABLE_BLOCK_BOOTSTRAP
-    ? bootstrapStatBlock(sorted, totalReturn, { seed: BOOTSTRAP_SEED, n_iterations: BOOTSTRAP_ITERATIONS })
-    : bootstrapStat(sorted, totalReturn, { seed: BOOTSTRAP_SEED, n_iterations: BOOTSTRAP_ITERATIONS });
+    ? bootstrapStatBlock(sorted, totalReturn, { seed: algoSeed, n_iterations: BOOTSTRAP_ITERATIONS })
+    : bootstrapStat(sorted, totalReturn, { seed: algoSeed, n_iterations: BOOTSTRAP_ITERATIONS });
   const meanRWithSamples = ENABLE_BLOCK_BOOTSTRAP
     ? bootstrapStatBlockWithSamples(
         sorted,
         (ts: BacktestTrade[]) => meanR(ts, riskPerTrade),
-        { seed: BOOTSTRAP_SEED, n_iterations: BOOTSTRAP_ITERATIONS }
+        { seed: algoSeed, n_iterations: BOOTSTRAP_ITERATIONS }
       )
     : bootstrapStatWithSamples(
         sorted,
         (ts: BacktestTrade[]) => meanR(ts, riskPerTrade),
-        { seed: BOOTSTRAP_SEED, n_iterations: BOOTSTRAP_ITERATIONS }
+        { seed: algoSeed, n_iterations: BOOTSTRAP_ITERATIONS }
       );
   const meanRBonferroni = bonferroniVerdict(meanRWithSamples.samples, FAMILY_ALPHA, effectiveNTests);
   // B.2.10: per-trade Sharpe + bootstrap CI.
   const sharpePoint = sharpeRatio(sorted, riskPerTrade);
   const sharpeCI = ENABLE_BLOCK_BOOTSTRAP
-    ? bootstrapStatBlock(sorted, (ts: BacktestTrade[]) => sharpeRatio(ts, riskPerTrade), { seed: BOOTSTRAP_SEED, n_iterations: BOOTSTRAP_ITERATIONS })
-    : bootstrapStat(sorted, (ts: BacktestTrade[]) => sharpeRatio(ts, riskPerTrade), { seed: BOOTSTRAP_SEED, n_iterations: BOOTSTRAP_ITERATIONS });
+    ? bootstrapStatBlock(sorted, (ts: BacktestTrade[]) => sharpeRatio(ts, riskPerTrade), { seed: algoSeed, n_iterations: BOOTSTRAP_ITERATIONS })
+    : bootstrapStat(sorted, (ts: BacktestTrade[]) => sharpeRatio(ts, riskPerTrade), { seed: algoSeed, n_iterations: BOOTSTRAP_ITERATIONS });
   const rigor: StatisticalRigorBlock = {
     bootstrap_iterations: BOOTSTRAP_ITERATIONS,
     bootstrap_seed: BOOTSTRAP_SEED,
+    bootstrap_seed_effective: algoSeed,
     block_bootstrap: ENABLE_BLOCK_BOOTSTRAP,
     family_alpha: FAMILY_ALPHA,
     n_tests: effectiveNTests,
     bonferroni_tests_per_algo: BONFERRONI_TESTS_PER_ALGO,
     bonferroni_family_rationale: familyRationale,
+    bonferroni_correction_scope: BONFERRONI_CORRECTION_SCOPE,
     total_return_ci: totalReturnCI,
     mean_r_ci: {
       point: meanRWithSamples.point,
@@ -434,6 +621,8 @@ function analyzeStats(args: AnalyzeStatsArgs): GateResults {
     mean_r_bonferroni: meanRBonferroni,
     sharpe_ratio: sharpePoint,
     sharpe_ratio_ci: sharpeCI,
+    oos_cutoff_used: OOS_CUTOFF,
+    oos_cutoff_selection_disclosure: oosCutoffDisclosure,
   };
 
   // Phase B.2 pre-registration check: if algo is registered, the registered
@@ -461,9 +650,13 @@ function analyzeStats(args: AnalyzeStatsArgs): GateResults {
       for (const c of preregCheck.failed_criteria) blockers.push(`PREREG: ${c}`);
     }
   } else {
+    // B.3 (Stage 4.1, 2026-06-20): WEAK + TIER_2_PASS removed. step3/6
+    // verdicts are now PASS|FAIL|INSUFFICIENT_DATA only. The "near-miss"
+    // diagnostic that the WEAK tier used to carry is embedded in the
+    // FAIL reason string directly — operators triage by reading the
+    // reason (e.g. "near-miss WF 67% / per-year 75%" vs "well-short").
     if (!step2Pass) blockers.push(`STEP 2: ${step2Reasons.join("; ")}`);
     if (step3Verdict === "FAIL") blockers.push(`STEP 3: ${step3Reason}`);
-    if (step3Verdict === "WEAK") blockers.push(`STEP 3: WEAK (not strict 70% — Phase B reads strict only)`);
     if (step6Verdict === "FAIL") blockers.push(`STEP 6: ${step6Reason}`);
     if (step3Verdict === "INSUFFICIENT_DATA" || step6Verdict === "INSUFFICIENT_DATA") {
       blockers.push("history too short for full validation — revisit with more data");
@@ -476,7 +669,10 @@ function analyzeStats(args: AnalyzeStatsArgs): GateResults {
     sample_first: sorted[0].exit_date.slice(0, 10),
     sample_last: sorted[sorted.length - 1].exit_date.slice(0, 10),
     friction,
+    friction_source: frictionClass.source,
+    friction_source_disclosure: frictionClass.disclosure,
     fidelity_gates_applied: fidelityGates,
+    demo_gate: buildDemoGate(rigor) ?? undefined,
     step2: {
       total_return: Math.round(cum * 100) / 100,
       total_trades: sorted.length,
@@ -496,20 +692,65 @@ function analyzeStats(args: AnalyzeStatsArgs): GateResults {
   };
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function loadAlgos(supabase: any, only: string | null): Promise<AlgoRow[]> {
+/** CB.C3 (2026-06-19 EVE): typed via SupabaseClient<Database>. The
+ *  `algorithms.rules` column is `Json` in the DB; we narrow to
+ *  `AlgorithmRules` at this boundary because every row in this table is
+ *  produced by our own writers (deploy-*.ts scripts that validate against
+ *  the AlgorithmsRules Zod schema). Downstream consumers can rely on the
+ *  narrowed type without re-validating each access.
+ *
+ *  B.2.40 fix (2026-06-19 EVE): on Supabase error we now THROW with the
+ *  full error context (.code/.details/.hint) instead of `console.error +
+ *  process.exit(1)`. That preserves the stack trace for the top-level
+ *  main().catch handler + makes the failure debuggable by call site. */
+async function loadAlgos(
+  supabase: SupabaseClient<Database>,
+  only: string | null,
+  algosCsv: string | null
+): Promise<AlgoRow[]> {
   let query = supabase.from("algorithms").select("id, name, capital, rules, status, broker_connection_id");
-  if (only) query = query.eq("name", only);
-  else query = query.or("name.like.Library:%,name.eq.Gold Swing 4h");
+  // Stage 4.3 (2026-06-20): precedence ALGO > ALGOS > canonical-set.
+  // - ALGO=NAME            → exact match (legacy single-algo path)
+  // - ALGOS=A,B,C          → CSV explicit set
+  // - neither              → canonical set: `Library:%` + Gold Swing 4h
+  if (only) {
+    query = query.eq("name", only);
+  } else if (algosCsv) {
+    const names = algosCsv.split(",").map((n) => n.trim()).filter(Boolean);
+    if (names.length === 0) {
+      throw new Error(`loadAlgos: ALGOS="${algosCsv}" parsed to zero names. Use comma-separated exact names.`);
+    }
+    query = query.in("name", names);
+  } else {
+    // Canonical set rationale: `Library:%` covers every condition-based
+    // strategy seeded via deploy-*.ts; `Gold Swing 4h` is the LLM-trader
+    // baseline that isn't named with the Library: prefix. Extend the OR
+    // clause when adding new non-Library algos that should be validated.
+    query = query.or("name.like.Library:%,name.eq.Gold Swing 4h");
+  }
   const res = await query;
-  if (res.error) { console.error(res.error.message); process.exit(1); }
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const rows = (res.data ?? []) as any as Omit<AlgoRow, "ticker">[];
+  if (res.error) {
+    throw new Error(
+      `loadAlgos: Supabase query failed — message="${res.error.message}" code="${res.error.code ?? "n/a"}" details="${res.error.details ?? "n/a"}" hint="${res.error.hint ?? "n/a"}"`
+    );
+  }
+  const rows = (res.data ?? []).map((r) => ({
+    id: r.id,
+    name: r.name,
+    capital: r.capital,
+    rules: r.rules as unknown as AlgorithmRules,
+    status: r.status,
+    broker_connection_id: r.broker_connection_id,
+  }));
   const out: AlgoRow[] = [];
   for (const r of rows) {
     const wl = await supabase.from("algorithm_watchlist").select("ticker").eq("algorithm_id", r.id);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const ticker = ((wl.data ?? []) as any[])[0]?.ticker?.toUpperCase() ?? "";
+    if (wl.error) {
+      throw new Error(
+        `loadAlgos: algorithm_watchlist query failed for algo ${r.id} — message="${wl.error.message}" code="${wl.error.code ?? "n/a"}"`
+      );
+    }
+    const ticker = (wl.data ?? [])[0]?.ticker?.toUpperCase() ?? "";
     if (ticker) out.push({ ...r, ticker });
   }
   return out;
@@ -519,17 +760,133 @@ async function loadAlgos(supabase: any, only: string | null): Promise<AlgoRow[]>
  *  a Map<broker_connection_id, account_capital|null>. account_capital is
  *  null for connections without an explicit value set; portfolio-halt and
  *  risk-pool then fall back to per-algo capital (conservative). */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function loadBrokerCapitals(supabase: any, algos: AlgoRow[]): Promise<Map<string, number | null>> {
+async function loadBrokerCapitals(
+  supabase: SupabaseClient<Database>,
+  algos: AlgoRow[]
+): Promise<Map<string, number | null>> {
   const brokerIds = Array.from(new Set(algos.map((a) => a.broker_connection_id).filter((id): id is string => !!id)));
   const out = new Map<string, number | null>();
   if (brokerIds.length === 0) return out;
   const res = await supabase.from("broker_connections").select("id, label, account_capital").in("id", brokerIds);
-  if (res.error) { console.warn(`broker_connections fetch failed: ${res.error.message} — falling back to per-algo capital`); return out; }
-  for (const r of (res.data ?? []) as BrokerConnectionRow[]) {
+  // Soft-fail here is intentional (B.2.40 caveat): unlike loadAlgos which
+  // is a hard prereq, broker_capital fetch loss degrades to per-algo
+  // capital fallback — the validator still produces verdicts, they're
+  // just slightly more conservative. Warn loudly so operator notices.
+  if (res.error) {
+    console.warn(
+      `broker_connections fetch failed: message="${res.error.message}" code="${res.error.code ?? "n/a"}" — falling back to per-algo capital`
+    );
+    return out;
+  }
+  for (const r of res.data ?? []) {
     out.set(r.id, r.account_capital);
   }
   return out;
+}
+
+/** CB.C3 typed accessors for the `algorithms.rules` JSONB shape. The
+ *  DB types model `rules` as `Json`; AlgorithmRules is our domain shape
+ *  for the same field. These narrow once at the boundary so the call
+ *  sites stay clean and don't repeat the cast. Safe to read these
+ *  fields directly because every row is produced by deploy-*.ts which
+ *  validates against the Zod schema before insert. */
+interface AlgoRulesAccess {
+  prop_firm: {
+    slippage_bps?: number;
+    spread_bps?: number;
+    commission_per_lot?: number;
+  };
+  position_sizing_value: number;
+}
+
+function readAlgoRulesAccess(rules: AlgorithmRules): AlgoRulesAccess {
+  // The narrowing here mirrors the existing reads — `prop_firm` and
+  // `position_sizing` are both declared optional on AlgorithmRules, so
+  // we collapse to safe defaults. Wrapping in a typed accessor means
+  // the "what does the JSONB shape look like?" knowledge lives in one
+  // place instead of being smeared across 3 inline casts.
+  const r = rules as unknown as {
+    prop_firm?: {
+      slippage_bps?: number;
+      spread_bps?: number;
+      commission_per_lot?: number;
+    };
+    position_sizing?: { value?: number };
+  };
+  return {
+    prop_firm: r.prop_firm ?? {},
+    position_sizing_value: r.position_sizing?.value ?? 1,
+  };
+}
+
+/** Stage 4.2.b (2026-06-20): per-instrument friction provenance.
+ *
+ *  Friction comes from `algo.rules.prop_firm` (the algo's own deploy-time
+ *  values). This function CLASSIFIES that friction so the JSONB output
+ *  tells operators whether the run produced shippable verdicts (measured)
+ *  or directional-only (literature default).
+ *
+ *  Asset-class heuristics:
+ *   - GOLD (XAU/USD): measured 3 bps slippage / 0 spread / 0 commission_per_lot
+ *     from 37 FTMO MT5 fills 2026-06. Any match = "measured".
+ *   - FOREX: literature default = 1 pip slippage equivalent (~0.7 bps for
+ *     EUR/USD-like; 0 for now until Stage 4.2.c real fill capture). Any
+ *     match of the documented placeholder = "literature_default".
+ *   - All zero = "zero_no_friction" (only acceptable for diagnostic runs).
+ *   - Otherwise = "algo_override".
+ *
+ *  Future: when 4.2.c real fill data lands + per-instrument calibration
+ *  JSON exists, gold + each forex pair gets its own "measured" baseline. */
+function classifyFriction(
+  ticker: string,
+  friction: { slippage_bps: number; spread_bps: number; commission_per_lot: number }
+): { source: GateResults["friction_source"]; disclosure: string } {
+  const { slippage_bps: s, spread_bps: sp, commission_per_lot: c } = friction;
+  const isGold = ticker.toUpperCase().startsWith("XAU");
+  const isForex = /^(EUR|GBP|USD|JPY|CHF|AUD|NZD|CAD)/.test(ticker.toUpperCase()) && ticker.includes("/");
+  if (s === 0 && sp === 0 && c === 0) {
+    return {
+      source: "zero_no_friction",
+      disclosure: `Zero friction — DIAGNOSTIC ONLY. Verdicts produced under this config are NOT shippable. ${isGold ? "Gold real-fill baseline: 3 bps slippage / 0 spread / 0 commission." : isForex ? "Forex awaits Stage 4.2.c real-fill capture; until then use literature placeholder." : "Unknown asset class — operator must specify friction explicitly."}`,
+    };
+  }
+  if (isGold && s === 3 && sp === 0 && c === 0) {
+    return {
+      source: "measured",
+      disclosure: "Gold measured baseline: 3 bps slippage / 0 spread / 0 commission_per_lot from 37 FTMO MT5 fills (2026-06).",
+    };
+  }
+  if (isForex && s === 1 && sp === 0 && c === 0) {
+    return {
+      source: "literature_default",
+      disclosure: "Forex literature default: 1 bps slippage / 0 spread / 0 commission. PENDING Stage 4.2.c real-fill capture before shippable. Run scripts/canonical/sample-forex-spreads.ts to start the corpus.",
+    };
+  }
+  return {
+    source: "algo_override",
+    disclosure: `Algo-specific friction override: slippage=${s} bps / spread=${sp} bps / commission_per_lot=${c}. Document the source of these values in the algo's deploy script.`,
+  };
+}
+
+/** Stage 4.6 / B.5 (2026-06-20): build the demo-phase alignment spec
+ *  from the in-sample mean-R bootstrap CI. Returns null when stats are
+ *  insufficient (no trades, NaN CI). Stage 5.2 reads `demo_gate` from the
+ *  algo's `backtest_results` JSONB to evaluate whether the live-mirrored
+ *  demo trades align with the in-sample distribution. */
+function buildDemoGate(rigor: StatisticalRigorBlock): DemoGateSpec | null {
+  const ci = rigor.mean_r_ci;
+  if (!Number.isFinite(ci.point) || !Number.isFinite(ci.lower) || !Number.isFinite(ci.upper)) {
+    return null;
+  }
+  return {
+    min_trades: 10,
+    expected_mean_r: Number(ci.point.toFixed(4)),
+    expected_mean_r_lower: Number(ci.lower.toFixed(4)),
+    expected_mean_r_upper: Number(ci.upper.toFixed(4)),
+    evaluation_contract:
+      `After min_trades=10 demo trades, compute demo mean-R. Demo-aligned if demo_mean_r ∈ [${ci.lower.toFixed(2)}, ${ci.upper.toFixed(2)}] (in-sample 95% CI). ` +
+      `Outside-window outcomes trigger Stage 5.4 fallback (algo back to research; do NOT progress to real $10K challenge).`,
+  };
 }
 
 async function main(): Promise<void> {
@@ -539,12 +896,38 @@ async function main(): Promise<void> {
   console.log(`OOS cutoff: ${OOS_CUTOFF}`);
   console.log(`Persist to DB: ${PERSIST}\n`);
 
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-  const supabase = createClient(url, key, { auth: { persistSession: false } });
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) {
+    throw new Error(
+      "validate-algo: NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required. " +
+      "Both should be present in .env.local (the inline loader at the top of this script reads them)."
+    );
+  }
+  const supabase = createClient<Database>(url, key, { auth: { persistSession: false } });
 
-  const algos = await loadAlgos(supabase, ONLY_ALGO);
+  const algos = await loadAlgos(supabase, ONLY_ALGO, ALGOS_CSV);
+  if (algos.length === 0) {
+    // Stage 4.3 (2026-06-20): explicit empty-set diagnostic. Previously
+    // the script proceeded silently with 0 algos and printed a confused
+    // "SUMMARY: 0 ELIGIBLE / 0 BLOCKED" — operator couldn't tell whether
+    // the algo set was actually empty or if the filter excluded everything.
+    throw new Error(
+      `validate-algo: 0 algos matched the filter (${
+        ONLY_ALGO ? `ALGO="${ONLY_ALGO}"` : ALGOS_CSV ? `ALGOS="${ALGOS_CSV}"` : "canonical Library:%+Gold Swing 4h set"
+      }). Verify (a) the name exists in the algorithms table, (b) RLS allows service-role access (it should), (c) the script isn't pointed at the wrong Supabase project.`
+    );
+  }
   console.log(`Loaded ${algos.length} algos.`);
+  if (LIST_ONLY) {
+    // Stage 4.3 (2026-06-20): smoke-list selected algos + exit. Used to
+    // verify the filter before committing to a long-running PERSIST=1 run.
+    console.log("\nLIST_ONLY=1 — printing selected algos + exiting (no backtests run, no DB writes):");
+    for (const a of algos) {
+      console.log(`  - ${a.name}  (status=${a.status}, capital=$${a.capital}, ticker=${a.ticker}, broker=${a.broker_connection_id?.slice(0, 8) ?? "none"})`);
+    }
+    return;
+  }
 
   // Phase B.1.7/B.1.3 portfolio modelling: fetch per-broker account_capital
   // for portfolio-halt + risk-pool reference. Algos sharing a broker_connection_id
@@ -567,25 +950,15 @@ async function main(): Promise<void> {
   const preregs = loadPreregistrations(PREREG_PATH);
   const nCandidates = Math.max(algos.length, 1);
   const nRegistered = Object.keys(preregs).filter((k) => algos.some((a) => a.name === k)).length;
-  // B.2.9: surface expired + expiring-soon preregs loudly. The previous
-  // silent fallback to legacy step verdicts meant operator wouldn't notice
-  // a locked bar quietly going stale. Warn loudly at run start so they can
-  // re-register before deploying anything that depends on the stale bar.
+  // B.2.9/B.2.27 (extracted 2026-06-22 NIGHT LATE): expiry classification
+  // moved to src/lib/stats/validator-output.ts:classifyPreregExpiry so the
+  // deployed-only filter + warn-window partition + orphan/malformed-skip
+  // semantics are unit-tested. The console render layer (loud warnings
+  // below) stays here — that's CLI presentation, not classification logic.
   const PREREG_WARN_DAYS = 14;
   const NOW = new Date();
-  const expired: string[] = [];
-  const expiringSoon: string[] = [];
-  for (const [algoName, entry] of Object.entries(preregs)) {
-    if (!algos.some((a) => a.name === algoName)) continue;
-    const expires = new Date(entry.expires_at);
-    if (Number.isNaN(expires.getTime())) continue;
-    const daysToExpiry = (expires.getTime() - NOW.getTime()) / 86_400_000;
-    if (daysToExpiry < 0) {
-      expired.push(`${algoName} (expired ${Math.abs(Math.round(daysToExpiry))}d ago)`);
-    } else if (daysToExpiry < PREREG_WARN_DAYS) {
-      expiringSoon.push(`${algoName} (expires in ${Math.round(daysToExpiry)}d)`);
-    }
-  }
+  const deployedAlgoNames = new Set(algos.map((a) => a.name));
+  const { expired, expiringSoon } = classifyPreregExpiry(preregs, deployedAlgoNames, NOW, PREREG_WARN_DAYS);
   if (expired.length > 0) {
     console.log(`⚠️  PREREG EXPIRED — these algos have silently fallen back to legacy step verdicts:`);
     for (const e of expired) console.log(`    - ${e}`);
@@ -610,7 +983,7 @@ async function main(): Promise<void> {
     const interval = timeframeToInterval(algo.rules.timeframe);
     const bars = await getBarsNoTtl(supabase, algo.ticker, interval);
     if (!bars) continue;
-    const result = runPortfolioBacktest(algo.rules, new Map([[algo.ticker, bars]]), algo.capital, []);
+    const result = runPortfolioBacktest(algo.rules, new Map([[algo.ticker, bars]]), algo.capital);
     // B.1.5 fix: assertTradeSidePopulated throws if engine had a side bug.
     const tagged: (BacktestTrade & { ticker: string })[] = [];
     for (const t of result.trades) {
@@ -619,7 +992,7 @@ async function main(): Promise<void> {
     }
     baselineTradesByAlgo.set(algo.id, tagged);
   }
-  console.log(`Pass 1 (baseline): collected trades for ${baselineTradesByAlgo.size} algos.\n`);
+  if (!QUIET) console.log(`Pass 1 (baseline): collected trades for ${baselineTradesByAlgo.size} algos.\n`);
 
   // Pass 2: run each algo with sibling-blocking trades from all OTHER algos.
   let pass = 0, excluded = 0;
@@ -628,15 +1001,13 @@ async function main(): Promise<void> {
   for (const algo of algos) {
     const interval = timeframeToInterval(algo.rules.timeframe);
     const bars = await getBarsNoTtl(supabase, algo.ticker, interval);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const pf = (algo.rules as any).prop_firm ?? {};
+    const access = readAlgoRulesAccess(algo.rules);
     const friction = {
-      slippage_bps: pf.slippage_bps ?? 0,
-      spread_bps: pf.spread_bps ?? 0,
-      commission_per_lot: pf.commission_per_lot ?? 0,
+      slippage_bps: access.prop_firm.slippage_bps ?? 0,
+      spread_bps: access.prop_firm.spread_bps ?? 0,
+      commission_per_lot: access.prop_firm.commission_per_lot ?? 0,
     };
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const riskPct = ((algo.rules as any).position_sizing?.value ?? 1);
+    const riskPct = access.position_sizing_value;
 
     // Build sibling lists. B.1.4 fix: pass separate lists to direction-conflict
     // and risk-pool so SIBLINGS=0 + RISK_POOL=1 (and the inverse) toggle
@@ -661,8 +1032,7 @@ async function main(): Promise<void> {
         if (!otherAlgo) continue;
         // Skip cross-broker siblings — different accounts don't share capital.
         if (algo.broker_connection_id !== otherAlgo.broker_connection_id) continue;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const otherRiskPct = ((otherAlgo.rules as any).position_sizing?.value ?? 0) as number;
+        const otherRiskPct = readAlgoRulesAccess(otherAlgo.rules).position_sizing_value;
         const otherRiskDollars = otherAlgo.capital * (otherRiskPct / 100);
         allSiblings = allSiblings.concat(tradesAsSiblingWindows(otherTrades, otherRiskDollars));
       }
@@ -690,7 +1060,9 @@ async function main(): Promise<void> {
     // standalone backtest, not part of any account).
     let portfolioHalt: PortfolioHaltConfig | null = null;
     if (ENABLE_PORTFOLIO_HALT) {
-      const siblingDailyPnl = new Map<string, number>();
+      // B.4.5: Record (not Map) — see PortfolioHaltConfig.sibling_daily_pnl
+      // docstring. JSON-serialisable for any persisted-audit downstream.
+      const siblingDailyPnl: Record<string, number> = {};
       if (algo.broker_connection_id !== null) {
         for (const [otherId, otherTrades] of baselineTradesByAlgo) {
           if (otherId === algo.id) continue;
@@ -700,7 +1072,7 @@ async function main(): Promise<void> {
           if (algo.broker_connection_id !== otherAlgo.broker_connection_id) continue;
           for (const t of otherTrades) {
             const day = t.exit_date.slice(0, 10);
-            siblingDailyPnl.set(day, (siblingDailyPnl.get(day) ?? 0) + t.pnl);
+            siblingDailyPnl[day] = (siblingDailyPnl[day] ?? 0) + t.pnl;
           }
         }
       }
@@ -719,6 +1091,9 @@ async function main(): Promise<void> {
 
     const baseAnalyzeArgs: Omit<AnalyzeStatsArgs, "trades"> = {
       capital: algo.capital, friction, fidelityGates: fidelityFlags, riskPct,
+      // Stage 4.2.b (2026-06-20): pass ticker through so friction-source
+      // classification can use asset-class heuristics (gold vs forex vs other).
+      ticker: algo.ticker,
       algoName: algo.name, nCandidates, preregs, now: NOW,
     };
     let results: GateResults;
@@ -727,7 +1102,15 @@ async function main(): Promise<void> {
       results.step2.reason = "no bars in cache";
       results.promotion_blockers = ["no bars in cache"];
     } else {
-      const result = runPortfolioBacktest(algo.rules, new Map([[algo.ticker, bars]]), algo.capital, [], null, null, directionConflictSiblings, spreadGate, riskPool, ftmoTermination, riskPoolSiblings, reEntryCooldown, portfolioHalt);
+      const result = runPortfolioBacktest(algo.rules, new Map([[algo.ticker, bars]]), algo.capital, {
+        siblingBlockingTrades: directionConflictSiblings,
+        spreadGate,
+        riskPool,
+        ftmoTermination,
+        riskPoolSiblings,
+        reEntryCooldown,
+        portfolioHalt,
+      });
       results = analyzeStats({ ...baseAnalyzeArgs, trades: result.trades });
     }
     // B.2.13: triage bucketing — split failures by cause so operator can
@@ -740,31 +1123,74 @@ async function main(): Promise<void> {
     else stepFail++;
 
     if (PERSIST) {
-      await supabase.from("algorithms").update({ backtest_results: results }).eq("id", algo.id);
+      // CB.C3 (2026-06-19 EVE): `backtest_results` column is typed `Json`
+      // in database.types.ts, which requires the writable shape to satisfy
+      // `{[k: string]: Json | undefined}`. `GateResults` is a concrete
+      // interface (no index signature) so we cast at the persist boundary.
+      // Safe because GateResults is composed entirely of primitives +
+      // nested objects + arrays of the same — JSON.stringify-able by
+      // construction. B.4.5 confirms no Map/Set/Date instances leak through.
+      const updateRes = await supabase
+        .from("algorithms")
+        .update({ backtest_results: results as unknown as Database["public"]["Tables"]["algorithms"]["Update"]["backtest_results"] })
+        .eq("id", algo.id);
+      if (updateRes.error) {
+        throw new Error(
+          `Failed to persist backtest_results for algo ${algo.id} (${algo.name}) — message="${updateRes.error.message}" code="${updateRes.error.code ?? "n/a"}" details="${updateRes.error.details ?? "n/a"}"`
+        );
+      }
     }
-    const flag = results.promotion_eligible ? "✓ ELIGIBLE" : (results.step2.verdict === "EXCLUDED" ? "— excluded" : "✗ blocked");
-    const ci = results.statistical_rigor.mean_r_ci;
-    const mcc = results.statistical_rigor.mean_r_bonferroni;
-    // B.2.7: distinguish post-hoc-locked from true-prereg in the tag so the
-    // reader knows whether the pass is statistical evidence or a discipline
-    // promise. "P-LOCK✓" = post-hoc-locked passed; "PREREG✓" = true-prereg passed.
-    const preregTag = results.preregistration?.has_preregistration
-      ? `${results.preregistration.registration_type === "true-prereg" ? "PREREG" : "P-LOCK"}${results.preregistration.passed ? "✓" : "✗"}`
-      : "no-prereg";
-    // B.2.12: explicit bonf=PASS/FAIL instead of cryptic `*` after p-value.
-    const bonfTag = `bonf=${mcc.passes ? "PASS" : "FAIL"}`;
-    console.log(`  ${flag.padEnd(11)} ${algo.name.padEnd(50)} $${results.step2.total_return.toString().padStart(8)} ${results.step2.total_trades.toString().padStart(4)}t WR${results.step2.win_rate}% R[${ci.lower.toFixed(2)},${ci.upper.toFixed(2)}] p=${mcc.p_value.toFixed(4)} ${bonfTag} ${preregTag}`);
-    // B.2.6: surface step3 + step6 CIs on a sub-line for operator visibility.
-    const wfCi = results.step3.walk_forward_green_ci;
-    const yrCi = results.step3.per_year_green_ci;
-    const hoCi = results.step6.held_out_mean_r_ci;
-    const fmtCi = (v: { lower: number; upper: number }): string =>
-      Number.isFinite(v.lower) && Number.isFinite(v.upper) ? `[${(v.lower * 100).toFixed(0)}%-${(v.upper * 100).toFixed(0)}%]` : "n/a";
-    const fmtR = (v: { lower: number; upper: number }): string =>
-      Number.isFinite(v.lower) && Number.isFinite(v.upper) ? `[${v.lower.toFixed(2)},${v.upper.toFixed(2)}]` : "n/a";
-    console.log(`               step3 wf=${results.step3.walk_forward_green_pct}% ${fmtCi(wfCi)} yr=${results.step3.per_year_green_pct}% ${fmtCi(yrCi)}  step6 heldR=${results.step6.held_out_mean_r} ${fmtR(hoCi)}`);
-    if (results.promotion_blockers.length > 0 && !results.promotion_eligible) {
-      console.log(`    Blockers: ${results.promotion_blockers.slice(0, 3).join(" | ")}`);
+    // B.2.31 (Stage 3.2, 2026-06-20): under QUIET, skip the ~3-line
+    // per-algo render block. Bucketing counters above (eligible/excluded/
+    // bonfFail/preregFail/stepFail) are already incremented, so the
+    // SUMMARY row below still produces correct counts.
+    if (!QUIET) {
+      const flag = results.promotion_eligible ? "✓ ELIGIBLE" : (results.step2.verdict === "EXCLUDED" ? "— excluded" : "✗ blocked");
+      const ci = results.statistical_rigor.mean_r_ci;
+      const mcc = results.statistical_rigor.mean_r_bonferroni;
+      const sharpe = results.statistical_rigor.sharpe_ratio;
+      // B.2.7 + B.2.32 (Stage 3.2, 2026-06-20): three registration-type
+      // tags — TRUE-PREREG (criteria set BEFORE the data existed),
+      // FWD-PREREG (criteria informed by historical data but evaluated
+      // ONLY against data accumulated after the lock), P-LOCK (post-hoc
+      // discipline commitment over both past + future). All three
+      // distinguish "discipline" from "statistical novelty"; only TRUE-PREREG
+      // earns the latter.
+      let preregLabel = "no-prereg";
+      if (results.preregistration?.has_preregistration) {
+        const type = results.preregistration.registration_type;
+        const passMark = results.preregistration.passed ? "✓" : "✗";
+        if (type === "true-prereg") preregLabel = `PREREG${passMark}`;
+        else if (type === "forward-pre-registered") preregLabel = `FWD-PREREG${passMark}`;
+        else preregLabel = `P-LOCK${passMark}`;
+      }
+      // B.2.12: explicit bonf=PASS/FAIL instead of cryptic `*` after p-value.
+      const bonfTag = `bonf=${mcc.passes ? "PASS" : "FAIL"}`;
+      // B.2.41 (Stage 3, 2026-06-19 EVE): R[NaN,NaN] is meaningless to the
+      // operator. Render "R[n/a]" when CI bounds are NaN (zero-trade case),
+      // matching the step3/step6 formatters' convention.
+      const rTag = Number.isFinite(ci.lower) && Number.isFinite(ci.upper)
+        ? `R[${ci.lower.toFixed(2)},${ci.upper.toFixed(2)}]`
+        : "R[n/a]";
+      // B.2.30 (Stage 3, 2026-06-19 EVE): Sharpe was computed + persisted to
+      // JSONB but never displayed. Surface on the headline row alongside
+      // the mean-R CI. n/a when fewer than 2 trades or risk=0.
+      const sharpeTag = Number.isFinite(sharpe) && sharpe !== 0
+        ? `Sh=${sharpe.toFixed(2)}`
+        : "Sh=n/a";
+      console.log(`  ${flag.padEnd(11)} ${algo.name.padEnd(50)} $${results.step2.total_return.toString().padStart(8)} ${results.step2.total_trades.toString().padStart(4)}t WR${results.step2.win_rate}% ${rTag} ${sharpeTag} p=${mcc.p_value.toFixed(4)} ${bonfTag} ${preregLabel}`);
+      // B.2.6: surface step3 + step6 CIs on a sub-line for operator visibility.
+      const wfCi = results.step3.walk_forward_green_ci;
+      const yrCi = results.step3.per_year_green_ci;
+      const hoCi = results.step6.held_out_mean_r_ci;
+      const fmtCi = (v: { lower: number; upper: number }): string =>
+        Number.isFinite(v.lower) && Number.isFinite(v.upper) ? `[${(v.lower * 100).toFixed(0)}%-${(v.upper * 100).toFixed(0)}%]` : "n/a";
+      const fmtR = (v: { lower: number; upper: number }): string =>
+        Number.isFinite(v.lower) && Number.isFinite(v.upper) ? `[${v.lower.toFixed(2)},${v.upper.toFixed(2)}]` : "n/a";
+      console.log(`               step3 wf=${results.step3.walk_forward_green_pct}% ${fmtCi(wfCi)} yr=${results.step3.per_year_green_pct}% ${fmtCi(yrCi)}  step6 heldR=${results.step6.held_out_mean_r} ${fmtR(hoCi)}`);
+      if (results.promotion_blockers.length > 0 && !results.promotion_eligible) {
+        console.log(`    Blockers: ${results.promotion_blockers.slice(0, 3).join(" | ")}`);
+      }
     }
   }
 
