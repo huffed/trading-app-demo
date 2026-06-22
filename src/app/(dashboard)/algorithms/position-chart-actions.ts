@@ -5,7 +5,7 @@ import { getCachedPrices } from "@/lib/market-data/price-cache";
 import { fetchDailyPrices } from "@/lib/market-data/prices";
 import { getAuthedUser } from "@/lib/supabase/get-authed-user";
 import { rulesFromRow } from "@/lib/supabase/row-mappers";
-import { type ActionResult } from "@/lib/types/action-result";
+import { type ActionResult } from "@/types/action-result";
 
 export interface ChartBar {
   /** ISO timestamp (bar open). */

@@ -8,10 +8,51 @@ import { scanAlgorithm, type ScanResult } from "@/lib/scan/engine";
 import { executeLiveExit, resolveBrokerContext } from "@/lib/scan/live-execution";
 import { getAuthedUser } from "@/lib/supabase/get-authed-user";
 import { paperPositionFromRow, rulesFromRow, sideFromRow } from "@/lib/supabase/row-mappers";
-import { type ActionResult } from "@/lib/types/action-result";
 import { sumDisplayedPnl, type DisplayedPnlInput } from "@/lib/utils/pnl";
 import { closePositionSchema } from "@/lib/validators/position";
+import { type ActionResult } from "@/types/action-result";
 import type { PaperPosition } from "@/types/position";
+
+/** Narrow a Supabase `paper_positions` row to DisplayedPnlInput.
+ *  Returns `[narrowed]` on the (always-true-in-practice) happy path so the
+ *  caller's `.flatMap(toDisplayedPnlInput)` drops the row if status or
+ *  side is unexpectedly outside the strict union (defensive against
+ *  manual DB edits / future schema drift). CB.H3.c-residual 2026-06-20. */
+function toDisplayedPnlInput(row: {
+  status: string;
+  side: string;
+  ticker: string;
+  quantity: number;
+  entry_price: number;
+  current_price: number | null;
+  // Supabase generated types mark these columns nullable even when the
+  // app-level writes always set them. Narrow at the boundary with ?? 0.
+  unrealized_pnl: number | null;
+  realized_pnl: number | null;
+  broker_fill_price: number | null;
+  broker_close_price: number | null;
+  broker_unrealized_pnl: number | null;
+  broker_realized_synced_at: string | null;
+}): DisplayedPnlInput[] {
+  if (row.status !== "open" && row.status !== "closed") return [];
+  if (row.side !== "long" && row.side !== "short") return [];
+  return [
+    {
+      status: row.status,
+      side: row.side,
+      ticker: row.ticker,
+      quantity: row.quantity,
+      entry_price: row.entry_price,
+      current_price: row.current_price,
+      unrealized_pnl: row.unrealized_pnl ?? 0,
+      realized_pnl: row.realized_pnl,
+      broker_fill_price: row.broker_fill_price,
+      broker_close_price: row.broker_close_price,
+      broker_unrealized_pnl: row.broker_unrealized_pnl,
+      broker_realized_synced_at: row.broker_realized_synced_at,
+    },
+  ];
+}
 
 /**
  * Trigger a scan for one or all active algorithms. Evaluates watchlist
@@ -324,10 +365,10 @@ export async function getPaperTradingStats(): Promise<
     // closed rows where realized_pnl is broker truth (incl. commission /
     // swap) — without it the helper falls back to fill-price math, which
     // is off by the close-side spread + fees.
-    const positionFields =
-      "status, side, ticker, quantity, entry_price, current_price, " +
-      "unrealized_pnl, realized_pnl, broker_fill_price, broker_close_price, " +
-      "broker_unrealized_pnl, broker_realized_synced_at";
+    // Static select literal (CB.H3.c-residual 2026-06-20) so Supabase
+    // type-infers the row shape — no more dynamic-string-defeats-inference.
+    const POSITION_FIELDS =
+      "status, side, ticker, quantity, entry_price, current_price, unrealized_pnl, realized_pnl, broker_fill_price, broker_close_price, broker_unrealized_pnl, broker_realized_synced_at" as const;
 
     const [algoRes, openRes, closedRes] = await Promise.all([
       supabase
@@ -337,19 +378,23 @@ export async function getPaperTradingStats(): Promise<
         .eq("status", "active"),
       supabase
         .from("paper_positions")
-        .select(positionFields)
+        .select(POSITION_FIELDS)
         .eq("user_id", user.id)
         .eq("status", "open"),
       supabase
         .from("paper_positions")
-        .select(positionFields)
+        .select(POSITION_FIELDS)
         .eq("user_id", user.id)
         .eq("status", "closed"),
     ]);
 
     const activeAlgos = algoRes.data ?? [];
-    const openPositions = (openRes.data ?? []) as unknown as DisplayedPnlInput[];
-    const closedPositions = (closedRes.data ?? []) as unknown as DisplayedPnlInput[];
+    // CB.H3.c-residual (2026-06-20): per-row narrow into DisplayedPnlInput
+    // via toDisplayedPnlInput() — strict-union narrowing for `status` +
+    // `side` happens at the trust boundary. The app only ever writes
+    // "open"/"closed" + "long"/"short", so this is type-safe by invariant.
+    const openPositions = (openRes.data ?? []).flatMap(toDisplayedPnlInput);
+    const closedPositions = (closedRes.data ?? []).flatMap(toDisplayedPnlInput);
 
     const totalUnrealized = sumDisplayedPnl(openPositions);
     const totalRealized = sumDisplayedPnl(closedPositions);

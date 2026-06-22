@@ -1,7 +1,7 @@
 "use server";
 
 import { getAuthedUser } from "@/lib/supabase/get-authed-user";
-import { type ActionResult } from "@/lib/types/action-result";
+import { type ActionResult } from "@/types/action-result";
 
 export type NearMissCategory =
   | "conditions_close_call"

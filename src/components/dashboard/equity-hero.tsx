@@ -5,8 +5,9 @@
  * positions over the last 30 days. The dominant visual on the
  * dashboard fold; uses a glass `Surface` with a soft area chart.
  *
- * Pnl reduction is inlined here for now; once `lib/utils/equity-curve`
- * (PR #123) lands in dev this should switch to that lib.
+ * Cumulative reduction lives in `lib/utils/equity-curve`; broker-truth
+ * filter stays here because it's display-layer (broker_close_price
+ * fallback to realized_pnl).
  */
 import { useMemo } from "react";
 import { TrendingUp } from "lucide-react";
@@ -15,7 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Surface } from "@/components/ui/surface";
 import { useClosedPositionsWindow } from "@/hooks/use-paper-trading";
-import { formatShortDate } from "@/lib/utils/date";
+import { computeEquityCurve } from "@/lib/utils/equity-curve";
 import { displayedPnl, formatCurrency, formatPnl, pnlColorClass } from "@/lib/utils/pnl";
 import type { PaperPosition } from "@/types/position";
 
@@ -28,18 +29,11 @@ function buildCurve(positions: PaperPosition[]): CurvePoint[] {
   // Use broker-truth realized P&L when set (broker_close_price + broker_fill_price),
   // fall back to system realized_pnl otherwise. Curve reflects what FTMO
   // actually shows, not paper math.
-  const valid = positions.filter((p) => p.closed_at && (p.realized_pnl != null || p.broker_close_price != null));
-  const sorted = [...valid].sort(
-    (a, b) => new Date(a.closed_at!).getTime() - new Date(b.closed_at!).getTime()
+  return computeEquityCurve(
+    positions
+      .filter((p) => p.closed_at && (p.realized_pnl != null || p.broker_close_price != null))
+      .map((p) => ({ realized_pnl: displayedPnl(p) ?? 0, closed_at: p.closed_at! }))
   );
-  let cumulative = 0;
-  return sorted.map((p) => {
-    cumulative += displayedPnl(p) ?? 0;
-    return {
-      date: formatShortDate(p.closed_at!),
-      value: Number(cumulative.toFixed(2)),
-    };
-  });
 }
 
 const TOOLTIP_STYLE = {

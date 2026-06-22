@@ -3,7 +3,7 @@
 import { getInstrumentMeta } from "@/lib/constants/markets";
 import { lookupTickerName } from "@/lib/market-data/finnhub";
 import { getAuthedUser } from "@/lib/supabase/get-authed-user";
-import { type ActionResult } from "@/lib/types/action-result";
+import { type ActionResult } from "@/types/action-result";
 import type { WatchlistAddedBy, WatchlistItem } from "@/types/watchlist";
 
 export async function addWatchlistItem(

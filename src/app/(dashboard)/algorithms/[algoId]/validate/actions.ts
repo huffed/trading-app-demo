@@ -7,8 +7,8 @@ import { getCachedPrices, savePricesToCache } from "@/lib/market-data/price-cach
 import { fetchDailyPrices } from "@/lib/market-data/prices";
 import type { BacktestTrade, PriceBar } from "@/lib/market-data/types";
 import { getAuthedUser } from "@/lib/supabase/get-authed-user";
-import { type ActionResult } from "@/lib/types/action-result";
-import type { AlgorithmRules } from "@/types/algorithm";
+import { fromJson, rulesFromRow } from "@/lib/supabase/row-mappers";
+import { type ActionResult } from "@/types/action-result";
 import { cloneWithAxes, snapshotFixedAxes } from "./axis-mapper";
 import {
   AXES,
@@ -31,7 +31,7 @@ export async function getGeometrySweepAction(
       .maybeSingle();
     if (error) return { success: false, error: error.message };
     if (!data) return { success: true, data: null };
-    const payload = data.cells as unknown as Omit<GeometrySweep, "ran_at">;
+    const payload = fromJson<Omit<GeometrySweep, "ran_at">>(data.cells);
     return { success: true, data: { ...payload, ran_at: data.ran_at } };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Load failed" };
@@ -139,8 +139,9 @@ export async function runGeometrySweepAction(
       .eq("user_id", user.id)
       .single();
     if (algoRes.error) return { success: false, error: algoRes.error.message };
-    const rules = (algoRes.data as unknown as { rules: AlgorithmRules }).rules;
-    const capital = (algoRes.data as unknown as { capital: number }).capital;
+    // CB.H3 (2026-06-20): canonical Json→AlgorithmRules bridge.
+    const rules = rulesFromRow(algoRes.data.rules);
+    const capital = algoRes.data.capital;
     if (rules.llm_trader?.enabled) {
       return { success: false, error: "Geometry sweep doesn't apply to LLM-trader algorithms." };
     }
@@ -155,20 +156,34 @@ export async function runGeometrySweepAction(
     const pricesByTicker = await loadPricesForTickers(tickers, interval);
     if (pricesByTicker.size === 0) return { success: false, error: "No price history available" };
 
-    const events = rules.news_veto?.enabled
-      ? await fetchEconomicCalendar(
-          new Date([...pricesByTicker.values()][0][0].date),
-          new Date([...pricesByTicker.values()][0].at(-1)!.date)
-        )
-      : [];
+    // CB.L2 (2026-06-20): replaces `bars.at(-1)!.date` non-null assertion +
+    // the doubly-spread `[...values][0][0]`. Caller already checked
+    // `pricesByTicker.size > 0`; pick the first non-empty bar series.
+    // News-veto events span the price-data window — first bar = window
+    // open, last bar = window close. If the first series happened to be
+    // empty (shouldn't, but the type allows it), skip news-veto rather
+    // than throw.
+    const firstBars = pricesByTicker.values().next().value ?? [];
+    const events =
+      rules.news_veto?.enabled && firstBars.length > 0
+        ? await fetchEconomicCalendar(
+            new Date(firstBars[0].date),
+            new Date(firstBars[firstBars.length - 1].date)
+          )
+        : [];
 
     const xDef = AXES[xAxis];
     const yDef = AXES[yAxis];
     const cells: GeometryCell[] = [];
+    // B.1.24 (Stage 3, 2026-06-19 EVE): geometry-sweep caller — gates
+    // intentionally OFF. Sensitivity-analysis sweeps need to attribute
+    // verdict shifts to rule changes ALONE; gates would conflate axis
+    // effects with portfolio-state coupling. See caller-policy doc in
+    // `portfolio-backtest.ts` + CLAUDE.md Phase B.1.9.
     for (const yVal of yDef.values) {
       for (const xVal of xDef.values) {
         const variant = cloneWithAxes(rules, xAxis, yAxis, xVal, yVal);
-        const result = runPortfolioBacktest(variant, pricesByTicker, capital, events);
+        const result = runPortfolioBacktest(variant, pricesByTicker, capital, { events });
         cells.push(buildCell(xVal, yVal, result.trades, capital));
       }
     }
@@ -218,18 +233,17 @@ export async function applyCellConfigAction(
       .eq("user_id", user.id)
       .single();
     if (algoRes.error) return { success: false, error: algoRes.error.message };
-    const row = algoRes.data as unknown as {
-      rules: AlgorithmRules;
-      live_trading_enabled: boolean | null;
-    };
-    if (row.live_trading_enabled) {
+    // CB.H3 (2026-06-20): canonical bridge for rules; live_trading_enabled
+    // is already a typed DB column.
+    const rules = rulesFromRow(algoRes.data.rules);
+    if (algoRes.data.live_trading_enabled) {
       return {
         success: false,
         error:
           "Refusing to update geometry on a live-trading algorithm. Disable live trading first.",
       };
     }
-    const next = cloneWithAxes(row.rules, xAxis, yAxis, xVal, yVal);
+    const next = cloneWithAxes(rules, xAxis, yAxis, xVal, yVal);
     const up = await supabase
       .from("algorithms")
       .update({ rules: next as never })

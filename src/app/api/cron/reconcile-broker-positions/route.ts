@@ -23,11 +23,12 @@
 import { NextResponse } from "next/server";
 import { verifyAdminAuth } from "@/lib/api/admin-auth";
 import { getBrokerAdapter } from "@/lib/brokers/registry";
-import type { BrokerConnection, BrokerPosition } from "@/lib/brokers/types";
+import type { BrokerPosition } from "@/lib/brokers/types";
 import { logger } from "@/lib/logger";
 import { logActivity } from "@/lib/scan/helpers";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Tables } from "@/lib/supabase/database.types";
+import { brokerConnectionFromRow } from "@/lib/supabase/row-mappers";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 export const dynamic = "force-dynamic";
@@ -170,7 +171,14 @@ async function reconcileAlgo(
 
   let brokerPositions: BrokerPosition[];
   try {
-    brokerPositions = await adapter.fetchPositions(connData as unknown as BrokerConnection);
+    // CB.H3.b (2026-06-20): canonical broker_connections → BrokerConnection
+    // bridge instead of `connData as unknown as BrokerConnection`. The select
+    // above pulls a subset of columns; brokerConnectionFromRow narrows safely
+    // since the adapter-facing BrokerConnection only needs the fields in the
+    // select string.
+    brokerPositions = await adapter.fetchPositions(
+      brokerConnectionFromRow(connData as Tables<"broker_connections">)
+    );
   } catch (err) {
     return { algorithm_id: algo.id, error: adapter.describeError(err) };
   }

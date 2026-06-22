@@ -4,7 +4,7 @@ import { bollingerBands, ema, macd, rsi, sma } from "@/lib/market-data/indicator
 import { fetchOandaLatestPrice } from "@/lib/market-data/oanda";
 import { fetchDailyPrices } from "@/lib/market-data/prices";
 import { createClient } from "@/lib/supabase/server";
-import { type ActionResult } from "@/lib/types/action-result";
+import { type ActionResult } from "@/types/action-result";
 import { fetchBacktestMarkers, fetchPaperMarkers } from "./chart-markers";
 import { computePatterns } from "./pattern-scan";
 

@@ -3,7 +3,7 @@
 import { analyzeJournalEntry } from "@/lib/ai/analyze";
 import { toUpdateRow } from "@/lib/supabase/row-mappers";
 import { createClient } from "@/lib/supabase/server";
-import { type ActionResult } from "@/lib/types/action-result";
+import { type ActionResult } from "@/types/action-result";
 import { journalFormSchema, type JournalFormValues } from "@/lib/validators/journal";
 import type { JournalEntry } from "@/types/journal";
 import type { Trade } from "@/types/trade";

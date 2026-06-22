@@ -1,3 +1,4 @@
+import { formatDate } from "@/lib/utils/date";
 import type { JournalEntry } from "@/types/journal";
 import type { Trade } from "@/types/trade";
 
@@ -22,14 +23,14 @@ function formatTrade(trade: Trade, index: number): string {
   const lines = [
     `Trade ${index + 1}: ${trade.symbol} (${trade.side}, ${trade.asset_class})`,
     `  Status: ${trade.status}`,
-    `  Entry: $${trade.entry_price} on ${new Date(trade.entry_date).toLocaleDateString()}`,
+    `  Entry: $${trade.entry_price} on ${formatDate(trade.entry_date)}`,
   ];
 
   if (trade.exit_price != null) {
     lines.push(`  Exit: $${trade.exit_price}`);
   }
   if (trade.exit_date) {
-    lines.push(`  Exit date: ${new Date(trade.exit_date).toLocaleDateString()}`);
+    lines.push(`  Exit date: ${formatDate(trade.exit_date)}`);
   }
   if (trade.realized_pnl != null) {
     const sign = trade.realized_pnl >= 0 ? "+" : "";

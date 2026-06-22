@@ -1,7 +1,8 @@
 "use server";
 
 import { getAuthedUser } from "@/lib/supabase/get-authed-user";
-import { type ActionResult } from "@/lib/types/action-result";
+import { rulesFromRow } from "@/lib/supabase/row-mappers";
+import { type ActionResult } from "@/types/action-result";
 import { getTodayAnchor } from "@/lib/utils/date";
 import { sumRealizedPnl, sumUnrealizedPnl } from "@/lib/utils/pnl";
 import type { AlgorithmRules } from "@/types/algorithm";
@@ -53,7 +54,7 @@ interface AggregateInputs {
 function computeGauges(
   inputs: AggregateInputs,
   capital: number,
-  pf: NonNullable<AlgorithmRules["prop_firm"]>
+  propFirm: NonNullable<AlgorithmRules["prop_firm"]>
 ) {
   const realizedToday = sumRealizedPnl(inputs.closedToday);
   const unrealizedNow = sumUnrealizedPnl(inputs.openNow);
@@ -62,7 +63,7 @@ function computeGauges(
     capital > 0 ? ((totalRealized + unrealizedNow) / capital) * 100 : 0;
   const todaysPnlPct =
     capital > 0 ? ((realizedToday + unrealizedNow) / capital) * 100 : 0;
-  const dailyHaltPct = (pf.daily_loss_halt_pct ?? 100) / 100;
+  const dailyHaltPct = (propFirm.daily_loss_halt_pct ?? 100) / 100;
   const dailyValuePct = todaysPnlPct < 0 ? -todaysPnlPct : 0;
   const drawdownValuePct = totalEquityChangePct < 0 ? -totalEquityChangePct : 0;
   const profitValuePct = totalEquityChangePct > 0 ? totalEquityChangePct : 0;
@@ -71,9 +72,9 @@ function computeGauges(
   // only combined_risk_cap_pct for the broker risk pool. Each gauge
   // renders only when its limit field is configured; the card already
   // null-guards per gauge.
-  const dailyLimit = pf.daily_loss_limit;
-  const maxDd = pf.max_drawdown;
-  const profitTarget = pf.profit_target;
+  const dailyLimit = propFirm.daily_loss_limit;
+  const maxDd = propFirm.max_drawdown;
+  const profitTarget = propFirm.profit_target;
 
   return {
     daily_pnl:
@@ -180,9 +181,14 @@ export async function getFtmoCompliance(
     if (algoErr || !algoData) {
       return { success: false, error: algoErr?.message ?? "Algorithm not found" };
     }
-    const algo = algoData as unknown as AlgoRow;
-    const pf = algo.rules.prop_firm;
-    if (!pf) return { success: true, data: EMPTY_COMPLIANCE };
+    // CB.H3 (2026-06-20): canonical Json→AlgorithmRules bridge.
+    const algo: AlgoRow = {
+      id: algoData.id,
+      capital: algoData.capital,
+      rules: rulesFromRow(algoData.rules),
+    };
+    const propFirm = algo.rules.prop_firm;
+    if (!propFirm) return { success: true, data: EMPTY_COMPLIANCE };
 
     const [closedTodayRes, openRes, allClosedRes, fillRowsRes, haltsRes] =
       await fetchComplianceData(supabase, user.id, algorithmId);
@@ -194,7 +200,7 @@ export async function getFtmoCompliance(
         allClosed: (allClosedRes.data ?? []) as PnlRow[],
       },
       algo.capital,
-      pf
+      propFirm
     );
 
     const divergence = computeDivergence(

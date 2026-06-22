@@ -11,8 +11,10 @@
  *
  * These are TYPE-ONLY operations — no runtime transformation happens.
  */
+import type { BrokerConnection } from "@/lib/brokers/types";
 import type { Algorithm, AlgorithmRules, Strategy } from "@/types/algorithm";
 import type { PaperPosition } from "@/types/position";
+import type { Portfolio } from "@/types/portfolio";
 import type { Database, Json, Tables, TablesUpdate } from "./database.types";
 
 /** jsonb → domain shape. The single sanctioned `as unknown as` bridge. */
@@ -47,6 +49,23 @@ export function strategiesFromRows(rows: Tables<"strategies">[]): Strategy[] {
 
 export function paperPositionFromRow(row: Tables<"paper_positions">): PaperPosition {
   return row as unknown as PaperPosition;
+}
+
+export function portfolioFromRow(row: Tables<"portfolios">): Portfolio {
+  return row as unknown as Portfolio;
+}
+
+export function portfoliosFromRows(rows: Tables<"portfolios">[]): Portfolio[] {
+  return rows as unknown as Portfolio[];
+}
+
+/** Coerce a Supabase `broker_connections` row to the domain `BrokerConnection`
+ *  shape. Removes the `connData as unknown as BrokerConnection` double-cast
+ *  from caller sites (cron/reconcile-broker-positions, settings/broker-actions). */
+export function brokerConnectionFromRow(
+  row: Tables<"broker_connections">
+): BrokerConnection {
+  return row as unknown as BrokerConnection;
 }
 
 /** DB stores side as text; the domain is a closed union. Type-only —

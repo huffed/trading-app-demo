@@ -14,6 +14,7 @@ import {
   YAxis,
 } from "recharts";
 import type { PatternViz } from "@/app/(dashboard)/algorithms/pattern-viz-actions";
+import { formatShortDate } from "@/lib/utils/date";
 import { formatPriceValue } from "@/lib/utils/pnl";
 import { ChartTooltip } from "./position-chart-controls";
 
@@ -100,11 +101,15 @@ export interface ChartRenderData {
 }
 
 export function formatTick(iso: string, timeframe: string): string {
-  const d = new Date(iso);
   if (timeframe === "1d" || timeframe === "1day") {
-    return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+    // formatShortDate hardcodes en-US (consistent "Apr 28" labels regardless
+    // of browser locale — a trading-dashboard property, not a regression
+    // from the prior `toLocaleDateString(undefined, ...)`). Intra-day ticks
+    // below intentionally use `undefined` (browser locale) since hours/minutes
+    // formatting is locale-insensitive in practice.
+    return formatShortDate(iso);
   }
-  return d.toLocaleString(undefined, { hour: "2-digit", minute: "2-digit" });
+  return new Date(iso).toLocaleString(undefined, { hour: "2-digit", minute: "2-digit" });
 }
 
 function exitDotColor(data: ChartRenderData): string {

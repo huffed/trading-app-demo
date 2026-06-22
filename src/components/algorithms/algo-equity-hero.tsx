@@ -3,9 +3,9 @@
 /**
  * Per-algorithm hero equity curve — 30-day cumulative pnl from closed
  * paper positions for one algorithm. Glass surface presentation;
- * replaces the old `AlgoEquityCurveCard`. Once
- * `lib/utils/equity-curve` (PR #123) lands in dev, the inline reduce
- * here should switch to the lib's `computeEquityCurve`.
+ * replaces the old `AlgoEquityCurveCard`. Cumulative reduction lives
+ * in `lib/utils/equity-curve` — broker-truth filter stays here because
+ * it's display-layer (broker_close_price fallback to realized_pnl).
  */
 import { useMemo } from "react";
 import { TrendingUp } from "lucide-react";
@@ -14,24 +14,18 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Surface } from "@/components/ui/surface";
 import { useClosedPositionsWindow } from "@/hooks/use-paper-trading";
-import { formatShortDate } from "@/lib/utils/date";
+import { computeEquityCurve } from "@/lib/utils/equity-curve";
 import { displayedPnl, formatCurrency, formatPnl, pnlColorClass } from "@/lib/utils/pnl";
 import type { PaperPosition } from "@/types/position";
 
 function buildCurve(positions: PaperPosition[]): { date: string; value: number }[] {
   // Broker-truth cumulative — uses broker fill/close prices when set,
   // falls back to system realized_pnl otherwise. Mirrors FTMO dashboard.
-  const valid = positions.filter(
-    (p) => p.closed_at && (p.realized_pnl != null || p.broker_close_price != null)
+  return computeEquityCurve(
+    positions
+      .filter((p) => p.closed_at && (p.realized_pnl != null || p.broker_close_price != null))
+      .map((p) => ({ realized_pnl: displayedPnl(p) ?? 0, closed_at: p.closed_at! }))
   );
-  const sorted = [...valid].sort(
-    (a, b) => new Date(a.closed_at!).getTime() - new Date(b.closed_at!).getTime()
-  );
-  let cumulative = 0;
-  return sorted.map((p) => {
-    cumulative += displayedPnl(p) ?? 0;
-    return { date: formatShortDate(p.closed_at!), value: Number(cumulative.toFixed(2)) };
-  });
 }
 
 const TOOLTIP_STYLE = {

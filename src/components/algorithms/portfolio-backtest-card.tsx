@@ -214,7 +214,7 @@ export function PortfolioBacktestCard({
   const [results, setResults] = useState<BacktestMetrics | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [comparison, setComparison] = useState<WindowResult[] | null>(null);
-  const [comparing, setComparing] = useState(false);
+  const [isComparing, setIsComparing] = useState(false);
   const mutation = useRunPortfolioBacktest();
 
   function handleRun() {
@@ -236,7 +236,7 @@ export function PortfolioBacktestCard({
   async function handleCompare() {
     setError(null);
     setResults(null);
-    setComparing(true);
+    setIsComparing(true);
     const initial: WindowResult[] = COMPARE_WINDOWS.map((w) => ({
       window: w,
       metrics: null,
@@ -260,7 +260,7 @@ export function PortfolioBacktestCard({
         });
       })
     );
-    setComparing(false);
+    setIsComparing(false);
   }
 
   return (
@@ -305,7 +305,7 @@ export function PortfolioBacktestCard({
               </SelectContent>
             </Select>
           </div>
-          <Button onClick={handleRun} disabled={mutation.isPending || comparing}>
+          <Button onClick={handleRun} disabled={mutation.isPending || isComparing}>
             {mutation.isPending ? (
               <>
                 <Loader2 className="mr-2 h-3 w-3 animate-spin" />
@@ -315,8 +315,8 @@ export function PortfolioBacktestCard({
               "Run"
             )}
           </Button>
-          <Button onClick={handleCompare} disabled={mutation.isPending || comparing} variant="outline">
-            {comparing ? (
+          <Button onClick={handleCompare} disabled={mutation.isPending || isComparing} variant="outline">
+            {isComparing ? (
               <>
                 <Loader2 className="mr-2 h-3 w-3 animate-spin" />
                 Comparing...

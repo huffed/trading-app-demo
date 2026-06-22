@@ -1,7 +1,7 @@
 "use server";
 
 import { getAuthedUser } from "@/lib/supabase/get-authed-user";
-import { type ActionResult } from "@/lib/types/action-result";
+import { type ActionResult } from "@/types/action-result";
 
 const DEFAULT_LOOKBACK_DAYS = 90;
 const MIN_PAIRED_DAYS = 10;

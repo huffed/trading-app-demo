@@ -21,7 +21,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { useJournalEntry, useDeleteJournalEntry, useTradesForLinking } from "@/hooks/use-journal";
 import { ENTRY_TYPE_LABELS } from "@/lib/constants/journal";
-import { formatDate } from "@/lib/utils/date";
+import { formatDate, formatLongDateTime } from "@/lib/utils/date";
 import type { JournalEntry } from "@/types/journal";
 
 interface EntryMetaProps {
@@ -84,14 +84,7 @@ function EntryHeader({
       <div className="flex-1">
         <h1 className="text-2xl font-semibold tracking-tight">{entry.title}</h1>
         <p className="text-xs text-muted-foreground">
-          {new Date(entry.created_at).toLocaleDateString("en-US", {
-            weekday: "long",
-            year: "numeric",
-            month: "long",
-            day: "numeric",
-            hour: "numeric",
-            minute: "2-digit",
-          })}
+          {formatLongDateTime(entry.created_at)}
         </p>
       </div>
       <div className="flex gap-1">

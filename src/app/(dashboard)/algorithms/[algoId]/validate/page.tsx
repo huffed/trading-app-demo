@@ -41,10 +41,10 @@ export default function ValidatePage({ params }: { params: Promise<{ algoId: str
   const run = useRunGeometrySweep();
 
   const sweep = sweepQ.data ?? null;
-  const ddBreachThreshold =
-    (algo?.rules as unknown as { prop_firm?: { max_drawdown?: number } } | undefined)?.prop_firm
-      ?.max_drawdown ?? null;
-  const liveOn = (algo as { live_trading_enabled?: boolean } | undefined)?.live_trading_enabled === true;
+  // CB.H3 (2026-06-20): algo from useAlgorithm() is already typed Algorithm
+  // via algorithmFromRow mapper — drop the inline rule-shape casts.
+  const ddBreachThreshold = algo?.rules?.prop_firm?.max_drawdown ?? null;
+  const liveOn = algo?.live_trading_enabled === true;
   const selected: GeometryCell | null =
     selectedKey != null && sweep
       ? sweep.cells.find((c) => `${String(c.x)}-${String(c.y)}` === selectedKey) ?? null

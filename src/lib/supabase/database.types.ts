@@ -1,10 +1,19 @@
 /**
- * Supabase database types — GENERATED from the live schema 2026-06-17
+ * Supabase database types — GENERATED from the live schema 2026-06-19 EVE
  * via the Supabase MCP (`generate_typescript_types`). Do not hand-edit;
  * regenerate after applying migrations. Single source of truth for row
  * shapes — local `interface XRow { ... }` duplicates and
  * `data as unknown as X` casts should derive from `Tables<"name">`
  * instead (audit 2026-06-11: ~18 files hand-cast rows).
+ *
+ * 2026-06-19 EVE regen surfaced staleness vs migrations 00044 + 00045:
+ * algorithm_geometry_sweeps, algorithm_rule_changes,
+ * broker_connections.account_capital, activity_log_archive,
+ * llm_decisions_archive, paper_positions_archive, portfolios, and the
+ * new last_scan_tick / last_manage_tick / prune_sentiment_cache RPCs
+ * were all missing. Regen caught a CB.C3 typing attempt that crashed the
+ * build because account_capital wasn't in the type even though the
+ * column is live in production.
  */
 export type Json =
   | string
@@ -402,6 +411,7 @@ export type Database = {
       }
       broker_connections: {
         Row: {
+          account_capital: number | null
           account_id: string
           account_login: string | null
           account_snapshot: Json | null
@@ -422,6 +432,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          account_capital?: number | null
           account_id: string
           account_login?: string | null
           account_snapshot?: Json | null
@@ -442,6 +453,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          account_capital?: number | null
           account_id?: string
           account_login?: string | null
           account_snapshot?: Json | null

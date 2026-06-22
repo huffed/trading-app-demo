@@ -228,14 +228,13 @@ async function main(): Promise<void> {
   const start = Date.now();
   // Run baseline (no overlay) for comparison when overlay is active.
   const baseline: BacktestMetrics | null = overlayActive
-    ? runPortfolioBacktest(algoRow.rules, pricesByTicker, Number(algoRow.capital), [], null)
+    ? runPortfolioBacktest(algoRow.rules, pricesByTicker, Number(algoRow.capital))
     : null;
   const result = runPortfolioBacktest(
     overlayRules,
     pricesByTicker,
     Number(algoRow.capital),
-    [],
-    proxyBars
+    { proxyBars }
   );
   const duration = ((Date.now() - start) / 1000).toFixed(1);
 

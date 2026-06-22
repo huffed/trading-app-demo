@@ -2,7 +2,7 @@
 
 import { runReadinessCheck, type ReadinessReport } from "@/lib/scan/readiness-check";
 import { getAuthedUser } from "@/lib/supabase/get-authed-user";
-import { type ActionResult } from "@/lib/types/action-result";
+import { type ActionResult } from "@/types/action-result";
 
 /**
  * Operator-facing readiness check. Same logic as the admin endpoint —

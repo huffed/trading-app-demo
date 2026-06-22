@@ -71,14 +71,23 @@ interface OandaCandlesResponse {
 }
 
 /**
- * Convert an OANDA candle to our internal PriceBar shape. Mirrors the
- * date format Twelve Data uses (space-separated YYYY-MM-DD HH:MM:SS)
- * so price_cache merge-by-date stays consistent across providers and
- * the existing 28K-bar OANDA backfill.
+ * Convert an OANDA candle to our internal PriceBar shape.
+ *
+ * DQ.1 fix (2026-06-19 EVE): emit canonical ISO 8601 with Z. The previous
+ * format (space-separated, no TZ — "Twelve Data compat") was the root
+ * cause of cross-provider format drift: V8 parses space format as LOCAL
+ * time, so cross-provider Date subtraction inside live gates (e.g.
+ * hasReEntryCooldownActive) drifted by the host UTC offset.
+ *
+ * `price-cache` (savePricesToCache + getCachedPrices) now normalises ALL
+ * incoming + outgoing bar.date strings to canonical ISO+Z, so this
+ * function can emit raw OANDA format and the cache layer handles
+ * canonicalisation centrally. Legacy rows already stored in space format
+ * pass through the cache read-side normaliser.
  */
 function oandaToBar(c: OandaCandle): PriceBar {
   return {
-    date: c.time.slice(0, 19).replace("T", " "),
+    date: c.time,  // OANDA's native ISO 8601 + Z + ns precision
     open: parseFloat(c.mid.o),
     high: parseFloat(c.mid.h),
     low: parseFloat(c.mid.l),

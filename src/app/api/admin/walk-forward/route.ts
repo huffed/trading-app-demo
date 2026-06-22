@@ -44,13 +44,17 @@ export async function GET(request: Request) {
   const { fetchEconomicCalendar } = await import("@/lib/market-data/economic-calendar");
 
   const supabase = createAdminClient();
-  const algoRes = await supabase.from("algorithms").select("*").eq("id", algoId).single();
-  const algo = algoRes.data as unknown as
-    | { rules: import("@/types/algorithm").AlgorithmRules; capital: number }
-    | null;
-  if (algoRes.error || !algo) {
+  const { rulesFromRow } = await import("@/lib/supabase/row-mappers");
+  const algoRes = await supabase
+    .from("algorithms")
+    .select("rules, capital")
+    .eq("id", algoId)
+    .single();
+  if (algoRes.error || !algoRes.data) {
     return NextResponse.json({ error: "algorithm not found" }, { status: 404 });
   }
+  // CB.H3 (2026-06-20): canonical Json→AlgorithmRules bridge.
+  const algo = { rules: rulesFromRow(algoRes.data.rules), capital: algoRes.data.capital };
 
   const wlRes = await supabase
     .from("algorithm_watchlist")

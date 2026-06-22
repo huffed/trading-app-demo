@@ -182,13 +182,20 @@ export function runWalkForward(
       i++;
       continue;
     }
+    // B.1.24 (Stage 3, 2026-06-19 EVE): diagnostic caller — gates intentionally
+    // OFF (no sibling/spread/risk-pool/FTMO-term/cooldown/portfolio-halt args
+    // passed). See `runPortfolioBacktest` caller-policy doc at
+    // `portfolio-backtest.ts` (B.1.9 Caller policy block in CLAUDE.md). The
+    // walk-forward harness purposely measures naked strategy edge without
+    // Phase B fidelity gates so the operator can compare against gated runs.
     const result: BacktestMetrics = runPortfolioBacktest(
       rules,
       sliced,
       capital,
-      options.events ?? [],
-      null,
-      options.marketStateSeries ?? null
+      {
+        events: options.events ?? [],
+        marketStateSeries: options.marketStateSeries ?? null,
+      }
     );
     const window: WalkForwardWindow = {
       index: i++,

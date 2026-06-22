@@ -123,22 +123,22 @@ function AutonomySelect({
 }
 
 function SaveStateButton({
-  saving,
-  saved,
+  isSaving,
+  isSaved,
   onSave,
 }: {
-  saving: boolean;
-  saved: boolean;
+  isSaving: boolean;
+  isSaved: boolean;
   onSave: () => void;
 }) {
-  if (saving) {
+  if (isSaving) {
     return (
       <Button size="sm" disabled>
         <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> Saving...
       </Button>
     );
   }
-  if (saved) {
+  if (isSaved) {
     return (
       <Button size="sm" disabled>
         <Check className="mr-1.5 h-3.5 w-3.5" /> Saved
@@ -155,9 +155,9 @@ function SaveStateButton({
 export function ProAccountCard() {
   const [propFirm, setPropFirm] = useState<PropFirmPresetSetting>(null);
   const [autonomy, setAutonomy] = useState<AutonomyLevel>("paper_only");
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
 
   useEffect(() => {
     getProfile().then((r) => {
@@ -165,21 +165,21 @@ export function ProAccountCard() {
         setPropFirm(r.data.prop_firm_preset);
         setAutonomy(r.data.autonomy_level);
       }
-      setLoading(false);
+      setIsLoading(false);
     });
   }, []);
 
   async function handleSave() {
-    setSaving(true);
-    setSaved(false);
+    setIsSaving(true);
+    setIsSaved(false);
     const result = await updateProfile({
       prop_firm_preset: propFirm,
       autonomy_level: autonomy,
     });
-    setSaving(false);
+    setIsSaving(false);
     if (result.success) {
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
+      setIsSaved(true);
+      setTimeout(() => setIsSaved(false), 2000);
     }
   }
 
@@ -191,7 +191,7 @@ export function ProAccountCard() {
     </CardHeader>
   );
 
-  if (loading) {
+  if (isLoading) {
     return (
       <Card>
         {header}
@@ -210,7 +210,7 @@ export function ProAccountCard() {
         <PropFirmSelect value={propFirm} onValueChange={setPropFirm} />
         <AutonomySelect value={autonomy} onValueChange={setAutonomy} />
         <div className="flex justify-end">
-          <SaveStateButton saving={saving} saved={saved} onSave={handleSave} />
+          <SaveStateButton isSaving={isSaving} isSaved={isSaved} onSave={handleSave} />
         </div>
       </CardContent>
     </Card>

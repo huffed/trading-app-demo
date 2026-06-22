@@ -17,7 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useAlgorithmsList } from "@/hooks/use-algorithms";
+import { useAlgorithmsTickers } from "@/hooks/use-algorithms";
 import { useChartData } from "@/hooks/use-chart-data";
 import { useLivePrice } from "@/hooks/use-live-price";
 
@@ -42,18 +42,13 @@ export default function ChartPage() {
   );
   const { data: live } = useLivePrice(ticker);
 
-  // Available algorithms — used to inform the operator about which
-  // tickers have an active strategy on them.
-  const { data: algos = [] } = useAlgorithmsList();
-  const tickersWithAlgos = new Set<string>();
-  for (const a of algos) {
-    if (a.status === "active") {
-      const watchlist = (
-        a as unknown as { algorithm_watchlist?: { ticker: string }[] }
-      ).algorithm_watchlist;
-      for (const w of watchlist ?? []) tickersWithAlgos.add(w.ticker);
-    }
-  }
+  // Tickers across all active algorithms — feeds the hasActiveAlgo badge.
+  // CB.X5 (2026-06-20): replaced the previously-broken cast-on-non-existent-
+  // field pattern with a narrow `useAlgorithmsTickers()` hook that queries
+  // `algorithm_watchlist` with an inner-join filter on active status. The
+  // old `useAlgorithmsList().algorithm_watchlist` access was always-undefined
+  // because the hook doesn't fetch the join; CB.H3 surfaced this bug.
+  const { data: tickersWithAlgos = new Set<string>() } = useAlgorithmsTickers();
 
   return (
     <div className="space-y-4">

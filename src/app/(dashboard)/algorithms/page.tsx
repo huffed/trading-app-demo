@@ -70,9 +70,9 @@ function StrategyGroupedView({
   const standalone: Algorithm[] = [];
   for (const a of algorithms) {
     if (a.strategy_id) {
-      const arr = byStrategy.get(a.strategy_id) ?? [];
-      arr.push(a);
-      byStrategy.set(a.strategy_id, arr);
+      const instancesForStrategy = byStrategy.get(a.strategy_id) ?? [];
+      instancesForStrategy.push(a);
+      byStrategy.set(a.strategy_id, instancesForStrategy);
     } else {
       standalone.push(a);
     }

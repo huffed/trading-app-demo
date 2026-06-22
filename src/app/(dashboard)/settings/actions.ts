@@ -2,7 +2,7 @@
 
 import { fetchExchangeRate } from "@/lib/market-data/twelve-data";
 import { createClient } from "@/lib/supabase/server";
-import { type ActionResult } from "@/lib/types/action-result";
+import { type ActionResult } from "@/types/action-result";
 
 export type AutonomyLevel = "paper_only" | "suggest" | "semi_auto" | "full_auto";
 export type PropFirmPresetSetting =

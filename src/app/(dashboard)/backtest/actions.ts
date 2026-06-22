@@ -8,23 +8,26 @@ import { fetchDailyPrices } from "@/lib/market-data/prices";
 import type { BacktestTrade } from "@/lib/market-data/types";
 import type { Tables } from "@/lib/supabase/database.types";
 import { getAuthedUser } from "@/lib/supabase/get-authed-user";
-import { type ActionResult } from "@/lib/types/action-result";
-import type { AlgorithmRules } from "@/types/algorithm";
+import { rulesFromRow } from "@/lib/supabase/row-mappers";
+import { type ActionResult } from "@/types/action-result";
 
-export interface BacktestTradeRow {
+/** CB.M1 fix (2026-06-19): extends BacktestTrade with the row-only
+ *  fields rather than re-declaring every trade field. Keeps the two
+ *  shapes in lockstep — if BacktestTrade gains a field, this row type
+ *  picks it up automatically. `exit_reason` is overridden because the
+ *  DB column carries free-form strings (string | null) where the
+ *  domain type pins it to the BacktestExitReason union; we don't trust
+ *  the DB to match the union at read time, so the row type stays
+ *  loose. */
+export type BacktestTradeRow = Omit<BacktestTrade, "exit_reason"> & {
   id: string;
   algorithm_id: string;
   ticker: string;
   side: "long" | "short";
-  entry_date: string;
-  exit_date: string;
-  entry_price: number;
-  exit_price: number;
-  pnl: number;
   r_multiple: number | null;
   exit_reason: string | null;
   run_at: string;
-}
+};
 
 export interface BacktestRunMeta {
   run_at: string;
@@ -94,8 +97,10 @@ export async function runAlgorithmBacktestAction(
       .eq("user_id", user.id)
       .single();
     if (algoRes.error) return { success: false, error: algoRes.error.message };
-    const rules = (algoRes.data as unknown as { rules: AlgorithmRules }).rules;
-    const capital = (algoRes.data as unknown as { capital: number }).capital;
+    // CB.H3 (2026-06-20): rules through the canonical Json→AlgorithmRules
+    // bridge instead of double-cast. capital is already typed (DB number column).
+    const rules = rulesFromRow(algoRes.data.rules);
+    const capital = algoRes.data.capital;
 
     if (rules.llm_trader?.enabled) {
       return {
@@ -126,13 +131,18 @@ export async function runAlgorithmBacktestAction(
       ? await fetchEconomicCalendarForRange(pricesByTicker)
       : [];
 
+    // B.1.24 (Stage 3, 2026-06-19 EVE): diagnostic caller — gates intentionally
+    // OFF. See `runPortfolioBacktest` caller-policy in `portfolio-backtest.ts`
+    // + CLAUDE.md Phase B.1.9. Operator's /backtest UI explores naked strategy
+    // edge per-period; gated verdicts live in `validate-algo.ts` only.
+    //
     // Run with rules AS DEPLOYED — including prop_firm. /backtest's job
     // is "what would live trading have produced at those times?", and
     // live respects prop_firm halts (drawdownBreached / killTriggered).
     // An algo whose simulated DD breached the prop_firm limit in 2021
     // would have actually halted live; truncating the trade history at
     // that point is the correct answer, not a bug.
-    const result = runPortfolioBacktest(rules, pricesByTicker, capital, events);
+    const result = runPortfolioBacktest(rules, pricesByTicker, capital, { events });
 
     const runAt = new Date().toISOString();
     await supabase

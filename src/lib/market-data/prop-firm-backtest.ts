@@ -154,9 +154,30 @@ export function closeSimPosition(
   // increment, micro losses (< 0.25R) are SKIPPED (don't reset, don't
   // count). When slDistance is missing, legacy "any loss counts"
   // behaviour preserved for backtest-engine callers.
-  if (pnl >= 0) {
+  //
+  // 2026-06-19 EVE adversarial-audit fix: break-even (pnl === 0) is
+  // NEUTRAL — neither a win nor a loss. Previously `pnl >= 0` reset
+  // the streak on break-even, more lenient than live (which only
+  // resets on actual wins). Backtest now matches live: strict-positive
+  // resets, strict-negative counts (with R-aware threshold), zero is
+  // neutral (no streak change).
+  if (pnl > 0) {
     s.consecutiveLosses = 0;
-  } else if (pos.slDistance != null && pos.slDistance > 0 && pos.entryPrice > 0) {
+  } else if (pnl === 0) {
+    // Break-even — no streak change. Matches live consec-loss-halt
+    // semantics (only losses trigger anything).
+  } else if (
+    pos.slDistance != null &&
+    pos.slDistance > 0 &&
+    pos.entryPrice > 0 &&
+    // B.1.19 fix (2026-06-19): explicit notionalValue > 0 guard. Previously
+    // a 0-notional position would produce oneR = 0, fall through the inner
+    // `oneR > 0` guard (correctly), but silently take the micro-skip path
+    // — semantically wrong because the position is broken, not micro. With
+    // notionalValue ≤ 0 the position state is invalid; fall through to the
+    // legacy "any loss counts" path so the streak counter still tracks.
+    pos.notionalValue > 0
+  ) {
     // R-aware path: oneR (in $) = notional × (slDistance / entryPrice).
     const oneR = pos.notionalValue * (pos.slDistance / pos.entryPrice);
     if (oneR > 0 && Math.abs(pnl) / oneR >= SIGNIFICANT_LOSS_R_THRESHOLD) {
@@ -165,7 +186,9 @@ export function closeSimPosition(
     }
     // Micro loss → skip (don't increment, don't reset).
   } else {
-    // Legacy path: any loss counts.
+    // Legacy path: any loss (pnl < 0) counts. Also catches broken-state
+    // positions (notionalValue ≤ 0, entryPrice ≤ 0, slDistance unavailable)
+    // — these shouldn't exist but if they do, default to safe-side counting.
     s.consecutiveLosses++;
     s.maxConsecLosses = Math.max(s.maxConsecLosses, s.consecutiveLosses);
   }

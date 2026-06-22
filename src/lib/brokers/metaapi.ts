@@ -8,14 +8,11 @@
  * the resulting auth-token + account_id into our app. We never see the
  * raw MT5 credentials.
  */
-
-export type MetaApiRegion = "london" | "new-york" | "singapore";
-
-const REGION_HOSTS: Record<MetaApiRegion, string> = {
-  london: "https://mt-client-api-v1.london.agiliumtrade.ai",
-  "new-york": "https://mt-client-api-v1.new-york.agiliumtrade.ai",
-  singapore: "https://mt-client-api-v1.singapore.agiliumtrade.ai",
-};
+import { logger } from "@/lib/logger";
+// CB.H1 pass 13 (2026-06-22): shared region/host registry extracted to
+// `metaapi-base.ts`; order placement+close extracted to `metaapi-orders.ts`.
+import { REGION_HOSTS, type MetaApiRegion } from "./metaapi-base";
+export { type MetaApiRegion } from "./metaapi-base";
 
 export interface MetaApiAccountInfo {
   broker?: string;
@@ -113,7 +110,11 @@ export async function fetchPosition(
       accountId,
       `/positions/${encodeURIComponent(positionId)}`
     );
-  } catch {
+  } catch (err) {
+    // CB.M7.b (2026-06-20): warn-on-swallow — single-position fetch
+    // failure silently treats position as missing; surface in logs so
+    // a chain of failures doesn't go unnoticed.
+    logger.warn("metaapi", `fetchPosition(${accountId}, ${positionId}) failed`, err);
     return null;
   }
 }
@@ -211,115 +212,9 @@ export async function fetchCurrentPrice(
 // backwards compat with any external callers.
 export { notionalToLots } from "./sizing";
 
-interface MarketOrderInput {
-  symbol: string;
-  volume: number;
-  side: "buy" | "sell";
-  stopLoss?: number;
-  takeProfit?: number;
-  comment?: string;
-  /** Client-supplied id so we can correlate our paper position with the real fill. */
-  clientId?: string;
-}
-
-interface MarketOrderResponse {
-  numericCode?: number;
-  stringCode?: string;
-  message?: string;
-  orderId?: string;
-  positionId?: string;
-  /** MetaApi sometimes nests details here on validation failures. */
-  details?: unknown;
-  error?: string;
-}
-
-/**
- * Place a market order. Returns the broker's order/position id on fill.
- * Throws on rejection so the caller can log + skip the paper position.
- */
-export async function placeMarketOrder(
-  token: string,
-  accountId: string,
-  region: MetaApiRegion,
-  input: MarketOrderInput
-): Promise<{ orderId: string; positionId: string }> {
-  const host = REGION_HOSTS[region] ?? REGION_HOSTS.london;
-  const url = `${host}/users/current/accounts/${encodeURIComponent(accountId)}/trade`;
-  const body = {
-    actionType: input.side === "buy" ? "ORDER_TYPE_BUY" : "ORDER_TYPE_SELL",
-    symbol: input.symbol,
-    volume: input.volume,
-    stopLoss: input.stopLoss,
-    takeProfit: input.takeProfit,
-    comment: input.comment?.slice(0, 28) ?? undefined,
-    clientId: input.clientId,
-  };
-  const res = await fetch(url, {
-    method: "POST",
-    headers: {
-      "auth-token": token,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(body),
-  });
-  const text = await res.text();
-  let data: MarketOrderResponse = {};
-  try {
-    data = text ? (JSON.parse(text) as MarketOrderResponse) : {};
-  } catch {
-    /* leave data empty */
-  }
-  if (!res.ok || (data.stringCode && data.stringCode !== "TRADE_RETCODE_DONE")) {
-    const parts = [
-      data.message,
-      data.stringCode,
-      data.error,
-      data.details ? JSON.stringify(data.details).slice(0, 300) : null,
-      `HTTP ${res.status}`,
-    ].filter(Boolean);
-    const detail = parts.join(" | ") || text.slice(0, 300) || "no body";
-    const sentBody = JSON.stringify({ ...body, _note: "input echoed for diagnosis" }).slice(0, 300);
-    throw new Error(`Order rejected: ${detail} :: sent ${sentBody}`);
-  }
-  if (!data.orderId || !data.positionId) {
-    throw new Error("Order placed but broker returned no order/position id.");
-  }
-  return { orderId: data.orderId, positionId: data.positionId };
-}
-
-/**
- * Close an existing position by id (the value returned from placeMarketOrder).
- */
-export async function closePosition(
-  token: string,
-  accountId: string,
-  region: MetaApiRegion,
-  positionId: string
-): Promise<{ orderId: string }> {
-  const host = REGION_HOSTS[region] ?? REGION_HOSTS.london;
-  const url = `${host}/users/current/accounts/${encodeURIComponent(accountId)}/trade`;
-  const body = { actionType: "POSITION_CLOSE_ID", positionId };
-  const res = await fetch(url, {
-    method: "POST",
-    headers: {
-      "auth-token": token,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(body),
-  });
-  const text = await res.text();
-  let data: MarketOrderResponse = {};
-  try {
-    data = text ? (JSON.parse(text) as MarketOrderResponse) : {};
-  } catch {
-    /* leave data empty */
-  }
-  if (!res.ok || (data.stringCode && data.stringCode !== "TRADE_RETCODE_DONE")) {
-    const detail = data.message ?? data.stringCode ?? `HTTP ${res.status}`;
-    throw new Error(`Close rejected: ${detail}`);
-  }
-  return { orderId: data.orderId ?? "" };
-}
+// CB.H1 pass 13 (2026-06-22): order placement + close moved to
+// `metaapi-orders.ts`. Re-exported for back-compat.
+export { placeMarketOrder, closePosition } from "./metaapi-orders";
 
 export interface MetaApiHistoryDeal {
   id: string;

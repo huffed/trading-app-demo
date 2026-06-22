@@ -3,14 +3,16 @@ import type { Trade } from "@/types/trade";
 import { computeDrawdownSeries, computeMetrics } from "./analytics";
 
 // Mint a closed Trade fixture. Only the fields the analytics functions
-// touch matter; everything else can be cast through `as Trade`.
+// touch matter — the rest of the Trade shape is filled by `Partial<Trade>`
+// at the call site, then narrowed through the function's return signature.
 function trade(realizedPnl: number, exitDay: number): Trade {
-  return {
+  const t: Partial<Trade> = {
     status: "closed",
     realized_pnl: realizedPnl,
     exit_date: `2026-05-${String(exitDay).padStart(2, "0")}T00:00:00Z`,
     entry_date: `2026-05-${String(exitDay).padStart(2, "0")}T00:00:00Z`,
-  } as Trade;
+  };
+  return t as Trade;
 }
 
 describe("computeDrawdownSeries — underwater from inception (the bug)", () => {

@@ -2,10 +2,10 @@
 
 import { z } from "zod";
 import { getBrokerAdapter, listSupportedProviders } from "@/lib/brokers/registry";
-import type { BrokerConnection as AdapterConn, BrokerPosition } from "@/lib/brokers/types";
-import { toJson } from "@/lib/supabase/row-mappers";
-import { createClient } from "@/lib/supabase/server";
-import { type ActionResult } from "@/lib/types/action-result";
+import type { BrokerPosition } from "@/lib/brokers/types";
+import { getAuthedUser } from "@/lib/supabase/get-authed-user";
+import { brokerConnectionFromRow, toJson } from "@/lib/supabase/row-mappers";
+import { type ActionResult } from "@/types/action-result";
 import type {
   BrokerAccountSnapshot,
   BrokerConnection,
@@ -31,14 +31,9 @@ const inputSchema = z.object({
 
 export type BrokerInput = z.infer<typeof inputSchema>;
 
-async function getUser() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error("Not authenticated");
-  return { supabase, user };
-}
+// CB.M7.b (2026-06-20): removed duplicate local `getUser()` helper. The
+// canonical `getAuthedUser` (lib/supabase/get-authed-user) does the same
+// thing and is used by all other actions in (dashboard)/.
 
 /** Strip the api_token before returning rows to the client. */
 function toView(row: BrokerConnection): BrokerConnectionView {
@@ -60,7 +55,7 @@ function toView(row: BrokerConnection): BrokerConnectionView {
 
 export async function listBrokerConnections(): Promise<ActionResult<BrokerConnectionView[]>> {
   try {
-    const { supabase, user } = await getUser();
+    const { supabase, user } = await getAuthedUser();
     const { data, error } = await supabase
       .from("broker_connections")
       .select("*")
@@ -91,7 +86,7 @@ export async function saveBrokerConnection(input: BrokerInput): Promise<ActionRe
   }
 
   try {
-    const { supabase, user } = await getUser();
+    const { supabase, user } = await getAuthedUser();
     const { data, error } = await supabase
       .from("broker_connections")
       .insert({
@@ -122,7 +117,7 @@ export async function saveBrokerConnection(input: BrokerInput): Promise<ActionRe
 
 export async function deleteBrokerConnection(id: string): Promise<ActionResult<null>> {
   try {
-    const { supabase, user } = await getUser();
+    const { supabase, user } = await getAuthedUser();
     const { error } = await supabase
       .from("broker_connections")
       .delete()
@@ -158,7 +153,7 @@ export async function syncBrokerConnection(
   id: string
 ): Promise<ActionResult<BrokerConnectionView>> {
   try {
-    const { supabase, user } = await getUser();
+    const { supabase, user } = await getAuthedUser();
     const { data: row, error: rowErr } = await supabase
       .from("broker_connections")
       .select("*")
@@ -167,6 +162,11 @@ export async function syncBrokerConnection(
       .single();
     if (rowErr || !row) return { success: false, error: "Broker connection not found." };
 
+    // `conn` is the DB row shape (richer than the adapter's expected
+    // BrokerConnection — has `broker_name`, `last_error`, etc.); the
+    // adapter call below narrows via `brokerConnectionFromRow` at the
+    // boundary. CB.H3.b (2026-06-20) replaced the prior
+    // `conn as unknown as AdapterConn` double-cast.
     const conn = row as BrokerConnection;
     const adapter = getBrokerAdapter(conn.provider);
     if (!adapter) {
@@ -174,7 +174,7 @@ export async function syncBrokerConnection(
     }
 
     try {
-      const snap = await adapter.fetchSnapshot(conn as unknown as AdapterConn);
+      const snap = await adapter.fetchSnapshot(brokerConnectionFromRow(row));
       const account_snapshot: BrokerAccountSnapshot = {
         balance: Number(snap.account.balance ?? 0),
         equity: Number(snap.account.equity ?? 0),

@@ -37,6 +37,7 @@ export async function GET(request: Request) {
   // reference) preserves the `this` binding that supabase-js needs.
   const { data, error } = await supabase.rpc(
     "prune_sentiment_cache",
+    // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
     { retention_days: days } as never
   );
 

@@ -48,11 +48,11 @@ export function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setLoading(true);
+    setIsLoading(true);
     setError(null);
 
     const supabase = createClient();
@@ -63,7 +63,7 @@ export function LoginForm() {
 
     if (error) {
       setError(error.message);
-      setLoading(false);
+      setIsLoading(false);
       return;
     }
 
@@ -78,8 +78,8 @@ export function LoginForm() {
           <EmailField value={email} onChange={setEmail} />
           <PasswordField value={password} onChange={setPassword} />
           {error && <p className="text-sm text-destructive">{error}</p>}
-          <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? "Signing in..." : "Sign in"}
+          <Button type="submit" className="w-full" disabled={isLoading}>
+            {isLoading ? "Signing in..." : "Sign in"}
           </Button>
         </form>
       </CardContent>

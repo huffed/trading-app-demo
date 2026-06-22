@@ -35,13 +35,13 @@ export function CellDetail({
   liveTradingEnabled: boolean;
 }) {
   const apply = useApplyCellConfig();
-  const [applied, setApplied] = useState(false);
+  const [isApplied, setIsApplied] = useState(false);
   const years = Object.keys(cell.per_year).sort();
 
   async function handleApply() {
     await apply.mutateAsync({ algorithmId, xAxis, yAxis, x: cell.x, y: cell.y });
-    setApplied(true);
-    setTimeout(() => setApplied(false), 4000);
+    setIsApplied(true);
+    setTimeout(() => setIsApplied(false), 4000);
   }
 
   return (
@@ -57,7 +57,7 @@ export function CellDetail({
         <ApplyButton
           enabled={!liveTradingEnabled}
           pending={apply.isPending}
-          applied={applied}
+          isApplied={isApplied}
           onApply={handleApply}
         />
       </div>
@@ -148,15 +148,15 @@ void DataRow;
 function ApplyButton({
   enabled,
   pending,
-  applied,
+  isApplied,
   onApply,
 }: {
   enabled: boolean;
   pending: boolean;
-  applied: boolean;
+  isApplied: boolean;
   onApply: () => void;
 }) {
-  if (applied) {
+  if (isApplied) {
     return (
       <Button size="sm" disabled>
         <CheckCircle2 className="mr-1.5 h-3.5 w-3.5 text-[var(--profit)]" />

@@ -43,6 +43,28 @@ export function useAlgorithm(id: string | null) {
   });
 }
 
+/** Tickers across all ACTIVE algorithms — used by chart/page.tsx to badge
+ *  which instruments have a strategy running on them. Narrow surface: a
+ *  single Set rather than the full Algorithm[] + nested watchlist join. */
+export function useAlgorithmsTickers() {
+  return useQuery<Set<string>>({
+    queryKey: [...ALGORITHMS_KEY, "active-tickers"],
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("algorithm_watchlist")
+        .select("ticker, algorithms!inner(status)")
+        .eq("algorithms.status", "active");
+      if (error) throw error;
+      const set = new Set<string>();
+      for (const row of data ?? []) {
+        if (row.ticker) set.add(row.ticker);
+      }
+      return set;
+    },
+  });
+}
+
 export function useDeleteAlgorithm() {
   const queryClient = useQueryClient();
   return useMutation({

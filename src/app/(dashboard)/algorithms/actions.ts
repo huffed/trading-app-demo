@@ -4,7 +4,7 @@ import { clampRules } from "@/lib/algorithm/rules-post-process";
 import type { SignalResult } from "@/lib/signals/evaluate-live";
 import { algorithmFromRow, rulesFromRow, toJson } from "@/lib/supabase/row-mappers";
 import { createClient } from "@/lib/supabase/server";
-import { type ActionResult } from "@/lib/types/action-result";
+import { type ActionResult } from "@/types/action-result";
 import {
   algorithmUpdateSchema,
   type AlgorithmUpdate,
@@ -60,11 +60,20 @@ export async function updateAlgorithm(
     );
   }
 
-  const fieldsChanged: string[] = [];
-  const before: Record<string, unknown> = {};
+  const fieldsChanged: Array<keyof AlgorithmUpdate> = [];
+  const before: Partial<Record<keyof AlgorithmUpdate, unknown>> = {};
+  // current comes from `.select("*")` on the algorithms table — its shape is
+  // a superset of AlgorithmUpdate's keys, so safe to cast once for indexed
+  // access. The audit row stores per-key prior values as JSONB; values stay
+  // `unknown` because we compare via JSON.stringify rather than narrow per
+  // field (most updates touch a single field; per-field narrowing would
+  // bloat this loop with no real safety win — the JSONB sink accepts any
+  // serialisable value). CB.H4 (2026-06-20): replaces `Record<string, unknown>`
+  // typing with a keyed-by-AlgorithmUpdate variant.
+  const currentByKey = current as Record<keyof AlgorithmUpdate, unknown>;
   for (const key of Object.keys(validated) as Array<keyof AlgorithmUpdate>) {
     const newVal = validated[key];
-    const oldVal = (current as Record<string, unknown>)[key];
+    const oldVal = currentByKey[key];
     if (JSON.stringify(newVal) !== JSON.stringify(oldVal)) {
       fieldsChanged.push(key);
       before[key] = oldVal ?? null;

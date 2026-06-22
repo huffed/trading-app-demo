@@ -23,6 +23,7 @@
  *   - 'eligible' — enough data AND variance within ±50%
  *   - 'no_backtest' — algorithm has no backtest_results to compare against
  */
+import type { AlgorithmRules, BacktestResults } from "@/types/algorithm";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 const MIN_DAYS = 15;
@@ -63,8 +64,13 @@ interface AlgoRow {
   id: string;
   name: string;
   capital: number;
-  rules: Record<string, unknown> | null;
-  backtest_results: Record<string, unknown> | null;
+  rules: AlgorithmRules | null;
+  /** JSONB column — typed as the canonical shape (CB.H4 2026-06-20).
+   *  Legacy rows from before B.4 backfill may be missing fields, so each
+   *  read site uses `typeof br.X === "number"` defensive checks below
+   *  rather than trusting the type. Treat the type as documentation +
+   *  IDE help, not a runtime guarantee. */
+  backtest_results: BacktestResults | null;
   strategy_id: string | null;
   created_at: string;
 }
@@ -101,14 +107,12 @@ function computeRMultiple(
 /** Derive risk-per-trade % from the algorithm's position_sizing rule.
  *  Returns null when the sizing type doesn't map to a clear per-trade
  *  risk %. Used to compute 1R$ for the backtest expected-R derivation. */
-function riskPercentFromRules(rules: Record<string, unknown> | null): number | null {
+function riskPercentFromRules(rules: AlgorithmRules | null): number | null {
   if (!rules) return null;
-  const sizing = rules.position_sizing as Record<string, unknown> | undefined;
-  if (!sizing) return null;
-  const type = sizing.type as string;
-  const value = typeof sizing.value === "number" ? sizing.value : null;
-  if (value == null) return null;
-  if (type === "risk_per_trade" || type === "conviction_scaled") return value;
+  const sizing = rules.position_sizing;
+  if (sizing.type === "risk_per_trade" || sizing.type === "conviction_scaled") {
+    return sizing.value;
+  }
   // Other sizing types (lots, fixed_amount, etc) don't expose a per-trade
   // risk percentage cleanly; caller falls back to no_backtest status.
   return null;
@@ -195,9 +199,9 @@ async function fetchClosedPositions(
     .eq("status", "closed");
   if (error) throw new Error(`eligibility positions query failed: ${error.message}`);
   for (const p of (data ?? []) as PositionRow[]) {
-    const arr = map.get(p.algorithm_id) ?? [];
-    arr.push(p);
-    map.set(p.algorithm_id, arr);
+    const entriesForAlgorithm = map.get(p.algorithm_id) ?? [];
+    entriesForAlgorithm.push(p);
+    map.set(p.algorithm_id, entriesForAlgorithm);
   }
   return map;
 }

@@ -7,7 +7,7 @@ import { fetchDailyPrices } from "@/lib/market-data/prices";
 import { resolveBrokerContext } from "@/lib/scan/live-execution";
 import { getAuthedUser } from "@/lib/supabase/get-authed-user";
 import { rulesFromRow } from "@/lib/supabase/row-mappers";
-import { type ActionResult } from "@/lib/types/action-result";
+import { type ActionResult } from "@/types/action-result";
 
 export interface PositionLiveQuote {
   bid: number;
@@ -139,65 +139,74 @@ export async function getPositionMaeMfe(
     }
     if (!bars || bars.length === 0) return { success: true, data: null };
 
-    const startMs = new Date(pos.opened_at).getTime();
-    const endMs = pos.closed_at ? new Date(pos.closed_at).getTime() : Date.now();
-
-    const window = bars.filter((b) => {
-      const t = new Date(b.date).getTime();
-      return t >= startMs && t <= endMs;
-    });
+    const window = sliceBarsForLifetime(bars, pos.opened_at, pos.closed_at);
     if (window.length === 0) return { success: true, data: null };
-
-    let worstAdverse = pos.entry_price;
-    let worstAdverseAt = pos.opened_at;
-    let bestFavorable = pos.entry_price;
-    let bestFavorableAt = pos.opened_at;
-    const isLong = pos.side === "long";
-
-    for (const bar of window) {
-      // For a long: adverse = low (price down), favorable = high (price up).
-      // For a short: mirror.
-      const adverse = isLong ? bar.low : bar.high;
-      const favorable = isLong ? bar.high : bar.low;
-      if (isLong) {
-        if (adverse < worstAdverse) {
-          worstAdverse = adverse;
-          worstAdverseAt = bar.date;
-        }
-        if (favorable > bestFavorable) {
-          bestFavorable = favorable;
-          bestFavorableAt = bar.date;
-        }
-      } else {
-        if (adverse > worstAdverse) {
-          worstAdverse = adverse;
-          worstAdverseAt = bar.date;
-        }
-        if (favorable < bestFavorable) {
-          bestFavorable = favorable;
-          bestFavorableAt = bar.date;
-        }
-      }
-    }
-
+    const extremes = computeMaeMfeExtremes(window, pos.entry_price, pos.opened_at, pos.side === "long");
     const meta = getInstrumentMeta(pos.ticker);
     const pipSize = meta?.pipSize ?? 0.0001;
-    const maePips = Math.abs(pos.entry_price - worstAdverse) / pipSize;
-    const mfePips = Math.abs(bestFavorable - pos.entry_price) / pipSize;
-
     return {
       success: true,
       data: {
-        mae_price: worstAdverse,
-        mae_pips: maePips,
-        mae_at: worstAdverseAt,
-        mfe_price: bestFavorable,
-        mfe_pips: mfePips,
-        mfe_at: bestFavorableAt,
+        mae_price: extremes.worstAdverse,
+        mae_pips: Math.abs(pos.entry_price - extremes.worstAdverse) / pipSize,
+        mae_at: extremes.worstAdverseAt,
+        mfe_price: extremes.bestFavorable,
+        mfe_pips: Math.abs(extremes.bestFavorable - pos.entry_price) / pipSize,
+        mfe_at: extremes.bestFavorableAt,
         bars_examined: window.length,
       },
     };
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : "MAE/MFE failed" };
   }
+}
+
+/** Slice the bar series to the position's open→close window. */
+function sliceBarsForLifetime(
+  bars: { date: string; high: number; low: number }[],
+  openedAt: string,
+  closedAt: string | null
+): typeof bars {
+  const startMs = new Date(openedAt).getTime();
+  const endMs = closedAt ? new Date(closedAt).getTime() : Date.now();
+  return bars.filter((b) => {
+    const t = new Date(b.date).getTime();
+    return t >= startMs && t <= endMs;
+  });
+}
+
+interface MaeMfeExtremes {
+  worstAdverse: number;
+  worstAdverseAt: string;
+  bestFavorable: number;
+  bestFavorableAt: string;
+}
+
+/** Walk the bar window to find peak adverse + favorable excursions.
+ *  Long: adverse=low, favorable=high. Short: mirror. */
+function computeMaeMfeExtremes(
+  window: { date: string; high: number; low: number }[],
+  entryPrice: number,
+  openedAt: string,
+  isLong: boolean
+): MaeMfeExtremes {
+  let worstAdverse = entryPrice;
+  let worstAdverseAt = openedAt;
+  let bestFavorable = entryPrice;
+  let bestFavorableAt = openedAt;
+  for (const bar of window) {
+    const adverse = isLong ? bar.low : bar.high;
+    const favorable = isLong ? bar.high : bar.low;
+    const adverseWorse = isLong ? adverse < worstAdverse : adverse > worstAdverse;
+    const favorableBetter = isLong ? favorable > bestFavorable : favorable < bestFavorable;
+    if (adverseWorse) {
+      worstAdverse = adverse;
+      worstAdverseAt = bar.date;
+    }
+    if (favorableBetter) {
+      bestFavorable = favorable;
+      bestFavorableAt = bar.date;
+    }
+  }
+  return { worstAdverse, worstAdverseAt, bestFavorable, bestFavorableAt };
 }

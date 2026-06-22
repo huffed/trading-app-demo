@@ -1,6 +1,6 @@
 import type { PaperPosition } from "@/types/position";
 import type { Trade } from "@/types/trade";
-import { formatShortDate } from "./date";
+import { formatMonthYearShort, formatShortDate } from "./date";
 import { computeEquityCurve as computeEquityCurveGeneric } from "./equity-curve";
 
 export type { EquityPoint } from "./equity-curve";
@@ -247,10 +247,7 @@ export function computeMonthlyReturns(trades: Trade[]): MonthlyReturn[] {
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([key, pnl]) => {
       const [y, m] = key.split("-");
-      const label = new Date(Number(y), Number(m) - 1).toLocaleDateString("en-US", {
-        month: "short",
-        year: "2-digit",
-      });
+      const label = formatMonthYearShort(new Date(Number(y), Number(m) - 1));
       return { month: label, pnl: Number(pnl.toFixed(2)) };
     });
 }

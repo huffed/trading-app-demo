@@ -2,7 +2,7 @@
 
 import { buildStrategyMatrix, type StrategyMatrixRow } from "@/lib/performance/strategy-matrix";
 import { createClient } from "@/lib/supabase/server";
-import { type ActionResult } from "@/lib/types/action-result";
+import { type ActionResult } from "@/types/action-result";
 
 export async function getStrategyMatrixAction(): Promise<ActionResult<StrategyMatrixRow[]>> {
   const supabase = await createClient();

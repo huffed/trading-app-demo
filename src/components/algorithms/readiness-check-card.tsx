@@ -83,13 +83,13 @@ function ResultBody({ report }: { report: ReadinessReport }) {
 }
 
 function RunButtonLabel({
-  loading,
+  isLoading,
   hasReport,
 }: {
-  loading: boolean;
+  isLoading: boolean;
   hasReport: boolean;
 }) {
-  if (loading) {
+  if (isLoading) {
     return (
       <>
         <Loader2 className="mr-1 h-3 w-3 animate-spin" />
@@ -103,10 +103,10 @@ function RunButtonLabel({
 export function ReadinessCheckCard({ algorithmId }: { algorithmId: string }) {
   const [report, setReport] = useState<ReadinessReport | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   async function handleRun() {
-    setLoading(true);
+    setIsLoading(true);
     setError(null);
     setReport(null);
     try {
@@ -114,7 +114,7 @@ export function ReadinessCheckCard({ algorithmId }: { algorithmId: string }) {
       if (r.success) setReport(r.data);
       else setError(r.error);
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   }
 
@@ -125,11 +125,11 @@ export function ReadinessCheckCard({ algorithmId }: { algorithmId: string }) {
           <ShieldCheck className="h-4 w-4 text-muted-foreground" />
           <p className="text-xs uppercase tracking-wide text-muted-foreground">Readiness check</p>
         </div>
-        <Button size="xs" onClick={handleRun} disabled={loading}>
-          <RunButtonLabel loading={loading} hasReport={report !== null} />
+        <Button size="xs" onClick={handleRun} disabled={isLoading}>
+          <RunButtonLabel isLoading={isLoading} hasReport={report !== null} />
         </Button>
       </div>
-      {!report && !loading && !error && (
+      {!report && !isLoading && !error && (
         <p className="text-xs text-muted-foreground">
           Aggregate verdict before flipping live trading. Walk-forward stability + pair quality +
           side symmetry + FTMO fit. Worst severity wins. Takes 5-30s depending on watchlist size.

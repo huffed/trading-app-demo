@@ -100,9 +100,15 @@ export class CTraderClient {
     payload: Uint8Array,
     options: SendOptions = {}
   ): Promise<ProtoMessageDecoded> {
+    // Capture socket to a local so the Promise executor closes over a
+    // narrowed (non-null) reference. The class-member narrowing from the
+    // `!this.socket || this.closed` guard doesn't survive the Promise
+    // boundary because `this.socket` could mutate (e.g. reconnect logic).
+    // CB.L2 (2026-06-20): replaces `this.socket!.write(...)` non-null assertion.
     if (!this.socket || this.closed) {
       throw new Error("cTrader: send() called on closed/uninitialised connection");
     }
+    const socket = this.socket;
     const ProtoMessage = lookupType("ProtoMessage");
     const clientMsgId = randomUUID();
     const env = ProtoMessage.encode(
@@ -124,7 +130,7 @@ export class CTraderClient {
         reject,
         timer,
       });
-      this.socket!.write(frame, (err) => {
+      socket.write(frame, (err) => {
         if (err) {
           clearTimeout(timer);
           this.pending.delete(clientMsgId);

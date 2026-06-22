@@ -9,6 +9,7 @@
  * null the row still appears but with null metrics — operator can
  * sort dead rows to the bottom or filter them out.
  */
+import type { AlgorithmRules, BacktestResults } from "@/types/algorithm";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 export type MatrixLiveStatus = "LIVE" | "paper" | "paused" | "archived" | "draft";
@@ -43,8 +44,10 @@ interface AlgoRow {
   capital: number;
   status: string;
   live_trading_enabled: boolean | null;
-  rules: Record<string, unknown> | null;
-  backtest_results: Record<string, unknown> | null;
+  rules: AlgorithmRules | null;
+  /** JSONB column — see live-mirror-eligibility.ts AlgoRow comment for the
+   *  same caveat about defensive runtime checks vs nominal type. */
+  backtest_results: BacktestResults | null;
 }
 
 interface WatchlistRow {
@@ -70,27 +73,21 @@ function liveStatusOf(status: string, live: boolean | null): MatrixLiveStatus {
   return "paper";
 }
 
-function riskPercent(rules: Record<string, unknown> | null): number | null {
+function riskPercent(rules: AlgorithmRules | null): number | null {
   if (!rules) return null;
-  const sizing = rules.position_sizing as Record<string, unknown> | undefined;
-  if (!sizing) return null;
-  const type = sizing.type as string;
-  const value = typeof sizing.value === "number" ? sizing.value : null;
-  if (value == null) return null;
-  if (type === "risk_per_trade" || type === "conviction_scaled") return value;
+  const sizing = rules.position_sizing;
+  if (sizing.type === "risk_per_trade" || sizing.type === "conviction_scaled") {
+    return sizing.value;
+  }
   return null;
 }
 
-function timeframeOf(rules: Record<string, unknown> | null): string | null {
-  if (!rules) return null;
-  const tf = rules.timeframe;
-  return typeof tf === "string" ? tf : null;
+function timeframeOf(rules: AlgorithmRules | null): string | null {
+  return rules?.timeframe ?? null;
 }
 
-function assetClassOf(rules: Record<string, unknown> | null): string | null {
-  if (!rules) return null;
-  const ac = rules.asset_class;
-  return typeof ac === "string" ? ac : null;
+function assetClassOf(rules: AlgorithmRules | null): string | null {
+  return rules?.asset_class ?? null;
 }
 
 function computeMetrics(algo: AlgoRow): {

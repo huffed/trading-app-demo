@@ -39,6 +39,7 @@ export async function GET(request: Request) {
   // overloads (same pattern as /api/admin/prune-sentiment-cache).
   const sentimentResult = await supabase.rpc(
     "prune_sentiment_cache",
+    // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
     { retention_days: SENTIMENT_RETENTION_DAYS } as never
   );
   if (sentimentResult.error) {

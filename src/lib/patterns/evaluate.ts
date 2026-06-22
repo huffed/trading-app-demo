@@ -92,35 +92,44 @@ function evaluateClassicPattern(
   higherTfBars: PriceBar[] | undefined,
   effectiveDir: "bullish" | "bearish" | undefined
 ): boolean {
+  // Try the SMC/ICT structural patterns first, then candle patterns,
+  // then bias patterns. Each helper returns null for "not my pattern" so
+  // the dispatch chain can fall through without false-positives.
+  const ict = evaluateIctSmcPattern(cond, bars, idx, effectiveDir);
+  if (ict !== null) return ict;
+  const candle = evaluateCandlePattern(cond, bars, idx, effectiveDir);
+  if (candle !== null) return candle;
+  if (cond.pattern === "daily_bias") {
+    return evaluateDailyBiasPattern(cond, bars, idx, higherTfBars, effectiveDir);
+  }
+  return false;
+}
+
+/** ICT/SMC structural patterns (sweeps, FVG, IFVG, BOS, CHOCH, OTE,
+ *  equal-levels, order-block). Returns null when cond.pattern isn't one
+ *  of them so the orchestrator can fall through. */
+function evaluateIctSmcPattern(
+  cond: PatternCondition,
+  bars: PriceBar[],
+  idx: number,
+  effectiveDir: "bullish" | "bearish" | undefined
+): boolean | null {
+  const matchDir = (dir: "bullish" | "bearish" | undefined): boolean =>
+    !effectiveDir || dir === effectiveDir;
   switch (cond.pattern) {
     case "liquidity_sweep": {
       const r = detectLiquiditySweep(bars, idx, cond.lookback ?? 5);
-      if (!r.detected || !r.details) return false;
-      if (effectiveDir && r.details.direction !== effectiveDir) return false;
-      return true;
+      return Boolean(r.detected && r.details && matchDir(r.details.direction));
     }
     case "liquidity_sweep_reclaim": {
-      const r = detectLiquiditySweepReclaim(bars, idx, {
-        lookback: cond.lookback ?? 5,
-        reclaim_window: 3,
-      });
-      if (!r.detected || !r.details) return false;
-      if (effectiveDir && r.details.direction !== effectiveDir) return false;
-      return true;
+      const r = detectLiquiditySweepReclaim(bars, idx, { lookback: cond.lookback ?? 5, reclaim_window: 3 });
+      return Boolean(r.detected && r.details && matchDir(r.details.direction));
     }
     case "fvg": {
-      // detectFvg is anchored at the MIDDLE bar of the 3-bar pattern and
-      // reads bars[middle+1] — i.e. the bar AFTER the middle confirms the
-      // gap. For a causal entry signal, fire when the CONFIRMING bar
-      // (third bar of the pattern) is the current bar, so pass idx-1 as
-      // the middle. Without this, backtest reads bars[idx+1] (future) and
-      // live (where idx = bars.length-1) hits the detector's guard and
-      // never fires. Sister of the daily_bias call-site fix 2026-06-17.
+      // detectFvg anchors at middle bar; pass idx-1 for causal entry on confirming bar.
       if (idx < 2) return false;
       const r = detectFvg(bars, idx - 1);
-      if (!r.detected || !r.details) return false;
-      if (effectiveDir && r.details.direction !== effectiveDir) return false;
-      return true;
+      return Boolean(r.detected && r.details && matchDir(r.details.direction));
     }
     case "ifvg": {
       // Previously-filled FVG retest — gap acts inverse to its original direction.
@@ -137,104 +146,83 @@ function evaluateClassicPattern(
       }
       return false;
     }
-    case "daily_bias": {
-      if (!higherTfBars || higherTfBars.length === 0) return false;
-      // detectDailyBias reads `bars.slice(-period)` — the LAST 20 daily
-      // bars regardless of which primary bar we're evaluating. That's
-      // correct for live trading (the last bar IS today) but is a
-      // look-ahead bias in backtest: every historical bar gets asked
-      // "is TODAY (June 2026) bullish?" instead of "was THAT day
-      // bullish?". The bug suppressed all entries on instruments whose
-      // present-day bias didn't match the rule's direction (the 7+
-      // zero-trade library algos). Align higherTfBars to the current
-      // primary bar's date first.
-      const dIdx = alignBarIndex(higherTfBars, bars[idx].date);
-      if (dIdx < 0) return false;
-      const alignedDaily = higherTfBars.slice(0, dIdx + 1);
-      const r = detectDailyBias(alignedDaily, cond.ma_period ?? 20);
-      if (!r.detected || !r.details) return false;
-      if (effectiveDir && r.details.bias !== effectiveDir) return false;
-      return true;
-    }
     case "bos": {
       const r = detectBos(bars, idx, cond.lookback ?? 5);
-      if (!r.detected || !r.details) return false;
-      if (effectiveDir && r.details.direction !== effectiveDir) return false;
-      return true;
+      return Boolean(r.detected && r.details && matchDir(r.details.direction));
     }
     case "choch": {
-      // Trend-reversal break — opposite-direction structural break.
-      // cond.lookback controls swing detection (default 5, ICT default).
       const r = detectChoch(bars, idx, cond.lookback ?? 5);
-      if (!r.detected || !r.details) return false;
-      if (effectiveDir && r.details.direction !== effectiveDir) return false;
-      return true;
+      return Boolean(r.detected && r.details && matchDir(r.details.direction));
     }
     case "ote": {
-      // Optimal Trade Entry — fib retracement [62%, 79%] of the most
-      // recent confirmed leg. cond.lookback controls swing detection.
       const r = detectOte(bars, idx, cond.lookback ?? 5);
-      if (!r.detected || !r.details) return false;
-      if (effectiveDir && r.details.direction !== effectiveDir) return false;
-      return true;
+      return Boolean(r.detected && r.details && matchDir(r.details.direction));
     }
     case "equal_levels": {
-      // Equal highs / equal lows — ICT liquidity pools. cond.lookback is
-      // passed as swingLookback (default 5, ICT default); the cluster
-      // tolerance + scanWindow + minCount stay at the detector's defaults
-      // (0.1%, 50 bars, 2 swings). The bullish/bearish direction is required
-      // — it selects swing-low vs swing-high cluster.
+      // Equal highs/lows — ICT liquidity pools. Direction selects swing
+      // pole (high vs low); refuse without it.
       if (!effectiveDir) return false;
       const r = detectEqualLevels(bars, idx, effectiveDir, { swingLookback: cond.lookback });
-      if (!r.detected || !r.details) return false;
-      return true;
+      return Boolean(r.detected && r.details);
     }
     case "order_block": {
-      // OB lookback is broader than swing-style patterns — caller-supplied
-      // `lookback` overrides the default 30-bar zone-search window.
       const r = detectOrderBlock(bars, idx, { lookback: cond.lookback });
-      if (!r.detected || !r.details) return false;
-      if (effectiveDir && r.details.direction !== effectiveDir) return false;
-      return true;
-    }
-    case "engulfing": {
-      // Strict body-engulfing reversal candle. Single-bar lookback —
-      // ignores cond.lookback (the pattern only ever looks at idx-1).
-      const r = detectEngulfing(bars, idx);
-      if (!r.detected || !r.details) return false;
-      if (effectiveDir && r.details.direction !== effectiveDir) return false;
-      return true;
-    }
-    case "pin_bar": {
-      // Long-wick rejection candle. cond.lookback is ignored — pin bar
-      // is a single-bar pattern. Defaults: wick ≥ 2× body, opposite
-      // wick ≤ 0.5× dominant wick.
-      const r = detectPinBar(bars, idx);
-      if (!r.detected || !r.details) return false;
-      if (effectiveDir && r.details.direction !== effectiveDir) return false;
-      return true;
-    }
-    case "momentum": {
-      // N-bar in-direction net move (ATR-scaled). cond.lookback sets
-      // the bar count; defaults to 3 (matches feature analysis).
-      // No condition-level threshold knob — uses pattern defaults.
-      const r = detectMomentum(bars, idx, { lookback: cond.lookback });
-      if (!r.detected || !r.details) return false;
-      if (effectiveDir && r.details.direction !== effectiveDir) return false;
-      return true;
-    }
-    case "mean_reversion": {
-      // Stretched-from-mean + reversal candle. cond.lookback overrides
-      // the trailing-window length (default 20). No condition-level
-      // stdev-threshold knob currently — uses pattern defaults (1.5).
-      const r = detectMeanReversion(bars, idx, { lookback: cond.lookback });
-      if (!r.detected || !r.details) return false;
-      if (effectiveDir && r.details.direction !== effectiveDir) return false;
-      return true;
+      return Boolean(r.detected && r.details && matchDir(r.details.direction));
     }
     default:
-      return false;
+      return null;
   }
+}
+
+/** Candle + momentum/mean-reversion patterns. Returns null when
+ *  cond.pattern isn't one of them. */
+function evaluateCandlePattern(
+  cond: PatternCondition,
+  bars: PriceBar[],
+  idx: number,
+  effectiveDir: "bullish" | "bearish" | undefined
+): boolean | null {
+  const matchDir = (dir: "bullish" | "bearish" | undefined): boolean =>
+    !effectiveDir || dir === effectiveDir;
+  switch (cond.pattern) {
+    case "engulfing": {
+      const r = detectEngulfing(bars, idx);
+      return Boolean(r.detected && r.details && matchDir(r.details.direction));
+    }
+    case "pin_bar": {
+      const r = detectPinBar(bars, idx);
+      return Boolean(r.detected && r.details && matchDir(r.details.direction));
+    }
+    case "momentum": {
+      const r = detectMomentum(bars, idx, { lookback: cond.lookback });
+      return Boolean(r.detected && r.details && matchDir(r.details.direction));
+    }
+    case "mean_reversion": {
+      const r = detectMeanReversion(bars, idx, { lookback: cond.lookback });
+      return Boolean(r.detected && r.details && matchDir(r.details.direction));
+    }
+    default:
+      return null;
+  }
+}
+
+/** Daily-bias evaluator — aligns higherTfBars to the current primary
+ *  bar's date so backtest doesn't get the look-ahead bias from the
+ *  detector's default "last 20 bars" semantics. */
+function evaluateDailyBiasPattern(
+  cond: PatternCondition,
+  bars: PriceBar[],
+  idx: number,
+  higherTfBars: PriceBar[] | undefined,
+  effectiveDir: "bullish" | "bearish" | undefined
+): boolean {
+  if (!higherTfBars || higherTfBars.length === 0) return false;
+  const dIdx = alignBarIndex(higherTfBars, bars[idx].date);
+  if (dIdx < 0) return false;
+  const alignedDaily = higherTfBars.slice(0, dIdx + 1);
+  const r = detectDailyBias(alignedDaily, cond.ma_period ?? 20);
+  if (!r.detected || !r.details) return false;
+  return !effectiveDir || r.details.bias === effectiveDir;
 }
 
 /** Gold-only pattern dispatch — split out so the main switch stays

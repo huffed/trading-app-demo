@@ -32,7 +32,7 @@ function deriveTimeframeForAlgo(
 ): ChartTimeframe {
   if (!algorithmId || !algos) return "1h";
   const a = algos.find((x) => x.id === algorithmId);
-  const tf = (a?.rules as unknown as { timeframe?: string } | undefined)?.timeframe;
+  const tf = a?.rules?.timeframe;
   if (tf === "15min" || tf === "30min" || tf === "1h" || tf === "4h" || tf === "1day") return tf;
   return "1h";
 }
@@ -43,8 +43,7 @@ function isLlmTrader(
 ): boolean {
   if (!algorithmId || !algos) return false;
   const a = algos.find((x) => x.id === algorithmId);
-  return (a?.rules as unknown as { llm_trader?: { enabled?: boolean } } | undefined)
-    ?.llm_trader?.enabled === true;
+  return a?.rules?.llm_trader?.enabled === true;
 }
 
 export default function BacktestPage() {

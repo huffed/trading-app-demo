@@ -2,12 +2,13 @@
 
 /**
  * Promotion-to-live eligibility card. Reads gate verdicts written by
- * scripts/step7-backfill-gates.ts (cumulative results from STEP 2
- * friction / STEP 3 walk-forward / STEP 6 OOS holdback per roadmap
- * 2026-06).
+ * scripts/canonical/validate-algo.ts (cumulative results from STEP 2
+ * friction / STEP 3 walk-forward / STEP 6 OOS holdback per active
+ * roadmap Phase B).
  *
- * READ-ONLY in this PR. The actual Promote button + server action ship
- * in STEP 7.4 once paper-mirror milestone tracking is wired.
+ * READ-ONLY card. The actual Promote button + server action will ship
+ * once Stage 4.5 (full-fleet re-run) produces eligible algos and
+ * Stage 4.7 surfaces the paper-mirror milestone counter.
  */
 import { useMemo } from "react";
 import { CheckCircle2, XCircle, Clock, AlertCircle, ShieldCheck } from "lucide-react";
@@ -31,12 +32,17 @@ interface PromotionGateResults {
     verdict: "PASS" | "FAIL" | "EXCLUDED";
     reason?: string;
   };
+  // B.3 (Stage 4.1, 2026-06-20): collapsed PASS|WEAK|FAIL and
+  // TIER_1_PASS|TIER_2_PASS|FAIL → PASS|FAIL. Display keeps backwards
+  // compatibility (renders legacy verdict strings if any persisted
+  // backtest_results rows still hold them) while new shape is the
+  // simpler PASS|FAIL|INSUFFICIENT_DATA pair.
   step3?: {
     walk_forward_green_pct: number;
     walk_forward_n_windows: number;
     per_year_green_pct: number;
     per_year_n_years: number;
-    verdict: "PASS" | "WEAK" | "FAIL" | "INSUFFICIENT_DATA";
+    verdict: "PASS" | "FAIL" | "INSUFFICIENT_DATA" | "WEAK";
     reason: string;
   };
   step6?: {
@@ -45,7 +51,7 @@ interface PromotionGateResults {
     held_out_n: number;
     held_out_mean_r: number;
     r_delta_pct: number;
-    verdict: "TIER_1_PASS" | "TIER_2_PASS" | "FAIL" | "INSUFFICIENT_DATA";
+    verdict: "PASS" | "FAIL" | "INSUFFICIENT_DATA" | "TIER_1_PASS" | "TIER_2_PASS";
     reason: string;
   };
   promotion_eligible?: boolean;
@@ -57,6 +63,11 @@ interface Props {
 }
 
 function VerdictIcon({ verdict }: { verdict: string }) {
+  // B.3 (Stage 4.1, 2026-06-20): primary path is PASS|FAIL|
+  // INSUFFICIENT_DATA. Legacy TIER_1_PASS/TIER_2_PASS/WEAK retained
+  // so already-persisted backtest_results rows from pre-B.3 runs still
+  // render correctly (legacy WEAK + TIER_2_PASS render amber for that
+  // historical context). New runs only emit PASS|FAIL.
   if (verdict === "PASS" || verdict === "TIER_1_PASS") return <CheckCircle2 className="h-4 w-4 text-[color:var(--profit)]" />;
   if (verdict === "TIER_2_PASS" || verdict === "WEAK") return <AlertCircle className="h-4 w-4 text-amber-500" />;
   if (verdict === "INSUFFICIENT_DATA" || verdict === "EXCLUDED") return <Clock className="h-4 w-4 text-muted-foreground" />;
@@ -65,8 +76,11 @@ function VerdictIcon({ verdict }: { verdict: string }) {
 
 function verdictLabel(verdict?: string): string {
   if (!verdict) return "Not computed";
-  if (verdict === "TIER_1_PASS") return "Pass (high confidence)";
-  if (verdict === "TIER_2_PASS") return "Pass (small-N caveat)";
+  // Legacy labels — B.3 collapses these to PASS|FAIL for new runs but
+  // the labels stay for any backtest_results JSONB still containing them.
+  if (verdict === "TIER_1_PASS") return "Pass (legacy tier — re-run for current shape)";
+  if (verdict === "TIER_2_PASS") return "Pass (legacy small-N caveat — re-run)";
+  if (verdict === "WEAK") return "Fail-near (legacy WEAK — re-run for current shape)";
   if (verdict === "INSUFFICIENT_DATA") return "Insufficient data";
   return verdict.charAt(0) + verdict.slice(1).toLowerCase();
 }
@@ -91,7 +105,7 @@ export function PromotionEligibility({ algo }: Props) {
         </CardHeader>
         <CardContent>
           <div className="text-sm text-muted-foreground">
-            No validation results stored. Run <code className="font-mono text-xs">scripts/step7-backfill-gates.ts</code> to populate.
+            No validation results stored. Run <code className="font-mono text-xs">scripts/canonical/validate-algo.ts</code> to populate.
           </div>
         </CardContent>
       </Card>

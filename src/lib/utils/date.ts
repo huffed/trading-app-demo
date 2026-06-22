@@ -15,6 +15,20 @@ const LONG_DATE_FMT = new Intl.DateTimeFormat("en-US", {
   year: "numeric",
 });
 
+const LONG_DATETIME_FMT = new Intl.DateTimeFormat("en-US", {
+  weekday: "long",
+  year: "numeric",
+  month: "long",
+  day: "numeric",
+  hour: "numeric",
+  minute: "2-digit",
+});
+
+const MONTH_YEAR_SHORT_FMT = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  year: "2-digit",
+});
+
 /** Default locale's short date (e.g. "4/28/2026"). Used in tables and lists. */
 export function formatDate(input: string | Date | null | undefined): string {
   if (!input) return "—";
@@ -31,6 +45,18 @@ export function formatShortDate(input: string | Date | null | undefined): string
 export function formatLongDate(input: string | Date | null | undefined): string {
   if (!input) return "—";
   return LONG_DATE_FMT.format(new Date(input));
+}
+
+/** "Tuesday, April 28, 2026 at 3:30 PM" — journal entry headers. */
+export function formatLongDateTime(input: string | Date | null | undefined): string {
+  if (!input) return "—";
+  return LONG_DATETIME_FMT.format(new Date(input));
+}
+
+/** "Apr 26" — chart axis labels grouped by year-month bucket. */
+export function formatMonthYearShort(input: string | Date | null | undefined): string {
+  if (!input) return "—";
+  return MONTH_YEAR_SHORT_FMT.format(new Date(input));
 }
 
 export interface TodayAnchor {

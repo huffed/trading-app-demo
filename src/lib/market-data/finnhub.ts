@@ -1,3 +1,5 @@
+import { logger } from "@/lib/logger";
+
 const BASE_URL = "https://finnhub.io/api/v1";
 
 function getApiKey(): string {
@@ -44,7 +46,10 @@ export async function getCompanyProfile(symbol: string): Promise<CompanyInfo | n
       country: data.country || "",
       exchange: data.exchange || "",
     };
-  } catch {
+  } catch (err) {
+    // CB.M7.b (2026-06-20): warn-on-swallow so a Finnhub outage shows up
+    // in logs rather than silently producing empty CSV names.
+    logger.warn("finnhub", `getCompanyProfile(${symbol}) failed`, err);
     return null;
   }
 }

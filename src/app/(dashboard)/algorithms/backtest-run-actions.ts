@@ -3,7 +3,7 @@
 import type { runPortfolioBacktest as runPortfolioBacktestEngine } from "@/lib/market-data/portfolio-backtest";
 import { rulesFromRow } from "@/lib/supabase/row-mappers";
 import { createClient } from "@/lib/supabase/server";
-import { type ActionResult } from "@/lib/types/action-result";
+import { type ActionResult } from "@/types/action-result";
 import type { AlgorithmRules } from "@/types/algorithm";
 
 
@@ -92,6 +92,11 @@ type PortfolioPrices = Awaited<ReturnType<typeof fetchPricesForPortfolio>>;
  * caller compare recent performance ("1m") to older performance ("1y") so
  * regime drift is visible. Defaults to "all" for backwards compatibility.
  */
+// B.1.24 (Stage 3, 2026-06-19 EVE): server-action wrapper around the engine.
+// Gates intentionally OFF (only `rules + prices + capital + events` passed).
+// The Algorithm-detail UI shows naked strategy performance per-period; gated
+// verdicts are validate-algo's exclusive responsibility. See caller-policy
+// in `portfolio-backtest.ts` + CLAUDE.md Phase B.1.9.
 export async function runPortfolioBacktest(
   algorithmId: string,
   outputSize: "compact" | "full",
@@ -151,7 +156,7 @@ export async function runPortfolioBacktest(
       sliced.set(ticker, slicePricesToWindow(prices, window));
     }
     const events = await fetchPortfolioCalendar(rules, sliced);
-    return { success: true, data: runEngine(rules, sliced, algo.capital, events) };
+    return { success: true, data: runEngine(rules, sliced, algo.capital, { events }) };
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Portfolio backtest failed";
     return { success: false, error: msg };

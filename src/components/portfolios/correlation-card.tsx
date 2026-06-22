@@ -94,13 +94,13 @@ function CellsTable({ data }: { data: PortfolioCorrelationResult }) {
 export function CorrelationCard({ portfolioId, portfolioName }: CorrelationCardProps) {
   const [data, setData] = useState<PortfolioCorrelationResult | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     getPortfolioCorrelation(portfolioId).then((r) => {
       if (r.success) setData(r.data);
       else setError(r.error);
-      setLoading(false);
+      setIsLoading(false);
     });
   }, [portfolioId]);
 
@@ -113,15 +113,15 @@ export function CorrelationCard({ portfolioId, portfolioName }: CorrelationCardP
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
-        {loading && <Skeleton className="h-20 w-full" />}
+        {isLoading && <Skeleton className="h-20 w-full" />}
         {error && <p className="text-xs text-[var(--loss)]">{error}</p>}
-        {!loading && !error && data && data.algorithms.length < 2 && (
+        {!isLoading && !error && data && data.algorithms.length < 2 && (
           <p className="text-xs text-muted-foreground">
             Correlation analysis requires 2 or more algorithms in this portfolio. Currently:{" "}
             {data.algorithms.length}.
           </p>
         )}
-        {!loading && !error && data && data.algorithms.length >= 2 && (
+        {!isLoading && !error && data && data.algorithms.length >= 2 && (
           <>
             <HighCorrelationWarnings data={data} />
             <CellsTable data={data} />

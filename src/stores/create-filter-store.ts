@@ -17,8 +17,13 @@ export interface FilterStoreState<T extends object> {
 export function createFilterStore<T extends object>(): UseBoundStore<
   StoreApi<FilterStoreState<T>>
 > {
+  // Generic-parameter erasure: at the type-system level `T extends object`
+  // means "some object shape", but at runtime an empty literal `{}` is a
+  // valid starting state for any T. The factory's caller fully specifies T,
+  // so the only safe assertion site is here at the factory body.
+  const emptyFilters: T = Object.create(null) as T;
   return create<FilterStoreState<T>>((set) => ({
-    filters: {} as T,
+    filters: emptyFilters,
     page: 1,
     setFilter: (key, value) =>
       set((state) => {
@@ -30,7 +35,7 @@ export function createFilterStore<T extends object>(): UseBoundStore<
         }
         return { filters, page: 1 };
       }),
-    resetFilters: () => set({ filters: {} as T, page: 1 }),
+    resetFilters: () => set({ filters: Object.create(null) as T, page: 1 }),
     setPage: (page) => set({ page }),
   }));
 }

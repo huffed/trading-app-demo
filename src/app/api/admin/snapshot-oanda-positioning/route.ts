@@ -79,6 +79,7 @@ export async function GET(request: Request) {
     const { error: upsertError } = await supabase
       .from("oanda_positioning_cache")
       .upsert(
+        // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
         {
           instrument: snap.instrument,
           oanda_time: snap.oanda_time,

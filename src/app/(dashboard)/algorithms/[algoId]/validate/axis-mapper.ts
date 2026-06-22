@@ -7,45 +7,60 @@
 import type { AlgorithmRules } from "@/types/algorithm";
 import { AXES, type AxisKey } from "./types";
 
+/** CB.C2 fix (2026-06-19): writable view of just the rule shapes this
+ *  module mutates, replacing the previous `as any` cast. We can't use
+ *  `Partial<AlgorithmRules>` because the discriminated unions
+ *  (`stop_loss`, `take_profit`) lose their narrowing power once mutated
+ *  in place. A bespoke structural type captures exactly the surface
+ *  this mapper touches, no more. */
+type WritableRules = {
+  take_profit?: { type: string; value?: number };
+  stop_loss?: { type: string; value?: number; lookback?: number };
+  position_sizing?: { type: string; value?: number };
+  stagnant_exit?: { enabled?: boolean; max_bars?: number; min_excursion_r?: number };
+  regime_filter?: { enabled?: boolean };
+  adx_filter?: { enabled?: boolean };
+  dxy_filter?: { enabled?: boolean };
+};
+
 /** Apply a single axis value to a cloned rules object. Falls through
  *  silently when the path can't be set (e.g. SL buffer on a percentage-SL
  *  algo). The sweep caller is responsible for upstream validation that
  *  the chosen axis is compatible with the algo's SL/TP shape. */
 export function applyAxis(rules: AlgorithmRules, key: AxisKey, value: number | boolean): void {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const r = rules as any;
+  const r = rules as unknown as WritableRules;
   switch (key) {
     case "rr":
-      if (r.take_profit && r.take_profit.type === "rr_multiple") r.take_profit.value = value;
+      if (r.take_profit && r.take_profit.type === "rr_multiple") r.take_profit.value = value as number;
       return;
     case "lookback":
-      if (r.stop_loss && r.stop_loss.type === "swing_anchor") r.stop_loss.lookback = value;
+      if (r.stop_loss && r.stop_loss.type === "swing_anchor") r.stop_loss.lookback = value as number;
       return;
     case "sl_pct":
-      if (r.stop_loss && r.stop_loss.type === "percentage") r.stop_loss.value = value;
+      if (r.stop_loss && r.stop_loss.type === "percentage") r.stop_loss.value = value as number;
       return;
     case "risk_per_trade":
       if (r.position_sizing && r.position_sizing.type === "risk_per_trade") {
-        r.position_sizing.value = value;
+        r.position_sizing.value = value as number;
       }
       return;
     case "sl_buffer":
-      if (r.stop_loss && r.stop_loss.type === "swing_anchor") r.stop_loss.value = value;
+      if (r.stop_loss && r.stop_loss.type === "swing_anchor") r.stop_loss.value = value as number;
       return;
     case "stagnant_max_bars":
-      r.stagnant_exit = { ...(r.stagnant_exit ?? {}), enabled: true, max_bars: value };
+      r.stagnant_exit = { ...(r.stagnant_exit ?? {}), enabled: true, max_bars: value as number };
       return;
     case "stagnant_min_excursion_r":
-      r.stagnant_exit = { ...(r.stagnant_exit ?? {}), enabled: true, min_excursion_r: value };
+      r.stagnant_exit = { ...(r.stagnant_exit ?? {}), enabled: true, min_excursion_r: value as number };
       return;
     case "regime_filter":
-      r.regime_filter = { ...(r.regime_filter ?? {}), enabled: value };
+      r.regime_filter = { ...(r.regime_filter ?? {}), enabled: value as boolean };
       return;
     case "adx_filter":
-      r.adx_filter = { ...(r.adx_filter ?? {}), enabled: value };
+      r.adx_filter = { ...(r.adx_filter ?? {}), enabled: value as boolean };
       return;
     case "dxy_filter":
-      r.dxy_filter = { ...(r.dxy_filter ?? {}), enabled: value };
+      r.dxy_filter = { ...(r.dxy_filter ?? {}), enabled: value as boolean };
       return;
   }
 }
@@ -70,26 +85,25 @@ export function snapshotFixedAxes(
   xAxis: AxisKey,
   yAxis: AxisKey
 ): Partial<Record<AxisKey, number | boolean>> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const r = rules as any;
+  const r = rules as unknown as WritableRules;
   const out: Partial<Record<AxisKey, number | boolean>> = {};
   for (const key of Object.keys(AXES) as AxisKey[]) {
     if (key === xAxis || key === yAxis) continue;
     switch (key) {
       case "rr":
-        if (r.take_profit?.type === "rr_multiple") out[key] = r.take_profit.value;
+        if (r.take_profit?.type === "rr_multiple" && r.take_profit.value != null) out[key] = r.take_profit.value;
         break;
       case "lookback":
         if (r.stop_loss?.type === "swing_anchor") out[key] = r.stop_loss.lookback ?? 4;
         break;
       case "sl_pct":
-        if (r.stop_loss?.type === "percentage") out[key] = r.stop_loss.value;
+        if (r.stop_loss?.type === "percentage" && r.stop_loss.value != null) out[key] = r.stop_loss.value;
         break;
       case "risk_per_trade":
-        if (r.position_sizing?.type === "risk_per_trade") out[key] = r.position_sizing.value;
+        if (r.position_sizing?.type === "risk_per_trade" && r.position_sizing.value != null) out[key] = r.position_sizing.value;
         break;
       case "sl_buffer":
-        if (r.stop_loss?.type === "swing_anchor") out[key] = r.stop_loss.value;
+        if (r.stop_loss?.type === "swing_anchor" && r.stop_loss.value != null) out[key] = r.stop_loss.value;
         break;
       case "stagnant_max_bars":
         if (typeof r.stagnant_exit?.max_bars === "number") out[key] = r.stagnant_exit.max_bars;

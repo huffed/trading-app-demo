@@ -1,7 +1,8 @@
 "use server";
 
 import { getAuthedUser } from "@/lib/supabase/get-authed-user";
-import { type ActionResult } from "@/lib/types/action-result";
+import { portfolioFromRow, portfoliosFromRows } from "@/lib/supabase/row-mappers";
+import { type ActionResult } from "@/types/action-result";
 import { propFirmRulesSchema } from "@/lib/validators/algorithm";
 import type { CreatePortfolioInput, Portfolio } from "@/types/portfolio";
 
@@ -30,7 +31,7 @@ export async function createPortfolio(
       .select()
       .single();
     if (error) return { success: false, error: error.message };
-    return { success: true, data: data as unknown as Portfolio };
+    return { success: true, data: portfolioFromRow(data) };
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Failed to create portfolio";
     return { success: false, error: msg };
@@ -46,7 +47,7 @@ export async function listPortfolios(): Promise<ActionResult<Portfolio[]>> {
       .eq("user_id", user.id)
       .order("created_at", { ascending: false });
     if (error) return { success: false, error: error.message };
-    return { success: true, data: (data ?? []) as unknown as Portfolio[] };
+    return { success: true, data: portfoliosFromRows(data ?? []) };
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Failed to list portfolios";
     return { success: false, error: msg };

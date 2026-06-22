@@ -40,22 +40,22 @@ const TIMEZONES = [
 const CURRENCIES = ["USD", "GBP", "EUR", "CAD", "AUD", "JPY"];
 
 function SaveButton({
-  saving,
-  saved,
+  isSaving,
+  isSaved,
   onSave,
 }: {
-  saving: boolean;
-  saved: boolean;
+  isSaving: boolean;
+  isSaved: boolean;
   onSave: () => void;
 }) {
-  if (saving) {
+  if (isSaving) {
     return (
       <Button size="sm" disabled>
         <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> Saving...
       </Button>
     );
   }
-  if (saved) {
+  if (isSaved) {
     return (
       <Button size="sm" disabled>
         <Check className="mr-1.5 h-3.5 w-3.5" /> Saved
@@ -116,8 +116,8 @@ function GeneralForm({
   setTimezone,
   currency,
   setCurrency,
-  saving,
-  saved,
+  isSaving,
+  isSaved,
   onSave,
 }: {
   email: string;
@@ -127,8 +127,8 @@ function GeneralForm({
   setTimezone: (v: string) => void;
   currency: string;
   setCurrency: (v: string) => void;
-  saving: boolean;
-  saved: boolean;
+  isSaving: boolean;
+  isSaved: boolean;
   onSave: () => void;
 }) {
   return (
@@ -162,7 +162,7 @@ function GeneralForm({
         />
       </div>
       <div className="flex justify-end">
-        <SaveButton saving={saving} saved={saved} onSave={onSave} />
+        <SaveButton isSaving={isSaving} isSaved={isSaved} onSave={onSave} />
       </div>
     </CardContent>
   );
@@ -173,9 +173,9 @@ function GeneralSettings() {
   const [timezone, setTimezone] = useState("UTC");
   const [currency, setCurrency] = useState("USD");
   const [email, setEmail] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
 
   useEffect(() => {
     getProfile().then((r) => {
@@ -185,24 +185,24 @@ function GeneralSettings() {
         setCurrency(r.data.default_currency);
         setEmail(r.data.email);
       }
-      setLoading(false);
+      setIsLoading(false);
     });
   }, []);
 
   async function handleSave() {
-    setSaving(true);
-    setSaved(false);
+    setIsSaving(true);
+    setIsSaved(false);
     const result = await updateProfile({
       full_name: name || undefined,
       timezone,
       default_currency: currency,
     });
-    setSaving(false);
+    setIsSaving(false);
     if (result.success) {
       const rateResult = await getExchangeRate(currency);
       setActiveCurrency(currency, rateResult.success ? rateResult.data : 1);
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
+      setIsSaved(true);
+      setTimeout(() => setIsSaved(false), 2000);
     }
   }
 
@@ -214,7 +214,7 @@ function GeneralSettings() {
     </CardHeader>
   );
 
-  if (loading) {
+  if (isLoading) {
     return (
       <Card>
         {header}
@@ -238,8 +238,8 @@ function GeneralSettings() {
         setTimezone={setTimezone}
         currency={currency}
         setCurrency={setCurrency}
-        saving={saving}
-        saved={saved}
+        isSaving={isSaving}
+        isSaved={isSaved}
         onSave={handleSave}
       />
     </Card>

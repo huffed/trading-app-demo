@@ -1,420 +1,52 @@
+// CB.H1 pass 14 (2026-06-22): `runSimulation` + `buildSimConfig` +
+// `getOpenPosition` extracted to `./backtest-simulation.ts`. This file
+// stays focused on the public `runBacktest` orchestrator.
+// CB.C6 (2026-06-20): condition-evaluation utilities now live in their own
+// neutral module. backtest-engine imports them back for use inside the
+// simulation loop; the live scan path imports from the new module directly
+// (no more live → backtest-engine dependency).
 import {
-  convictionMultiplier,
-  convictionMultiplierByTfAgreement,
-} from "@/lib/algorithm/conviction-sizing";
-import { checkAtrLiquidity } from "@/lib/algorithm/intraday-atr-gate";
-import { checkStagnantExit } from "@/lib/algorithm/stagnant-exit";
-import {
-  DEFAULT_MAX_POSITIONS,
-  DEFAULT_POSITION_SIZE_PCT,
-  DEFAULT_STOP_LOSS_PCT,
-  DEFAULT_TAKE_PROFIT_PCT,
-} from "@/lib/constants/defaults";
-import { priceDeltaForRule } from "@/lib/constants/markets";
+  checkConditions,
+  collectOtherTimeframes,
+  convictionMultiplierForRules,
+  countConditionsMet,
+  countTimeframesAgreeing,
+  evaluateConditionsDetailed,
+  normalize,
+  type Cache,
+  type ConditionContext,
+  type EvaluableCondition,
+} from "@/lib/conditions/evaluate";
 import {
   isPatternCondition,
   isTechnicalCondition,
   type AlgorithmRules,
-  type EntryCondition,
-  type ExitCondition,
-  type TechnicalCondition,
 } from "@/types/algorithm";
-import { isWeakTrendByAdx } from "./adx-filter";
-import { resolveSide } from "./auto-side";
 import { calculateMetrics } from "./backtest-metrics";
-import {
-  checkConditions as checkMixedConditions,
-  countConditionsMet as countMixedConditionsMet,
-  countTimeframesAgreeing as countMixedTfAgreement,
-  evaluateConditionsDetailed as evaluateMixedConditionsDetailed,
-  type BarsBundle,
-  type ConditionContext,
-  type EvaluableCondition,
-} from "./condition-evaluator";
+import { runSimulation } from "./backtest-simulation";
 import { buildVetoCheck, type EconomicEvent } from "./economic-calendar";
-import { getValues, type Cache } from "./indicator-registry";
-import {
-  applySlippage,
-  buildPropFirmReport,
-  closeSimPosition,
-  enforcePropFirm,
-  finalizeDay,
-  forceCloseAllPositions,
-  initialSimState,
-  pickBacktestExitPrice,
-  sizeForBacktest,
-  type SimConfig,
-  type SimState,
-} from "./prop-firm-backtest";
-import { isRangingByAtr } from "./regime-filter";
-import { alignBarIndex, resampleTo, resampleToDaily } from "./resample";
-import { evaluateTechnical } from "./technical-evaluator";
-import type { BacktestMetrics, BacktestTrade, OpenPosition, PriceBar } from "./types";
-
-
-export type { Cache } from "./indicator-registry";
+import { buildPropFirmReport } from "./prop-firm-backtest";
+import type { BacktestMetrics, PriceBar } from "./types";
 
 export interface BacktestContext {
   symbol?: string;
   events?: EconomicEvent[];
 }
-/** Re-export for legacy import sites. */
-export type { ConditionContext, EvaluableCondition };
 
-export function checkConditions(
-  conditions: EvaluableCondition[],
-  ctx: ConditionContext,
-  logic?: AlgorithmRules["entry_logic"]
-): boolean {
-  return checkMixedConditions(
-    conditions,
-    ctx,
-    (c, c2) => evaluateTechnical(c, getValues(c.indicator, c2.cache, c2.closes), c2.closes, c2.cache, c2.i),
-    logic
-  );
-}
-
-/**
- * Same evaluation as `checkConditions` but returns the alignment count
- * (`met` / `total`) instead of just the boolean decision. Used by
- * conviction-scaled position sizing — more conditions firing above the
- * n_of_m threshold = larger position. Single source of truth shared
- * with the live engine via the underlying evaluator.
- */
-export function countConditionsMet(
-  conditions: EvaluableCondition[],
-  ctx: ConditionContext
-): { met: number; total: number } {
-  return countMixedConditionsMet(conditions, ctx, (c, c2) =>
-    evaluateTechnical(c, getValues(c.indicator, c2.cache, c2.closes), c2.closes, c2.cache, c2.i)
-  );
-}
-
-/**
- * Same as countConditionsMet but exposes the per-condition fired
- * array so the scan engine can log a structured breakdown into the
- * signal_detected event.
- */
-export function evaluateConditionsDetailed(
-  conditions: EvaluableCondition[],
-  ctx: ConditionContext
-): { met: number; total: number; fired: boolean[] } {
-  return evaluateMixedConditionsDetailed(conditions, ctx, (c, c2) =>
-    evaluateTechnical(c, getValues(c.indicator, c2.cache, c2.closes), c2.closes, c2.cache, c2.i)
-  );
-}
-
-/**
- * Count distinct timeframes with ≥1 firing condition. Wraps the
- * underlying counter and injects the technical evaluator. Used for
- * TF-agreement conviction sizing on multi-TF templates.
- */
-export function countTimeframesAgreeing(
-  conditions: EvaluableCondition[],
-  ctx: ConditionContext
-): { firedTfs: number; totalTfs: number } {
-  return countMixedTfAgreement(conditions, ctx, (c, c2) =>
-    evaluateTechnical(c, getValues(c.indicator, c2.cache, c2.closes), c2.closes, c2.cache, c2.i)
-  );
-}
-
-/**
- * Dispatch the right conviction multiplier based on the rule's
- * `conviction_metric`. Returns 1 (flat) for non-conviction sizing.
- *
- * Centralised so the three sizing call sites (single-ticker backtest,
- * portfolio backtest, live scan) can never disagree on which signal
- * drives conviction — a desync there silently changes live behaviour.
- */
-export function convictionMultiplierForRules(
-  rules: AlgorithmRules,
-  conditions: EvaluableCondition[],
-  ctx: ConditionContext
-): number {
-  const sizing = rules.position_sizing;
-  if (sizing.type !== "conviction_scaled") return 1;
-  if (sizing.conviction_metric === "tf_agreement") {
-    const { firedTfs, totalTfs } = countTimeframesAgreeing(conditions, ctx);
-    return convictionMultiplierByTfAgreement(firedTfs, totalTfs, sizing.max_multiplier);
-  }
-  const { met, total } = countConditionsMet(conditions, ctx);
-  return convictionMultiplier(rules.entry_logic, met, total, sizing.max_multiplier);
-}
-export function normalize(
-  conditions: (EntryCondition | ExitCondition)[]
-): (EntryCondition | ExitCondition)[] {
-  return conditions.map((c) => {
-    if (!c.type && "indicator" in c) {
-      return Object.assign({}, c, { type: "technical" as const }) as TechnicalCondition;
-    }
-    return c;
-  });
-}
-
-/** Pull every distinct condition timeframe that ISN'T the primary one,
- *  lowercased + deduped. Used to size the multi-timeframe context map.
- *  Accepts any condition shape with an optional timeframe field — works
- *  on EvaluableCondition arrays AND on the broader EntryCondition union
- *  (sentiment included), since sentiment also has a timeframe field. */
-export function collectOtherTimeframes(
-  entry: { timeframe?: string }[],
-  exit: { timeframe?: string }[],
-  primaryTf: string
-): string[] {
-  const set = new Set<string>();
-  for (const c of [...entry, ...exit]) {
-    if (!c.timeframe) continue;
-    const tf = c.timeframe.toLowerCase();
-    if (tf !== primaryTf) set.add(tf);
-  }
-  return Array.from(set);
-}
-
-function buildSimConfig(rules: AlgorithmRules): SimConfig {
-  const pf = rules.prop_firm;
-  return {
-    slippageBps: pf?.slippage_bps ?? 0,
-    spreadBps: pf?.spread_bps ?? 0,
-    commissionPct: pf?.commission_pct ?? 0,
-    commissionPerLot: pf?.commission_per_lot ?? 0,
-    maxPos: rules.max_positions ?? DEFAULT_MAX_POSITIONS,
-    posSize: (rules.position_sizing?.value ?? DEFAULT_POSITION_SIZE_PCT) / 100,
-    stopLoss: rules.stop_loss ?? { type: "percentage", value: DEFAULT_STOP_LOSS_PCT },
-    takeProfit: rules.take_profit ?? { type: "percentage", value: DEFAULT_TAKE_PROFIT_PCT },
-  };
-}
-
-
-function runSimulation(
-  prices: PriceBar[],
-  capital: number,
-  rules: AlgorithmRules,
-  entry: EvaluableCondition[],
-  exit: EvaluableCondition[],
-  vetoCheck: ((barDate: string) => boolean) | null,
-  symbol?: string
-): { trades: BacktestTrade[]; openPos: OpenPosition | null; state: SimState } {
-  const pf = rules.prop_firm;
-  const cfg = buildSimConfig(rules);
-  const closes = prices.map((p) => p.close);
-  const cache: Cache = new Map();
-  // Resample intraday bars to D1 once for any pattern condition that needs
-  // higher-timeframe context (daily_bias). Cheap aggregation; pure function.
-  const higherTfBars = resampleToDaily(prices);
-  // Multi-timeframe routing: scan the rule for any condition declaring a
-  // non-primary timeframe. Resample once per unique target so all bars are
-  // ready before the simulation loop. Aligned to the primary's "now" each
-  // bar via alignBarIndex.
-  const primaryTf = rules.timeframe.toLowerCase();
-  const otherTfs = collectOtherTimeframes(entry, exit, primaryTf);
-  const tfBars = new Map<string, PriceBar[]>();
-  const tfCaches = new Map<string, Cache>();
-  for (const tf of otherTfs) {
-    tfBars.set(tf, resampleTo(prices, tf));
-    tfCaches.set(tf, new Map());
-  }
-  const trades: BacktestTrade[] = [];
-  const fixedSide: "long" | "short" | "auto" = rules.side ?? "long";
-  const positions: {
-    entryPrice: number;
-    entryDate: string;
-    /** Bar index at which the position was opened. Tracked so the
-     *  stagnant-exit gate can compute MFE / bars-open without scanning
-     *  the whole price series for each position on each bar. */
-    entryBarIndex: number;
-    notionalValue: number;
-    marginRequired: number;
-    side: "long" | "short";
-  }[] = [];
-  const s = initialSimState(capital);
-  let currentDayKey = "";
-  let dailyHalted = false;
-
-  for (let i = 1; i < prices.length; i++) {
-    const bar = prices[i];
-    const day = bar.date;
-    // Daily bars have date "YYYY-MM-DD"; intraday bars carry full timestamps.
-    const dayKey = day.split(/[ T]/)[0];
-    if (dayKey !== currentDayKey) {
-      if (currentDayKey !== "") finalizeDay(s, currentDayKey);
-      currentDayKey = dayKey;
-      dailyHalted = false;
-    }
-    // Resolve the active side for THIS bar. Fixed sides pass through; auto
-    // mode reads the resampled D1 bias and trades whichever direction it
-    // points to. Returns null when bias is neutral — entry skipped.
-    const resolved = resolveSide(fixedSide, higherTfBars, bar.date);
-    // Build per-timeframe bundles aligned to the primary bar's date.
-    let byTimeframe: Map<string, BarsBundle> | undefined;
-    if (otherTfs.length > 0) {
-      byTimeframe = new Map();
-      for (const tf of otherTfs) {
-        const tfArr = tfBars.get(tf)!;
-        const idx = alignBarIndex(tfArr, prices[i].date);
-        if (idx < 0) continue;
-        byTimeframe.set(tf, {
-          bars: tfArr,
-          closes: tfArr.map((b) => b.close),
-          cache: tfCaches.get(tf)!,
-          i: idx,
-        });
-      }
-    }
-    const ctx: ConditionContext = {
-      cache,
-      closes,
-      bars: prices,
-      i,
-      higherTfBars,
-      directionOverride: resolved?.directionOverride,
-      byTimeframe,
-      primaryTimeframe: primaryTf,
-    };
-    // Exit logic falls back to entry_logic when undefined so existing
-    // algos keep their backtest results stable; new algos get "any" via
-    // clampRules. See AlgorithmRules.exit_logic doc.
-    const signalExitFired =
-      (exit.length > 0 && checkConditions(exit, ctx, rules.exit_logic ?? rules.entry_logic)) ||
-      s.drawdownBreached;
-    for (let p = positions.length - 1; p >= 0; p--) {
-      const pos = positions[p];
-      // Per-position stagnant gate. Runs at the bar's close (same as
-      // signal exits) so backtest replay matches the live manage cron's
-      // 5-min cadence — both check before SL/TP would have hit.
-      const stagnantFired = rules.stagnant_exit?.enabled
-        ? checkStagnantExit({
-            bars: prices,
-            entryBarIndex: pos.entryBarIndex,
-            currentBarIndex: i,
-            entryPrice: pos.entryPrice,
-            side: pos.side ?? "long",
-            stopDistance: priceDeltaForRule(rules.stop_loss, pos.entryPrice, symbol),
-            config: rules.stagnant_exit,
-          }).exit
-        : false;
-      const decision = pickBacktestExitPrice(
-        pos,
-        bar,
-        closes[i],
-        cfg,
-        signalExitFired || stagnantFired,
-        symbol
-      );
-      if (decision !== null) {
-        const reason =
-          decision.reason === "signal_exit" && stagnantFired && !signalExitFired
-            ? "stagnant_exit"
-            : decision.reason;
-        closeSimPosition(pos, dayKey, decision.price, capital, cfg, s, trades, symbol, reason);
-        positions.splice(p, 1);
-        if (pf) dailyHalted = enforcePropFirm(pf, s, capital, dayKey, dailyHalted);
-      }
-    }
-    // Real prop-firm behaviour: DLL breach mid-bar force-closes all positions.
-    if (dailyHalted) forceCloseAllPositions(positions, dayKey, closes[i], capital, cfg, s, trades, symbol);
-    const vetoed = vetoCheck ? vetoCheck(day) : false;
-    // Regime gate — skip entries while ATR is in the bottom percentile
-    // of its lookback window. Choppy/compressed tape historically
-    // whipsaws our pattern strategies before TPs develop. No-op when
-    // rules.regime_filter is absent or disabled.
-    const regimeBlocked = rules.regime_filter?.enabled
-      ? isRangingByAtr(prices, i, rules.regime_filter).skip
-      : false;
-    // Trend-strength gate — skip entries when ADX is below the minimum.
-    // Targets the "no real trend" failure mode rather than just low vol.
-    // Aligned to the primary's "now" via alignBarIndex so the check is
-    // causal — never peeks at future D1 bars during replay.
-    let adxBlocked = false;
-    if (rules.adx_filter?.enabled) {
-      const dIdx = alignBarIndex(higherTfBars, prices[i].date);
-      if (dIdx >= 0) {
-        adxBlocked = isWeakTrendByAdx(higherTfBars, dIdx, rules.adx_filter).skip;
-      }
-    }
-    // Intraday ATR liquidity gate — match live engine. Skips entries
-    // where the most-recent primary-timeframe ATR is below the 20th
-    // percentile of the lookback distribution. Adaptive replacement for
-    // the old clock-time session filter; backtest stays in sync with
-    // live by using the same module on the same bar series.
-    const liquidityBlocked = checkAtrLiquidity(prices, i).skip;
-    if (
-      !s.killTriggered &&
-      !s.drawdownBreached &&
-      !dailyHalted &&
-      !s.entryHaltedToday &&
-      !vetoed &&
-      !regimeBlocked &&
-      !adxBlocked &&
-      !liquidityBlocked &&
-      resolved !== null &&
-      positions.length < cfg.maxPos &&
-      checkConditions(entry, ctx, rules.entry_logic)
-    ) {
-      // For shorts, slippage works the opposite way on entry — selling into
-      // bid gets you a slightly worse fill, so we still apply it as a cost.
-      const side = resolved.side;
-      const entryPrice = applySlippage(closes[i], cfg.slippageBps, side === "long");
-      // Re-evaluate to get the alignment count for conviction-scaled
-      // sizing. Same module / same ctx as the gate above, so the boolean
-      // decision and the count can never disagree. Multiplier defaults
-      // to 1 for non-conviction sizing — flat behaviour preserved.
-      const convictionMult = convictionMultiplierForRules(rules, entry, ctx);
-      const sized = sizeForBacktest(rules, s.equity, entryPrice, symbol, cfg, convictionMult);
-      const freeMargin = s.equity - s.marginUsed;
-      // Skip the entry if there's not enough free margin (lot sizing only —
-      // for percentage/fixed sizing margin equals notional and free margin
-      // grows with equity, so this rarely binds).
-      if (sized.margin <= freeMargin && sized.notional > 0) {
-        s.marginUsed += sized.margin;
-        positions.push({
-          entryPrice,
-          entryDate: day,
-          entryBarIndex: i,
-          notionalValue: sized.notional,
-          marginRequired: sized.margin,
-          side,
-        });
-      }
-    }
-  }
-  // Finalise the very last day so its pnl contributes to the streak.
-  if (currentDayKey !== "") {
-    finalizeDay(s, currentDayKey);
-  }
-  const openPos = getOpenPosition(positions, closes);
-  return { trades, openPos, state: s };
-}
-
-function getOpenPosition(
-  positions: {
-    entryPrice: number;
-    entryDate: string;
-    notionalValue: number;
-    side?: "long" | "short";
-  }[],
-  closes: number[]
-): OpenPosition | null {
-  // marginRequired exists on the live shape but doesn't matter for the
-  // unrealized-pnl summary so we don't include it in this signature.
-  if (positions.length === 0) {
-    return null;
-  }
-  const lastPrice = closes[closes.length - 1];
-  const pos = positions[0];
-  const side = pos.side ?? "long";
-  const pnlPct =
-    side === "long"
-      ? (lastPrice - pos.entryPrice) / pos.entryPrice
-      : (pos.entryPrice - lastPrice) / pos.entryPrice;
-  return {
-    entry_date: pos.entryDate,
-    entry_price: pos.entryPrice,
-    current_price: lastPrice,
-    side,
-    unrealized_pnl: Number((pos.notionalValue * pnlPct).toFixed(2)),
-    unrealized_pnl_pct: Number((pnlPct * 100).toFixed(2)),
-  };
-}
+// CB.C6 back-compat re-exports — keep existing import sites that pull
+// these from backtest-engine.ts working until/unless we migrate them to
+// `@/lib/conditions/evaluate` directly. New code SHOULD import from the
+// new module; these re-exports exist so the refactor is non-breaking.
+export {
+  checkConditions,
+  collectOtherTimeframes,
+  convictionMultiplierForRules,
+  countConditionsMet,
+  countTimeframesAgreeing,
+  evaluateConditionsDetailed,
+  normalize,
+};
+export type { Cache, ConditionContext, EvaluableCondition };
 
 export function runBacktest(
   rules: AlgorithmRules,

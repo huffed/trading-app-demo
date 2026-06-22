@@ -31,6 +31,11 @@ export async function GET(request: Request) {
 
   // We bypass the user-scoped server action and call the engine directly,
   // since this is an admin endpoint with its own auth.
+  //
+  // B.1.24 (Stage 3, 2026-06-19 EVE): diagnostic caller — gates intentionally
+  // OFF. Inspect-backtest dumps per-trade detail for ad-hoc forensics; gates
+  // would distort which trades fire. See caller-policy in
+  // `portfolio-backtest.ts` + CLAUDE.md Phase B.1.9.
   const { createAdminClient } = await import("@/lib/supabase/admin");
   const { runPortfolioBacktest: runEngine } = await import(
     "@/lib/market-data/portfolio-backtest"
@@ -41,17 +46,21 @@ export async function GET(request: Request) {
   const { fetchEconomicCalendar } = await import("@/lib/market-data/economic-calendar");
 
   const supabase = createAdminClient();
-  const algoRes = await supabase.from("algorithms").select("*").eq("id", algoId).single();
-  const algo = algoRes.data as unknown as
-    | {
-        rules: import("@/types/algorithm").AlgorithmRules;
-        capital: number;
-        user_id: string;
-      }
-    | null;
-  if (algoRes.error || !algo) {
+  const { rulesFromRow } = await import("@/lib/supabase/row-mappers");
+  const algoRes = await supabase
+    .from("algorithms")
+    .select("rules, capital, user_id")
+    .eq("id", algoId)
+    .single();
+  if (algoRes.error || !algoRes.data) {
     return NextResponse.json({ error: "algorithm not found" }, { status: 404 });
   }
+  // CB.H3 (2026-06-20): canonical Json→AlgorithmRules bridge.
+  const algo = {
+    rules: rulesFromRow(algoRes.data.rules),
+    capital: algoRes.data.capital,
+    user_id: algoRes.data.user_id,
+  };
 
   const watchlistRes = await supabase
     .from("algorithm_watchlist")
@@ -116,7 +125,7 @@ export async function GET(request: Request) {
     events = await fetchEconomicCalendar(earliest, latest);
   }
 
-  const result = runEngine(algo.rules, sliced, algo.capital, events);
+  const result = runEngine(algo.rules, sliced, algo.capital, { events });
   return NextResponse.json({
     window,
     total_trades: result.total_trades,

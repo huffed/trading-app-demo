@@ -1,4 +1,7 @@
-import type { MarketStateGateConfig } from "@/lib/algorithm/market-state-gate";
+// CB.M4 (2026-06-19 EVE): canonical path for the gate-config type is now
+// `@/types/market-state-gate` (types-as-leaf). `lib/algorithm/market-state-gate`
+// re-exports it for runtime call sites.
+import type { MarketStateGateConfig } from "@/types/market-state-gate";
 
 export type AlgorithmStatus = "draft" | "active" | "paused" | "archived";
 export type RiskLevel = "conservative" | "moderate" | "aggressive";

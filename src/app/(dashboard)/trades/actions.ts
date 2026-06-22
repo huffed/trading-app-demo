@@ -3,7 +3,7 @@
 import type { TablesInsert } from "@/lib/supabase/database.types";
 import { toUpdateRow } from "@/lib/supabase/row-mappers";
 import { createClient } from "@/lib/supabase/server";
-import { type ActionResult } from "@/lib/types/action-result";
+import { type ActionResult } from "@/types/action-result";
 import { tradeFormSchema, type TradeFormValues } from "@/lib/validators/trade";
 import type { Trade } from "@/types/trade";
 

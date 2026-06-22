@@ -137,14 +137,15 @@ function parseCsvRow(raw: unknown, i: number): ParsedRow {
   const data = raw as Record<string, string>;
   const result = csvRowSchema.safeParse(data);
   if (result.success) {
+    const parsed: TradeFormValues = {
+      ...result.data,
+      status: result.data.exit_price != null ? "closed" : ("open" as const),
+      tags: [],
+      currency: "USD",
+    };
     return {
       data,
-      parsed: {
-        ...result.data,
-        status: result.data.exit_price != null ? "closed" : ("open" as const),
-        tags: [],
-        currency: "USD",
-      } as TradeFormValues,
+      parsed,
       error: null,
       rowIndex: i + 1,
     };

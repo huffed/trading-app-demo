@@ -19,8 +19,8 @@ import {
 } from "@/lib/scan/portfolio-halt";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Tables } from "@/lib/supabase/database.types";
+import { portfoliosFromRows, rulesFromRow } from "@/lib/supabase/row-mappers";
 import type { AlgorithmRules } from "@/types/algorithm";
-import type { Portfolio } from "@/types/portfolio";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -63,7 +63,7 @@ async function applyPortfolioHalts(
 
   const ids = Array.from(byPortfolio.keys());
   const { data } = await supabase.from("portfolios").select("*").in("id", ids);
-  const portfolios = (data ?? []) as unknown as Portfolio[];
+  const portfolios = portfoliosFromRows(data ?? []);
 
   for (const portfolio of portfolios) {
     const portfolioAlgos = byPortfolio.get(portfolio.id) ?? [];
@@ -102,7 +102,32 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  const algos = (data ?? []) as unknown as AlgoRow[];
+  // CB.H3.c (2026-06-20): per-row map routes JSONB `rules` through the
+  // canonical bridge instead of a freestanding double-cast. The
+  // algorithm_watchlist join is unwrapped to an array (Supabase typegen
+  // returns it as `T[] | null`).
+  const algos: AlgoRow[] = (data ?? []).map((r) => {
+    const wl = r.algorithm_watchlist;
+    // Supabase typegen returns the relation as `T | T[] | null` even with
+    // !inner; normalise to array.
+    let watchlist: AlgoRow["algorithm_watchlist"];
+    if (Array.isArray(wl)) watchlist = wl;
+    else if (wl) watchlist = [wl];
+    else watchlist = null;
+    return {
+      id: r.id,
+      user_id: r.user_id,
+      name: r.name,
+      description: r.description,
+      capital: r.capital,
+      status: r.status,
+      live_trading_enabled: r.live_trading_enabled,
+      broker_connection_id: r.broker_connection_id,
+      portfolio_id: r.portfolio_id,
+      rules: rulesFromRow(r.rules),
+      algorithm_watchlist: watchlist,
+    };
+  });
   if (algos.length === 0) {
     return NextResponse.json({ scanned: 0, results: [] });
   }

@@ -168,7 +168,7 @@ function ConfirmDelete({
 
 export function BrokerCard({ conn }: { conn: BrokerConnectionView }) {
   const [error, setError] = useState<string | null>(conn.last_error);
-  const [confirming, setConfirming] = useState(false);
+  const [isConfirming, setIsConfirming] = useState(false);
   const sync = useSyncBrokerConnection();
   const del = useDeleteBrokerConnection();
   const pending = sync.isPending || del.isPending;
@@ -203,13 +203,13 @@ export function BrokerCard({ conn }: { conn: BrokerConnectionView }) {
         conn={conn}
         pending={pending}
         onSync={handleSync}
-        onToggleConfirm={() => setConfirming((v) => !v)}
+        onToggleConfirm={() => setIsConfirming((v) => !v)}
       />
       <CardContent className="space-y-3">
-        {confirming && (
+        {isConfirming && (
           <ConfirmDelete
             pending={pending}
-            onCancel={() => setConfirming(false)}
+            onCancel={() => setIsConfirming(false)}
             onConfirm={handleDelete}
           />
         )}

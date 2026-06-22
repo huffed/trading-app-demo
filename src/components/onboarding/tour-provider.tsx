@@ -11,19 +11,19 @@ interface TourProviderProps {
 
 export function TourProvider({ onboardingCompleted }: TourProviderProps) {
   const { tourCompleted, setTourCompleted, resetOnboarding } = useOnboardingStore();
-  const [dismissed, setDismissed] = useState(false);
+  const [isDismissed, setIsDismissed] = useState(false);
 
   // New account but stale localStorage from a previous account — reset
   if (!onboardingCompleted && tourCompleted) {
     resetOnboarding();
   }
 
-  const shouldShow = !onboardingCompleted && !tourCompleted && !dismissed;
+  const shouldShow = !onboardingCompleted && !tourCompleted && !isDismissed;
 
   if (!shouldShow) return null;
 
   async function handleComplete() {
-    setDismissed(true);
+    setIsDismissed(true);
     setTourCompleted();
     await completeOnboarding();
   }

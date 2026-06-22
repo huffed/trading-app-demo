@@ -1,7 +1,8 @@
 "use server";
 
 import { getAuthedUser } from "@/lib/supabase/get-authed-user";
-import { type ActionResult } from "@/lib/types/action-result";
+import { fromJson } from "@/lib/supabase/row-mappers";
+import { type ActionResult } from "@/types/action-result";
 import type {
   ConditionStatRow,
   PairStatRow,
@@ -191,7 +192,16 @@ export async function getStrategyStats(
 
     if (error) return { success: false, error: error.message };
 
-    const rows = (data ?? []) as unknown as PositionRow[];
+    // CB.H3.b (2026-06-20): per-row map via fromJson routes the JSONB→domain
+    // conversion through the canonical trust boundary (row-mappers.ts) rather
+    // than a freestanding `as unknown as PositionRow[]` double-cast. The
+    // other two fields are already typed correctly by Supabase's generated
+    // schema (string + number | null).
+    const rows: PositionRow[] = (data ?? []).map((r) => ({
+      ticker: r.ticker,
+      realized_pnl: r.realized_pnl,
+      entry_reason: fromJson<EntryReason | null>(r.entry_reason),
+    }));
     if (rows.length === 0) {
       return {
         success: true,
