@@ -118,42 +118,16 @@ export async function detectDrift(
   const baseWr = baseline.win_rate;
   const wrDrop = baseWr - recentWr;
 
-  // Halt: absolute WR floor (R-aware, optional) — checked first because
-  // it's the strictest. For strategies with low backtest WR + high RR,
-  // the 20pp-drop rule alone would let the algo bleed past breakeven.
-  if (config.minLiveWrPct !== undefined && recentWr < config.minLiveWrPct) {
-    return {
-      severity: "halt",
-      reason: `WR floor breached: recent ${recentWr.toFixed(0)}% < floor ${config.minLiveWrPct}% over ${trades} trades`,
-      recent: { trades, win_rate: recentWr, net_pnl: netPnl },
-      baseline: { win_rate: baseWr, total_return: baseline.total_return },
-    };
-  }
-  // Halt: severe WR drop OR sign flip on net P&L vs backtest direction.
-  if (wrDrop >= HALT_WR_DROP_PP) {
-    return {
-      severity: "halt",
-      reason: `Severe WR drift: recent ${recentWr.toFixed(0)}% vs baseline ${baseWr.toFixed(0)}% (-${wrDrop.toFixed(0)}pp over ${trades} trades)`,
-      recent: { trades, win_rate: recentWr, net_pnl: netPnl },
-      baseline: { win_rate: baseWr, total_return: baseline.total_return },
-    };
-  }
-  if (baseline.total_return > 0 && netPnl < 0 && trades >= config.minTrades) {
-    return {
-      severity: "halt",
-      reason: `Sign flip: backtest baseline +$${baseline.total_return.toFixed(0)} but recent ${trades} trades net $${netPnl.toFixed(0)}`,
-      recent: { trades, win_rate: recentWr, net_pnl: netPnl },
-      baseline: { win_rate: baseWr, total_return: baseline.total_return },
-    };
-  }
-  if (wrDrop >= WARN_WR_DROP_PP) {
-    return {
-      severity: "warn",
-      reason: `WR drift: recent ${recentWr.toFixed(0)}% vs baseline ${baseWr.toFixed(0)}% (-${wrDrop.toFixed(0)}pp)`,
-      recent: { trades, win_rate: recentWr, net_pnl: netPnl },
-      baseline: { win_rate: baseWr, total_return: baseline.total_return },
-    };
-  }
+  const severityVerdict = classifyDriftSeverity({
+    config,
+    trades,
+    recentWr,
+    netPnl,
+    baseline,
+    wrDrop,
+    baseWr,
+  });
+  if (severityVerdict) return severityVerdict;
 
   return {
     severity: "none",
@@ -161,6 +135,57 @@ export async function detectDrift(
     recent: { trades, win_rate: recentWr, net_pnl: netPnl },
     baseline: { win_rate: baseWr, total_return: baseline.total_return },
   };
+}
+
+interface DriftSeverityArgs {
+  config: DriftConfig;
+  trades: number;
+  recentWr: number;
+  netPnl: number;
+  baseline: BacktestResults;
+  wrDrop: number;
+  baseWr: number;
+}
+
+/** Apply halt + warn thresholds in priority order. Returns the verdict
+ *  when one fires, or null for the "within range" caller-fallback path. */
+function classifyDriftSeverity(a: DriftSeverityArgs): DriftCheckResult | null {
+  const { config, trades, recentWr, netPnl, baseline, wrDrop, baseWr } = a;
+  const recentDetails = { trades, win_rate: recentWr, net_pnl: netPnl };
+  const baselineDetails = { win_rate: baseWr, total_return: baseline.total_return };
+  if (config.minLiveWrPct !== undefined && recentWr < config.minLiveWrPct) {
+    return {
+      severity: "halt",
+      reason: `WR floor breached: recent ${recentWr.toFixed(0)}% < floor ${config.minLiveWrPct}% over ${trades} trades`,
+      recent: recentDetails,
+      baseline: baselineDetails,
+    };
+  }
+  if (wrDrop >= HALT_WR_DROP_PP) {
+    return {
+      severity: "halt",
+      reason: `Severe WR drift: recent ${recentWr.toFixed(0)}% vs baseline ${baseWr.toFixed(0)}% (-${wrDrop.toFixed(0)}pp over ${trades} trades)`,
+      recent: recentDetails,
+      baseline: baselineDetails,
+    };
+  }
+  if (baseline.total_return > 0 && netPnl < 0 && trades >= config.minTrades) {
+    return {
+      severity: "halt",
+      reason: `Sign flip: backtest baseline +$${baseline.total_return.toFixed(0)} but recent ${trades} trades net $${netPnl.toFixed(0)}`,
+      recent: recentDetails,
+      baseline: baselineDetails,
+    };
+  }
+  if (wrDrop >= WARN_WR_DROP_PP) {
+    return {
+      severity: "warn",
+      reason: `WR drift: recent ${recentWr.toFixed(0)}% vs baseline ${baseWr.toFixed(0)}% (-${wrDrop.toFixed(0)}pp)`,
+      recent: recentDetails,
+      baseline: baselineDetails,
+    };
+  }
+  return null;
 }
 
 /**

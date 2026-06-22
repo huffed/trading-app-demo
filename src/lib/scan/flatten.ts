@@ -12,6 +12,7 @@ import { getBrokerAdapter } from "@/lib/brokers/registry";
 import type { BrokerConnection } from "@/lib/brokers/types";
 import { logActivity } from "@/lib/scan/helpers";
 import type { Tables } from "@/lib/supabase/database.types";
+import { toUpdateRow } from "@/lib/supabase/row-mappers";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 type PosRow = Pick<
@@ -107,7 +108,7 @@ export async function flattenAlgorithmPositions(
     // the catch.
     await supabase
       .from("paper_positions")
-      .update(closeUpdate as unknown as never)
+      .update(toUpdateRow<"paper_positions">(closeUpdate))
       .eq("id", pos.id)
       .eq("status", "open");
 

@@ -74,7 +74,16 @@ export async function summariseRecentOutcomes(
     .order("closed_at", { ascending: false })
     .limit(lookbackTrades);
   if (error || !data) return null;
-  const rows = data as unknown as ClosedTradeRow[];
+  // CB.H3.c (2026-06-20): per-row map narrows the supabase row to the
+  // local ClosedTradeRow shape. `side` is `string` on the DB but the
+  // domain pins it to `"long" | "short" | null` (we only ever write
+  // those two values).
+  const rows: ClosedTradeRow[] = data.map((r) => ({
+    realized_pnl: r.realized_pnl,
+    side: r.side as ClosedTradeRow["side"],
+    closed_at: r.closed_at,
+    llm_decisions: r.llm_decisions as ClosedTradeRow["llm_decisions"],
+  }));
   if (rows.length < MIN_TRADES_TO_SHOW) return null;
 
   // Aggregate by regime. Direction (long/short) is derivable from the

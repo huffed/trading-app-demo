@@ -123,11 +123,15 @@ export async function reconcileOrphanBrokerRealized(
   };
   const seen = new Set<string>();
   const algos: AlgoRow["algorithms"][] = [];
-  for (const row of data as unknown as AlgoRow[]) {
+  // CB.H3.c (2026-06-20): per-row narrow + !inner-join unwrap. Supabase
+  // typegen returns the `algorithms` relation as `T | T[] | null` even
+  // with !inner (typegen limitation); unwrap to single object.
+  for (const row of data) {
     if (alreadyHandled.has(row.algorithm_id)) continue;
     if (seen.has(row.algorithm_id)) continue;
     seen.add(row.algorithm_id);
-    algos.push(row.algorithms);
+    const a = Array.isArray(row.algorithms) ? row.algorithms[0] : row.algorithms;
+    if (a) algos.push(a as AlgoRow["algorithms"]);
   }
   for (const algo of algos) {
     const brokerCtx = await resolveBrokerContext(

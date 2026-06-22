@@ -176,7 +176,14 @@ export async function backfillClosedTradeOutcomes(
     return { backfilled: 0 };
   }
 
-  const rows = (data ?? []) as unknown as BackfillRow[];
+  // CB.H3.c (2026-06-20): per-row map narrows the supabase relation type
+  // to BackfillRow. The !inner join returns `paper_positions` as
+  // `T | T[] | null` per typegen quirk; the consumer loop below already
+  // defensively unwraps with `Array.isArray(...)` so we just narrow here.
+  const rows: BackfillRow[] = (data ?? []).map((r) => ({
+    id: r.id,
+    paper_positions: r.paper_positions as BackfillRow["paper_positions"],
+  }));
   let backfilled = 0;
   for (const row of rows) {
     if (!row.paper_positions) continue;

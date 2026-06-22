@@ -9,7 +9,11 @@
  *     return ≥ FTMO target × (window/180), worst-window DD ≤ Y%.
  *     For LLM-trader algos, the standard WF engine fires zero trades
  *     (entry_conditions are empty by design), so we read a cached WF
- *     result populated by scripts/llm-trader-walk-forward.ts instead.
+ *     result populated by the (currently archived) LLM-trader harness.
+ *     The harness lives in `scripts/archive/2026-06-18/` and LLM-trader
+ *     work is deferred to roadmap Stage 5.0 / Phase D.4 — see
+ *     [[project_roadmap_2026_06]]. If LLM-trader is reactivated, the
+ *     harness must be restored from archive + re-validated first.
  *  2. Pair quality — no watchlisted pair sits at <30% WR / 8+ trades
  *     (the auto-pair-pruning trigger). Already-pruned pairs note them
  *     as a positive signal.
@@ -25,22 +29,27 @@
  * Used by both `/api/admin/readiness-check` (admin/curl path) and the
  * `runAlgorithmReadinessCheck` server action (operator UI button).
  */
+// CB.H1 pass 11 (2026-06-22): 4 sub-checks + combiner + thresholds
+// moved to `./readiness-sub-checks.ts`. Types re-exported for back-compat.
 import { timeframeToInterval } from "@/lib/market-data/interval";
 import { getCachedPrices, savePricesToCache } from "@/lib/market-data/price-cache";
 import { fetchDailyPrices } from "@/lib/market-data/prices";
 import { runWalkForward } from "@/lib/market-data/walk-forward";
 import { getAllPairStats } from "@/lib/scan/pair-quality";
 import type { AlgorithmRules } from "@/types/algorithm";
+import {
+  combineSeverity,
+  ftmoFitCheck,
+  pairQualityCheck,
+  sideSymmetryCheck,
+  walkForwardCheck,
+  type ReadinessCheckResult,
+  type ReadinessSeverity,
+  type WalkForwardSummary,
+} from "./readiness-sub-checks";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-export type ReadinessSeverity = "pass" | "caution" | "fail";
-
-export interface ReadinessCheckResult {
-  name: string;
-  severity: ReadinessSeverity;
-  reason: string;
-  evidence?: Record<string, unknown>;
-}
+export type { ReadinessSeverity, ReadinessCheckResult };
 
 export interface ReadinessReport {
   algorithm_id: string;
@@ -56,33 +65,12 @@ export interface ReadinessReport {
   };
 }
 
-const FTMO_PROFIT_TARGET_PCT = 10;
-const FTMO_DD_LIMIT_PCT = 10;
-const MIN_WALK_FORWARD_WINDOWS = 3;
-const MIN_GREEN_WINDOW_RATE = 0.7;
-const MAX_MEAN_DD_PCT = 8;
-const MIN_PAIR_TRADES_FOR_PRUNE = 8;
-const PAIR_WR_FAIL_THRESHOLD = 0.3;
-
-function combineSeverity(severities: ReadinessSeverity[]): ReadinessSeverity {
-  if (severities.includes("fail")) return "fail";
-  if (severities.includes("caution")) return "caution";
-  return "pass";
-}
-
-interface WalkForwardSummary {
-  total_windows: number;
-  mean_win_rate: number;
-  mean_return: number;
-  mean_drawdown: number;
-  win_rate_of_windows: number;
-  windows: { total_return: number; max_drawdown: number }[];
-}
-
-/** Cache shape written by `scripts/llm-trader-walk-forward.ts` to
+/** Cache shape that WAS written by the archived LLM-trader harness
+ *  (`scripts/archive/2026-06-18/llm-trader-walk-forward.ts`) to
  *  `algorithms.llm_walk_forward_cache` when ALGO_ID is provided. The
  *  `summary` block matches `WalkForwardSummary` exactly so we can pass
- *  it straight to `walkForwardCheck` without translation. */
+ *  it straight to `walkForwardCheck` without translation. New caches
+ *  won't appear until LLM-trader work is reactivated (Stage 5.0+). */
 interface LlmWalkForwardCache {
   generated_at: string;
   provider: string;
@@ -96,162 +84,27 @@ interface LlmWalkForwardCache {
   summary: WalkForwardSummary;
 }
 
-function walkForwardCheck(
-  wf: WalkForwardSummary,
-  capital: number,
-  windowDays: number
-): ReadinessCheckResult {
-  if (wf.total_windows < MIN_WALK_FORWARD_WINDOWS) {
-    return {
-      name: "walk_forward_stability",
-      severity: "caution",
-      reason: `Only ${wf.total_windows} window(s) — need ≥${MIN_WALK_FORWARD_WINDOWS} for confidence. Pull more historical data or shorten the window size.`,
-      evidence: { total_windows: wf.total_windows },
-    };
-  }
-  const green = wf.win_rate_of_windows;
-  const issues: string[] = [];
-  if (green < MIN_GREEN_WINDOW_RATE) {
-    issues.push(
-      `only ${(green * 100).toFixed(0)}% of windows green (need ≥${MIN_GREEN_WINDOW_RATE * 100}%)`
-    );
-  }
-  const projectedReturnPct = capital > 0 ? (wf.mean_return / capital) * 100 : 0;
-  const targetForWindow = (FTMO_PROFIT_TARGET_PCT * windowDays) / 180;
-  if (projectedReturnPct < targetForWindow) {
-    issues.push(
-      `mean return ${projectedReturnPct.toFixed(1)}% per ${windowDays}d window below FTMO ${targetForWindow.toFixed(1)}% pace`
-    );
-  }
-  if (wf.mean_drawdown > MAX_MEAN_DD_PCT) {
-    issues.push(`mean DD ${wf.mean_drawdown.toFixed(1)}% above safety cap ${MAX_MEAN_DD_PCT}%`);
-  }
-  const worstDd = Math.max(...wf.windows.map((w) => w.max_drawdown));
-  if (worstDd >= FTMO_DD_LIMIT_PCT) {
-    issues.push(`worst window DD ${worstDd.toFixed(1)}% breaches FTMO ${FTMO_DD_LIMIT_PCT}% limit`);
-  } else if (worstDd >= FTMO_DD_LIMIT_PCT - 2) {
-    issues.push(`worst window DD ${worstDd.toFixed(1)}% within 2pp of FTMO limit`);
-  }
-  if (issues.length === 0) {
-    return {
-      name: "walk_forward_stability",
-      severity: "pass",
-      reason: `${wf.total_windows} windows, ${(green * 100).toFixed(0)}% green, mean ret ${projectedReturnPct.toFixed(1)}%, mean DD ${wf.mean_drawdown.toFixed(2)}%, worst DD ${worstDd.toFixed(2)}%`,
-      evidence: {
-        mean_return_pct: projectedReturnPct,
-        mean_dd_pct: wf.mean_drawdown,
-        worst_dd_pct: worstDd,
-        green_window_rate: green,
-      },
-    };
-  }
-  const failed = issues.some((s) => s.includes("breaches FTMO"));
-  return {
-    name: "walk_forward_stability",
-    severity: failed ? "fail" : "caution",
-    reason: issues.join("; "),
-    evidence: { issues_count: issues.length },
-  };
-}
-
-interface PairStat {
-  ticker: string;
-  trades: number;
-  wins: number;
-  win_rate: number;
-  net_pnl: number;
-}
-
-function pairQualityCheck(stats: PairStat[]): ReadinessCheckResult {
-  const losers = stats.filter(
-    (s) => s.trades >= MIN_PAIR_TRADES_FOR_PRUNE && s.win_rate <= PAIR_WR_FAIL_THRESHOLD
-  );
-  if (losers.length > 0) {
-    return {
-      name: "pair_quality",
-      severity: "fail",
-      reason: `${losers.length} pair(s) at ≤${PAIR_WR_FAIL_THRESHOLD * 100}% WR over ${MIN_PAIR_TRADES_FOR_PRUNE}+ trades — should be auto-paused or removed: ${losers
-        .map((l) => `${l.ticker} ${l.wins}/${l.trades}`)
-        .join(", ")}`,
-      evidence: {
-        losers: losers.map((l) => ({
-          ticker: l.ticker,
-          wins: l.wins,
-          trades: l.trades,
-          net: l.net_pnl,
-        })),
-      },
-    };
-  }
-  if (stats.length === 0 || stats.every((s) => s.trades < MIN_PAIR_TRADES_FOR_PRUNE)) {
-    return {
-      name: "pair_quality",
-      severity: "caution",
-      reason:
-        "Insufficient live trade history to evaluate per-pair quality — only backtest evidence available",
-      evidence: { evaluated_pairs: stats.length },
-    };
-  }
-  return {
-    name: "pair_quality",
-    severity: "pass",
-    reason: `All ${stats.length} pairs above ${PAIR_WR_FAIL_THRESHOLD * 100}% WR floor over their live samples`,
-    evidence: { evaluated_pairs: stats.length },
-  };
-}
-
-function sideSymmetryCheck(side: string | undefined): ReadinessCheckResult {
-  if (side === "auto") {
-    return {
-      name: "side_symmetry",
-      severity: "caution",
-      reason:
-        "side='auto' — verify shorts work via a separate backtest (long-only patterns rarely flip cleanly to bearish, see CHF/JPY short trap on testing 3)",
-    };
-  }
-  return {
-    name: "side_symmetry",
-    severity: "pass",
-    reason: `Fixed direction (side='${side ?? "long"}') — directional asymmetry is not a risk`,
-  };
-}
-
-function ftmoFitCheck(rules: Record<string, unknown>): ReadinessCheckResult {
-  const pf = rules.prop_firm as { consecutive_loss_daily_halt?: number } | undefined;
-  const halt = pf?.consecutive_loss_daily_halt ?? 0;
-  const sizing = rules.position_sizing as { type?: string; value?: number } | undefined;
-  const issues: string[] = [];
-  if (sizing?.type === "risk_per_trade" && (sizing.value ?? 0) > 1) {
-    issues.push(`risk_per_trade ${sizing.value}% above 1% — DD risk for FTMO`);
-  }
-  if (halt === 0) {
-    issues.push(
-      "no consecutive_loss_daily_halt configured — single bad day could chain into DLL breach"
-    );
-  }
-  if (issues.length === 0) {
-    return {
-      name: "ftmo_fit",
-      severity: "pass",
-      reason: `risk_per_trade ${sizing?.value ?? "?"}, consecutive_loss_daily_halt ${halt}`,
-    };
-  }
-  return {
-    name: "ftmo_fit",
-    severity: "caution",
-    reason: issues.join("; "),
-  };
-}
-
 interface ReadinessOptions {
   windowDays?: number;
   stepDays?: number;
 }
 
+/** Subset of the `algorithms` row that the readiness check consumes.
+ *  Extracted as a named type so the SELECT-columns list, the runtime
+ *  cast, and the consumer can drift together rather than the cast living
+ *  inline in the loader (CB.M2, 2026-06-22). */
+interface ReadinessAlgo {
+  rules: AlgorithmRules;
+  capital: number;
+  user_id: string;
+  name: string;
+  llm_walk_forward_cache: LlmWalkForwardCache | null;
+}
+
 /** Build the walk-forward summary for an LLM-trader algorithm by reading
  *  its cached WF result. Returns null if no cache present (caller emits
- *  a "needs WF run" caution). The cache is populated by
- *  `scripts/llm-trader-walk-forward.ts` with ALGO_ID set. */
+ *  a "needs WF run" caution). The cache was populated by the archived
+ *  LLM-trader harness; LLM-trader is deferred to roadmap Stage 5.0. */
 function llmWalkForwardSummary(
   cache: LlmWalkForwardCache | null
 ): { wf: WalkForwardSummary; effectiveWindowDays: number } | null {
@@ -277,16 +130,12 @@ export async function runReadinessCheck(
   const windowDays = options.windowDays ?? 180;
   const stepDays = options.stepDays ?? 30;
 
-  const algoRes = await supabase.from("algorithms").select("*").eq("id", algorithmId).single();
-  const algo = algoRes.data as
-    | {
-        rules: AlgorithmRules;
-        capital: number;
-        user_id: string;
-        name: string;
-        llm_walk_forward_cache: LlmWalkForwardCache | null;
-      }
-    | null;
+  const algoRes = await supabase
+    .from("algorithms")
+    .select("rules, capital, user_id, name, llm_walk_forward_cache")
+    .eq("id", algorithmId)
+    .single();
+  const algo = algoRes.data as ReadinessAlgo | null;
   if (algoRes.error || !algo) return { ok: false, error: "Algorithm not found" };
 
   const wlRes = await supabase
@@ -295,66 +144,15 @@ export async function runReadinessCheck(
     .eq("algorithm_id", algorithmId);
   const tickers = ((wlRes.data ?? []) as { ticker: string }[]).map((r) => r.ticker.toUpperCase());
 
-  // Walk-forward dispatch: standard pattern-based path OR cached LLM-trader
-  // WF. LLM-trader algos have empty entry_conditions so the standard
-  // runWalkForward fires zero trades — we use the cached LLM WF instead,
-  // populated by scripts/llm-trader-walk-forward.ts.
-  const isLlmTrader = algo.rules.llm_trader?.enabled === true;
-  let wf: WalkForwardSummary;
-  let effectiveWindowDays = windowDays;
-  let wfCheck: ReadinessCheckResult;
-
-  if (isLlmTrader) {
-    const llm = llmWalkForwardSummary(algo.llm_walk_forward_cache);
-    if (!llm) {
-      wf = {
-        total_windows: 0,
-        mean_win_rate: 0,
-        mean_return: 0,
-        mean_drawdown: 0,
-        win_rate_of_windows: 0,
-        windows: [],
-      };
-      wfCheck = {
-        name: "walk_forward_stability",
-        severity: "caution",
-        reason:
-          "LLM-trader has no cached walk-forward result. Run `ALGO_ID=<id> pnpm dlx tsx scripts/llm-trader-walk-forward.ts` to populate the cache, then re-run readiness.",
-        evidence: { llm_trader: true, cache_present: false },
-      };
-    } else {
-      wf = llm.wf;
-      effectiveWindowDays = llm.effectiveWindowDays;
-      wfCheck = walkForwardCheck(wf, algo.capital, effectiveWindowDays);
-    }
-  } else {
-    const interval = timeframeToInterval(algo.rules.timeframe);
-    const pricesByTicker = new Map<string, Awaited<ReturnType<typeof fetchDailyPrices>>>();
-    for (const ticker of tickers) {
-      let prices = await getCachedPrices(ticker, "full", interval);
-      if (!prices) {
-        try {
-          prices = await fetchDailyPrices(ticker, "full", interval);
-          savePricesToCache(ticker, "full", prices, interval).catch(() => {});
-        } catch {
-          continue;
-        }
-      }
-      if (prices && prices.length >= 30) pricesByTicker.set(ticker, prices);
-    }
-    wf = runWalkForward(algo.rules, pricesByTicker, algo.capital, {
-      testWindowDays: windowDays,
-      stepDays,
-    });
-    wfCheck = walkForwardCheck(wf, algo.capital, windowDays);
-  }
+  // Walk-forward dispatch: standard pattern-based path OR cached LLM-trader.
+  const { wf, wfCheck } = await dispatchWalkForward(algo, tickers, windowDays, stepDays);
 
   const pairStatsMap = await getAllPairStats(supabase, algorithmId);
   const pairStats = Array.from(pairStatsMap.values());
   const pairCheck = pairQualityCheck(pairStats);
 
   const sideCheck = sideSymmetryCheck(algo.rules.side);
-  const ftmoCheck = ftmoFitCheck(algo.rules as unknown as Record<string, unknown>);
+  const ftmoCheck = ftmoFitCheck(algo.rules);
 
   const checks = [wfCheck, pairCheck, sideCheck, ftmoCheck];
   const verdict = combineSeverity(checks.map((c) => c.severity));
@@ -375,4 +173,68 @@ export async function runReadinessCheck(
       },
     },
   };
+}
+
+/** Dispatch the walk-forward check based on whether the algo is LLM-trader
+ *  (uses cached WF or returns "DEFERRED" caution) or pattern-based (runs
+ *  fresh runWalkForward against fetched price bars). */
+async function dispatchWalkForward(
+  algo: ReadinessAlgo,
+  tickers: string[],
+  windowDays: number,
+  stepDays: number
+): Promise<{ wf: WalkForwardSummary; wfCheck: ReadinessCheckResult }> {
+  const isLlmTrader = algo.rules.llm_trader?.enabled === true;
+  if (isLlmTrader) {
+    const llm = llmWalkForwardSummary(algo.llm_walk_forward_cache);
+    if (!llm) {
+      const wf: WalkForwardSummary = {
+        total_windows: 0,
+        mean_win_rate: 0,
+        mean_return: 0,
+        mean_drawdown: 0,
+        win_rate_of_windows: 0,
+        windows: [],
+      };
+      const wfCheck: ReadinessCheckResult = {
+        name: "walk_forward_stability",
+        severity: "caution",
+        reason:
+          "LLM-trader readiness is DEFERRED. The walk-forward harness was archived 2026-06-18 — LLM-trader work resumes at roadmap Stage 5.0 / Phase D.4. Until then, this algo can't be readiness-checked.",
+        evidence: { llm_trader: true, cache_present: false },
+      };
+      return { wf, wfCheck };
+    }
+    return { wf: llm.wf, wfCheck: walkForwardCheck(llm.wf, algo.capital, llm.effectiveWindowDays) };
+  }
+  const pricesByTicker = await loadPricesForTickers(tickers, algo.rules.timeframe);
+  const wf = runWalkForward(algo.rules, pricesByTicker, algo.capital, {
+    testWindowDays: windowDays,
+    stepDays,
+  });
+  return { wf, wfCheck: walkForwardCheck(wf, algo.capital, windowDays) };
+}
+
+/** Load price bars for each watchlist ticker into a Map for runWalkForward.
+ *  Cache hit fast-path; fetch fallback; skip tickers whose data fetch
+ *  fails or returns <30 bars (too thin for walk-forward windows). */
+async function loadPricesForTickers(
+  tickers: string[],
+  timeframe: string
+): Promise<Map<string, Awaited<ReturnType<typeof fetchDailyPrices>>>> {
+  const interval = timeframeToInterval(timeframe);
+  const pricesByTicker = new Map<string, Awaited<ReturnType<typeof fetchDailyPrices>>>();
+  for (const ticker of tickers) {
+    let prices = await getCachedPrices(ticker, "full", interval);
+    if (!prices) {
+      try {
+        prices = await fetchDailyPrices(ticker, "full", interval);
+        savePricesToCache(ticker, "full", prices, interval).catch(() => {});
+      } catch {
+        continue;
+      }
+    }
+    if (prices && prices.length >= 30) pricesByTicker.set(ticker, prices);
+  }
+  return pricesByTicker;
 }

@@ -10,54 +10,21 @@
  * reported algorithm performance and the user's broker statement they
  * can't reconcile later. Better to record both honestly.
  */
-import { getBrokerAdapter } from "@/lib/brokers/registry";
 import { notionalToLots } from "@/lib/brokers/sizing";
-import type { BrokerAdapter, BrokerConnection } from "@/lib/brokers/types";
 import { notionalInUsd } from "@/lib/constants/markets";
 import { logger } from "@/lib/logger";
+// CB.H1 (2026-06-22): broker-context resolution extracted to its own
+// module. Re-exported below for back-compat; new code should import
+// directly from `./broker-context`.
+import {
+  resolveBrokerContext,
+  type BrokerExecutionContext,
+} from "./broker-context";
 import { checkDivergenceKill, haltAlgorithmForDivergence } from "./divergence";
 import { logActivity } from "./helpers";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-export interface BrokerExecutionContext {
-  adapter: BrokerAdapter;
-  conn: BrokerConnection;
-}
-
-/**
- * Resolve the broker context for an algorithm. Returns null if the algo
- * isn't set up for live trading, the connection is disabled, or the
- * provider has no registered adapter.
- */
-export async function resolveBrokerContext(
-  supabase: SupabaseClient,
-  userId: string,
-  algoBrokerId: string | null,
-  liveEnabled: boolean
-): Promise<BrokerExecutionContext | null> {
-  if (!liveEnabled || !algoBrokerId) return null;
-  const { data } = await supabase
-    .from("broker_connections")
-    .select(
-      "id, user_id, provider, api_token, account_id, region, status, refresh_token, token_expires_at, account_login"
-    )
-    .eq("id", algoBrokerId)
-    .eq("user_id", userId)
-    .single();
-  if (!data || data.status === "disabled") return null;
-  const adapter = getBrokerAdapter(data.provider as string);
-  if (!adapter) {
-    // Live trading was requested but the registered provider has no adapter
-    // — without a warning here the algorithm silently falls back to paper-
-    // only and the operator wouldn't know.
-    logger.warn(
-      "live-execution",
-      `live_trading_enabled but no adapter for provider="${data.provider}" (broker_connection_id=${algoBrokerId}). Falling back to paper-only.`
-    );
-    return null;
-  }
-  return { adapter, conn: data as BrokerConnection };
-}
+export { resolveBrokerContext, type BrokerExecutionContext };
 
 interface EntryArgs {
   supabase: SupabaseClient;
@@ -89,6 +56,67 @@ interface EntryArgs {
  *  ~67×; this gate would have caught it. */
 const MAX_NOTIONAL_TO_CAPITAL = 30;
 
+/** Snap paper row to broker truth + audit `live_order_placed`. Falls
+ *  back to scan price when fetchPosition can't find the fresh fill
+ *  (rare race) so broker_fill_price is never null when broker_position_id
+ *  is set. Re-aligns quantity + notional because the broker floors lots
+ *  to volumeStep (0.125 → 0.12) and paper-side intent (12,500) drifts
+ *  ~4% above the broker's real position (12,000) — would otherwise
+ *  cause paper P&L to diverge from FTMO's reported P&L. */
+async function recordSuccessfulOrder(
+  args: EntryArgs,
+  placed: { orderId: string; positionId: string },
+  lots: number,
+  spec: { contractSize: number }
+): Promise<void> {
+  const { supabase, userId, algorithmId, paperPositionId, ticker, side } = args;
+  const { adapter, conn } = args.ctx;
+  const realFill = await adapter.fetchPosition(conn, placed.positionId);
+  const brokerFillPrice = realFill?.openPrice ?? args.currentPrice;
+  const brokerQuantity = lots * spec.contractSize;
+  const brokerNotional = notionalInUsd(ticker, lots, args.currentPrice);
+  await supabase
+    .from("paper_positions")
+    .update({
+      broker_order_id: placed.orderId,
+      broker_position_id: placed.positionId,
+      broker_fill_price: brokerFillPrice,
+      quantity: brokerQuantity,
+      notional_value: brokerNotional,
+      broker_error: null,
+    })
+    .eq("id", paperPositionId);
+  await logActivity(supabase, userId, {
+    algorithm_id: algorithmId,
+    position_id: paperPositionId,
+    event_type: "live_order_placed",
+    ticker,
+    details: {
+      broker_order_id: placed.orderId,
+      broker_position_id: placed.positionId,
+      volume: lots,
+      side,
+    },
+  });
+}
+
+/** Derive the broker order volume in lots. Honour `args.lots` when
+ *  provided (floored to volumeStep so a backtest-validated size never
+ *  gets nudged UP into a higher-risk regime; min-volume clamp prevents
+ *  a 0 deployment). Otherwise derive from notional. */
+function computeOrderLots(
+  args: EntryArgs,
+  spec: { volumeStep: number; minVolume: number; maxVolume: number; contractSize: number }
+): number {
+  if (args.lots != null && args.lots > 0) {
+    const stepped = Math.floor(args.lots / spec.volumeStep) * spec.volumeStep;
+    return Number(
+      Math.min(Math.max(stepped, spec.minVolume), spec.maxVolume).toFixed(4)
+    );
+  }
+  return notionalToLots(args.notionalUsd, args.currentPrice, spec);
+}
+
 /** Halt the algorithm if the rolling-average broker fill divergence has
  *  crossed the configured threshold. No-op when the rule is absent. */
 async function maybeHaltOnDivergence(
@@ -114,29 +142,14 @@ export async function executeLiveEntry(args: EntryArgs): Promise<void> {
   try {
     const { adapter, conn } = args.ctx;
     const spec = await adapter.fetchSymbolSpec(conn, ticker);
-    let lots: number;
-    if (args.lots != null && args.lots > 0) {
-      // Honour exact lot-sized algorithms — floor to broker volume step so a
-      // backtest-validated size (e.g. 0.125) never gets nudged UP into a
-      // higher-risk regime. Min-volume clamp prevents a 0 deployment.
-      const stepped = Math.floor(args.lots / spec.volumeStep) * spec.volumeStep;
-      lots = Number(
-        Math.min(Math.max(stepped, spec.minVolume), spec.maxVolume).toFixed(4)
-      );
-    } else {
-      lots = notionalToLots(notionalUsd, args.currentPrice, spec);
-    }
+    const lots = computeOrderLots(args, spec);
     if (lots <= 0) {
       throw new Error(
         `Computed lot size 0 for ${ticker} — minVolume=${spec.minVolume}, notional=${notionalUsd}.`
       );
     }
-    // Defense-in-depth sanity check: if the implied notional is more
-    // than MAX_NOTIONAL_TO_CAPITAL × capital, refuse to place. The
-    // catalog guard in markets.ts catches missing-meta sizing bugs;
-    // this catches any OTHER way oversized math could slip through
-    // (broker spec returning a contractSize 100× ours, divide-by-zero
-    // recovery returning Infinity, etc.). Independent failure mode.
+    // Defense-in-depth: catches oversized math the catalog guard misses
+    // (broker spec returning a contractSize 100× ours, etc.).
     const impliedNotional = notionalInUsd(ticker, lots, args.currentPrice);
     if (args.capital > 0 && impliedNotional / args.capital > MAX_NOTIONAL_TO_CAPITAL) {
       throw new Error(
@@ -155,45 +168,7 @@ export async function executeLiveEntry(args: EntryArgs): Promise<void> {
       takeProfit: args.takeProfitPrice,
       comment: `qt:${algorithmId.slice(0, 8)}`,
     });
-    // Best-effort: fetch the freshly-placed position to capture the real
-    // broker fill price. The trade endpoint doesn't include it. Falls back
-    // to our scan price if the adapter can't find it (rare race) so the
-    // column is never null when broker_position_id is set.
-    const realFill = await adapter.fetchPosition(conn, placed.positionId);
-    const brokerFillPrice = realFill?.openPrice ?? args.currentPrice;
-    // Re-align paper quantity + notional to what actually got placed. Broker
-    // floors lots to volumeStep (e.g. 0.125 → 0.12 on FTMO MT5), so the
-    // paper-side intent (12,500 base units) drifts ~4% above the broker's
-    // real position (12,000) — leading to paper P&L that doesn't match
-    // FTMO's reported P&L. Snap them to the broker's truth.
-    const brokerQuantity = lots * spec.contractSize;
-    const brokerNotional = notionalInUsd(ticker, lots, args.currentPrice);
-    await supabase
-      .from("paper_positions")
-      .update({
-        broker_order_id: placed.orderId,
-        broker_position_id: placed.positionId,
-        broker_fill_price: brokerFillPrice,
-        quantity: brokerQuantity,
-        notional_value: brokerNotional,
-        broker_error: null,
-      })
-      .eq("id", paperPositionId);
-    await logActivity(supabase, userId, {
-      algorithm_id: algorithmId,
-      position_id: paperPositionId,
-      event_type: "live_order_placed",
-      ticker,
-      details: {
-        broker_order_id: placed.orderId,
-        broker_position_id: placed.positionId,
-        volume: lots,
-        side,
-      },
-    });
-
-    // Cumulative divergence check (extracted for line-count budget).
-    await maybeHaltOnDivergence(supabase, userId, algorithmId, args.divergenceRule);
+    await recordSuccessfulOrder(args, placed, lots, spec);
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Live order failed";
     // Roll back the paper position. Broker rejected the order, so there
@@ -222,6 +197,25 @@ export async function executeLiveEntry(args: EntryArgs): Promise<void> {
       ticker,
       details: { error: msg, side, voided: true },
     });
+    return;
+  }
+
+  // Cumulative divergence check runs OUTSIDE the placement try block. A
+  // divergence-helper throw AFTER successful placement must NOT cascade
+  // into the broker_rejected rollback above — the broker has live
+  // exposure at this point; voiding the paper row would silently desync
+  // paper from broker. CB.H8 (2026-06-22). Errors here are best-effort
+  // logged and swallowed so they don't propagate out of executeLiveEntry
+  // (the placement itself succeeded; downstream callers should treat
+  // executeLiveEntry as void-on-placement).
+  try {
+    await maybeHaltOnDivergence(supabase, userId, algorithmId, args.divergenceRule);
+  } catch (err) {
+    logger.warn(
+      "live-execution",
+      `Divergence check threw after successful placement for ${ticker} (paper_position_id=${paperPositionId}) — paper↔broker mirror intact, halt deferred`,
+      err
+    );
   }
 }
 

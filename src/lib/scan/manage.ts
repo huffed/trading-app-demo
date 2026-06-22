@@ -29,15 +29,24 @@ import { fetchBatchQuotes } from "@/lib/market-data/twelve-data";
 import type { PriceBar } from "@/lib/market-data/types";
 import type { Tables } from "@/lib/supabase/database.types";
 import type { PaperPosition, PositionEvent } from "@/types/position";
+// CB.H1 (2026-06-22): extracted broker-position sync helpers so the sync
+// logic is unit-testable + manage.ts drops below the 300-LOC cap.
+import {
+  reconcileMissingBrokerPosition,
+  syncBrokerUnrealizedPnl,
+} from "./broker-position-sync";
 import {
   reconcileBrokerRealizedPnl,
   reconcileOrphanBrokerRealized,
 } from "./broker-truth-sync";
 import { manageExistingPosition, type AlgoForPositionMgmt } from "./engine";
-import { logActivity } from "./helpers";
 import { resolveBrokerContext } from "./live-execution";
 import { backfillClosedTradeOutcomes } from "./llm-trader-audit";
 import type { SupabaseClient } from "@supabase/supabase-js";
+
+// Re-export for back-compat: external callers (scripts/reconcile-broker-close.ts
+// per the original docstring) may continue to import from manage.ts.
+export { reconcileMissingBrokerPosition };
 
 export interface ManageResult {
   algorithm_id: string;
@@ -63,7 +72,10 @@ async function loadBars(
   try {
     const prices = await getFreshPricesForScan(ticker, "full", interval);
     return prices.length >= 10 ? prices : null;
-  } catch {
+  } catch (err) {
+    // CB.M7.b (2026-06-20): warn-on-swallow so a price-provider outage
+    // surfaces in logs. Caller treats null as "skip this tick".
+    logger.warn("manage", `loadBars(${ticker}, ${interval}) failed`, err);
     return null;
   }
 }
@@ -80,128 +92,19 @@ async function loadDailyBars(
     try {
       dailyBars = await fetchDailyPrices(ticker, "full", "1day");
       savePricesToCache(ticker, "full", dailyBars, "1day").catch(() => {});
-    } catch {
+    } catch (err) {
+      // CB.M7.b (2026-06-20): warn-on-swallow — daily-bar fetch failure
+      // silently skips higher-TF pattern conditions; surface in logs.
+      logger.warn("manage", `loadDailyBars(${ticker}) failed`, err);
       return null;
     }
   }
   return dailyBars;
 }
 
-/**
- * Refresh broker_unrealized_pnl on every paper position that has a
- * broker mirror. One fetchPositions call per algo, then map results by
- * broker_position_id. Best-effort — a broker fetch failure leaves the
- * cached value stale, which is preferable to nulling out a recent good
- * value just because one tick had a network blip.
- */
-async function syncBrokerUnrealizedPnl(
-  supabase: SupabaseClient,
-  brokerCtx: Awaited<ReturnType<typeof resolveBrokerContext>>,
-  positions: PaperPosition[]
-): Promise<void> {
-  if (!brokerCtx) return;
-  const mirrored = positions.filter((p) => p.broker_position_id);
-  if (mirrored.length === 0) return;
-  let brokerPositions: Awaited<ReturnType<typeof brokerCtx.adapter.fetchPositions>>;
-  try {
-    brokerPositions = await brokerCtx.adapter.fetchPositions(brokerCtx.conn);
-  } catch (err) {
-    logger.warn(
-      "manage-positions",
-      "broker fetchPositions failed, leaving broker_unrealized_pnl stale",
-      err instanceof Error ? err.message : err
-    );
-    return;
-  }
-  const byId = new Map(brokerPositions.map((p) => [String(p.id), p]));
-  const syncedAt = new Date().toISOString();
-  for (const paper of mirrored) {
-    const broker = byId.get(String(paper.broker_position_id));
-    if (!broker) {
-      // Broker stopped reporting this position. Either (a) it was closed
-      // outside our exit logic — typically operator clicked close in the
-      // broker UI — or (b) MetaApi has lag and the position will reappear
-      // in a moment. Try to fetch the realised close from the broker's
-      // history; if found, write it back. If not (lag or unsupported
-      // adapter), leave the row alone and retry on the next tick.
-      await reconcileMissingBrokerPosition(supabase, brokerCtx, paper);
-      continue;
-    }
-    await supabase
-      .from("paper_positions")
-      .update({
-        broker_unrealized_pnl: Number(broker.profit ?? 0),
-        broker_pnl_synced_at: syncedAt,
-      })
-      .eq("id", paper.id);
-  }
-}
-
-/**
- * Try to find the realised close of a paper position whose broker mirror
- * stopped reporting. Pulled out so the same logic is reusable from
- * scripts/reconcile-broker-close.ts. No-op when the adapter doesn't
- * implement fetchClosedDealForPosition (cTrader streams deals only).
- */
-export async function reconcileMissingBrokerPosition(
-  supabase: SupabaseClient,
-  brokerCtx: NonNullable<Awaited<ReturnType<typeof resolveBrokerContext>>>,
-  paper: PaperPosition
-): Promise<void> {
-  const fetcher = brokerCtx.adapter.fetchClosedDealForPosition;
-  if (!fetcher) return;
-  if (!paper.broker_position_id) return;
-  const closed = await fetcher.call(
-    brokerCtx.adapter,
-    brokerCtx.conn,
-    paper.broker_position_id
-  );
-  if (!closed) return;
-
-  // Classify the exit by comparing close price against SL/TP targets.
-  // Without this, every broker-side close (incl. SL/TP fills) was tagged
-  // "manual", polluting per-exit-reason stats and the drift detector's
-  // future per-cohort analysis. Tolerance = 0.1% of close price (catches
-  // typical broker fill slippage; rare false-positive when an operator
-  // manually closes at almost exactly the SL/TP price).
-  const slPrice = paper.stop_loss_price ? Number(paper.stop_loss_price) : null;
-  const tpPrice = paper.take_profit_price ? Number(paper.take_profit_price) : null;
-  const tolerance = closed.price * 0.001;
-  const matchesTarget = (target: number | null): boolean =>
-    target != null && target > 0 && Math.abs(target - closed.price) <= tolerance;
-  let exitReason: "stop_loss" | "take_profit" | "manual" = "manual";
-  if (matchesTarget(slPrice)) exitReason = "stop_loss";
-  else if (matchesTarget(tpPrice)) exitReason = "take_profit";
-
-  await supabase
-    .from("paper_positions")
-    .update({
-      status: "closed",
-      exit_price: closed.price,
-      exit_reason: exitReason,
-      realized_pnl: closed.realizedPnl,
-      broker_close_price: closed.price,
-      broker_unrealized_pnl: 0,
-      closed_at: closed.closedAt,
-    })
-    .eq("id", paper.id)
-    .eq("status", "open");
-  await logActivity(supabase, paper.user_id, {
-    algorithm_id: paper.algorithm_id,
-    event_type: "live_order_closed",
-    ticker: paper.ticker,
-    details: {
-      reason: `broker-side close reconciled (manage cron) — classified as ${exitReason}`,
-      exit_price: closed.price,
-      sl_price: slPrice,
-      tp_price: tpPrice,
-      realized_pnl: closed.realizedPnl,
-      closed_at: closed.closedAt,
-      broker_position_id: paper.broker_position_id,
-      exit_reason: exitReason,
-    },
-  });
-}
+// CB.H1 (2026-06-22): `syncBrokerUnrealizedPnl` + `reconcileMissingBrokerPosition`
+// extracted to `./broker-position-sync.ts` so the sync logic is unit-testable
+// independently of the manage-cron orchestrator. See top-of-file import.
 
 async function manageAlgorithm(
   supabase: SupabaseClient,
