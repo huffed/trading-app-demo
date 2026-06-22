@@ -1,10 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import { BrokersTab } from "@/components/reports/brokers-tab";
+import { CohortTab } from "@/components/reports/cohort-tab";
+import { DriftTab } from "@/components/reports/drift-tab";
 import { EligibilityTab } from "@/components/reports/eligibility-tab";
 import { EngineActivityTab } from "@/components/reports/engine-activity-tab";
 
-type Tab = "activity" | "eligibility";
+type Tab = "activity" | "eligibility" | "cohort" | "drift" | "brokers";
 
 export default function ReportsPage() {
   const [tab, setTab] = useState<Tab>("activity");
@@ -15,7 +18,11 @@ export default function ReportsPage() {
         <h1 className="text-2xl font-semibold tracking-tight">Reports</h1>
         <p className="text-sm text-muted-foreground">
           Operator review surfaces. Engine activity covers cron-tick decisions and gate refusals.
-          Promotion eligibility surfaces paper algos against the live-mirror milestone.
+          Promotion eligibility surfaces paper algos against the live-mirror milestone. Cohort
+          surfaces per-cohort expectancy + decay flags + shadow-gate candidates (SG.6). Drift
+          surfaces per-algo performance decay vs backtest baseline + recent halt/warn events
+          (SG.5). Brokers surfaces token expiry / stale sync / sibling risk divergence /
+          snapshot drift alerts (SG.9).
         </p>
       </div>
 
@@ -26,10 +33,22 @@ export default function ReportsPage() {
         <TabButton active={tab === "eligibility"} onClick={() => setTab("eligibility")}>
           Promotion eligibility
         </TabButton>
+        <TabButton active={tab === "cohort"} onClick={() => setTab("cohort")}>
+          Cohort
+        </TabButton>
+        <TabButton active={tab === "drift"} onClick={() => setTab("drift")}>
+          Drift
+        </TabButton>
+        <TabButton active={tab === "brokers"} onClick={() => setTab("brokers")}>
+          Brokers
+        </TabButton>
       </div>
 
       {tab === "activity" && <EngineActivityTab />}
       {tab === "eligibility" && <EligibilityTab />}
+      {tab === "cohort" && <CohortTab />}
+      {tab === "drift" && <DriftTab />}
+      {tab === "brokers" && <BrokersTab />}
     </div>
   );
 }

@@ -83,6 +83,23 @@ This project uses **shadcn/ui base-nova style** which wraps `@base-ui/react`, NO
 
 Always check the actual component source in `src/components/ui/` before assuming any API.
 
+## Domain Glossary (CB.G1)
+
+Use these terms consistently. Mixing them is a frequent source of bugs (and lost time in code review). Canonical meanings:
+
+| Term | Meaning | Use when |
+|---|---|---|
+| **Strategy** | An umbrella concept — a reusable rule template (`rules_template` JSONB on the `strategies` table). One strategy can have many algorithm instances. | Talking about the conceptual approach (e.g. "the FVG-DailyBias strategy"). |
+| **Algorithm** | A single deployed instance of a strategy — a row in the `algorithms` table with its own `rules` JSONB, `capital`, `status`, watchlist, and broker connection. The canonical name in DB, types, and external APIs. | Anywhere persisted: DB schema, types, server actions, external APIs. |
+| **algo** | Shorthand for `Algorithm` — local variable name only. Never appears in DB, types, or function signatures; only in tight scopes (`for (const algo of algos)`). | Local-scope variable naming inside a function. |
+| **ticker** | The in-app symbol for an instrument (e.g. `XAU/USD`, `EUR/USD`). Used by `algorithms.ticker`, `algorithm_watchlist.ticker`, anything operator-facing. | Anywhere in app code, UI, DB rows. |
+| **symbol** | The broker-API symbol (e.g. MetaApi's `XAUUSD`, cTrader's `XAU/USD`). Differs per broker; translated at the adapter boundary. | Only inside broker adapter code (`lib/brokers/*`). |
+| **position** | A trade in OPEN or CLOSED state — a row in `paper_positions` (and its mirror to the broker when live). Has `status: "open" | "closed"`, entry/exit prices, realized/unrealized P&L. | Anywhere referring to a tradable lifecycle: open + close + manage. |
+| **trade** | A historical record of a completed round-trip (not a live tradable state). Used for backtest output (`BacktestTrade`), cohort attribution, journal entries. | Backtest analytics, retrospective metrics, journal/cohort tooling. |
+| **order** | A broker order placement — the network call to the broker to open/close a position. Lives only on the broker adapter layer. | Broker adapter code; never appears at the application layer. |
+
+`Strategy` ≠ `Algorithm`, `ticker` ≠ `symbol`, `position` ≠ `trade`. When in doubt, default to the more general term and let context narrow it.
+
 ## Project Structure (top-level)
 
 ```
@@ -165,15 +182,16 @@ When `rules.llm_trader.enabled`, the scan skips condition evaluation and, on eac
 - **Defensive gates run before the LLM call when flat** (dead-hour, ATR liquidity, news veto, consec-loss halt) and are **skipped in-position** so the LLM can manage an open trade (2026-05-11 incident). The RANGING hard block consults the prompt-capability registry.
 - **`live_trading_enabled` gates ONLY broker mirroring — NOT the scan or the LLM call.** A `status='active'` algo with the flag off still scans, spends API tokens (~$0.003/call), and opens PAPER positions. Zero-spend idle requires `status='paused'`.
 
-### Validation economics (the harness)
+### Validation economics — HISTORICAL (LLM-trader harness archived 2026-06-18)
 
-`scripts/llm-trader-backtest.ts` + `scripts/llm-trader-walk-forward.ts` replay history with real Anthropic calls. Hard-won rules, enforced in code:
+The LLM-trader harness (`scripts/llm-trader-backtest.ts` + `scripts/llm-trader-walk-forward.ts`) is in `scripts/archive/2026-06-18/`. LLM-trader work is deferred to roadmap STEP 12 / Phase D.4 (paid, last). The hard-won rules below applied to that harness; if/when LLM-trader is reactivated, restore from archive + re-validate.
 
-- **`SL_PRESET=baseline|live|comboC`** pins the full SL/TP geometry; omitting it runs harness defaults (pct 1.5%/4.5%) which are NOT the live config — the header warns loudly. Resolved geometry is echoed in the header + summary JSON.
-- **`REPLAY_CACHE=1`** memoises responses on disk — re-running an unchanged config costs $0. Default OFF so variance reps stay independent.
-- **Rate limiter + jittered backoff** (`LLM_RPM`/`LLM_TPM`/`LLM_MAX_ATTEMPTS`) — the 2026-05-18 cascade wasted ~67% of a sweep before these existed.
-- **`LLM_MONTHLY_BUDGET_USD` (default $25)** — per-month spend ledger; the process exits before exceeding it. The £150/month ceiling is structural, not advisory.
-- **Confirmation protocol:** screen candidates at $0 first (replay recorded entries through variant mechanics), then ONE paid A/B confirmation with pre-registered criteria including a **recency window ending run-day** (standard grid stops at 2026-04-30).
+- **`SL_PRESET=baseline|live|comboC`** pinned the full SL/TP geometry; omitting it ran harness defaults (pct 1.5%/4.5%) which are NOT live config.
+- **`REPLAY_CACHE=1`** memoised responses on disk — re-running an unchanged config costs $0.
+- **Rate limiter + jittered backoff** (`LLM_RPM`/`LLM_TPM`/`LLM_MAX_ATTEMPTS`) — the 2026-05-18 cascade wasted ~67% of a sweep.
+- **`LLM_MONTHLY_BUDGET_USD` (default $25)** — per-month spend ledger; process exits before exceeding. £150/month ceiling structural.
+
+**For the CURRENT canonical validator** (free, replaces this harness for library algos): see `scripts/canonical/validate-algo.ts` + `scripts/README.md` env var reference. Phase B fidelity gates section below covers the new pipeline.
 
 ## Pre-deploy validation (canonical 4-way for library algos)
 
@@ -272,7 +290,7 @@ Current tables:
 - `oanda_positioning_cache` — OANDA positionBook snapshots every 20 min. Migration 00034.
 - `paper_positions_archive` — archived position rows (migration 00033).
 - `trades`, `journal_entries` — dormant per the personal-operator workflow (kept per dormant-by-design policy).
-- `public.last_manage_tick()` — SECURITY DEFINER function for the GitHub Actions dead-man switch. Migration 00039.
+- `public.last_manage_tick()` + `public.last_scan_tick()` — SECURITY DEFINER functions for the GitHub Actions dead-man switch. `last_manage_tick()` from migration 00039; `last_scan_tick()` added 2026-06-15 to decouple scan-heartbeat staleness (35-min threshold, 2+ consecutive 15-min misses) from manage-heartbeat (45-min threshold).
 
 All tables use RLS. Scheduled scan uses an admin client (`createAdminClient()`) because cron has no Supabase session.
 
@@ -389,6 +407,6 @@ Five live cron entrypoints (operator's crontab as of 2026-06-10):
 
 Each emits `manage_tick` / `scan_started` + `scan_completed` events to `activity_log` so liveness is verifiable on no-op ticks.
 
-**Independent alerting:** `.github/workflows/dead-man.yml` (GitHub Actions, every 30 min) calls the anon-executable `last_manage_tick()` RPC and emails the repo owner when the heartbeat trail is >45 min stale. Covers the 2026-05-24 silent-outage chain (Mac asleep → cron dead → zero DB traffic → Supabase free-tier auto-pause for 17 days unnoticed). The 5-min ticks also keep the free-tier Supabase project from auto-pausing.
+**Independent alerting:** `.github/workflows/dead-man.yml` (GitHub Actions, every 30 min) calls TWO anon-executable RPCs — `last_manage_tick()` (alerts >45 min stale) AND `last_scan_tick()` (alerts >35 min stale, i.e. 2+ consecutive missed 15-min scans) — plus a dual-attempt broker-API liveness probe (30s retry, flags 5xx). Decoupled so scan failures don't mask manage failures and vice versa. Covers the 2026-05-24 silent-outage chain (Mac asleep → cron dead → zero DB traffic → Supabase free-tier auto-pause for 17 days unnoticed). The 5-min ticks also keep the free-tier Supabase project from auto-pausing.
 
 **Restart-from-idle warning:** restarting the dev server with algos `status='active'` resumes LLM calls and paper trading immediately (the live flag doesn't gate scans — see LLM-Trader section). Run `pnpm dlx tsx scripts/live-state.ts` first; it fails loudly on an unreachable DB.

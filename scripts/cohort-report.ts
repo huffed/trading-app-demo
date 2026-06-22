@@ -26,6 +26,20 @@
  *     report informative during the 30-day observation window between
  *     a config change and the first closed trade.
  *
+ * SG.6.1 closure (2026-06-22 NIGHT LATE): aggregation logic in (1)-(4)
+ * extracted to `src/lib/cohort/cohort-report.ts:buildCohortReport`.
+ * This script now imports + delegates the aggregation, keeping only
+ * the console-render + dated-JSON-write responsibilities. The /reports
+ * Cohort tab reads the same buildCohortReport output — single source
+ * of truth for cohort attribution math.
+ *
+ * **Dated-JSON schema change:** the per-dimension shape moved from
+ * `Record<dim, Record<value, Agg>>` to `CohortDimensionReport[]` arrays
+ * matching `CohortReport` types in the shared lib. Operator's gitignored
+ * dated files written under the old schema won't diff cleanly across
+ * the SG.6.1 boundary — first post-SG.6.1 dated file is the new
+ * reference schema.
+ *
  * Honesty rule: with small n the report SAYS "insufficient n" rather
  * than printing noise as signal. Cohort gates were reverted once
  * (#136/#137) for being calibrated on a single window — this report is
@@ -43,6 +57,11 @@
  */
 import { readFileSync, writeFileSync } from "fs";
 import { createClient } from "@supabase/supabase-js";
+import {
+  buildCohortReport,
+  type CohortBucket,
+  type CohortDimensionReport,
+} from "../src/lib/cohort/cohort-report";
 import { buildEngineActivity, type EngineActivity } from "../src/lib/cohort/engine-activity";
 
 // Self-load .env.local (same pattern as sibling scripts)
@@ -61,7 +80,7 @@ import { buildEngineActivity, type EngineActivity } from "../src/lib/cohort/engi
 }
 
 const DAYS = Number(process.env.DAYS ?? 14);
-const SOURCE = process.env.SOURCE ?? "live";
+const SOURCE = (process.env.SOURCE ?? "live") as "live" | "walk_forward" | "all";
 const MIN_N = Number(process.env.MIN_N ?? 5);
 /** Window for the engine-activity section. Separate from DAYS (which
  *  governs the decay-comparison halves) so weekly review reads against
@@ -76,58 +95,22 @@ if (!supabaseUrl || !serviceKey) {
 }
 const supabase = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
 
-// Fail loudly — a review tool must never render an error as "no data"
-// (live-state.ts printed a false all-clear against a paused DB once).
-function check<T extends { error: { message: string } | null }>(label: string, res: T): T {
-  if (res.error) {
-    console.error(`✗ Query failed [${label}]: ${res.error.message} — aborting.`);
-    process.exit(1);
-  }
-  return res;
-}
-
-interface TradeOutcome {
-  side?: string;
-  exit_date?: string;
-  exit_reason?: string;
-  r_multiple?: number;
-  realized_pnl?: number;
-}
-
-interface CohortTrade {
-  date: Date;
-  regime: string;
-  promptVersion: string;
-  side: string;
-  confBucket: string;
-  sessionBucket: string;
-  zone: string;
-  exitReason: string;
-  r: number;
-}
-
-function sessionBucket(utcHour: number): string {
-  if (utcHour < 7) return "asia(0-7)";
-  if (utcHour < 13) return "london(7-13)";
-  if (utcHour < 21) return "ny(13-21)";
-  return "late(21-24)";
-}
-
-function confBucket(c: number | null): string {
-  if (c == null) return "n/a";
-  if (c < 70) return "<70";
-  if (c < 75) return "70-74";
-  return "75+";
-}
+const pad = (s: string, n: number): string =>
+  s.length >= n ? s : s + " ".repeat(n - s.length);
 
 /** Engine activity printer — delegates aggregation to the shared
  *  src/lib/cohort/engine-activity.ts module so the in-UI /reports
  *  page reads from the same source of truth as the CLI. */
-async function printEngineActivity(
-  pad: (s: string, n: number) => string
-): Promise<EngineActivity> {
+async function printEngineActivity(): Promise<EngineActivity> {
   const activity = await buildEngineActivity(supabase, ACTIVITY_DAYS);
-  const { llm_decisions: llmDecisions, llm_avg_confidence: avgConf, llm_by_decision: byDecision, llm_by_mtf: byMtf, per_algo: perAlgo, notable_saves: notable } = activity;
+  const {
+    llm_decisions: llmDecisions,
+    llm_avg_confidence: avgConf,
+    llm_by_decision: byDecision,
+    llm_by_mtf: byMtf,
+    per_algo: perAlgo,
+    notable_saves: notable,
+  } = activity;
 
   console.log(`--- Engine activity (last ${ACTIVITY_DAYS}d) ---\n`);
   console.log(
@@ -170,204 +153,83 @@ async function printEngineActivity(
   return activity;
 }
 
+function formatBucket(b: CohortBucket): string {
+  const wr = b.stats.n ? `${b.stats.win_rate_pct.toFixed(0)}%` : "-";
+  const meanR = b.stats.n ? b.stats.mean_r.toFixed(2) : "-";
+  return `${pad(b.stats.n.toString(), 5)}${pad(wr, 7)}${pad(meanR, 8)}${b.stats.sum_r.toFixed(1)}`;
+}
+
+function printDimensions(dimensions: CohortDimensionReport[]): void {
+  console.log("--- All-time cohort expectancy ---");
+  for (const dim of dimensions) {
+    console.log(`\n${dim.label}:`);
+    console.log(`  ${pad("value", 16)}${pad("n", 5)}${pad("WR", 7)}${pad("meanR", 8)}sumR`);
+    for (const b of dim.buckets) {
+      console.log(`  ${pad(b.value, 16)}${formatBucket(b)}`);
+    }
+  }
+}
+
 async function main(): Promise<void> {
   console.log(`\n===== Cohort report @ ${new Date().toISOString().slice(0, 16)} =====`);
   console.log(`source=${SOURCE} · decay halves=${DAYS}d · MIN_N=${MIN_N}\n`);
 
-  let q = supabase
-    .from("llm_decisions")
-    .select(
-      "created_at, bar_date, regime, prompt_version, decision, confidence, paper_position_id, trade_outcome, source"
-    )
-    .in("decision", ["enter_long", "enter_short"])
-    .not("trade_outcome", "is", null)
-    .order("created_at", { ascending: true });
-  if (SOURCE !== "all") q = q.eq("source", SOURCE);
-  const { data: decisions } = check("llm_decisions", await q);
-  const rows = decisions ?? [];
-
-  // Join cohort tags from paper_positions.entry_reason (present on
-  // entries opened after the 2026-05-18 attribution commit).
-  const posIds = rows.map((r) => r.paper_position_id).filter(Boolean) as string[];
-  const tagsById = new Map<string, Record<string, unknown>>();
-  if (posIds.length > 0) {
-    const { data: positions } = check(
-      "paper_positions tags",
-      await supabase.from("paper_positions").select("id, entry_reason").in("id", posIds)
-    );
-    for (const p of positions ?? []) {
-      tagsById.set(p.id as string, (p.entry_reason ?? {}) as Record<string, unknown>);
-    }
-  }
-
-  const trades: CohortTrade[] = [];
-  for (const r of rows) {
-    const outcome = (r.trade_outcome ?? {}) as TradeOutcome;
-    if (typeof outcome.r_multiple !== "number") continue;
-    const tags = r.paper_position_id ? (tagsById.get(r.paper_position_id) ?? {}) : {};
-    const barDate = new Date((r.bar_date as string) ?? (r.created_at as string));
-    trades.push({
-      date: new Date(r.created_at as string),
-      regime: (r.regime as string) ?? "n/a",
-      promptVersion: (r.prompt_version as string) ?? "n/a",
-      side: r.decision === "enter_long" ? "long" : "short",
-      confBucket: confBucket(r.confidence as number | null),
-      sessionBucket: sessionBucket(barDate.getUTCHours()),
-      zone: typeof tags.entry_zone === "string" ? tags.entry_zone : "untagged",
-      exitReason: outcome.exit_reason ?? "n/a",
-      r: outcome.r_multiple,
-    });
-  }
+  // SG.6.1 (2026-06-22 NIGHT LATE): aggregation delegated to the shared lib.
+  // The CLI keeps responsibility for: (a) console rendering of the
+  // structured result, (b) the engine-activity section (already shared),
+  // (c) writing dated JSON files for historical diff.
+  const report = await buildCohortReport(supabase, { days: DAYS, source: SOURCE, minN: MIN_N });
 
   console.log(
-    `${trades.length} completed entries with outcomes (${rows.length - trades.length} skipped without r_multiple) · ` +
-      `${trades.filter((t) => t.zone !== "untagged").length} carry entry-zone tags\n`
+    `${report.total_trades} completed entries with outcomes (${report.trades_skipped_no_r} skipped without r_multiple) · ` +
+      `${report.trades_with_zone_tags} carry entry-zone tags\n`
   );
 
-  const pad = (s: string, n: number): string => (s.length >= n ? s : s + " ".repeat(n - s.length));
-  const engineActivity = await printEngineActivity(pad);
+  const engineActivity = await printEngineActivity();
 
-  if (trades.length === 0) {
+  if (report.total_trades === 0) {
     console.log("No closed trades in the cohort window yet — engine activity above is the");
     console.log("weekly read for now (expected during the 30-day observation between any");
     console.log("config change and the first closed trade).");
-    const outPath = `scripts/cohort-report-${new Date().toISOString().slice(0, 10)}.json`;
-    writeFileSync(
-      outPath,
-      JSON.stringify(
-        {
-          generated_at: new Date().toISOString(),
-          source: SOURCE,
-          days: DAYS,
-          activity_days: ACTIVITY_DAYS,
-          min_n: MIN_N,
-          trades: 0,
-          engine_activity: engineActivity,
-        },
-        null,
-        2
-      )
-    );
-    console.log(`\nSaved: ${outPath}`);
-    return;
-  }
+  } else {
+    printDimensions(report.dimensions);
 
-  interface Agg {
-    n: number;
-    wins: number;
-    sumR: number;
-  }
-  const aggregate = (ts: CohortTrade[]): Agg => ({
-    n: ts.length,
-    wins: ts.filter((t) => t.r > 0).length,
-    sumR: ts.reduce((s, t) => s + t.r, 0),
-  });
-  const fmt = (a: Agg): string =>
-    `${pad(a.n.toString(), 5)}${pad(a.n ? `${((a.wins / a.n) * 100).toFixed(0)}%` : "-", 7)}${pad(
-      a.n ? (a.sumR / a.n).toFixed(2) : "-",
-      8
-    )}${a.sumR.toFixed(1)}`;
-
-  const DIMENSIONS: { label: string; key: (t: CohortTrade) => string }[] = [
-    { label: "regime", key: (t) => t.regime },
-    { label: "prompt_version", key: (t) => t.promptVersion },
-    { label: "side", key: (t) => t.side },
-    { label: "confidence", key: (t) => t.confBucket },
-    { label: "session", key: (t) => t.sessionBucket },
-    { label: "entry_zone", key: (t) => t.zone },
-    { label: "exit_reason", key: (t) => t.exitReason },
-  ];
-
-  const byKey = (ts: CohortTrade[], key: (t: CohortTrade) => string): Map<string, CohortTrade[]> => {
-    const m = new Map<string, CohortTrade[]>();
-    for (const t of ts) {
-      const k = key(t);
-      m.set(k, [...(m.get(k) ?? []), t]);
+    // Decay flags
+    console.log(`\n--- Decay flags (last ${DAYS}d vs prior ${DAYS}d, n≥${MIN_N} both halves) ---`);
+    if (report.decay_flags.length === 0) {
+      console.log("  none — or insufficient n on every cohort (expected while live-paper data accumulates)");
+    } else {
+      for (const f of report.decay_flags) {
+        console.log(
+          `  ⚠ ${f.dimension}=${f.value}: meanR ${f.prior_mean_r.toFixed(2)}→${f.recent_mean_r.toFixed(2)}, WR ${f.prior_wr_pct.toFixed(0)}%→${f.recent_wr_pct.toFixed(0)}% (n ${f.prior_n}→${f.recent_n})`
+        );
+      }
     }
-    return m;
-  };
 
-  const report: Record<string, unknown> = {};
-
-  console.log("--- All-time cohort expectancy ---");
-  for (const dim of DIMENSIONS) {
-    console.log(`\n${dim.label}:`);
-    console.log(`  ${pad("value", 16)}${pad("n", 5)}${pad("WR", 7)}${pad("meanR", 8)}sumR`);
-    const dimReport: Record<string, Agg> = {};
-    for (const [value, ts] of [...byKey(trades, dim.key)].sort((a, b) => b[1].length - a[1].length)) {
-      const a = aggregate(ts);
-      dimReport[value] = a;
-      console.log(`  ${pad(value, 16)}${fmt(a)}`);
-    }
-    report[dim.label] = dimReport;
-  }
-
-  // Decay comparison: last DAYS vs the DAYS before it.
-  const now = Date.now();
-  const recentStart = now - DAYS * 86400_000;
-  const priorStart = now - 2 * DAYS * 86400_000;
-  const recent = trades.filter((t) => t.date.getTime() >= recentStart);
-  const prior = trades.filter(
-    (t) => t.date.getTime() >= priorStart && t.date.getTime() < recentStart
-  );
-
-  console.log(`\n--- Decay flags (last ${DAYS}d vs prior ${DAYS}d, n≥${MIN_N} both halves) ---`);
-  const decayFlags: string[] = [];
-  for (const dim of DIMENSIONS) {
-    const recentMap = byKey(recent, dim.key);
-    const priorMap = byKey(prior, dim.key);
-    for (const [value, rts] of recentMap) {
-      const pts = priorMap.get(value) ?? [];
-      if (rts.length < MIN_N || pts.length < MIN_N) continue;
-      const ra = aggregate(rts);
-      const pa = aggregate(pts);
-      const meanDrop = pa.sumR / pa.n - ra.sumR / ra.n;
-      const wrDrop = (pa.wins / pa.n - ra.wins / ra.n) * 100;
-      if (meanDrop >= 0.5 || wrDrop >= 20) {
-        const flag = `${dim.label}=${value}: meanR ${(pa.sumR / pa.n).toFixed(2)}→${(ra.sumR / ra.n).toFixed(2)}, WR ${((pa.wins / pa.n) * 100).toFixed(0)}%→${((ra.wins / ra.n) * 100).toFixed(0)}% (n ${pa.n}→${ra.n})`;
-        decayFlags.push(flag);
-        console.log(`  ⚠ ${flag}`);
+    // Shadow-gate candidates
+    console.log(`\n--- Shadow-gate candidates (all-time n≥8, meanR ≤ −0.3) ---`);
+    if (report.shadow_gate_candidates.length === 0) {
+      console.log("  none at current n — keep accumulating");
+    } else {
+      for (const c of report.shadow_gate_candidates) {
+        console.log(`  → ${c.rationale}`);
       }
     }
   }
-  if (decayFlags.length === 0) {
-    console.log(
-      recent.length < MIN_N || prior.length < MIN_N
-        ? `  insufficient n for any comparison (recent=${recent.length}, prior=${prior.length}) — expected while live-paper data accumulates`
-        : "  none"
-    );
-  }
-
-  // Shadow-gate candidates.
-  console.log(`\n--- Shadow-gate candidates (all-time n≥8, meanR ≤ −0.3) ---`);
-  const candidates: string[] = [];
-  for (const dim of DIMENSIONS) {
-    if (dim.label === "exit_reason") continue; // outcome, not an entry cohort
-    for (const [value, ts] of byKey(trades, dim.key)) {
-      const a = aggregate(ts);
-      if (a.n >= 8 && a.sumR / a.n <= -0.3) {
-        const c = `${dim.label}=${value} (n=${a.n}, meanR ${(a.sumR / a.n).toFixed(2)}) → propose LOG-ONLY gate scoped per algo+prompt_version; enforce only after shadow evidence`;
-        candidates.push(c);
-        console.log(`  → ${c}`);
-      }
-    }
-  }
-  if (candidates.length === 0) console.log("  none at current n — keep accumulating");
 
   const outPath = `scripts/cohort-report-${new Date().toISOString().slice(0, 10)}.json`;
   writeFileSync(
     outPath,
     JSON.stringify(
       {
-        generated_at: new Date().toISOString(),
-        source: SOURCE,
-        days: DAYS,
+        // Schema: post-SG.6.1 mirrors `CohortReport` from
+        // src/lib/cohort/cohort-report.ts — dimensions is now a typed
+        // array of `CohortDimensionReport`, decay_flags is `DecayFlag[]`,
+        // shadow_gate_candidates is `ShadowGateCandidate[]`. Pre-SG.6.1
+        // dated files used Record<dim, Record<value, Agg>> + string[]
+        // for flags/candidates; won't diff cleanly across the boundary.
+        ...report,
         activity_days: ACTIVITY_DAYS,
-        min_n: MIN_N,
-        trades: trades.length,
-        dimensions: report,
-        decay_flags: decayFlags,
-        shadow_gate_candidates: candidates,
         engine_activity: engineActivity,
       },
       null,

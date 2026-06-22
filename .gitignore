@@ -65,6 +65,7 @@ scripts/.llm-replay-cache/
 scripts/.llm-spend-ledger.json
 scripts/exit-replay-summary-*.json
 scripts/cohort-report-*.json
+scripts/broker-spread-samples.jsonl
 scripts/entry-gate-screen-*.json
 scripts/market-state-study-*.json
 scripts/discovery-v1-*.json

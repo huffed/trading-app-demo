@@ -5,12 +5,17 @@ scripts/
 ├── README.md                    (this file)
 ├── *.sh                          production cron entrypoints (DO NOT MOVE — paths in crontab)
 ├── cohort-report.ts              called by cohort-report-cron.sh; keep in root
+├── cohort-report-diff.ts         operator-run after cohort-report-cron; diffs latest 2 dated JSONs
 ├── live-state.ts                 operator "is the system alive?" diagnostic
 ├── launchd/                      operator's launchd plist (caffeinate)
 ├── canonical/                    ⭐ THE LIBRARY — fully fleshed-out reusable scripts
-│   ├── validate-algo.ts          Full Phase A→B validation runner. Consolidates step2-6 + verify-* + analyze-* with Phase B fidelity gates. Replaces ~10 archive scripts.
-│   ├── preregistration.json      Pre-registered acceptance criteria per algo (loaded by validate-algo).
-│   └── inspect-algo.ts           Per-algo backtest re-runner with per-trade detail.
+│   ├── validate-algo.ts                Full Phase A→B validation runner. Consolidates step2-6 + verify-* + analyze-* with Phase B fidelity gates. Replaces ~10 archive scripts.
+│   ├── validate-preregistration.ts     B.2.33 (Stage 3.2, 2026-06-20): standalone Zod-validates preregistration.json. Run BEFORE validate-algo to catch typos in 50ms. Subsumes Stage 4.7.1 quarterly audit.
+│   ├── preregistration.json            Pre-registered acceptance criteria per algo (loaded by validate-algo).
+│   ├── inspect-algo.ts                 Per-algo backtest re-runner with per-trade detail.
+│   ├── sample-forex-spreads.ts         Stage 4.2.a (2026-06-20): MetaApi spread sampler. Operator-runs during London/NY sessions to build per-pair × per-window forex spread corpus.
+│   ├── sync-account-capital.ts         Stage 0.2 (2026-06-19): one-off broker_connections.account_capital sync from MetaApi (preserved for future SG.17 live_equity work).
+│   └── B6_continuous_validation_cadence.md  Stage 4.7 (2026-06-20): rolling 12mo holdout cadence + monthly cron entry shape.
 ├── ad-hoc/                       throwaway investigations (default: don't commit)
 └── archive/                      old scripts kept for reference
     └── 2026-06-18/               ~96 one-off scripts archived during reorg (step*, verify-*, analyze-*, diag-*, discovery-*, deploy-*, sweep-*, replay-*, phase1-*, phase2-*, etc)
@@ -22,8 +27,11 @@ Defaults match the operator's locked Phase B configuration; override only when i
 
 **Selection / persistence**
 - `ALGO` — exact-match algo name. Omit to run against all deployed algos. Example: `ALGO="Library: Gold sweep_reclaim-DailyBias-Long 4h"`
+- `ALGOS` — comma-separated names. Mutually exclusive with `ALGO`. Stage 4.3 (2026-06-20).
+- `LIST_ONLY` — `1` prints the selected algos + exits without running backtests or DB writes. Useful smoke before a long PERSIST run. Stage 4.3 (2026-06-20).
+- `QUIET` — `1` suppresses per-algo result lines, keeps startup config + warnings + final SUMMARY. B.2.31 (Stage 3.2, 2026-06-20). Use when you only care about the headline counts (e.g. monthly cron-driven verification).
 - `PERSIST` — `1` (default) writes `backtest_results` JSONB to DB. `0` for dry-run.
-- `OOS_CUTOFF` — date for STEP 6 holdout split. Default `2025-12-18`. Re-roll quarterly (per B.6 cadence).
+- `OOS_CUTOFF` — date for STEP 6 holdout split. Default `2025-06-18` (= 12 months before the 2026-06-18 default snapshot per [[feedback_oos_cutoff_sweet_spot]] empirical sweep). Hardcoded literal currently — will go stale; B.6.3 punch is to derive dynamically (today − 12mo).
 
 **Phase B.1 fidelity gates** (each default on; set to `0` to disable for diagnostics)
 - `SIBLINGS` — direction-conflict gate (sibling opposite-side blocks entry).
@@ -65,6 +73,24 @@ OOS_CUTOFF=2026-03-18 pnpm dlx tsx scripts/canonical/validate-algo.ts
 BLOCK_BOOTSTRAP=0 PERSIST=0 pnpm dlx tsx scripts/canonical/validate-algo.ts
 ```
 
+**validate-preregistration.ts (Stage 3.2 / B.2.33)** — standalone JSON validator. Catches typos in `preregistration.json` in ~50ms WITHOUT running the full backtest pipeline. Recommended workflow: run this BEFORE every `validate-algo.ts` PERSIST=1 invocation.
+
+```bash
+# Default — exits 0 on clean, 1 on schema/JSON error
+pnpm dlx tsx scripts/canonical/validate-preregistration.ts
+
+# CI mode — also exits 2 if any entry expired
+STRICT_EXPIRED=1 pnpm dlx tsx scripts/canonical/validate-preregistration.ts
+
+# Custom warn threshold
+WARN_DAYS=60 pnpm dlx tsx scripts/canonical/validate-preregistration.ts
+```
+
+**Registration types (B.2.32, Stage 3.2 2026-06-20)** — three values for `registration_type`:
+- `true-prereg` — criteria locked BEFORE the data existed. Statistical novelty on pass.
+- `forward-pre-registered` — criteria informed by historical analysis but EVALUATED only against post-`registered_at` data. Clean held-out evidence, not novelty.
+- `post-hoc-locked` — criteria locked AFTER seeing full data + applied to both past + future. Operator discipline commitment, not science.
+
 **Discipline going forward** (2026-06-18 PM operator-set):
 - Don't create a new script every time you want to test something small. Use `scripts/ad-hoc/` for throwaway tests; only promote to `scripts/canonical/` when it's a tool we'll use repeatedly.
 - The canonical library stays small and fully documented. Each canonical script has full inline docs + usage examples + clear acceptance criteria.
@@ -96,6 +122,10 @@ operator), but the schedule should be kept in sync with this table.
 | Every 20 min (`*/20 * * * *`) | `oanda-positioning-cron.sh` | `/api/admin/snapshot-oanda-positioning?instruments=XAU_USD` | `/tmp/quanttrader-oanda-positioning.log` |
 | Every 5 min (`*/5 * * * *`) | `heartbeat-cron.sh` | `/api/cron/heartbeat` | `/tmp/quanttrader-heartbeat.log` |
 | Weekly Sun 23:00 UTC (`0 23 * * 0`) | `cohort-report-cron.sh` | _(none — direct script via Supabase)_ | `/tmp/quanttrader-cohort-report.log` |
+| Weekly Mon 09:00 UTC (`0 9 * * 1`) | `prereg-expiration-cron.sh` | _(none — direct script reads `scripts/canonical/preregistration.json`)_ | `/tmp/quanttrader-prereg.log` |
+| Monthly 1st 06:00 UTC (`0 6 1 * *`) | `validate-algo-monthly-cron.sh` | _(none — direct script, computes OOS_CUTOFF=today−12mo)_ | `/tmp/quanttrader-validate-algo-YYYYMMDD.log` (dated) |
+| Every 6h (`0 */6 * * *`) | `broker-health-snapshot-cron.sh` | _(none — direct script via MetaApi adapter)_ | `/tmp/quanttrader-broker-health.log` |
+| Hourly (`0 * * * *`) | `broker-spread-sampler-cron.sh` | _(none — direct script via MetaApi adapter)_ | `/tmp/quanttrader-broker-spread.log` |
 
 The 15-min scan cadence is chosen to align with bar-close moments
 across 15m, 1h, and 4h primary timeframes simultaneously. At `*/15 * *
@@ -234,6 +264,46 @@ Reference entries (swap `/Users/jack.jones/...` for your repo path):
 # AND streams the summary to the log. No endpoint — script connects to
 # Supabase directly, doesn't need pnpm dev running.
 0 23 * * 0 /Users/jack.jones/Documents/trading-app/demo-1/scripts/cohort-report-cron.sh >> /tmp/quanttrader-cohort-report.log 2>&1
+
+# Weekly pre-registration expiration sweep — SG.3 operator workflow.
+# Monday 09:00 UTC = start-of-week review window. STRICT_EXPIRED=1
+# inside the wrapper means cron exits non-zero on any EXPIRED entry,
+# surfacing the actionable state on the operator's daily log review.
+# Entries expiring within WARN_DAYS (default 30) are flagged as
+# "EXPIRING SOON" in the report so the operator has runway to plan a
+# re-registration walk-forward run BEFORE silent fallback. No endpoint
+# — reads scripts/canonical/preregistration.json directly.
+0 9 * * 1 /Users/jack.jones/Documents/trading-app/demo-1/scripts/prereg-expiration-cron.sh >> /tmp/quanttrader-prereg.log 2>&1
+
+# Broker spread sampler every hour — B.1.8 closure (data-capture half).
+# Calls adapter.fetchQuote per broker_connections × default ticker list
+# (XAU/USD, EUR/USD, GBP/USD, USD/JPY). Appends a JSONL row per sample
+# to scripts/broker-spread-samples.jsonl. The eventual ATR-correlation
+# calibration analysis consumes ≥50 samples/symbol to validate/refute
+# the spread-gate ATR proxy used in the backtest fidelity layer.
+0 * * * * /Users/jack.jones/Documents/trading-app/demo-1/scripts/broker-spread-sampler-cron.sh >> /tmp/quanttrader-broker-spread.log 2>&1
+
+# Broker health snapshot every 6 hours — SG.9.1 closure.
+# Calls MetaApi fetchAccountInfo per broker_connections row + writes
+# last_synced_at + account_snapshot (success) / last_error (failure).
+# The /reports Brokers tab (SG.9) reads from these fields; without this
+# cron, they only update when manage/scan crons touch the broker. Light
+# enough to stay well inside MetaApi rate limits (4 ticks/day × N
+# connections × 1 call = trivial). Per-connection failures are
+# first-class data — the cron exits 0 even when individual brokers fail.
+0 */6 * * * /Users/jack.jones/Documents/trading-app/demo-1/scripts/broker-health-snapshot-cron.sh >> /tmp/quanttrader-broker-health.log 2>&1
+
+# Monthly full-fleet validate-algo run — Stage 4.7.2 / B.6 cadence.
+# 1st of each month, 06:00 UTC (post-Asia close, pre-London open
+# = quiet window). Wrapper computes OOS_CUTOFF=today−12mo (BSD `date
+# -v-12m` with GNU `date -d "12 months ago"` fallback so the same
+# crontab line works if cron host migrates Linux). PERSIST=1 writes
+# backtest_results JSONB to Supabase so monthly verdicts are queryable.
+# Each run also writes a DATED log /tmp/quanttrader-validate-algo-YYYYMMDD.log
+# so per-month verdict diffs accrue rather than getting overwritten.
+# Productive even with all algos paused — catches engine regressions
+# month-over-month + pre-positions for Stage 5 re-deploy.
+0 6 1 * * /Users/jack.jones/Documents/trading-app/demo-1/scripts/validate-algo-monthly-cron.sh >> /tmp/quanttrader-validate-algo-monthly.log 2>&1
 ```
 
 `crontab -l` shows the active list; `crontab -r` removes everything
@@ -284,3 +354,4 @@ repo root.
 | `dryrun-generate-from-search.ts` | Dry-run wrapper around the algorithm-generation flow seeded from search output. Inspect generated rules without writing the algorithms row. |
 | `exit-mechanics-replay.ts` | $0 screen: replays recorded WF entries through SL-geometry × exit-mechanics grids (zero LLM calls), with a fidelity gate against recorded outcomes. Screen-then-confirm: candidates that win here go to ONE paid walk-forward confirmation. |
 | `cohort-report.ts` | The learning loop's weekly review: per-cohort expectancy (regime / prompt / side / confidence / session / entry-zone) from `llm_decisions` outcomes + `paper_positions` tags, decay flags (last 14d vs prior 14d), and shadow-gate candidates (log-only first, scoped per algo+prompt_version). Run weekly and after any config change. $0. |
+| `cohort-report-diff.ts` | **SG.6.2 (2026-06-22 NIGHT LATE).** Diffs the latest two dated `cohort-report-YYYY-MM-DD.json` files written by the weekly cron. Surfaces new/disappeared decay flags + new/disappeared shadow-gate candidates + trade-count growth between consecutive runs. Reads pure JSON — no Supabase access. Schema requirement: both files must be post-SG.6.1 typed-array shape (script rejects pre-SG.6.1 nested-Record schema with a pointer). Run after each weekly cohort cron tick. `pnpm dlx tsx scripts/cohort-report-diff.ts` (auto-picks latest 2) or `pnpm dlx tsx scripts/cohort-report-diff.ts <prior.json> <latest.json>` for explicit pair. |
