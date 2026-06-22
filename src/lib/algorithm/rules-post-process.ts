@@ -36,107 +36,97 @@ export function clampRules(rules: AlgorithmRules, timeHorizon: string): Algorith
   const clamped = structuredClone(rules);
   const isFxOrCommodity =
     clamped.asset_class === "forex" || clamped.asset_class === "commodity";
+  clampEntryAndExitConditionCounts(clamped, isLong, isFxOrCommodity);
+  relaxLongRsiThreshold(clamped, isLong);
+  rescueStopLossTakeProfitPercentages(clamped, isFxOrCommodity);
+  rescuePositionSizingDecimal(clamped);
+  applyMaxPerTickerDefault(clamped, isFxOrCommodity);
+  applyFxCommodityDefaults(clamped, isFxOrCommodity);
+  applyEntryExitLogicDefaults(clamped, isFxOrCommodity);
+  enforceMinimumRR(clamped, isFxOrCommodity);
+  return clamped;
+}
 
-  // The condition-count caps below address the "all-conditions-must-fire"
-  // problem where 5 ANDed conditions on daily bars produces zero trades.
-  // n_of_m and "any" logic don't have that problem — n_of_m fires when n
-  // of m trigger (extra conditions strengthen the signal pool); "any"
-  // fires on the first match. Skip the cap for those.
-  const isAndLogic =
-    clamped.entry_logic === undefined || clamped.entry_logic === "all";
-
+/** Cap ANDed entry/exit condition counts so daily-bar all-conditions-fire
+ *  rules actually trigger. n_of_m and "any" logic don't have this problem. */
+function clampEntryAndExitConditionCounts(
+  clamped: AlgorithmRules,
+  isLong: boolean,
+  isFxOrCommodity: boolean
+): void {
+  const isAndLogic = clamped.entry_logic === undefined || clamped.entry_logic === "all";
   if (isLong && isAndLogic) {
     const tech = clamped.entry_conditions.filter(isTechnicalCondition);
     const sentiment = clamped.entry_conditions.filter((c) => !isTechnicalCondition(c));
     clamped.entry_conditions = [...tech.slice(0, 1), ...sentiment.slice(0, 1)];
   } else if (isFxOrCommodity && isAndLogic) {
-    if (clamped.entry_conditions.length > 3) {
-      clamped.entry_conditions = clamped.entry_conditions.slice(0, 3);
-    }
+    if (clamped.entry_conditions.length > 3) clamped.entry_conditions = clamped.entry_conditions.slice(0, 3);
   } else if (!isFxOrCommodity && !isLong && isAndLogic && clamped.entry_conditions.length > 2) {
     clamped.entry_conditions = clamped.entry_conditions.slice(0, 2);
   }
-  if (clamped.exit_conditions.length > 2) {
-    clamped.exit_conditions = clamped.exit_conditions.slice(0, 2);
-  }
-  if (isLong) {
-    for (const c of clamped.entry_conditions) {
-      if (
-        isTechnicalCondition(c) &&
-        c.indicator.toLowerCase() === "rsi" &&
-        c.operator === "less_than" &&
-        c.value < 40
-      ) {
-        c.value = 45;
-      }
-    }
-  }
-  if (!isFxOrCommodity) {
-    if (clamped.stop_loss && clamped.stop_loss.value < 1) {
-      clamped.stop_loss.value = Math.round(clamped.stop_loss.value * 100);
-    }
-    if (clamped.take_profit && clamped.take_profit.value < 1) {
-      clamped.take_profit.value = Math.round(clamped.take_profit.value * 100);
-    }
-  }
-  // Decimal-percentage rescue (0.05 → 5). Only applies to
-  // percentage_of_capital — the LLM occasionally encodes "5%" as 0.05
-  // there. Other sizing types have legitimate sub-1 semantics that this
-  // rescue would silently corrupt:
-  //   - lots: 0.01 is a valid micro-lot
-  //   - risk_per_trade: 0.7% is the FTMO sweet spot (was getting bumped
-  //     to 70% by the old rescue, blowing every backtest)
-  //   - fixed_quantity / fixed_amount: sub-1 is either a real fractional
-  //     share or a meaningless cents value, neither needing rescue
-  const ps = clamped.position_sizing;
-  if (ps && ps.type === "percentage_of_capital" && ps.value < 1) {
-    ps.value = Math.round(ps.value * 100);
-  }
+  if (clamped.exit_conditions.length > 2) clamped.exit_conditions = clamped.exit_conditions.slice(0, 2);
+}
 
+function relaxLongRsiThreshold(clamped: AlgorithmRules, isLong: boolean): void {
+  if (!isLong) return;
+  for (const c of clamped.entry_conditions) {
+    if (isTechnicalCondition(c) && c.indicator.toLowerCase() === "rsi" && c.operator === "less_than" && c.value < 40) {
+      c.value = 45;
+    }
+  }
+}
+
+function rescueStopLossTakeProfitPercentages(clamped: AlgorithmRules, isFxOrCommodity: boolean): void {
+  if (isFxOrCommodity) return;
+  if (clamped.stop_loss && clamped.stop_loss.value < 1) {
+    clamped.stop_loss.value = Math.round(clamped.stop_loss.value * 100);
+  }
+  if (clamped.take_profit && clamped.take_profit.value < 1) {
+    clamped.take_profit.value = Math.round(clamped.take_profit.value * 100);
+  }
+}
+
+/** Decimal-percentage rescue (0.05 → 5). Only applies to
+ *  percentage_of_capital — others (lots, risk_per_trade, fixed_*) have
+ *  legitimate sub-1 semantics that the rescue would corrupt. */
+function rescuePositionSizingDecimal(clamped: AlgorithmRules): void {
+  const ps = clamped.position_sizing;
+  if (ps && ps.type === "percentage_of_capital" && ps.value < 1) ps.value = Math.round(ps.value * 100);
+}
+
+function applyMaxPerTickerDefault(clamped: AlgorithmRules, isFxOrCommodity: boolean): void {
   if (clamped.max_per_ticker == null || clamped.max_per_ticker < 1) {
     clamped.max_per_ticker = isFxOrCommodity ? 3 : 1;
   }
-  // FX/commodity allow up to 8 stacked positions; equity stays at 3.
   const cap = isFxOrCommodity ? 8 : 3;
   if (clamped.max_per_ticker > cap) clamped.max_per_ticker = cap;
+}
 
-  if (clamped.news_veto == null && isFxOrCommodity) {
-    clamped.news_veto = {
-      enabled: true,
-      block_minutes_before: 15,
-      block_minutes_after: 30,
-      min_impact: "high",
-    };
+function applyFxCommodityDefaults(clamped: AlgorithmRules, isFxOrCommodity: boolean): void {
+  if (!isFxOrCommodity) return;
+  if (clamped.news_veto == null) {
+    clamped.news_veto = { enabled: true, block_minutes_before: 15, block_minutes_after: 30, min_impact: "high" };
   }
-
-  // For forex/commodity, default the kill-switch unit to "days" because
-  // pyramiding stacks several positions per bar — counting per-trade losses
-  // burns through the budget unfairly fast. Real prop firms typically
-  // interpret "consecutive losses" as days anyway.
-  if (clamped.prop_firm && isFxOrCommodity && !clamped.prop_firm.consecutive_loss_unit) {
+  if (clamped.prop_firm && !clamped.prop_firm.consecutive_loss_unit) {
     clamped.prop_firm = { ...clamped.prop_firm, consecutive_loss_unit: "days" };
   }
-
-  // Defensive DLL halt: forex/commodity default to halting at 80% of DLL
-  // so intra-bar overshoot doesn't breach the published limit. Equity
-  // strategies (no pyramiding) leave it at 100 = halt exactly at DLL.
-  if (clamped.prop_firm && isFxOrCommodity && clamped.prop_firm.daily_loss_halt_pct == null) {
+  if (clamped.prop_firm && clamped.prop_firm.daily_loss_halt_pct == null) {
     clamped.prop_firm = { ...clamped.prop_firm, daily_loss_halt_pct: 80 };
   }
+}
 
+function applyEntryExitLogicDefaults(clamped: AlgorithmRules, isFxOrCommodity: boolean): void {
   if (clamped.entry_logic == null && isFxOrCommodity && clamped.entry_conditions.length >= 3) {
     clamped.entry_logic = { type: "n_of_m", n: 2 };
   }
-
-  // Default exit_logic to "any" — exits should fire on the first confirming
-  // signal. Engines fall back to entry_logic when undefined so legacy algos
-  // are unaffected.
   if (clamped.exit_logic == null && clamped.exit_conditions.length > 0) {
     clamped.exit_logic = "any";
   }
+}
 
-  // 3:1 R:R minimum for forex/commodity. Indicator-driven FX strategies sit at
-  // 25-35% win rate; below 3:1 they have negative expectancy.
+/** 3:1 R:R minimum for forex/commodity. Indicator-driven FX sits at
+ *  25-35% WR; below 3:1 they have negative expectancy. */
+function enforceMinimumRR(clamped: AlgorithmRules, isFxOrCommodity: boolean): void {
   if (
     isFxOrCommodity &&
     clamped.stop_loss?.type === "percentage" &&
@@ -144,12 +134,8 @@ export function clampRules(rules: AlgorithmRules, timeHorizon: string): Algorith
     clamped.stop_loss.value > 0
   ) {
     const minTp = clamped.stop_loss.value * 3;
-    if (clamped.take_profit.value < minTp) {
-      clamped.take_profit.value = Number(minTp.toFixed(2));
-    }
+    if (clamped.take_profit.value < minTp) clamped.take_profit.value = Number(minTp.toFixed(2));
   }
-
-  return clamped;
 }
 
 /**

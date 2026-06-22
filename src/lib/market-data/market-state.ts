@@ -23,30 +23,19 @@
  */
 import type { PriceBar } from "@/lib/market-data/types";
 
-export type StructRegime = "HH" | "LH" | "RANGING";
-
-export type MtfState =
-  | "aligned_HH"
-  | "aligned_LH"
-  | "ranging_all"
-  | "fast_div_bull"
-  | "fast_div_bear"
-  | "mixed"
-  | "n/a";
-export type VolState = "low" | "mid" | "high" | "n/a";
-export type RangeState = "compressed" | "normal" | "expanded" | "n/a";
-export type DxyState = "usd_up" | "usd_down" | "usd_flip" | "n/a";
-
-export interface MarketState {
-  /** 1h/4h/D1 structure alignment. */
-  mtf: MtfState;
-  /** ATR(14) percentile vs trailing ~1y of 4h bars. */
-  vol: VolState;
-  /** 20-bar range width percentile vs trailing 500 bars. */
-  range: RangeState;
-  /** USD trend via EUR/USD 4h 20-bar slope (EUR up = USD down). */
-  dxy: DxyState;
-}
+// CB.M4 (2026-06-19 EVE): state primitive types live in `src/types/market-state.ts`
+// — types-as-leaf. Imported for local use AND re-exported so existing
+// importers (entry.ts, portfolio-backtest.ts, market-state-gate.ts) keep
+// working without touching their import paths.
+import type {
+  DxyState,
+  MarketState,
+  MtfState,
+  RangeState,
+  StructRegime,
+  VolState,
+} from "@/types/market-state";
+export type { DxyState, MarketState, MtfState, RangeState, StructRegime, VolState };
 
 /** States the study flagged as negative-expectancy at n ≥ 20. Shadow
  *  only — consult for logging/analysis, never for gating until live
@@ -101,7 +90,15 @@ export function pctile(history: number[], x: number): number | null {
   return below / history.length;
 }
 
-/** Index of the last bar with date <= target (bars sorted by date). */
+/** Index of the last bar with date <= target (bars sorted by date).
+ *
+ *  DQ.1 caveat (2026-06-19 EVE): this is a STRING comparison, so all
+ *  inputs MUST share the same date format for sort order to align with
+ *  chronological order. `bars` is expected to come from `getCachedPrices`
+ *  (which normalises to ISO+Z); `target` is also expected canonical.
+ *  Mixed-format inputs would silently misorder (e.g. "2026-06-19
+ *  10:00:00" sorts AFTER "2026-06-19T10:00:00Z" because space "Z" > "T"
+ *  in ASCII). Don't bypass the cache normaliser. */
 export function lastIdxAtOrBefore(bars: PriceBar[], target: string): number {
   let lo = 0;
   let hi = bars.length - 1;
@@ -158,7 +155,12 @@ export function computeMarketState4h(inputs: MarketStateInputs, idx: number): Ma
   }
 
   // mtf — structure alignment across 1h / 4h / D1
-  const d1Idx = lastIdxAtOrBefore(dailyBars, atDate.slice(0, 10) + " 00:00:00") - 1;
+  // DQ.1 regression fix (2026-06-19 EVE adversarial audit): hardcoded
+  // space-format violated the canonical ISO+Z contract enforced at the
+  // price-cache layer. With dailyBars now normalised to ISO+Z by
+  // price-cache.getCachedPrices, the search target MUST also be ISO+Z
+  // or string comparison silently misorders (space > "T" in ASCII).
+  const d1Idx = lastIdxAtOrBefore(dailyBars, atDate.slice(0, 10) + "T00:00:00.000Z") - 1;
   const h1Idx = lastIdxAtOrBefore(oneHourBars, atDate);
   const d1 = d1Idx >= 7 ? swingRegime(dailyBars, d1Idx) : null;
   const h4 = swingRegime(bars4h, idx);

@@ -8,6 +8,7 @@
  * Decoupled from the search engine itself so unit tests can supply a
  * synthetic loader without spinning up Supabase + network mocks.
  */
+import { logger } from "@/lib/logger";
 import { timeframeToInterval } from "@/lib/market-data/interval";
 import { getCachedPrices, savePricesToCache } from "@/lib/market-data/price-cache";
 import { fetchDailyPrices } from "@/lib/market-data/prices";
@@ -82,7 +83,10 @@ async function fetchOne(
     bars = await fetchDailyPrices(symbol, "full", interval);
     savePricesToCache(symbol, "full", bars, interval).catch(() => {});
     return bars;
-  } catch {
+  } catch (err) {
+    // CB.M7.b (2026-06-20): warn-on-swallow — combinatorial search drops
+    // this symbol silently on fetch failure; surface in logs.
+    logger.warn("combinatorial-search", `fetchOne(${symbol}, ${interval}) failed`, err);
     return null;
   }
 }
