@@ -93,6 +93,16 @@ export interface CriterionResult {
   threshold: number;
 }
 
+/** v3 deflated criterion result. Distinct from `CriterionResult` because
+ *  the key namespace (DSR / PBO / k-fold) doesn't overlap SearchCriteria. */
+export interface DeflatedCriterionResult {
+  key: "min_deflated_sharpe" | "max_pbo" | "min_purged_kfold_pass_ratio";
+  label: string;
+  passed: boolean;
+  observed: number | null;
+  threshold: number;
+}
+
 /** Classify a single backtest_results JSONB row against the per-candidate
  *  criteria (v2 criteria 1–8 from spec §4; criterion 9 pattern-robustness
  *  is cross-row and lives in state.ts). Returns one CriterionResult per
@@ -143,18 +153,99 @@ export function evaluateAgainstCriteria(
   ];
 }
 
-/** A row passes per-candidate criteria (criteria 1–8) iff all 7 pass. The
- *  pattern-robustness check (criterion 9) is separate and lives in state.ts
- *  because it needs cross-row knowledge. Use `passesPerCandidate` for the
- *  per-row check; use `state.ts:buildSearchState` for full Layer A survivor
- *  classification including robustness. */
+/** A row passes per-candidate criteria 1–7 iff all 7 pass. v3 additionally
+ *  requires criteria 8–10 (DSR + PBO + k-fold consistency) which need the
+ *  `statistical_rigor.deflated` block populated by revalidate-candidates.
+ *  Use `passesPerCandidate` for the per-row v3 floor; `passesV3` combines
+ *  with the deflated check. */
 export function passesPerCandidate(results: PersistedBacktestResults | null | undefined): boolean {
   return evaluateAgainstCriteria(results).every((c) => c.passed);
 }
 
-/** Legacy alias for callers that imported `passesLayerA` under v1. The v2
- *  Layer A check ALSO requires cross-row pattern robustness (criterion 9),
- *  which a single-row evaluator CAN'T verify. Callers wanting the full Layer
- *  A verdict must use `state.ts:buildSearchState`. This alias preserves the
- *  v1 import for the per-candidate portion only. */
+/** Legacy alias for callers that imported `passesLayerA` under v1/v2. */
 export const passesLayerA = passesPerCandidate;
+
+// ────────────────────────────────────────────────────────────────────────────
+// v3 deflated criteria (spec §4 criteria 8–10) — Phase F.5 / ROADMAP REVERT 1+3
+// ────────────────────────────────────────────────────────────────────────────
+
+/** v3 ship-thresholds for the deflated statistics. Locked per spec §4. */
+export interface DeflatedCriteria {
+  /** DSR ≥ this threshold. 0.95 is the analogue of one-sided p ≤ 0.05. */
+  min_deflated_sharpe: number;
+  /** PBO < this threshold. 0.5 is "more likely real than not." */
+  max_pbo: number;
+  /** purged k-fold consistency: (folds with positive R) / (total folds).
+   *  0.8 = 4/5 for k=5; the standard minimum. */
+  min_purged_kfold_pass_ratio: number;
+}
+
+export const V3_DEFLATED_CRITERIA: DeflatedCriteria = {
+  min_deflated_sharpe: 0.95,
+  max_pbo: 0.5,
+  min_purged_kfold_pass_ratio: 0.8,
+};
+
+/** Parsed shape of `statistical_rigor.deflated` as populated by
+ *  scripts/canonical/revalidate-candidates.ts. Optional fields all
+ *  marked because partial/missing blocks must fail v3 gracefully (not crash). */
+export interface DeflatedBlock {
+  deflated_sharpe?: { deflatedSharpe?: number };
+  pbo?: { probabilityOfBacktestOverfitting?: number };
+  purged_kfold_snapshot?: { consistency_count?: number; n_folds?: number } | null;
+}
+
+/** Classify a deflated block against v3 spec §4 criteria 8–10. Returns 3
+ *  CriterionResult entries (DSR, PBO, k-fold). Missing block OR missing
+ *  field → criterion fails with observed=null (conservative: can't claim
+ *  v3 pass without the deflated evaluation having run). */
+export function evaluateDeflatedCriteria(
+  deflated: DeflatedBlock | null | undefined,
+  criteria: DeflatedCriteria = V3_DEFLATED_CRITERIA,
+): DeflatedCriterionResult[] {
+  const d = deflated ?? {};
+  const dsr = d.deflated_sharpe?.deflatedSharpe;
+  const pbo = d.pbo?.probabilityOfBacktestOverfitting;
+  const kfold = d.purged_kfold_snapshot;
+
+  const dsrPassed = typeof dsr === "number" && !Number.isNaN(dsr) && dsr >= criteria.min_deflated_sharpe;
+  const pboPassed = typeof pbo === "number" && !Number.isNaN(pbo) && pbo < criteria.max_pbo;
+  const kfoldRatio =
+    kfold && typeof kfold.consistency_count === "number" && typeof kfold.n_folds === "number" && kfold.n_folds > 0
+      ? kfold.consistency_count / kfold.n_folds
+      : null;
+  const kfoldPassed = kfoldRatio !== null && kfoldRatio >= criteria.min_purged_kfold_pass_ratio;
+
+  return [
+    {
+      key: "min_deflated_sharpe",
+      label: `DSR ≥ ${criteria.min_deflated_sharpe}`,
+      passed: dsrPassed,
+      observed: typeof dsr === "number" ? dsr : null,
+      threshold: criteria.min_deflated_sharpe,
+    },
+    {
+      key: "max_pbo",
+      label: `PBO < ${criteria.max_pbo}`,
+      passed: pboPassed,
+      observed: typeof pbo === "number" ? pbo : null,
+      threshold: criteria.max_pbo,
+    },
+    {
+      key: "min_purged_kfold_pass_ratio",
+      label: `k-fold consistency ≥ ${(criteria.min_purged_kfold_pass_ratio * 100).toFixed(0)}%`,
+      passed: kfoldPassed,
+      observed: kfoldRatio,
+      threshold: criteria.min_purged_kfold_pass_ratio,
+    },
+  ];
+}
+
+/** A row passes v3 iff per-candidate criteria 1–7 pass AND deflated criteria
+ *  8–10 pass. Use this for ship/no-ship decisions. */
+export function passesV3(
+  results: PersistedBacktestResults | null | undefined,
+  deflated: DeflatedBlock | null | undefined,
+): boolean {
+  return passesPerCandidate(results) && evaluateDeflatedCriteria(deflated).every((c) => c.passed);
+}

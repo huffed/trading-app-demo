@@ -6,9 +6,12 @@
 import { describe, expect, it } from "vitest";
 import {
   evaluateAgainstCriteria,
+  evaluateDeflatedCriteria,
   passesPerCandidate,
+  passesV3,
   ROBUSTNESS_EXEMPT_PATTERNS,
   SEARCH_LAYER_A_CRITERIA,
+  V3_DEFLATED_CRITERIA,
   type PersistedBacktestResults,
 } from "./criteria";
 
@@ -114,5 +117,104 @@ describe("evaluateAgainstCriteria (v2)", () => {
   it("ROBUSTNESS_EXEMPT_PATTERNS includes asian_range_break (4h-only by enumeration)", () => {
     expect(ROBUSTNESS_EXEMPT_PATTERNS.has("asian_range_break")).toBe(true);
     expect(ROBUSTNESS_EXEMPT_PATTERNS.has("AsianRangeBreak")).toBe(true);
+  });
+});
+
+describe("v3 deflated criteria (Phase F.5)", () => {
+  it("passing fixture → all 3 deflated criteria pass", () => {
+    const r = evaluateDeflatedCriteria({
+      deflated_sharpe: { deflatedSharpe: 0.97 },
+      pbo: { probabilityOfBacktestOverfitting: 0.3 },
+      purged_kfold_snapshot: { consistency_count: 5, n_folds: 5 },
+    });
+    expect(r).toHaveLength(3);
+    expect(r.every((c) => c.passed)).toBe(true);
+    expect(r.map((c) => c.key)).toEqual([
+      "min_deflated_sharpe",
+      "max_pbo",
+      "min_purged_kfold_pass_ratio",
+    ]);
+  });
+
+  it("DSR exactly at threshold (0.95) → passes (≥)", () => {
+    const r = evaluateDeflatedCriteria({
+      deflated_sharpe: { deflatedSharpe: 0.95 },
+      pbo: { probabilityOfBacktestOverfitting: 0.3 },
+      purged_kfold_snapshot: { consistency_count: 4, n_folds: 5 },
+    });
+    expect(r[0].passed).toBe(true);
+  });
+
+  it("DSR just below threshold (0.949) → fails", () => {
+    const r = evaluateDeflatedCriteria({
+      deflated_sharpe: { deflatedSharpe: 0.949 },
+      pbo: { probabilityOfBacktestOverfitting: 0.3 },
+      purged_kfold_snapshot: { consistency_count: 4, n_folds: 5 },
+    });
+    expect(r[0].passed).toBe(false);
+  });
+
+  it("PBO uses strict < (0.5 exactly fails)", () => {
+    const r = evaluateDeflatedCriteria({
+      deflated_sharpe: { deflatedSharpe: 0.97 },
+      pbo: { probabilityOfBacktestOverfitting: 0.5 },
+      purged_kfold_snapshot: { consistency_count: 4, n_folds: 5 },
+    });
+    expect(r[1].passed).toBe(false);
+  });
+
+  it("k-fold consistency uses ≥ 0.8 (4/5 passes, 3/5 fails)", () => {
+    const pass45 = evaluateDeflatedCriteria({
+      deflated_sharpe: { deflatedSharpe: 0.97 },
+      pbo: { probabilityOfBacktestOverfitting: 0.3 },
+      purged_kfold_snapshot: { consistency_count: 4, n_folds: 5 },
+    });
+    expect(pass45[2].passed).toBe(true);
+    const fail35 = evaluateDeflatedCriteria({
+      deflated_sharpe: { deflatedSharpe: 0.97 },
+      pbo: { probabilityOfBacktestOverfitting: 0.3 },
+      purged_kfold_snapshot: { consistency_count: 3, n_folds: 5 },
+    });
+    expect(fail35[2].passed).toBe(false);
+  });
+
+  it("missing deflated block → all 3 criteria fail with observed=null", () => {
+    const r = evaluateDeflatedCriteria(null);
+    expect(r.every((c) => !c.passed)).toBe(true);
+    expect(r.every((c) => c.observed === null)).toBe(true);
+  });
+
+  it("missing k-fold snapshot → kfold fails with observed=null", () => {
+    const r = evaluateDeflatedCriteria({
+      deflated_sharpe: { deflatedSharpe: 0.97 },
+      pbo: { probabilityOfBacktestOverfitting: 0.3 },
+      purged_kfold_snapshot: null,
+    });
+    expect(r[2].passed).toBe(false);
+    expect(r[2].observed).toBeNull();
+  });
+
+  it("passesV3 returns true iff per-candidate AND deflated all pass", () => {
+    const fullPass = {
+      step2: { total_return: 1500, total_trades: 60, max_static_dd: 4, max_daily_dd: 2 },
+      step6: { held_out_n: 15, r_delta_pct: -10 },
+      statistical_rigor: { mean_r_ci: { lower: 0.1 }, mean_r_bonferroni: { p_value: 0.01 } },
+    };
+    const deflatedPass = {
+      deflated_sharpe: { deflatedSharpe: 0.98 },
+      pbo: { probabilityOfBacktestOverfitting: 0.2 },
+      purged_kfold_snapshot: { consistency_count: 5, n_folds: 5 },
+    };
+    expect(passesV3(fullPass, deflatedPass)).toBe(true);
+    expect(passesV3(fullPass, null)).toBe(false); // missing deflated → fail
+    expect(passesV3(null, deflatedPass)).toBe(false); // missing per-candidate → fail
+  });
+
+  it("V3_DEFLATED_CRITERIA matches spec §4 thresholds", () => {
+    expect(V3_DEFLATED_CRITERIA).toEqual({
+      min_deflated_sharpe: 0.95,
+      max_pbo: 0.5,
+      min_purged_kfold_pass_ratio: 0.8,
+    });
   });
 });

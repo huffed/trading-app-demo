@@ -9,7 +9,7 @@ ROADMAP.md, not this spec.
 **Lineage:**
 - **v1** (2026-06-23 EVE) — WR ≥ 37% + Bonferroni 0.05/308 + 9 criteria. Produced 0 strict survivors out of 308.
 - **v2** (2026-06-23 EVE LATE) — WR floor + Bonferroni dropped; `mean_r_ci_lower > 0` becomes primary; pattern_robustness ≥2 cells added as criterion 9. Produced 67 of 288 Layer B variants passing per-candidate criteria but 0 robust survivors (all singletons).
-- **v3 (PENDING per ROADMAP.md Phase F)** — pattern_robustness heuristic replaced with formal Deflated Sharpe + PBO + purged k-fold CV (López de Prado / Bailey & Borwein 2014). Calmar ranking replaced with DSR ranking. v3 will be committed in F.5 after F.1–F.4 deliverables are built and tested.
+- **v3 (ACTIVE, 2026-06-23 LATE)** — pattern_robustness heuristic dropped (REVERT 1); Calmar ranking dropped (REVERT 3). Replaced with formal Deflated Sharpe + PBO + purged k-fold CV trinity (Bailey & López de Prado 2014 / Bailey/Borwein/Prado/Zhu 2014 / López de Prado AFML ch.7). DSR ≥ 0.95 + PBO < 0.5 + k-fold ≥ 4/5 are criteria 8/9/10. Best-variant selection is `deflated_sharpe DESC`. Applied at Phase F.4 to 3 v2 candidates: produced ONE clean v3 survivor (Engulfing-Long rr3_lb6_r06 — DSR 0.983, PBO 0.229, k-fold 5/5) and correctly eliminated BOS-Long rr3_lb3_r06 as overfit (DSR 0.162, PBO 0.786).
 
 **Immutability contract:** between sweep start and sweep completion this
 document is treated as immutable. Modifications outside that window are
@@ -164,59 +164,64 @@ gates ON. No diagnostic-mode bypasses. Specifically:
 
 ---
 
-## 4 — Pre-registered success criteria (v2 — post-hoc-locked 2026-06-23 EVE after v1 sweep)
+## 4 — Pre-registered success criteria (v3 — post-hoc-locked 2026-06-23 LATE)
 
-**v1 closeout:** the original criteria (WR ≥ 37% hard floor + Bonferroni p ≤ 0.05/308 = 1.62e-4) produced **0 strict survivors out of 308** despite 15 cells with positive mean R CI lower (lower bound of 95% CI > 0). Forensic analysis showed two methodological issues:
+**v1 closeout:** original criteria (WR ≥ 37% hard floor + Bonferroni p ≤ 0.05/308 = 1.62e-4) produced 0 strict survivors out of 308 despite 15 cells with positive mean R CI lower. Forensic analysis showed: (1) WR-floor was wrong primary statistical floor — CI lower > 0 is strictly stronger; (2) Bonferroni at N=308 over-corrects for portfolio applications; (3) single-cell winners conflate luck and edge.
 
-1. **WR ≥ 37% hard floor is the wrong primary statistical floor.** `mean_r_ci_lower > 0` is a STRICTLY STRONGER statistical guarantee than WR (95% confidence that expected per-trade R is positive). Wide-SL/high-R strategies legitimately produce WR in the low-30s with positive expected R — `feedback_both_styles_valid` confirms both styles work. WR ≥ 37 was operator-locked under a regime where WR was the available statistical proxy; the CI lower bound supersedes it.
+**v2 (intermediate, 2026-06-23 EVE):** dropped WR + Bonferroni; introduced `mean_r_ci_lower > 0` as primary statistical floor; added cross-row pattern-robustness ≥ 2 cells of same (pattern × direction). Layer B sweep produced 67 of 288 per-candidate passers but 0 robust survivors (all singletons of same XAU 4h cell) → spec stop-loss invoked → 3 strong singletons surfaced for manual operator review.
 
-2. **Bonferroni at N=308 over-corrects for this context.** Bonferroni controls family-wise error rate (FWER) — the probability of ANY false positive across the family. Industry standard for high-throughput screens (genomics, finance) is **FDR (false discovery rate)** which controls the expected proportion of false discoveries. For PORTFOLIO applications where downstream correlation-filtering + DD bounds catch false positives, FWER is over-strict. Even FDR at q=0.05 fails to unlock survivors here (top p=2.5e-4 vs BH threshold 1.62e-4 at rank 1). **The portfolio-composition criteria (criteria 10–13 below) ARE the appropriate MCC mechanism** — correlation filter + combined-DD bounds catch lucky single-cell winners structurally.
+**v3 (active, 2026-06-23 LATE):** the pattern-robustness ≥ 2 cells heuristic was data-snooped after v1 and isn't a formal statistical procedure. Replaced with the formal Deflated Sharpe Ratio + Probability of Backtest Overfitting + purged k-fold CV trinity (Bailey & López de Prado 2014 / Bailey, Borwein, López de Prado, Zhu 2014 / López de Prado AFML ch.7). v3 was applied to the 3 v2 candidates at Phase F.4 and selected `Engulfing-Long rr3_lb6_r06` as a clean v3 survivor (DSR 0.983, PBO 0.229, k-fold 5/5) while correctly eliminating BOS-Long rr3_lb3_r06 as overfit (DSR 0.162, PBO 0.786) — exactly the distinction the methodology was built to make.
 
-3. **Single-cell winners conflate luck and edge.** `Search: XAU/USD BOS-Long 4h` passed 8 of 9 v1 criteria (only failing strict Bonferroni) but its underlying pattern (BOS-Long) shows negative mean R CI lower on ALL 7 other (instrument × TF) cells — strong evidence the gold-4h cell is lucky, not structural. A **pattern-robustness check** (≥2 cells of the same pattern × direction showing CI lower > 0) catches this anti-pattern.
+**v3 reverts (per `scripts/canonical/ROADMAP.md` REV 1 + REV 3):**
+- DROPPED: v2 criterion 9 (pattern-robustness ≥ 2 cells). Was a heuristic; replaced by formal DSR + PBO.
+- DROPPED: stop-loss clause "ship single best by Calmar in degenerate cases." Calmar maximization is itself overfit-prone. Replaced with DSR-ranked selection.
 
-**v2 methodology is post-hoc-locked:** criteria informed by v1 data, applied to past AND future runs. NOT true-prereg (v1 data was inspected before v2 was designed); evidentiary status is operator-discipline commitment ("don't relax this bar even when next month's re-run nudges it"). Forward true-prereg evidence comes from the demo observation period required at deployment (acceptance packet §6.7).
+**v3 methodology is post-hoc-locked:** criteria informed by v1+v2 data + the F.4 deflated re-evaluation, applied to past and future runs. NOT true-prereg. Forward true-prereg evidence comes from the demo observation period at G.7.
 
-### Layer A per-candidate floors (hard gates, applied row-by-row)
+### Layer A per-candidate floors (criteria 1–7; hard gates applied row-by-row)
 1. `total_return > 0` (positive net of friction)
 2. `total_trades >= 30` (sample-size floor)
 3. `max_static_dd <= 10%` (FTMO standard, hard)
 4. `max_daily_dd <= 5%` (FTMO standard, hard)
-5. `mean_r_ci_lower > 0` (block bootstrap mean-R 95% CI lower bound positive) ← **PRIMARY statistical floor** (replaces v1 WR ≥ 37 + Bonferroni)
+5. `mean_r_ci_lower > 0` (block bootstrap mean-R 95% CI lower bound positive — single-cell signal)
 6. `oos_held_out_trades >= 10`
 7. `|oos_r_delta_pct| <= 50%`
-8. `worst_window_max_dd <= 5%` (no single walk-forward window blows DD beyond half the static floor)
 
 `win_rate` is REPORTED as informational metadata (cohort tracking, prop-firm narrative) but NOT a hard floor.
 
-### Layer A pattern-robustness check (cross-row, applied after per-candidate floors)
-9. **For each (pattern × direction) appearing in candidates passing criteria 1–8: ≥ 2 distinct (instrument, timeframe) cells of that pattern × direction must satisfy criterion 5 (CI lower > 0).** Single-cell wins are flagged as `singleton-not-robust` and EXCLUDED from Layer A survivor set. Patterns with TF restrictions (`asian_range_break` is 4h-only by design) are exempt from this check IF their per-candidate floors are otherwise clean — operator review at acceptance.
+### Layer A deflated criteria (criteria 8–10; per-candidate gates against the full search family, populated by `scripts/canonical/revalidate-candidates.ts`)
+8. `deflated_sharpe >= 0.95` — DSR (selection-bias-adjusted Sharpe) at threshold analogous to one-sided p ≤ 0.05. Requires the family of trial Sharpes (sibling candidates in same search dimension) to compute `trialSharpeStd`. Bailey & López de Prado 2014.
+9. `pbo < 0.5` — Probability of Backtest Overfitting via CSCV ("more likely real than not"). Requires N × T per-period returns matrix across the family. Bailey/Borwein/López de Prado/Zhu 2014.
+10. `purged_kfold_consistency >= 4/5` — purged k-fold CV (López de Prado AFML ch.7) with embargo, k=5. Requires consistency_count ≥ k-1 (positive mean R in ≥ 4 of 5 folds).
+
+**Rows without the `statistical_rigor.deflated` block FAIL criteria 8–10 by default.** Run `revalidate-candidates.ts` with TARGETS=<csv> to populate. Cannot claim v3 pass without deflated evaluation.
 
 ### Layer B per-survivor geometry variant (96 variants × per-survivor)
-1–9 above re-applied with each variant's geometry (rr_multiple × sl_lookback × risk_per_trade × regime_filter × adx_filter).
-10. **Best variant** picked by composite score: `total_return / max_static_dd` (absolute-return Calmar; avoids over-weighting short-history candidates).
+1–10 above re-applied to each variant.
+11. **Best variant** picked by composite score: `deflated_sharpe` DESC (REPLACES the v2 `total_return / max_static_dd` Calmar — Calmar maximization is itself overfit-prone; DSR explicitly accounts for selection bias).
 
-### Portfolio composition (across Layer B winners) — THE primary MCC mechanism
-11. **Maximum pairwise R-multiple correlation across selected portfolio: |ρ| < 0.40.** Computed on monthly aggregated per-trade R series, in-sample period only.
-12. **Combined portfolio static DD ≤ 10%** (NOT the sum of per-algo DDs — diversification benefit must materialise).
-13. **Combined portfolio daily DD ≤ 5%.**
-14. **No single algo > 50% of total R contribution** (no carry-the-portfolio dependency).
+### Portfolio composition (across Layer B winners) — secondary MCC mechanism for multi-survivor portfolios
+12. **Maximum pairwise R-multiple correlation across selected portfolio: |ρ| < 0.40.** Computed on monthly aggregated per-trade R series, in-sample period only.
+13. **Combined portfolio static DD ≤ 10%** (NOT the sum of per-algo DDs — diversification benefit must materialise).
+14. **Combined portfolio daily DD ≤ 5%.**
+15. **No single algo > 50% of total R contribution** (no carry-the-portfolio dependency).
 
 ### Stop-loss for the whole search
-- If **Layer A produces 0 robust survivors:** NULL result + file Phase D.1 (strategy generation) trigger.
-- If **Layer A produces only single-cell winners (no patterns pass criterion 9):** NULL result + document the data-snooping risk + escalate to operator for manual review of strongest singleton.
-- If **portfolio composition produces 0 selectable algos** (all candidates correlate > 0.40): ship the SINGLE best by Calmar, document the diversification failure for Phase D.3 (correlation-aware portfolio).
+- If **Layer A produces 0 candidates passing criteria 1–10 across all evaluated cells:** NULL result + file Phase D.1 (strategy generation) trigger.
+- If **Layer A produces candidates passing criteria 1–7 but ALL fail criteria 8–10 (deflated):** strong-overfit signal across the candidate set. NULL result + escalate to operator for manual review of the deflated stats; do not auto-ship.
+- If **portfolio composition produces 0 selectable algos** (all candidates correlate > 0.40 OR fail combined-DD): ship the SINGLE highest-DSR variant satisfying criteria 1–10; document the diversification failure for Phase D.3 (correlation-aware portfolio).
 
 ---
 
-## 5 — Selection procedure (deterministic, no operator discretion in survivor pick)
+## 5 — Selection procedure (v3, deterministic; no operator discretion in survivor pick)
 
 1. **Driver enumerates** Layer A candidates → reports exact N.
-2. **Layer A sweep** runs (validate-algo per candidate, persists to `algorithms.backtest_results`).
-3. **Per-candidate filter** applies criteria 1–8 → produces `per_candidate_pass` set.
-4. **Pattern-robustness filter** applies criterion 9 → produces `layerA_survivors` set (each pattern × direction has ≥2 cells in pass set, EXCEPT exempt patterns).
-5. **Layer B sweep** runs on each Layer A survivor (geometry × filters → 96 variants).
-6. **Layer B filter** applies criteria 1–10 → produces `layerB_variants` per survivor → BEST variant picked by composite score.
-7. **Portfolio composer** computes pairwise correlation matrix → greedy selection: start with highest-Calmar variant, add variants in Calmar order if their correlation with all already-selected < 0.40, stop when criteria 11–14 are jointly satisfied OR no more candidates qualify.
+2. **Layer A sweep** runs `scripts/canonical/algo-search.ts MODE=full` (validate-algo per candidate, persists step2/3/6 + statistical_rigor.purged_kfold to `algorithms.backtest_results` JSONB; KFOLD env enables purged k-fold CV).
+3. **Per-candidate filter** applies criteria 1–7 → produces `per_candidate_pass` set.
+4. **Layer B sweep** runs `scripts/canonical/algo-search.ts MODE=layer-b BASE_NAMES=...` on each per-candidate passer (geometry × filters → 96 variants per base).
+5. **Deflated re-evaluation** runs `scripts/canonical/revalidate-candidates.ts TARGETS=...` on the SELECTED variants (Calmar-top-N per family OR operator's manual selection). Populates `statistical_rigor.deflated` (DSR + PBO + purged_kfold snapshot) per target.
+6. **v3 ship filter** applies criteria 8–10 → produces `v3_survivors` set (rows passing 1–7 per-candidate AND 8–10 deflated). Ranking within survivors is `deflated_sharpe DESC` (REPLACES v2 Calmar ranking — REVERT 3).
+7. **Portfolio composer** (when ≥ 2 v3 survivors) computes pairwise correlation matrix → greedy selection: highest DSR + |ρ| < 0.40 with all already-selected + criteria 12–15 jointly satisfied.
 8. **Operator approval gate** (mirrors the prior Stage 5.0 packet pattern): packet written to `scripts/canonical/algo-search-acceptance.md`. Operator stamps decisions on (broker assignment, capital tier per algo, observation period). Without stamp, algos stay `draft` (not `active`).
 
 ---

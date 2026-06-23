@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAlgoSearchState } from "@/hooks/use-algo-search-state";
-import type { LayerBVariantRow, SearchSingleton, SearchState, SearchSurvivor, SearchTopBlocker } from "@/lib/algo-search/state";
+import type { LayerBVariantRow, SearchState, SearchSurvivor, SearchTopBlocker } from "@/lib/algo-search/state";
 
 export function SearchTab() {
   const { data, isLoading, isError, error } = useAlgoSearchState();
@@ -45,10 +45,7 @@ export function SearchTab() {
           <SummaryRow state={data} />
           <UniverseCard state={data} />
           {data.evaluated_count > 0 && <BlockersCard blockers={data.blockers} evaluated={data.evaluated_count} />}
-          <SurvivorsCard survivors={data.survivors} />
-          {data.singleton_candidates.length > 0 && (
-            <SingletonsCard singletons={data.singleton_candidates} />
-          )}
+          <SurvivorsCard survivors={data.survivors} v3SurvivorCount={data.v3_survivor_count} />
           {data.layer_b_variants.length > 0 && (
             <LayerBVariantsCard variants={data.layer_b_variants} />
           )}
@@ -65,11 +62,6 @@ function evaluatedHint(inserted: number, evaluated: number): string {
   return "All inserted rows have backtest_results";
 }
 
-function survivorHint(survivor: number, perCandidatePass: number): string | undefined {
-  if (survivor === 0 && perCandidatePass === 0) return "0 candidates pass per-candidate criteria";
-  if (survivor === 0) return `${perCandidatePass} pass per-cand criteria but none in robust groups`;
-  return `from ${perCandidatePass} per-candidate passing cells`;
-}
 
 function SearchSkeleton() {
   return (
@@ -98,20 +90,24 @@ function SummaryRow({ state }: { state: SearchState }) {
       />
       <StatCard
         icon={TrendingUp}
-        label="Robust survivors"
-        value={String(state.survivor_count)}
-        hint={survivorHint(state.survivor_count, state.per_candidate_pass_count)}
-        emphasis={state.survivor_count > 0}
+        label="Per-candidate-pass (Layer A)"
+        value={String(state.per_candidate_pass_count)}
+        hint={
+          state.per_candidate_pass_count === 0 && state.evaluated_count > 0
+            ? "All evaluated rows fail ≥1 criterion"
+            : "Pass per-candidate criteria 1–7"
+        }
       />
       <StatCard
         icon={ShieldQuestion}
-        label="Singletons (per-cand pass, not robust)"
-        value={String(state.singleton_count)}
+        label="v3 survivors (DSR + PBO + k-fold)"
+        value={String(state.v3_survivor_count)}
         hint={
-          state.singleton_count > 0
-            ? "Pattern works on only 1 cell → likely lucky; manual review at acceptance"
-            : "No flagged singletons"
+          state.v3_survivor_count > 0
+            ? "Pass deflated criteria 8–10 (DSR ≥ 0.95, PBO < 0.5, k-fold ≥ 4/5)"
+            : "Requires `revalidate-candidates.ts` to populate deflated block; Layer B variants below carry it"
         }
+        emphasis={state.v3_survivor_count > 0}
       />
     </div>
   );
@@ -216,40 +212,24 @@ function BlockersCard({ blockers, evaluated }: { blockers: SearchTopBlocker[]; e
   );
 }
 
-function SurvivorsCard({ survivors }: { survivors: SearchSurvivor[] }) {
+function SurvivorsCard({ survivors, v3SurvivorCount }: { survivors: SearchSurvivor[]; v3SurvivorCount: number }) {
   if (survivors.length === 0) return null;
   return (
     <Card>
       <CardHeader className="pb-3">
-        <CardTitle className="text-sm font-medium">Robust survivors (per-candidate pass + pattern robust)</CardTitle>
+        <CardTitle className="text-sm font-medium">
+          Per-candidate-pass survivors ({survivors.length}) — of which {v3SurvivorCount} pass v3 (DSR + PBO + k-fold)
+        </CardTitle>
         <p className="text-xs text-muted-foreground">
-          Sorted desc by total_return. Each row passes criteria 1–8 (per-candidate floors) AND
-          criterion 9 (pattern robustness: ≥ 2 cells of same pattern × direction in pass set), OR
-          is on the structural-exemption list (e.g. asian_range_break is 4h-only by enumeration).
-          Geometry refinement (Layer B) sweeps each across 96 variants next.
+          Rows passing per-candidate criteria 1–7 (return / trades / DDs / CI lower / OOS). v3
+          status badge indicates whether deflated criteria 8–10 (DSR ≥ 0.95 + PBO &lt; 0.5 + k-fold
+          consistency ≥ 80%) also pass — requires `revalidate-candidates.ts` to have populated the
+          deflated block. Most Layer A rows lack the deflated block (it&apos;s applied selectively to
+          finalists); the Layer B section below carries deflated stats for the geometry-refined variants.
         </p>
       </CardHeader>
       <CardContent className="p-0 overflow-x-auto">
-        <SurvivorTable rows={survivors} showRobustnessTag />
-      </CardContent>
-    </Card>
-  );
-}
-
-function SingletonsCard({ singletons }: { singletons: SearchSingleton[] }) {
-  return (
-    <Card>
-      <CardHeader className="pb-3">
-        <CardTitle className="text-sm font-medium">Singletons — per-candidate pass, robustness FAIL</CardTitle>
-        <p className="text-xs text-muted-foreground">
-          These cells pass all per-candidate criteria but their pattern × direction works on
-          only ONE (instrument, TF) cell. Per spec §4 criterion 9, single-cell wins are likely
-          lucky rather than structural edges. Surfaced for operator review at acceptance — NOT
-          auto-treated as survivors.
-        </p>
-      </CardHeader>
-      <CardContent className="p-0 overflow-x-auto">
-        <SurvivorTable rows={singletons} showRobustnessTag={false} />
+        <SurvivorTable rows={survivors} showV3Badge />
       </CardContent>
     </Card>
   );
@@ -371,7 +351,7 @@ function LayerBTable({ rows }: { rows: LayerBVariantRow[] }) {
   );
 }
 
-function SurvivorTable({ rows, showRobustnessTag }: { rows: SearchSurvivor[]; showRobustnessTag: boolean }) {
+function SurvivorTable({ rows, showV3Badge }: { rows: SearchSurvivor[]; showV3Badge: boolean }) {
   return (
     <table className="w-full text-xs">
       <thead className="border-b text-muted-foreground">
@@ -386,7 +366,7 @@ function SurvivorTable({ rows, showRobustnessTag }: { rows: SearchSurvivor[]; sh
           <th className="text-right p-2.5 font-medium">return</th>
           <th className="text-right p-2.5 font-medium">CI lower</th>
           <th className="text-right p-2.5 font-medium">held-out N</th>
-          {showRobustnessTag && <th className="text-left p-2.5 font-medium">robustness</th>}
+          {showV3Badge && <th className="text-left p-2.5 font-medium">v3 status</th>}
           <th className="p-2.5" />
         </tr>
       </thead>
@@ -413,13 +393,13 @@ function SurvivorTable({ rows, showRobustnessTag }: { rows: SearchSurvivor[]; sh
               {s.mean_r_ci_lower != null ? s.mean_r_ci_lower.toFixed(3) : "—"}
             </td>
             <td className="p-2.5 text-right tabular-nums">{s.oos_held_out_trades ?? "—"}</td>
-            {showRobustnessTag && (
+            {showV3Badge && (
               <td className="p-2.5">
                 <Badge
-                  variant={s.robustness_status === "robust" ? "default" : "outline"}
+                  variant={s.v3_status === "v3-pass" ? "default" : "outline"}
                   className="text-[10px] whitespace-nowrap"
                 >
-                  {s.robustness_status}
+                  {s.v3_status}
                 </Badge>
               </td>
             )}

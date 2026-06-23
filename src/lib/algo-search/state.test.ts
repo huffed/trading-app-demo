@@ -49,79 +49,81 @@ const FAIL_CI = {
   statistical_rigor: { ...FULL_PASS.statistical_rigor, mean_r_ci: { lower: -0.05 } },
 };
 
-describe("buildSearchState (v2)", () => {
-  it("empty DB → 308 enumerated + 0 survivors + 0 singletons", async () => {
+describe("buildSearchState (v3)", () => {
+  it("empty DB → 308 enumerated + 0 per-candidate-pass + 0 v3 survivors", async () => {
     const s = await buildSearchState(fakeSupabase([]));
     expect(s.enumerated_count).toBe(308);
     expect(s.inserted_count).toBe(0);
     expect(s.evaluated_count).toBe(0);
     expect(s.per_candidate_pass_count).toBe(0);
-    expect(s.survivor_count).toBe(0);
-    expect(s.singleton_count).toBe(0);
+    expect(s.v3_survivor_count).toBe(0);
     expect(s.last_evaluated_at).toBeNull();
   });
 
-  it("2 cells of same (pattern × side) passing → both classified as 'robust' (criterion 9 satisfied)", async () => {
+  it("per-candidate-passing row WITHOUT deflated block → in survivors with v3_status='per-candidate-pass-only'", async () => {
     const s = await buildSearchState(
       fakeSupabase([
         { id: "a1", name: `${CANDIDATE_NAME_PREFIX} XAU/USD Momentum-Long 4h`, backtest_results: FULL_PASS },
-        { id: "a2", name: `${CANDIDATE_NAME_PREFIX} XAU/USD Momentum-Long 1h`, backtest_results: FULL_PASS },
-      ]),
-    );
-    expect(s.per_candidate_pass_count).toBe(2);
-    expect(s.survivor_count).toBe(2);
-    expect(s.singleton_count).toBe(0);
-    expect(s.survivors.every((r) => r.robustness_status === "robust")).toBe(true);
-  });
-
-  it("1 cell of a non-exempt pattern → moves to singletons (criterion 9 failed)", async () => {
-    const s = await buildSearchState(
-      fakeSupabase([
-        { id: "a1", name: `${CANDIDATE_NAME_PREFIX} XAU/USD BOS-Long 4h`, backtest_results: FULL_PASS },
       ]),
     );
     expect(s.per_candidate_pass_count).toBe(1);
-    expect(s.survivor_count).toBe(0);
-    expect(s.singleton_count).toBe(1);
-    expect(s.singleton_candidates[0].robustness_status).toBe("singleton-not-robust");
+    expect(s.v3_survivor_count).toBe(0);
+    expect(s.survivors[0].v3_status).toBe("per-candidate-pass-only");
   });
 
-  it("1 cell of an EXEMPT pattern (asian_range_break) → stays as survivor with 'singleton-exempt' tag", async () => {
+  it("per-candidate-passing row WITH passing deflated block → v3-pass", async () => {
+    const passingDeflated = {
+      ...FULL_PASS,
+      statistical_rigor: {
+        ...FULL_PASS.statistical_rigor,
+        deflated: {
+          deflated_sharpe: { deflatedSharpe: 0.98 },
+          pbo: { probabilityOfBacktestOverfitting: 0.2 },
+          purged_kfold_snapshot: { consistency_count: 5, n_folds: 5 },
+        },
+      },
+    };
     const s = await buildSearchState(
       fakeSupabase([
-        { id: "a1", name: `${CANDIDATE_NAME_PREFIX} XAU/USD AsianRangeBreak-Long 4h`, backtest_results: FULL_PASS },
+        { id: "a1", name: `${CANDIDATE_NAME_PREFIX} XAU/USD Momentum-Long 4h`, backtest_results: passingDeflated },
       ]),
     );
     expect(s.per_candidate_pass_count).toBe(1);
-    expect(s.survivor_count).toBe(1);
-    expect(s.singleton_count).toBe(0);
-    expect(s.survivors[0].robustness_status).toBe("singleton-exempt");
+    expect(s.v3_survivor_count).toBe(1);
+    expect(s.survivors[0].v3_status).toBe("v3-pass");
   });
 
-  it("mixed: 2 robust + 1 singleton-not-robust + 1 exempt-singleton = survivors:3, singletons:1", async () => {
+  it("per-candidate pass + failing deflated (DSR low) → per-candidate-pass-only, NOT v3 survivor", async () => {
+    const failingDeflated = {
+      ...FULL_PASS,
+      statistical_rigor: {
+        ...FULL_PASS.statistical_rigor,
+        deflated: {
+          deflated_sharpe: { deflatedSharpe: 0.5 }, // below 0.95 threshold
+          pbo: { probabilityOfBacktestOverfitting: 0.2 },
+          purged_kfold_snapshot: { consistency_count: 5, n_folds: 5 },
+        },
+      },
+    };
     const s = await buildSearchState(
       fakeSupabase([
-        { id: "a1", name: `${CANDIDATE_NAME_PREFIX} XAU/USD Momentum-Long 4h`, backtest_results: FULL_PASS },
-        { id: "a2", name: `${CANDIDATE_NAME_PREFIX} XAU/USD Momentum-Long 1h`, backtest_results: FULL_PASS },
-        { id: "a3", name: `${CANDIDATE_NAME_PREFIX} XAU/USD BOS-Long 4h`, backtest_results: FULL_PASS },
-        { id: "a4", name: `${CANDIDATE_NAME_PREFIX} XAU/USD AsianRangeBreak-Long 4h`, backtest_results: FULL_PASS },
+        { id: "a1", name: `${CANDIDATE_NAME_PREFIX} XAU/USD Momentum-Long 4h`, backtest_results: failingDeflated },
       ]),
     );
-    expect(s.per_candidate_pass_count).toBe(4);
-    expect(s.survivor_count).toBe(3);
-    expect(s.singleton_count).toBe(1);
-    expect(s.singleton_candidates[0].pattern).toBe("BOS");
+    expect(s.per_candidate_pass_count).toBe(1);
+    expect(s.v3_survivor_count).toBe(0);
+    expect(s.survivors[0].v3_status).toBe("per-candidate-pass-only");
   });
 
-  it("rows failing per-candidate criteria (CI lower < 0) appear in blockers, NOT in pass set", async () => {
+  it("rows failing per-candidate criteria (CI lower < 0) appear in blockers, NOT in survivors", async () => {
     const s = await buildSearchState(
       fakeSupabase([
         { id: "a1", name: `${CANDIDATE_NAME_PREFIX} XAU/USD FVG-Long 4h`, backtest_results: FAIL_CI },
       ]),
     );
     expect(s.per_candidate_pass_count).toBe(0);
-    expect(s.survivor_count).toBe(0);
-    expect(s.singleton_count).toBe(0);
+    expect(s.v3_survivor_count).toBe(0);
+    expect(s.survivors).toHaveLength(0);
     const ciBlocker = s.blockers.find((b) => b.key === "min_mean_r_ci_lower");
     expect(ciBlocker?.failed_count).toBe(1);
   });
@@ -137,7 +139,7 @@ describe("buildSearchState (v2)", () => {
     expect(s.evaluated_count).toBe(0);
   });
 
-  it("validate_algo_eligible_count counts rows with promotion_eligible=true (v1's looser flag)", async () => {
+  it("validate_algo_eligible_count counts rows with promotion_eligible=true (v1's looser flag, informational)", async () => {
     const promoted = { ...FULL_PASS, promotion_eligible: true };
     const s = await buildSearchState(
       fakeSupabase([
@@ -146,7 +148,7 @@ describe("buildSearchState (v2)", () => {
       ]),
     );
     expect(s.validate_algo_eligible_count).toBe(1);
-    expect(s.survivor_count).toBe(2); // v2 robustness sees both
+    expect(s.per_candidate_pass_count).toBe(2); // both pass per-candidate; v3 separately
   });
 
   it("last_evaluated_at returns MAX computed_at across rows", async () => {
