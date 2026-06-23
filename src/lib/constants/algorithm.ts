@@ -123,4 +123,5 @@ export const ACTIVITY_TYPE_LABELS: Record<string, string> = {
   scan_overdue: "Scan Overdue",
   broker_reconciliation_drift: "Broker Drift",
   manage_tick: "Manage Tick",
+  cron_idle: "Cron Idle (no active algos)",
 };

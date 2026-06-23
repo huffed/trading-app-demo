@@ -29,10 +29,27 @@ function useTickingNow(intervalMs = 30_000): number {
   return now;
 }
 
-function HeartbeatValue({ lastTick }: { lastTick: string | null | undefined }) {
+function HeartbeatValue({
+  lastTick,
+  activeAlgorithms,
+}: {
+  lastTick: string | null | undefined;
+  activeAlgorithms: number | undefined;
+}) {
   const now = useTickingNow();
   if (lastTick == null) return <span className="text-muted-foreground">no ticks yet</span>;
   const ageMs = now - new Date(lastTick).getTime();
+  // SG.19: with 0 active algos the cron writes `cron_idle` (migration 00046
+  // extends last_manage_tick() to count it) — semantically "alive, but no
+  // work to do." Surface that as "idle ✓" so the rail stops reading red
+  // when the operator has intentionally drained the deploy.
+  if (ageMs <= HEARTBEAT_STALE_MS && (activeAlgorithms ?? 0) === 0) {
+    return (
+      <span className="text-muted-foreground">
+        idle ✓ <span className="opacity-60">({formatRelativeTime(lastTick)})</span>
+      </span>
+    );
+  }
   let klass = "";
   if (ageMs > HEARTBEAT_STALE_MS) klass = "text-[var(--loss)]";
   else if (ageMs > HEARTBEAT_STALE_MS / 3) klass = "text-amber-500";
@@ -53,7 +70,15 @@ function StatusPanel() {
         </div>
       ) : (
         <div className="flex flex-col">
-          <DataRow label="Cron heartbeat" value={<HeartbeatValue lastTick={heartbeat} />} />
+          <DataRow
+            label="Cron heartbeat"
+            value={
+              <HeartbeatValue
+                lastTick={heartbeat}
+                activeAlgorithms={data?.active_algorithms}
+              />
+            }
+          />
           <DataRow label="Active algorithms" value={data?.active_algorithms ?? 0} />
           <DataRow
             label="Last scan"

@@ -102,11 +102,15 @@ deploy.
 un-pause, build the monitoring + safety + parameter-update infrastructure that
 protects it. We don't want a Tier 2 algo deployed under Tier 4 monitoring.
 
-### G.1 — Build SG.19 (cron-idle activity_log emission) (0.5 day)
-- Scan + manage `/api/cron/*` endpoints emit `cron_idle` event when 0 active algos
-- Heartbeat endpoint distinguishes `idle` vs `healthy` semantically
-- `/reports` last-cron-tick reading derives from activity_log OR cron log file successful HTTP-200 tail
-- **Gate:** with 0 active algos, dashboard shows "idle ✓" not "stale ✗"
+### G.1 — Build SG.19 (cron-idle activity_log emission) ✅ COMPLETE 2026-06-23
+- Migration **00046_cron_idle_event.sql** adds `cron_idle` to the event_type CHECK and extends `last_scan_tick()` / `last_manage_tick()` to count `cron_idle` rows tagged with `details.cron in ('scan','manage')`. Applied to live DB + smoke-verified (both RPCs return the inserted timestamp).
+- **`src/lib/scan/cron-idle.ts`** = shared `emitCronIdle(supabase, "scan" | "manage")` helper. Resolves user_id via `algorithms LIMIT 1` (any status) → `auth.users` admin fallback → null. Writes one row per tick with `algorithm_id=null`, `details: { cron, active_algos: 0 }`. 7 unit tests (cron-idle.test.ts) lock resolution order + payload shape + no-fallback round-trip-saving.
+- **Scan cron** (`/api/cron/scan-active-algorithms`) — calls `emitCronIdle("scan")` on the `algos.length === 0` early-return path; response carries `cron_idle_emitted` + `cron_idle_skipped_reason`.
+- **Manage cron** (`/api/cron/manage-positions`) — replaces the silent skip when no active algo exists; calls `emitCronIdle("manage")` so the 5-min heartbeat keeps firing.
+- **Heartbeat cron** (`/api/cron/heartbeat`) — adds `status: "healthy" | "idle" | "stale"` to response (idle = 0 active; stale = ≥1 stale; healthy = ≥1 active AND none stale). New `active_count` field too.
+- **Dashboard rail** (`live-status-rail.tsx`) — `HeartbeatValue` now reads `data.active_algorithms` alongside the tick timestamp; when fresh AND active=0 it renders "idle ✓ (relative-time)" in muted instead of red/amber stale.
+- **FE plumbing** — `cron_idle` added to `ActivityEventType`, `ACTIVITY_TYPE_LABELS` ("Cron Idle (no active algos)"), and both activity panel icon maps (Moon icon).
+- **Gate:** with 0 active algos, dashboard shows "idle ✓" not "stale ✗". ✓ Closed.
 
 ### G.2 — Build SG.18 (dead-man alert delivery verification) (0.5 day)
 - Verify GitHub Actions dead-man workflow ran during recent 3-day silence (`gh run list --workflow=dead-man.yml --limit 50`)

@@ -48,6 +48,18 @@ export async function GET(request: Request) {
   const cutoffMs = Date.now() - STALE_THRESHOLD_MINUTES * 60 * 1000;
   const cutoffIso = new Date(cutoffMs).toISOString();
 
+  // SG.19: count active algos so the response can semantically distinguish
+  // "idle" (0 active → cron is meant to be quiet) from "stale" (≥1 active
+  // but scan overdue → cron is broken).
+  const { count: activeCount, error: countError } = await supabase
+    .from("algorithms")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "active");
+  if (countError) {
+    logger.error("heartbeat", "active-count query failed", countError);
+    return NextResponse.json({ error: countError.message }, { status: 500 });
+  }
+
   // Two stale cases: (a) scanned at least once but the last scan is older
   // than the threshold; (b) never scanned and old enough that a healthy
   // cron would have caught up by now.
@@ -87,7 +99,13 @@ export async function GET(request: Request) {
     });
   }
 
+  const active = activeCount ?? 0;
+  const status: "idle" | "healthy" | "stale" =
+    stale.length > 0 ? "stale" : active === 0 ? "idle" : "healthy";
+
   return NextResponse.json({
+    status,
+    active_count: active,
     threshold_minutes: STALE_THRESHOLD_MINUTES,
     stale_count: stale.length,
     stale: stale.map((a) => ({

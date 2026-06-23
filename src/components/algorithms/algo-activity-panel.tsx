@@ -17,6 +17,7 @@ import {
   Clock,
   GitCompareArrows,
   LogOut,
+  Moon,
   PauseCircle,
   Search,
   ShieldAlert,
@@ -55,6 +56,7 @@ const EVENT_ICONS: Record<ActivityEventType, React.ReactNode> = {
   scan_overdue: <Clock className="h-3.5 w-3.5 text-yellow-500" />,
   broker_reconciliation_drift: <GitCompareArrows className="h-3.5 w-3.5 text-[var(--loss)]" />,
   manage_tick: <Activity className="h-3.5 w-3.5 text-muted-foreground" />,
+  cron_idle: <Moon className="h-3.5 w-3.5 text-muted-foreground" />,
 };
 
 export function AlgoActivityPanel({ algorithmId }: { algorithmId: string }) {

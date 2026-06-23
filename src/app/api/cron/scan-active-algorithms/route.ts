@@ -12,6 +12,7 @@
  */
 import { NextResponse } from "next/server";
 import { verifyAdminAuth } from "@/lib/api/admin-auth";
+import { emitCronIdle } from "@/lib/scan/cron-idle";
 import { scanAlgorithm, type ScanResult } from "@/lib/scan/engine";
 import {
   checkPortfolioHalt,
@@ -129,7 +130,16 @@ export async function GET(request: Request) {
     };
   });
   if (algos.length === 0) {
-    return NextResponse.json({ scanned: 0, results: [] });
+    // SG.19: emit cron_idle so the dead-man switch (last_scan_tick RPC)
+    // + dashboard heartbeat rail treat the silence as healthy-idle, not
+    // dead. Migration 00046 extended last_scan_tick() to include cron_idle.
+    const idle = await emitCronIdle(supabase, "scan");
+    return NextResponse.json({
+      scanned: 0,
+      results: [],
+      cron_idle_emitted: idle.emitted,
+      cron_idle_skipped_reason: idle.skipped_reason,
+    });
   }
 
   // Portfolio-level halts fire BEFORE individual scans so a losing day on

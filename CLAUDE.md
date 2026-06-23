@@ -285,7 +285,7 @@ Current tables:
 - `algorithms` — deployed trading strategies with `rules` (JSONB), `status`, `live_trading_enabled`, `broker_connection_id`, `strategy_id`. Algos are seeded via `scripts/deploy-*.ts`, not via UI generation.
 - `algorithm_watchlist` — tickers linked to algorithms.
 - `paper_positions` — every position the scan engine opens; broker mirror fields populated when live. `exit_reason` is the source of truth for SL hit / TP hit / signal exit / stagnant cut / manual close.
-- `activity_log` — every event the scan/manage cron emits. `event_type` constrained (see migration 00028). Read for "did the gate fire?" questions; powers `/reports` via `src/lib/cohort/engine-activity.ts`.
+- `activity_log` — every event the scan/manage cron emits. `event_type` is a SQL CHECK constraint; the newest migration replacing the CHECK is currently 00046 (which added `cron_idle` for the 0-active-algos heartbeat per SG.19). Read for "did the gate fire?" questions; powers `/reports` via `src/lib/cohort/engine-activity.ts`.
 - `broker_connections` — operator's broker creds per provider (`metaapi` / `ctrader`). RLS-scoped.
 - `sentiment_cache` — NEWS_SENTIMENT cache per ticker/topics.
 - `price_cache` — OHLCV bars per ticker/interval (global since 00037).
@@ -293,7 +293,7 @@ Current tables:
 - `oanda_positioning_cache` — OANDA positionBook snapshots every 20 min. Migration 00034.
 - `paper_positions_archive` — archived position rows (migration 00033).
 - `trades`, `journal_entries` — dormant per the personal-operator workflow (kept per dormant-by-design policy).
-- `public.last_manage_tick()` + `public.last_scan_tick()` — SECURITY DEFINER functions for the GitHub Actions dead-man switch. `last_manage_tick()` from migration 00039; `last_scan_tick()` added 2026-06-15 to decouple scan-heartbeat staleness (35-min threshold, 2+ consecutive 15-min misses) from manage-heartbeat (45-min threshold).
+- `public.last_manage_tick()` + `public.last_scan_tick()` — SECURITY DEFINER functions for the GitHub Actions dead-man switch. `last_manage_tick()` from migration 00039; `last_scan_tick()` added 2026-06-15 to decouple scan-heartbeat staleness (35-min threshold, 2+ consecutive 15-min misses) from manage-heartbeat (45-min threshold). Migration 00046 extends both to count `cron_idle` rows tagged with `details.cron in ('scan','manage')` so 0-active-algos no-op ticks keep the dead-man green.
 
 All tables use RLS. Scheduled scan uses an admin client (`createAdminClient()`) because cron has no Supabase session.
 
@@ -408,7 +408,7 @@ Five live cron entrypoints (operator's crontab as of 2026-06-10):
 - `oanda-positioning-cron.sh` (every 20 min) → `/api/admin/snapshot-oanda-positioning?instruments=XAU_USD`
 - `prune-sentiment-cache-cron.sh` (daily 04:00 UTC) → `/api/admin/prune-sentiment-cache`
 
-Each emits `manage_tick` / `scan_started` + `scan_completed` events to `activity_log` so liveness is verifiable on no-op ticks.
+Each emits `manage_tick` / `scan_started` + `scan_completed` events to `activity_log` so liveness is verifiable on no-op ticks. With 0 active algos the scan + manage crons emit `cron_idle` instead (SG.19; `src/lib/scan/cron-idle.ts` + migration 00046) — keeps the dead-man switch + dashboard heartbeat rail showing "idle ✓" rather than "stale ✗" during the demo gap before un-pause.
 
 **Independent alerting:** `.github/workflows/dead-man.yml` (GitHub Actions, every 30 min) calls TWO anon-executable RPCs — `last_manage_tick()` (alerts >45 min stale) AND `last_scan_tick()` (alerts >35 min stale, i.e. 2+ consecutive missed 15-min scans) — plus a dual-attempt broker-API liveness probe (30s retry, flags 5xx). Decoupled so scan failures don't mask manage failures and vice versa. Covers the 2026-05-24 silent-outage chain (Mac asleep → cron dead → zero DB traffic → Supabase free-tier auto-pause for 17 days unnoticed). The 5-min ticks also keep the free-tier Supabase project from auto-pausing.
 

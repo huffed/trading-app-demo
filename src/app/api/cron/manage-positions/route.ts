@@ -13,6 +13,7 @@
 import { NextResponse } from "next/server";
 import { verifyAdminAuth } from "@/lib/api/admin-auth";
 import { logger } from "@/lib/logger";
+import { emitCronIdle } from "@/lib/scan/cron-idle";
 import { logActivity } from "@/lib/scan/helpers";
 import { manageActiveAlgorithms } from "@/lib/scan/manage";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -41,9 +42,10 @@ export async function GET(request: Request) {
     // positions were inspected. `manageActiveAlgorithms` skips algos with
     // zero open positions entirely, so without a route-level emit the
     // operator has no signal that the 5-min cron is alive between trades.
-    // `user_id` is NOT NULL on activity_log; in the single-operator setup
-    // any active algo's owner works as the heartbeat owner. Skip when no
-    // active algos exist — nothing to manage in that state anyway.
+    // With ≥1 active algo we write `manage_tick` (any active algo's owner
+    // satisfies the NOT NULL user_id). With 0 active algos we write
+    // `cron_idle` via the SG.19 helper — same heartbeat purpose, semantic
+    // distinction surfaced to the dashboard rail + dead-man RPC.
     const { data } = await supabase
       .from("algorithms")
       .select("user_id")
@@ -51,15 +53,24 @@ export async function GET(request: Request) {
       .limit(1)
       .maybeSingle();
     const anyAlgo = data as { user_id: string } | null;
+    let cron_idle_emitted = false;
     if (anyAlgo) {
       await logActivity(supabase, anyAlgo.user_id, {
         algorithm_id: null,
         event_type: "manage_tick",
         details: { algorithms_inspected: results.length, ...totals },
       });
+    } else {
+      const idle = await emitCronIdle(supabase, "manage");
+      cron_idle_emitted = idle.emitted;
     }
 
-    return NextResponse.json({ algorithms: results.length, ...totals, results });
+    return NextResponse.json({
+      algorithms: results.length,
+      ...totals,
+      results,
+      cron_idle_emitted,
+    });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unknown error";
     logger.error("manage-positions", "Tick failed", err);

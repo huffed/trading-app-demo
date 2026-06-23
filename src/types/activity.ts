@@ -19,7 +19,8 @@ export type ActivityEventType =
   | "live_close_failed"
   | "scan_overdue"
   | "broker_reconciliation_drift"
-  | "manage_tick";
+  | "manage_tick"
+  | "cron_idle";
 
 export interface ActivityLogEntry {
   id: string;
