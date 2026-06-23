@@ -298,15 +298,39 @@ After un-pause: scan-cron picks up the algo within 15 min, manage-cron within 5 
 
 ---
 
-## 9. SG.20 — Filed for future: regime_filter calibration
+## 9. SG.20 — regime_filter calibration ✅ RESOLVED 2026-06-24 (H.7)
 
-Layer B observed: **almost zero passing variants used `regime_filter=ON`**. Of 67 per-candidate passers, only 4 had the filter enabled, all in Engulfing's 6/4-lookback combinations.
+**Resolution: KEEP the axis. No calibration change.** Original framing
+("killed virtually every variant") was a cross-family aggregation artifact;
+the per-family data shows the axis behaves as designed.
 
-The regime_filter was designed to skip ATR-percentile-low (ranging) periods. Empirical signal: gold 4h structural-break patterns make their money DURING ranging conditions, not trending ones. Either:
-- Calibration is wrong (the percentile_floor=0.3 threshold should be inverted OR lowered)
-- The semantic is wrong (structural breaks PREDICT range exits, so ranging is exactly when they fire)
+**Evidence (per-family Engulfing-Long 4h, 48 + 48 = 96 variants):**
 
-Action filed in roadmap as SG.20: re-calibrate regime_filter for gold-pattern compatibility OR retire it as a Layer B axis (drop from spec §2). Defer until after gold demo player is stable.
+| Axis | n | per-cand pass | avg Sharpe | max Sharpe | avg static DD | avg trades |
+|---|---|---|---|---|---|---|
+| rf=0 | 48 | **45 (94%)** | 0.196 | 0.317 | 0.53% | 171 |
+| rf=1 | 48 | **36 (75%)** | 0.184 | 0.295 | 2.61% | 129 |
+
+`rf=1` has a meaningfully wider DD (5× the rf=0 average) and ~25% fewer
+trades (gate filters out range-detected periods), driving its single-model
+underperformance. The 75% pass rate is solid — not pathological. The
+original 4/67 cross-family stat conflated this family with BOS + Sweep
+where rf=1 fared much worse.
+
+**H.6 per-regime evidence:** the medium_vol regime winner among the 96
+Engulfing variants is `rr3_lb6_r1_rf1_af1` (medium_vol Sharpe 0.4656 vs
+the single-model pooled 0.3136). `rf=1` IS the right call within that
+specific regime — keeping the axis preserves regime-routing optionality
+(H.6-live-routing, task #352) at zero cost (the 96-variant grid is
+already iterated by validate-algo + WFO + revalidate-candidates).
+
+**Action items (all complete):**
+- Spec §2 updated with the per-family empirical pattern + the "keep
+  axis" decision rationale (`scripts/canonical/algo-search.spec.md`)
+- Layer B enumerator unchanged (`src/lib/algo-search/layer-b-enumerate.ts`)
+- walk-forward-opt unchanged (still iterates 96 variants per algo per
+  cycle)
+- This SG.20 entry marked RESOLVED
 
 ---
 

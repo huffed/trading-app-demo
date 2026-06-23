@@ -96,6 +96,26 @@ For each Layer A survivor (pre-registered criteria, see §4), sweep:
 Layer B re-applies the same criteria; the survivor's best variant is picked
 by composite score (see §5).
 
+**`regime_filter` empirical pattern (resolved H.7 / SG.20, 2026-06-24).** On the
+Engulfing-Long 4h family (96 variants, n=48 each): `rf=0` per-candidate pass
+rate 94% (45/48), `rf=1` 75% (36/48). Average Sharpe rf=0 0.196 vs rf=1 0.184
+(~6% gap); average max-static-DD rf=0 0.53% vs rf=1 2.61% (5× wider on rf=1).
+SINGLE-MODEL selection picks against `rf=1` in this family. BUT the H.6
+per-regime sweep showed `rf=1` IS the best medium_vol variant (Engulfing
+rr3_lb6_r1_rf1_af1 → medium_vol Sharpe 0.4656 vs single-model pooled 0.3136).
+The axis is KEPT in the standard Layer B grid:
+- Cost is zero (96 stays 96; the WFO cron + revalidate-candidates already
+  iterate all 96).
+- Removing it would foreclose regime-routing optionality (H.6-live-routing,
+  task #352) without evidence-based reason.
+- Single-model selection naturally selects against `rf=1` when it's the
+  wrong call — no calibration change needed.
+
+The original SG.20 "killed virtually every variant" framing came from
+cross-family aggregation (BOS + Sweep had much worse rf=1 performance dragging
+the average down to 4/67); on the Engulfing family alone the rf=1 pass rate
+is solidly 75%, not pathological.
+
 ### Pattern catalog (16 primitives, all from `src/lib/patterns/`)
 
 Source: `ls src/lib/patterns/` + grep of `entry.pattern` literals. Each is

@@ -333,10 +333,23 @@ Items run in order, not in parallel.
 - **What to build:** `AlgorithmRules.regime_routing` schema variant + scan-engine pre-entry classifier call + per-regime parameter override application + audit event `regime_route_switched` for transitions
 - **Calendar estimate:** 1-2 days once trigger fires
 
-### H.7 — SG.20 regime_filter calibration reconciliation (0.5 day)
-- Layer B observation: `regime_filter=ON` killed 92% of passing variants → calibration issue
-- Reconcile with H.6 regime model. Either fix calibration OR drop axis from spec
-- **Gate:** decision finalized + spec + Layer B + walk-forward-opt updated
+### H.7 — SG.20 regime_filter calibration reconciliation ✅ COMPLETE 2026-06-24
+- **Decision: KEEP the regime_filter axis. No calibration change.** Original SG.20 framing ("killed virtually every variant") was a cross-family aggregation artifact (4/67 stat from BOS+Engulfing+Sweep combined); on the Engulfing family alone the rf=1 per-candidate pass rate is solidly 75% (36/48) vs rf=0's 94% (45/48) — not pathological.
+- **Per-family Engulfing-Long 4h evidence (96 variants, 48 each):**
+
+  | Axis | n | per-cand pass | avg Sharpe | max Sharpe | avg static DD | avg trades |
+  |---|---|---|---|---|---|---|
+  | rf=0 | 48 | 45 (94%) | 0.196 | 0.317 | 0.53% | 171 |
+  | rf=1 | 48 | 36 (75%) | 0.184 | 0.295 | 2.61% | 129 |
+
+  rf=1 has wider DD (5× rf=0) + ~25% fewer trades. Single-model selection naturally picks against rf=1 in this family when it's the wrong call.
+- **H.6 evidence (regime-conditional usefulness):** medium_vol regime winner = `rr3_lb6_r1_rf1_af1` with regime Sharpe 0.4656 (vs pooled single-model 0.3136). rf=1 IS the right call within the medium-vol regime. Keeping the axis preserves regime-routing optionality (H.6-live-routing #352) at zero cost.
+- **Updates shipped (gate: "decision finalized + spec + Layer B + walk-forward-opt updated"):**
+  - **Decision finalized:** keep axis, no calibration change (data-driven; H.7 reconciliation)
+  - **Spec:** `scripts/canonical/algo-search.spec.md` §2 grew an empirical-pattern paragraph documenting the per-family numbers + the keep-axis rationale + the cross-family-aggregation artifact explanation for the original SG.20 framing
+  - **Layer B enumerator** (`src/lib/algo-search/layer-b-enumerate.ts`): unchanged (axis preserved, 96 variants per algo)
+  - **walk-forward-opt** (`src/lib/algo-search/walk-forward-opt.ts`): unchanged (still iterates 96 variants per cycle)
+  - **Acceptance packet §9** (`scripts/canonical/algo-search-acceptance.md`): SG.20 entry marked RESOLVED with evidence table + decision rationale
 
 ### H.8 — Factor orthogonality model (2–3 days; requires ≥2 deployed alphas)
 - `src/lib/stats/factor-orthogonality.ts`: pairwise R correlation + regression vs momentum / vol / carry factors
