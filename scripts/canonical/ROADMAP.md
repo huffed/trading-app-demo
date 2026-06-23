@@ -68,11 +68,13 @@ deploy.
 - **Method:** López de Prado AFML ch.7 — 5-fold split + purge (drop training trades whose label-determination overlaps test fold) + embargo (drop N bars after each test fold to prevent forward-looking leakage)
 - **Gate:** 5 folds on known-good fixture produce ≥4/5 positive mean R; known-overfit fixture produces <3/5
 
-### F.4 — Re-evaluate top 3 Layer B candidates under v3 methodology (1 day)
-- **Inputs:** Engulfing-Long rr3_lb6_r06 / Engulfing-Long rr5_lb6_r1 / BOS-Long rr3_lb3_r06
-- **Compute:** DSR + p-value + PBO + 5-fold CV per-fold mean R + consistency direction count
-- **Persist:** new sub-block `statistical_rigor.deflated` in `algorithms.backtest_results` JSONB
-- **Gate:** numeric values produced for each candidate (not necessarily passing — produced cleanly)
+### F.4 — Re-evaluate top 3 Layer B candidates under v3 methodology ✅ COMPLETE 2026-06-23
+- **Driver:** `scripts/canonical/revalidate-candidates.ts` (generic, env-driven via TARGETS CSV; auto-derives family from name pattern; FE renders results via `state.ts:layer_b_variants` + `search-tab.tsx:LayerBVariantsCard`)
+- **Verdict:**
+    - **🥇 Engulfing-Long rr3_lb6_r06_rf0_af0** → **PASSES v3 ALL CRITERIA** (DSR 0.983 ≥ 0.95, PBO 0.229 < 0.5, k-fold 5/5)
+    - Engulfing-Long rr5_lb6_r1_rf0_af0 → fails (DSR 0.929 borderline, PBO 0.229 ✓, k-fold 5/5 ✓) — near-miss
+    - BOS-Long rr3_lb3_r06_rf0_af0 → fails (DSR 0.162 severe, PBO 0.786 severe overfit, k-fold 4/5 ✓) — NOT a real edge under deflation despite passing v2 step verdicts
+- **F.7 outcome:** branch A (≥1 candidate passes v3) → proceed to F.5 + F.6 then G phase with the Engulfing rr3_lb6_r06 winner
 
 ### F.5 — Revise spec.md → v3 methodology + apply REVERT 1 + REVERT 3 (0.5 day)
 - **Replace v2 criterion 9** (pattern_robustness ≥2 cells) **with three formal criteria:** DSR-adjusted CI lower > 0 + PBO < 0.5 + purged k-fold ≥4/5 positive
