@@ -134,13 +134,27 @@ describe("volatility features", () => {
     expect(v!).toBeLessThan(1); // ATR is small fraction of price
   });
 
-  it("atr_percentile_200 returns 0..100", () => {
+  it("atr_percentile_200 returns 0..100 (NOT 0..1 — caught the fraction-vs-percent bug)", () => {
     const f = VOLATILITY_FEATURES.find((x) => x.name === "atr_percentile_200")!;
     expect(f.compute(BARS, 100)).toBeNull(); // < 200
     const v = f.compute(BARS, 400);
     expect(v).not.toBeNull();
     expect(v!).toBeGreaterThanOrEqual(0);
     expect(v!).toBeLessThanOrEqual(100);
+    // The previous test only asserted v ∈ [0,100] which was vacuously
+    // true for the buggy fraction return. The synthetic series has
+    // enough vol variation that SOME bar produces a percentile > 1
+    // (the only way the value can exceed 1 is if the unit is %).
+    // Sample multiple bars to verify the unit is percent.
+    let sawAboveOne = false;
+    for (let i = 200; i < BARS.length; i += 10) {
+      const v2 = f.compute(BARS, i);
+      if (v2 != null && v2 > 1) {
+        sawAboveOne = true;
+        break;
+      }
+    }
+    expect(sawAboveOne).toBe(true);
   });
 
   it("realized_vol_20 is a non-negative scalar", () => {

@@ -40,7 +40,10 @@ const f_atr_percentile_200: Feature = {
       if (a != null) history.push(a);
     }
     if (history.length < 50) return null;
-    return pctile(history, current);
+    // pctile returns a [0,1] fraction; convert to the 0..100 percent
+    // the feature's docstring + downstream consumers expect.
+    const frac = pctile(history, current);
+    return frac == null ? null : frac * 100;
   },
 };
 

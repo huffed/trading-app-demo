@@ -1,0 +1,64 @@
+{
+  "generated_for_algo_id": "33b705b9-7442-4c73-8d97-4a88ecacb9a1",
+  "ticker": "XAU/USD",
+  "timeframe": "4h",
+  "total_bars": 14048,
+  "classified_bars": 13848,
+  "single_model": {
+    "variant_tag": "rr3_lb6_r1_rf0_af1",
+    "geometry": {
+      "rr_multiple": 3,
+      "sl_lookback": 6,
+      "risk_per_trade_pct": 1,
+      "regime_filter": false,
+      "adx_filter": true
+    },
+    "sharpe": 0.3135905809705717,
+    "dsr": 0.9936675990195329
+  },
+  "regime_routed": {
+    "per_regime_best": {
+      "low_vol": {
+        "variant_tag": "rr5_lb3_r06_rf0_af1",
+        "geometry": {
+          "rr_multiple": 5,
+          "sl_lookback": 3,
+          "risk_per_trade_pct": 0.6,
+          "regime_filter": false,
+          "adx_filter": true
+        },
+        "sharpe": 0.23781068244208747,
+        "n_trades": 18
+      },
+      "medium_vol": {
+        "variant_tag": "rr3_lb6_r1_rf1_af1",
+        "geometry": {
+          "rr_multiple": 3,
+          "sl_lookback": 6,
+          "risk_per_trade_pct": 1,
+          "regime_filter": true,
+          "adx_filter": true
+        },
+        "sharpe": 0.4655542994495398,
+        "n_trades": 23
+      },
+      "high_vol": {
+        "variant_tag": "rr25_lb6_r06_rf0_af0",
+        "geometry": {
+          "rr_multiple": 2.5,
+          "sl_lookback": 6,
+          "risk_per_trade_pct": 0.6,
+          "regime_filter": false,
+          "adx_filter": false
+        },
+        "sharpe": 0.35095690423100423,
+        "n_trades": 98
+      }
+    },
+    "combined_sharpe": 0.3456529827258148,
+    "combined_dsr": 0.25719615594688605,
+    "total_trades": 139
+  },
+  "dsr_delta": -0.7364714430726469,
+  "passes_gate": false
+}
