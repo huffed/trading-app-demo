@@ -211,7 +211,14 @@ async function attachWatchlist(
   return inserted;
 }
 
-function runValidateAlgo(opts: { algos: string[]; persist: boolean }): void {
+/** validate-algo's loadAlgos uses Supabase `.in("name", [...])` which becomes
+ *  a URL query parameter. Supabase's HTTP layer caps headers at ~16KB → with
+ *  the long algo names we use here (~50 chars), the safe ceiling is ~150
+ *  names per request. 100 leaves a comfortable margin and keeps per-batch
+ *  wall clock manageable. */
+const VALIDATE_ALGO_BATCH_SIZE = 100;
+
+function runValidateAlgoBatch(opts: { algos: string[]; persist: boolean }): void {
   const algoCsv = opts.algos.join(",");
   // Spread process.env directly so Node's required ProcessEnv fields
   // (e.g. NODE_ENV) flow through. Overrides clobber any prior values.
@@ -228,11 +235,34 @@ function runValidateAlgo(opts: { algos: string[]; persist: boolean }): void {
     PORTFOLIO_HALT: "1",
     BLOCK_BOOTSTRAP: "1",
     // Family α / N stays at validate-algo's defaults (α=0.05, N derived
-    // from ALGOS_CSV cardinality). For Layer A, that's the full enumeration size (308).
+    // from ALGOS_CSV cardinality). Under v2 spec, Bonferroni is informational
+    // only (not a hard criterion), so per-batch N is acceptable.
   };
   const cmd = "pnpm dlx tsx scripts/canonical/validate-algo.ts";
   console.log(`\n>>> ${cmd} (ALGOS=${opts.algos.length} entries, PERSIST=${opts.persist ? "1" : "0"})\n`);
   execSync(cmd, { stdio: "inherit", env });
+}
+
+/** Public entrypoint: auto-batches into VALIDATE_ALGO_BATCH_SIZE chunks so
+ *  Supabase's `.in()` URL stays under the ~16KB header limit. Callers don't
+ *  need to know about the limit. Each batch is a separate validate-algo
+ *  subprocess invocation. */
+function runValidateAlgo(opts: { algos: string[]; persist: boolean }): void {
+  if (opts.algos.length <= VALIDATE_ALGO_BATCH_SIZE) {
+    runValidateAlgoBatch(opts);
+    return;
+  }
+  const batches = Math.ceil(opts.algos.length / VALIDATE_ALGO_BATCH_SIZE);
+  console.log(
+    `\nALGOS=${opts.algos.length} exceeds per-batch ceiling (${VALIDATE_ALGO_BATCH_SIZE}); ` +
+      `splitting into ${batches} batches to stay under Supabase URL header limit.`,
+  );
+  for (let i = 0; i < opts.algos.length; i += VALIDATE_ALGO_BATCH_SIZE) {
+    const slice = opts.algos.slice(i, i + VALIDATE_ALGO_BATCH_SIZE);
+    const batchNum = Math.floor(i / VALIDATE_ALGO_BATCH_SIZE) + 1;
+    console.log(`\n--- Batch ${batchNum}/${batches} (${slice.length} algos) ---`);
+    runValidateAlgoBatch({ algos: slice, persist: opts.persist });
+  }
 }
 
 async function modeList(): Promise<void> {
