@@ -35,6 +35,7 @@ import type { PaperPosition, PositionEvent } from "@/types/position";
 import { buildEntryCohort, buildEntryReason } from "./entry-cohort";
 // CB.H1 pass 12 (2026-06-22): lot derivation + log+mirror extracted.
 import { deriveLotSizingForMirror, logOpenAndMirror } from "./entry-open-mirror";
+import { resolveRulesForCurrentRegime } from "@/lib/algorithm/regime-routing";
 import { calculatePositionSize, calculateRiskPrices, logActivity } from "./helpers";
 import { buildVolTargetLiveContext } from "./vol-target-live-context";
 import type { BrokerExecutionContext } from "./live-execution";
@@ -125,9 +126,43 @@ export async function openPosition(
     cohortFromCaller,
     dailyBarsForLevels,
   } = options;
-  const openValue = computeMarginUsed(algo, allOpenPositions);
-  const side = resolveSide(algo);
-  const { slDistance, tpDistance } = computeSlTpDistances(algo, side, currentPrice, ticker, bars, adaptiveTpCtx, dailyBarsForLevels);
+  // H.6-live-routing: when regime_routing.enabled, classify the current
+  // bar's vol regime and merge the matching override into the rules.
+  // The shadowed `effectiveAlgo` is what every downstream call reads —
+  // computeSlTpDistances + calculatePositionSize + calculateRiskPrices
+  // all see the routed parameters as-if-deployed. When routing is off
+  // OR no override applies, effectiveAlgo === algo (zero overhead).
+  const routed = resolveRulesForCurrentRegime(algo.rules, bars ?? []);
+  const effectiveAlgo = routed.applied ? { ...algo, rules: routed.rules } : algo;
+  if (routed.applied) {
+    await logActivity(supabase, userId, {
+      algorithm_id: algo.id,
+      event_type: "regime_route_switched",
+      ticker,
+      details: {
+        regime: routed.regime,
+        applied_fields: routed.applied_fields,
+        before: {
+          rr_multiple: (algo.rules.take_profit as { type?: string; value?: number }).type === "rr_multiple" ? (algo.rules.take_profit as { value?: number }).value : null,
+          sl_lookback: (algo.rules.stop_loss as { type?: string; lookback?: number }).type === "swing_anchor" ? (algo.rules.stop_loss as { lookback?: number }).lookback : null,
+          risk_per_trade_pct: algo.rules.position_sizing.type === "risk_per_trade" ? algo.rules.position_sizing.value : null,
+          regime_filter: Boolean((algo.rules as { regime_filter?: { enabled?: boolean } }).regime_filter?.enabled),
+          adx_filter: Boolean((algo.rules as { adx_filter?: { enabled?: boolean } }).adx_filter?.enabled),
+        },
+        after: {
+          rr_multiple: (effectiveAlgo.rules.take_profit as { type?: string; value?: number }).type === "rr_multiple" ? (effectiveAlgo.rules.take_profit as { value?: number }).value : null,
+          sl_lookback: (effectiveAlgo.rules.stop_loss as { type?: string; lookback?: number }).type === "swing_anchor" ? (effectiveAlgo.rules.stop_loss as { lookback?: number }).lookback : null,
+          risk_per_trade_pct: effectiveAlgo.rules.position_sizing.type === "risk_per_trade" ? effectiveAlgo.rules.position_sizing.value : null,
+          regime_filter: Boolean((effectiveAlgo.rules as { regime_filter?: { enabled?: boolean } }).regime_filter?.enabled),
+          adx_filter: Boolean((effectiveAlgo.rules as { adx_filter?: { enabled?: boolean } }).adx_filter?.enabled),
+        },
+      },
+    });
+  }
+
+  const openValue = computeMarginUsed(effectiveAlgo, allOpenPositions);
+  const side = resolveSide(effectiveAlgo);
+  const { slDistance, tpDistance } = computeSlTpDistances(effectiveAlgo, side, currentPrice, ticker, bars, adaptiveTpCtx, dailyBarsForLevels);
 
   // G.3-followup: vol_target sizing needs ATR + recent R-multiples
   // pre-fetched. Skip the DB hit for the common-case sizing types.
@@ -135,12 +170,12 @@ export async function openPosition(
   // entry path that doesn't thread bars through), the call surfaces the
   // ATR-can't-compute → instrumentVolPct=0 path which the math handles
   // via min_vol_floor.
-  const volTargetCtx = algo.rules.position_sizing.type === "vol_target"
-    ? await buildVolTargetLiveContext(supabase, algo.id, bars ?? [], currentPrice)
+  const volTargetCtx = effectiveAlgo.rules.position_sizing.type === "vol_target"
+    ? await buildVolTargetLiveContext(supabase, effectiveAlgo.id, bars ?? [], currentPrice)
     : undefined;
   const sizing = calculatePositionSize(
-    algo.rules,
-    algo.capital,
+    effectiveAlgo.rules,
+    effectiveAlgo.capital,
     openValue,
     currentPrice,
     ticker,
@@ -152,7 +187,7 @@ export async function openPosition(
 
   const { stopLossPrice, takeProfitPrice } = calculateRiskPrices(
     currentPrice,
-    algo.rules,
+    effectiveAlgo.rules,
     side,
     ticker,
     slDistance,
@@ -170,16 +205,16 @@ export async function openPosition(
   }
 
   const position = await insertPaperPositionRow({
-    supabase, userId, algo, ticker, side, sizing, currentPrice, stopLossPrice,
+    supabase, userId, algo: effectiveAlgo, ticker, side, sizing, currentPrice, stopLossPrice,
     takeProfitPrice, bars, cohortFromCaller, conditions, sentimentResult,
   });
   if (!position) return { opened: 0 };
   await logOpenAndMirror({
-    supabase, userId, algoId: algo.id, algoCapital: algo.capital,
+    supabase, userId, algoId: effectiveAlgo.id, algoCapital: effectiveAlgo.capital,
     paperPositionId: position.id, ticker, side, sizing, currentPrice,
     stopLossPrice, takeProfitPrice, brokerCtx,
-    lots: deriveLotSizingForMirror(algo.rules, ticker, sizing.quantity),
-    divergenceRule: algo.rules.divergence_kill,
+    lots: deriveLotSizingForMirror(effectiveAlgo.rules, ticker, sizing.quantity),
+    divergenceRule: effectiveAlgo.rules.divergence_kill,
   });
   return {
     opened: 1,

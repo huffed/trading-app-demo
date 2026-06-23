@@ -124,4 +124,7 @@ export const ACTIVITY_TYPE_LABELS: Record<string, string> = {
   broker_reconciliation_drift: "Broker Drift",
   manage_tick: "Manage Tick",
   cron_idle: "Cron Idle (no active algos)",
+  alpha_decay_pause: "Alpha Decay Pause",
+  wfo_rules_updated: "Walk-Forward Rules Updated",
+  regime_route_switched: "Regime Route Switched",
 };

@@ -191,6 +191,38 @@ const adxFilterSchema = z.object({
   min_adx: z.number().min(0).max(100).optional(),
 });
 
+// H.6-live-routing — per-regime override schema. Bounds match the
+// Layer B axis enumerator (`src/lib/algo-search/layer-b-enumerate.ts`):
+//   rr_multiple ∈ {2, 2.5, 3, 5}    sl_lookback ∈ {3, 4, 6}
+//   risk_per_trade_pct ∈ {0.6, 1.0}
+// Schema is permissive (allows any value in a wider range) so the
+// operator isn't forced to the exact axis values — the merger handles
+// type mismatches silently. Hard bounds are the upper limits enforced
+// for the same fields elsewhere in this validator.
+const regimeOverrideSchema = z
+  .object({
+    rr_multiple: z.number().positive().max(20).optional(),
+    sl_lookback: z.number().int().min(1).max(100).optional(),
+    risk_per_trade_pct: z.number().positive().max(5).optional(),
+    regime_filter: z.boolean().optional(),
+    adx_filter: z.boolean().optional(),
+  })
+  .strict();
+
+const regimeRoutingSchema = z
+  .object({
+    enabled: z.boolean(),
+    overrides: z
+      .object({
+        low_vol: regimeOverrideSchema.optional(),
+        medium_vol: regimeOverrideSchema.optional(),
+        high_vol: regimeOverrideSchema.optional(),
+      })
+      .strict()
+      .optional(),
+  })
+  .strict();
+
 const timeFilterSchema = z.object({
   enabled: z.boolean(),
   // 0-100 with sensible bounds. 45 = "above coin flip" default; tighten
@@ -447,6 +479,7 @@ export const algorithmRulesSchema = z.object({
   divergence_kill: divergenceKillSchema.optional(),
   regime_filter: regimeFilterSchema.optional(),
   adx_filter: adxFilterSchema.optional(),
+  regime_routing: regimeRoutingSchema.optional(),
   stagnant_exit: stagnantExitSchema.optional(),
   trailing_stop: trailingStopSchema.optional(),
   breakeven_move: breakevenMoveSchema.optional(),

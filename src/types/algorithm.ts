@@ -341,6 +341,40 @@ export interface NewsVetoRules {
   min_impact: "low" | "medium" | "high";
 }
 
+/** H.6-live-routing — per-regime override fields. Each is OPTIONAL —
+ *  the merger only touches base-rules fields when the override field
+ *  is set AND the base field's type matches the override semantic
+ *  (rr_multiple only applies when take_profit.type === "rr_multiple";
+ *  sl_lookback only when stop_loss.type === "swing_anchor"; etc.).
+ *  Mismatched type → silently no-op for that field so legacy non-Layer-B
+ *  rule shapes don't break. */
+export interface RegimeOverride {
+  /** Override take_profit.value when take_profit.type === "rr_multiple". */
+  rr_multiple?: number;
+  /** Override stop_loss.lookback when stop_loss.type === "swing_anchor". */
+  sl_lookback?: number;
+  /** Override position_sizing.value when position_sizing.type === "risk_per_trade". */
+  risk_per_trade_pct?: number;
+  /** Override regime_filter on/off (default config when on; clear when off). */
+  regime_filter?: boolean;
+  /** Override adx_filter on/off (default config when on; clear when off). */
+  adx_filter?: boolean;
+}
+
+export interface RegimeRouting {
+  /** Master switch — when false the entire routing path is skipped (no
+   *  classification call, no override merge). */
+  enabled: boolean;
+  /** Per-regime override map. Missing regime entry = no override (use
+   *  base rules). Empty `overrides: {}` = routing is enabled but
+   *  effectively no-op (operator may stage gradual rollouts this way). */
+  overrides?: {
+    low_vol?: RegimeOverride;
+    medium_vol?: RegimeOverride;
+    high_vol?: RegimeOverride;
+  };
+}
+
 export interface AlgorithmRules {
   entry_conditions: EntryCondition[];
   /** Logic combining entry conditions. Defaults to "all" for backwards compat. */
@@ -417,6 +451,25 @@ export interface AlgorithmRules {
     /** Skip when current ATR is below this percentile (0..1). Default 0.30. */
     percentile_floor?: number;
   };
+  /**
+   * H.6-live-routing — per-regime parameter overrides. When enabled,
+   * the scan engine classifies the current bar's vol regime via
+   * `classifyRegime` (vol-percentile terciles: low_vol < 33.33% < medium_vol
+   * < 66.67% < high_vol) and merges the matching override into the base
+   * rules BEFORE entry evaluation. The merge touches the 5 Layer B axes
+   * only (rr / sl_lookback / risk / regime_filter on/off / adx_filter
+   * on/off); all other rules fields stay base-rules values.
+   *
+   * Defaults: when classifyRegime returns null (pre-lookback bars) OR no
+   * override defined for the detected regime, base rules are used
+   * unmodified. Each routing application writes a `regime_route_switched`
+   * activity_log event capturing detected regime + applied override
+   * fields for operator audit.
+   *
+   * Schema is operator-opt-in: omitting `regime_routing` entirely =
+   * current single-rules behavior (no classification call, no override).
+   */
+  regime_routing?: RegimeRouting;
   /**
    * Trend-strength gate using ADX. Skips entries when ADX is below the
    * minimum threshold — i.e. there's no clear directional trend. ATR-

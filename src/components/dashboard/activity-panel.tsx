@@ -55,6 +55,9 @@ const EVENT_ICONS: Record<ActivityEventType, React.ReactNode> = {
   broker_reconciliation_drift: <GitCompareArrows className="h-3.5 w-3.5 text-[var(--loss)]" />,
   manage_tick: <Activity className="h-3.5 w-3.5 text-muted-foreground" />,
   cron_idle: <Moon className="h-3.5 w-3.5 text-muted-foreground" />,
+  alpha_decay_pause: <PauseCircle className="h-3.5 w-3.5 text-[var(--loss)]" />,
+  wfo_rules_updated: <GitCompareArrows className="h-3.5 w-3.5 text-muted-foreground" />,
+  regime_route_switched: <Activity className="h-3.5 w-3.5 text-blue-500" />,
 };
 
 export function ActivityPanel() {

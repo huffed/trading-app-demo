@@ -20,7 +20,10 @@ export type ActivityEventType =
   | "scan_overdue"
   | "broker_reconciliation_drift"
   | "manage_tick"
-  | "cron_idle";
+  | "cron_idle"
+  | "alpha_decay_pause"
+  | "wfo_rules_updated"
+  | "regime_route_switched";
 
 export interface ActivityLogEntry {
   id: string;
