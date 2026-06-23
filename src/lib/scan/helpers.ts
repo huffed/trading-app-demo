@@ -2,6 +2,11 @@
  * Scan engine helpers — position sizing, risk price calculation, activity logging.
  */
 import {
+  computeVolTargetNotional,
+  DEFAULT_ROLLING_WINDOW,
+  rollingPerTradeRStd,
+} from "@/lib/algorithm/vol-target-sizing";
+import {
   getContractSize,
   notionalInUsd,
   priceDeltaForRule,
@@ -11,6 +16,7 @@ import {
 import { logger } from "@/lib/logger";
 import type { AlgorithmRules } from "@/types/algorithm";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { VolTargetLiveContext } from "./vol-target-live-context";
 
 export interface PositionSizingResult {
   quantity: number;
@@ -41,24 +47,54 @@ export function calculatePositionSize(
    *  derived from the rule + entry price alone. For percentage / fixed
    *  / pips rules, omitting this is fine — the function falls back to
    *  ruleAsPctOfEntry which handles those types deterministically. */
-  slDistanceOverride?: number
+  slDistanceOverride?: number,
+  /** G.3-followup vol_target live context — caller pre-fetches via
+   *  `buildVolTargetLiveContext()` when `rules.position_sizing.type ===
+   *  "vol_target"`. Required ONLY for vol_target; ignored otherwise.
+   *  When sizing.type === "vol_target" AND this is missing, returns null
+   *  (caller treats as skip — same "loud-fail by metric" pattern the
+   *  backtest's `sizeForBacktest` uses for the same case). */
+  volTargetCtx?: VolTargetLiveContext
 ): PositionSizingResult | null {
   const available = capital - openPositionsValue;
   if (available <= 0) return null;
 
   const sizing = rules.position_sizing;
 
-  // G.3: vol_target sizing is backtest-only until live-path wire-up lands
-  // (filed as roadmap item G.3-followup). Throw loudly here so an algo
-  // wired with vol_target rules can't accidentally activate live and
-  // silently fall through to a different sizing model. The v3 survivor
-  // (Engulfing rr3_lb6_r06) uses risk_per_trade, so this guard doesn't
-  // block the demo deploy path.
+  // G.3-followup: vol_target live path. Mirrors `sizeForBacktest`'s
+  // vol_target branch (same `computeVolTargetNotional` math + same
+  // leverage-clamp semantics). When the caller didn't pre-fetch ctx
+  // (caller bug or new algo wired with vol_target before scan path
+  // upgraded), return null + warn so the scan operator sees why the
+  // entry was skipped.
   if (sizing.type === "vol_target") {
-    throw new Error(
-      "vol_target position_sizing is backtest-only (G.3); live-path wire-up pending. " +
-        "Switch to risk_per_trade or wait for G.3-followup before activating this algo.",
-    );
+    if (!volTargetCtx) {
+      logger.warn(
+        "calculatePositionSize",
+        "vol_target sizing requires volTargetCtx; entry skipped. " +
+          "Caller should pre-fetch via buildVolTargetLiveContext()."
+      );
+      return null;
+    }
+    const window = sizing.rolling_window ?? DEFAULT_ROLLING_WINDOW;
+    const perTradeRStd = rollingPerTradeRStd(volTargetCtx.rMultipleHistory, window);
+    const result = computeVolTargetNotional({
+      capital,
+      target_vol_pct: sizing.value / 100, // pct (5) → fraction (0.05)
+      per_trade_r_std: perTradeRStd,
+      instrument_vol_pct: volTargetCtx.instrumentVolPct,
+      min_vol_floor: sizing.min_vol_floor,
+    });
+    if (result.notional <= 0) return null;
+    // Effective-leverage cap matches the backtest branch (30 when
+    // prop_firm context; rules.leverage otherwise; default 30).
+    const requested = rules.leverage ?? 30;
+    const effectiveLeverage = rules.prop_firm ? Math.min(requested, 30) : requested;
+    const margin = result.notional / effectiveLeverage;
+    if (margin > available) return null;
+    const quantity = currentPrice > 0 ? result.notional / currentPrice : 0;
+    if (quantity <= 0) return null;
+    return { quantity, notionalValue: result.notional, marginRequired: margin };
   }
 
   if (

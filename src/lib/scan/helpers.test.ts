@@ -507,3 +507,63 @@ describe("logActivity — error surfacing (audit-write-safety)", () => {
     ).resolves.toBeUndefined();
   });
 });
+
+// ======================================================================
+// G.3-followup — vol_target sizing branch
+// ======================================================================
+
+describe("calculatePositionSize — vol_target sizing (G.3-followup live wire-up)", () => {
+  function volTargetRules(targetVolPct: number) {
+    return makeRules({
+      sizing: { type: "vol_target", value: targetVolPct } as AlgorithmRules["position_sizing"],
+    });
+  }
+
+  it("returns null when volTargetCtx missing (loud-fail; logs warn)", () => {
+    const r = calculatePositionSize(volTargetRules(5), 10_000, 0, 2000, "XAU/USD");
+    expect(r).toBeNull();
+    expect(mockedLogger.warn).toHaveBeenCalledWith(
+      "calculatePositionSize",
+      expect.stringContaining("vol_target sizing requires volTargetCtx"),
+    );
+  });
+
+  it("dispatches to computeVolTargetNotional when ctx provided", () => {
+    // capital=10k × 5% / (warmup rStd 1.0 × instVol 0.01) = 500 / 0.01 = 50,000 notional
+    const r = calculatePositionSize(
+      volTargetRules(5), 10_000, 0, 2000, "XAU/USD", 1, undefined,
+      { instrumentVolPct: 0.01, rMultipleHistory: [] }
+    );
+    expect(r).not.toBeNull();
+    expect(r!.notionalValue).toBeCloseTo(50_000, 0);
+    expect(r!.quantity).toBeCloseTo(25, 2); // 50000 / 2000
+    expect(r!.marginRequired).toBeCloseTo(50_000 / 30, 0); // default leverage 30
+  });
+
+  it("returns null when computed notional ≤ 0 (e.g. target_vol_pct=0)", () => {
+    const r = calculatePositionSize(
+      volTargetRules(0), 10_000, 0, 2000, "XAU/USD", 1, undefined,
+      { instrumentVolPct: 0.01, rMultipleHistory: [] }
+    );
+    expect(r).toBeNull();
+  });
+
+  it("returns null when margin > available (capital exceeded)", () => {
+    // Already-open value = 9,500 → available = 500; vol_target wants 50,000/30 ≈ 1,667 margin > 500
+    const r = calculatePositionSize(
+      volTargetRules(5), 10_000, 9_500, 2000, "XAU/USD", 1, undefined,
+      { instrumentVolPct: 0.01, rMultipleHistory: [] }
+    );
+    expect(r).toBeNull();
+  });
+
+  it("clamps effective leverage to 30 when prop_firm context present", () => {
+    const rules = {
+      ...volTargetRules(5),
+      leverage: 100,
+      prop_firm: { daily_loss_limit: 5, max_drawdown: 10, profit_target: 10, max_consecutive_losses: 0 },
+    } as unknown as AlgorithmRules;
+    const r = calculatePositionSize(rules, 10_000, 0, 2000, "XAU/USD", 1, undefined, { instrumentVolPct: 0.01, rMultipleHistory: [] });
+    expect(r!.marginRequired).toBeCloseTo(50_000 / 30, 0); // capped at 30, not 100
+  });
+});

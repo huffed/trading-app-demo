@@ -36,6 +36,7 @@ import { buildEntryCohort, buildEntryReason } from "./entry-cohort";
 // CB.H1 pass 12 (2026-06-22): lot derivation + log+mirror extracted.
 import { deriveLotSizingForMirror, logOpenAndMirror } from "./entry-open-mirror";
 import { calculatePositionSize, calculateRiskPrices, logActivity } from "./helpers";
+import { buildVolTargetLiveContext } from "./vol-target-live-context";
 import type { BrokerExecutionContext } from "./live-execution";
 import { checkRiskPoolHalt } from "./risk-pool-halt";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -128,6 +129,15 @@ export async function openPosition(
   const side = resolveSide(algo);
   const { slDistance, tpDistance } = computeSlTpDistances(algo, side, currentPrice, ticker, bars, adaptiveTpCtx, dailyBarsForLevels);
 
+  // G.3-followup: vol_target sizing needs ATR + recent R-multiples
+  // pre-fetched. Skip the DB hit for the common-case sizing types.
+  // When sizing is vol_target but bars are missing (pattern-strategy
+  // entry path that doesn't thread bars through), the call surfaces the
+  // ATR-can't-compute → instrumentVolPct=0 path which the math handles
+  // via min_vol_floor.
+  const volTargetCtx = algo.rules.position_sizing.type === "vol_target"
+    ? await buildVolTargetLiveContext(supabase, algo.id, bars ?? [], currentPrice)
+    : undefined;
   const sizing = calculatePositionSize(
     algo.rules,
     algo.capital,
@@ -135,7 +145,8 @@ export async function openPosition(
     currentPrice,
     ticker,
     convictionMult,
-    slDistance
+    slDistance,
+    volTargetCtx
   );
   if (!sizing) return { opened: 0 };
 
