@@ -71,6 +71,10 @@ import {
   buildBonferroniFamilyRationale,
   classifyPreregExpiry,
 } from "../../src/lib/stats/validator-output";
+import {
+  purgedKFoldEvaluate,
+  type PurgedKFoldResult,
+} from "../../src/lib/stats/purged-kfold";
 
 {
   try {
@@ -167,6 +171,11 @@ const BONFERRONI_CORRECTION_SCOPE =
  *  trade-level. Default on — trades within regimes are correlated, so
  *  trade-level bootstrap understates the CI width. */
 const ENABLE_BLOCK_BOOTSTRAP = process.env.BLOCK_BOOTSTRAP !== "0";
+/** Phase F.3 (ROADMAP.md) — purged k-fold CV with embargo. 0 = off (default,
+ *  preserves legacy behaviour for existing callers). Set to integer ≥ 2 to
+ *  enable. F.4 re-evaluation uses KFOLD=5 + EMBARGO_FRACTION=0.01 per spec. */
+const KFOLD = Number(process.env.KFOLD ?? 0);
+const EMBARGO_FRACTION = Number(process.env.EMBARGO_FRACTION ?? 0.01);
 
 const TRAIN_MONTHS = 12;
 const TEST_MONTHS = 3;
@@ -273,6 +282,10 @@ interface StatisticalRigorBlock {
   sharpe_ratio: number;
   /** B.2.10: bootstrap CI on Sharpe ratio. Uses block bootstrap when enabled. */
   sharpe_ratio_ci: BootstrapResult;
+  /** Phase F.3 (ROADMAP.md) — purged k-fold CV with embargo per López de Prado
+   *  AFML ch.7. Optional; null when KFOLD env was 0/unset. v3 ship-criterion
+   *  per ROADMAP.md F.5: consistency_count ≥ k-1 (e.g. 4/5 for k=5). */
+  purged_kfold: PurgedKFoldResult | null;
   /** B.2.36 (Stage 3, 2026-06-19 EVE): OOS_CUTOFF data-snooping
    *  disclosure. Personal-operator context (no hostile evaluator)
    *  permits the data-snooped cutoff selection — but the disclosure
@@ -440,6 +453,7 @@ function analyzeStats(args: AnalyzeStatsArgs): GateResults {
     mean_r_bonferroni: { p_value: 1, bonferroni_alpha: FAMILY_ALPHA / effectiveNTests, passes: false, family_alpha: FAMILY_ALPHA, n_tests: effectiveNTests },
     sharpe_ratio: 0,
     sharpe_ratio_ci: { point: 0, lower: NaN, upper: NaN, n_iterations: 0, ci_level: 0.95 },
+    purged_kfold: null,
     oos_cutoff_used: OOS_CUTOFF,
     oos_cutoff_selection_disclosure: oosCutoffDisclosure,
   };
@@ -600,6 +614,23 @@ function analyzeStats(args: AnalyzeStatsArgs): GateResults {
   const sharpeCI = ENABLE_BLOCK_BOOTSTRAP
     ? bootstrapStatBlock(sorted, (ts: BacktestTrade[]) => sharpeRatio(ts, riskPerTrade), { seed: algoSeed, n_iterations: BOOTSTRAP_ITERATIONS })
     : bootstrapStat(sorted, (ts: BacktestTrade[]) => sharpeRatio(ts, riskPerTrade), { seed: algoSeed, n_iterations: BOOTSTRAP_ITERATIONS });
+  // Phase F.3 (ROADMAP.md) — purged k-fold CV with embargo. Opt-in via KFOLD env;
+  // adds per-fold OOS mean R + consistency count for v3 ship-criterion check.
+  // Skipped when sorted.length < k (each fold needs ≥ 1 trade for meaningful result).
+  let purgedKfold: PurgedKFoldResult | null = null;
+  if (KFOLD >= 2 && sorted.length >= KFOLD) {
+    try {
+      purgedKfold = purgedKFoldEvaluate(sorted, riskPerTrade, {
+        k: KFOLD,
+        embargoFraction: EMBARGO_FRACTION,
+      });
+    } catch (e) {
+      // Don't fail the whole validate-algo run on a k-fold error; log + persist null.
+      console.warn(
+        `[validate-algo] purgedKFoldEvaluate failed for ${algoName}: ${e instanceof Error ? e.message : String(e)} — persisting null.`,
+      );
+    }
+  }
   const rigor: StatisticalRigorBlock = {
     bootstrap_iterations: BOOTSTRAP_ITERATIONS,
     bootstrap_seed: BOOTSTRAP_SEED,
@@ -621,6 +652,7 @@ function analyzeStats(args: AnalyzeStatsArgs): GateResults {
     mean_r_bonferroni: meanRBonferroni,
     sharpe_ratio: sharpePoint,
     sharpe_ratio_ci: sharpeCI,
+    purged_kfold: purgedKfold,
     oos_cutoff_used: OOS_CUTOFF,
     oos_cutoff_selection_disclosure: oosCutoffDisclosure,
   };
