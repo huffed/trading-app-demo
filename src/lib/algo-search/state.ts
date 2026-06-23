@@ -12,7 +12,8 @@
 import type { Database } from "@/lib/supabase/database.types";
 import {
   evaluateAgainstCriteria,
-  passesLayerA,
+  passesPerCandidate,
+  ROBUSTNESS_EXEMPT_PATTERNS,
   SEARCH_LAYER_A_CRITERIA,
   type PersistedBacktestResults,
 } from "./criteria";
@@ -39,7 +40,18 @@ export interface SearchSurvivor {
   mean_r_ci_lower: number | null;
   bonferroni_p: number | null;
   oos_held_out_trades: number | null;
+  /** v2: pattern-robustness status. `robust` = ≥2 cells of same (pattern×side)
+   *  pass per-candidate criteria. `singleton-exempt` = only 1 cell but pattern
+   *  is on the structural-exemption list (e.g. asian_range_break is 4h-only by
+   *  design). `singleton-not-robust` = only 1 cell, not exempt → EXCLUDED from
+   *  survivor set (this row appears in `singleton_candidates` instead). */
+  robustness_status: "robust" | "singleton-exempt" | "singleton-not-robust";
 }
+
+/** Single-cell candidates that pass per-candidate criteria but fail pattern
+ *  robustness (criterion 9). Surfaced separately so the operator sees the
+ *  near-miss without us auto-treating them as survivors. */
+export type SearchSingleton = SearchSurvivor;
 
 export interface SearchTopBlocker {
   /** Criterion key (matches SearchCriteria keys). */
@@ -51,34 +63,36 @@ export interface SearchTopBlocker {
 }
 
 export interface SearchState {
-  /** Total cells in the Layer A enumeration (Bonferroni denominator). */
+  /** Total cells in the Layer A enumeration. */
   enumerated_count: number;
-  /** Family α used for Bonferroni (locked at 0.05 per spec §4). */
-  family_alpha: number;
-  /** Per-test α = family_alpha / enumerated_count. */
-  per_test_alpha: number;
   /** Inserted candidate rows where name LIKE 'Search:%'. Equal to or
    *  greater than enumerated_count if a prior run left rows for cells
    *  the current enumeration doesn't reproduce (semantic drift detector). */
   inserted_count: number;
   /** Inserted rows whose backtest_results JSONB is populated (sweep ran). */
   evaluated_count: number;
-  /** Of evaluated rows, how many pass ALL 9 Layer A criteria. */
+  /** v2: rows passing per-candidate criteria 1–8 (before robustness check). */
+  per_candidate_pass_count: number;
+  /** v2: rows passing per-candidate AND pattern-robustness criterion 9. */
   survivor_count: number;
+  /** v2: rows passing per-candidate but failing robustness (single-cell wins). */
+  singleton_count: number;
   /** Of evaluated rows, how many were marked promotion_eligible by
-   *  validate-algo (full pre-reg + step-verdict pipeline — should ≥ survivor_count). */
+   *  validate-algo (legacy v1 criteria — informational comparison). */
   validate_algo_eligible_count: number;
-  /** Top-of-table actionable list: the 9 criteria + how many evaluated
-   *  rows failed each. The frontend renders this so the operator sees
-   *  WHY most of the search isn't surviving (e.g. "270 failed WR ≥ 37%"). */
+  /** Top-of-table actionable list: the 7 per-candidate criteria + how many
+   *  evaluated rows failed each. Renders WHY most of the search isn't
+   *  surviving (e.g. "290 failed mean R CI lower > 0"). */
   blockers: SearchTopBlocker[];
   /** Per-axis tallies for sanity-check display. */
   by_instrument: Record<string, number>;
   by_timeframe: Record<string, number>;
   by_pattern: Record<string, number>;
   by_side: Record<string, number>;
-  /** Sorted by total_return DESC. Frontend renders top N (e.g. 10). */
+  /** Robust Layer A survivors (per-candidate pass + ≥2 cells same pattern×side). */
   survivors: SearchSurvivor[];
+  /** Per-candidate pass but failed robustness — informational, NOT auto-survivor. */
+  singleton_candidates: SearchSingleton[];
   /** Timestamp of the most-recent backtest_results.computed_at across
    *  the search rows. null if no rows have been evaluated yet. */
   last_evaluated_at: string | null;
@@ -136,12 +150,16 @@ interface DbAggregation {
   inserted_count: number;
   evaluated_count: number;
   validate_algo_eligible_count: number;
-  survivors: SearchSurvivor[];
+  per_candidate_pass: SearchSurvivor[];
   blockers: SearchTopBlocker[];
   last_evaluated_at: string | null;
 }
 
-function survivorFromRow(row: AlgoRow, results: PersistedBacktestResults): SearchSurvivor {
+function survivorFromRow(
+  row: AlgoRow,
+  results: PersistedBacktestResults,
+  robustness_status: SearchSurvivor["robustness_status"],
+): SearchSurvivor {
   const cell = parseCellFromName(row.name);
   return {
     algorithm_id: row.id,
@@ -156,6 +174,7 @@ function survivorFromRow(row: AlgoRow, results: PersistedBacktestResults): Searc
     mean_r_ci_lower: results.statistical_rigor?.mean_r_ci?.lower ?? null,
     bonferroni_p: results.statistical_rigor?.mean_r_bonferroni?.p_value ?? null,
     oos_held_out_trades: results.step6?.held_out_n ?? null,
+    robustness_status,
   };
 }
 
@@ -164,7 +183,7 @@ function aggregateAlgoRows(algoRows: AlgoRow[]): DbAggregation {
   const blockerLabels = new Map<string, string>();
   let evaluated_count = 0;
   let validate_algo_eligible_count = 0;
-  const survivors: SearchSurvivor[] = [];
+  const per_candidate_pass: SearchSurvivor[] = [];
   let last_evaluated_at: string | null = null;
   for (const row of algoRows) {
     const results = (row.backtest_results ?? null) as PersistedBacktestResults | null;
@@ -181,30 +200,69 @@ function aggregateAlgoRows(algoRows: AlgoRow[]): DbAggregation {
         blockerLabels.set(c.key, c.label);
       }
     }
-    if (passesLayerA(results)) survivors.push(survivorFromRow(row, results));
+    if (passesPerCandidate(results)) {
+      // robustness_status filled in by cross-row pass below; placeholder here.
+      per_candidate_pass.push(survivorFromRow(row, results, "singleton-not-robust"));
+    }
   }
   const blockers: SearchTopBlocker[] = [...blockerCounts.entries()]
     .map(([key, failed_count]) => ({ key, label: blockerLabels.get(key) ?? key, failed_count }))
     .sort((a, b) => b.failed_count - a.failed_count);
-  survivors.sort((a, b) => (b.total_return ?? 0) - (a.total_return ?? 0));
   return {
     inserted_count: algoRows.length,
     evaluated_count,
     validate_algo_eligible_count,
-    survivors,
+    per_candidate_pass,
     blockers,
     last_evaluated_at,
   };
 }
 
+/** Cross-row pattern-robustness pass (spec §4 criterion 9). Group rows by
+ *  (pattern × side). For each group, if ≥ 2 cells pass per-candidate
+ *  criteria, mark each as "robust". If only 1 cell AND the pattern is on
+ *  the exemption list (e.g. asian_range_break is 4h-only by enumeration
+ *  design), mark "singleton-exempt" → still a survivor with manual-review
+ *  flag. Otherwise mark "singleton-not-robust" → moves to singleton list. */
+function applyRobustnessPass(per_candidate_pass: SearchSurvivor[]): {
+  survivors: SearchSurvivor[];
+  singletons: SearchSurvivor[];
+} {
+  const byKey = new Map<string, SearchSurvivor[]>();
+  for (const row of per_candidate_pass) {
+    const key = `${row.pattern}|${row.side}`;
+    const list = byKey.get(key);
+    if (list) list.push(row);
+    else byKey.set(key, [row]);
+  }
+  const survivors: SearchSurvivor[] = [];
+  const singletons: SearchSurvivor[] = [];
+  for (const [, group] of byKey) {
+    if (group.length >= 2) {
+      for (const r of group) survivors.push({ ...r, robustness_status: "robust" });
+    } else {
+      const r = group[0];
+      const exempt = ROBUSTNESS_EXEMPT_PATTERNS.has(r.pattern);
+      if (exempt) survivors.push({ ...r, robustness_status: "singleton-exempt" });
+      else singletons.push({ ...r, robustness_status: "singleton-not-robust" });
+    }
+  }
+  survivors.sort((a, b) => (b.total_return ?? 0) - (a.total_return ?? 0));
+  singletons.sort((a, b) => (b.total_return ?? 0) - (a.total_return ?? 0));
+  return { survivors, singletons };
+}
+
 /** Build the SearchState payload from the algorithms table. Pure-read;
- *  never writes. RLS-scoped via the caller's supabase client. */
+ *  never writes. RLS-scoped via the caller's supabase client.
+ *
+ *  Three-pass evaluation (v2 spec §4 + §5):
+ *    1. Universe tallies (deterministic, no DB).
+ *    2. DB read + per-candidate criterion evaluation (criteria 1–8).
+ *    3. Cross-row pattern-robustness pass (criterion 9). */
 export async function buildSearchState(
   supabase: SupabaseClient<Database>,
 ): Promise<SearchState> {
   const universe = computeUniverseTallies();
-  const family_alpha = 0.05;
-  const per_test_alpha = family_alpha / universe.enumerated_count;
   const { data: rows, error } = await supabase
     .from("algorithms")
     .select("id, name, backtest_results")
@@ -215,20 +273,22 @@ export async function buildSearchState(
     );
   }
   const agg = aggregateAlgoRows((rows ?? []) as AlgoRow[]);
+  const { survivors, singletons } = applyRobustnessPass(agg.per_candidate_pass);
   return {
     enumerated_count: universe.enumerated_count,
-    family_alpha,
-    per_test_alpha,
     inserted_count: agg.inserted_count,
     evaluated_count: agg.evaluated_count,
-    survivor_count: agg.survivors.length,
+    per_candidate_pass_count: agg.per_candidate_pass.length,
+    survivor_count: survivors.length,
+    singleton_count: singletons.length,
     validate_algo_eligible_count: agg.validate_algo_eligible_count,
     blockers: agg.blockers,
     by_instrument: universe.by_instrument,
     by_timeframe: universe.by_timeframe,
     by_pattern: universe.by_pattern,
     by_side: universe.by_side,
-    survivors: agg.survivors,
+    survivors,
+    singleton_candidates: singletons,
     last_evaluated_at: agg.last_evaluated_at,
   };
 }

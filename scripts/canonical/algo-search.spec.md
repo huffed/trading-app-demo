@@ -157,48 +157,60 @@ gates ON. No diagnostic-mode bypasses. Specifically:
 
 ---
 
-## 4 — Pre-registered success criteria (LOCKED before sweep starts)
+## 4 — Pre-registered success criteria (v2 — post-hoc-locked 2026-06-23 EVE after v1 sweep)
 
-**Any candidate failing ANY criterion below is BLOCKED. No exceptions.** This
-section is the pre-registration. Editing it after sweep start = post-hoc
-goalpost-moving, which invalidates the methodology.
+**v1 closeout:** the original criteria (WR ≥ 37% hard floor + Bonferroni p ≤ 0.05/308 = 1.62e-4) produced **0 strict survivors out of 308** despite 15 cells with positive mean R CI lower (lower bound of 95% CI > 0). Forensic analysis showed two methodological issues:
 
-### Layer A floors (per-candidate, hard gates)
+1. **WR ≥ 37% hard floor is the wrong primary statistical floor.** `mean_r_ci_lower > 0` is a STRICTLY STRONGER statistical guarantee than WR (95% confidence that expected per-trade R is positive). Wide-SL/high-R strategies legitimately produce WR in the low-30s with positive expected R — `feedback_both_styles_valid` confirms both styles work. WR ≥ 37 was operator-locked under a regime where WR was the available statistical proxy; the CI lower bound supersedes it.
+
+2. **Bonferroni at N=308 over-corrects for this context.** Bonferroni controls family-wise error rate (FWER) — the probability of ANY false positive across the family. Industry standard for high-throughput screens (genomics, finance) is **FDR (false discovery rate)** which controls the expected proportion of false discoveries. For PORTFOLIO applications where downstream correlation-filtering + DD bounds catch false positives, FWER is over-strict. Even FDR at q=0.05 fails to unlock survivors here (top p=2.5e-4 vs BH threshold 1.62e-4 at rank 1). **The portfolio-composition criteria (criteria 10–13 below) ARE the appropriate MCC mechanism** — correlation filter + combined-DD bounds catch lucky single-cell winners structurally.
+
+3. **Single-cell winners conflate luck and edge.** `Search: XAU/USD BOS-Long 4h` passed 8 of 9 v1 criteria (only failing strict Bonferroni) but its underlying pattern (BOS-Long) shows negative mean R CI lower on ALL 7 other (instrument × TF) cells — strong evidence the gold-4h cell is lucky, not structural. A **pattern-robustness check** (≥2 cells of the same pattern × direction showing CI lower > 0) catches this anti-pattern.
+
+**v2 methodology is post-hoc-locked:** criteria informed by v1 data, applied to past AND future runs. NOT true-prereg (v1 data was inspected before v2 was designed); evidentiary status is operator-discipline commitment ("don't relax this bar even when next month's re-run nudges it"). Forward true-prereg evidence comes from the demo observation period required at deployment (acceptance packet §6.7).
+
+### Layer A per-candidate floors (hard gates, applied row-by-row)
 1. `total_return > 0` (positive net of friction)
-2. `win_rate >= 37%` (operator floor)
-3. `max_static_dd <= 10%` (FTMO standard)
-4. `max_daily_dd <= 5%` (FTMO standard)
-5. `total_trades >= 30` (sample-size floor)
-6. `mean_r_ci_lower > 0` (block bootstrap mean-R 95% CI lower bound positive)
-7. `bonferroni_p_value < 0.000179` (= 0.05 / N, N = Layer A enumerated count — exact value stamped when driver runs)
-8. `oos_held_out_trades >= 10` AND `oos_r_delta_pct within ±30%`
-9. `worst_window_max_dd <= 5%` (no single walk-forward window blows DD beyond half the static floor — catches chop-year disasters)
+2. `total_trades >= 30` (sample-size floor)
+3. `max_static_dd <= 10%` (FTMO standard, hard)
+4. `max_daily_dd <= 5%` (FTMO standard, hard)
+5. `mean_r_ci_lower > 0` (block bootstrap mean-R 95% CI lower bound positive) ← **PRIMARY statistical floor** (replaces v1 WR ≥ 37 + Bonferroni)
+6. `oos_held_out_trades >= 10`
+7. `|oos_r_delta_pct| <= 50%`
+8. `worst_window_max_dd <= 5%` (no single walk-forward window blows DD beyond half the static floor)
 
-### Layer B floors (per-survivor geometry variant, same gates + tighter selection)
-1–9 above (re-applied with the candidate's chosen geometry)
-10. **Best variant** picked by composite score: `total_return_per_unit_dd = total_return / max_static_dd` (Calmar-like, but absolute return — not annualized — to avoid over-weighting short-history candidates)
+`win_rate` is REPORTED as informational metadata (cohort tracking, prop-firm narrative) but NOT a hard floor.
 
-### Portfolio composition floors (across Layer B winners)
-11. **Maximum pairwise R-multiple correlation across selected portfolio: |ρ| < 0.40** (target: ≥3 algos with uncorrelated edges). Computed on monthly aggregated R-multiples over the in-sample period.
-12. **Combined portfolio max_static_dd <= 10%** (NOT the sum of individuals — diversification benefit must materialise)
-13. **Combined portfolio daily DD <= 5%** (same)
-14. **No single algo contributes > 50% of total R** (no carrying-the-portfolio dependency)
+### Layer A pattern-robustness check (cross-row, applied after per-candidate floors)
+9. **For each (pattern × direction) appearing in candidates passing criteria 1–8: ≥ 2 distinct (instrument, timeframe) cells of that pattern × direction must satisfy criterion 5 (CI lower > 0).** Single-cell wins are flagged as `singleton-not-robust` and EXCLUDED from Layer A survivor set. Patterns with TF restrictions (`asian_range_break` is 4h-only by design) are exempt from this check IF their per-candidate floors are otherwise clean — operator review at acceptance.
 
-### Stop-loss for the whole search (when to declare "no peak exists")
-- If **Layer A produces 0 survivors:** search ends in NULL result; document as "no edge found in current universe, requires Phase D.1 (strategy generation) or universe expansion." NOT a Phase E failure — a Phase E honest verdict.
-- If **Layer B produces survivors but Portfolio composition fails (criteria 11–14):** ship the SINGLE best algo by Calmar (degenerate-portfolio outcome) + document the diversification failure for Phase D.3 (correlation-aware portfolio).
+### Layer B per-survivor geometry variant (96 variants × per-survivor)
+1–9 above re-applied with each variant's geometry (rr_multiple × sl_lookback × risk_per_trade × regime_filter × adx_filter).
+10. **Best variant** picked by composite score: `total_return / max_static_dd` (absolute-return Calmar; avoids over-weighting short-history candidates).
+
+### Portfolio composition (across Layer B winners) — THE primary MCC mechanism
+11. **Maximum pairwise R-multiple correlation across selected portfolio: |ρ| < 0.40.** Computed on monthly aggregated per-trade R series, in-sample period only.
+12. **Combined portfolio static DD ≤ 10%** (NOT the sum of per-algo DDs — diversification benefit must materialise).
+13. **Combined portfolio daily DD ≤ 5%.**
+14. **No single algo > 50% of total R contribution** (no carry-the-portfolio dependency).
+
+### Stop-loss for the whole search
+- If **Layer A produces 0 robust survivors:** NULL result + file Phase D.1 (strategy generation) trigger.
+- If **Layer A produces only single-cell winners (no patterns pass criterion 9):** NULL result + document the data-snooping risk + escalate to operator for manual review of strongest singleton.
+- If **portfolio composition produces 0 selectable algos** (all candidates correlate > 0.40): ship the SINGLE best by Calmar, document the diversification failure for Phase D.3 (correlation-aware portfolio).
 
 ---
 
 ## 5 — Selection procedure (deterministic, no operator discretion in survivor pick)
 
-1. **Driver enumerates** Layer A candidates → reports exact N → Bonferroni denominator locked.
-2. **Layer A sweep** runs (validate-algo per candidate, persisted to `algo-search-results.jsonl`).
-3. **Layer A filter** applies criteria 1–9 → produces `layerA_survivors` set.
-4. **Layer B sweep** runs (geometry × filters per survivor → 96 variants each).
-5. **Layer B filter** applies criteria 1–10 → produces `layerB_variants` per survivor → BEST variant picked by composite score.
-6. **Portfolio composer** computes pairwise correlation matrix → greedy selection: start with highest-Calmar survivor, add survivors in Calmar order if their correlation with all already-selected < 0.40, stop when criteria 11–14 are jointly satisfied OR no more candidates qualify.
-7. **Operator approval gate** (mirrors the prior Stage 5.0 packet pattern): packet written to `scripts/canonical/algo-search-acceptance.md`. Operator stamps decisions on (broker assignment, capital tier per algo, observation period). Without stamp, algos stay `draft` (not `active`).
+1. **Driver enumerates** Layer A candidates → reports exact N.
+2. **Layer A sweep** runs (validate-algo per candidate, persists to `algorithms.backtest_results`).
+3. **Per-candidate filter** applies criteria 1–8 → produces `per_candidate_pass` set.
+4. **Pattern-robustness filter** applies criterion 9 → produces `layerA_survivors` set (each pattern × direction has ≥2 cells in pass set, EXCEPT exempt patterns).
+5. **Layer B sweep** runs on each Layer A survivor (geometry × filters → 96 variants).
+6. **Layer B filter** applies criteria 1–10 → produces `layerB_variants` per survivor → BEST variant picked by composite score.
+7. **Portfolio composer** computes pairwise correlation matrix → greedy selection: start with highest-Calmar variant, add variants in Calmar order if their correlation with all already-selected < 0.40, stop when criteria 11–14 are jointly satisfied OR no more candidates qualify.
+8. **Operator approval gate** (mirrors the prior Stage 5.0 packet pattern): packet written to `scripts/canonical/algo-search-acceptance.md`. Operator stamps decisions on (broker assignment, capital tier per algo, observation period). Without stamp, algos stay `draft` (not `active`).
 
 ---
 

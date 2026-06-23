@@ -1,7 +1,8 @@
 /**
- * SearchState fetcher tests. Mock supabase to lock the aggregation
- * semantics (criterion-blocker counting, survivor extraction, name-parse
- * round-trip) without hitting the real DB.
+ * SearchState fetcher tests (v2). Locks: per-candidate criterion mapping,
+ * cross-row pattern-robustness pass, singleton-vs-survivor classification,
+ * exempt-pattern handling (asian_range_break 4h-only), parse-from-name
+ * round-trip, MAX(computed_at) reduction.
  */
 import { describe, expect, it } from "vitest";
 import type { Database } from "@/lib/supabase/database.types";
@@ -27,33 +28,96 @@ function fakeSupabase(rows: FakeRow[]): SupabaseClient<Database> {
 }
 
 const FULL_PASS = {
-  step2: { total_return: 1500, total_trades: 60, win_rate: 42, max_static_dd: 4, max_daily_dd: 2 },
+  step2: { total_return: 1500, total_trades: 60, win_rate: 30, max_static_dd: 4, max_daily_dd: 2 },
   step6: { held_out_n: 15, r_delta_pct: -10 },
   statistical_rigor: {
     mean_r_ci: { lower: 0.1 },
-    mean_r_bonferroni: { p_value: 1e-5 },
+    mean_r_bonferroni: { p_value: 0.01 },
   },
-  promotion_eligible: true,
+  promotion_eligible: false, // v1's looser flag — separate from v2 survivors
   computed_at: "2026-06-23T01:00:00Z",
 };
 
-const WR_BLOCKED = {
+const FAIL_CI = {
   ...FULL_PASS,
-  step2: { ...FULL_PASS.step2, win_rate: 30 },
-  promotion_eligible: false,
+  statistical_rigor: { ...FULL_PASS.statistical_rigor, mean_r_ci: { lower: -0.05 } },
 };
 
-describe("buildSearchState", () => {
-  it("empty DB → enumerated_count=308 + survivors=0 + evaluated_count=0", async () => {
+describe("buildSearchState (v2)", () => {
+  it("empty DB → 308 enumerated + 0 survivors + 0 singletons", async () => {
     const s = await buildSearchState(fakeSupabase([]));
     expect(s.enumerated_count).toBe(308);
-    expect(s.family_alpha).toBe(0.05);
-    expect(s.per_test_alpha).toBeCloseTo(0.05 / 308, 10);
     expect(s.inserted_count).toBe(0);
     expect(s.evaluated_count).toBe(0);
+    expect(s.per_candidate_pass_count).toBe(0);
     expect(s.survivor_count).toBe(0);
-    expect(s.validate_algo_eligible_count).toBe(0);
+    expect(s.singleton_count).toBe(0);
     expect(s.last_evaluated_at).toBeNull();
+  });
+
+  it("2 cells of same (pattern × side) passing → both classified as 'robust' (criterion 9 satisfied)", async () => {
+    const s = await buildSearchState(
+      fakeSupabase([
+        { id: "a1", name: `${CANDIDATE_NAME_PREFIX} XAU/USD Momentum-Long 4h`, backtest_results: FULL_PASS },
+        { id: "a2", name: `${CANDIDATE_NAME_PREFIX} XAU/USD Momentum-Long 1h`, backtest_results: FULL_PASS },
+      ]),
+    );
+    expect(s.per_candidate_pass_count).toBe(2);
+    expect(s.survivor_count).toBe(2);
+    expect(s.singleton_count).toBe(0);
+    expect(s.survivors.every((r) => r.robustness_status === "robust")).toBe(true);
+  });
+
+  it("1 cell of a non-exempt pattern → moves to singletons (criterion 9 failed)", async () => {
+    const s = await buildSearchState(
+      fakeSupabase([
+        { id: "a1", name: `${CANDIDATE_NAME_PREFIX} XAU/USD BOS-Long 4h`, backtest_results: FULL_PASS },
+      ]),
+    );
+    expect(s.per_candidate_pass_count).toBe(1);
+    expect(s.survivor_count).toBe(0);
+    expect(s.singleton_count).toBe(1);
+    expect(s.singleton_candidates[0].robustness_status).toBe("singleton-not-robust");
+  });
+
+  it("1 cell of an EXEMPT pattern (asian_range_break) → stays as survivor with 'singleton-exempt' tag", async () => {
+    const s = await buildSearchState(
+      fakeSupabase([
+        { id: "a1", name: `${CANDIDATE_NAME_PREFIX} XAU/USD AsianRangeBreak-Long 4h`, backtest_results: FULL_PASS },
+      ]),
+    );
+    expect(s.per_candidate_pass_count).toBe(1);
+    expect(s.survivor_count).toBe(1);
+    expect(s.singleton_count).toBe(0);
+    expect(s.survivors[0].robustness_status).toBe("singleton-exempt");
+  });
+
+  it("mixed: 2 robust + 1 singleton-not-robust + 1 exempt-singleton = survivors:3, singletons:1", async () => {
+    const s = await buildSearchState(
+      fakeSupabase([
+        { id: "a1", name: `${CANDIDATE_NAME_PREFIX} XAU/USD Momentum-Long 4h`, backtest_results: FULL_PASS },
+        { id: "a2", name: `${CANDIDATE_NAME_PREFIX} XAU/USD Momentum-Long 1h`, backtest_results: FULL_PASS },
+        { id: "a3", name: `${CANDIDATE_NAME_PREFIX} XAU/USD BOS-Long 4h`, backtest_results: FULL_PASS },
+        { id: "a4", name: `${CANDIDATE_NAME_PREFIX} XAU/USD AsianRangeBreak-Long 4h`, backtest_results: FULL_PASS },
+      ]),
+    );
+    expect(s.per_candidate_pass_count).toBe(4);
+    expect(s.survivor_count).toBe(3);
+    expect(s.singleton_count).toBe(1);
+    expect(s.singleton_candidates[0].pattern).toBe("BOS");
+  });
+
+  it("rows failing per-candidate criteria (CI lower < 0) appear in blockers, NOT in pass set", async () => {
+    const s = await buildSearchState(
+      fakeSupabase([
+        { id: "a1", name: `${CANDIDATE_NAME_PREFIX} XAU/USD FVG-Long 4h`, backtest_results: FAIL_CI },
+      ]),
+    );
+    expect(s.per_candidate_pass_count).toBe(0);
+    expect(s.survivor_count).toBe(0);
+    expect(s.singleton_count).toBe(0);
+    const ciBlocker = s.blockers.find((b) => b.key === "min_mean_r_ci_lower");
+    expect(ciBlocker?.failed_count).toBe(1);
   });
 
   it("inserted-but-unevaluated rows count in inserted_count, NOT evaluated_count", async () => {
@@ -67,54 +131,16 @@ describe("buildSearchState", () => {
     expect(s.evaluated_count).toBe(0);
   });
 
-  it("1 full-pass row → survivor_count=1 + validate_algo_eligible=1", async () => {
+  it("validate_algo_eligible_count counts rows with promotion_eligible=true (v1's looser flag)", async () => {
+    const promoted = { ...FULL_PASS, promotion_eligible: true };
     const s = await buildSearchState(
       fakeSupabase([
-        { id: "a1", name: `${CANDIDATE_NAME_PREFIX} XAU/USD FVG-Long 4h`, backtest_results: FULL_PASS },
+        { id: "a1", name: `${CANDIDATE_NAME_PREFIX} XAU/USD Momentum-Long 4h`, backtest_results: promoted },
+        { id: "a2", name: `${CANDIDATE_NAME_PREFIX} XAU/USD Momentum-Long 1h`, backtest_results: FULL_PASS },
       ]),
     );
-    expect(s.survivor_count).toBe(1);
     expect(s.validate_algo_eligible_count).toBe(1);
-    expect(s.survivors[0].ticker).toBe("XAU/USD");
-    expect(s.survivors[0].pattern).toBe("FVG");
-    expect(s.survivors[0].side).toBe("long");
-    expect(s.survivors[0].timeframe).toBe("4h");
-  });
-
-  it("blockers tally counts per-criterion failures (WR-blocked rows show in min_win_rate_pct)", async () => {
-    const s = await buildSearchState(
-      fakeSupabase([
-        { id: "a1", name: `${CANDIDATE_NAME_PREFIX} XAU/USD FVG-Long 4h`, backtest_results: WR_BLOCKED },
-        { id: "a2", name: `${CANDIDATE_NAME_PREFIX} EUR/USD BOS-Short 1h`, backtest_results: WR_BLOCKED },
-      ]),
-    );
-    expect(s.evaluated_count).toBe(2);
-    expect(s.survivor_count).toBe(0);
-    const wrBlocker = s.blockers.find((b) => b.key === "min_win_rate_pct");
-    expect(wrBlocker?.failed_count).toBe(2);
-  });
-
-  it("blockers sorted desc by failed_count", async () => {
-    const s = await buildSearchState(
-      fakeSupabase([
-        // WR failures (1 row) + bonferroni failures (1 row, full pass on WR)
-        { id: "a1", name: `${CANDIDATE_NAME_PREFIX} XAU/USD FVG-Long 4h`, backtest_results: WR_BLOCKED },
-        {
-          id: "a2",
-          name: `${CANDIDATE_NAME_PREFIX} EUR/USD BOS-Short 1h`,
-          backtest_results: {
-            ...FULL_PASS,
-            statistical_rigor: { ...FULL_PASS.statistical_rigor, mean_r_bonferroni: { p_value: 0.5 } },
-          },
-        },
-      ]),
-    );
-    // WR appears 1×, Bonferroni appears 1×. Tie → either order is acceptable.
-    expect(s.blockers.length).toBeGreaterThanOrEqual(2);
-    // Strict sort check: each successive entry's count is <= the previous.
-    for (let i = 1; i < s.blockers.length; i++) {
-      expect(s.blockers[i].failed_count).toBeLessThanOrEqual(s.blockers[i - 1].failed_count);
-    }
+    expect(s.survivor_count).toBe(2); // v2 robustness sees both
   });
 
   it("last_evaluated_at returns MAX computed_at across rows", async () => {
@@ -127,5 +153,18 @@ describe("buildSearchState", () => {
       ]),
     );
     expect(s.last_evaluated_at).toBe("2026-06-23T05:00:00Z");
+  });
+
+  it("survivors sorted by total_return DESC", async () => {
+    const low = { ...FULL_PASS, step2: { ...FULL_PASS.step2, total_return: 500 } };
+    const high = { ...FULL_PASS, step2: { ...FULL_PASS.step2, total_return: 5000 } };
+    const s = await buildSearchState(
+      fakeSupabase([
+        { id: "a1", name: `${CANDIDATE_NAME_PREFIX} XAU/USD Momentum-Long 4h`, backtest_results: low },
+        { id: "a2", name: `${CANDIDATE_NAME_PREFIX} XAU/USD Momentum-Long 1h`, backtest_results: high },
+      ]),
+    );
+    expect(s.survivors[0].total_return).toBe(5000);
+    expect(s.survivors[1].total_return).toBe(500);
   });
 });

@@ -1,13 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { AlertCircle, ArrowRight, CheckCircle2, Layers, Sigma, TrendingUp } from "lucide-react";
+import { AlertCircle, ArrowRight, CheckCircle2, Layers, ShieldQuestion, TrendingUp } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAlgoSearchState } from "@/hooks/use-algo-search-state";
-import type { SearchState, SearchSurvivor, SearchTopBlocker } from "@/lib/algo-search/state";
+import type { SearchSingleton, SearchState, SearchSurvivor, SearchTopBlocker } from "@/lib/algo-search/state";
 
 export function SearchTab() {
   const { data, isLoading, isError, error } = useAlgoSearchState();
@@ -16,8 +16,11 @@ export function SearchTab() {
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
         Quant-firm-grade systematic search across the locked universe (4 instruments × 3 timeframes
-        × 14 pattern primitives × 2 directions). Pre-registered acceptance criteria locked at{" "}
-        <code>scripts/canonical/algo-search.spec.md</code>. Operator launches the sweep via{" "}
+        × 14 pattern primitives × 2 directions). v2 acceptance criteria at{" "}
+        <code>scripts/canonical/algo-search.spec.md</code> §4: per-candidate floor is{" "}
+        <strong>mean R CI lower &gt; 0</strong> (replaces v1 WR ≥ 37 + Bonferroni); pattern
+        robustness requires <strong>≥ 2 cells of same (pattern × direction)</strong> passing
+        per-candidate criteria. Operator launches the sweep via{" "}
         <code>MODE=full pnpm dlx tsx scripts/canonical/algo-search.ts</code> — this tab is read-only.
       </p>
 
@@ -43,6 +46,9 @@ export function SearchTab() {
           <UniverseCard state={data} />
           {data.evaluated_count > 0 && <BlockersCard blockers={data.blockers} evaluated={data.evaluated_count} />}
           <SurvivorsCard survivors={data.survivors} />
+          {data.singleton_candidates.length > 0 && (
+            <SingletonsCard singletons={data.singleton_candidates} />
+          )}
           <EmptyStateHint state={data} />
         </>
       )}
@@ -56,10 +62,10 @@ function evaluatedHint(inserted: number, evaluated: number): string {
   return "All inserted rows have backtest_results";
 }
 
-function survivorHint(survivor: number, eligible: number, evaluated: number): string | undefined {
-  if (survivor > 0) return `validate-algo eligible: ${eligible}`;
-  if (evaluated > 0) return "All evaluated rows fail ≥1 criterion";
-  return undefined;
+function survivorHint(survivor: number, perCandidatePass: number): string | undefined {
+  if (survivor === 0 && perCandidatePass === 0) return "0 candidates pass per-candidate criteria";
+  if (survivor === 0) return `${perCandidatePass} pass per-cand criteria but none in robust groups`;
+  return `from ${perCandidatePass} per-candidate passing cells`;
 }
 
 function SearchSkeleton() {
@@ -79,13 +85,7 @@ function SummaryRow({ state }: { state: SearchState }) {
         icon={Layers}
         label="Universe (Layer A cells)"
         value={String(state.enumerated_count)}
-        hint={`Bonferroni denominator at family α=${state.family_alpha}`}
-      />
-      <StatCard
-        icon={Sigma}
-        label="Per-test α"
-        value={state.per_test_alpha.toExponential(2)}
-        hint={`= ${state.family_alpha} / ${state.enumerated_count}`}
+        hint={`${state.inserted_count} inserted as drafts`}
       />
       <StatCard
         icon={CheckCircle2}
@@ -95,10 +95,20 @@ function SummaryRow({ state }: { state: SearchState }) {
       />
       <StatCard
         icon={TrendingUp}
-        label="Survivors"
+        label="Robust survivors"
         value={String(state.survivor_count)}
-        hint={survivorHint(state.survivor_count, state.validate_algo_eligible_count, state.evaluated_count)}
+        hint={survivorHint(state.survivor_count, state.per_candidate_pass_count)}
         emphasis={state.survivor_count > 0}
+      />
+      <StatCard
+        icon={ShieldQuestion}
+        label="Singletons (per-cand pass, not robust)"
+        value={String(state.singleton_count)}
+        hint={
+          state.singleton_count > 0
+            ? "Pattern works on only 1 cell → likely lucky; manual review at acceptance"
+            : "No flagged singletons"
+        }
       />
     </div>
   );
@@ -208,73 +218,107 @@ function SurvivorsCard({ survivors }: { survivors: SearchSurvivor[] }) {
   return (
     <Card>
       <CardHeader className="pb-3">
-        <CardTitle className="text-sm font-medium">Survivors (pass all 9 criteria)</CardTitle>
+        <CardTitle className="text-sm font-medium">Robust survivors (per-candidate pass + pattern robust)</CardTitle>
         <p className="text-xs text-muted-foreground">
-          Sorted desc by total_return. Geometry refinement (Layer B) sweeps each survivor across
-          96 variants. Operator decides deployment via the acceptance packet at Stage 6.7.
+          Sorted desc by total_return. Each row passes criteria 1–8 (per-candidate floors) AND
+          criterion 9 (pattern robustness: ≥ 2 cells of same pattern × direction in pass set), OR
+          is on the structural-exemption list (e.g. asian_range_break is 4h-only by enumeration).
+          Geometry refinement (Layer B) sweeps each across 96 variants next.
         </p>
       </CardHeader>
       <CardContent className="p-0 overflow-x-auto">
-        <table className="w-full text-xs">
-          <thead className="border-b text-muted-foreground">
-            <tr>
-              <th className="text-left p-2.5 font-medium">algo</th>
-              <th className="text-left p-2.5 font-medium">ticker</th>
-              <th className="text-left p-2.5 font-medium">pattern</th>
-              <th className="text-left p-2.5 font-medium">side</th>
-              <th className="text-left p-2.5 font-medium">TF</th>
-              <th className="text-right p-2.5 font-medium">trades</th>
-              <th className="text-right p-2.5 font-medium">WR</th>
-              <th className="text-right p-2.5 font-medium">return</th>
-              <th className="text-right p-2.5 font-medium">CI lower</th>
-              <th className="text-right p-2.5 font-medium">Bonf p</th>
-              <th className="text-right p-2.5 font-medium">held-out N</th>
-              <th className="p-2.5" />
-            </tr>
-          </thead>
-          <tbody>
-            {survivors.map((s) => (
-              <tr key={s.algorithm_id} className="border-b last:border-b-0 hover:bg-muted/30">
-                <td className="p-2.5 max-w-[240px]">
-                  <div className="font-medium truncate" title={s.name}>{s.name}</div>
-                </td>
-                <td className="p-2.5">{s.ticker}</td>
-                <td className="p-2.5">{s.pattern}</td>
-                <td className="p-2.5">
-                  <Badge variant={s.side === "long" ? "default" : "secondary"} className="text-[10px]">
-                    {s.side}
-                  </Badge>
-                </td>
-                <td className="p-2.5">{s.timeframe}</td>
-                <td className="p-2.5 text-right tabular-nums">{s.total_trades ?? "—"}</td>
-                <td className="p-2.5 text-right tabular-nums">{s.win_rate?.toFixed(1) ?? "—"}%</td>
-                <td className="p-2.5 text-right tabular-nums">
-                  {s.total_return != null ? `$${s.total_return.toFixed(0)}` : "—"}
-                </td>
-                <td className="p-2.5 text-right tabular-nums">
-                  {s.mean_r_ci_lower != null ? s.mean_r_ci_lower.toFixed(2) : "—"}
-                </td>
-                <td className="p-2.5 text-right tabular-nums">
-                  {s.bonferroni_p != null ? s.bonferroni_p.toExponential(1) : "—"}
-                </td>
-                <td className="p-2.5 text-right tabular-nums">{s.oos_held_out_trades ?? "—"}</td>
-                <td className="p-2.5">
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    render={<Link href={`/algorithms/${s.algorithm_id}`} />}
-                    nativeButton={false}
-                    className="h-7 px-2"
-                  >
-                    Open <ArrowRight className="ml-1 h-3 w-3" />
-                  </Button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <SurvivorTable rows={survivors} showRobustnessTag />
       </CardContent>
     </Card>
+  );
+}
+
+function SingletonsCard({ singletons }: { singletons: SearchSingleton[] }) {
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm font-medium">Singletons — per-candidate pass, robustness FAIL</CardTitle>
+        <p className="text-xs text-muted-foreground">
+          These cells pass all per-candidate criteria but their pattern × direction works on
+          only ONE (instrument, TF) cell. Per spec §4 criterion 9, single-cell wins are likely
+          lucky rather than structural edges. Surfaced for operator review at acceptance — NOT
+          auto-treated as survivors.
+        </p>
+      </CardHeader>
+      <CardContent className="p-0 overflow-x-auto">
+        <SurvivorTable rows={singletons} showRobustnessTag={false} />
+      </CardContent>
+    </Card>
+  );
+}
+
+function SurvivorTable({ rows, showRobustnessTag }: { rows: SearchSurvivor[]; showRobustnessTag: boolean }) {
+  return (
+    <table className="w-full text-xs">
+      <thead className="border-b text-muted-foreground">
+        <tr>
+          <th className="text-left p-2.5 font-medium">algo</th>
+          <th className="text-left p-2.5 font-medium">ticker</th>
+          <th className="text-left p-2.5 font-medium">pattern</th>
+          <th className="text-left p-2.5 font-medium">side</th>
+          <th className="text-left p-2.5 font-medium">TF</th>
+          <th className="text-right p-2.5 font-medium">trades</th>
+          <th className="text-right p-2.5 font-medium">WR</th>
+          <th className="text-right p-2.5 font-medium">return</th>
+          <th className="text-right p-2.5 font-medium">CI lower</th>
+          <th className="text-right p-2.5 font-medium">held-out N</th>
+          {showRobustnessTag && <th className="text-left p-2.5 font-medium">robustness</th>}
+          <th className="p-2.5" />
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((s) => (
+          <tr key={s.algorithm_id} className="border-b last:border-b-0 hover:bg-muted/30">
+            <td className="p-2.5 max-w-[240px]">
+              <div className="font-medium truncate" title={s.name}>{s.name}</div>
+            </td>
+            <td className="p-2.5">{s.ticker}</td>
+            <td className="p-2.5">{s.pattern}</td>
+            <td className="p-2.5">
+              <Badge variant={s.side === "long" ? "default" : "secondary"} className="text-[10px]">
+                {s.side}
+              </Badge>
+            </td>
+            <td className="p-2.5">{s.timeframe}</td>
+            <td className="p-2.5 text-right tabular-nums">{s.total_trades ?? "—"}</td>
+            <td className="p-2.5 text-right tabular-nums">{s.win_rate?.toFixed(1) ?? "—"}%</td>
+            <td className="p-2.5 text-right tabular-nums">
+              {s.total_return != null ? `$${s.total_return.toFixed(0)}` : "—"}
+            </td>
+            <td className="p-2.5 text-right tabular-nums">
+              {s.mean_r_ci_lower != null ? s.mean_r_ci_lower.toFixed(3) : "—"}
+            </td>
+            <td className="p-2.5 text-right tabular-nums">{s.oos_held_out_trades ?? "—"}</td>
+            {showRobustnessTag && (
+              <td className="p-2.5">
+                <Badge
+                  variant={s.robustness_status === "robust" ? "default" : "outline"}
+                  className="text-[10px] whitespace-nowrap"
+                >
+                  {s.robustness_status}
+                </Badge>
+              </td>
+            )}
+            <td className="p-2.5">
+              <Button
+                size="sm"
+                variant="ghost"
+                render={<Link href={`/algorithms/${s.algorithm_id}`} />}
+                nativeButton={false}
+                className="h-7 px-2"
+              >
+                Open <ArrowRight className="ml-1 h-3 w-3" />
+              </Button>
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   );
 }
 
