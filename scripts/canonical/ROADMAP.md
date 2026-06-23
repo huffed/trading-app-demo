@@ -148,11 +148,17 @@ protects it. We don't want a Tier 2 algo deployed under Tier 4 monitoring.
 - **Trigger condition:** any algo with `position_sizing.type = "vol_target"` proposed for un-pause. If/when that happens, lift the throw + implement; gated by the same A/B sharpe-improvement comparison.
 - **Where it fits in the active roadmap:** below G.5 in Phase G priority (build infra), OR Phase I.4 (multi-instrument R&D), whichever fires first. Listed here so it doesn't drift off the radar.
 
-### G.4 — Build alpha decay monitoring (1–2 days)
-- New cron `scripts/alpha-decay-cron.sh` (daily 09:00 UTC) + `src/lib/cohort/alpha-decay.ts` shared module + `/reports?tab=drift` integration (extends existing drift surface)
-- Per-live-algo rolling 30d/90d Sharpe + hit rate vs in-sample baseline
-- Auto-pause threshold: current Sharpe < 0.5 × baseline sustained 30 days
-- **Gate:** correctly flags decay scenarios on synthetic fixture; with 0 live algos runs without error
+### G.4 — Build alpha decay monitoring ✅ COMPLETE 2026-06-23
+- **Module:** `src/lib/cohort/alpha-decay.ts` — pure-ish (no FE deps); exports `checkAlphaDecay()` per-algo + `evaluateAndApplyAlphaDecay()` cron entry + `buildAlphaDecaySummary()` pure-read for FE. Severity matrix: `none` | `warn` | `decay` | `insufficient_data` | `no_baseline`. Auto-pause when BOTH the 30d window AND the 90d window report Sharpe < `threshold_ratio` (default 0.5) × baseline AND the 90d window has ≥ `min_trades_long` (default 20). Idempotent — won't re-pause an already-paused algo.
+- **R-multiple math:** `R = (exitPrice − entryPrice) / (entryPrice − initial_stop_loss_price)` with side flip for shorts. Falls back to `stop_loss_price` for pre-migration-00032 legacy positions. Skips broken-state rows (missing closed_at / exit_price / stop). Inlined to match the `live-mirror-eligibility.ts` + `llm-trader-audit.ts` "no cross-import surface" pattern; all three must stay numerically identical.
+- **Tests:** 24 unit + integration tests (`alpha-decay.test.ts`) — pure math, R/Sharpe edge cases (n<2 → null sharpe; std=0 → null sharpe), full classifier severity matrix (5 branches × healthy/warn/decay/insufficient/no-baseline), legacy-stop fallback, supabase mock for the cron loop (0 algos, healthy, decayed-with-auto-pause-fired, idempotent-paused-algo-skipped, sort-order). 3 route-handler tests (`route.test.ts`) — 0 active → no-op message, evaluated → counts + paused list, errors → 500.
+- **Migration 00047** applied live — adds `alpha_decay_pause` event_type to the activity_log CHECK constraint. The cron writes one `alpha_decay_pause` row per auto-pause (severity, reason, baseline/short/long stats, config snapshot) so the operator has a durable audit trail. No daily snapshot events written (would clutter — the /reports tab carries the live state).
+- **Cron route:** `src/app/api/cron/alpha-decay/route.ts` — admin-auth-gated; 0-active no-op returns `{evaluated:0, paused:0}` without writing rows (the SG.19 cron_idle path is for high-cadence crons; once-daily failures aren't a dead-man signal).
+- **Shell wrapper:** `scripts/alpha-decay-cron.sh` (chmod +x) — pattern mirrors `manage-cron.sh` / `scan-cron.sh`. Crontab line documented in script header: `0 9 * * * .../alpha-decay-cron.sh >> /tmp/quanttrader-alpha-decay.log 2>&1`.
+- **FE:** `/reports?tab=drift` extended with an "Alpha decay (G.4)" section below the existing win-rate drift panel — severity counts row + per-algo table showing baseline Sharpe, 30d Sharpe (n), 90d Sharpe (n), severity badge, reason. Pure-read via new `useAlphaDecaySummary()` hook + `getAlphaDecaySummaryAction()` server action.
+- **Distinct from drift-detector:** that module watches WIN-RATE + sets `live_trading_enabled=false`; alpha-decay watches SHARPE + sets the stronger `status='paused'` (halts the scan entirely). Both can coexist on the same algo without conflict.
+- **scripts/README.md** + **CLAUDE.md cron list** updated to include `alpha-decay-cron.sh`.
+- **Gate (per spec): correctly flags decay scenarios on synthetic fixture; with 0 live algos runs without error.** ✓ Both proven by tests (`evaluateAndApplyAlphaDecay (cron integration) > 0 active algos → returns evaluated:0 + no DB writes` + `decayed algo with non-zero stddev → decay severity + auto-pause SQL fires`).
 
 ### G.5 — Build walk-forward OPTIMIZATION re-fit cron + apply REVERT 2 + REVERT 4 (2 days)
 - New monthly cron `scripts/walk-forward-opt-cron.sh` (1st of month, 06:00 UTC) + `src/lib/algo-search/walk-forward-opt.ts`

@@ -401,12 +401,13 @@ Current: Dashboard, Trades, Journal, Algorithms, Reports, Analytics, Settings.
 
 Production cron runs on the operator's local Mac via system `cron` (NOT a separate cron host). See `scripts/README.md` for schedule, log paths, and the "is the cron alive?" diagnostic. The Mac and `pnpm dev` / `pnpm start` must both be up — closed lid or sleep stalls the schedule.
 
-Five live cron entrypoints (operator's crontab as of 2026-06-10):
+Live cron entrypoints (operator's crontab):
 - `manage-cron.sh` (every 5 min) → `/api/cron/manage-positions`
 - `scan-cron.sh` (every 15 min — aligned to 15m/1h/4h bar closes) → `/api/cron/scan-active-algorithms`
 - `heartbeat-cron.sh` (every 5 min) → `/api/cron/heartbeat` + optional `HEARTBEAT_PING_URL`
 - `oanda-positioning-cron.sh` (every 20 min) → `/api/admin/snapshot-oanda-positioning?instruments=XAU_USD`
 - `prune-sentiment-cache-cron.sh` (daily 04:00 UTC) → `/api/admin/prune-sentiment-cache`
+- `alpha-decay-cron.sh` (daily 09:00 UTC) → `/api/cron/alpha-decay` (G.4 — rolling 30d/90d Sharpe vs in-sample baseline; auto-pauses any active algo whose decay sustains across both windows. 0-active-algos no-op safe.)
 
 Each emits `manage_tick` / `scan_started` + `scan_completed` events to `activity_log` so liveness is verifiable on no-op ticks. With 0 active algos the scan + manage crons emit `cron_idle` instead (SG.19; `src/lib/scan/cron-idle.ts` + migration 00046) — keeps the dead-man switch + dashboard heartbeat rail showing "idle ✓" rather than "stale ✗" during the demo gap before un-pause.
 

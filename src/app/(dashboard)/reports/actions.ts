@@ -2,6 +2,12 @@
 
 import { buildSearchState, type SearchState } from "@/lib/algo-search/state";
 import {
+  buildAlphaDecaySummary,
+  DEFAULT_ALPHA_DECAY_CONFIG,
+  type AlphaDecayConfig,
+  type AlphaDecaySummary,
+} from "@/lib/cohort/alpha-decay";
+import {
   buildBrokerHealthSummary,
   type BrokerHealthOptions,
   type BrokerHealthSummary,
@@ -117,6 +123,32 @@ export async function getDriftSummaryAction(
     return { success: true, data };
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Drift summary query failed";
+    return { success: false, error: msg };
+  }
+}
+
+/**
+ * G.4 (2026-06-23): alpha-decay summary for the /reports Drift tab —
+ * extends the existing drift surface with a SHARPE-based decay panel
+ * distinct from the win-rate drift detector. Pure-read: classifier
+ * runs the same logic the daily cron uses, but never mutates. The
+ * cron at /api/cron/alpha-decay is what actually applies auto-pause.
+ */
+export async function getAlphaDecaySummaryAction(
+  opts: Partial<AlphaDecayConfig> = {},
+): Promise<ActionResult<AlphaDecaySummary>> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { success: false, error: "Not authenticated" };
+
+  try {
+    const config = { ...DEFAULT_ALPHA_DECAY_CONFIG, ...opts };
+    const data = await buildAlphaDecaySummary(supabase, config);
+    return { success: true, data };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Alpha-decay summary query failed";
     return { success: false, error: msg };
   }
 }

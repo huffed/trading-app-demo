@@ -131,6 +131,7 @@ operator), but the schedule should be kept in sync with this table.
 | Monthly 1st 06:00 UTC (`0 6 1 * *`) | `validate-algo-monthly-cron.sh` | _(none — direct script, computes OOS_CUTOFF=today−12mo)_ | `/tmp/quanttrader-validate-algo-YYYYMMDD.log` (dated) |
 | Every 6h (`0 */6 * * *`) | `broker-health-snapshot-cron.sh` | _(none — direct script via MetaApi adapter)_ | `/tmp/quanttrader-broker-health.log` |
 | Hourly (`0 * * * *`) | `broker-spread-sampler-cron.sh` | _(none — direct script via MetaApi adapter)_ | `/tmp/quanttrader-broker-spread.log` |
+| Daily 09:00 UTC (`0 9 * * *`) | `alpha-decay-cron.sh` | `/api/cron/alpha-decay` | `/tmp/quanttrader-alpha-decay.log` |
 
 ### Planned crons (per `scripts/canonical/ROADMAP.md` Phase G)
 
@@ -140,7 +141,6 @@ crontab pre-build.
 
 | Cadence | Script | Phase G item | Purpose |
 |---|---|---|---|
-| Daily 09:00 UTC (`0 9 * * *`) | `alpha-decay-cron.sh` | G.4 | Per-live-algo rolling 30d/90d Sharpe vs in-sample baseline; auto-pause threshold |
 | Monthly 1st 06:00 UTC (`0 6 1 * *`) | `walk-forward-opt-cron.sh` | G.5 | Re-optimize geometry on rolling 12-month window; update `algorithms.rules` if best-by-DSR differs |
 
 The 15-min scan cadence is chosen to align with bar-close moments
