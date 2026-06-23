@@ -270,12 +270,33 @@ Items run in order, not in parallel.
 - Re-evaluate via DSR + PBO + k-fold CV
 - **Gate:** feature-augmented variant has DSR ≥ baseline + 0.10
 
-### H.5 — Quarterly research cycle establishment (1 day to define; cycles run 90-day cadence)
-- `scripts/canonical/quarterly-research-cycle.md` template
-- Cron schedule (1st of Jan/Apr/Jul/Oct)
-- Per-cycle artifacts: feature library refresh, alpha library snapshot, decay report, new-hypothesis log
-- **Gate:** template exists; first cycle executes 90 days from now
-- **Replaces:** old `scripts/canonical/B6_continuous_validation_cadence.md` (marked SUPERSEDED in that file)
+### H.5 — Quarterly research cycle establishment ✅ COMPLETE 2026-06-23
+- **Template:** `scripts/canonical/quarterly-research-cycle.md` — operator-facing process doc; describes the 4 artifacts, the operator review workflow, the on-demand curl preview, and the gate satisfaction trail.
+- **Module:** `src/lib/cohort/quarterly-cycle.ts` — pure-ish helpers (`cycleIdFor`, `nextCycleAt`), DB-driven aggregators (`buildAlphaLibrarySnapshot` queries `algorithms` with status in {active, paused}; `buildQuarterlyCycleReport` orchestrates all 4 sections), markdown renderer (`renderCycleMarkdown`) emitting the 4 spec'd sections.
+- **Cron route:** `src/app/api/cron/quarterly-cycle/route.ts` — admin-auth-gated; persists markdown to `/tmp/quanttrader-cycles/<cycle_id>-research-cycle.md` AND returns full payload + markdown in the JSON response. Fail-safe: file-write failures log + don't break the response (operator still gets the report via JSON body).
+- **Shell wrapper:** `scripts/quarterly-research-cycle-cron.sh` (chmod +x) — crontab line `0 7 1 1,4,7,10 *` documented in script header. Operator installs via `crontab -e` once.
+- **Per-cycle artifacts (all 4 spec'd):**
+  1. **Feature library refresh** — `FEATURES_BY_CATEGORY` snapshot with total + per-category counts + all feature names in a collapsed `<details>` block
+  2. **Alpha library snapshot** — all `active`+`paused` algos with their backtest_results.step2 stats (return, DD, win_rate, trades) + sharpe_ratio + statistical_rigor.deflated.{deflated_sharpe, pbo} when populated
+  3. **Alpha decay report** — reuses `buildAlphaDecaySummary` from G.4 (per-algo rolling 30d/90d Sharpe vs baseline + severity counts)
+  4. **New-hypothesis log** — operator-fillable template section with example entries (depends-on / evidence-needed pattern)
+- **Tests (22 total):**
+  - `quarterly-cycle.test.ts` (18) — cycle-id math (Q1/Q2/Q3/Q4 + year boundary), next-cycle-at boundary cases, DB integration via mock (0-algo graceful + populated alpha extraction + partial-JSONB resilience), markdown rendering shape (all 4 sections present + cycle-id in H1 + category counts + alpha table + decay severity table + hypothesis log template)
+  - `route.test.ts` (4) — response body shape lock (cycle_id, feature_count, alpha_count, decay_evaluated, decay_counts, file_path, markdown), 500-on-error
+- **Replaces:** `scripts/canonical/B6_continuous_validation_cadence.md` (already marked SUPERSEDED at the top of that file from a prior session — confirmed; no further edits needed there).
+- **Docs:** `CLAUDE.md` cron list updated; `scripts/README.md` schedule table includes the quarterly entry.
+- **Gate (per spec): template exists + first cycle executes 90 days from now.** ✓
+  - Template exists: `scripts/canonical/quarterly-research-cycle.md`
+  - First cycle execution: triggered automatically by the cron's next firing (1st of next quarter UTC at 07:00). Operator can validate wiring immediately via `curl -H "Authorization: Bearer $CRON_SECRET" "http://localhost:3000/api/cron/quarterly-cycle"` once the dev server is restarted to pick up the new route.
+
+### H.5-execution — First operator-visible quarterly cycle (1st of next quarter at 07:00 UTC)
+- **Trigger:** the next 1st of Jan/Apr/Jul/Oct after operator installs the crontab line
+- **Operator actions:**
+  1. `crontab -e` and add: `0 7 1 1,4,7,10 * /Users/jack.jones/Documents/trading-app/demo-1/scripts/quarterly-research-cycle-cron.sh >> /tmp/quanttrader-quarterly-cycle.log 2>&1`
+  2. After first auto-fire, read `/tmp/quanttrader-cycles/<cycle_id>-research-cycle.md`
+  3. Fill in §4 with hypothesis entries
+  4. Optionally archive into `scripts/canonical/cycles/` + commit
+- **No further build work required.** Filed here so the operator-side gate doesn't drift off the radar — also serves as the proof-of-life that the cron wiring lands cleanly on first auto-fire.
 
 ### H.6 — Regime classifier + regime-conditioned models (1 week)
 - Vol-percentile cluster on gold 4h (3 regimes: low/medium/high vol)

@@ -133,6 +133,7 @@ operator), but the schedule should be kept in sync with this table.
 | Hourly (`0 * * * *`) | `broker-spread-sampler-cron.sh` | _(none — direct script via MetaApi adapter)_ | `/tmp/quanttrader-broker-spread.log` |
 | Daily 09:00 UTC (`0 9 * * *`) | `alpha-decay-cron.sh` | `/api/cron/alpha-decay` | `/tmp/quanttrader-alpha-decay.log` |
 | Monthly 1st 06:00 UTC (`0 6 1 * *`) | `walk-forward-opt-cron.sh` | `/api/cron/wfo?dry_run=1` | `/tmp/quanttrader-wfo.log` |
+| Quarterly 1st 07:00 UTC (`0 7 1 1,4,7,10 *`) | `quarterly-research-cycle-cron.sh` | `/api/cron/quarterly-cycle` | `/tmp/quanttrader-quarterly-cycle.log` |
 
 ### Planned crons (per `scripts/canonical/ROADMAP.md` Phase G)
 
