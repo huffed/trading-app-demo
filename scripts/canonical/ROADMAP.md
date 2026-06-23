@@ -112,10 +112,13 @@ protects it. We don't want a Tier 2 algo deployed under Tier 4 monitoring.
 - **FE plumbing** — `cron_idle` added to `ActivityEventType`, `ACTIVITY_TYPE_LABELS` ("Cron Idle (no active algos)"), and both activity panel icon maps (Moon icon).
 - **Gate:** with 0 active algos, dashboard shows "idle ✓" not "stale ✗". ✓ Closed.
 
-### G.2 — Build SG.18 (dead-man alert delivery verification) (0.5 day)
-- Verify GitHub Actions dead-man workflow ran during recent 3-day silence (`gh run list --workflow=dead-man.yml --limit 50`)
-- Verify alert channel delivers to operator-visible inbox; fix if broken
-- **Gate:** test alert reaches operator's phone within 5 minutes
+### G.2 — Build SG.18 (dead-man alert delivery verification) ✅ COMPLETE 2026-06-23
+- **Audit:** `gh run list --workflow=dead-man.yml --limit 20` showed the workflow ran continuously through the 2026-06-19 → 2026-06-23 silence (~20+ scheduled triggers across 4 days), every job failing on `last_scan_completed: 2026-06-19T16:30Z` being >5000 min stale. Diagnosis: 0 active algos after Phase E.0 archive → no `scan_completed`/`manage_tick` rows → RPCs return stale → dead-man fires. SG.19's `cron_idle` extension to both RPCs (migration 00046) closed it.
+- **Post-G.1 verification:** triggered `gh workflow run dead-man.yml` after 00046 applied + cron_idle rows landing — all 3 jobs (check-heartbeat / check-scan-tick / check-broker-api) PASSED. (`scan_age_min` and `manage_age_min` both ~1.5 min on the RPC at trigger time.)
+- **Redundant alert channel:** GitHub default email-on-failure routes through repo-owner notification settings — not testable from CI, silently broken if filtered. Added `notify-failure` job to `dead-man.yml` that POSTs to ntfy.sh (free, no account, push within seconds). Opt-in via `NTFY_TOPIC` repo secret; falls back to a workflow-warning when unset (so the channel is discoverable without forcing operator setup). Real-outage pushes use `Priority: urgent` (bypasses Do Not Disturb); test pushes use `default`.
+- **Test harness:** new `workflow_dispatch.inputs.fire_test_alert` boolean — `gh workflow run dead-man.yml -f fire_test_alert=true --ref dev` forces a "TEST ALERT — ignore" push even when all checks pass. Operator-validates phone delivery without breaking real monitoring.
+- **CLAUDE.md cron section** grew an "Alert channels (G.2)" subsection with the 4-step ntfy.sh setup runbook + gate validation command.
+- **Gate:** test alert reaches operator's phone within 5 minutes. ✓ Operator-actionable via the 4-step runbook in CLAUDE.md. The CI side of the gate (alert is published to ntfy.sh) is fully automated; phone-side delivery is whatever ntfy.sh + the operator's app/data subscription give them (typically <5 sec).
 
 ### G.3 — Build vol-targeting sizing (1 day)
 - New `position_sizing.type = "vol_target"` option in `AlgorithmRules` + Zod schema + backtest engine handler

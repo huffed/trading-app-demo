@@ -412,4 +412,13 @@ Each emits `manage_tick` / `scan_started` + `scan_completed` events to `activity
 
 **Independent alerting:** `.github/workflows/dead-man.yml` (GitHub Actions, every 30 min) calls TWO anon-executable RPCs — `last_manage_tick()` (alerts >45 min stale) AND `last_scan_tick()` (alerts >35 min stale, i.e. 2+ consecutive missed 15-min scans) — plus a dual-attempt broker-API liveness probe (30s retry, flags 5xx). Decoupled so scan failures don't mask manage failures and vice versa. Covers the 2026-05-24 silent-outage chain (Mac asleep → cron dead → zero DB traffic → Supabase free-tier auto-pause for 17 days unnoticed). The 5-min ticks also keep the free-tier Supabase project from auto-pausing.
 
+**Alert channels (G.2):** GitHub's default email-on-failure routes to repo-owner notification settings — not testable from CI, and silently broken if the operator filters GitHub emails. The workflow's `notify-failure` job adds a redundant phone-push channel via [ntfy.sh](https://ntfy.sh) (free, no account, push within seconds). Setup is opt-in:
+
+1. Pick a random secret topic string (e.g. `qtrader-deadman-7x9k2`). Anyone with the topic can read its messages — treat as a secret.
+2. Install the `ntfy` app on the phone (iOS / Android, free, open-source) and subscribe to that topic.
+3. Set repo secret `NTFY_TOPIC` to the string from step 1: `gh secret set NTFY_TOPIC --body 'qtrader-deadman-7x9k2'`.
+4. Validate: `gh workflow run dead-man.yml -f fire_test_alert=true --ref dev` — the workflow fires a non-urgent "TEST ALERT — ignore" push within ~30s of completion. Real-outage pushes use `Priority: urgent` (bypasses Do Not Disturb on the ntfy app).
+
+If `NTFY_TOPIC` is unset the redundant channel is skipped silently with a workflow-warning (only GitHub email alerts). The gate "test alert reaches operator's phone within 5 minutes" is operator-verifiable via step 4.
+
 **Restart-from-idle warning:** restarting the dev server with algos `status='active'` resumes LLM calls and paper trading immediately (the live flag doesn't gate scans — see LLM-Trader section). Run `pnpm dlx tsx scripts/live-state.ts` first; it fails loudly on an unreachable DB.

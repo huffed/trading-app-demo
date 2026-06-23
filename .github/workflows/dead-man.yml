@@ -23,6 +23,11 @@ on:
   schedule:
     - cron: "*/30 * * * *"
   workflow_dispatch:
+    inputs:
+      fire_test_alert:
+        description: "Force the notify-failure job to fire a TEST alert through the ntfy.sh channel even when all checks pass. Use this to validate phone-push delivery without waiting for a real outage."
+        type: boolean
+        default: false
 
 jobs:
   check-heartbeat:
@@ -123,3 +128,63 @@ jobs:
             exit 1
           fi
           echo "Broker API available."
+
+  # Redundant alert channel — phone push via ntfy.sh when ANY of the
+  # three check jobs above fails. GitHub's default email-on-failure
+  # depends on the operator's GitHub notification settings + email
+  # filter, neither of which CI can verify. ntfy.sh is a free
+  # zero-account push service: operator sets the NTFY_TOPIC repo
+  # secret (any random string they choose, e.g. "qtrader-deadman-7x9k2"),
+  # installs the ntfy app on their phone, subscribes to that topic —
+  # delivery is push within seconds. When NTFY_TOPIC is unset the job
+  # emits a workflow-warning instead, so the channel is opt-in but
+  # discoverable. fire_test_alert=true on workflow_dispatch forces a
+  # TEST message even when all checks pass — the gate "test alert
+  # reaches operator's phone within 5 minutes" is validated this way
+  # without breaking real monitoring.
+  notify-failure:
+    needs: [check-heartbeat, check-scan-tick, check-broker-api]
+    if: >-
+      always() && (
+        needs.check-heartbeat.result == 'failure' ||
+        needs.check-scan-tick.result == 'failure' ||
+        needs.check-broker-api.result == 'failure' ||
+        inputs.fire_test_alert == true
+      )
+    runs-on: ubuntu-latest
+    env:
+      NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+    steps:
+      - name: Push to ntfy.sh
+        if: env.NTFY_TOPIC != ''
+        env:
+          HEARTBEAT_RESULT: ${{ needs.check-heartbeat.result }}
+          SCAN_TICK_RESULT: ${{ needs.check-scan-tick.result }}
+          BROKER_API_RESULT: ${{ needs.check-broker-api.result }}
+          FIRE_TEST_ALERT: ${{ inputs.fire_test_alert }}
+        run: |
+          set -euo pipefail
+          FAILED=""
+          [ "$HEARTBEAT_RESULT"  = "failure" ] && FAILED="$FAILED manage-cron"
+          [ "$SCAN_TICK_RESULT"  = "failure" ] && FAILED="$FAILED scan-cron"
+          [ "$BROKER_API_RESULT" = "failure" ] && FAILED="$FAILED broker-api"
+          if [ "$FIRE_TEST_ALERT" = "true" ]; then
+            FAILED="$FAILED [TEST ALERT — ignore]"
+            PRIORITY="default"   # don't wake operator for a self-triggered test
+          else
+            PRIORITY="urgent"
+          fi
+          FAILED=$(echo "$FAILED" | xargs)
+          TITLE="QuantTrader dead-man: $FAILED"
+          BODY="Stale heartbeat OR test fire. Run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          curl -fsS -X POST "https://ntfy.sh/$NTFY_TOPIC" \
+            -H "Title: $TITLE" \
+            -H "Priority: $PRIORITY" \
+            -H "Tags: warning,robot" \
+            -d "$BODY"
+          echo "Pushed to ntfy.sh topic (title: $TITLE, priority: $PRIORITY)."
+
+      - name: NTFY_TOPIC not configured
+        if: env.NTFY_TOPIC == ''
+        run: |
+          echo "::warning::NTFY_TOPIC secret unset → only GitHub email will alert. To add phone-push: pick a random topic string, install the ntfy app on your phone, subscribe to that topic, then set the NTFY_TOPIC repo secret. See CLAUDE.md cron section for the runbook."
