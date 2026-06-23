@@ -1,5 +1,14 @@
 # B.6 — Continuous validation cadence
 
+> ⚠ **SUPERSEDED 2026-06-23 LATE by `scripts/canonical/ROADMAP.md` Phase H.5
+> (quarterly research cycle).** The cadence described below was the Phase B-era
+> monthly-cron pattern. Phase H.5 redefines cadence as part of a broader
+> quarterly research cycle that includes feature library refresh, alpha library
+> snapshot, decay report, and new-hypothesis log — not just validate-algo
+> re-runs. The monthly `validate-algo-monthly-cron.sh` (Stage 4.7.2) still
+> runs as a sub-component of the cycle; this document captures the original
+> derivation. Read ROADMAP.md Phase H.5 for the active spec.
+
 Stage 4.7 deliverable (2026-06-20). Defines how often `validate-algo` is
 re-run + how the holdout window evolves over time.
 

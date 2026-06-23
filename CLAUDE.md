@@ -4,14 +4,15 @@
 
 A **personal autonomous trading system** for a single operator (not a SaaS — no users planned). An LLM (Anthropic Haiku) makes per-bar discretionary entry decisions; a deterministic engine handles everything enforceable — SL/TP geometry, gates, halts, sizing, broker mirroring. Goal: pass FTMO challenges and scale to multiple funded accounts. Current library: gold + USD/JPY + EUR/USD + GBP/USD.
 
-## Product Vision (updated 2026-06-10)
+## Product Vision (updated 2026-06-23 LATE)
 
-- **Core division of labor:** the LLM picks entries; the engine owns exits, risk, and execution. Every dataset endorses this split — LLM mid-trade exits cost ~−24% R vs mechanical SL/TP.
-- **The learning loop is the spine** (see `project_roadmap_2026_06` in operator memory): per-trade cohort attribution → weekly cohort report → $0 replay screens → ≤1 paid walk-forward confirmation/month (pre-registered + recency window) → shadow-then-enforce engine gates → live paper feeds back.
-- **Current focus:** gold 4h `v2` prompt is the validated LLM-trader baseline; condition-based library algos (FVG-DailyBias, Coil-Breakout, Dip-Buyer, OTE-Long, sweep_reclaim-DailyBias) cover the 4h-and-up bands across forex majors. 30m re-entry sits as a sequenced future bundle. Multi-instrument is the endpoint — gold stays in the mix permanently.
-- **Budget reality:** ≤£150/month total. Development defaults to $0 (replay screens over recorded trades, Groq free tier for plumbing). The harness enforces `LLM_MONTHLY_BUDGET_USD` (default $25) with a hard process-exit.
-- **Our app is NOT a broker.** It's a controller that executes on connected brokers (MetaApi MT5 primary; cTrader Open API dormant by design, kept as the MT5 alternative).
-- **Dormant-by-design surfaces (updated 2026-06-17 PR #269):** chat-creates-algorithm, onboarding wizard, and algorithm generate wizards were DELETED in PR #269 — the personal-operator workflow doesn't need them (algos deploy via `scripts/deploy-*.ts`). **Still dormant-by-design and not to be deleted/extended:** journal pages + components, trades page + CSV import, stocks scaffolding, cTrader Open API (see [[feedback_keep_ctrader]] — operator has corrected this twice). The Groq SDK + `src/lib/ai/client.ts` stay because journal analysis + combinatorial-search template selector + LLM-trader fallback still use them.
+- **Active forward plan:** see `scripts/canonical/ROADMAP.md` (canonical, version-controlled). Phases F → G → H → I, single linear sequence, no parallel branches. Each phase has formal pass/fail gates.
+- **Where we are right now:** Phase F (overfit gating) — building deflated Sharpe + PBO + purged k-fold CV before any deploy. The current Stage 6.7 acceptance packet at `scripts/canonical/algo-search-acceptance.md` is DEFERRED until F.4–F.6 v3 re-evaluation. ~5 working days of math.
+- **Core division of labor:** the engine owns exits, risk, and execution (always). Algos under Phase E v2 are deterministic rules-based (no LLM in production scan path right now); LLM-trader path is Phase I.3 (paid, last). When restored, the LLM picks entries and the engine still owns exits — every dataset endorses that split (LLM mid-trade exits cost ~−24% R per the 2026-06-10 PR #178 replay).
+- **Current focus:** gold-only demo deployment per `[[feedback_gold_only_demo_stage]]`. The Phase E sweep produced 3 strong singleton candidates (BOS-Long / Engulfing-Long / Sweep-Long, all XAU/USD 4h) which Phase F re-evaluates under overfit-adjusted statistics before any operator stamp. Forex re-research deferred to Phase I.4 (after ≥1 stable gold demo player).
+- **Budget reality:** ≤£150/month total. Phase F + G build is $0 (no LLM calls). Phase H feature library + xgboost may require Python sidecar; still $0 inference. The harness enforces `LLM_MONTHLY_BUDGET_USD` (default $25) with a hard process-exit if/when LLM-trader is restored at I.3.
+- **Our app is NOT a broker.** Controller that executes on connected brokers (MetaApi MT5 primary; cTrader Open API dormant by design).
+- **Dormant-by-design surfaces (updated 2026-06-17 PR #269):** chat-creates-algorithm + onboarding wizard + algorithm-generate wizards DELETED in PR #269. **Still dormant-by-design and not to be deleted/extended:** journal pages + components, trades page + CSV import, stocks scaffolding, cTrader Open API (see `[[feedback_keep_ctrader]]`). The Groq SDK + `src/lib/ai/client.ts` stay because journal analysis + combinatorial-search template selector + LLM-trader fallback still use them.
 
 ## Commands
 
@@ -193,31 +194,33 @@ The LLM-trader harness (`scripts/llm-trader-backtest.ts` + `scripts/llm-trader-w
 
 **For the CURRENT canonical validator** (free, replaces this harness for library algos): see `scripts/canonical/validate-algo.ts` + `scripts/README.md` env var reference. Phase B fidelity gates section below covers the new pipeline.
 
-## Pre-deploy validation (canonical 4-way for library algos)
+## Pre-deploy validation — SUPERSEDED 2026-06-23 LATE by `scripts/canonical/ROADMAP.md`
 
-Applies to **every condition-based library algo** — both new deploys AND retroactive revalidation of existing deployed algos. Established 2026-06-16 (PRs #258 + #259) after FVG-DailyBias-Long 4h surfaced an rr=3 vs rr=2 geometry mismatch single-backtest validation would have missed. Cost: $0 per pass (replay over recorded corpus, no LLM calls).
+The "canonical 4-way validation for library algos" (established 2026-06-16, PRs
+#258 + #259) was the Stage 4-era methodology. Phase E adopted a more rigorous
+spec at `scripts/canonical/algo-search.spec.md`; Phase F (per ROADMAP.md)
+adds formal overfit-adjusted statistics before any deploy. The 4-way scripts
+referenced below (`scripts/library-walk-forward.ts`, `scripts/sweep-algo-geometry.ts`)
+are in `scripts/archive/2026-06-18/`.
 
-**The 4 validations — all MANDATORY before `APPLY=1` on any deploy or geometry change:**
+**For current pre-deploy validation:**
+- Layer A enumeration + per-candidate v2 criteria → `scripts/canonical/algo-search.ts MODE=full` + `src/lib/algo-search/criteria.ts` + `src/lib/algo-search/state.ts`
+- Layer B geometry sweep on per-candidate passers → `scripts/canonical/algo-search.ts MODE=layer-b BASE_NAMES=...`
+- Phase F overfit gating (deflated Sharpe + PBO + purged k-fold CV) → BUILD PENDING per ROADMAP.md Phase F
+- Pre-registration in writing BEFORE any live trade → `scripts/canonical/preregistration.json` + `scripts/canonical/validate-preregistration.ts`
+- Operator-stamp acceptance packet → `scripts/canonical/algo-search-acceptance.md` (currently DEFERRED until F.6)
 
-1. **Friction test** — re-run with realistic costs. For gold: `FRICTION_SLIPPAGE_BPS=0.5 FRICTION_SPREAD_BPS=0.4`. If returns degrade >5% from frictionless, the frictionless baseline shouldn't be the ship signal.
-2. **Cadence comparison** — when applicable, run on 1h and 30m via `TIMEFRAME=1h` / `TIMEFRAME=30m` in `scripts/library-walk-forward.ts`. Surfaces sister-cadence candidates AND confirms 4h is the right primary.
-3. **Per-window decomp** — `PER_WINDOW=1 pnpm dlx tsx scripts/library-walk-forward.ts ONLY=<candidate>` writes per-window detail into summary JSON. Aggregate stats hide chop-year disasters (e.g. 57% overall green could be 71% ex-2021 + 17% in 2021).
-4. **RR × lookback geometry grid** — `pnpm dlx tsx scripts/sweep-algo-geometry.ts` runs `rr_multiple ∈ {2, 3, 5}` × `sl_lookback ∈ {3, 4, 6}` = 9 cells with per-year decomp. Monotonic improvement across RR is structural, not noise.
+**KEPT from the 4-way era (don't lose):**
+- Per-instrument friction calibration (gold: slippage 0.5 bps + spread 0.4 bps; forex: catalog defaults pending B.1.8.a sampling). Realised in `prop_firm.slippage_bps` / `spread_bps` per-algo.
+- Per-window walk-forward decomp (aggregate stats hide chop-year disasters). Realised in validate-algo's step3 walk-forward windowing.
+- 10% static DD hard gate + 5% daily DD hard gate (FTMO). Realised in v2/v3 spec §4 criteria 3–4.
+- Direction-split (bullish vs bearish enumerated separately) per `[[feedback_direction_split_first]]`. Realised in Layer A enumerator.
+- "Don't change live geometry on backtest alone." A/B paper period per `[[feedback_iterate_only_validated_baselines]]` → enforced by Stage G.7 demo period in ROADMAP.md (3–6 months before real challenge).
+- Persist `backtest_results` JSONB on deploy (powers /reports Promotion Eligibility tab + alpha decay monitoring). Realised in `algorithms.backtest_results` writes via validate-algo PERSIST=1.
 
-**Hard rules:**
-
-- **The sister-algo `rr=3` convention is NOT a default.** Each algo's RR validates per-algo via the grid. Coil-1h and Dip-Buyer happen to be rr=3-best; FVG-DailyBias-Long 4h and Coil-Breakout 4h are rr=2-best. Don't pattern-match — verify.
-- **The "chop-rescue mechanism" is real.** rr=2 specifically rescues sideways/distribution regimes because price reverses within 2R before completing 3R. When per-year decomp shows rr=2 turning a chop-year loss into profit, that's the signal.
-- **Don't change live geometry on backtest alone.** Per [[feedback_iterate_only_validated_baselines]], live algos require an A/B paper variant alongside live for ~30 days before flipping. The update script (`scripts/update-library-geometry-*.ts`) MUST refuse `live_trading_enabled=true` targets.
-- **Generalize, don't fork.** The sweep script `scripts/sweep-algo-geometry.ts` has a TARGETS list; add a new target rather than forking. Deploy/update scripts follow `scripts/deploy-<algo>-<tf>.ts` and `scripts/update-library-geometry-<date>.ts` patterns.
-- **Persist `backtest_results` on deploy.** Walk-forward gives total_return + total_trades + worst_dd per candidate; the deploy script MUST write these to `algorithms.backtest_results` on insert (rescaled to the algo's `capital` — walk-forwards run at $100K and most algos deploy at $10K; R-per-trade is scale-invariant so the rescale just keeps the stored $ aligned with the algo's account size). Without this, the `/reports` Promotion Eligibility tab can't compute realized-vs-backtest variance and the live-mirror milestone falls back to manual verification. Existing rows backfilled via `scripts/backfill-backtest-results.ts` (2026-06-17).
-
-**Layers this does NOT replace:**
-- 10% DD hard gate per [[feedback_dd_validation_gate]] — any sweep cell with worst DD > 5% on a window is disqualified.
-- Direction-split per [[feedback_direction_split_first]] — bullish and bearish are independent validations.
-- Friend-replay direction-of-development signal per [[project_friend_replay_2026_06]] — supplementary, not substitute.
-
-**Reports** live at `scripts/REVALIDATION_REPORT_<date>.md` and get linked from PR bodies.
+**Reports** historically lived at `scripts/REVALIDATION_REPORT_<date>.md`; under
+Phase E the equivalent lives in the algorithms table + `/reports?tab=search` UI.
+Acceptance packets at `scripts/canonical/*-acceptance.md`.
 
 ## Conventions
 

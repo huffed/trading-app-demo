@@ -15,7 +15,11 @@ scripts/
 │   ├── inspect-algo.ts                 Per-algo backtest re-runner with per-trade detail.
 │   ├── sample-forex-spreads.ts         Stage 4.2.a (2026-06-20): MetaApi spread sampler. Operator-runs during London/NY sessions to build per-pair × per-window forex spread corpus.
 │   ├── sync-account-capital.ts         Stage 0.2 (2026-06-19): one-off broker_connections.account_capital sync from MetaApi (preserved for future SG.17 live_equity work).
-│   └── B6_continuous_validation_cadence.md  Stage 4.7 (2026-06-20): rolling 12mo holdout cadence + monthly cron entry shape.
+│   ├── B6_continuous_validation_cadence.md  Stage 4.7 (2026-06-20). SUPERSEDED by ROADMAP.md Phase H.5; kept for historical derivation of the rolling-12mo holdout decision.
+│   ├── algo-search.ts                  Phase E driver (MODE=list/smoke/full/layer-b). Enumerates Layer A candidates + runs Layer B geometry sweep on per-candidate passers. Per ROADMAP.md.
+│   ├── algo-search.spec.md             Phase E meta-pre-registration. v2 active; v3 pending per ROADMAP.md Phase F.5.
+│   ├── algo-search-acceptance.md       Stage 6.7 operator-stamp decision packet. DEFERRED until F.6 v3 re-evaluation per ROADMAP.md.
+│   └── ROADMAP.md                      ⭐ ACTIVE FORWARD PLAN. F → G → H → I phases. Read this first.
 ├── ad-hoc/                       throwaway investigations (default: don't commit)
 └── archive/                      old scripts kept for reference
     └── 2026-06-18/               ~96 one-off scripts archived during reorg (step*, verify-*, analyze-*, diag-*, discovery-*, deploy-*, sweep-*, replay-*, phase1-*, phase2-*, etc)
@@ -126,6 +130,17 @@ operator), but the schedule should be kept in sync with this table.
 | Monthly 1st 06:00 UTC (`0 6 1 * *`) | `validate-algo-monthly-cron.sh` | _(none — direct script, computes OOS_CUTOFF=today−12mo)_ | `/tmp/quanttrader-validate-algo-YYYYMMDD.log` (dated) |
 | Every 6h (`0 */6 * * *`) | `broker-health-snapshot-cron.sh` | _(none — direct script via MetaApi adapter)_ | `/tmp/quanttrader-broker-health.log` |
 | Hourly (`0 * * * *`) | `broker-spread-sampler-cron.sh` | _(none — direct script via MetaApi adapter)_ | `/tmp/quanttrader-broker-spread.log` |
+
+### Planned crons (per `scripts/canonical/ROADMAP.md` Phase G)
+
+NOT YET BUILT. Will be added to crontab after their respective Phase G items
+ship. Operator-installed via `crontab -e` once script lands; do NOT add to
+crontab pre-build.
+
+| Cadence | Script | Phase G item | Purpose |
+|---|---|---|---|
+| Daily 09:00 UTC (`0 9 * * *`) | `alpha-decay-cron.sh` | G.4 | Per-live-algo rolling 30d/90d Sharpe vs in-sample baseline; auto-pause threshold |
+| Monthly 1st 06:00 UTC (`0 6 1 * *`) | `walk-forward-opt-cron.sh` | G.5 | Re-optimize geometry on rolling 12-month window; update `algorithms.rules` if best-by-DSR differs |
 
 The 15-min scan cadence is chosen to align with bar-close moments
 across 15m, 1h, and 4h primary timeframes simultaneously. At `*/15 * *

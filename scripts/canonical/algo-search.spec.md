@@ -1,15 +1,22 @@
 # Algorithm-search spec (meta-pre-registration)
 
 Source-of-truth pre-registration document for the quant-firm-grade algorithm
-search. Last revised 2026-06-23 ("start the algo search from scratch ... imagine
-we're a quant firm looking to find the peak"). Supersedes the prior single-
-survivor deployment framework — see Stage 5/6 in `project_roadmap_2026_06.md`.
+search. Currently at **v2 (active in code)** with **v3 planned and pending**
+(per `scripts/canonical/ROADMAP.md` Phase F — building deflated Sharpe + PBO +
+purged k-fold CV before final v3 commit). The active forward plan is in
+ROADMAP.md, not this spec.
+
+**Lineage:**
+- **v1** (2026-06-23 EVE) — WR ≥ 37% + Bonferroni 0.05/308 + 9 criteria. Produced 0 strict survivors out of 308.
+- **v2** (2026-06-23 EVE LATE) — WR floor + Bonferroni dropped; `mean_r_ci_lower > 0` becomes primary; pattern_robustness ≥2 cells added as criterion 9. Produced 67 of 288 Layer B variants passing per-candidate criteria but 0 robust survivors (all singletons).
+- **v3 (PENDING per ROADMAP.md Phase F)** — pattern_robustness heuristic replaced with formal Deflated Sharpe + PBO + purged k-fold CV (López de Prado / Bailey & Borwein 2014). Calmar ranking replaced with DSR ranking. v3 will be committed in F.5 after F.1–F.4 deliverables are built and tested.
 
 **Immutability contract:** between sweep start and sweep completion this
 document is treated as immutable. Modifications outside that window are
-git-visible — any change → commit → reviewable diff. Edits during an in-flight
-sweep are the post-hoc-modification anti-pattern (move the goalposts to make a
-candidate survive); pre-registration discipline forbids them.
+git-visible — any change → commit → reviewable diff. v1 → v2 → v3 transitions
+ALL happened between sweeps (after seeing prior data); they are honestly
+labelled `post-hoc-locked` per `RegistrationTypeSchema`. True-prereg evidence
+accumulates in the forward demo period at G.7.
 
 ---
 

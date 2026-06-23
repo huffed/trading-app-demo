@@ -1,9 +1,18 @@
 # Stage 6.7 — Algo-search acceptance packet (gold-only demo stage)
 
-**Status:** AWAITING OPERATOR (Stage 6.7 is a personal-risk decision gate; nothing below substitutes for the operator's call).
+> ⚠ **DEFERRED 2026-06-23 LATE.** This packet's v2 candidate statistics are
+> in-sample point estimates that have NOT been overfit-adjusted. Audit
+> identified that Bonferroni + pattern-robustness heuristic is not a substitute
+> for formal deflated Sharpe + PBO + purged k-fold CV. Per
+> `scripts/canonical/ROADMAP.md` Phase F, the packet will be re-issued with
+> v3 deflated stats once F.4–F.6 complete (~5 working days). **Do not stamp the
+> packet in its current form** — the candidates may not survive deflated
+> re-evaluation. Operator's decision tree fires at F.7, not here.
+
+**Status:** DEFERRED until F.6 v3 revision (was: AWAITING OPERATOR).
 
 **Compiled:** 2026-06-23 EVE LATE
-**Methodology:** v2 spec (`scripts/canonical/algo-search.spec.md`)
+**Methodology:** v2 spec (`scripts/canonical/algo-search.spec.md`) — v3 pending per ROADMAP.md Phase F
 **Source data:** `algorithms.backtest_results` JSONB across `Search:*` (Layer A, N=308) + `LayerB:*` (Layer B, N=288) candidate rows.
 **Scope constraint:** **gold-only** per `[[feedback_gold_only_demo_stage]]` (2026-06-23 LATE). Operator stance: get ≥1 stable gold demo player before opening forex.
 
