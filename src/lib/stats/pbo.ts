@@ -27,12 +27,12 @@
  *   - PBO ≈ 1.0 → severe negative correlation (in-sample best is OOS worst —
  *     synthetic / pathological; rare in practice)
  *
- * Ship-threshold convention used by ROADMAP.md Phase F.5 v3 criterion:
+ * Ship-threshold convention used by `algo-search.spec.md` §4 criterion 9:
  *   PBO < 0.5 — "more likely real than not."
  *
  * Used by:
- *   - scripts/canonical/algo-search.ts (Phase F.4 re-evaluation; KFOLD path forward)
- *   - src/lib/algo-search/criteria.ts (Phase F.5 v3 criterion)
+ *   - scripts/canonical/revalidate-candidates.ts (Layer B finalist re-evaluation)
+ *   - src/lib/algo-search/criteria.ts (`evaluateDeflatedCriteria`)
  *   - manual ad-hoc evaluation
  */
 
@@ -127,7 +127,7 @@ export interface PboInput {
 }
 
 export interface PboResult {
-  /** PBO ∈ [0, 1]. Lower is better. v3 ship-threshold: PBO < 0.5. */
+  /** PBO ∈ [0, 1]. Lower is better. Ship-threshold: PBO < 0.5. */
   probabilityOfBacktestOverfitting: number;
   /** C(nSplits, nSplits/2) — number of train/test combinations evaluated. */
   nCombinations: number;

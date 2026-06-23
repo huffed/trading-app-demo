@@ -16,11 +16,11 @@ export function SearchTab() {
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
         Quant-firm-grade systematic search across the locked universe (4 instruments × 3 timeframes
-        × 14 pattern primitives × 2 directions). v2 acceptance criteria at{" "}
+        × 14 pattern primitives × 2 directions). Active acceptance criteria at{" "}
         <code>scripts/canonical/algo-search.spec.md</code> §4: per-candidate floor is{" "}
-        <strong>mean R CI lower &gt; 0</strong> (replaces v1 WR ≥ 37 + Bonferroni); pattern
-        robustness requires <strong>≥ 2 cells of same (pattern × direction)</strong> passing
-        per-candidate criteria. Operator launches the sweep via{" "}
+        <strong>mean R CI lower &gt; 0</strong> (criteria 1–7), and ship-readiness requires the
+        deflated trinity (criteria 8–10: <strong>DSR ≥ 0.95 + PBO &lt; 0.5 + purged k-fold ≥
+        4/5</strong>). Operator launches the sweep via{" "}
         <code>MODE=full pnpm dlx tsx scripts/canonical/algo-search.ts</code> — this tab is read-only.
       </p>
 
@@ -45,7 +45,7 @@ export function SearchTab() {
           <SummaryRow state={data} />
           <UniverseCard state={data} />
           {data.evaluated_count > 0 && <BlockersCard blockers={data.blockers} evaluated={data.evaluated_count} />}
-          <SurvivorsCard survivors={data.survivors} v3SurvivorCount={data.v3_survivor_count} />
+          <SurvivorsCard survivors={data.survivors} shipReadyCount={data.ship_ready_count} />
           {data.layer_b_variants.length > 0 && (
             <LayerBVariantsCard variants={data.layer_b_variants} />
           )}
@@ -100,14 +100,14 @@ function SummaryRow({ state }: { state: SearchState }) {
       />
       <StatCard
         icon={ShieldQuestion}
-        label="v3 survivors (DSR + PBO + k-fold)"
-        value={String(state.v3_survivor_count)}
+        label="Ship-ready (DSR + PBO + k-fold)"
+        value={String(state.ship_ready_count)}
         hint={
-          state.v3_survivor_count > 0
+          state.ship_ready_count > 0
             ? "Pass deflated criteria 8–10 (DSR ≥ 0.95, PBO < 0.5, k-fold ≥ 4/5)"
             : "Requires `revalidate-candidates.ts` to populate deflated block; Layer B variants below carry it"
         }
-        emphasis={state.v3_survivor_count > 0}
+        emphasis={state.ship_ready_count > 0}
       />
     </div>
   );
@@ -212,24 +212,25 @@ function BlockersCard({ blockers, evaluated }: { blockers: SearchTopBlocker[]; e
   );
 }
 
-function SurvivorsCard({ survivors, v3SurvivorCount }: { survivors: SearchSurvivor[]; v3SurvivorCount: number }) {
+function SurvivorsCard({ survivors, shipReadyCount }: { survivors: SearchSurvivor[]; shipReadyCount: number }) {
   if (survivors.length === 0) return null;
   return (
     <Card>
       <CardHeader className="pb-3">
         <CardTitle className="text-sm font-medium">
-          Per-candidate-pass survivors ({survivors.length}) — of which {v3SurvivorCount} pass v3 (DSR + PBO + k-fold)
+          Per-candidate-pass survivors ({survivors.length}) — of which {shipReadyCount} are ship-ready (DSR + PBO + k-fold)
         </CardTitle>
         <p className="text-xs text-muted-foreground">
-          Rows passing per-candidate criteria 1–7 (return / trades / DDs / CI lower / OOS). v3
-          status badge indicates whether deflated criteria 8–10 (DSR ≥ 0.95 + PBO &lt; 0.5 + k-fold
-          consistency ≥ 80%) also pass — requires `revalidate-candidates.ts` to have populated the
-          deflated block. Most Layer A rows lack the deflated block (it&apos;s applied selectively to
-          finalists); the Layer B section below carries deflated stats for the geometry-refined variants.
+          Rows passing per-candidate criteria 1–7 (return / trades / DDs / CI lower / OOS). The
+          ship-status badge indicates whether deflated criteria 8–10 (DSR ≥ 0.95 + PBO &lt; 0.5 +
+          k-fold consistency ≥ 80%) also pass — requires `revalidate-candidates.ts` to have
+          populated the deflated block. Most Layer A rows lack the deflated block (it&apos;s applied
+          selectively to finalists); the Layer B section below carries deflated stats for the
+          geometry-refined variants.
         </p>
       </CardHeader>
       <CardContent className="p-0 overflow-x-auto">
-        <SurvivorTable rows={survivors} showV3Badge />
+        <SurvivorTable rows={survivors} showShipBadge />
       </CardContent>
     </Card>
   );
@@ -248,7 +249,7 @@ function LayerBVariantsCard({ variants }: { variants: LayerBVariantRow[] }) {
           Sorted by total_return DESC; top 20 shown. Variants live in the{" "}
           <code>LayerB:</code> namespace (geometry refinement of a Layer A base candidate). The
           deflated columns (DSR / PBO / k-fold consistency) are populated by{" "}
-          <code>scripts/canonical/revalidate-candidates.ts</code> per ROADMAP Phase F.4; rows show
+          <code>scripts/canonical/revalidate-candidates.ts</code>; rows show
           <em> &ldquo;—&rdquo;</em> in those columns until that script has been run for them.
         </p>
       </CardHeader>
@@ -351,7 +352,7 @@ function LayerBTable({ rows }: { rows: LayerBVariantRow[] }) {
   );
 }
 
-function SurvivorTable({ rows, showV3Badge }: { rows: SearchSurvivor[]; showV3Badge: boolean }) {
+function SurvivorTable({ rows, showShipBadge }: { rows: SearchSurvivor[]; showShipBadge: boolean }) {
   return (
     <table className="w-full text-xs">
       <thead className="border-b text-muted-foreground">
@@ -366,7 +367,7 @@ function SurvivorTable({ rows, showV3Badge }: { rows: SearchSurvivor[]; showV3Ba
           <th className="text-right p-2.5 font-medium">return</th>
           <th className="text-right p-2.5 font-medium">CI lower</th>
           <th className="text-right p-2.5 font-medium">held-out N</th>
-          {showV3Badge && <th className="text-left p-2.5 font-medium">v3 status</th>}
+          {showShipBadge && <th className="text-left p-2.5 font-medium">ship status</th>}
           <th className="p-2.5" />
         </tr>
       </thead>
@@ -393,13 +394,13 @@ function SurvivorTable({ rows, showV3Badge }: { rows: SearchSurvivor[]; showV3Ba
               {s.mean_r_ci_lower != null ? s.mean_r_ci_lower.toFixed(3) : "—"}
             </td>
             <td className="p-2.5 text-right tabular-nums">{s.oos_held_out_trades ?? "—"}</td>
-            {showV3Badge && (
+            {showShipBadge && (
               <td className="p-2.5">
                 <Badge
-                  variant={s.v3_status === "v3-pass" ? "default" : "outline"}
+                  variant={s.ship_status === "ship-ready" ? "default" : "outline"}
                   className="text-[10px] whitespace-nowrap"
                 >
-                  {s.v3_status}
+                  {s.ship_status}
                 </Badge>
               </td>
             )}

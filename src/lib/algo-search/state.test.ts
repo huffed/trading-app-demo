@@ -1,7 +1,7 @@
 /**
- * SearchState fetcher tests (v2). Locks: per-candidate criterion mapping,
- * cross-row pattern-robustness pass, singleton-vs-survivor classification,
- * exempt-pattern handling (asian_range_break 4h-only), parse-from-name
+ * SearchState fetcher tests. Locks: per-candidate criterion mapping,
+ * ship-status classification (per-candidate vs full ship-ready),
+ * Layer B variant parsing (including deflated block), parse-from-name
  * round-trip, MAX(computed_at) reduction.
  */
 import { describe, expect, it } from "vitest";
@@ -40,7 +40,7 @@ const FULL_PASS = {
     mean_r_ci: { lower: 0.1 },
     mean_r_bonferroni: { p_value: 0.01 },
   },
-  promotion_eligible: false, // v1's looser flag — separate from v2 survivors
+  promotion_eligible: false, // validate-algo's looser flag — separate from ship-readiness
   computed_at: "2026-06-23T01:00:00Z",
 };
 
@@ -49,29 +49,29 @@ const FAIL_CI = {
   statistical_rigor: { ...FULL_PASS.statistical_rigor, mean_r_ci: { lower: -0.05 } },
 };
 
-describe("buildSearchState (v3)", () => {
-  it("empty DB → 308 enumerated + 0 per-candidate-pass + 0 v3 survivors", async () => {
+describe("buildSearchState", () => {
+  it("empty DB → 308 enumerated + 0 per-candidate-pass + 0 ship-ready", async () => {
     const s = await buildSearchState(fakeSupabase([]));
     expect(s.enumerated_count).toBe(308);
     expect(s.inserted_count).toBe(0);
     expect(s.evaluated_count).toBe(0);
     expect(s.per_candidate_pass_count).toBe(0);
-    expect(s.v3_survivor_count).toBe(0);
+    expect(s.ship_ready_count).toBe(0);
     expect(s.last_evaluated_at).toBeNull();
   });
 
-  it("per-candidate-passing row WITHOUT deflated block → in survivors with v3_status='per-candidate-pass-only'", async () => {
+  it("per-candidate-passing row WITHOUT deflated block → in survivors with ship_status='per-candidate-pass-only'", async () => {
     const s = await buildSearchState(
       fakeSupabase([
         { id: "a1", name: `${CANDIDATE_NAME_PREFIX} XAU/USD Momentum-Long 4h`, backtest_results: FULL_PASS },
       ]),
     );
     expect(s.per_candidate_pass_count).toBe(1);
-    expect(s.v3_survivor_count).toBe(0);
-    expect(s.survivors[0].v3_status).toBe("per-candidate-pass-only");
+    expect(s.ship_ready_count).toBe(0);
+    expect(s.survivors[0].ship_status).toBe("per-candidate-pass-only");
   });
 
-  it("per-candidate-passing row WITH passing deflated block → v3-pass", async () => {
+  it("per-candidate-passing row WITH passing deflated block → ship-ready", async () => {
     const passingDeflated = {
       ...FULL_PASS,
       statistical_rigor: {
@@ -89,11 +89,11 @@ describe("buildSearchState (v3)", () => {
       ]),
     );
     expect(s.per_candidate_pass_count).toBe(1);
-    expect(s.v3_survivor_count).toBe(1);
-    expect(s.survivors[0].v3_status).toBe("v3-pass");
+    expect(s.ship_ready_count).toBe(1);
+    expect(s.survivors[0].ship_status).toBe("ship-ready");
   });
 
-  it("per-candidate pass + failing deflated (DSR low) → per-candidate-pass-only, NOT v3 survivor", async () => {
+  it("per-candidate pass + failing deflated (DSR low) → per-candidate-pass-only, NOT ship-ready", async () => {
     const failingDeflated = {
       ...FULL_PASS,
       statistical_rigor: {
@@ -111,8 +111,8 @@ describe("buildSearchState (v3)", () => {
       ]),
     );
     expect(s.per_candidate_pass_count).toBe(1);
-    expect(s.v3_survivor_count).toBe(0);
-    expect(s.survivors[0].v3_status).toBe("per-candidate-pass-only");
+    expect(s.ship_ready_count).toBe(0);
+    expect(s.survivors[0].ship_status).toBe("per-candidate-pass-only");
   });
 
   it("rows failing per-candidate criteria (CI lower < 0) appear in blockers, NOT in survivors", async () => {
@@ -122,7 +122,7 @@ describe("buildSearchState (v3)", () => {
       ]),
     );
     expect(s.per_candidate_pass_count).toBe(0);
-    expect(s.v3_survivor_count).toBe(0);
+    expect(s.ship_ready_count).toBe(0);
     expect(s.survivors).toHaveLength(0);
     const ciBlocker = s.blockers.find((b) => b.key === "min_mean_r_ci_lower");
     expect(ciBlocker?.failed_count).toBe(1);
@@ -139,7 +139,7 @@ describe("buildSearchState (v3)", () => {
     expect(s.evaluated_count).toBe(0);
   });
 
-  it("validate_algo_eligible_count counts rows with promotion_eligible=true (v1's looser flag, informational)", async () => {
+  it("validate_algo_eligible_count counts rows with promotion_eligible=true (validate-algo's looser flag, informational)", async () => {
     const promoted = { ...FULL_PASS, promotion_eligible: true };
     const s = await buildSearchState(
       fakeSupabase([
@@ -148,7 +148,7 @@ describe("buildSearchState (v3)", () => {
       ]),
     );
     expect(s.validate_algo_eligible_count).toBe(1);
-    expect(s.per_candidate_pass_count).toBe(2); // both pass per-candidate; v3 separately
+    expect(s.per_candidate_pass_count).toBe(2); // both pass per-candidate; ship-readiness evaluated separately
   });
 
   it("last_evaluated_at returns MAX computed_at across rows", async () => {

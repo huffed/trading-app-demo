@@ -1,29 +1,23 @@
 /**
- * Pre-registered acceptance criteria for the algorithm search (v2, post-hoc-locked 2026-06-23).
+ * Pre-registered acceptance criteria for the algorithm search.
  *
- * Criteria are committed in `scripts/canonical/algo-search.spec.md` §4. This
- * module is the executable mirror — same floors, callable from anywhere
- * (driver, frontend, ad-hoc query). Used by:
- *   - src/lib/algo-search/state.ts (frontend /reports Search tab; adds cross-row pattern robustness)
+ * Criteria + lineage are committed in `scripts/canonical/algo-search.spec.md`
+ * (§4 = active thresholds, top-of-file = v1 → v2 → v3 history). This module is
+ * the executable mirror — same floors, callable from anywhere (driver,
+ * frontend, ad-hoc query). Used by:
+ *   - src/lib/algo-search/state.ts (frontend /reports Search tab)
  *   - any future scripts that need to re-evaluate persisted backtest_results
  *
- * NOTE: validate-algo.ts performs its own pre-reg check via `src/lib/stats/preregistration.ts`
- * — that path uses the LEGACY criteria set (WR + Bonferroni). This module is the
- * search-specific READ side that applies v2 criteria to persisted JSONB. The
- * two coexist: validate-algo's `promotion_eligible` flag is a separate signal
- * from `passesLayerA(results)` here.
- *
- * v2 vs v1 (see spec §4 for full rationale):
- *   - DROPPED min_win_rate_pct hard floor (kept as informational metadata)
- *   - DROPPED max_bonferroni_p_value (over-strict for portfolio applications;
- *     replaced by pattern-robustness check in state.ts + portfolio composer)
- *   - KEPT min_mean_r_ci_lower > 0 as PRIMARY statistical floor (strictly stronger
- *     guarantee than WR — the actual condition WR was approximating)
- *   - KEPT all DD / sample-size / OOS floors
+ * NOTE: validate-algo.ts performs its own pre-reg check via
+ * `src/lib/stats/preregistration.ts` — that path uses a separate legacy
+ * criteria set (WR + Bonferroni) carried forward for non-search callers.
+ * This module is the search-specific READ side that applies the active
+ * spec §4 criteria to persisted JSONB. The two coexist: validate-algo's
+ * `promotion_eligible` flag is a separate signal from `passesPerCandidate`
+ * here.
  */
 
-/** The 7 per-candidate hard criteria from spec §4 Layer A floors (v2).
- *  Pattern robustness (criterion 9) is cross-row and lives in state.ts. */
+/** Per-candidate hard criteria (spec §4 criteria 1–7 — Layer A floors). */
 export interface SearchCriteria {
   min_total_return: number; // > 0
   max_static_dd_pct: number; // ≤ 10 (FTMO)
@@ -34,8 +28,8 @@ export interface SearchCriteria {
   max_oos_r_delta_pct: number; // |oos_r_delta_pct| ≤ 50
 }
 
-/** v2 criteria locked at the meta-pre-registration commit. Matches
- *  scripts/canonical/algo-search.spec.md §4 exactly. */
+/** Per-candidate thresholds locked at the meta-pre-registration commit.
+ *  Matches scripts/canonical/algo-search.spec.md §4 exactly. */
 export const SEARCH_LAYER_A_CRITERIA: SearchCriteria = {
   min_total_return: 0,
   max_static_dd_pct: 10,
@@ -46,11 +40,12 @@ export const SEARCH_LAYER_A_CRITERIA: SearchCriteria = {
   max_oos_r_delta_pct: 50,
 };
 
-/** Patterns exempt from the cross-row pattern-robustness check (criterion 9).
- *  Listed because of structural enumeration constraints — e.g. asian_range_break
- *  is enumerated on 4h ONLY (session-aware cadence), so it CAN'T satisfy ≥2 TFs
- *  of the same instrument. These patterns flag for operator review at acceptance
- *  rather than auto-EXCLUDE. Match against the lowercase pattern key. */
+/** Patterns exempt from any cross-row pattern-robustness check. Listed
+ *  because of structural enumeration constraints — e.g. asian_range_break
+ *  is enumerated on 4h ONLY (session-aware cadence), so it CAN'T satisfy
+ *  ≥2 TFs of the same instrument. Retained for downstream callers that
+ *  still want the exemption set; the active spec §4 no longer gates on
+ *  pattern-robustness directly. Match against the lowercase pattern key. */
 export const ROBUSTNESS_EXEMPT_PATTERNS = new Set<string>([
   "asian_range_break",
   "AsianRangeBreak",
@@ -59,7 +54,7 @@ export const ROBUSTNESS_EXEMPT_PATTERNS = new Set<string>([
 /** Subset of algorithms.backtest_results we read. Matches validate-algo.ts
  *  GateResults shape; only the fields we need are typed (others ignored).
  *  win_rate + Bonferroni are still READ (for informational display) but
- *  not used as v2 hard gates. */
+ *  not used as per-candidate hard gates. */
 export interface PersistedBacktestResults {
   step2?: {
     total_return?: number;
@@ -93,8 +88,8 @@ export interface CriterionResult {
   threshold: number;
 }
 
-/** v3 deflated criterion result. Distinct from `CriterionResult` because
- *  the key namespace (DSR / PBO / k-fold) doesn't overlap SearchCriteria. */
+/** Deflated-criterion result. Distinct from `CriterionResult` because the
+ *  key namespace (DSR / PBO / k-fold) doesn't overlap SearchCriteria. */
 export interface DeflatedCriterionResult {
   key: "min_deflated_sharpe" | "max_pbo" | "min_purged_kfold_pass_ratio";
   label: string;
@@ -104,8 +99,7 @@ export interface DeflatedCriterionResult {
 }
 
 /** Classify a single backtest_results JSONB row against the per-candidate
- *  criteria (v2 criteria 1–8 from spec §4; criterion 9 pattern-robustness
- *  is cross-row and lives in state.ts). Returns one CriterionResult per
+ *  criteria (spec §4 criteria 1–7). Returns one CriterionResult per
  *  criterion (always 7 entries, even when the backtest is missing — those
  *  report passed=false + observed=null so the frontend can show "not yet
  *  evaluated" instead of a silent pass). */
@@ -153,23 +147,23 @@ export function evaluateAgainstCriteria(
   ];
 }
 
-/** A row passes per-candidate criteria 1–7 iff all 7 pass. v3 additionally
- *  requires criteria 8–10 (DSR + PBO + k-fold consistency) which need the
- *  `statistical_rigor.deflated` block populated by revalidate-candidates.
- *  Use `passesPerCandidate` for the per-row v3 floor; `passesV3` combines
- *  with the deflated check. */
+/** A row passes per-candidate criteria 1–7 iff all 7 pass. Ship-readiness
+ *  additionally requires criteria 8–10 (DSR + PBO + k-fold consistency) which
+ *  need the `statistical_rigor.deflated` block populated by
+ *  revalidate-candidates. Use `passesPerCandidate` for the per-row floor;
+ *  `passesShipCriteria` combines with the deflated check. */
 export function passesPerCandidate(results: PersistedBacktestResults | null | undefined): boolean {
   return evaluateAgainstCriteria(results).every((c) => c.passed);
 }
 
-/** Legacy alias for callers that imported `passesLayerA` under v1/v2. */
+/** Legacy alias for callers that imported `passesLayerA` historically. */
 export const passesLayerA = passesPerCandidate;
 
 // ────────────────────────────────────────────────────────────────────────────
-// v3 deflated criteria (spec §4 criteria 8–10) — Phase F.5 / ROADMAP REVERT 1+3
+// Deflated criteria (spec §4 criteria 8–10) — DSR + PBO + purged k-fold
 // ────────────────────────────────────────────────────────────────────────────
 
-/** v3 ship-thresholds for the deflated statistics. Locked per spec §4. */
+/** Ship-thresholds for the deflated statistics. Locked per spec §4. */
 export interface DeflatedCriteria {
   /** DSR ≥ this threshold. 0.95 is the analogue of one-sided p ≤ 0.05. */
   min_deflated_sharpe: number;
@@ -180,7 +174,7 @@ export interface DeflatedCriteria {
   min_purged_kfold_pass_ratio: number;
 }
 
-export const V3_DEFLATED_CRITERIA: DeflatedCriteria = {
+export const DEFLATED_CRITERIA: DeflatedCriteria = {
   min_deflated_sharpe: 0.95,
   max_pbo: 0.5,
   min_purged_kfold_pass_ratio: 0.8,
@@ -188,20 +182,20 @@ export const V3_DEFLATED_CRITERIA: DeflatedCriteria = {
 
 /** Parsed shape of `statistical_rigor.deflated` as populated by
  *  scripts/canonical/revalidate-candidates.ts. Optional fields all
- *  marked because partial/missing blocks must fail v3 gracefully (not crash). */
+ *  marked because partial/missing blocks must fail gracefully (not crash). */
 export interface DeflatedBlock {
   deflated_sharpe?: { deflatedSharpe?: number };
   pbo?: { probabilityOfBacktestOverfitting?: number };
   purged_kfold_snapshot?: { consistency_count?: number; n_folds?: number } | null;
 }
 
-/** Classify a deflated block against v3 spec §4 criteria 8–10. Returns 3
+/** Classify a deflated block against spec §4 criteria 8–10. Returns 3
  *  CriterionResult entries (DSR, PBO, k-fold). Missing block OR missing
  *  field → criterion fails with observed=null (conservative: can't claim
- *  v3 pass without the deflated evaluation having run). */
+ *  ship pass without the deflated evaluation having run). */
 export function evaluateDeflatedCriteria(
   deflated: DeflatedBlock | null | undefined,
-  criteria: DeflatedCriteria = V3_DEFLATED_CRITERIA,
+  criteria: DeflatedCriteria = DEFLATED_CRITERIA,
 ): DeflatedCriterionResult[] {
   const d = deflated ?? {};
   const dsr = d.deflated_sharpe?.deflatedSharpe;
@@ -241,9 +235,9 @@ export function evaluateDeflatedCriteria(
   ];
 }
 
-/** A row passes v3 iff per-candidate criteria 1–7 pass AND deflated criteria
- *  8–10 pass. Use this for ship/no-ship decisions. */
-export function passesV3(
+/** A row is ship-ready iff per-candidate criteria 1–7 pass AND deflated
+ *  criteria 8–10 pass. Use this for ship/no-ship decisions. */
+export function passesShipCriteria(
   results: PersistedBacktestResults | null | undefined,
   deflated: DeflatedBlock | null | undefined,
 ): boolean {

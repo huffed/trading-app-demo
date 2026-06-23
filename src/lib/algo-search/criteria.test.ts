@@ -1,17 +1,18 @@
 /**
- * Criteria evaluator tests (v2). Locks the per-candidate threshold semantics +
- * NaN handling so the frontend Search tab doesn't silently mis-classify rows.
- * Pattern-robustness (criterion 9) is cross-row and tested in state.test.ts.
+ * Criteria evaluator tests. Locks the per-candidate threshold semantics +
+ * NaN handling so the frontend Search tab doesn't silently mis-classify
+ * rows. Deflated criteria (DSR + PBO + k-fold) are exercised in the
+ * second describe block.
  */
 import { describe, expect, it } from "vitest";
 import {
   evaluateAgainstCriteria,
   evaluateDeflatedCriteria,
   passesPerCandidate,
-  passesV3,
+  passesShipCriteria,
   ROBUSTNESS_EXEMPT_PATTERNS,
   SEARCH_LAYER_A_CRITERIA,
-  V3_DEFLATED_CRITERIA,
+  DEFLATED_CRITERIA,
   type PersistedBacktestResults,
 } from "./criteria";
 
@@ -20,17 +21,17 @@ const FULL_PASS: PersistedBacktestResults = {
   step6: { held_out_n: 15, r_delta_pct: -10 },
   statistical_rigor: {
     mean_r_ci: { lower: 0.1 },
-    mean_r_bonferroni: { p_value: 0.01 }, // intentionally > 1.62e-4 to prove v2 ignores Bonferroni
+    mean_r_bonferroni: { p_value: 0.01 }, // intentionally > 1.62e-4 to prove Bonferroni is not gated
   },
 };
 
-describe("evaluateAgainstCriteria (v2)", () => {
-  it("returns exactly 7 entries (per-candidate criteria 1–8 minus combined oos)", () => {
+describe("evaluateAgainstCriteria (per-candidate)", () => {
+  it("returns exactly 7 entries (spec §4 criteria 1–7)", () => {
     const r = evaluateAgainstCriteria(null);
     expect(r).toHaveLength(7);
   });
 
-  it("v2 criteria set does NOT include min_win_rate_pct or max_bonferroni_p_value", () => {
+  it("per-candidate criteria set does NOT include min_win_rate_pct or max_bonferroni_p_value", () => {
     const keys = evaluateAgainstCriteria(FULL_PASS).map((c) => c.key);
     expect(keys).not.toContain("min_win_rate_pct");
     expect(keys).not.toContain("max_bonferroni_p_value");
@@ -42,7 +43,7 @@ describe("evaluateAgainstCriteria (v2)", () => {
     expect(r.every((c) => c.observed === null)).toBe(true);
   });
 
-  it("full-pass fixture passes ALL 7 even with WR=30 + bonferroni p=0.01 (proves v2 doesn't gate on those)", () => {
+  it("full-pass fixture passes ALL 7 even with WR=30 + bonferroni p=0.01 (proves spec §4 doesn't gate on those)", () => {
     const r = evaluateAgainstCriteria(FULL_PASS);
     expect(r.every((c) => c.passed)).toBe(true);
     expect(passesPerCandidate(FULL_PASS)).toBe(true);
@@ -53,7 +54,7 @@ describe("evaluateAgainstCriteria (v2)", () => {
     expect(passesPerCandidate(zeroReturn)).toBe(false);
   });
 
-  it("mean R CI lower > 0 IS the primary statistical floor (replaces v1 WR ≥ 37 + Bonferroni)", () => {
+  it("mean R CI lower > 0 IS the primary statistical floor", () => {
     const ciAtZero: PersistedBacktestResults = {
       ...FULL_PASS,
       statistical_rigor: { ...FULL_PASS.statistical_rigor, mean_r_ci: { lower: 0 } },
@@ -102,7 +103,7 @@ describe("evaluateAgainstCriteria (v2)", () => {
     expect(ciResult?.observed).toBeNull();
   });
 
-  it("v2 SEARCH_LAYER_A_CRITERIA shape (no win_rate, no Bonferroni)", () => {
+  it("SEARCH_LAYER_A_CRITERIA shape (no win_rate, no Bonferroni)", () => {
     expect(SEARCH_LAYER_A_CRITERIA).toEqual({
       min_total_return: 0,
       max_static_dd_pct: 10,
@@ -120,7 +121,7 @@ describe("evaluateAgainstCriteria (v2)", () => {
   });
 });
 
-describe("v3 deflated criteria (Phase F.5)", () => {
+describe("deflated criteria (spec §4 criteria 8–10)", () => {
   it("passing fixture → all 3 deflated criteria pass", () => {
     const r = evaluateDeflatedCriteria({
       deflated_sharpe: { deflatedSharpe: 0.97 },
@@ -194,7 +195,7 @@ describe("v3 deflated criteria (Phase F.5)", () => {
     expect(r[2].observed).toBeNull();
   });
 
-  it("passesV3 returns true iff per-candidate AND deflated all pass", () => {
+  it("passesShipCriteria returns true iff per-candidate AND deflated all pass", () => {
     const fullPass = {
       step2: { total_return: 1500, total_trades: 60, max_static_dd: 4, max_daily_dd: 2 },
       step6: { held_out_n: 15, r_delta_pct: -10 },
@@ -205,13 +206,13 @@ describe("v3 deflated criteria (Phase F.5)", () => {
       pbo: { probabilityOfBacktestOverfitting: 0.2 },
       purged_kfold_snapshot: { consistency_count: 5, n_folds: 5 },
     };
-    expect(passesV3(fullPass, deflatedPass)).toBe(true);
-    expect(passesV3(fullPass, null)).toBe(false); // missing deflated → fail
-    expect(passesV3(null, deflatedPass)).toBe(false); // missing per-candidate → fail
+    expect(passesShipCriteria(fullPass, deflatedPass)).toBe(true);
+    expect(passesShipCriteria(fullPass, null)).toBe(false); // missing deflated → fail
+    expect(passesShipCriteria(null, deflatedPass)).toBe(false); // missing per-candidate → fail
   });
 
-  it("V3_DEFLATED_CRITERIA matches spec §4 thresholds", () => {
-    expect(V3_DEFLATED_CRITERIA).toEqual({
+  it("DEFLATED_CRITERIA matches spec §4 thresholds (criteria 8–10)", () => {
+    expect(DEFLATED_CRITERIA).toEqual({
       min_deflated_sharpe: 0.95,
       max_pbo: 0.5,
       min_purged_kfold_pass_ratio: 0.8,

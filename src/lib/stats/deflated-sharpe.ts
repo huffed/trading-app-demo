@@ -15,17 +15,18 @@
  * hypothesis 'no real edge after accounting for the search.'"
  *
  * DSR ≥ 0.95 is the conventional ship-threshold (analogous to p ≤ 0.05).
- * DSR ≥ 0.5 is the "more likely real than not" floor (used in
- * scripts/canonical/ROADMAP.md Phase F.5 v3 criterion: combined with the
- * DSR-adjusted CI lower > 0 criterion + PBO < 0.5).
+ * DSR ≥ 0.5 is the "more likely real than not" floor. The active
+ * `algo-search.spec.md` §4 criterion 8 uses DSR ≥ 0.95 combined with
+ * mean-R CI lower > 0 (criterion 5) and PBO < 0.5 (criterion 9).
  *
  * Reference: Bailey, D.H., & López de Prado, M. (2014). "The Deflated
  * Sharpe Ratio: Correcting for Selection Bias, Backtest Overfitting, and
  * Non-Normality." Journal of Portfolio Management, 40(5), 94–107.
  *
  * Used by:
- *   - validate-algo.ts (when KFOLD=1 OR DEFLATED=1 — Phase F.4 forward)
- *   - src/lib/algo-search/criteria.ts (Phase F.5 v3 criterion)
+ *   - validate-algo.ts (when KFOLD=1 OR DEFLATED=1)
+ *   - scripts/canonical/revalidate-candidates.ts (Layer B finalist re-evaluation)
+ *   - src/lib/algo-search/criteria.ts (`evaluateDeflatedCriteria`)
  *   - manual ad-hoc evaluation
  */
 

@@ -13,7 +13,7 @@ import type { Database } from "@/lib/supabase/database.types";
 import {
   evaluateAgainstCriteria,
   passesPerCandidate,
-  passesV3,
+  passesShipCriteria,
   SEARCH_LAYER_A_CRITERIA,
   type DeflatedBlock,
   type PersistedBacktestResults,
@@ -41,11 +41,11 @@ export interface SearchSurvivor {
   mean_r_ci_lower: number | null;
   bonferroni_p: number | null;
   oos_held_out_trades: number | null;
-  /** v3: ship-readiness status. `v3-pass` = passes per-candidate criteria 1–7
+  /** Ship-readiness status. `ship-ready` = passes per-candidate criteria 1–7
    *  AND deflated criteria 8–10 (DSR ≥ 0.95 + PBO < 0.5 + k-fold ≥ 4/5).
    *  `per-candidate-pass-only` = passes 1–7 but deflated block missing OR
    *  deflated criteria not met. Frontend uses this to badge survivors. */
-  v3_status: "v3-pass" | "per-candidate-pass-only";
+  ship_status: "ship-ready" | "per-candidate-pass-only";
 }
 
 /** A LayerB:* row (geometry-refined variant of a Layer A base candidate) with
@@ -65,7 +65,7 @@ export interface LayerBVariantRow {
   sharpe_ratio: number | null;
   oos_held_out_n: number | null;
   oos_r_delta_pct: number | null;
-  /** v3 deflated stats. Null until revalidate-candidates is run for this variant. */
+  /** Deflated stats. Null until revalidate-candidates is run for this variant. */
   deflated: {
     deflated_sharpe: number;
     pbo: number;
@@ -94,15 +94,16 @@ export interface SearchState {
   inserted_count: number;
   /** Inserted rows whose backtest_results JSONB is populated (sweep ran). */
   evaluated_count: number;
-  /** v3: rows passing per-candidate criteria 1–7. */
+  /** Rows passing per-candidate criteria 1–7. */
   per_candidate_pass_count: number;
-  /** v3: rows passing per-candidate AND deflated criteria 8–10 (DSR + PBO + k-fold).
+  /** Rows passing per-candidate AND deflated criteria 8–10 (DSR + PBO + k-fold).
    *  Most Layer A rows lack the deflated block (haven't been run through
-   *  revalidate-candidates) → 0 v3 survivors at Layer A is typical. v3 Layer B
-   *  survivors live in `layer_b_variants` (where some have the deflated block). */
-  v3_survivor_count: number;
+   *  revalidate-candidates) → 0 ship-ready at Layer A is typical. Ship-ready
+   *  Layer B survivors live in `layer_b_variants` (where some have the
+   *  deflated block). */
+  ship_ready_count: number;
   /** Of evaluated rows, how many were marked promotion_eligible by
-   *  validate-algo (legacy v1 criteria — informational comparison). */
+   *  validate-algo (separate legacy criteria — informational comparison). */
   validate_algo_eligible_count: number;
   /** Top-of-table actionable list: per-candidate criteria + how many
    *  evaluated rows failed each. Renders WHY most of the search isn't
@@ -114,7 +115,7 @@ export interface SearchState {
   by_pattern: Record<string, number>;
   by_side: Record<string, number>;
   /** Layer A survivors: rows passing per-candidate criteria 1–7. Includes
-   *  `v3_status` per row indicating whether deflated criteria also pass. */
+   *  `ship_status` per row indicating whether deflated criteria also pass. */
   survivors: SearchSurvivor[];
   /** Layer B geometry-refined variants (rows whose name LIKE 'LayerB:%').
    *  Sorted by deflated_sharpe DESC when present, else total_return DESC.
@@ -179,7 +180,7 @@ interface DbAggregation {
   inserted_count: number;
   evaluated_count: number;
   validate_algo_eligible_count: number;
-  v3_survivor_count: number;
+  ship_ready_count: number;
   per_candidate_pass: SearchSurvivor[];
   blockers: SearchTopBlocker[];
   last_evaluated_at: string | null;
@@ -188,7 +189,7 @@ interface DbAggregation {
 function survivorFromRow(
   row: AlgoRow,
   results: PersistedBacktestResults,
-  v3_status: SearchSurvivor["v3_status"],
+  ship_status: SearchSurvivor["ship_status"],
 ): SearchSurvivor {
   const cell = parseCellFromName(row.name);
   return {
@@ -204,7 +205,7 @@ function survivorFromRow(
     mean_r_ci_lower: results.statistical_rigor?.mean_r_ci?.lower ?? null,
     bonferroni_p: results.statistical_rigor?.mean_r_bonferroni?.p_value ?? null,
     oos_held_out_trades: results.step6?.held_out_n ?? null,
-    v3_status,
+    ship_status,
   };
 }
 
@@ -213,7 +214,7 @@ function aggregateAlgoRows(algoRows: AlgoRow[]): DbAggregation {
   const blockerLabels = new Map<string, string>();
   let evaluated_count = 0;
   let validate_algo_eligible_count = 0;
-  let v3_survivor_count = 0;
+  let ship_ready_count = 0;
   const per_candidate_pass: SearchSurvivor[] = [];
   let last_evaluated_at: string | null = null;
   for (const row of algoRows) {
@@ -232,11 +233,11 @@ function aggregateAlgoRows(algoRows: AlgoRow[]): DbAggregation {
       }
     }
     if (passesPerCandidate(results)) {
-      // v3 status: needs the deflated block populated by revalidate-candidates.
+      // Ship status: needs the deflated block populated by revalidate-candidates.
       const deflatedBlock = (results.statistical_rigor as { deflated?: DeflatedBlock })?.deflated ?? null;
-      const v3 = passesV3(results, deflatedBlock);
-      const status: SearchSurvivor["v3_status"] = v3 ? "v3-pass" : "per-candidate-pass-only";
-      if (v3) v3_survivor_count++;
+      const shipReady = passesShipCriteria(results, deflatedBlock);
+      const status: SearchSurvivor["ship_status"] = shipReady ? "ship-ready" : "per-candidate-pass-only";
+      if (shipReady) ship_ready_count++;
       per_candidate_pass.push(survivorFromRow(row, results, status));
     }
   }
@@ -249,7 +250,7 @@ function aggregateAlgoRows(algoRows: AlgoRow[]): DbAggregation {
     inserted_count: algoRows.length,
     evaluated_count,
     validate_algo_eligible_count,
-    v3_survivor_count,
+    ship_ready_count,
     per_candidate_pass,
     blockers,
     last_evaluated_at,
@@ -339,12 +340,13 @@ async function fetchLayerBVariants(supabase: SupabaseClient<Database>): Promise<
 /** Build the SearchState payload from the algorithms table. Pure-read;
  *  never writes. RLS-scoped via the caller's supabase client.
  *
- *  Three-pass evaluation (v3 per ROADMAP F.5):
+ *  Three-pass evaluation:
  *    1. Universe tallies (deterministic, no DB).
- *    2. Layer A read + per-candidate criterion evaluation (criteria 1–7) +
- *       v3 deflated criteria evaluation (8–10) for rows with deflated block.
+ *    2. Layer A read + per-candidate criterion evaluation (spec §4 criteria
+ *       1–7) + deflated criteria evaluation (8–10) for rows with the
+ *       deflated block populated.
  *    3. Layer B variants fetch (includes deflated stats block when populated
- *       by revalidate-candidates per ROADMAP Phase F.4). */
+ *       by revalidate-candidates.ts). */
 export async function buildSearchState(
   supabase: SupabaseClient<Database>,
 ): Promise<SearchState> {
@@ -365,7 +367,7 @@ export async function buildSearchState(
     inserted_count: agg.inserted_count,
     evaluated_count: agg.evaluated_count,
     per_candidate_pass_count: agg.per_candidate_pass.length,
-    v3_survivor_count: agg.v3_survivor_count,
+    ship_ready_count: agg.ship_ready_count,
     validate_algo_eligible_count: agg.validate_algo_eligible_count,
     blockers: agg.blockers,
     by_instrument: universe.by_instrument,

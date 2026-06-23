@@ -16,13 +16,13 @@
  * training trades whose entry_date falls within a configurable window
  * IMMEDIATELY AFTER the test fold.
  *
- * Returns one OOS evaluation per fold + aggregate statistics. v3 ship-criterion
- * per ROADMAP.md F.5: ≥ k-1 of k folds produce positive mean R (e.g. 4/5 for
- * k=5). Anything weaker = regime-fragile signal.
+ * Returns one OOS evaluation per fold + aggregate statistics. Ship-criterion
+ * per `algo-search.spec.md` §4 criterion 10: ≥ k-1 of k folds produce positive
+ * mean R (e.g. 4/5 for k=5). Anything weaker = regime-fragile signal.
  *
  * Used by:
  *   - scripts/canonical/validate-algo.ts (KFOLD env flag → adds purged_kfold sub-block to backtest_results JSONB)
- *   - src/lib/algo-search/criteria.ts (Phase F.5 v3 criterion)
+ *   - src/lib/algo-search/criteria.ts (`evaluateDeflatedCriteria`)
  *   - manual ad-hoc evaluation
  */
 import type { BacktestTrade } from "@/lib/market-data/types";
@@ -55,7 +55,7 @@ export interface PurgedKFoldResult {
   n_folds: number;
   embargo_fraction: number;
   folds: FoldResult[];
-  /** Count of folds where test_mean_r > 0. v3 criterion: ≥ k-1 for clean signal. */
+  /** Count of folds where test_mean_r > 0. Ship-criterion: ≥ k-1 for clean signal. */
   consistency_count: number;
   /** Mean of fold test_mean_r — a robust OOS R aggregate. */
   oos_mean_r_aggregate: number;

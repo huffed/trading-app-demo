@@ -1,10 +1,10 @@
 # Algorithm-search spec (meta-pre-registration)
 
 Source-of-truth pre-registration document for the quant-firm-grade algorithm
-search. Currently at **v2 (active in code)** with **v3 planned and pending**
-(per `scripts/canonical/ROADMAP.md` Phase F — building deflated Sharpe + PBO +
-purged k-fold CV before final v3 commit). The active forward plan is in
-ROADMAP.md, not this spec.
+search. The current active criteria are **v3 (locked 2026-06-23 LATE)** —
+per-candidate criteria 1–7 plus the deflated trinity criteria 8–10 (DSR + PBO
++ purged k-fold CV). The active forward plan is in `scripts/canonical/ROADMAP.md`,
+not this spec.
 
 **Lineage:**
 - **v1** (2026-06-23 EVE) — WR ≥ 37% + Bonferroni 0.05/308 + 9 criteria. Produced 0 strict survivors out of 308.
@@ -220,8 +220,8 @@ gates ON. No diagnostic-mode bypasses. Specifically:
 3. **Per-candidate filter** applies criteria 1–7 → produces `per_candidate_pass` set.
 4. **Layer B sweep** runs `scripts/canonical/algo-search.ts MODE=layer-b BASE_NAMES=...` on each per-candidate passer (geometry × filters → 96 variants per base).
 5. **Deflated re-evaluation** runs `scripts/canonical/revalidate-candidates.ts TARGETS=...` on the SELECTED variants (Calmar-top-N per family OR operator's manual selection). Populates `statistical_rigor.deflated` (DSR + PBO + purged_kfold snapshot) per target.
-6. **v3 ship filter** applies criteria 8–10 → produces `v3_survivors` set (rows passing 1–7 per-candidate AND 8–10 deflated). Ranking within survivors is `deflated_sharpe DESC` (REPLACES v2 Calmar ranking — REVERT 3).
-7. **Portfolio composer** (when ≥ 2 v3 survivors) computes pairwise correlation matrix → greedy selection: highest DSR + |ρ| < 0.40 with all already-selected + criteria 12–15 jointly satisfied.
+6. **Ship filter** applies criteria 8–10 → produces the `ship_ready` set (rows passing 1–7 per-candidate AND 8–10 deflated; exposed in code as `SearchState.ship_ready_count` + `SearchSurvivor.ship_status="ship-ready"`). Ranking within survivors is `deflated_sharpe DESC` (REPLACES v2's Calmar ranking — REVERT 3).
+7. **Portfolio composer** (when ≥ 2 ship-ready rows) computes pairwise correlation matrix → greedy selection: highest DSR + |ρ| < 0.40 with all already-selected + criteria 12–15 jointly satisfied.
 8. **Operator approval gate** (mirrors the prior Stage 5.0 packet pattern): packet written to `scripts/canonical/algo-search-acceptance.md`. Operator stamps decisions on (broker assignment, capital tier per algo, observation period). Without stamp, algos stay `draft` (not `active`).
 
 ---
