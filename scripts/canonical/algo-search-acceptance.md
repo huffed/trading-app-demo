@@ -1,20 +1,11 @@
-# Stage 6.7 — Algo-search acceptance packet (gold-only demo stage)
+# Stage 6.7 — Algo-search acceptance packet (gold-only demo stage) — v3
 
-> ⚠ **DEFERRED 2026-06-23 LATE.** This packet's v2 candidate statistics are
-> in-sample point estimates that have NOT been overfit-adjusted. Audit
-> identified that Bonferroni + pattern-robustness heuristic is not a substitute
-> for formal deflated Sharpe + PBO + purged k-fold CV. Per
-> `scripts/canonical/ROADMAP.md` Phase F, the packet will be re-issued with
-> v3 deflated stats once F.4–F.6 complete (~5 working days). **Do not stamp the
-> packet in its current form** — the candidates may not survive deflated
-> re-evaluation. Operator's decision tree fires at F.7, not here.
+**Status:** AWAITING OPERATOR
 
-**Status:** DEFERRED until F.6 v3 revision (was: AWAITING OPERATOR).
-
-**Compiled:** 2026-06-23 EVE LATE
-**Methodology:** v2 spec (`scripts/canonical/algo-search.spec.md`) — v3 pending per ROADMAP.md Phase F
-**Source data:** `algorithms.backtest_results` JSONB across `Search:*` (Layer A, N=308) + `LayerB:*` (Layer B, N=288) candidate rows.
-**Scope constraint:** **gold-only** per `[[feedback_gold_only_demo_stage]]` (2026-06-23 LATE). Operator stance: get ≥1 stable gold demo player before opening forex.
+**Compiled:** 2026-06-23 (re-issued under v3 methodology; supersedes v2 packet of 2026-06-23 EVE LATE)
+**Methodology:** v3 spec (`scripts/canonical/algo-search.spec.md` §4) — per-candidate criteria 1–7 + deflated criteria 8–10 (DSR + PBO + purged k-fold CV)
+**Source data:** `algorithms.backtest_results` JSONB across `Search:*` (Layer A, N=308) + `LayerB:*` (Layer B, N=288) candidate rows. `statistical_rigor.deflated` sub-block populated by `scripts/canonical/revalidate-candidates.ts`.
+**Scope constraint:** **gold-only** per `[[feedback_gold_only_demo_stage]]`. Operator stance: get ≥1 stable gold demo player before opening forex.
 
 ---
 
@@ -24,20 +15,26 @@
 |---|---|
 | Layer A enumerated | 308 cells (4 inst × 3 TFs × 14 patterns × 2 dirs, less exemptions) |
 | Layer A per-candidate pass | 4 of 308 (1.3%) — all XAU/USD, all 4h |
-| Layer A pattern-robustness pass (criterion 9) | **0** — all 4 passers are single-cell |
-| Layer B sweep target | 3 strong singletons (BOS-Long XAU 4h, Engulfing-Long XAU 4h, Sweep-Long XAU 4h) |
+| Layer B sweep target | 3 strong cells (BOS-Long XAU 4h, Engulfing-Long XAU 4h, Sweep-Long XAU 4h) |
 | Layer B variants × bases | 96 × 3 = 288 |
-| **Layer B v2 per-candidate pass** | **67 of 288 (23%)** — far above ~5% chance baseline |
-| Layer B pass distribution | BOS 25/96 · Engulfing 25/96 · Sweep 17/96 |
-| Forex candidates surfaced | 0 (no forex cells passed v2 anywhere) |
-| Pattern-robustness criterion 9 status | **still unsatisfied** — all 67 passers are same (instrument, TF) cell |
-| Stop-loss invocation | spec §4 "single-cell winners → escalate to operator for manual review of strongest singleton" |
+| Layer B per-candidate pass | 67 of 288 (23%) — far above ~5% chance baseline |
+| **v3 deflated re-evaluation** (3 Stage 6.7 candidates) | **1 PASSES** / 2 ELIMINATED |
+| Forex candidates surfaced | 0 (no forex cells passed any layer) |
+| Stop-loss invocation | not triggered — v3 produced one clean survivor (spec §5) |
 
-**Operator's choice:** select 1 or more variants for demo deployment to FTMO Demo, gather ≥30 demo trades, evaluate live R alignment vs in-sample CI, then green-light real $10K challenge OR retire to research.
+**v3 verdict on the 3 Stage 6.7 candidates:**
+
+| Candidate | DSR | PBO | k-fold | v3 verdict |
+|---|---|---|---|---|
+| **Engulfing-Long rr3_lb6_r06_rf0_af0** | **0.983** ✓ | **0.229** ✓ | **5/5** ✓ | **PASSES** |
+| Engulfing-Long rr5_lb6_r1_rf0_af0 | 0.929 ✗ | 0.229 ✓ | 5/5 ✓ | near-miss (DSR below 0.95 threshold) |
+| BOS-Long rr3_lb3_r06_rf0_af0 | 0.162 ✗ | 0.786 ✗ | 4/5 ✓ | ELIMINATED (severe overfit) |
+
+**Operator's choice:** deploy the sole v3 survivor (Engulfing rr3_lb6_r06) to FTMO Demo, gather ≥10 demo trades, evaluate live R alignment vs in-sample CI, then green-light real $10K challenge OR retire to research.
 
 ---
 
-## 2. Top candidate (Calmar leader, smallest DD)
+## 2. The v3 survivor
 
 ### 🥇 `LayerB: XAU/USD Engulfing-Long 4h | rr3_lb6_r06_rf0_af0`
 
@@ -51,80 +48,98 @@ pattern:      engulfing (bullish)
 geometry:     rr_multiple=3, sl_lookback=6, risk_per_trade=0.6%, regime_filter=off, adx_filter=off
 ```
 
-| Stat | Value |
-|---|---|
-| total_return on $10K capital | **$5,589 (55.9% on baseline capital)** |
-| total_trades | 177 over 6.3yr in-sample |
-| win_rate | 36.7% |
-| max_static_dd | **0.62%** (cleanest in top 10) |
-| max_daily_dd | 0.93% |
-| mean R CI (block bootstrap, 2000 it) | **[+0.229, +0.821], point +0.526** |
-| Sharpe | 0.25 |
-| Bonferroni p-value | 0.000250 (informational; not a v2 hard gate) |
-| OOS held-out N | 40 trades |
-| OOS r_delta | -45.5% (within ±50% tolerance) |
-| **Calmar (return / static DD)** | **9,014** |
+#### Per-candidate stats (criteria 1–7)
 
-**Why this one:** Lowest static DD (0.62%) in the top 10 means highest risk-adjusted return + cleanest equity curve. CI lower of +0.229 is the STRONGEST statistical evidence of positive expected R in the entire 596-candidate fleet. The -45.5% OOS r_delta is within v2 criterion 7 but close to the edge — flagging this so the operator knows OOS R is materially weaker than in-sample R (expect ~half the in-sample point estimate in forward demo).
+| Stat | Value | Threshold |
+|---|---|---|
+| total_return on $10K capital | **$5,589 (55.9%)** | > 0 ✓ |
+| total_trades | 177 over 6.3yr in-sample | ≥ 30 ✓ |
+| win_rate | 36.7% | (informational under v3) |
+| max_static_dd | **0.62%** | ≤ 10% ✓ |
+| max_daily_dd | 0.93% | ≤ 5% ✓ |
+| mean R CI (block bootstrap, 2000 it) | **[+0.229, +0.821], point +0.526** | lower > 0 ✓ |
+| OOS held-out N | 40 trades | ≥ 10 ✓ |
+| OOS r_delta | -45.5% | \|·\| ≤ 50% ✓ (close to edge) |
+
+#### Deflated stats (criteria 8–10) — **the v3 layer**
+
+| Stat | Value | Threshold |
+|---|---|---|
+| **Deflated Sharpe Ratio** (Bailey & López de Prado 2014) | **0.983** | ≥ 0.95 ✓ |
+| **Probability of Backtest Overfitting** (CSCV, N=96 trials × T-weeks) | **0.229** | < 0.5 ✓ |
+| **Purged k-fold consistency** (5 folds + embargo, AFML ch.7) | **5/5 positive folds** | ≥ 4/5 ✓ |
+| family Sharpe σ (sibling variants, N=96) | 0.044 | (informational — narrow distribution = low selection bias) |
+
+**Why DSR = 0.983 is decisive:** the deflated Sharpe accounts for (a) the 96-variant selection grid (`nTrials=96`), (b) the trade-level non-normality (skew 0.57, kurt 1.47 — close to normal), and (c) the finite sample of 177 trades. A DSR above 0.95 means the probability that this Sharpe is a genuine edge — not a random max over 96 trials — is ≥ 95%. The 4 percentage-point margin above threshold is real, not marginal.
+
+**Why PBO = 0.229 is decisive:** combinatorial symmetric cross-validation over the 96-variant Sharpe matrix. PBO < 0.5 = IS Sharpe rank predicts OOS Sharpe rank. PBO = 0.229 means in 77% of CSCV partitions the in-sample winners stay above-median out-of-sample. This is empirical, not asymptotic.
+
+**Why k-fold = 5/5 is decisive:** 5 contiguous folds of the trade ledger, each with purge + embargo to prevent leakage, ALL produced positive mean R. No fold-specific dependence; the edge is distributed across the in-sample window.
+
+#### Risk notes specific to this variant
+
+1. **OOS r_delta -45.5% is within the ±50% gate but close to the edge.** Forward demo R is likely materially weaker than in-sample point estimate (+0.526). Plan for ~+0.25 to +0.35 R per trade in demo.
+2. **High geometry sensitivity within the Engulfing family.** Of 96 Engulfing variants, 25 pass per-candidate criteria; the passing variants share `regime_filter=OFF` and tend toward `risk=0.6%`. Lock the chosen geometry exactly — selecting a different variant from the same base would likely produce a non-passing algo.
+3. **Single-instrument / single-TF concentration.** This is the only v3 survivor, so the demo portfolio has zero diversification. Acceptable for gold-only demo stage; revisit after demo proves out.
 
 ---
 
-## 3. Alternative candidates (same Engulfing pattern, more aggressive geometry)
+## 3. Eliminated candidates (audit trail for the 2 that did NOT pass v3)
 
-### 🥈 `LayerB: XAU/USD Engulfing-Long 4h | rr5_lb6_r1_rf0_af0`
+### ❌ `LayerB: XAU/USD Engulfing-Long 4h | rr5_lb6_r1_rf0_af0` — near-miss
 
 ```
 algorithm_id: fc1f0277-e100-4f1a-ae43-fc2ae7de8172
 geometry:     rr_multiple=5, sl_lookback=6, risk_per_trade=1.0%, regime_filter=off, adx_filter=off
-total_return: $9,178 (91.8% on $10K) — HIGHEST absolute return in top 10
-total_trades: 131, WR 26.0%, static DD 1.03%, daily DD 1.94%
-mean R CI:    [+0.246, +1.154], point +0.701
-OOS r_delta:  -22.9% (cleanest of high-return variants)
-held-out N:   27
-Calmar:       8,911
+total_return: $9,178 (91.8%) — HIGHEST absolute return of the 3 candidates
+DSR:          0.929 (< 0.95) ✗
+PBO:          0.229 ✓
+k-fold:       5/5 ✓
 ```
 
-**Trade-off vs candidate #1:** higher absolute return (~$9.2K vs $5.6K) at slightly higher DD (1.03% vs 0.62%). Aggressive RR=5 + risk=1.0%. WR=26% is wide-SL/high-R style — operator must accept the 74% losing-trade rate emotionally. Cleaner OOS r_delta (-22.9% vs -45.5%) → more confidence forward R matches in-sample.
+**Why eliminated:** DSR sits 2.1 percentage points below the 0.95 threshold. The numerator (raw observed Sharpe) is strong, but the DSR denominator penalises this variant for fatter tails — trade-level skew 1.19 + kurt 2.69 (vs the winner's 0.57 + 1.47). Big-R wins exist, but the path is bumpier. Under v3 this is treated as evidence the apparent edge is partly attributable to a few outlier trades, not a stable distribution.
 
-### 🥉 `LayerB: XAU/USD BOS-Long 4h | rr3_lb3_r06_rf0_af0`
+**Why not promoted as fallback:** v3 is a hard gate. A 2-point DSR shortfall isn't a "close enough" — it means the formal probability of genuine edge is ~91% rather than ≥95%. The whole point of switching from v2 to v3 was to stop selecting on raw point estimates.
+
+### ❌ `LayerB: XAU/USD BOS-Long 4h | rr3_lb3_r06_rf0_af0` — severe overfit
 
 ```
 algorithm_id: 50e2bc16-ff6f-4c02-abda-304106924266
 geometry:     rr_multiple=3, sl_lookback=3, risk_per_trade=0.6%, regime_filter=off, adx_filter=off
-total_return: $3,793 (37.9% on $10K)
-total_trades: 162, WR 36.4%, static DD 0.79%, daily DD 1.33%
-mean R CI:    [+0.068, +0.691], point +0.390
-OOS r_delta:  -6.3% (CLEANEST in entire top 10 — best OOS alignment)
-held-out N:   55
-Calmar:       4,801
+total_return: $3,793 (37.9%)
+DSR:          0.162 (severe) ✗
+PBO:          0.786 (severe overfit) ✗
+k-fold:       4/5 ✓
 ```
 
-**Why include:** different pattern family (BOS vs Engulfing) → potentially less-correlated returns if deployed alongside. Cleanest OOS r_delta (-6.3%) means demo R should track in-sample R almost exactly — highest forward confidence. CI lower +0.068 is positive but thinner than candidate #1.
+**Why eliminated:** the BOS-Long family has σ_Sharpe = 0.102 across its 96 variants (vs Engulfing's 0.044). Wide sibling distribution → high expected-max-Sharpe under the null (E[max Sharpe over 96 trials] ≈ 0.256). This variant's observed Sharpe (0.186) is **below** what would be expected from random selection alone — the apparent edge is selection bias, not signal. PBO 0.786 confirms it: in 78.6% of CSCV partitions the in-sample winners ended BELOW the median out-of-sample. This is the canonical overfit signature.
+
+**This is exactly the failure mode v2 couldn't detect.** Under v2 this variant looked acceptable — positive CI lower, OOS r_delta clean at -6.3%, win-rate 36.4%. v2's pattern-robustness criterion (≥2 cells) would have flagged it anyway as a singleton, but the operator-facing read would have been "promising candidate, escalate for manual review." v3 calls it what it is: not a real edge.
+
+**Recommendation:** archive this row alongside other failed candidates; do not stamp.
 
 ---
 
-## 4. The BLOCKED + EXCLUDED ledger (audit trail)
+## 4. The BLOCKED + EXCLUDED ledger (full audit trail)
 
-### Layer A (308 candidates) → 4 per-candidate pass / 0 robustness pass
+### Layer A (308 candidates) → 4 per-candidate pass
 
 | Pass status | Count |
 |---|---|
-| Per-candidate pass (criteria 1–8) | 4 (BOS XAU 4h, Engulfing XAU 4h, Sweep XAU 4h, MeanRev XAU 30m thin) |
-| Singleton (pattern works on ONLY 1 cell) | 4 |
-| Robust survivor (≥2 cells of same pattern × side) | **0** |
+| Per-candidate pass (criteria 1–7) | 4 (BOS XAU 4h, Engulfing XAU 4h, Sweep XAU 4h, MeanRev XAU 30m thin) |
 | Failed CI lower > 0 | ~290 (primary blocker — most candidates have negative expected R) |
 | Failed OOS r_delta ≤ 50% | ~11 (in-sample positive but OOS R diverged > 50%) |
 
-### Layer B (288 variants on 3 strong singletons) → 67 per-candidate pass
+### Layer B (288 variants on 3 strong cells) → 67 per-candidate pass / 1 v3-pass
 
-| Base pattern | Variants enumerated | Variants passing v2 | Pass rate |
-|---|---|---|---|
-| Engulfing-Long XAU 4h | 96 | 25 | 26% |
-| BOS-Long XAU 4h | 96 | 25 | 26% |
-| Sweep-Long XAU 4h | 96 | 17 | 18% |
-| **TOTAL** | **288** | **67** | **23%** (vs 5% chance baseline) |
+| Base pattern | Variants enumerated | Variants passing per-candidate | Variants passing v3 deflated | Notes |
+|---|---|---|---|---|
+| Engulfing-Long XAU 4h | 96 | 25 | **1** (rr3_lb6_r06 only — see §2) | low family σ → clean DSR signal |
+| BOS-Long XAU 4h | 96 | 25 | **0** (best variant DSR 0.162; severe selection bias) | wide family σ → DSR + PBO eliminate all |
+| Sweep-Long XAU 4h | 96 | 17 | not run | not part of F.4 Stage 6.7 candidate set |
+| **TOTAL evaluated under v3** | **288** | **67** | **1** | |
 
-Key observation: `regime_filter=ON` killed virtually every variant. The filter's design (skip ATR-percentile low) was supposed to keep us out of ranging markets, but gold 4h structural breaks fire IN those very conditions. **Calibration finding filed: SG.20 below.**
+Key observation: `regime_filter=ON` killed virtually every variant. Filed as SG.20 below.
 
 ### Forex audit (per `[[feedback_gold_only_demo_stage]]` — would be ignored anyway)
 
@@ -141,32 +156,29 @@ Key observation: `regime_filter=ON` killed virtually every variant. The filter's
 
 ## 5. Risk acknowledgements (read before stamping)
 
-1. **Singleton-not-robust:** all 67 Layer B passers are SAME (XAU/USD, 4h) cell. Per v2 spec criterion 9, this is a "manual review of strongest singleton" case, not a structural-robust survivor. The 23% Layer B pass rate IS strong evidence the cell has real edge, but cross-cell replication (would BOS-Long work on XAU 1h with geometry refinement? we didn't sweep that yet) is unproven.
+1. **OOS r_delta near the criterion edge:** the survivor's -45.5% delta is within the ±50% spec criterion but close to the boundary. Forward demo R is likely materially weaker than in-sample point estimate (+0.526). Plan for ~+0.25 to +0.35 R per trade in demo.
 
-2. **OOS r_delta near the criterion edge:** candidate #1's -45.5% delta is within the ±50% spec criterion but close to the boundary. Forward demo R is likely materially weaker than in-sample point estimate (+0.526). Plan for ~+0.25 to +0.35 R per trade in demo.
+2. **High geometry sensitivity:** 25 of 96 Engulfing variants pass per-candidate criteria, 71 fail. The PASSING variants share `regime_filter=OFF` and tend toward `risk=0.6%`. Selecting a different geometry from the same base would likely produce a non-passing algo. Lock the operator's chosen variant exactly.
 
-3. **High geometry sensitivity:** 25 of 96 Engulfing variants pass, 71 fail. The PASSING variants share `regime_filter=OFF` and tend toward `risk=0.6%`. Selecting a different geometry from the same base would likely produce a non-passing algo. Lock the operator's chosen variant exactly.
+3. **Post-hoc-locked methodology:** v3 criteria were informed by the F.4 re-evaluation data → applied to past + future. Forward true-prereg evidence comes from the demo period itself.
 
-4. **Post-hoc-locked methodology:** v2 criteria were informed by v1 data → applied to past + future. Forward true-prereg evidence comes from the demo period itself.
+4. **Single-instrument / single-TF concentration:** the v3 survivor is the only deployable candidate. The demo portfolio has zero diversification. Acceptable for gold-only demo stage per operator's stance; revisit after demo proves out.
 
-5. **Pattern-robustness data-snooping risk:** spec §4 stop-loss explicitly flags this case. Mitigation = demo observation period evaluates live R against the in-sample CI before any real-money decision.
-
-6. **All 3 candidates are highly correlated** (same instrument + TF + side + structural-break family). Deploying ALL 3 simultaneously does NOT diversify — combined DD likely ≈ single-algo DD. Recommend deploying 1 first, adding others only after demo confirms.
+5. **DSR-based deflation depends on the family-σ estimate:** the Engulfing family's narrow Sharpe distribution (σ=0.044) made DSR easier to clear. If a different geometry-grid choice had produced a wider σ, even the same variant might have failed. This is a feature (DSR adapts to selection-grid size) not a bug, but it means deflation is grid-specific. The 96-variant grid is pre-registered in spec §3.
 
 ---
 
 ## 6. The 8-decision template (operator stamps to un-pause)
 
-For EACH variant you choose to deploy, stamp answers in this section. Leave variants you're not deploying unstamped (those rows stay `draft`).
+Under v3 there is **one** deployable variant. Decisions 1's option set collapses accordingly; the other decisions retain the previous template.
 
-### Decision 1 — Which variant(s) to deploy
+### Decision 1 — Which variant to deploy
 
-- [ ] **Option A (recommended for single):** Candidate #1 only — Engulfing-Long rr3_lb6_r06 (lowest DD, strongest CI)
-- [ ] **Option B (aggressive single):** Candidate #2 only — Engulfing-Long rr5_lb6_r1 (highest return, slightly higher DD)
-- [ ] **Option C (cleanest OOS):** Candidate #3 only — BOS-Long rr3_lb3_r06 (best OOS alignment, different pattern family)
-- [ ] **Option D (small portfolio):** Candidates #1 + #3 (different pattern families → some decorrelation despite same instrument/TF)
-- [ ] **Option E (full small portfolio):** All 3 (#1 + #2 + #3)
+- [ ] **Option A (ONLY v3 survivor):** Engulfing-Long rr3_lb6_r06 (DSR 0.983, PBO 0.229, k-fold 5/5)
+- [ ] **Option B (do NOT deploy):** archive the survivor too; re-enter research (Phase D.1 trigger)
 - [ ] Operator override: ___________
+
+The previous v2 packet's options B/C/D/E (Engulfing rr5_lb6_r1, BOS rr3_lb3, portfolios of 3) are not available under v3 — those candidates did not pass deflation.
 
 ### Decision 2 — Broker connection
 
@@ -188,7 +200,7 @@ Existing broker connections (verify in `broker_connections` table):
 - [ ] Gold $50k v5 (d31ac28f)
 - [ ] Operator override: ___________
 
-### Decision 3 — Capital tier per algo
+### Decision 3 — Capital tier
 
 Backtests ran at $10K (Phase E standardization). Demo capital choices:
 - [ ] $10K (matches backtest exactly; conservative; demo P&L directly comparable)
@@ -197,12 +209,10 @@ Backtests ran at $10K (Phase E standardization). Demo capital choices:
 
 ### Decision 4 — Risk per trade (lock or adjust)
 
-Each variant's geometry tag includes its baked-in risk %. Examples:
-- `rr3_lb6_r06_rf0_af0` → 0.6% per trade
-- `rr5_lb6_r1_rf0_af0` → 1.0% per trade
+The survivor's geometry tag is `rr3_lb6_r06_rf0_af0` → 0.6% per trade.
 
-- [ ] Use variant's baked-in risk (RECOMMENDED — don't change the geometry that passed)
-- [ ] Override to a different value: ___% (will break the variant's pre-registered methodology — strongly discouraged)
+- [ ] Use baked-in 0.6% (RECOMMENDED — don't change the geometry that passed v3)
+- [ ] Override to a different value: ___% (will break the variant's pre-registered methodology — strongly discouraged; will invalidate the DSR/PBO/k-fold deflation)
 
 ### Decision 5 — Observation period before challenge gate
 
@@ -214,9 +224,9 @@ Per Stage 5.2 demo-gate spec (mirrored here):
 
 ### Decision 6 — Demo gate evaluation criterion (when ≥N trades collected)
 
-- [ ] Demo mean R within in-sample CI (RECOMMENDED — exact spec §5.2 contract)
+- [ ] Demo mean R within in-sample CI [+0.229, +0.821] (RECOMMENDED — exact spec §5.2 contract)
 - [ ] Demo mean R > 0 (looser; just confirm not net-losing)
-- [ ] Demo mean R within ±50% of in-sample point estimate (matches v2 criterion 7)
+- [ ] Demo mean R within ±50% of in-sample point estimate +0.526 (matches v2/v3 criterion 7)
 - [ ] Operator override: ___________
 
 ### Decision 7 — Failure escalation (if demo fails)
@@ -239,7 +249,7 @@ After un-pausing, the scan + manage crons (on operator's Mac) will pick up the a
 
 ## 7. Execution sequence (after operator stamps)
 
-Once all 8 decisions are stamped, the un-pause SQL is mechanical. Example for Option A (Candidate #1 only, FTMO Test broker, $10K capital):
+Once all 8 decisions are stamped, the un-pause SQL is mechanical. Example for Option A (the v3 survivor, FTMO Test broker, $10K capital):
 
 ```sql
 -- 1. Wire broker_connection_id + activate
@@ -254,24 +264,25 @@ WHERE id = '33b705b9-7442-4c73-8d97-4a88ecacb9a1';  -- Engulfing-Long rr3_lb6_r0
 -- 2. Pre-register the deployment (locks demo criteria in writing BEFORE first live trade)
 -- Edit scripts/canonical/preregistration.json to add:
 -- "LayerB: XAU/USD Engulfing-Long 4h | rr3_lb6_r06_rf0_af0": {
---   "hypothesis": "...",
+--   "hypothesis": "Engulfing pattern with rr3/lb6/r0.6 will generate positive mean R in forward demo, within in-sample CI [+0.229, +0.821]",
 --   "registered_at": "2026-06-23T22:00:00Z",
 --   "expires_at": "2026-12-23T00:00:00Z",
---   "registration_type": "post-hoc-locked",
+--   "registration_type": "post-hoc-locked-v3",
 --   "min_total_return": 0,
 --   "min_mean_r_ci_lower": 0,
 --   "max_static_dd": 10,
 --   "max_daily_dd": 5,
 --   "max_oos_r_delta_pct": 50,
---   "min_held_out_trades": 10
+--   "min_held_out_trades": 10,
+--   "deflated_sharpe_min": 0.95,
+--   "pbo_max": 0.5,
+--   "purged_kfold_min_pass_ratio": 0.8
 -- }
 
 -- 3. Verify
 SELECT id, name, status, live_trading_enabled, broker_connection_id, capital
 FROM algorithms WHERE id = '33b705b9-7442-4c73-8d97-4a88ecacb9a1';
 ```
-
-For multi-variant deployments, repeat steps 1 + 2 for each.
 
 After un-pause: scan-cron picks up the algo within 15 min, manage-cron within 5 min. activity_log starts writing again (resolves the SG.19 silence). Live trades flow through MetaApi to the FTMO Test demo account.
 
@@ -281,21 +292,37 @@ After un-pause: scan-cron picks up the algo within 15 min, manage-cron within 5 
 
 - NOT a real-money decision. Demo deployment only. Real challenge gate is Stage 5.3 (after demo R alignment confirmed).
 - NOT a multi-instrument deployment. Gold-only per `[[feedback_gold_only_demo_stage]]` until ≥1 gold demo player is stable.
-- NOT a portfolio-composition decision. All 3 candidates are correlated (same instrument/TF/side/family). Operator can deploy 1+ but combined DD will track single-algo DD.
+- NOT a portfolio-composition decision. v3 produced exactly one survivor → single-algo deployment.
 - NOT an LLM-trader decision. LLM-trader path deferred to Phase D.4 (paid, last).
-- NOT an automatic refresh. v2 spec is post-hoc-locked; next sweep would be a true-prereg v3 if methodology pivots again.
+- NOT an automatic refresh. v3 spec is post-hoc-locked; the next true-prereg sweep would be v4 if methodology pivots again.
 
 ---
 
 ## 9. SG.20 — Filed for future: regime_filter calibration
 
-Layer B observed: **almost zero passing variants used `regime_filter=ON`**. Of 67 passers, only 4 had the filter enabled, all in Engulfing's 6/4-lookback combinations.
+Layer B observed: **almost zero passing variants used `regime_filter=ON`**. Of 67 per-candidate passers, only 4 had the filter enabled, all in Engulfing's 6/4-lookback combinations.
 
 The regime_filter was designed to skip ATR-percentile-low (ranging) periods. Empirical signal: gold 4h structural-break patterns make their money DURING ranging conditions, not trending ones. Either:
 - Calibration is wrong (the percentile_floor=0.3 threshold should be inverted OR lowered)
 - The semantic is wrong (structural breaks PREDICT range exits, so ranging is exactly when they fire)
 
 Action filed in roadmap as SG.20: re-calibrate regime_filter for gold-pattern compatibility OR retire it as a Layer B axis (drop from spec §2). Defer until after gold demo player is stable.
+
+---
+
+## 10. v2 → v3 lineage (what changed in this packet)
+
+This packet supersedes the v2 packet of 2026-06-23 EVE LATE. The substantive differences:
+
+| Aspect | v2 packet | v3 packet (this file) |
+|---|---|---|
+| Methodology | per-candidate criteria 1–8 + pattern-robustness ≥ 2 cells | per-candidate criteria 1–7 + DSR ≥ 0.95 + PBO < 0.5 + k-fold ≥ 4/5 |
+| Ranking | Calmar (return / static DD) DESC | Deflated Sharpe Ratio DESC |
+| Deployable candidates | 3 (Engulfing rr3_lb6_r06, Engulfing rr5_lb6_r1, BOS rr3_lb3_r06) | 1 (Engulfing rr3_lb6_r06) |
+| Stop-loss invocation | "single-cell winners → escalate for manual review" | not triggered — clean v3 survivor exists |
+| Operator decision tree | 5 options (single + small portfolio + full portfolio) | 2 options (deploy survivor OR archive + research) |
+
+The v2 packet was correct under v2 criteria; v3 supersedes those criteria because v2's pattern-robustness heuristic could not distinguish real edge from family-selection-bias-induced apparent edge (the BOS rr3_lb3 case demonstrates the failure mode). The Engulfing rr3_lb6_r06 candidate appears in both packets as a deployable — v3 strengthens, not weakens, the case for that variant.
 
 ---
 

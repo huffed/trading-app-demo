@@ -83,11 +83,10 @@ deploy.
 - **Mirror in code:** `src/lib/algo-search/criteria.ts` + tests
 - **Gate:** spec edited, code mirrors, tests pass, build clean, commit + push
 
-### F.6 — Revise acceptance packet with deflated stats (0.5 day)
-- **Update** `scripts/canonical/algo-search-acceptance.md` §1/§2/§3 with DSR-adjusted CI lower + PBO + k-fold consistency per candidate
-- **Update §5** risk acknowledgments with deflated context ("expect demo R of X, not in-sample Y")
-- **Update §6** decision template — only candidates passing v3 criteria appear as Options A/B/C
-- **Gate:** packet shows real expected R, not in-sample illusion
+### F.6 — Revise acceptance packet with deflated stats ✅ COMPLETE 2026-06-23
+- **Packet:** `scripts/canonical/algo-search-acceptance.md` re-issued as v3 — removes DEFERRED banner; §1 exec summary shows v3 verdict table (1 PASSES / 2 ELIMINATED); §2 dedicated to the v3 survivor (Engulfing rr3_lb6_r06 — DSR 0.983, PBO 0.229, k-fold 5/5) with deflated stats block + per-stat threshold table; §3 audits the 2 eliminated candidates (near-miss Engulfing rr5_lb6_r1 DSR 0.929; severe-overfit BOS rr3_lb3_r06 DSR 0.162 / PBO 0.786) with the "why eliminated" reasoning; §6 decision template collapses to 2 options (deploy survivor OR archive + research); §10 v2→v3 lineage documents the change in candidate count + ranking method
+- **Pre-reg additions:** survivor's pre-registration template extended with `deflated_sharpe_min`, `pbo_max`, `purged_kfold_min_pass_ratio` so v3 thresholds carry forward into demo evaluation
+- **Status:** AWAITING OPERATOR
 
 ### F.7 — Operator review + decide (operator action, ~30 min)
 - **A:** ≥1 candidate passes ALL v3 criteria → proceed to Phase G with top-by-DSR
