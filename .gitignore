@@ -94,3 +94,8 @@ scripts/sweep-forex-prep-s5-*.json
 scripts/regime-decomp-ote-long-*.json
 scripts/test-confluence-228-*.json
 scripts/inspect-blind-spot-trades-*.json
+
+# H.3 Python sidecar venv (binaries / site-packages — operator recreates locally
+# via `python3 -m venv scripts/python/.venv && scripts/python/.venv/bin/pip install
+# -r scripts/python/requirements.txt`)
+scripts/python/.venv/

@@ -1,11 +1,25 @@
 # H.3 feature importance pipeline — Python sidecar deps.
 #
-# Install via:  pip install --user -r scripts/python/requirements.txt
+# Setup (one-time, ~5 min, $0):
+#   python3 -m venv scripts/python/.venv
+#   scripts/python/.venv/bin/pip install -r scripts/python/requirements.txt
+#
+# Mac caveat: xgboost depends on libomp (OpenMP runtime). If not present:
+#   brew install libomp
+# The TS driver (scripts/canonical/feature-importance.ts) auto-detects the
+# venv python AND adds libomp's keg-only path to DYLD_LIBRARY_PATH for the
+# spawned Python process — operator doesn't need to set anything manually.
+#
+# Run:
+#   pnpm dlx tsx scripts/canonical/feature-importance.ts
+#
+# Reverse (if removing): rm -rf scripts/python/.venv (venv is in .gitignore)
+#   brew uninstall libomp (only if not used by other tools)
 #
 # Pins are loose minimums — xgboost/sklearn/numpy/pandas have stable
 # APIs at these majors; we just need the methods that have existed for
-# years (DMatrix, XGBClassifier, roc_auc_score, train_test_split). The
-# H.3 driver tolerates minor-version drift gracefully.
+# years (XGBClassifier, roc_auc_score). The H.3 driver tolerates
+# minor-version drift gracefully.
 
 xgboost>=2.0
 scikit-learn>=1.3

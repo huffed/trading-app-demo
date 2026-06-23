@@ -259,11 +259,48 @@ Items run in order, not in parallel.
   - H.4 — augments chosen algo with top-K features as Layer B axes (reads `feature-importance-results.json`)
   - H.5 — quarterly research cycle re-runs the driver each cycle and tracks importance drift (the `random_state=42` + `n_jobs=1` determinism + persisted results file make cycle-to-cycle delta computation trivial)
 
-### H.3-execution — Empirical AUC measurement (operator-action, ~10 min, $0)
-- **Trigger:** operator runs `pip install --user -r scripts/python/requirements.txt && pnpm dlx tsx scripts/canonical/feature-importance.ts`
-- **Expected:** prints PASS/FAIL verdict against the 0.55 threshold + top-10 features ranked by gain + persists results JSON
-- **Calendar estimate:** ~5 min for pip install (downloads ~150MB of xgboost C++ wheels + numpy/sklearn deps) + ~30 sec for the training run on the v3 survivor's 6.4yr of XAU/USD 4h bars (~14k rows × 48 features = ~200K cells, trivial for xgboost). Total ~10 min wall-clock, $0 cost.
-- **Why operator-gated:** the pip install changes user-machine state (homebrew Python's site-packages). Per the operator's standing rules on actions visible-to-others / hard-to-reverse, machine-state changes get operator approval. Reversible via `pip uninstall xgboost scikit-learn pandas numpy` if the operator decides to remove.
+### H.3-execution — Empirical AUC measurement ✅ COMPLETE 2026-06-24
+- **Ran:** `python3 -m venv scripts/python/.venv && scripts/python/.venv/bin/pip install -r requirements.txt && pnpm dlx tsx scripts/canonical/feature-importance.ts`
+- **Setup adjustments shipped (reusable for future runs):**
+  - PEP 668 prevents direct `pip install` on homebrew Python — switched to a venv at `scripts/python/.venv/` (in `.gitignore`; operator recreates with one command)
+  - Mac libomp keg-only — TS driver auto-adds the libomp path to `DYLD_LIBRARY_PATH` for the spawned Python process (process-scoped; zero global state); auto-detects venv python at canonical path; `PYTHON_BIN` env override available
+  - `requirements.txt` carries the full setup runbook + reverse-out commands
+- **Empirical result on v3 survivor (Engulfing rr3_lb6_r06, XAU/USD 4h, 14048 bars, 48 features):**
+
+  | Metric | Value |
+  |---|---|
+  | Training rows | 10,104 (pos=5,280, neg=4,824 — ~52/48 balance) |
+  | Holdout rows | 3,943 (pos=2,013, neg=1,930 — ~51/49 balance) |
+  | AUC (train) | 0.7930 |
+  | AUC (holdout) | **0.5378** |
+  | **Gate (AUC ≥ 0.55)** | **FAIL by 0.012** |
+
+- **Top 10 features by xgboost gain:**
+
+  | Rank | Feature | Gain | Source |
+  |---|---|---|---|
+  | 1 | `pattern_daily_bias_signed` | 11.59 | H.3 (pattern) — D1 trend bias dominates |
+  | 2 | `pattern_order_block_signed` | 6.97 | H.3 (pattern) |
+  | 3 | `pattern_momentum_signed` | 6.93 | H.3 (pattern) |
+  | 4 | `sma200_distance` | 6.74 | H.2 (trend) |
+  | 5 | `pattern_ote_signed` | 6.72 | H.3 (pattern) |
+  | 6 | `ema_alignment_score` | 6.56 | H.2 (trend) |
+  | 7 | `hour_of_day_utc` | 6.33 | H.2 (time) |
+  | 8 | `pattern_ifvg_signed` | 6.22 | H.3 (pattern) |
+  | 9 | `pattern_bos_signed` | 6.17 | H.3 (pattern) |
+  | 10 | `sma20_slope` | 6.05 | H.2 (trend) |
+
+- **Honest reading:**
+  - AUC 0.5378 is ABOVE random (0.5) by ~7.6% but BELOW the 0.55 spec floor by 0.012
+  - 6/10 top features are pattern primitives (H.3 wrappings) — patterns DO carry signal at 4h
+  - 4/10 are trend/time features (sma200_distance, ema_alignment_score, hour_of_day_utc, sma20_slope) — complement the pattern primitives
+  - `daily_bias` dominates by ~66% gain margin over the second-best (11.59 vs 6.97) — strong evidence that D1 trend filter is the highest-value feature
+  - Train AUC 0.79 vs holdout 0.54 = 0.25 overfit gap — consistent with the well-known difficulty of predicting next-bar direction at 4h on a noisy asset
+- **H.4 consequence (per the H.3 gate's "FAIL → don't compose" clause):**
+  - H.4 should NOT compose top features as Layer B axes against the current labelling (next-bar-direction-sign)
+  - Re-evaluate labelling: try multi-bar lookahead (next 4 bars / next 24 bars), R-aware label (did the trade triggered at this bar hit TP or SL?), regime-conditioned label
+  - The label choice IS the binding constraint here, not the feature set
+- **Persisted:** `scripts/canonical/feature-importance-results.json` (full ranking of all 48 features; consumable by H.4 + the H.5 quarterly cycle drift-tracking)
 
 ### H.4 — Augment chosen algo with top features as composers (2 days)
 - New Layer B sweep on chosen algo's BASE with top-importance features added as filter axes

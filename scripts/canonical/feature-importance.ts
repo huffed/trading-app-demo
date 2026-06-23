@@ -27,7 +27,8 @@
  *   "H.3 gate verdict: PASS (AUC X > 0.55)" / "FAIL (AUC X ≤ 0.55)"
  */
 import { spawn } from "node:child_process";
-import { readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { platform } from "node:os";
 import { resolve } from "node:path";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { FEATURES, type FeatureContext } from "../../src/lib/features";
@@ -55,9 +56,29 @@ loadEnvLocal();
 const ALGO_ID = process.env.ALGO_ID ?? "33b705b9-7442-4c73-8d97-4a88ecacb9a1"; // Engulfing rr3_lb6_r06
 const HOLDOUT_DAYS = Number(process.env.HOLDOUT_DAYS ?? "365");
 const TOP_K = Number(process.env.TOP_K ?? "10");
-const PYTHON_BIN = process.env.PYTHON_BIN ?? "python3";
+// Auto-detect the venv python if present; falls back to system python3.
+// Operator can override via PYTHON_BIN env var (e.g. for a different venv path).
+const VENV_PYTHON = resolve(process.cwd(), "scripts/python/.venv/bin/python3");
+const PYTHON_BIN = process.env.PYTHON_BIN ?? (existsSync(VENV_PYTHON) ? VENV_PYTHON : "python3");
 const PYTHON_SCRIPT = resolve(process.cwd(), "scripts/python/feature_importance.py");
 const RESULTS_FILE = resolve(process.cwd(), "scripts/canonical/feature-importance-results.json");
+
+/** On macOS, homebrew installs libomp as keg-only — xgboost can't find
+ *  it on its default search path. Detect a homebrew libomp install
+ *  and add it to DYLD_LIBRARY_PATH for the spawned Python process
+ *  (process-scoped; no global state change). Falls through silently
+ *  on Linux + when libomp isn't present (caller's xgboost will surface
+ *  the missing-lib error with its own install hint). */
+function macLibompEnv(): Record<string, string> {
+  if (platform() !== "darwin") return {};
+  for (const prefix of ["/Users/jack.jones/.homebrew/opt/libomp/lib", "/opt/homebrew/opt/libomp/lib", "/usr/local/opt/libomp/lib"]) {
+    if (existsSync(`${prefix}/libomp.dylib`)) {
+      const current = process.env.DYLD_LIBRARY_PATH ?? "";
+      return { DYLD_LIBRARY_PATH: current ? `${prefix}:${current}` : prefix };
+    }
+  }
+  return {};
+}
 
 function fail(msg: string): never {
   console.error(`[feature-importance] ${msg}`);
@@ -105,6 +126,7 @@ function runPythonSidecar(payload: { feature_names: string[]; rows: TrainingRow[
   return new Promise((resolvePromise, rejectPromise) => {
     const proc = spawn(PYTHON_BIN, [PYTHON_SCRIPT], {
       stdio: ["pipe", "pipe", "pipe"],
+      env: { ...process.env, ...macLibompEnv() },
     });
     let stdout = "";
     let stderr = "";

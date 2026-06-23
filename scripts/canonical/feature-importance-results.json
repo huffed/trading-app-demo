@@ -1,0 +1,248 @@
+{
+  "generated_for_algo_id": "33b705b9-7442-4c73-8d97-4a88ecacb9a1",
+  "ticker": "XAU/USD",
+  "timeframe": "4h",
+  "holdout_days": 365,
+  "top_k": 10,
+  "auc_train": 0.7929809797288807,
+  "auc_holdout": 0.5378291107799305,
+  "passed_h3_gate": false,
+  "n_train": 10104,
+  "n_holdout": 3943,
+  "top_features": [
+    {
+      "name": "pattern_daily_bias_signed",
+      "gain": 11.59070873260498
+    },
+    {
+      "name": "pattern_order_block_signed",
+      "gain": 6.973723411560059
+    },
+    {
+      "name": "pattern_momentum_signed",
+      "gain": 6.931136131286621
+    },
+    {
+      "name": "sma200_distance",
+      "gain": 6.741920471191406
+    },
+    {
+      "name": "pattern_ote_signed",
+      "gain": 6.717995643615723
+    },
+    {
+      "name": "ema_alignment_score",
+      "gain": 6.557623863220215
+    },
+    {
+      "name": "hour_of_day_utc",
+      "gain": 6.331859111785889
+    },
+    {
+      "name": "pattern_ifvg_signed",
+      "gain": 6.223973751068115
+    },
+    {
+      "name": "pattern_bos_signed",
+      "gain": 6.16681432723999
+    },
+    {
+      "name": "sma20_slope",
+      "gain": 6.053842544555664
+    }
+  ],
+  "all_features": [
+    {
+      "name": "pattern_daily_bias_signed",
+      "gain": 11.59070873260498
+    },
+    {
+      "name": "pattern_order_block_signed",
+      "gain": 6.973723411560059
+    },
+    {
+      "name": "pattern_momentum_signed",
+      "gain": 6.931136131286621
+    },
+    {
+      "name": "sma200_distance",
+      "gain": 6.741920471191406
+    },
+    {
+      "name": "pattern_ote_signed",
+      "gain": 6.717995643615723
+    },
+    {
+      "name": "ema_alignment_score",
+      "gain": 6.557623863220215
+    },
+    {
+      "name": "hour_of_day_utc",
+      "gain": 6.331859111785889
+    },
+    {
+      "name": "pattern_ifvg_signed",
+      "gain": 6.223973751068115
+    },
+    {
+      "name": "pattern_bos_signed",
+      "gain": 6.16681432723999
+    },
+    {
+      "name": "sma20_slope",
+      "gain": 6.053842544555664
+    },
+    {
+      "name": "volume_ratio_20",
+      "gain": 5.808492183685303
+    },
+    {
+      "name": "swing_high_distance_pct",
+      "gain": 5.7737932205200195
+    },
+    {
+      "name": "swing_low_distance_pct",
+      "gain": 5.600347995758057
+    },
+    {
+      "name": "range_expansion_5",
+      "gain": 5.59293270111084
+    },
+    {
+      "name": "rsi14",
+      "gain": 5.531633377075195
+    },
+    {
+      "name": "pattern_pin_bar_signed",
+      "gain": 5.512740135192871
+    },
+    {
+      "name": "day_of_week",
+      "gain": 5.451756000518799
+    },
+    {
+      "name": "range_contraction_5",
+      "gain": 5.435361385345459
+    },
+    {
+      "name": "rsi14_extreme",
+      "gain": 5.399142265319824
+    },
+    {
+      "name": "atr14_pct",
+      "gain": 5.3984761238098145
+    },
+    {
+      "name": "macd_histogram",
+      "gain": 5.390944004058838
+    },
+    {
+      "name": "volume_z_score_50",
+      "gain": 5.381015300750732
+    },
+    {
+      "name": "is_us_session",
+      "gain": 5.324962615966797
+    },
+    {
+      "name": "pattern_fvg_signed",
+      "gain": 5.324667453765869
+    },
+    {
+      "name": "bb_width_20",
+      "gain": 5.260737895965576
+    },
+    {
+      "name": "atr14",
+      "gain": 5.205747127532959
+    },
+    {
+      "name": "momentum_5",
+      "gain": 5.178130626678467
+    },
+    {
+      "name": "atr_percentile_200",
+      "gain": 5.1135735511779785
+    },
+    {
+      "name": "roc_10",
+      "gain": 4.990790843963623
+    },
+    {
+      "name": "higher_high_count_20",
+      "gain": 4.963508605957031
+    },
+    {
+      "name": "momentum_20",
+      "gain": 4.955410957336426
+    },
+    {
+      "name": "lower_low_count_20",
+      "gain": 4.888244152069092
+    },
+    {
+      "name": "realized_vol_20",
+      "gain": 4.846632957458496
+    },
+    {
+      "name": "pattern_liquidity_sweep_reclaim_signed",
+      "gain": 4.659112453460693
+    },
+    {
+      "name": "atr_ratio_50",
+      "gain": 4.609812259674072
+    },
+    {
+      "name": "ema_cross_freshness",
+      "gain": 4.571712017059326
+    },
+    {
+      "name": "pattern_equal_levels_signed",
+      "gain": 4.535076141357422
+    },
+    {
+      "name": "pattern_engulfing_signed",
+      "gain": 4.4758124351501465
+    },
+    {
+      "name": "pattern_mean_reversion_signed",
+      "gain": 4.364549160003662
+    },
+    {
+      "name": "pattern_choch_signed",
+      "gain": 3.8689327239990234
+    },
+    {
+      "name": "daily_bias_agreement",
+      "gain": 3.5250251293182373
+    },
+    {
+      "name": "pattern_liquidity_sweep_signed",
+      "gain": 3.282853364944458
+    },
+    {
+      "name": "ema12_above_ema26",
+      "gain": 0
+    },
+    {
+      "name": "price_above_sma20",
+      "gain": 0
+    },
+    {
+      "name": "is_asian_session",
+      "gain": 0
+    },
+    {
+      "name": "bars_since_news",
+      "gain": 0
+    },
+    {
+      "name": "cross_asset_correlation_20",
+      "gain": 0
+    },
+    {
+      "name": "cross_asset_correlation_abs_20",
+      "gain": 0
+    }
+  ]
+}
