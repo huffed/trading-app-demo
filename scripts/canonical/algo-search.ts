@@ -35,6 +35,13 @@ import {
   enumerateLayerACandidates,
   type SearchCandidate,
 } from "../../src/lib/algo-search/enumerate";
+import {
+  enumerateLayerBVariants,
+  LAYER_B_NAME_PREFIX,
+  layerBCardinality,
+  type LayerBVariant,
+} from "../../src/lib/algo-search/layer-b-enumerate";
+import type { AlgorithmRules } from "../../src/types/algorithm";
 
 // .env.local loader (mirrors validate-algo)
 {
@@ -49,11 +56,11 @@ import {
   } catch {}
 }
 
-type Mode = "list" | "smoke" | "full";
+type Mode = "list" | "smoke" | "full" | "layer-b";
 const MODE: Mode = ((): Mode => {
   const raw = (process.env.MODE ?? "list").toLowerCase();
-  if (raw === "list" || raw === "smoke" || raw === "full") return raw;
-  throw new Error(`Unknown MODE='${raw}'. Use 'list', 'smoke', or 'full'.`);
+  if (raw === "list" || raw === "smoke" || raw === "full" || raw === "layer-b") return raw;
+  throw new Error(`Unknown MODE='${raw}'. Use 'list', 'smoke', 'full', or 'layer-b'.`);
 })();
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -84,21 +91,35 @@ async function resolveOperatorId(supabase: SupabaseClient<Database>): Promise<st
   return data.user_id;
 }
 
-async function loadExistingSearchNames(supabase: SupabaseClient<Database>): Promise<Set<string>> {
+/** Generic interface satisfied by both Layer A SearchCandidate and Layer B
+ *  LayerBVariant — the minimum surface insertCandidates + attachWatchlist
+ *  need. Lets the helpers handle both namespaces. */
+interface InsertableCandidate {
+  name: string;
+  ticker: string;
+  capital: number;
+  rules: AlgorithmRules;
+}
+
+async function loadExistingNamesByPrefix(
+  supabase: SupabaseClient<Database>,
+  prefix: string,
+): Promise<Set<string>> {
   const { data, error } = await supabase
     .from("algorithms")
     .select("name")
-    .like("name", `${CANDIDATE_NAME_PREFIX}%`);
-  if (error) throw new Error(`Failed to load existing search rows: ${error.message}`);
+    .like("name", `${prefix}%`);
+  if (error) throw new Error(`Failed to load existing ${prefix} rows: ${error.message}`);
   return new Set((data ?? []).map((r) => r.name));
 }
 
 async function insertCandidates(
   supabase: SupabaseClient<Database>,
   user_id: string,
-  candidates: SearchCandidate[],
+  candidates: InsertableCandidate[],
+  prefix: string,
 ): Promise<{ inserted: number; skipped: number }> {
-  const existing = await loadExistingSearchNames(supabase);
+  const existing = await loadExistingNamesByPrefix(supabase, prefix);
   const fresh = candidates.filter((c) => !existing.has(c.name));
   if (fresh.length === 0) return { inserted: 0, skipped: candidates.length };
   // Chunk to stay under Supabase row-payload size + RLS write limits.
@@ -135,7 +156,8 @@ async function insertCandidates(
 async function attachWatchlist(
   supabase: SupabaseClient<Database>,
   user_id: string,
-  candidates: SearchCandidate[],
+  candidates: InsertableCandidate[],
+  prefix: string,
 ): Promise<number> {
   // validate-algo's loadAlgos does:
   //   const wl = await supabase.from("algorithm_watchlist").select("ticker").eq("algorithm_id", a.id).limit(1)
@@ -148,7 +170,7 @@ async function attachWatchlist(
   const { data: rows, error } = await supabase
     .from("algorithms")
     .select("id, name")
-    .like("name", `${CANDIDATE_NAME_PREFIX}%`);
+    .like("name", `${prefix}%`);
   if (error) throw new Error(`Failed to read inserted algos for watchlist attach: ${error.message}`);
   const idByName = new Map((rows ?? []).map((r) => [r.name, r.id] as const));
   type WlInsert = { user_id: string; algorithm_id: string; ticker: string; name: string; added_by: string };
@@ -261,10 +283,10 @@ async function modeSmoke(): Promise<void> {
   const user_id = await resolveOperatorId(supabase);
   console.log(`Resolved operator user_id: ${user_id}`);
 
-  const { inserted, skipped } = await insertCandidates(supabase, user_id, [smoke]);
+  const { inserted, skipped } = await insertCandidates(supabase, user_id, [smoke], CANDIDATE_NAME_PREFIX);
   console.log(`Insert: ${inserted} new, ${skipped} skipped (already exist)`);
 
-  const wlInserted = await attachWatchlist(supabase, user_id, [smoke]);
+  const wlInserted = await attachWatchlist(supabase, user_id, [smoke], CANDIDATE_NAME_PREFIX);
   console.log(`Watchlist attach: ${wlInserted} new`);
 
   // Now invoke validate-algo on JUST this candidate.
@@ -292,10 +314,10 @@ async function modeFull(): Promise<void> {
   const user_id = await resolveOperatorId(supabase);
   console.log(`Resolved operator user_id: ${user_id}`);
 
-  const { inserted, skipped } = await insertCandidates(supabase, user_id, candidates);
+  const { inserted, skipped } = await insertCandidates(supabase, user_id, candidates, CANDIDATE_NAME_PREFIX);
   console.log(`Insert: ${inserted} new, ${skipped} skipped (already exist)`);
 
-  const wlInserted = await attachWatchlist(supabase, user_id, candidates);
+  const wlInserted = await attachWatchlist(supabase, user_id, candidates, CANDIDATE_NAME_PREFIX);
   console.log(`Watchlist attach: ${wlInserted} new`);
 
   // Invoke validate-algo on the full search set with PERSIST=1.
@@ -304,6 +326,100 @@ async function modeFull(): Promise<void> {
 
   console.log(`\nFull Layer A sweep complete. Survivors visible via algorithms.backtest_results.promotion_eligible=true.`);
   console.log(`Next: build Layer B geometry sweep on survivors.`);
+}
+
+async function modeLayerB(): Promise<void> {
+  const { url, key } = requireEnv();
+  const supabase = createClient<Database>(url, key);
+
+  // Input: BASE_NAMES env CSV of Layer A candidate names to sweep.
+  const baseNames = (process.env.BASE_NAMES ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (baseNames.length === 0) {
+    throw new Error(
+      "MODE=layer-b requires BASE_NAMES env CSV. Example: " +
+      `BASE_NAMES="Search: XAU/USD BOS-Long 4h,Search: XAU/USD Sweep-Long 4h"`,
+    );
+  }
+  const limit = Number(process.env.LIMIT ?? 0); // 0 = no limit; used for smoke runs.
+
+  console.log(`\n===== algo-search Layer B @ ${new Date().toISOString().slice(0, 16)} =====`);
+  console.log(`Base candidates requested: ${baseNames.length}`);
+
+  // Fetch base candidates from DB (need rules + capital).
+  const { data: baseRows, error } = await supabase
+    .from("algorithms")
+    .select("id, name, rules, capital")
+    .in("name", baseNames);
+  if (error) throw new Error(`Failed to fetch base candidates: ${error.message}`);
+  if (!baseRows || baseRows.length === 0) {
+    throw new Error(`No base candidates found in DB matching: ${baseNames.join(", ")}`);
+  }
+  if (baseRows.length !== baseNames.length) {
+    const found = new Set(baseRows.map((r) => r.name));
+    const missing = baseNames.filter((n) => !found.has(n));
+    console.warn(`Missing in DB (skipped): ${missing.join(", ")}`);
+  }
+
+  // Each base's ticker comes from algorithm_watchlist (validate-algo source-of-truth).
+  const baseIds = baseRows.map((b) => b.id);
+  const { data: wls, error: wlErr } = await supabase
+    .from("algorithm_watchlist")
+    .select("algorithm_id, ticker")
+    .in("algorithm_id", baseIds);
+  if (wlErr) throw new Error(`Failed to fetch watchlists: ${wlErr.message}`);
+  const tickerByAlgo = new Map((wls ?? []).map((w) => [w.algorithm_id, w.ticker]));
+
+  // Enumerate variants per base (96 each per spec §2).
+  const allVariants: LayerBVariant[] = [];
+  for (const baseRow of baseRows) {
+    const ticker = tickerByAlgo.get(baseRow.id);
+    if (!ticker) {
+      console.warn(`Base ${baseRow.name} has no watchlist entry — skipping all variants`);
+      continue;
+    }
+    const variants = enumerateLayerBVariants({
+      name: baseRow.name,
+      ticker,
+      capital: Number(baseRow.capital),
+      rules: baseRow.rules as unknown as AlgorithmRules,
+    });
+    allVariants.push(...variants);
+  }
+
+  console.log(
+    `Enumerated ${allVariants.length} variants (${baseRows.length} bases × ${layerBCardinality()} per spec §2).`,
+  );
+
+  let toInsert = allVariants;
+  if (limit > 0) {
+    toInsert = allVariants.slice(0, limit);
+    console.log(`LIMIT=${limit} → smoke-mode: capping to first ${limit} variants.`);
+  }
+
+  const user_id = await resolveOperatorId(supabase);
+  console.log(`Resolved operator user_id: ${user_id}`);
+
+  const { inserted, skipped } = await insertCandidates(supabase, user_id, toInsert, LAYER_B_NAME_PREFIX);
+  console.log(`Insert: ${inserted} new, ${skipped} skipped (already exist)`);
+
+  const wlInserted = await attachWatchlist(supabase, user_id, toInsert, LAYER_B_NAME_PREFIX);
+  console.log(`Watchlist attach: ${wlInserted} new`);
+
+  // Invoke validate-algo on the variant set with PERSIST=1.
+  // ALGOS=csv keeps validate-algo's Bonferroni denominator scoped to THIS
+  // batch — under v2 spec, Bonferroni is informational anyway (the v2
+  // criteria don't include it as a hard gate).
+  runValidateAlgo({ algos: toInsert.map((v) => v.name), persist: true });
+
+  console.log(
+    `\nLayer B sweep complete. Inspect via: ` +
+      `SELECT name, (backtest_results->'step2'->>'total_return')::numeric AS ret, ` +
+      `(backtest_results->'statistical_rigor'->'mean_r_ci'->>'lower')::numeric AS r_lo ` +
+      `FROM algorithms WHERE name LIKE '${LAYER_B_NAME_PREFIX}%' ORDER BY ret DESC LIMIT 20;`,
+  );
 }
 
 async function main(): Promise<void> {
@@ -315,6 +431,7 @@ async function main(): Promise<void> {
   }
   if (MODE === "list") await modeList();
   else if (MODE === "smoke") await modeSmoke();
+  else if (MODE === "layer-b") await modeLayerB();
   else await modeFull();
 }
 
