@@ -42,10 +42,16 @@ async function pickHeartbeatUserId(supabase: SupabaseClient): Promise<string | n
     .limit(1)
     .maybeSingle();
   if (algo) return (algo as { user_id: string }).user_id;
+  // Service-role-only fallback: list one auth user. supabase-js's auth.admin
+  // is typed on SupabaseClient (always present); the method itself errors at
+  // runtime when called without the service role key. The cron routes use
+  // createAdminClient() so the call is valid. We only read .id — the User
+  // type from @supabase/auth-js has many more fields but the narrow access
+  // pattern is what makes the try/catch a sufficient fallback (any error,
+  // type mismatch, or empty list → null → emit is skipped gracefully).
   try {
-    const { data } = await (supabase as unknown as {
-      auth: { admin: { listUsers: (opts: { page: number; perPage: number }) => Promise<{ data: { users: { id: string }[] } }> } };
-    }).auth.admin.listUsers({ page: 1, perPage: 1 });
+    const { data, error } = await supabase.auth.admin.listUsers({ page: 1, perPage: 1 });
+    if (error) return null;
     return data?.users?.[0]?.id ?? null;
   } catch {
     return null;
