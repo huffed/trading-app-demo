@@ -87,8 +87,49 @@ export interface PatternCondition {
   timeframe: string;
 }
 
-export type EntryCondition = TechnicalCondition | SentimentCondition | PatternCondition;
-export type ExitCondition = TechnicalCondition | SentimentCondition | PatternCondition;
+/**
+ * H.1 — OANDA positioning data as a contrarian gate. Reads the latest
+ * snapshot from `oanda_positioning_cache` and fires when retail crowd
+ * is heavily one-sided AGAINST the algo's direction (fade the crowd).
+ *
+ * For `side: "long"`: fires when long_pct ≤ (100 − crowd_threshold_pct),
+ *   i.e. retail is heavily short → contrarian long signal.
+ * For `side: "short"`: fires when long_pct ≥ crowd_threshold_pct,
+ *   i.e. retail is heavily long → contrarian short signal.
+ *
+ * Live-only — backtest filters positioning conditions out alongside
+ * sentiment (migration 00034: OANDA positionBook is forward-only data,
+ * so backtest cannot replay historical snapshots; the empirical gate
+ * is deferred to forward live observation per ROADMAP H.1-validation).
+ *
+ * NOT WIRED INTO LIVE BY DEFAULT — the live scan path's positioning
+ * gate runs only when an active algo includes this condition; until the
+ * v3 survivor (or any active algo) opts in, this is dormant infrastructure.
+ */
+export interface PositioningCondition {
+  type: "positioning_contrarian";
+  /** OANDA instrument naming (e.g. "XAU_USD"), distinct from app ticker
+   *  ("XAU/USD"). Caller passes whichever string matches the
+   *  oanda_positioning_cache row. */
+  instrument: string;
+  /** Crowd is "heavily one-sided" when their position % ≥ this. Range
+   *  (50, 100). 70 is a reasonable default — captures clearly biased
+   *  retail flow without firing on every small skew. */
+  crowd_threshold_pct: number;
+  /** Snapshot older than this is treated as stale → condition fails
+   *  fail-safe. Default 30 minutes (snapshots are ~20min cadence). */
+  max_snapshot_age_minutes?: number;
+  /** Which direction the algo wants to enter. Determines the contrarian
+   *  interpretation of the crowd's long_pct. */
+  side: "long" | "short";
+  /** Optional timeframe label (parallels other condition types). The
+   *  positioning gate is timeframe-agnostic but the field is required
+   *  for ConditionContext routing compatibility. */
+  timeframe: string;
+}
+
+export type EntryCondition = TechnicalCondition | SentimentCondition | PatternCondition | PositioningCondition;
+export type ExitCondition = TechnicalCondition | SentimentCondition | PatternCondition | PositioningCondition;
 
 /**
  * How multiple entry conditions combine.
@@ -108,6 +149,10 @@ export function isSentimentCondition(c: EntryCondition | ExitCondition): c is Se
 
 export function isPatternCondition(c: EntryCondition | ExitCondition): c is PatternCondition {
   return c.type === "pattern";
+}
+
+export function isPositioningCondition(c: EntryCondition | ExitCondition): c is PositioningCondition {
+  return c.type === "positioning_contrarian";
 }
 
 // --- Risk management & rules ---

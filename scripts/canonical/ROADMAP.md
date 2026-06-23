@@ -206,11 +206,24 @@ protects it. We don't want a Tier 2 algo deployed under Tier 4 monitoring.
 **Purpose:** regardless of G outcome, this is the Tier 3 → Tier 2 upgrade.
 Items run in order, not in parallel.
 
-### H.1 — Wire OANDA positioning data as feature (2–3 days)
-- New `EntryCondition` variant `positioning_contrarian` in `src/types/algorithm.ts`
-- Uses existing 4-year `oanda_positioning_cache` data (currently unused)
-- Layer B-style sweep extension with new axis
-- **Gate:** ≥5% additive Sharpe vs baseline
+### H.1 — Wire OANDA positioning data as feature (infrastructure ✅ COMPLETE 2026-06-23 / empirical gate deferred → H.1-validation)
+- **Data-reality correction:** the original spec said "uses existing 4-year oanda_positioning_cache data" — actual cache holds **12.97 days** (834 XAU_USD snapshots from 2026-06-10 onward). Per migration 00034: "OANDA only exposes the *current* snapshot via API (no historical positioning data). This table builds history forward from the moment the cron starts running." Empirical Sharpe-improvement validation requires forward-accumulated data and a live-deployed algo using the gate.
+- **Infrastructure shipped:**
+  - `src/lib/algorithm/positioning-contrarian.ts` — pure evaluator (`evaluatePositioningContrarian` for the math) + DB helper (`fetchLatestPositioningSnapshot`) + live entry-gate wrapper (`evaluatePositioningGate` with snapshot caching per-instrument)
+  - Fail-safe defaults: missing snapshot / stale (>30 min default) / invalid long_pct → gate fails closed (no entry)
+  - Semantic: `side:"long"` fires when `long_pct ≤ 100 − crowd_threshold_pct` (fade short crowd → long); `side:"short"` fires when `long_pct ≥ crowd_threshold_pct` (fade long crowd → short)
+  - `PositioningCondition` variant added to `EntryCondition`/`ExitCondition` discriminated union in `src/types/algorithm.ts` + `isPositioningCondition` type guard
+  - Zod `positioningConditionSchema` in `src/lib/validators/algorithm.ts` (instrument 1-32 chars, crowd_threshold_pct 50<x<100, max_snapshot_age_minutes 1-1440)
+  - 20 unit tests (`positioning-contrarian.test.ts`) covering long/short semantics, boundary equality on threshold + max-age, fail-safe paths (no snapshot / stale / invalid long_pct), DB helper graceful error handling, AND-aggregation for multiple positioning conditions, snapshot caching (no duplicate DB hits per-instrument)
+- **Backtest behavior:** auto-excluded by the existing `(c) => isTechnicalCondition(c) || isPatternCondition(c)` filter in portfolio-backtest.ts (same mechanism that excludes sentiment). An algo whose entry_conditions include `positioning_contrarian` will see `sentiment_conditions_excluded > 0` (currently the union excludes both — naming is legacy; filed as a follow-up cosmetic rename to `non_technical_conditions_excluded`) and `backtest_mode = "technical_only"`.
+- **Live wire-up:** module is callable but NOT yet hooked into the scan loop's gate sequence — no active algo uses positioning_contrarian today (the v3 survivor uses pattern + technical only). Wire-up lands when an operator-stamped algo opts in (mirrors the G.3 vol_target "build infra now, wire to live when first algo needs it" pattern).
+- **Empirical sanity:** live DB at evaluation time = `long_pct: 72.79%, age: 22.6 min` — a `side:"short"` gate with threshold=70 would FIRE right now (retail heavily long → fade them). Evaluator math verified end-to-end against real cache data.
+
+### H.1-validation — Empirical ≥5% Sharpe gate on positioning_contrarian (DEFERRED-BY-TRIGGER)
+- **Trigger:** ≥30 live trades on an active algo whose `entry_conditions` includes `positioning_contrarian`, with positioning snapshots ≤30 min old at each trade's entry time
+- **Method:** for the deployed algo, compute Sharpe across all live trades; compare to Sharpe across the SAME trades' would-have-fired baseline (re-evaluate entry conditions without the positioning gate). Report DSR delta + raw Sharpe delta + per-trade hit rate.
+- **Gate:** ≥5% Sharpe improvement OR documented why not (mirrors the G.3 "OR documented why not" pattern — single-instrument single-TF gates often see modest benefit because other gates already adapt)
+- **Calendar estimate:** 1-3 months minimum for an active algo at ~5-10 trades/month to hit the 30-trade floor; longer if the operator stays gold-only single-algo per `[[feedback_gold_only_demo_stage]]`. Listed here so it doesn't drift off-radar.
 
 ### H.2 — Feature library augmentation (1–2 weeks)
 - `src/lib/features/` directory with 30–50 features (vol regime, time-of-day, day-of-week, range expansion/contraction, relative volume, MA alignment, RSI extremes, calendar proximity, daily-bias agreement, cross-asset correlation, etc.)

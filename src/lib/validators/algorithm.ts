@@ -113,10 +113,27 @@ const patternConditionSchema = z.object({
   timeframe: z.string(),
 });
 
+const positioningConditionSchema = z.object({
+  type: z.literal("positioning_contrarian"),
+  // OANDA instrument name (e.g. "XAU_USD"). Validated as non-empty string;
+  // the lookup against oanda_positioning_cache will fail gracefully if the
+  // instrument has no snapshots (returns false from the gate).
+  instrument: z.string().min(1).max(32),
+  // 50 < threshold < 100 — below 50 isn't "one-sided", above 99 is degenerate
+  // (the gate would essentially never fire).
+  crowd_threshold_pct: z.number().gt(50).lt(100),
+  // Cap at 24h — beyond that the snapshot is too stale to be a meaningful
+  // current-state signal. Default in evaluator is 30 min.
+  max_snapshot_age_minutes: z.number().int().min(1).max(60 * 24).optional(),
+  side: z.enum(["long", "short"]),
+  timeframe: z.string(),
+});
+
 const conditionSchema = z.discriminatedUnion("type", [
   technicalConditionSchema,
   sentimentConditionSchema,
   patternConditionSchema,
+  positioningConditionSchema,
 ]);
 
 // Legacy conditions (no `type` field) are normalized to "technical"
