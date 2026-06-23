@@ -20,6 +20,7 @@
  */
 import { CONTEXT_FEATURES } from "./context";
 import { MOMENTUM_FEATURES } from "./momentum";
+import { PATTERN_FEATURES } from "./patterns";
 import { STRUCTURE_FEATURES } from "./structure";
 import { TIME_FEATURES } from "./time";
 import { TREND_FEATURES } from "./trend";
@@ -41,6 +42,7 @@ export const FEATURES: readonly Feature[] = [
   ...TIME_FEATURES,
   ...VOLUME_FEATURES,
   ...CONTEXT_FEATURES,
+  ...PATTERN_FEATURES,
 ];
 
 /** Convenience grouping for the FE/reports surface. */
@@ -52,6 +54,7 @@ export const FEATURES_BY_CATEGORY: Record<FeatureCategory, readonly Feature[]> =
   time: TIME_FEATURES,
   volume: VOLUME_FEATURES,
   context: CONTEXT_FEATURES,
+  pattern: PATTERN_FEATURES,
 };
 
 /** Total count. Asserted by tests at ≥30 (the H.2 gate). */

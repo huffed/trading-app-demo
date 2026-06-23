@@ -1,0 +1,13 @@
+# H.3 feature importance pipeline — Python sidecar deps.
+#
+# Install via:  pip install --user -r scripts/python/requirements.txt
+#
+# Pins are loose minimums — xgboost/sklearn/numpy/pandas have stable
+# APIs at these majors; we just need the methods that have existed for
+# years (DMatrix, XGBClassifier, roc_auc_score, train_test_split). The
+# H.3 driver tolerates minor-version drift gracefully.
+
+xgboost>=2.0
+scikit-learn>=1.3
+pandas>=2.0
+numpy>=1.24

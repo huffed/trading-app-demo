@@ -242,10 +242,28 @@ Items run in order, not in parallel.
   - H.3 — xgboost training (`computeAllFeatures` produces the row payload for each (algo, bar) training instance)
   - H.4 — Layer B axis composition (operator picks top-importance features from H.3, then sweeps with them as additional Layer B axes alongside the geometry axes)
 
-### H.3 — Feature importance via gradient boosting (3–4 days)
-- xgboost trained on next-4h-return-sign across all H.2 features + 14 pattern primitives
-- Python sidecar via subprocess (mature ecosystem; TS port is risky)
-- **Gate:** held-out AUC > 0.55; top-10 features identified
+### H.3 — Feature importance via gradient boosting (infrastructure ✅ COMPLETE 2026-06-23 / empirical AUC gate one operator command away)
+- **Pipeline shipped end-to-end:**
+  - `src/lib/features/patterns.ts` — 14 pattern primitives wrapped as Features returning a SIGNED value (+1 bullish / −1 bearish / 0 absent-or-ambiguous). Excludes the 3 gold-session-scoped patterns (gold_session_window, asian_range_break, post_news_window) which need session/news context the bar-level feature interface doesn't carry. Adds `pattern` as a new `FeatureCategory`.
+  - `src/lib/features/training-rows.ts` — pure `buildTrainingRows(bars, ctx?)` + `findHoldoutCutoff(bars, firstValidIdx, holdoutDays)` helpers. Label = sign of next-bar return (1 if next close > current, else 0). Skips: last bar (no label), all-null-feature rows (pre-lookback noise), broken-close rows (NaN, non-positive).
+  - `scripts/python/feature_importance.py` — Python sidecar. Reads JSON stdin, trains `xgboost.XGBClassifier` (n_estimators=200, max_depth=4, learning_rate=0.05, random_state=42 for determinism, tree_method=hist for Mac-compat), reports `auc_train` + `auc_holdout` + sorted feature_importance (by gain) + label-balance per split. Missing values handled natively by xgboost (no imputation needed — matches the H.2 null-on-insufficient-lookback contract).
+  - `scripts/python/requirements.txt` — xgboost ≥ 2.0, sklearn ≥ 1.3, pandas ≥ 2.0, numpy ≥ 1.24 (loose mins; APIs stable for years).
+  - `scripts/canonical/feature-importance.ts` — TS driver. Loads algo bars from price_cache, builds training rows over the full H.2 + H.3 feature set (now 48 features = 34 H.2 + 14 pattern), splits chronologically (default last 365 days = holdout, matches feedback_oos_cutoff_sweet_spot), spawns the Python sidecar via stdio JSON, prints AUC + top-K + verdict, persists results to `scripts/canonical/feature-importance-results.json` for H.4 consumption.
+- **Total feature library:** 48 features across 8 categories (H.2's 34 + H.3's 14 pattern primitives). FEATURES_BY_CATEGORY exposes the `pattern` category to FE/reports.
+- **Tests (16 new for H.3):**
+  - `features.test.ts` (+6 pattern-feature tests): pattern count = 14 (spec floor), signed-value contract (∈ {−1, 0, 1, null}), naming convention (`pattern_*_signed`), pattern_signed set matches the canonical 14, `computeAllFeatures` includes patterns in its row
+  - `training-rows.test.ts` (+10): empty/single-bar guards, label semantic (1 if next > cur else 0), skip-last-bar contract, broken-close handling, row structure (label ∈ {0,1}, features as record), holdout cutoff splits chronologically + ±1-bar accurate, determinism (same input → same cutoff), degenerate case (holdout > span → cutoff=0 → driver's min-split guard catches)
+- **Smoke verification:** Python sidecar smoke-tested with synthetic stdin against `python3 scripts/python/feature_importance.py`. Operator's Python 3.14 lacks xgboost (verified with explicit dep probes); the sidecar's missing-dep handler emits the EXACT documented install command (`pip install --user -r scripts/python/requirements.txt`) — clean install pointer, no cryptic ImportError stack.
+- **Gate (per spec): held-out AUC > 0.55 + top-10 features identified.** Infrastructure pass: pipeline end-to-end + deterministic + 16 unit tests. Empirical AUC measurement is **one operator command away**: `pip install --user -r scripts/python/requirements.txt && pnpm dlx tsx scripts/canonical/feature-importance.ts`. The driver prints PASS/FAIL verdict + persists the top-K to a JSON file H.4 consumes. The empirical pass is operator-gated only because the pip install is operator-machine-state-changing; no spec compromise.
+- **Downstream consumers:**
+  - H.4 — augments chosen algo with top-K features as Layer B axes (reads `feature-importance-results.json`)
+  - H.5 — quarterly research cycle re-runs the driver each cycle and tracks importance drift (the `random_state=42` + `n_jobs=1` determinism + persisted results file make cycle-to-cycle delta computation trivial)
+
+### H.3-execution — Empirical AUC measurement (operator-action, ~10 min, $0)
+- **Trigger:** operator runs `pip install --user -r scripts/python/requirements.txt && pnpm dlx tsx scripts/canonical/feature-importance.ts`
+- **Expected:** prints PASS/FAIL verdict against the 0.55 threshold + top-10 features ranked by gain + persists results JSON
+- **Calendar estimate:** ~5 min for pip install (downloads ~150MB of xgboost C++ wheels + numpy/sklearn deps) + ~30 sec for the training run on the v3 survivor's 6.4yr of XAU/USD 4h bars (~14k rows × 48 features = ~200K cells, trivial for xgboost). Total ~10 min wall-clock, $0 cost.
+- **Why operator-gated:** the pip install changes user-machine state (homebrew Python's site-packages). Per the operator's standing rules on actions visible-to-others / hard-to-reverse, machine-state changes get operator approval. Reversible via `pip uninstall xgboost scikit-learn pandas numpy` if the operator decides to remove.
 
 ### H.4 — Augment chosen algo with top features as composers (2 days)
 - New Layer B sweep on chosen algo's BASE with top-importance features added as filter axes

@@ -18,6 +18,7 @@ import { STRUCTURE_FEATURES } from "./structure";
 import { TIME_FEATURES } from "./time";
 import { VOLUME_FEATURES } from "./volume";
 import { CONTEXT_FEATURES } from "./context";
+import { PATTERN_FEATURES } from "./patterns";
 import type { PriceBar } from "@/lib/market-data/types";
 
 /** Synthetic bar generator — deterministic, no Date.now / Math.random
@@ -62,8 +63,13 @@ describe("feature library registry (H.2 gate)", () => {
       STRUCTURE_FEATURES.length +
       TIME_FEATURES.length +
       VOLUME_FEATURES.length +
-      CONTEXT_FEATURES.length;
+      CONTEXT_FEATURES.length +
+      PATTERN_FEATURES.length;
     expect(FEATURE_COUNT).toBe(sumByCategory);
+  });
+
+  it("pattern features count = 14 (H.3 spec: '14 pattern primitives')", () => {
+    expect(PATTERN_FEATURES.length).toBe(14);
   });
 
   it("every feature has unique name (no duplicates that would collide in training row)", () => {
@@ -459,5 +465,57 @@ describe("context features", () => {
     const sgn = CONTEXT_FEATURES.find((x) => x.name === "cross_asset_correlation_20")!.compute(BARS, 100, ctx);
     const abs = CONTEXT_FEATURES.find((x) => x.name === "cross_asset_correlation_abs_20")!.compute(BARS, 100, ctx);
     expect(abs).toBe(Math.abs(sgn!));
+  });
+});
+
+// ─── pattern features (H.3) ──────────────────────────────────────────
+
+describe("pattern features (H.3)", () => {
+  it("ships 14 pattern primitives — matches the H.3 spec count", () => {
+    expect(PATTERN_FEATURES.length).toBe(14);
+  });
+
+  it("all pattern features are signed (return ∈ {-1, 0, 1, null})", () => {
+    for (const f of PATTERN_FEATURES) {
+      const v = f.compute(BARS, 100);
+      // null is allowed (insufficient lookback / missing context for some patterns)
+      if (v === null) continue;
+      expect([-1, 0, 1]).toContain(v);
+    }
+  });
+
+  it("every pattern feature has the 'pattern_*_signed' naming convention", () => {
+    for (const f of PATTERN_FEATURES) {
+      expect(f.name).toMatch(/^pattern_[a-z_]+_signed$/);
+      expect(f.category).toBe("pattern");
+    }
+  });
+
+  it("pattern feature names match the canonical 14-pattern set (no extras, no missing)", () => {
+    const expected = new Set([
+      "pattern_liquidity_sweep_signed",
+      "pattern_liquidity_sweep_reclaim_signed",
+      "pattern_fvg_signed",
+      "pattern_ifvg_signed",
+      "pattern_daily_bias_signed",
+      "pattern_bos_signed",
+      "pattern_choch_signed",
+      "pattern_ote_signed",
+      "pattern_equal_levels_signed",
+      "pattern_order_block_signed",
+      "pattern_engulfing_signed",
+      "pattern_pin_bar_signed",
+      "pattern_momentum_signed",
+      "pattern_mean_reversion_signed",
+    ]);
+    const actual = new Set(PATTERN_FEATURES.map((f) => f.name));
+    expect(actual).toEqual(expected);
+  });
+
+  it("computeAllFeatures includes the pattern features in its output row", () => {
+    const row = computeAllFeatures(FEATURES, BARS, 200);
+    for (const f of PATTERN_FEATURES) {
+      expect(row).toHaveProperty(f.name);
+    }
   });
 });

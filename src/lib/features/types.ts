@@ -27,7 +27,8 @@ export type FeatureCategory =
   | "structure"
   | "time"
   | "volume"
-  | "context";
+  | "context"
+  | "pattern";
 
 /** Optional auxiliary inputs feature compute functions may need. None of
  *  these are required by every feature — a feature that doesn't use a
