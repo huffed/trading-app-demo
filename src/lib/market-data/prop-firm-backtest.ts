@@ -1,4 +1,9 @@
 import {
+  computeVolTargetNotional,
+  DEFAULT_ROLLING_WINDOW,
+  rollingPerTradeRStd,
+} from "@/lib/algorithm/vol-target-sizing";
+import {
   clampLotsToConstraints,
   getBacktestVolumeConstraints,
   getContractSize,
@@ -44,6 +49,14 @@ export interface SimState {
    *  (challenge-fail kill). Resets in finalizeDay so next session opens
    *  fresh. */
   entryHaltedToday: boolean;
+  /** Rolling buffer of closed-trade R-multiples (pnl / oneR-at-entry).
+   *  Populated by closeSimPosition when slDistance + notional are valid.
+   *  Read by sizeForBacktest's vol_target branch to compute rolling
+   *  stddev of per-trade R for the volatility-targeting denominator
+   *  (G.3). Bounded — only the most-recent rules.position_sizing.
+   *  rolling_window (default 20) entries matter; trim above 200 to
+   *  avoid unbounded growth in long backtests. */
+  rMultipleHistory: number[];
 }
 
 export interface SimConfig {
@@ -161,6 +174,26 @@ export function closeSimPosition(
   // resets on actual wins). Backtest now matches live: strict-positive
   // resets, strict-negative counts (with R-aware threshold), zero is
   // neutral (no streak change).
+  // G.3: capture per-trade R-multiple for the vol_target rolling stddev.
+  // Only valid when slDistance + notional + entryPrice define a real risk
+  // budget; broken-state positions (any of those ≤ 0) are skipped to avoid
+  // polluting the buffer with NaN / divergent values. Bounded cap stops
+  // unbounded growth on long backtests.
+  if (
+    pos.slDistance != null &&
+    pos.slDistance > 0 &&
+    pos.entryPrice > 0 &&
+    pos.notionalValue > 0
+  ) {
+    const oneRForHistory = pos.notionalValue * (pos.slDistance / pos.entryPrice);
+    if (oneRForHistory > 0) {
+      s.rMultipleHistory.push(pnl / oneRForHistory);
+      if (s.rMultipleHistory.length > R_MULTIPLE_HISTORY_CAP) {
+        s.rMultipleHistory.splice(0, s.rMultipleHistory.length - R_MULTIPLE_HISTORY_CAP);
+      }
+    }
+  }
+
   if (pnl > 0) {
     s.consecutiveLosses = 0;
   } else if (pnl === 0) {
@@ -267,8 +300,15 @@ export function initialSimState(capital: number): SimState {
     drawdownBreached: false,
     dailyPnl: {},
     entryHaltedToday: false,
+    rMultipleHistory: [],
   };
 }
+
+/** Bounded-buffer cap for the per-trade R-multiple rolling history.
+ *  20 is the default window; we keep up to 10× that so a future
+ *  `rolling_window: 200` config still has full data without unbounded
+ *  growth on long backtests (~10k+ trades). */
+const R_MULTIPLE_HISTORY_CAP = 200;
 
 /**
  * Called at the moment we cross to a new calendar day. Updates the
@@ -298,6 +338,16 @@ export function applySlippage(price: number, bps: number, isBuy: boolean): numbe
  * For lot-based sizing notional = lots × contractSize × price and
  * margin = notional / leverage.
  */
+/** Caller-supplied context for the vol_target sizing branch.
+ *  `instrumentVolPct` is ATR(14)/price at entry; `rMultipleHistory`
+ *  is the running buffer from SimState (typically `s.rMultipleHistory`).
+ *  Required when `rules.position_sizing.type === "vol_target"`; ignored
+ *  for every other sizing type. */
+export interface VolTargetBacktestContext {
+  instrumentVolPct: number;
+  rMultipleHistory: readonly number[];
+}
+
 export function sizeForBacktest(
   rules: AlgorithmRules,
   equity: number,
@@ -310,9 +360,39 @@ export function sizeForBacktest(
    *  derived from the rule + entry price alone. For percentage / fixed
    *  / pips rules, omitting this is fine — the function falls back to
    *  ruleAsPctOfEntry which handles those types deterministically. */
-  slDistanceOverride?: number
+  slDistanceOverride?: number,
+  /** G.3 vol_target context. Required when sizing.type === "vol_target";
+   *  ignored otherwise. When the sizing type is vol_target AND this is
+   *  missing, returns notional=0 (caller treats as skip — matches the
+   *  "broken sizing config → don't enter" pattern). */
+  volTargetCtx?: VolTargetBacktestContext
 ): { notional: number; margin: number } {
   const sizing = rules.position_sizing;
+  // G.3 vol_target branch: dispatch to the canonical formula in
+  // src/lib/algorithm/vol-target-sizing.ts. Requires volTargetCtx (ATR
+  // ratio + R-multiple buffer); without it the caller's wiring is
+  // incomplete — return 0 notional so the entry is skipped + a future
+  // backtest re-run with proper wiring is required (loud-fail at the
+  // metric level, not a silent fall-through to a different sizing rule).
+  if (sizing?.type === "vol_target") {
+    if (!volTargetCtx) {
+      return { notional: 0, margin: 0 };
+    }
+    const window = sizing.rolling_window ?? DEFAULT_ROLLING_WINDOW;
+    const perTradeRStd = rollingPerTradeRStd(volTargetCtx.rMultipleHistory, window);
+    const result = computeVolTargetNotional({
+      capital: equity,
+      target_vol_pct: sizing.value / 100, // convert pct (5) → fraction (0.05)
+      per_trade_r_std: perTradeRStd,
+      instrument_vol_pct: volTargetCtx.instrumentVolPct,
+      min_vol_floor: sizing.min_vol_floor,
+    });
+    // Apply the same effective-leverage cap as the lot path so backtest
+    // doesn't underestimate margin relative to real broker enforcement.
+    const requested = rules.leverage ?? 30;
+    const effectiveLeverage = rules.prop_firm ? Math.min(requested, 30) : requested;
+    return { notional: result.notional, margin: result.notional / effectiveLeverage };
+  }
   if (
     sizing?.type === "lots" ||
     sizing?.type === "risk_per_trade" ||

@@ -143,7 +143,8 @@ export interface PositionSizing {
     | "fixed_quantity"
     | "lots"
     | "risk_per_trade"
-    | "conviction_scaled";
+    | "conviction_scaled"
+    | "vol_target";
   /**
    * Interpretation depends on type:
    *  - percentage_of_capital: % of equity (e.g. 16 → 16%)
@@ -164,6 +165,16 @@ export interface PositionSizing {
    *    came from his highest-conviction trades. Falls back to flat
    *    risk_per_trade behaviour for `all` / `any` entry_logic where
    *    "k of M conditions" isn't a meaningful conviction signal.
+   *  - vol_target: target portfolio volatility, %. Position notional =
+   *    `capital × value/100 / max(per_trade_R_std × instrument_vol_pct,
+   *    min_vol_floor)`. Inverse-vol scaling: high-vol instrument → smaller
+   *    position. Adapts to regime changes automatically without re-fitting
+   *    the algo. `per_trade_R_std` is the rolling stddev of the algo's
+   *    recent R-multiples (warmup fallback 1.0 used when fewer than 2
+   *    historical trades); `instrument_vol_pct` is ATR(14)/price. Optional
+   *    `min_vol_floor` (default 0.002) prevents explosive sizing on quiet
+   *    bars. See `src/lib/algorithm/vol-target-sizing.ts` for the canonical
+   *    implementation.
    */
   value: number;
   /**
@@ -187,6 +198,19 @@ export interface PositionSizing {
    * agreement signal possible).
    */
   conviction_metric?: "condition_count" | "tf_agreement";
+  /**
+   * `vol_target` only. Denominator floor (dimensionless fraction; 0.002 =
+   * 0.2%). Caps notional at `capital × value/100 / min_vol_floor` even
+   * when raw `per_trade_R_std × instrument_vol_pct` goes below it. Default
+   * 0.002 (= 25× capital ceiling at target_vol=5%).
+   */
+  min_vol_floor?: number;
+  /**
+   * `vol_target` only. Rolling-window length for per-trade R stddev.
+   * Default 20 (DEFAULT_ROLLING_WINDOW in vol-target-sizing.ts). Smaller
+   * = faster regime adaptation; larger = stabler.
+   */
+  rolling_window?: number;
 }
 
 export interface PropFirmRules {

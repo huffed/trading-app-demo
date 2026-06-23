@@ -397,6 +397,27 @@ export const algorithmRulesSchema = z.object({
       // for the curve.
       conviction_metric: z.enum(["condition_count", "tf_agreement"]).optional(),
     }),
+    z.object({
+      type: z.literal("vol_target"),
+      // Target portfolio volatility as percent (e.g. 5 → 5%). Above 20%
+      // is well outside any sane prop-firm or institutional target — flag
+      // as a unit error (consistent with risk_per_trade's 5% cap pattern
+      // but a wider window because vol_target is itself a position-vol
+      // target, not a per-trade loss budget).
+      value: z
+        .number()
+        .positive()
+        .max(20, "vol_target target_vol_pct above 20% is almost certainly a unit error"),
+      // Denominator floor (dimensionless fraction). Default 0.002 = 0.2%.
+      // Max 0.05 (5%) — beyond that vol_target degenerates into a fixed-%
+      // sizing roughly equal to target_vol_pct / min_vol_floor, defeating
+      // the inverse-vol logic.
+      min_vol_floor: z.number().positive().max(0.05).optional(),
+      // Rolling window for per-trade R stddev. Min 5 (statistical floor),
+      // max 200 (beyond that the algo's regime memory dominates current
+      // dispersion).
+      rolling_window: z.number().int().min(5).max(200).optional(),
+    }),
   ]),
   max_positions: z.number().int().positive(),
   max_per_ticker: z.number().int().positive().optional(),

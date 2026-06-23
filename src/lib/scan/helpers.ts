@@ -48,6 +48,19 @@ export function calculatePositionSize(
 
   const sizing = rules.position_sizing;
 
+  // G.3: vol_target sizing is backtest-only until live-path wire-up lands
+  // (filed as roadmap item G.3-followup). Throw loudly here so an algo
+  // wired with vol_target rules can't accidentally activate live and
+  // silently fall through to a different sizing model. The v3 survivor
+  // (Engulfing rr3_lb6_r06) uses risk_per_trade, so this guard doesn't
+  // block the demo deploy path.
+  if (sizing.type === "vol_target") {
+    throw new Error(
+      "vol_target position_sizing is backtest-only (G.3); live-path wire-up pending. " +
+        "Switch to risk_per_trade or wait for G.3-followup before activating this algo.",
+    );
+  }
+
   if (
     sizing.type === "lots" ||
     sizing.type === "risk_per_trade" ||

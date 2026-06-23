@@ -50,6 +50,7 @@ function makeSimState(equity = 10000): SimState {
     totalSlippage: 0,
     totalCommission: 0,
     entryHaltedToday: false,
+    rMultipleHistory: [],
   };
 }
 

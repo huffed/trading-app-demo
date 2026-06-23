@@ -968,6 +968,12 @@ function tryOpenEntry(
       ? { side, entryDate: state.bars[i].date, dailyBars: state.higherTfBars }
       : undefined
   );
+  // G.3: vol_target sizing needs ATR(14)/price + the rolling R-multiple
+  // buffer. Computed once at entry and passed through; sizeForBacktest
+  // returns notional=0 when sizing.type !== "vol_target" needs no context,
+  // so the cost of always passing this is one ATR lookup per entry — cheap.
+  const atrAtEntry = atr14(state.bars, i);
+  const instrumentVolPct = atrAtEntry !== null && entryPrice > 0 ? atrAtEntry / entryPrice : 0;
   const sized = sizeForBacktest(
     rules,
     s.equity,
@@ -975,7 +981,8 @@ function tryOpenEntry(
     ticker,
     cfg,
     convictionMult,
-    slDistance
+    slDistance,
+    { instrumentVolPct, rMultipleHistory: s.rMultipleHistory }
   );
   const freeMargin = s.equity - s.marginUsed;
   if (sized.margin > freeMargin || sized.notional <= 0) return;

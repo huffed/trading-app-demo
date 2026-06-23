@@ -120,11 +120,33 @@ protects it. We don't want a Tier 2 algo deployed under Tier 4 monitoring.
 - **CLAUDE.md cron section** grew an "Alert channels (G.2)" subsection with the 4-step ntfy.sh setup runbook + gate validation command.
 - **Gate:** test alert reaches operator's phone within 5 minutes. ✓ Operator-actionable via the 4-step runbook in CLAUDE.md. The CI side of the gate (alert is published to ntfy.sh) is fully automated; phone-side delivery is whatever ntfy.sh + the operator's app/data subscription give them (typically <5 sec).
 
-### G.3 — Build vol-targeting sizing (1 day)
-- New `position_sizing.type = "vol_target"` option in `AlgorithmRules` + Zod schema + backtest engine handler
-- **Math:** `position_notional = capital × target_vol_pct / max(per_trade_R_std × instrument_vol_pct, MIN_VOL_FLOOR)`
-- Validate via re-backtest of chosen candidate
-- **Gate:** ≥10% Sharpe improvement OR documented why not. Subsumes old Phase D.2.
+### G.3 — Build vol-targeting sizing ✅ COMPLETE (built + documented-why-not) 2026-06-23
+- **Built:** `src/lib/algorithm/vol-target-sizing.ts` (pure math + `computeVolTargetNotional` + `rollingPerTradeRStd`); `position_sizing.type = "vol_target"` added to `AlgorithmRules` discriminated union + Zod validator (with `min_vol_floor` ≤ 0.05 + `rolling_window` 5–200 bounds); wired into `sizeForBacktest` (prop-firm-backtest.ts) + `SimState.rMultipleHistory` rolling buffer populated by `closeSimPosition` (cap 200, R = pnl/oneR per trade); portfolio-backtest's entry path computes ATR(14)/price and passes `volTargetCtx`. Live `calculatePositionSize` (scan/helpers.ts) throws on `vol_target` so an algo can't silently activate without the live-path wire-up (deferred — see G.3-followup below).
+- **Tests:** 24 unit tests (14 vol-target-sizing.test.ts + 10 prop-firm-backtest-vol-target.test.ts) — spec formula, warmup fallback, min-vol-floor binding semantics, R-buffer population + cap, leverage clamp, missing-volTargetCtx loud-fail.
+- **Validation script:** `scripts/canonical/vol-target-ab-validate.ts` — A/B compares risk_per_trade vs vol_target on the SAME algo / SAME bars / SAME data window. Pure-read; vol_target swap is in-memory only.
+- **Empirical result on the v3 survivor (Engulfing rr3_lb6_r06, XAU/USD 4h, 6.4yr in-sample):**
+
+  | target_vol_pct | total_return | static_dd | Sharpe | Sharpe Δ |
+  |---|---|---|---|---|
+  | baseline rpt=0.6% | $5,908 | 6.31% | **0.26** | — |
+  | vol_target 0.3% | $2,951 | 3.66% | 0.26 | 0.0% |
+  | vol_target 0.5% | $5,329 | 6.67% | 0.26 | 0.0% |
+  | vol_target 0.7% | $8,089 | 10.20% | 0.25 | −3.8% |
+  | vol_target 1.0% | $13,063 | 16.55% | 0.25 | −3.8% |
+  | vol_target 1.5% | $24,079 | 30.43% | 0.24 | −7.7% |
+  | vol_target 2.0% | $38,628 | 49.23% | 0.23 | −11.5% |
+  | vol_target 5.0% | $257,186 | 545.13% | 0.16 | −38.5% |
+
+- **Gate verdict: FAIL on Sharpe-improvement (none achievable); PASS via the "OR documented why not" clause.** Sharpe is essentially FLAT across the full sweep (0.23–0.26) — vol_target just scales the position size + return + DD proportionally without changing the per-trade risk-adjusted return. At target=0.5% the two methods produce nearly identical equity curves (return $5329 vs $5908; DD 6.67% vs 6.31%; Sharpe identical 0.26).
+- **Why vol_target didn't help (structural):** `risk_per_trade` already achieves volatility-targeting through its SL-distance mechanism — when a structural-SL geometry like swing_anchor lookback=6 widens the SL on a high-ATR bar, the derived lot count shrinks proportionally, keeping the per-trade dollar risk constant at `capital × 0.6%`. Layering inverse-vol scaling on top is redundant for single-instrument SL-aware algos. The canonical vol-target win is in MULTI-instrument portfolios where it equalises risk contribution across uncorrelated instruments.
+- **Subsumes old Phase D.2** ✓
+- **What this means for the demo deploy:** Engulfing rr3_lb6_r06 stays on `risk_per_trade=0.6%`. vol_target stays available in the codebase but is not on the deploy path — operator can swap it in if/when a multi-instrument portfolio reaches deploy stage.
+
+### G.3-followup — Live-path wire-up of vol_target (filed 2026-06-23, deferred)
+- **What:** `src/lib/scan/helpers.ts:calculatePositionSize` currently throws on `vol_target` (loud-fail to prevent silent activation). Live-path implementation needs: (a) ATR(14)/price compute from cached bars, (b) recent N closed-position R-multiples query from `paper_positions` for the algo, (c) wire into `calculatePositionSize` mirroring the backtest pattern.
+- **Why deferred:** the demo-stage v3 survivor uses `risk_per_trade`, AND the empirical G.3 result showed vol_target doesn't beat risk_per_trade on this single-instrument algo. Wire-up is only needed when (i) a multi-instrument portfolio reaches deploy (Phase I.4 territory) AND (ii) operator actively chooses vol_target sizing for it.
+- **Trigger condition:** any algo with `position_sizing.type = "vol_target"` proposed for un-pause. If/when that happens, lift the throw + implement; gated by the same A/B sharpe-improvement comparison.
+- **Where it fits in the active roadmap:** below G.5 in Phase G priority (build infra), OR Phase I.4 (multi-instrument R&D), whichever fires first. Listed here so it doesn't drift off the radar.
 
 ### G.4 — Build alpha decay monitoring (1–2 days)
 - New cron `scripts/alpha-decay-cron.sh` (daily 09:00 UTC) + `src/lib/cohort/alpha-decay.ts` shared module + `/reports?tab=drift` integration (extends existing drift surface)
