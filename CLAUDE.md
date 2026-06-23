@@ -408,6 +408,7 @@ Live cron entrypoints (operator's crontab):
 - `oanda-positioning-cron.sh` (every 20 min) → `/api/admin/snapshot-oanda-positioning?instruments=XAU_USD`
 - `prune-sentiment-cache-cron.sh` (daily 04:00 UTC) → `/api/admin/prune-sentiment-cache`
 - `alpha-decay-cron.sh` (daily 09:00 UTC) → `/api/cron/alpha-decay` (G.4 — rolling 30d/90d Sharpe vs in-sample baseline; auto-pauses any active algo whose decay sustains across both windows. 0-active-algos no-op safe.)
+- `walk-forward-opt-cron.sh` (monthly 1st at 06:00 UTC) → `/api/cron/wfo?dry_run=1` (G.5 — re-runs Layer B 96-variant sweep on rolling 12mo window per active algo; UPDATEs `algorithms.rules` + writes `wfo_rules_updated` audit event when best-by-DSR > current + 0.05 buffer AND geometry differs. DRY_RUN=1 is the conservative default; operator flips the crontab URL query to `?dry_run=0` after 2-3 dry cycles confirm parameters don't flap month-to-month. Implements REV 2 (Layer B becomes diagnostic-only) + REV 4 (static deployment → walk-forward-optimized) per `scripts/canonical/ROADMAP.md`.)
 
 Each emits `manage_tick` / `scan_started` + `scan_completed` events to `activity_log` so liveness is verifiable on no-op ticks. With 0 active algos the scan + manage crons emit `cron_idle` instead (SG.19; `src/lib/scan/cron-idle.ts` + migration 00046) — keeps the dead-man switch + dashboard heartbeat rail showing "idle ✓" rather than "stale ✗" during the demo gap before un-pause.
 

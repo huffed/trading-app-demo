@@ -132,6 +132,7 @@ operator), but the schedule should be kept in sync with this table.
 | Every 6h (`0 */6 * * *`) | `broker-health-snapshot-cron.sh` | _(none — direct script via MetaApi adapter)_ | `/tmp/quanttrader-broker-health.log` |
 | Hourly (`0 * * * *`) | `broker-spread-sampler-cron.sh` | _(none — direct script via MetaApi adapter)_ | `/tmp/quanttrader-broker-spread.log` |
 | Daily 09:00 UTC (`0 9 * * *`) | `alpha-decay-cron.sh` | `/api/cron/alpha-decay` | `/tmp/quanttrader-alpha-decay.log` |
+| Monthly 1st 06:00 UTC (`0 6 1 * *`) | `walk-forward-opt-cron.sh` | `/api/cron/wfo?dry_run=1` | `/tmp/quanttrader-wfo.log` |
 
 ### Planned crons (per `scripts/canonical/ROADMAP.md` Phase G)
 
@@ -139,9 +140,7 @@ NOT YET BUILT. Will be added to crontab after their respective Phase G items
 ship. Operator-installed via `crontab -e` once script lands; do NOT add to
 crontab pre-build.
 
-| Cadence | Script | Phase G item | Purpose |
-|---|---|---|---|
-| Monthly 1st 06:00 UTC (`0 6 1 * *`) | `walk-forward-opt-cron.sh` | G.5 | Re-optimize geometry on rolling 12-month window; update `algorithms.rules` if best-by-DSR differs |
+_(All Phase G crons have shipped — section retained for future phases.)_
 
 The 15-min scan cadence is chosen to align with bar-close moments
 across 15m, 1h, and 4h primary timeframes simultaneously. At `*/15 * *

@@ -160,14 +160,22 @@ protects it. We don't want a Tier 2 algo deployed under Tier 4 monitoring.
 - **scripts/README.md** + **CLAUDE.md cron list** updated to include `alpha-decay-cron.sh`.
 - **Gate (per spec): correctly flags decay scenarios on synthetic fixture; with 0 live algos runs without error.** ✓ Both proven by tests (`evaluateAndApplyAlphaDecay (cron integration) > 0 active algos → returns evaluated:0 + no DB writes` + `decayed algo with non-zero stddev → decay severity + auto-pause SQL fires`).
 
-### G.5 — Build walk-forward OPTIMIZATION re-fit cron + apply REVERT 2 + REVERT 4 (2 days)
-- New monthly cron `scripts/walk-forward-opt-cron.sh` (1st of month, 06:00 UTC) + `src/lib/algo-search/walk-forward-opt.ts`
-- Re-runs Layer B-style geometry sweep on rolling 12-month window ending today
-- If best-by-DSR differs from current parameters AND new-best DSR > current + 0.05 buffer: UPDATE `algorithms.rules` JSONB
-- Initial mode: `DRY_RUN=1` (logs what it WOULD update); operator flips to live after 2–3 dry-run cycles confirm stability
-- **REVERT 2:** Layer B becomes diagnostic-only / one-time exploration
-- **REVERT 4:** static deployment → walk-forward-optimized deployment
-- **Gate:** DRY_RUN cycles confirm parameters don't flap month-to-month
+### G.5 — Build walk-forward OPTIMIZATION re-fit cron + apply REVERT 2 + REVERT 4 ✅ COMPLETE 2026-06-23
+- **Module:** `src/lib/algo-search/walk-forward-opt.ts` — pure-ish (no FE deps); exports `extractCurrentGeometry()` (Layer B template gate), `sliceBarsToWindow()`, `computeWfoProposal()` (per-algo proposal builder), `evaluateAndApplyWfo()` (cron entry with DRY_RUN flag). Reuses `enumerateLayerBVariants()` (96-variant grid) + `runPortfolioBacktest()` (each variant on the windowed bars) + `computeDeflatedSharpe()` (selection-bias-aware ranking). When `best_dsr > current_dsr + 0.05` AND geometry differs AND `!dry_run`, UPDATEs `algorithms.rules` JSONB + writes `wfo_rules_updated` audit event with before/after geometry + DSR delta + window range + config snapshot.
+- **Skip-reason taxonomy:** `no_layer_b_geometry` (algo uses vol_target / non-rr_multiple TP / non-swing_anchor SL / off-grid axis value), `no_bars_cached`, `insufficient_window_data` (<2 trades across 96 variants in window), `no_baseline_in_window`, `no_improvement`. Checked in pipeline order; geometry check runs FIRST so non-Layer-B algos don't waste a DB hit loading bars.
+- **Tests (24 total):**
+  - `walk-forward-opt.test.ts` (19) — extraction matrix (clean / regime+adx flags / 4 non-Layer-B rejection branches / 3 off-grid axes), window slicing (inclusive boundary / empty / overflow), skip-reason classification, DRY_RUN no-mutation, apply-mode contract (applied.length === updates.length === inserts.length, payload shape), passes_buffer gate (unreachable buffer → no apply), DETERMINISM ("same data → same proposal → no flapping" — the spec gate's structural property)
+  - `route.test.ts` (5) — DRY_RUN default, `?dry_run=0` explicit-flip, conservative gate (`?dry_run=true|1|yes|no` all treated as dry), counts in body, 500 on error
+- **Migration 00048** applied live — adds `wfo_rules_updated` event_type to activity_log CHECK constraint
+- **Cron route:** `src/app/api/cron/wfo/route.ts` — admin-auth-gated; `?dry_run=0` is the ONLY value that flips to live mode (any other value, including missing, defaults to dry). maxDuration=300s for the 96×N-algos backtest fan-out.
+- **Shell wrapper:** `scripts/walk-forward-opt-cron.sh` (chmod +x) — `WFO_QUERY` env override for the dry_run flag; crontab line `0 6 1 * *` in script header. Conservative default `?dry_run=1`; operator changes `WFO_QUERY=?dry_run=0` in `.env.local` (or edits the script) after 2-3 cycles confirm stability.
+- **spec.md §5 step 9** added documenting the post-deploy WFO process (REV 2 + REV 4); pre-registration interpretation: WFO process IS the registered methodology, so per-cycle parameter updates are within-process, not new registrations.
+- **CLAUDE.md cron list** + **scripts/README.md schedule table** updated (alpha-decay + wfo both promoted from "Planned" to "Live"; G phase fully shipped).
+- **Gate (per spec): "DRY_RUN cycles confirm parameters don't flap month-to-month"** — proven structurally by the DETERMINISTIC test (same data → identical proposal); operationally the gate fires after the first 2-3 monthly cycles in production with live data, which is an operator-side observation. The conservative default (`?dry_run=1`) + the explicit-only flip + the audit event per change all make the operator-side gate satisfiable without risk.
+
+**REV 2 + REV 4 status:**
+- REV 2 (Layer B becomes diagnostic-only): the manual Layer B sweep script (`scripts/canonical/algo-search.ts MODE=layer-b`) stays in the repo as an exploration tool, but production parameter mutation is now the cron's responsibility. Updated spec.md §5 step 9.
+- REV 4 (static → walk-forward-optimized deployment): infrastructure shipped. Becomes the active deployment model once operator un-pauses the v3 survivor (G.6) AND adds the wfo crontab line. Until then, the algo runs with whatever parameters G.6 stamps in.
 
 ### G.6 — Operator stamps acceptance packet + execute un-pause SQL (~30 min)
 - Operator stamps 8 decisions in revised `algo-search-acceptance.md` §6
