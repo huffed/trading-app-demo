@@ -6,8 +6,9 @@ import { CohortTab } from "@/components/reports/cohort-tab";
 import { DriftTab } from "@/components/reports/drift-tab";
 import { EligibilityTab } from "@/components/reports/eligibility-tab";
 import { EngineActivityTab } from "@/components/reports/engine-activity-tab";
+import { SearchTab } from "@/components/reports/search-tab";
 
-type Tab = "activity" | "eligibility" | "cohort" | "drift" | "brokers";
+type Tab = "activity" | "eligibility" | "cohort" | "drift" | "brokers" | "search";
 
 export default function ReportsPage() {
   const [tab, setTab] = useState<Tab>("activity");
@@ -22,7 +23,8 @@ export default function ReportsPage() {
           surfaces per-cohort expectancy + decay flags + shadow-gate candidates (SG.6). Drift
           surfaces per-algo performance decay vs backtest baseline + recent halt/warn events
           (SG.5). Brokers surfaces token expiry / stale sync / sibling risk divergence /
-          snapshot drift alerts (SG.9).
+          snapshot drift alerts (SG.9). Search shows the quant-firm-grade systematic search
+          state — enumerated universe, per-criterion blockers, survivor list.
         </p>
       </div>
 
@@ -42,6 +44,9 @@ export default function ReportsPage() {
         <TabButton active={tab === "brokers"} onClick={() => setTab("brokers")}>
           Brokers
         </TabButton>
+        <TabButton active={tab === "search"} onClick={() => setTab("search")}>
+          Search
+        </TabButton>
       </div>
 
       {tab === "activity" && <EngineActivityTab />}
@@ -49,6 +54,7 @@ export default function ReportsPage() {
       {tab === "cohort" && <CohortTab />}
       {tab === "drift" && <DriftTab />}
       {tab === "brokers" && <BrokersTab />}
+      {tab === "search" && <SearchTab />}
     </div>
   );
 }

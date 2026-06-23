@@ -1,5 +1,6 @@
 "use server";
 
+import { buildSearchState, type SearchState } from "@/lib/algo-search/state";
 import {
   buildBrokerHealthSummary,
   type BrokerHealthOptions,
@@ -141,6 +142,33 @@ export async function getBrokerHealthAction(
     return { success: true, data };
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Broker health query failed";
+    return { success: false, error: msg };
+  }
+}
+
+/**
+ * Algorithm-search state for the /reports Search tab. Aggregates the
+ * Layer A universe (enumerated via the shared `src/lib/algo-search/`
+ * lib) against the persisted `algorithms.backtest_results` rows whose
+ * name starts with the `Search:` prefix. Returns per-criterion blocker
+ * counts + survivor list so the operator can see WHY most of the search
+ * isn't surviving, not just the headline survivor count.
+ *
+ * RLS-scoped via the user's server-side supabase client. Pure-read; never
+ * triggers the sweep itself (operator launches via the script).
+ */
+export async function getAlgoSearchStateAction(): Promise<ActionResult<SearchState>> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { success: false, error: "Not authenticated" };
+
+  try {
+    const data = await buildSearchState(supabase);
+    return { success: true, data };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Algo-search state query failed";
     return { success: false, error: msg };
   }
 }

@@ -1,6 +1,8 @@
 # Stage 5.0 — Re-deploy decision packet
 
-**Status:** AWAITING OPERATOR (Stage 5.0 is a personal-risk decision gate; nothing below substitutes for the operator's call).
+> ⚠ **SUPERSEDED 2026-06-23 by Phase E / Stage 6 (`scripts/canonical/algo-search-2026-06-23.spec.md`).** Operator stance 2026-06-23: "start the algo search from scratch ... imagine we're a quant firm looking to find the peak." The single Stage 5.0 survivor (`Library: Gold FVG-DailyBias-Long 4h`, id `5f99ca15-...`) was archived along with the other 16 Library algos. The 4 pre-registrations moved to `scripts/canonical/preregistration.archive.json`. This packet is reference-only: it documents the framework that will be re-applied per Phase E survivor as `STAGE_E_ACCEPTANCE_PACKET.md` (one packet per survivor or one packet for the portfolio set, decided at Stage 6.7). Read the Phase E spec for the active deployment path.
+
+**Status:** REFERENCE-ONLY (was: AWAITING OPERATOR). Active deployment gate now at Stage 6.7.
 
 **Compiled:** 2026-06-22 NIGHT LATE
 **Validator verdict source:** `algorithms.backtest_results` JSONB, last computed 2026-06-20T12:50Z (`PERSIST=1 pnpm dlx tsx scripts/canonical/validate-algo.ts`).
