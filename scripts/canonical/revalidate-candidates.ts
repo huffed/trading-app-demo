@@ -1,23 +1,45 @@
 /**
- * Phase F.4 (ROADMAP.md) — re-evaluate the 3 candidate variants under v3
- * methodology: Deflated Sharpe Ratio + Probability of Backtest Overfitting
- * + (already-persisted) purged k-fold CV.
+ * Re-validate selected candidates under deflated statistics — DSR + PBO +
+ * (already-persisted) purged k-fold CV.
  *
- * Why a separate script (not modify validate-algo):
- *   - validate-algo evaluates ONE algo at a time; DSR + PBO require
- *     CROSS-SIBLING data (the family of 96 Layer B variants per base).
- *   - Re-running portfolio-backtest for all 192 variants (2 bases × 96)
- *     captures the per-trade returns needed for DSR (skewness/kurtosis)
- *     + the per-period returns needed for PBO (CSCV matrix).
- *   - validate-algo's existing PERSIST=1 KFOLD=5 invocation handles the
- *     purged_kfold sub-block; this script reads it back from JSONB.
+ * Generic: takes any set of algo names via the TARGETS env var. Auto-derives
+ * each target's "family" (the trial pool that determines selection-bias N for
+ * DSR + the variant set for PBO's CSCV) from the name pattern. Re-runs
+ * portfolio-backtest per family member to capture per-trade returns + per-
+ * period returns matrix, then computes:
+ *   - DSR (selection-bias-adjusted Sharpe; Bailey & López de Prado 2014)
+ *   - PBO via CSCV (overfit probability; Bailey/Borwein/Prado/Zhu 2014)
+ *   - Reads existing purged_kfold from JSONB (already populated by validate-
+ *     algo when run with KFOLD=N; this script does NOT re-run that)
  *
- * Persistence: writes `statistical_rigor.deflated` sub-block to each of
- * the 3 SELECTED variants' `algorithms.backtest_results` JSONB. Idempotent
- * — re-running overwrites the deflated block with fresh stats.
+ * Persists a `statistical_rigor.deflated` sub-block to each target's
+ * `algorithms.backtest_results` JSONB. Idempotent — re-running overwrites.
  *
- * Wall clock: ~16 minutes for 192 backtests at ~5s each (gold 4h ~6yr).
- * Run as: `pnpm dlx tsx scripts/canonical/phase-f-revalidate.ts`
+ * Used by:
+ *   - operator on demand (Stage 6.7-style candidate re-validation)
+ *   - future walk-forward-opt cron (ROADMAP G.5) when evaluating refit candidates
+ *   - any time selection-bias-adjusted stats are needed for a candidate set
+ *
+ * Family auto-derivation from target name:
+ *   "X | tag"   → family pattern "X | %"   (LayerB-style geometry variants)
+ *   "X"         → family pattern "X | %"   (treats name as base prefix)
+ *   FAMILY_FOR_<index> env override available for arbitrary mappings (1-indexed)
+ *
+ * Usage:
+ *   TARGETS="LayerB: XAU/USD BOS-Long 4h | rr3_lb3_r06_rf0_af0" \
+ *     pnpm dlx tsx scripts/canonical/revalidate-candidates.ts
+ *
+ *   # Multiple targets (auto-grouped by family):
+ *   TARGETS="A | rr3,A | rr5,B | rr3" pnpm dlx tsx ...
+ *
+ *   # Adjust PBO CSCV split count (default 8 → C(8,4)=70 combinations):
+ *   NSPLITS=10 TARGETS=... pnpm dlx tsx ...
+ *
+ *   # Dry-run (compute + print but don't write JSONB):
+ *   PERSIST=0 TARGETS=... pnpm dlx tsx ...
+ *
+ * Wall clock: ~5s per family-variant backtest. For a 96-variant family,
+ * one family ≈ 8 min. Multiple families processed sequentially.
  */
 import { readFileSync } from "fs";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
@@ -45,25 +67,10 @@ import type { AlgorithmRules } from "../../src/types/algorithm";
   } catch {}
 }
 
-/** The 3 v3-evaluation targets per ROADMAP.md F.4. Each is the
- *  Calmar-best variant of its respective base from the Layer B sweep. */
-const TARGETS = [
-  {
-    variant_name: "LayerB: XAU/USD Engulfing-Long 4h | rr3_lb6_r06_rf0_af0",
-    family_prefix: "LayerB: XAU/USD Engulfing-Long 4h | ",
-  },
-  {
-    variant_name: "LayerB: XAU/USD Engulfing-Long 4h | rr5_lb6_r1_rf0_af0",
-    family_prefix: "LayerB: XAU/USD Engulfing-Long 4h | ",
-  },
-  {
-    variant_name: "LayerB: XAU/USD BOS-Long 4h | rr3_lb3_r06_rf0_af0",
-    family_prefix: "LayerB: XAU/USD BOS-Long 4h | ",
-  },
-] as const;
-
-const N_SPLITS = 8;
+const NSPLITS = Number(process.env.NSPLITS ?? 8);
+const PERSIST = process.env.PERSIST !== "0";
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+const FAMILY_DELIM = " | ";
 
 interface VariantRow {
   id: string;
@@ -77,7 +84,7 @@ interface VariantStats {
   trades: BacktestTrade[];
   sharpe: number;
   perTradeR: number[];
-  weeklyReturns: number[]; // common time grid for PBO matrix
+  weeklyReturns: number[];
   riskDollars: number;
 }
 
@@ -86,11 +93,20 @@ function requireEnv(): { url: string; key: string } {
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !key) {
     throw new Error(
-      "phase-f-revalidate requires NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY (preferred) " +
-      "or NEXT_PUBLIC_SUPABASE_ANON_KEY in .env.local.",
+      "revalidate-candidates requires NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY " +
+        "(preferred) or NEXT_PUBLIC_SUPABASE_ANON_KEY in .env.local.",
     );
   }
   return { url, key };
+}
+
+/** Derive family-pattern (SQL LIKE pattern) from a target name. */
+function deriveFamilyPattern(name: string, indexOneBased: number): string {
+  const override = process.env[`FAMILY_FOR_${indexOneBased}`];
+  if (override) return override;
+  const delimIdx = name.lastIndexOf(FAMILY_DELIM);
+  const base = delimIdx > 0 ? name.slice(0, delimIdx) : name;
+  return `${base}${FAMILY_DELIM}%`;
 }
 
 async function loadBars(
@@ -125,8 +141,6 @@ function sharpeFromTrades(trades: BacktestTrade[], riskDollars: number): number 
   return std === 0 ? 0 : mean / std;
 }
 
-/** Build per-week R series for a variant's trades. Common time grid is
- *  computed once across the family + passed in so all variants align. */
 function buildWeeklyReturns(
   trades: BacktestTrade[],
   riskDollars: number,
@@ -146,24 +160,40 @@ function buildWeeklyReturns(
 
 function riskDollarsFor(rules: AlgorithmRules, capital: number): number {
   const sizing = rules.position_sizing;
-  if (sizing?.type === "risk_per_trade") {
-    return capital * (sizing.value / 100);
-  }
-  // Fall back to 1% if not risk_per_trade (rare in our v2 enumerator).
+  if (sizing?.type === "risk_per_trade") return capital * (sizing.value / 100);
   return capital * 0.01;
+}
+
+function stdOf(values: number[]): number {
+  if (values.length < 2) return 0;
+  let sum = 0;
+  for (const v of values) sum += v;
+  const mean = sum / values.length;
+  let m2 = 0;
+  for (const v of values) m2 += (v - mean) ** 2;
+  return Math.sqrt(m2 / values.length);
+}
+
+/** Extract ticker from canonical naming convention:
+ *  "Search: TICKER PATTERN-SIDE TF" → TICKER
+ *  "LayerB: TICKER PATTERN-SIDE TF | tag" → TICKER */
+function extractTicker(name: string): string {
+  const noPrefix = name.replace(/^(Search|LayerB):\s*/, "");
+  const tokens = noPrefix.split(" ");
+  return tokens[0] ?? "XAU/USD";
 }
 
 async function runFamilyBacktests(
   supabase: SupabaseClient<Database>,
-  familyPrefix: string,
-  bars: PriceBar[],
+  familyPattern: string,
+  barsCache: Map<string, PriceBar[]>,
 ): Promise<VariantStats[]> {
   const { data: rows, error } = await supabase
     .from("algorithms")
     .select("id, name, rules, capital")
-    .like("name", `${familyPrefix}%`);
-  if (error) throw new Error(`Failed to fetch family ${familyPrefix}: ${error.message}`);
-  if (!rows || rows.length === 0) throw new Error(`No rows for family ${familyPrefix}`);
+    .like("name", familyPattern);
+  if (error) throw new Error(`Failed to fetch family ${familyPattern}: ${error.message}`);
+  if (!rows || rows.length === 0) throw new Error(`No rows for family ${familyPattern}`);
 
   const variants: VariantRow[] = rows.map((r) => ({
     id: r.id,
@@ -172,18 +202,31 @@ async function runFamilyBacktests(
     capital: Number(r.capital),
   }));
 
-  console.log(`\n[${familyPrefix}] ${variants.length} variants → running backtests...`);
+  console.log(`\n[${familyPattern}] ${variants.length} variants → running backtests...`);
 
-  const pricesByTicker = new Map([["XAU/USD", bars]]);
+  const partial: Array<{
+    name: string;
+    trades: BacktestTrade[];
+    sharpe: number;
+    perTradeR: number[];
+    riskDollars: number;
+    entryMin: number;
+    exitMax: number;
+  }> = [];
 
-  // First pass: run backtests, collect trades + sharpe.
-  const partial: Array<Omit<VariantStats, "weeklyReturns"> & { entryMin: number; exitMax: number }> = [];
   for (let i = 0; i < variants.length; i++) {
     const v = variants[i];
+    const ticker = extractTicker(v.name);
+    const timeframe = v.rules.timeframe;
+    let bars = barsCache.get(`${ticker}|${timeframe}`);
+    if (!bars) {
+      bars = await loadBars(supabase, ticker, timeframe);
+      barsCache.set(`${ticker}|${timeframe}`, bars);
+      console.log(`  Loaded ${bars.length} ${ticker} ${timeframe} bars`);
+    }
+    const pricesByTicker = new Map([[ticker, bars]]);
     const metrics = runPortfolioBacktest(v.rules, pricesByTicker, v.capital);
-    // BacktestMetrics has `trades: BacktestTrade[]` at top level. The
-    // per_ticker[].trades field is a COUNT (number), not an array — don't
-    // use it for trade-level analysis.
+    // BacktestMetrics has trades: BacktestTrade[] at top level; per_ticker[].trades is a COUNT.
     const trades: BacktestTrade[] = metrics.trades ?? [];
     const riskDollars = riskDollarsFor(v.rules, v.capital);
     const sharpe = sharpeFromTrades(trades, riskDollars);
@@ -198,12 +241,10 @@ async function runFamilyBacktests(
     }
     partial.push({ name: v.name, trades, sharpe, perTradeR, riskDollars, entryMin, exitMax });
     if ((i + 1) % 20 === 0 || i === variants.length - 1) {
-      console.log(`  [${familyPrefix}] ${i + 1}/${variants.length} backtested`);
+      console.log(`  [${familyPattern}] ${i + 1}/${variants.length} backtested`);
     }
   }
 
-  // Second pass: build common time grid + per-week R per variant.
-  // Use the global min entry / max exit across all variants so the grid covers everything.
   let globalMin = Infinity;
   let globalMax = -Infinity;
   for (const p of partial) {
@@ -211,10 +252,10 @@ async function runFamilyBacktests(
     if (Number.isFinite(p.exitMax) && p.exitMax > globalMax) globalMax = p.exitMax;
   }
   if (!Number.isFinite(globalMin) || !Number.isFinite(globalMax)) {
-    throw new Error(`Family ${familyPrefix} produced no trades across any variant; can't compute PBO grid.`);
+    throw new Error(`Family ${familyPattern} produced no trades across any variant; can't compute PBO grid.`);
   }
   const weekCount = Math.ceil((globalMax - globalMin) / WEEK_MS) + 1;
-  console.log(`  [${familyPrefix}] time grid: ${weekCount} weeks (${new Date(globalMin).toISOString().slice(0, 10)} → ${new Date(globalMax).toISOString().slice(0, 10)})`);
+  console.log(`  [${familyPattern}] time grid: ${weekCount} weeks`);
 
   return partial.map((p) => ({
     name: p.name,
@@ -226,27 +267,16 @@ async function runFamilyBacktests(
   }));
 }
 
-function stdOf(values: number[]): number {
-  if (values.length < 2) return 0;
-  let sum = 0;
-  for (const v of values) sum += v;
-  const mean = sum / values.length;
-  let m2 = 0;
-  for (const v of values) m2 += (v - mean) ** 2;
-  return Math.sqrt(m2 / values.length);
-}
-
-interface PersistedDeflated {
+interface DeflatedStatsPayload {
   computed_at: string;
-  family_prefix: string;
+  family_pattern: string;
   family_size: number;
   family_trial_sharpe_std: number;
   family_sharpe_mean: number;
   deflated_sharpe: DeflatedSharpeResult;
   pbo: PboResult;
-  /** Cached snapshot of statistical_rigor.purged_kfold at compute time
-   *  (the source-of-truth lives in the same JSONB, but having it inline
-   *  keeps the v3 acceptance verdict reproducible from a single read). */
+  /** Snapshot of statistical_rigor.purged_kfold at compute time (source-of-
+   *  truth lives in same JSONB; inlining keeps verdict reproducible from one read). */
   purged_kfold_snapshot: unknown;
 }
 
@@ -261,7 +291,7 @@ interface ExistingBacktestResults {
 async function persistDeflated(
   supabase: SupabaseClient<Database>,
   variantName: string,
-  payload: PersistedDeflated,
+  payload: DeflatedStatsPayload,
 ): Promise<void> {
   const { data: row, error } = await supabase
     .from("algorithms")
@@ -272,15 +302,8 @@ async function persistDeflated(
   if (!row) throw new Error(`Row not found: ${variantName}`);
 
   const current = (row.backtest_results ?? {}) as ExistingBacktestResults;
-  const updatedRigor = {
-    ...(current.statistical_rigor ?? {}),
-    deflated: payload,
-  };
-  const updatedResults = {
-    ...current,
-    statistical_rigor: updatedRigor,
-  };
-
+  const updatedRigor = { ...(current.statistical_rigor ?? {}), deflated: payload };
+  const updatedResults = { ...current, statistical_rigor: updatedRigor };
   const { error: e2 } = await supabase
     .from("algorithms")
     .update({ backtest_results: updatedResults as unknown as Database["public"]["Tables"]["algorithms"]["Update"]["backtest_results"] })
@@ -289,29 +312,52 @@ async function persistDeflated(
 }
 
 async function main(): Promise<void> {
-  console.log(`\n===== Phase F.4 revalidate @ ${new Date().toISOString().slice(0, 16)} =====`);
+  const targetsEnv = (process.env.TARGETS ?? "").trim();
+  if (!targetsEnv) {
+    throw new Error(
+      "TARGETS env var required. CSV of algo names to revalidate. Family for each is auto-derived from its name (split at ' | '). Example:\n" +
+        '  TARGETS="LayerB: XAU/USD BOS-Long 4h | rr3_lb3_r06_rf0_af0" pnpm dlx tsx scripts/canonical/revalidate-candidates.ts',
+    );
+  }
+  const targets = targetsEnv.split(",").map((s) => s.trim()).filter(Boolean);
+  if (targets.length === 0) throw new Error("TARGETS contained no usable names.");
+
+  console.log(`\n===== revalidate-candidates @ ${new Date().toISOString().slice(0, 16)} =====`);
+  console.log(`Targets (${targets.length}):`);
+  targets.forEach((t, i) => console.log(`  ${i + 1}. ${t}`));
+  console.log(`NSPLITS=${NSPLITS} PERSIST=${PERSIST ? "1" : "0"}`);
+
   const { url, key } = requireEnv();
   const supabase = createClient<Database>(url, key);
 
-  const bars = await loadBars(supabase, "XAU/USD", "4h");
-  console.log(`Loaded ${bars.length} XAU/USD 4h bars`);
+  const familyPatterns: string[] = [];
+  const targetToFamily = new Map<string, string>();
+  for (let i = 0; i < targets.length; i++) {
+    const fp = deriveFamilyPattern(targets[i], i + 1);
+    targetToFamily.set(targets[i], fp);
+    if (!familyPatterns.includes(fp)) familyPatterns.push(fp);
+  }
+  console.log(`Families (${familyPatterns.length}):`);
+  familyPatterns.forEach((fp) => console.log(`  ${fp}`));
 
-  // Group targets by family to share backtest work.
-  const familyPrefixes = [...new Set(TARGETS.map((t) => t.family_prefix))];
+  const barsCache = new Map<string, PriceBar[]>();
   const familyData = new Map<string, VariantStats[]>();
-  for (const prefix of familyPrefixes) {
-    const stats = await runFamilyBacktests(supabase, prefix, bars);
-    familyData.set(prefix, stats);
+  for (const fp of familyPatterns) {
+    const stats = await runFamilyBacktests(supabase, fp, barsCache);
+    familyData.set(fp, stats);
   }
 
-  // Process each target: compute DSR + look up family PBO + read kfold from JSONB.
-  for (const target of TARGETS) {
-    const family = familyData.get(target.family_prefix);
-    if (!family) throw new Error(`Family data missing: ${target.family_prefix}`);
-    const variant = family.find((v) => v.name === target.variant_name);
-    if (!variant) throw new Error(`Target ${target.variant_name} not in family ${target.family_prefix}`);
+  for (const target of targets) {
+    const fp = targetToFamily.get(target);
+    if (!fp) continue;
+    const family = familyData.get(fp);
+    if (!family) throw new Error(`Family data missing: ${fp}`);
+    const variant = family.find((v) => v.name === target);
+    if (!variant) {
+      console.warn(`Target ${target} not found in family ${fp} — skipping`);
+      continue;
+    }
 
-    // DSR: observedSharpe = variant.sharpe; trialSharpeStd = std of family sharpes.
     const familySharpes = family.map((v) => v.sharpe);
     const trialSharpeStd = stdOf(familySharpes);
     const familySharpeMean = familySharpes.reduce((s, x) => s + x, 0) / familySharpes.length;
@@ -321,27 +367,21 @@ async function main(): Promise<void> {
       nTrials: family.length,
       trialSharpeStd,
     });
-
-    // PBO: weekly returns matrix across all family variants.
     const returnsMatrix = family.map((v) => v.weeklyReturns);
-    const pbo = computeProbabilityOfBacktestOverfitting({
-      returns: returnsMatrix,
-      nSplits: N_SPLITS,
-    });
+    const pbo = computeProbabilityOfBacktestOverfitting({ returns: returnsMatrix, nSplits: NSPLITS });
 
-    // Read existing purged_kfold from JSONB (populated by prior validate-algo KFOLD=5 run).
     const { data: row, error } = await supabase
       .from("algorithms")
       .select("backtest_results")
-      .eq("name", target.variant_name)
+      .eq("name", target)
       .maybeSingle();
-    if (error) throw new Error(`Failed to read JSONB for ${target.variant_name}: ${error.message}`);
+    if (error) throw new Error(`Failed to read JSONB for ${target}: ${error.message}`);
     const existing = (row?.backtest_results ?? {}) as ExistingBacktestResults;
     const purgedKfold = existing.statistical_rigor?.purged_kfold ?? null;
 
-    const payload: PersistedDeflated = {
+    const payload: DeflatedStatsPayload = {
       computed_at: new Date().toISOString(),
-      family_prefix: target.family_prefix,
+      family_pattern: fp,
       family_size: family.length,
       family_trial_sharpe_std: trialSharpeStd,
       family_sharpe_mean: familySharpeMean,
@@ -350,29 +390,30 @@ async function main(): Promise<void> {
       purged_kfold_snapshot: purgedKfold,
     };
 
-    await persistDeflated(supabase, target.variant_name, payload);
+    if (PERSIST) await persistDeflated(supabase, target, payload);
 
-    console.log(`\n[${target.variant_name}]`);
+    console.log(`\n[${target}]`);
     console.log(`  Observed Sharpe (per-trade):  ${variant.sharpe.toFixed(4)}`);
     console.log(`  Family Sharpe mean / std:     ${familySharpeMean.toFixed(4)} / ${trialSharpeStd.toFixed(4)}`);
     console.log(`  DSR / p-value:                ${dsr.deflatedSharpe.toFixed(4)} / ${dsr.pValueOneSided.toFixed(4)}`);
-    console.log(`  Expected-max-SR (selection-bias):  ${dsr.expectedMaxSharpe.toFixed(4)}`);
+    console.log(`  Expected-max-SR:              ${dsr.expectedMaxSharpe.toFixed(4)}`);
     console.log(`  skewness / kurtosis:          ${dsr.skewness.toFixed(3)} / ${dsr.kurtosis.toFixed(3)}`);
     console.log(`  PBO:                          ${pbo.probabilityOfBacktestOverfitting.toFixed(4)} (N=${pbo.nStrategies}, T=${pbo.nObservations}, combos=${pbo.nCombinations})`);
     if (purgedKfold && typeof purgedKfold === "object") {
       const pk = purgedKfold as { consistency_count?: number; n_folds?: number; oos_mean_r_aggregate?: number };
       console.log(`  purged_kfold:                 ${pk.consistency_count ?? "?"}/${pk.n_folds ?? "?"} folds positive (aggregate R = ${(pk.oos_mean_r_aggregate ?? 0).toFixed(3)})`);
     } else {
-      console.log(`  purged_kfold:                 missing (run validate-algo with KFOLD=5 first)`);
+      console.log(`  purged_kfold:                 missing (run validate-algo with KFOLD=N first)`);
     }
+    if (!PERSIST) console.log(`  [PERSIST=0 → not written to DB]`);
   }
 
-  console.log(`\nPhase F.4 complete. Inspect via:`);
-  console.log(`  SELECT name, backtest_results->'statistical_rigor'->'deflated' FROM algorithms WHERE name LIKE 'LayerB:%' AND backtest_results->'statistical_rigor'->'deflated' IS NOT NULL;`);
+  console.log(`\nrevalidate-candidates complete. Inspect via:`);
+  console.log(`  SELECT name, backtest_results->'statistical_rigor'->'deflated' FROM algorithms WHERE backtest_results->'statistical_rigor'->'deflated' IS NOT NULL;`);
 }
 
 main().catch((e) => {
-  console.error(`Phase F.4 FAILED: ${e instanceof Error ? e.message : String(e)}`);
+  console.error(`revalidate-candidates FAILED: ${e instanceof Error ? e.message : String(e)}`);
   if (e instanceof Error && e.stack) console.error(e.stack);
   process.exit(1);
 });

@@ -19,6 +19,7 @@ scripts/
 │   ├── algo-search.ts                  Phase E driver (MODE=list/smoke/full/layer-b). Enumerates Layer A candidates + runs Layer B geometry sweep on per-candidate passers. Per ROADMAP.md.
 │   ├── algo-search.spec.md             Phase E meta-pre-registration. v2 active; v3 pending per ROADMAP.md Phase F.5.
 │   ├── algo-search-acceptance.md       Stage 6.7 operator-stamp decision packet. DEFERRED until F.6 v3 re-evaluation per ROADMAP.md.
+│   ├── revalidate-candidates.ts        Re-validate selected candidates under deflated stats (DSR + PBO + reads existing purged_kfold). Generic + env-driven (TARGETS CSV). Auto-derives family from name pattern. Used at ROADMAP Phase F.4 and any future post-Layer-B re-evaluation (e.g. G.5 walk-forward-opt refit verification).
 │   └── ROADMAP.md                      ⭐ ACTIVE FORWARD PLAN. F → G → H → I phases. Read this first.
 ├── ad-hoc/                       throwaway investigations (default: don't commit)
 └── archive/                      old scripts kept for reference

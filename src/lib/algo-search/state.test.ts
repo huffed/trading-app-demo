@@ -16,11 +16,17 @@ interface FakeRow {
   backtest_results: unknown;
 }
 
-function fakeSupabase(rows: FakeRow[]): SupabaseClient<Database> {
+/** Mock supabase. Returns `searchRows` for `LIKE 'Search:%'` queries +
+ *  `layerBRows` for `LIKE 'LayerB:%'` queries (matches the buildSearchState
+ *  call pattern). Both default to []. */
+function fakeSupabase(searchRows: FakeRow[], layerBRows: FakeRow[] = []): SupabaseClient<Database> {
   const stub = {
     from: () => ({
       select: () => ({
-        like: () => Promise.resolve({ data: rows, error: null }),
+        like: (_col: string, pattern: string) => {
+          const rows = pattern.startsWith("LayerB:") ? layerBRows : searchRows;
+          return Promise.resolve({ data: rows, error: null });
+        },
       }),
     }),
   };
@@ -166,5 +172,77 @@ describe("buildSearchState (v2)", () => {
     );
     expect(s.survivors[0].total_return).toBe(5000);
     expect(s.survivors[1].total_return).toBe(500);
+  });
+
+  it("layer_b_variants empty when no LayerB:* rows", async () => {
+    const s = await buildSearchState(fakeSupabase([]));
+    expect(s.layer_b_variants).toEqual([]);
+  });
+
+  it("layer_b_variants populated from LayerB:* rows with deflated block parsed", async () => {
+    const deflatedBlock = {
+      computed_at: "2026-06-23T10:00:00Z",
+      family_pattern: "LayerB: XAU/USD BOS-Long 4h | %",
+      family_size: 96,
+      family_trial_sharpe_std: 0.12,
+      family_sharpe_mean: 0.08,
+      deflated_sharpe: { deflatedSharpe: 0.85, pValueOneSided: 0.15 },
+      pbo: { probabilityOfBacktestOverfitting: 0.42 },
+      purged_kfold_snapshot: { consistency_count: 4, n_folds: 5 },
+    };
+    const variantRow = {
+      step2: { total_return: 3793, total_trades: 162, win_rate: 36.4, max_static_dd: 0.79 },
+      step6: { held_out_n: 55, r_delta_pct: -6.3 },
+      statistical_rigor: {
+        mean_r_ci: { lower: 0.068 },
+        sharpe_ratio: 0.21,
+        deflated: deflatedBlock,
+      },
+    };
+    const s = await buildSearchState(
+      fakeSupabase([], [
+        {
+          id: "lb1",
+          name: "LayerB: XAU/USD BOS-Long 4h | rr3_lb3_r06_rf0_af0",
+          backtest_results: variantRow,
+        },
+      ]),
+    );
+    expect(s.layer_b_variants).toHaveLength(1);
+    const v = s.layer_b_variants[0];
+    expect(v.base_name).toBe("LayerB: XAU/USD BOS-Long 4h");
+    expect(v.variant_tag).toBe("rr3_lb3_r06_rf0_af0");
+    expect(v.total_return).toBe(3793);
+    expect(v.sharpe_ratio).toBe(0.21);
+    expect(v.deflated?.deflated_sharpe).toBe(0.85);
+    expect(v.deflated?.pbo).toBe(0.42);
+    expect(v.deflated?.purged_kfold_consistency).toEqual({ count: 4, total: 5 });
+    expect(v.deflated?.family_size).toBe(96);
+  });
+
+  it("layer_b variant with no deflated block → deflated: null (graceful)", async () => {
+    const s = await buildSearchState(
+      fakeSupabase([], [
+        {
+          id: "lb1",
+          name: "LayerB: XAU/USD BOS-Long 4h | rr3_lb3_r06_rf0_af0",
+          backtest_results: {
+            step2: { total_return: 100, total_trades: 50, win_rate: 40, max_static_dd: 1 },
+            statistical_rigor: { sharpe_ratio: 0.1 }, // no `deflated` sub-block
+          },
+        },
+      ]),
+    );
+    expect(s.layer_b_variants[0].deflated).toBeNull();
+  });
+
+  it("layer_b_variants sorted by total_return DESC", async () => {
+    const mk = (id: string, ret: number) => ({
+      id,
+      name: `LayerB: XAU/USD BOS-Long 4h | v${id}`,
+      backtest_results: { step2: { total_return: ret } },
+    });
+    const s = await buildSearchState(fakeSupabase([], [mk("a", 100), mk("b", 500), mk("c", 300)]));
+    expect(s.layer_b_variants.map((v) => v.total_return)).toEqual([500, 300, 100]);
   });
 });

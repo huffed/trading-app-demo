@@ -53,6 +53,34 @@ export interface SearchSurvivor {
  *  near-miss without us auto-treating them as survivors. */
 export type SearchSingleton = SearchSurvivor;
 
+/** A LayerB:* row (geometry-refined variant of a Layer A base candidate) with
+ *  its deflated stats sub-block when present. Populated by the prior Layer B
+ *  sweep + the revalidate-candidates script. Frontend renders these in the
+ *  Search tab's "Layer B variants with deflated stats" section. */
+export interface LayerBVariantRow {
+  algorithm_id: string;
+  name: string;
+  base_name: string | null;       // derived from name (left of " | ")
+  variant_tag: string | null;     // derived from name (right of " | ")
+  total_return: number | null;
+  total_trades: number | null;
+  win_rate: number | null;
+  static_dd: number | null;
+  mean_r_ci_lower: number | null;
+  sharpe_ratio: number | null;
+  oos_held_out_n: number | null;
+  oos_r_delta_pct: number | null;
+  /** v3 deflated stats. Null until revalidate-candidates is run for this variant. */
+  deflated: {
+    deflated_sharpe: number;
+    pbo: number;
+    purged_kfold_consistency: { count: number; total: number } | null;
+    family_size: number;
+    family_trial_sharpe_std: number;
+    computed_at: string;
+  } | null;
+}
+
 export interface SearchTopBlocker {
   /** Criterion key (matches SearchCriteria keys). */
   key: string;
@@ -93,6 +121,11 @@ export interface SearchState {
   survivors: SearchSurvivor[];
   /** Per-candidate pass but failed robustness — informational, NOT auto-survivor. */
   singleton_candidates: SearchSingleton[];
+  /** Layer B geometry-refined variants (rows whose name LIKE 'LayerB:%').
+   *  Sorted by total_return DESC. Each includes the deflated stats sub-block
+   *  when populated by revalidate-candidates. Frontend renders as a separate
+   *  section with the deflated columns (DSR / PBO / k-fold consistency). */
+  layer_b_variants: LayerBVariantRow[];
   /** Timestamp of the most-recent backtest_results.computed_at across
    *  the search rows. null if no rows have been evaluated yet. */
   last_evaluated_at: string | null;
@@ -252,13 +285,95 @@ function applyRobustnessPass(per_candidate_pass: SearchSurvivor[]): {
   return { survivors, singletons };
 }
 
+const LAYER_B_NAME_PREFIX = "LayerB:";
+const LAYER_B_FAMILY_DELIM = " | ";
+
+interface DeflatedJsonbBlock {
+  deflated_sharpe?: { deflatedSharpe?: number };
+  pbo?: { probabilityOfBacktestOverfitting?: number };
+  purged_kfold_snapshot?: { consistency_count?: number; n_folds?: number } | null;
+  family_size?: number;
+  family_trial_sharpe_std?: number;
+  computed_at?: string;
+}
+
+function rowToLayerBVariant(row: AlgoRow): LayerBVariantRow {
+  const results = (row.backtest_results ?? {}) as PersistedBacktestResults & {
+    statistical_rigor?: {
+      sharpe_ratio?: number;
+      deflated?: DeflatedJsonbBlock;
+    };
+  };
+  const step2 = results.step2 ?? {};
+  const step6 = results.step6 ?? {};
+  const rigor = results.statistical_rigor ?? {};
+  const meanRCi = rigor.mean_r_ci ?? {};
+  const deflated = rigor.deflated ?? null;
+  const delimIdx = row.name.lastIndexOf(LAYER_B_FAMILY_DELIM);
+  const base_name = delimIdx > 0 ? row.name.slice(0, delimIdx) : null;
+  const variant_tag = delimIdx > 0 ? row.name.slice(delimIdx + LAYER_B_FAMILY_DELIM.length) : null;
+  return {
+    algorithm_id: row.id,
+    name: row.name,
+    base_name,
+    variant_tag,
+    total_return: step2.total_return ?? null,
+    total_trades: step2.total_trades ?? null,
+    win_rate: step2.win_rate ?? null,
+    static_dd: step2.max_static_dd ?? null,
+    mean_r_ci_lower: meanRCi.lower ?? null,
+    sharpe_ratio: rigor.sharpe_ratio ?? null,
+    oos_held_out_n: step6.held_out_n ?? null,
+    oos_r_delta_pct: step6.r_delta_pct ?? null,
+    deflated:
+      deflated &&
+      typeof deflated.deflated_sharpe?.deflatedSharpe === "number" &&
+      typeof deflated.pbo?.probabilityOfBacktestOverfitting === "number"
+        ? {
+            deflated_sharpe: deflated.deflated_sharpe.deflatedSharpe,
+            pbo: deflated.pbo.probabilityOfBacktestOverfitting,
+            purged_kfold_consistency:
+              deflated.purged_kfold_snapshot &&
+              typeof deflated.purged_kfold_snapshot.consistency_count === "number" &&
+              typeof deflated.purged_kfold_snapshot.n_folds === "number"
+                ? {
+                    count: deflated.purged_kfold_snapshot.consistency_count,
+                    total: deflated.purged_kfold_snapshot.n_folds,
+                  }
+                : null,
+            family_size: deflated.family_size ?? 0,
+            family_trial_sharpe_std: deflated.family_trial_sharpe_std ?? 0,
+            computed_at: deflated.computed_at ?? "",
+          }
+        : null,
+  };
+}
+
+async function fetchLayerBVariants(supabase: SupabaseClient<Database>): Promise<LayerBVariantRow[]> {
+  const { data, error } = await supabase
+    .from("algorithms")
+    .select("id, name, backtest_results")
+    .like("name", `${LAYER_B_NAME_PREFIX}%`);
+  if (error) {
+    throw new Error(
+      `fetchLayerBVariants: algorithms query failed: ${error.message} (code=${error.code ?? "n/a"})`,
+    );
+  }
+  const rows = (data ?? []) as AlgoRow[];
+  const out = rows.map(rowToLayerBVariant);
+  out.sort((a, b) => (b.total_return ?? 0) - (a.total_return ?? 0));
+  return out;
+}
+
 /** Build the SearchState payload from the algorithms table. Pure-read;
  *  never writes. RLS-scoped via the caller's supabase client.
  *
- *  Three-pass evaluation (v2 spec §4 + §5):
+ *  Four-pass evaluation:
  *    1. Universe tallies (deterministic, no DB).
- *    2. DB read + per-candidate criterion evaluation (criteria 1–8).
- *    3. Cross-row pattern-robustness pass (criterion 9). */
+ *    2. Layer A read + per-candidate criterion evaluation (v2 criteria 1–8).
+ *    3. Cross-row pattern-robustness pass (v2 criterion 9).
+ *    4. Layer B variants fetch (includes deflated stats block when populated
+ *       by revalidate-candidates per ROADMAP Phase F.4). */
 export async function buildSearchState(
   supabase: SupabaseClient<Database>,
 ): Promise<SearchState> {
@@ -274,6 +389,7 @@ export async function buildSearchState(
   }
   const agg = aggregateAlgoRows((rows ?? []) as AlgoRow[]);
   const { survivors, singletons } = applyRobustnessPass(agg.per_candidate_pass);
+  const layerBVariants = await fetchLayerBVariants(supabase);
   return {
     enumerated_count: universe.enumerated_count,
     inserted_count: agg.inserted_count,
@@ -289,6 +405,7 @@ export async function buildSearchState(
     by_side: universe.by_side,
     survivors,
     singleton_candidates: singletons,
+    layer_b_variants: layerBVariants,
     last_evaluated_at: agg.last_evaluated_at,
   };
 }

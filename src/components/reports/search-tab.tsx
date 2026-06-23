@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAlgoSearchState } from "@/hooks/use-algo-search-state";
-import type { SearchSingleton, SearchState, SearchSurvivor, SearchTopBlocker } from "@/lib/algo-search/state";
+import type { LayerBVariantRow, SearchSingleton, SearchState, SearchSurvivor, SearchTopBlocker } from "@/lib/algo-search/state";
 
 export function SearchTab() {
   const { data, isLoading, isError, error } = useAlgoSearchState();
@@ -48,6 +48,9 @@ export function SearchTab() {
           <SurvivorsCard survivors={data.survivors} />
           {data.singleton_candidates.length > 0 && (
             <SingletonsCard singletons={data.singleton_candidates} />
+          )}
+          {data.layer_b_variants.length > 0 && (
+            <LayerBVariantsCard variants={data.layer_b_variants} />
           )}
           <EmptyStateHint state={data} />
         </>
@@ -249,6 +252,122 @@ function SingletonsCard({ singletons }: { singletons: SearchSingleton[] }) {
         <SurvivorTable rows={singletons} showRobustnessTag={false} />
       </CardContent>
     </Card>
+  );
+}
+
+function LayerBVariantsCard({ variants }: { variants: LayerBVariantRow[] }) {
+  const withDeflated = variants.filter((v) => v.deflated !== null);
+  const top = variants.slice(0, 20); // cap render to top-20 by total_return
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm font-medium">
+          Layer B variants ({variants.length}) — geometry-refined; {withDeflated.length} with deflated stats
+        </CardTitle>
+        <p className="text-xs text-muted-foreground">
+          Sorted by total_return DESC; top 20 shown. Variants live in the{" "}
+          <code>LayerB:</code> namespace (geometry refinement of a Layer A base candidate). The
+          deflated columns (DSR / PBO / k-fold consistency) are populated by{" "}
+          <code>scripts/canonical/revalidate-candidates.ts</code> per ROADMAP Phase F.4; rows show
+          <em> &ldquo;—&rdquo;</em> in those columns until that script has been run for them.
+        </p>
+      </CardHeader>
+      <CardContent className="p-0 overflow-x-auto">
+        <LayerBTable rows={top} />
+      </CardContent>
+    </Card>
+  );
+}
+
+function LayerBTable({ rows }: { rows: LayerBVariantRow[] }) {
+  return (
+    <table className="w-full text-xs">
+      <thead className="border-b text-muted-foreground">
+        <tr>
+          <th className="text-left p-2.5 font-medium">variant</th>
+          <th className="text-right p-2.5 font-medium">trades</th>
+          <th className="text-right p-2.5 font-medium">WR</th>
+          <th className="text-right p-2.5 font-medium">return</th>
+          <th className="text-right p-2.5 font-medium">DD</th>
+          <th className="text-right p-2.5 font-medium">CI lower</th>
+          <th className="text-right p-2.5 font-medium">Sharpe</th>
+          <th className="text-right p-2.5 font-medium">DSR</th>
+          <th className="text-right p-2.5 font-medium">PBO</th>
+          <th className="text-right p-2.5 font-medium">k-fold</th>
+          <th className="p-2.5" />
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((v) => (
+          <tr key={v.algorithm_id} className="border-b last:border-b-0 hover:bg-muted/30">
+            <td className="p-2.5 max-w-[320px]">
+              <div className="font-medium truncate" title={v.name}>
+                {v.variant_tag ?? v.name}
+              </div>
+              {v.base_name && (
+                <div className="text-muted-foreground text-[10px] truncate">
+                  {v.base_name.replace(/^LayerB:\s*/, "")}
+                </div>
+              )}
+            </td>
+            <td className="p-2.5 text-right tabular-nums">{v.total_trades ?? "—"}</td>
+            <td className="p-2.5 text-right tabular-nums">{v.win_rate?.toFixed(1) ?? "—"}%</td>
+            <td className="p-2.5 text-right tabular-nums">
+              {v.total_return != null ? `$${v.total_return.toFixed(0)}` : "—"}
+            </td>
+            <td className="p-2.5 text-right tabular-nums">
+              {v.static_dd != null ? `${v.static_dd.toFixed(2)}%` : "—"}
+            </td>
+            <td className="p-2.5 text-right tabular-nums">
+              {v.mean_r_ci_lower != null ? v.mean_r_ci_lower.toFixed(3) : "—"}
+            </td>
+            <td className="p-2.5 text-right tabular-nums">
+              {v.sharpe_ratio != null ? v.sharpe_ratio.toFixed(2) : "—"}
+            </td>
+            <td className="p-2.5 text-right tabular-nums">
+              {v.deflated ? (
+                <Badge
+                  variant={v.deflated.deflated_sharpe >= 0.95 ? "default" : "outline"}
+                  className="text-[10px]"
+                >
+                  {v.deflated.deflated_sharpe.toFixed(3)}
+                </Badge>
+              ) : (
+                "—"
+              )}
+            </td>
+            <td className="p-2.5 text-right tabular-nums">
+              {v.deflated ? (
+                <Badge
+                  variant={v.deflated.pbo < 0.5 ? "default" : "outline"}
+                  className="text-[10px]"
+                >
+                  {v.deflated.pbo.toFixed(3)}
+                </Badge>
+              ) : (
+                "—"
+              )}
+            </td>
+            <td className="p-2.5 text-right tabular-nums">
+              {v.deflated?.purged_kfold_consistency
+                ? `${v.deflated.purged_kfold_consistency.count}/${v.deflated.purged_kfold_consistency.total}`
+                : "—"}
+            </td>
+            <td className="p-2.5">
+              <Button
+                size="sm"
+                variant="ghost"
+                render={<Link href={`/algorithms/${v.algorithm_id}`} />}
+                nativeButton={false}
+                className="h-7 px-2"
+              >
+                Open <ArrowRight className="ml-1 h-3 w-3" />
+              </Button>
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   );
 }
 
