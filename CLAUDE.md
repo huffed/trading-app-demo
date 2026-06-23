@@ -131,6 +131,10 @@ src/
 │   │                           #   ctrader-openapi + ctrader/* (dormant alternative)
 │   ├── cohort/                 # engine-activity.ts — shared by /reports + cohort-report CLI
 │   ├── constants/              # algorithm, markets, journal, prop-firm, nav
+│   ├── features/               # H.2 — 34 features across 7 categories (volatility,
+│   │                           #   momentum, trend, structure, time, volume, context)
+│   │                           #   pure (bars, idx, ctx?) → number | null; consumed by H.3
+│   │                           #   xgboost training + H.4 Layer B axis composition
 │   ├── market-data/            # prices (fallback chain), oanda, indicators, regime/adx
 │   │                           #   filters, backtest-engine, walk-forward, prop-firm-backtest
 │   ├── patterns/               # ICT/SMC detectors (FVG, IFVG, sweep, BOS, OB, daily-bias)

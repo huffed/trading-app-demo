@@ -225,9 +225,22 @@ Items run in order, not in parallel.
 - **Gate:** ≥5% Sharpe improvement OR documented why not (mirrors the G.3 "OR documented why not" pattern — single-instrument single-TF gates often see modest benefit because other gates already adapt)
 - **Calendar estimate:** 1-3 months minimum for an active algo at ~5-10 trades/month to hit the 30-trade floor; longer if the operator stays gold-only single-algo per `[[feedback_gold_only_demo_stage]]`. Listed here so it doesn't drift off-radar.
 
-### H.2 — Feature library augmentation (1–2 weeks)
-- `src/lib/features/` directory with 30–50 features (vol regime, time-of-day, day-of-week, range expansion/contraction, relative volume, MA alignment, RSI extremes, calendar proximity, daily-bias agreement, cross-asset correlation, etc.)
-- **Gate:** library exists + 30+ features computable + per-feature unit tests
+### H.2 — Feature library augmentation ✅ COMPLETE 2026-06-23
+- **Library:** `src/lib/features/` — 34 features across 7 categories, all pure `(bars, idx, ctx?) → number | null`. No I/O, no async, no side effects. Caller pre-fetches any auxiliary context (`higherTfBars` for D1 features, `crossAssetBars` for correlation, `events` for calendar proximity).
+- **Categories + counts:**
+  - **volatility (8):** atr14, atr14_pct, atr_percentile_200, realized_vol_20, range_expansion_5, range_contraction_5, bb_width_20, atr_ratio_50
+  - **momentum (6):** rsi14, rsi14_extreme, momentum_5, momentum_20, roc_10, macd_histogram
+  - **trend (6):** ema12_above_ema26, ema_alignment_score (0..3), price_above_sma20, sma20_slope, sma200_distance, ema_cross_freshness
+  - **structure (5):** higher_high_count_20, lower_low_count_20, swing_high_distance_pct, swing_low_distance_pct, daily_bias_agreement
+  - **time (4):** hour_of_day_utc, day_of_week, is_asian_session, is_us_session
+  - **volume (2):** volume_ratio_20, volume_z_score_50 (both return null on forex/CFD all-zero-volume series — graceful for the instruments we trade)
+  - **context (3):** bars_since_news (signed; positive=past, negative=upcoming), cross_asset_correlation_20, cross_asset_correlation_abs_20
+- **Interface:** `Feature` type + `FeatureCategory` enum + `FeatureContext` shape + `computeAllFeatures(features, bars, idx, ctx?)` helper. `FEATURES` is the canonical ordered registry; `FEATURES_BY_CATEGORY` is the FE-facing grouping; `FEATURE_COUNT = 34`.
+- **Tests:** 47 unit tests covering — registry contract (≥30 features the gate floor, unique names, valid categories, throw-converts-to-null), per-feature null-on-insufficient-lookback, per-feature value-correctness on synthetic + targeted fixtures (range_expansion sees 10× on a manual wide-bar fixture; cross_asset_correlation_20 returns ≈+1 on identical series + ≈−1 on inverse; time features verified at known UTC hours).
+- **Gate (per spec): library exists + 30+ features computable + per-feature unit tests** ✓ — 34 features, all callable, all tested. Registry test explicitly asserts `FEATURE_COUNT >= 30` (the spec gate floor).
+- **Downstream consumers (deferred to their respective phases):**
+  - H.3 — xgboost training (`computeAllFeatures` produces the row payload for each (algo, bar) training instance)
+  - H.4 — Layer B axis composition (operator picks top-importance features from H.3, then sweeps with them as additional Layer B axes alongside the geometry axes)
 
 ### H.3 — Feature importance via gradient boosting (3–4 days)
 - xgboost trained on next-4h-return-sign across all H.2 features + 14 pattern primitives
