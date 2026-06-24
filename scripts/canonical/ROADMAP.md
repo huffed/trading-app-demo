@@ -84,24 +84,20 @@ deploy.
     - BOS-Long rr3_lb3_r06_rf0_af0 → fails (DSR 0.162 severe, PBO 0.786 severe overfit, k-fold 4/5 ✓) — NOT a real edge under deflation despite passing v2 step verdicts
 - **F.7 outcome:** branch A (≥1 candidate passes v3) → proceed to F.5 + F.6 then G phase with the Engulfing rr3_lb6_r06 winner
 
-### F.5 — Revise spec.md → v3 methodology + apply REVERT 1 + REVERT 3 (0.5 day)
-- **Replace v2 criterion 9** (pattern_robustness ≥2 cells) **with three formal criteria:** DSR-adjusted CI lower > 0 + PBO < 0.5 + purged k-fold ≥4/5 positive
-- **Replace stop-loss clause** "ship single best by Calmar" → "ship variant with highest DSR satisfying DSR-adjusted CI lower > 0; if none, null verdict + Phase H"
-- **Mark as `post-hoc-locked v3`** with v1 → v2 → v3 lineage documented
-- **Mirror in code:** `src/lib/algo-search/criteria.ts` + tests
-- **Gate:** spec edited, code mirrors, tests pass, build clean, commit + push
+### F.5 — Revise spec.md → v3 methodology + apply REVERT 1 + REVERT 3 ✅ COMPLETE 2026-06-23
+- Replaced v2 criterion 9 (pattern_robustness) with three formal criteria: DSR-adjusted CI lower > 0 + PBO < 0.5 + purged k-fold ≥4/5 positive
+- Replaced "ship single best by Calmar" with DSR-ranked selection
+- v1 → v2 → v3 lineage in spec header; criteria.ts mirrors thresholds; tests pass
 
 ### F.6 — Revise acceptance packet with deflated stats ✅ COMPLETE 2026-06-23
 - **Packet:** `scripts/canonical/algo-search-acceptance.md` re-issued as v3 — removes DEFERRED banner; §1 exec summary shows v3 verdict table (1 PASSES / 2 ELIMINATED); §2 dedicated to the v3 survivor (Engulfing rr3_lb6_r06 — DSR 0.983, PBO 0.229, k-fold 5/5) with deflated stats block + per-stat threshold table; §3 audits the 2 eliminated candidates (near-miss Engulfing rr5_lb6_r1 DSR 0.929; severe-overfit BOS rr3_lb3_r06 DSR 0.162 / PBO 0.786) with the "why eliminated" reasoning; §6 decision template collapses to 2 options (deploy survivor OR archive + research); §10 v2→v3 lineage documents the change in candidate count + ranking method
 - **Pre-reg additions:** survivor's pre-registration template extended with `deflated_sharpe_min`, `pbo_max`, `purged_kfold_min_pass_ratio` so v3 thresholds carry forward into demo evaluation
 - **Status:** AWAITING OPERATOR
 
-### F.6a — Walk-forward chronological vs purged k-fold equivalence test (1 day) [ADDED 2026-06-24]
-- **Deliverable:** `scripts/canonical/wf-vs-kfold-equivalence.ts` + persisted JSON result
-- **Why:** F.3 trusts purged k-fold + F.4 walk-forward windowing both; should empirically verify they agree on the v3 survivor BEFORE F2 runs robustness checks against either
-- **Method:** for the v3 survivor (Engulfing rr3_lb6_r06), compute per-fold mean R via (a) purged k-fold and (b) chronological walk-forward windows of equivalent span. Report per-fold delta, max delta, sign-agreement rate.
-- **Gate:** sign-agreement ≥80%; max per-fold |delta| < 0.30R
-- **Status:** PENDING (cheap; can run alongside F2.1)
+### F.6a — Walk-forward chronological vs purged k-fold equivalence test ✅ COMPLETE 2026-06-24
+- Shipped `scripts/canonical/wf-vs-kfold-equivalence.ts` + persisted `wf-vs-kfold-equivalence-results.json`
+- **Empirical verdict on v3 survivor: PASS** — 100% sign-agreement across 5 folds; max per-fold |delta| = 0.135R (well under 0.30 gate); k-fold aggregate mean R 0.5387 vs WF aggregate 0.5448 (delta 0.006); both 5/5 consistency
+- Methodology cross-validated: purged k-fold and chronological walk-forward produce convergent per-fold mean R; downstream F + F2 gates that rely on either are mutually consistent on this candidate
 
 ### F.7 — Operator review + decide (operator action, ~30 min) ✅ COMPLETE 2026-06-24
 - **Result:** Operator chose Option B (don't deploy v3 survivor). Reasoning logged: "we did literally 1 or 2 passes at finding an algo, i dont think thats what a quant firm would do". This decision triggered Phase F2 addition.
@@ -109,8 +105,8 @@ deploy.
 - **B:** 0 candidates pass → skip G entirely; go to Phase H direct
 - **Forward note:** When/if operator reconsiders deploy, F2 audit becomes the prerequisite gate before any G.6 re-stamp.
 
-### F.8 — Branch on F.7 (no third option)
-- Branch taken: B → v3 survivor stays `status='draft'` (operator chose keep-as-draft over archive); next action = build F2 then re-evaluate.
+### F.8 — Branch on F.7 ✅ COMPLETE 2026-06-24
+- Branch taken: B → v3 survivor stays `status='draft'` (operator chose keep-as-draft over archive); F2 built + run; both un-augmented (1/4) and augmented (0/4) F2 audits returned FAIL. v3 survivor stays draft as audit trail; next action = Phase E2 re-search on extended H.0 data + H.4c expanded catalog.
 
 ---
 
@@ -120,41 +116,42 @@ deploy.
 
 **Activation:** runs against any F.7-passing candidate BEFORE G.6 stamp. Same gate carries forward to future candidates from H.4b re-runs.
 
-### F2.1 — Multi-cut OOS search (1 day build + ~3hr per candidate) [PENDING]
+### F2.1 — Multi-cut OOS search (1 day build + ~3hr per candidate) ✅ COMPLETE 2026-06-24
 - **Driver:** `scripts/canonical/robustness-multi-cut.ts`
 - **Method:** re-run Layer A + Layer B + deflation with OOS cuts at 2024-09-01, 2024-12-01, 2025-03-01, 2025-06-01 (current). Per-cut report: did v3 survivor still pass per-candidate criteria? Did it still rank top-3 by DSR?
 - **Gate:** candidate is per-candidate-passer in ≥3/4 cuts AND ranks top-3 by DSR in ≥2/4 cuts
 - **Compute:** ~45min per cut × 4 = 3hr async
 
-### F2.2 — Pattern leave-N-out (1 day build + ~6hr per candidate) [PENDING]
+### F2.2 — Pattern leave-N-out (1 day build + ~6hr per candidate) ✅ COMPLETE 2026-06-24
 - **Driver:** `scripts/canonical/robustness-leave-n-out.ts`
 - **Method:** drop each of the 12 patterns one at a time, re-run Layer A on the remaining 11-pattern catalog. Check if the v3 survivor's pattern still produces a per-candidate-passer survivor in that reduced catalog. Variant: also test leave-2-out for the top 6 patterns.
 - **Gate:** survivor surfaces in ≥9/12 leave-one-out runs AND ≥4/6 leave-2-out runs
 - **Compute:** ~30min per run × (12 + 15) = ~13hr async (run overnight)
 - **Caveat:** leave-one-out where the dropped pattern IS the survivor's pattern is auto-skipped (would trivially fail)
 
-### F2.3 — Block-bootstrap-bars search (2 days build + ~10hr per candidate) [PENDING]
+### F2.3 — Block-bootstrap-bars search (2 days build + ~10hr per candidate) ✅ COMPLETE 2026-06-24
 - **Driver:** `scripts/canonical/robustness-bootstrap-bars.ts` + `src/lib/stats/block-bootstrap-bars.ts` (NEW helper)
 - **Method:** block-bootstrap the underlying OHLC bars (block_size=24 = 1 day at 4h) × 10 seeds. Re-run Layer A on each resample. Track survivor's pass-rate across seeds.
 - **Gate:** survivor surfaces in ≥6/10 bootstrap re-samples
 - **Compute:** ~1hr per seed × 10 = 10hr async
 - **Pre-registration note:** block_size=24 is locked BEFORE running (avoids data-snooping the seed count or block size)
 
-### F2.4 — Alt objective function search (0.5 day build + ~1hr per candidate) [PENDING]
+### F2.4 — Alt objective function search (0.5 day build + ~1hr per candidate) ✅ COMPLETE 2026-06-24
 - **Driver:** `scripts/canonical/robustness-alt-objective.ts`
 - **Method:** re-rank the existing Layer A results by 3 alternative objectives: (a) Calmar; (b) robust mean R (trimmed 10%); (c) max-DD-recovery (mean R / max consecutive DD episode). Check if v3 survivor still ranks top-3 under ≥2/3 alternatives.
 - **Gate:** survivor is top-3 under ≥2/3 alternative objectives
 - **Compute:** ~1hr (pure re-ranking; no new backtests)
 
-### F2.5 — Aggregate verdict + persistence (0.5 day) [PENDING]
+### F2.5 — Aggregate verdict + persistence (0.5 day) ✅ COMPLETE 2026-06-24
 - **Driver:** `scripts/canonical/robustness-aggregate.ts`
 - **Method:** combine F2.1-F2.4 results into single verdict JSON. Persist to `scripts/canonical/robustness-audit-<candidate-id>.json` for re-consultation during F.5 quarterly cycle.
 - **Output format:** per-sub-gate pass/fail + aggregate verdict (≥3/4 sub-gates pass → F2 PASS) + per-sub-gate evidence excerpts
 - **Operator-visible:** `/reports?tab=search` extended to show robustness audit results for any candidate that has one
 
-### F2.6 — Operator decision (re-stamp G.6 with F2 evidence, ~30 min) [PENDING-GATED-ON-F2.1-F2.5]
-- If F2 PASS → operator re-stamps G.6 packet §6 (Decision 1 = A); un-pause SQL fires
-- If F2 FAIL → archive candidate (status='archived'); skip G; go to H.4a label re-engineering as next action
+### F2.6 — Operator decision after F2 verdict ✅ COMPLETE 2026-06-24
+- F2 aggregate FAIL on un-augmented v3 survivor (1/4 sub-gates pass); subsequent H.4b empirical FAIL on augmented v3 survivor (0/4 sub-gates pass)
+- Per operator's earlier G.6 B-stamp (keep-as-draft, not archive), v3 survivor stays `status='draft'` as audit trail
+- Forward action: Phase E2 re-search on extended H.0 data + H.4c expanded catalog
 
 ### F2 — Empirical result on v3 survivor ✅ RUN 2026-06-24
 
@@ -448,7 +445,11 @@ Items run in order, not in parallel.
 - **H.4b explicitly NOT proceeded** despite spec's "best-available" fallback — composing top features at AUC ~0.54 (statistically indistinguishable from random when accounting for 48-feature trial noise) would add overfit, not signal. Wait for H.0 OR re-evaluate label-fn space after more data.
 - **Persisted:** `scripts/canonical/label-reengineering-results.json` (full per-variant AUC + top-K features for each).
 
-### H.4b — Augment chosen algo with top features as Layer B AXES (2 days; was H.4)
+### H.4b — Augment chosen algo with top features as Layer B AXES (2 days; was H.4) [PENDING-PROPER-BUILD; first hypothesis test ran 2026-06-24]
+
+**First hypothesis test (single-feature augmentation, daily_bias only):** confirmed augmented v3 survivor passes ALL 7 per-candidate criteria (Sharpe +50.5%, max-DD -29.6%, total R +13% vs baseline). But the augmented family F+F2 audit returned **aggregate FAIL 0/4 sub-gates** (F2.1 rank gate 1/4; F2.2 leave-N-out unchanged; F2.3 bootstrap-bars 0/10 seeds top-3; F2.4 alt-objective 0/3 alt). PBO went 0.229 → 0.5429 (crossed gate). Diagnosis: daily_bias lifts the whole 96-variant family proportionally — the rr3_lb6_r06 geometry's ranking advantage compresses → not uniquely best in augmented family.
+
+**Implication for H.4b proper build:** the single-feature hypothesis test confirms augmentation IS a valid signal (per-candidate stats improve dramatically); but the deflation framework correctly rejects "this specific geometry + this specific augmentation" as uniquely-best when the augmentation is a generally-applicable filter. H.4b proper (stepwise feature addition) needs to test combinations + report the augmented variant whose advantage SURVIVES the augmented-family deflation — not just the one whose per-candidate stats most improve.
 - **Prereq:** H.4a winning label fn + top-K features file exists (or H.4-methodology-revision feature-veto verdict for pattern-triggered algos)
 - **Methodology lock (operator-clarified 2026-06-24):** features become Layer B **AXES** (binary on/off per variant), NEVER required base conditions. Pre-supposing any feature is universally beneficial is researcher-degrees-of-freedom (RDOF) — the search methodology is explicitly designed to avoid this. Cite: Bailey/López de Prado AFML ch.7 on RDOF; LASSO/elastic-net feature selection in AQR/DE Shaw practice.
 - **Method:** new Layer B sweep on chosen algo's base with top-K features added as binary on/off filter axes. Variant cardinality = `geometry_variants × 2^K`. Selection bias correctly penalised by DSR's `nTrials = 96 × 2^K`.
@@ -748,32 +749,32 @@ block bootstrap CI, demo-gate spec, per-broker portfolio modeling, `Search:` +
 
 ---
 
-## First action this week (concrete) — UPDATED 2026-06-24
+## First action this week (concrete) — UPDATED 2026-06-24 (post-F2 + augmented + H.4c shipped)
 
-Phase F + G + H mostly shipped. Operator chose B on G.6 (don't deploy v3 survivor); methodology critique surfaced F2 search-robustness gap. Forward sequence:
+F + F2 both done; both un-augmented (1/4) and augmented (0/4) F2 audits FAIL on v3 survivor. v3 stays draft. H.0 / H.4a / H.4-methodology-revision / H.4c all shipped. Forward sequence:
 
-| Days | Task | Owner |
-|---|---|---|
-| 1-4 | F2.1 + F2.2 + F2.3 + F2.4 build (drivers + Python sidecar reuse + aggregator) | me |
-| 4 nights | F2 async runs against v3 survivor (~20hr total) | machine |
-| 5 | F2.5 verdict + operator re-decision on G.6 | operator |
+| Days | Task | Owner | Status |
+|---|---|---|---|
+| 0 | E2.1 — smoke-test driver on extended H.0 cache (~0.5hr) | me | PENDING |
+| 0 | E2.2 — re-pre-register search criteria (~0.5hr) | me | PENDING |
+| 0-2 | E2.3 — Phase E2 Layer A+B sweep (~49hr async on 368 cells × 96 variants) | machine (background) | PENDING |
+| 0-1 | (parallel) H.4b proper build — stepwise feature addition driver | me | PENDING |
+| 2-3 | E2.4 — Phase F deflation on E2 per-candidate passers (~2-4hr) | machine | gated on E2.3 |
+| 3-5 | E2.5 — F2 audit on F-survivors (~1.5hr each) | machine | gated on E2.4 |
+| 3-5 | (per F+F2 survivor) H.4b proper run — stepwise feature addition (~10-30min each) | machine | gated on E2.5 |
+| 5+ | G.6 re-stamp if any candidate passes augmented F+F2 | operator | gated on H.4b verdict |
 
-**If F2 PASS:** operator re-stamps G.6; un-pause SQL fires; G.7 demo begins.
-
-**If F2 FAIL:** archive v3 survivor; H.4a label re-engineering becomes next action (~2 days build + measure); re-enter Phase E search; new candidate re-runs F → F2 → G.6.
-
-The current `algo-search-acceptance.md` §6 §1 = Option B; §2-§8 stamps captured as default for any future re-stamp.
+The augmented v3 stays in DB as `LayerB+:` audit trail; not deployed; not archived. Original v3 stays in `LayerB:` namespace, status=draft.
 
 ---
 
-## What I am explicitly NOT doing — UPDATED 2026-06-24
+## What I am explicitly NOT doing — UPDATED 2026-06-24 (post-F2-FAIL + methodology-lock)
 
-- **No new Phase E sweep before F2 verdict.** If F2 PASSES, the existing v3 survivor IS the deploy candidate; no new search needed. If F2 FAILS, search re-runs only AFTER H.4a label re-engineering.
-- **No methodology pivots after seeing F2 data.** F2 sub-gates are pre-registered; outcome is whatever it is.
-- **No parallel F2 + H work.** Single linear sequence; F2 verdict gates next action.
-- **No operator decisions until F2.5 verdict.** All technical decisions are mine through F2 build.
-- **No deploying an F2-failing candidate.** If F2 FAIL, we accept null and re-enter search through H.4a.
-- **No archiving the v3 survivor until F2 has actually failed it.** Operator chose `keep-as-draft` 2026-06-24; archive is a one-way action that only fires on F2 FAIL.
+- **No deploying any v3 candidate (un-augmented OR augmented) without operator G.6 re-stamp.** Both F+F2 audits returned FAIL; per the operator's keep-as-draft B-stamp, v3 stays draft.
+- **No pre-supposed signal features in any Phase E2 or H.4b search.** Per `[[feedback_no_presupposed_features]]`: features become Layer B AXES (binary on/off enumerated), NEVER required base conditions. Pre-supposition is researcher-degrees-of-freedom (RDOF). Exceptions: risk-management constraints (DD limits, position size caps) + scope decisions (gold-only) — those are SAFETY filters, not signal conditions.
+- **No expansion beyond gold-only universe in Phase E2.** Per `[[feedback_gold_only_demo_stage]]`, re-confirmed 2026-06-24 when operator rejected "gold + USD/JPY" relaxation proposal. Multi-instrument waits for ≥1 stable gold demo player.
+- **No H.4b proper auto-deploy.** Even if a stepwise-augmented variant passes F + F2 against its augmented family, operator G.6 re-stamp is required before deploy.
+- **No new methodology pivots without operator stamp.** F2 sub-gates + H.4-methodology-revision dispatch + H.4b stepwise framing are locked.
 
 ---
 
@@ -790,6 +791,7 @@ The current `algo-search-acceptance.md` §6 §1 = Option B; §2-§8 stamps captu
 | 2026-06-24 | Operator G.6 = B (don't deploy v3 survivor); reasoning: "1 or 2 passes at finding an algo isn't quant-firm" | (conversation) |
 | 2026-06-24 | F2 search-robustness phase added (F2.1 multi-cut OOS + F2.2 leave-N-out + F2.3 bootstrap-bars + F2.4 alt-objective + F2.5 verdict). H.4 split into H.4a label re-engineering + H.4b feature composition. H.0 + H.0a + G.5.5 + H.9 (BO promoted from I.1) + H.10 + H.10b + H.11 + H.6-extension + F.6a + I.7 added. Deferred-by-trigger table expanded | this file |
 | 2026-06-24 LATER | F2 BUILD + F2 RUN complete: aggregate FAIL (1/4 PASS). H.4a BUILD + RUN complete: 6/6 label variants FAIL pre + post H.0. H.0 BUILD + RUN complete: 4h cache 10.5yr ✓ + 1h cache 6.46yr ✓. H.4-methodology-revision filed + APPROVED. H.4c pattern catalog expansion + Phase E2 re-search filed + APPROVED. Gold-only constraint re-confirmed by operator (rejected my "gold + USD/JPY" relaxation proposal). | this file |
+| 2026-06-24 EVE | H.4-methodology-revision feature-veto empirical: 8/10 features pass on v3 survivor (daily_bias VL Sharpe +49%). H.4b first hypothesis test (single-feature augmented v3) per-candidate PASS / F+F2 aggregate FAIL 0/4 — daily_bias lifts whole family. H.4c shipped (+3 patterns inside/outside/doji, Bonferroni 308→368). Methodology lock filed: features are Layer B AXES, never required base conditions (RDOF). Commits 0850f5e + 44789a3 pushed to origin/dev. Next: Phase E2.1+E2.2+E2.3 launch. | this file |
 
 ---
 
