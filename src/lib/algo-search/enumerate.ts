@@ -237,18 +237,33 @@ function buildRules(
 
 /** Enumerate every Layer A cell from the search universe.
  *
- *  Math (audit before sweep start so the Bonferroni denominator is honest):
- *    - 12 long+short patterns × 4 inst × 3 TFs × 2 dirs = 288
- *    - ote (long-only) × 4 inst × 3 TFs × 1 dir = 12
- *    - asian_range_break (long+short, 4h-only) × 4 inst × 1 TF × 2 dirs = 8
- *    - Total = 308
+ *  Math (post-H.4c, gold-only default — operator-clarified 2026-06-24
+ *  after sweep wasted compute on forex cells we won't deploy):
+ *    - 14 long+short patterns × 1 inst × 3 TFs × 2 dirs = 84
+ *    - 2 long-only (ote + doji) × 1 inst × 3 TFs × 1 dir = 6
+ *    - 1 4h-only (asian_range_break) × 1 inst × 1 TF × 2 dirs = 2
+ *    - Total = 92 (gold-only)
  *
- *  The total is the Bonferroni denominator for the sweep. Verified by
- *  src/lib/algo-search/enumerate.test.ts.
+ *  With ENABLE_FOREX_SEARCH=1 (opt-in for future multi-instrument work
+ *  per [[feedback_multi_instrument_is_endpoint]]): 92 × 4 instruments
+ *  with adjustments = 368 (the prior cardinality).
+ *
+ *  GOLD-ONLY DEFAULT enforced per [[feedback_gold_only_demo_stage]]
+ *  until at least 1 stable gold demo player exists. Scope decisions
+ *  (instrument selection) are operator-chosen boundaries, distinct
+ *  from signal-feature pre-supposition (which IS forbidden per
+ *  [[feedback_no_presupposed_features]]).
+ *
+ *  The returned count is the Bonferroni denominator for the sweep.
+ *  Verified by src/lib/algo-search/enumerate.test.ts.
  */
 export function enumerateLayerACandidates(): SearchCandidate[] {
+  const enableForex = process.env.ENABLE_FOREX_SEARCH === "1";
+  const instruments = enableForex
+    ? SEARCH_INSTRUMENTS
+    : SEARCH_INSTRUMENTS.filter((i) => i.asset_class === "commodity");
   const out: SearchCandidate[] = [];
-  for (const inst of SEARCH_INSTRUMENTS) {
+  for (const inst of instruments) {
     for (const tf of SEARCH_TIMEFRAMES) {
       for (const patternMeta of SEARCH_PATTERNS) {
         const tfAllowed = patternMeta.allowedTimeframes ?? SEARCH_TIMEFRAMES;

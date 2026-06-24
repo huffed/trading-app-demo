@@ -20,6 +20,11 @@
 # Env overrides:
 #   FORCE                  default 0 (set 1 to skip skip-if-result-exists checks)
 #   STEPWISE_AFTER_F_F2    default 1 (set 0 to skip H.4b per survivor)
+#   ENABLE_FOREX_SEARCH    default 0 — per [[feedback_gold_only_demo_stage]] the
+#                          orchestrator filters to gold-only by default. Set 1
+#                          (matching the enumerator's env var) to include forex
+#                          cells in post-sweep audit. Only opt in after operator
+#                          declares ≥1 stable gold demo player.
 #   E2_RESULTS_DIR         default scripts/canonical/e2-results/ (created if absent)
 set -euo pipefail
 
@@ -28,6 +33,16 @@ cd "$(dirname "$0")/../.."
 E2_RESULTS_DIR="${E2_RESULTS_DIR:-scripts/canonical/e2-results}"
 FORCE="${FORCE:-0}"
 STEPWISE_AFTER_F_F2="${STEPWISE_AFTER_F_F2:-1}"
+ENABLE_FOREX_SEARCH="${ENABLE_FOREX_SEARCH:-0}"
+
+# Gold-only filter for SQL LIKE patterns. With ENABLE_FOREX_SEARCH=1, all 4
+# instruments included; default filters to XAU/USD only.
+if [ "$ENABLE_FOREX_SEARCH" = "1" ]; then
+  SEARCH_NAME_LIKE="Search:%"
+  echo "  NOTE: ENABLE_FOREX_SEARCH=1 — all instruments included"
+else
+  SEARCH_NAME_LIKE="Search: XAU/USD %"
+fi
 mkdir -p "$E2_RESULTS_DIR"
 
 echo "=============================================="
@@ -36,6 +51,7 @@ echo "=============================================="
 echo "Results dir : $E2_RESULTS_DIR"
 echo "Force re-run : $FORCE"
 echo "Stepwise H.4b after F+F2 : $STEPWISE_AFTER_F_F2"
+echo "Search name LIKE : $SEARCH_NAME_LIKE (gold-only by default per feedback_gold_only_demo_stage)"
 echo ""
 
 # Step 1: identify per-candidate passers (criteria 1-7) via DB query
@@ -48,14 +64,14 @@ pnpm dlx tsx scripts/canonical/e2-list-passers.ts > "$PASSERS_FILE.tmp" 2>&1 | t
 # Fall back to direct query if the helper is missing
 if [ ! -s "$PASSERS_FILE.tmp" ]; then
   echo "  (e2-list-passers.ts missing or empty; falling back to inline query)"
-  pnpm dlx tsx -e '
+  SEARCH_NAME_LIKE="$SEARCH_NAME_LIKE" pnpm dlx tsx -e '
 import { createClient } from "@supabase/supabase-js";
 import { readFileSync } from "fs";
 import { passesPerCandidate } from "./src/lib/algo-search/criteria";
 try { const raw = readFileSync(".env.local","utf8"); for (const l of raw.split(/\r?\n/)) { const m = l.match(/^([A-Z0-9_]+)=(.*)$/); if (m) process.env[m[1]] = m[2].replace(/^[\x27"]|[\x27"]$/g,""); } } catch {}
 async function main() {
   const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
-  const { data } = await sb.from("algorithms").select("name, backtest_results").like("name", "Search:%").not("backtest_results", "is", null);
+  const { data } = await sb.from("algorithms").select("name, backtest_results").like("name", process.env.SEARCH_NAME_LIKE || "Search: XAU/USD %").not("backtest_results", "is", null);
   if (!data) { process.exit(1); }
   for (const r of data) if (passesPerCandidate(r.backtest_results)) console.log(r.name);
 }

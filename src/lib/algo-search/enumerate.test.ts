@@ -16,11 +16,22 @@ import {
 } from "./enumerate";
 
 describe("algo-search Layer A enumerator", () => {
-  it("produces 368 candidates (Bonferroni denominator — H.4c expanded from 308)", () => {
-    expect(layerACardinality()).toBe(368);
+  it("produces 92 candidates by default (gold-only per feedback_gold_only_demo_stage)", () => {
+    delete process.env.ENABLE_FOREX_SEARCH;
+    expect(layerACardinality()).toBe(92);
   });
 
-  it("axis decomposition: 14 L+S patterns × 4 inst × 3 TFs × 2 dirs + 2 long-only (ote+doji, 24) + asian_range_break (8) = 368", () => {
+  it("produces 368 candidates with ENABLE_FOREX_SEARCH=1 (operator opt-in for future multi-instrument work)", () => {
+    process.env.ENABLE_FOREX_SEARCH = "1";
+    try {
+      expect(layerACardinality()).toBe(368);
+    } finally {
+      delete process.env.ENABLE_FOREX_SEARCH;
+    }
+  });
+
+  it("gold-only axis decomposition: 14 L+S × 1 inst × 3 TFs × 2 dirs + 2 long-only (ote+doji) + asian_range_break (2) = 92", () => {
+    delete process.env.ENABLE_FOREX_SEARCH;
     const lsPatterns = SEARCH_PATTERNS.filter(
       (p) => p.supportsShort && !p.allowedTimeframes,
     ).length;
@@ -28,17 +39,17 @@ describe("algo-search Layer A enumerator", () => {
       (p) => !p.supportsShort && !p.allowedTimeframes,
     ).length;
     const restrictedPatterns = SEARCH_PATTERNS.filter((p) => p.allowedTimeframes).length;
-    expect(lsPatterns).toBe(14); // H.4c added inside_bar + outside_bar
-    expect(longOnlyPatterns).toBe(2); // ote + doji (H.4c added doji as long-only direction-agnostic)
+    expect(lsPatterns).toBe(14);
+    expect(longOnlyPatterns).toBe(2);
     expect(restrictedPatterns).toBe(1);
-    expect(SEARCH_INSTRUMENTS).toHaveLength(4);
+    expect(SEARCH_INSTRUMENTS).toHaveLength(4); // catalog stays 4-wide even if default is gold-only
     expect(SEARCH_TIMEFRAMES).toHaveLength(3);
 
-    const expected =
-      lsPatterns * 4 * 3 * 2 + // 14 × 4 × 3 × 2 = 336
-      longOnlyPatterns * 4 * 3 * 1 + // 2 × 4 × 3 × 1 = 24
-      restrictedPatterns * 4 * 1 * 2; // 1 × 4 × 1 × 2 = 8
-    expect(expected).toBe(368);
+    const goldCells =
+      lsPatterns * 1 * 3 * 2 + // 14 × 1 × 3 × 2 = 84
+      longOnlyPatterns * 1 * 3 * 1 + // 2 × 1 × 3 × 1 = 6
+      restrictedPatterns * 1 * 1 * 2; // 1 × 1 × 1 × 2 = 2
+    expect(goldCells).toBe(92);
   });
 
   it("each candidate has unique name + unique cell_key (no dupes from cartesian)", () => {
@@ -55,38 +66,54 @@ describe("algo-search Layer A enumerator", () => {
   });
 
   it("ote enumerated long-only (1 dir not 2) — historic ICT semantic", () => {
+    delete process.env.ENABLE_FOREX_SEARCH;
     const candidates = enumerateLayerACandidates();
     const ote = candidates.filter((c) => c.pattern === "ote");
-    expect(ote).toHaveLength(4 * 3 * 1);
+    expect(ote).toHaveLength(1 * 3 * 1); // gold-only default
     expect(ote.every((c) => c.side === "long")).toBe(true);
   });
 
   it("H.4c additions: inside_bar + outside_bar (L+S full), doji (long-only direction-agnostic)", () => {
+    delete process.env.ENABLE_FOREX_SEARCH;
     const candidates = enumerateLayerACandidates();
     const inside = candidates.filter((c) => c.pattern === "inside_bar");
     const outside = candidates.filter((c) => c.pattern === "outside_bar");
     const doji = candidates.filter((c) => c.pattern === "doji");
-    expect(inside).toHaveLength(4 * 3 * 2); // 24
-    expect(outside).toHaveLength(4 * 3 * 2); // 24
-    expect(doji).toHaveLength(4 * 3 * 1); // 12 (long-only)
+    expect(inside).toHaveLength(1 * 3 * 2); // 6 gold-only (1 inst × 3 TFs × 2 dirs)
+    expect(outside).toHaveLength(1 * 3 * 2); // 6
+    expect(doji).toHaveLength(1 * 3 * 1); // 3 (long-only × 3 TFs)
     expect(doji.every((c) => c.side === "long")).toBe(true);
   });
 
   it("asian_range_break enumerated 4h-only (1 TF not 3) — session-aware", () => {
+    delete process.env.ENABLE_FOREX_SEARCH;
     const candidates = enumerateLayerACandidates();
     const arb = candidates.filter((c) => c.pattern === "asian_range_break");
-    expect(arb).toHaveLength(4 * 1 * 2);
+    expect(arb).toHaveLength(1 * 1 * 2); // 2 gold-only (1 inst × 1 TF × 2 dirs)
     expect(arb.every((c) => c.timeframe === "4h")).toBe(true);
   });
 
-  it("balanced across instruments (92 candidates each — post-H.4c)", () => {
+  it("balanced across instruments (92 each) — only when ENABLE_FOREX_SEARCH=1 opts in", () => {
+    process.env.ENABLE_FOREX_SEARCH = "1";
+    try {
+      const candidates = enumerateLayerACandidates();
+      const byInst = new Map<string, number>();
+      for (const c of candidates) byInst.set(c.ticker, (byInst.get(c.ticker) ?? 0) + 1);
+      expect(byInst.get("XAU/USD")).toBe(92);
+      expect(byInst.get("EUR/USD")).toBe(92);
+      expect(byInst.get("GBP/USD")).toBe(92);
+      expect(byInst.get("USD/JPY")).toBe(92);
+    } finally {
+      delete process.env.ENABLE_FOREX_SEARCH;
+    }
+  });
+
+  it("gold-only default: zero forex candidates surfaced", () => {
+    delete process.env.ENABLE_FOREX_SEARCH;
     const candidates = enumerateLayerACandidates();
-    const byInst = new Map<string, number>();
-    for (const c of candidates) byInst.set(c.ticker, (byInst.get(c.ticker) ?? 0) + 1);
-    expect(byInst.get("XAU/USD")).toBe(92);
-    expect(byInst.get("EUR/USD")).toBe(92);
-    expect(byInst.get("GBP/USD")).toBe(92);
-    expect(byInst.get("USD/JPY")).toBe(92);
+    const forexCount = candidates.filter((c) => c.ticker !== "XAU/USD").length;
+    expect(forexCount).toBe(0);
+    expect(candidates.every((c) => c.ticker === "XAU/USD")).toBe(true);
   });
 
   it("each candidate carries the full canonical rule shape (passes downstream insert + validate-algo)", () => {

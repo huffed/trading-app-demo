@@ -19,16 +19,18 @@ player exists.
 
 ---
 
-## Universe
+## Universe (CORRECTED 2026-06-24 EVE — gold-only, after operator pushback)
 
 | Axis | Cardinality | Detail |
 |---|---|---|
-| Instruments | 4 | XAU/USD, EUR/USD, GBP/USD, USD/JPY |
+| Instruments | **1 (XAU/USD)** | Gold-only per `[[feedback_gold_only_demo_stage]]`. Earlier "all 4 enumerated + filter at acceptance" framing was a methodology error (scope decision conflated with no-pre-supposition). Forex enumeration opts in via `ENABLE_FOREX_SEARCH=1` env var ONLY after ≥1 stable gold demo player exists. |
 | Timeframes | 3 | 30m, 1h, 4h |
 | Patterns | 17 | 14 from original spec + 3 added by H.4c (inside_bar, outside_bar, doji) |
 | Directions | 2 (per pattern, with exemptions) | long + short for 14 patterns; long-only for ote + doji; 4h-only for asian_range_break |
-| **Layer A cells** | **368** | enumerated by `src/lib/algo-search/enumerate.ts:enumerateLayerACandidates()` |
+| **Layer A cells** | **92** | gold-only: 14 L+S × 3 TFs × 2 dirs (84) + 2 long-only × 3 TFs (6) + 1 4h-only × 2 dirs (2) = **92** |
 | Layer B variants per cell | 96 | 4 rr × 3 lb × 2 risk × 2 regime_filter × 2 adx_filter (`src/lib/algo-search/layer-b-enumerate.ts`) |
+
+**Empirical correction:** the E2.3 sweep ran against all 368 cells (276 forex + 92 gold) before this correction. The 276 forex `backtest_results` rows remain in DB as audit trail but are EXCLUDED from E2.4/E2.5/H.4b downstream per `[[feedback_gold_only_demo_stage]]`. Bonferroni denominator for ship deflation = 92 (gold cells only), NOT 368.
 
 ## Data (per H.0 extension)
 
@@ -51,13 +53,13 @@ Modifying ANY of those files between sweep launch and acceptance packet
 constitutes a re-registration — would invalidate post-hoc-locked
 discipline.
 
-## Bonferroni denominator
+## Bonferroni denominator (gold-only)
 
-`Layer A cells × statistical tests per cell = 368 × 1 = 368`
+`Layer A cells × statistical tests per cell = 92 × 1 = 92`
 
-`Family alpha 0.05 ÷ 368 = 0.0001359 per-test`
+`Family alpha 0.05 ÷ 92 = 0.0005435 per-test`
 
-Validators compute this automatically via `enumerateLayerACandidates().length`; do not hardcode.
+Validators compute this automatically via `enumerateLayerACandidates().length` (gold-only by default; opts to forex via `ENABLE_FOREX_SEARCH=1`); do not hardcode. The 0.0005435 per-test threshold is LOOSER than the prior 0.0001359 (used when sweep was 368-cell) — gold-only sweep is less penalized by selection bias, meaning candidates need a less-extreme p-value to clear Bonferroni.
 
 ## OOS cutoff
 
@@ -102,11 +104,13 @@ Validators compute this automatically via `enumerateLayerACandidates().length`; 
 3. **H.4b proper** (stepwise feature addition; PENDING BUILD) on each F+F2-survivor — augments with top-K features as binary axes; re-deflates against augmented family
 4. **G.6 re-stamp** — operator decision, ONLY for candidates that pass un-augmented F+F2 AND/OR stepwise-augmented F+F2
 
-## Scope filter at acceptance packet
+## Scope filter (CORRECTED 2026-06-24 EVE)
 
-Per `[[feedback_gold_only_demo_stage]]`, the sweep enumerates ALL 4 instruments but any forex candidate (EUR/USD, GBP/USD, USD/JPY) that survives F + F2 will be **FILED for future** + NOT proposed for demo deploy until ≥1 stable gold demo player exists (≥30 demo trades + measured live R within in-sample CI).
+Per `[[feedback_gold_only_demo_stage]]`, the sweep ENUMERATES gold-only at the enumerator level (`enumerateLayerACandidates()` filters to XAU/USD by default; `ENABLE_FOREX_SEARCH=1` opts in). E2.3 ran 368 cells before this correction; the 276 forex `backtest_results` stay in DB as audit but downstream gates exclude them.
 
-This is a SCOPE decision, not a signal-feature pre-supposition — gold-only is the operator's risk-management boundary while the demo period validates the pipeline.
+This is a SCOPE decision (operator's risk-management boundary), distinct from signal-feature pre-supposition (which IS forbidden per `[[feedback_no_presupposed_features]]`). Scope decisions are operator inputs to the search; signal features are search outputs.
+
+**Earlier framing in this document** ("enumerates ALL 4 instruments but filters at acceptance") was wrong — operator clarified 2026-06-24 EVE: "we're only working on gold for now, why are we working on forex". Corrected: gold-only at enumerator. Forex enumeration triggers `[[feedback_multi_instrument_is_endpoint]]` review when operator declares it ready.
 
 ## Lineage
 
@@ -116,6 +120,8 @@ This is a SCOPE decision, not a signal-feature pre-supposition — gold-only is 
 | 2026-06-24 LATE | Pre-reg locked via this markdown + git commit of underlying spec/criteria/enumerate files | commits `187aa9a` + `0850f5e` |
 | 2026-06-24 LATE | E2.1 smoke-test confirmed driver picks up extended cache + 368-cell universe + H.4c patterns | `MODE=list pnpm dlx tsx scripts/canonical/algo-search.ts` |
 | 2026-06-24 LATE | E2.2 pre-reg lock filed (this document) | this file |
-| (pending) | E2.3 sweep launch | `MODE=full pnpm dlx tsx scripts/canonical/algo-search.ts` (~49hr async) |
+| 2026-06-24 EVE | E2.3 sweep ran against 368 cells before gold-only correction; 276 forex backtests wasted but stay in DB as audit | `/tmp/e2.3-sweep.log` |
+| 2026-06-24 EVE | Operator pushback: "we're only working on gold for now, why are we working on forex" | conversation |
+| 2026-06-24 EVE | Gold-only enforced at enumerator (`enumerate.ts` default-filters to XAU/USD; `ENABLE_FOREX_SEARCH=1` opts in); Bonferroni denominator drops 368 → 92 | this commit |
 
 **End of pre-registration lock.** Modifying this document after sweep launch constitutes a forensic-archive event — copy to `phase-e2-sweep-lock.archive.md` first.
