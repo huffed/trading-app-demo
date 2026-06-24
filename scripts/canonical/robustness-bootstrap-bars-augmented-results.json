@@ -1,0 +1,305 @@
+{
+  "sub_gate": "F2.3 bootstrap-bars",
+  "verdict": "FAIL",
+  "in_top_k_count": 0,
+  "gate_threshold": 6,
+  "top_k": 3,
+  "n_resamples": 10,
+  "block_size": 24,
+  "base_seed": 42,
+  "pre_registration": {
+    "block_size_default": 24,
+    "base_seed_default": 42,
+    "n_resamples_default": 10,
+    "top_k_default": 3,
+    "gate_threshold_default": 6,
+    "overrides_present": false
+  },
+  "family_pattern": "LayerB+: XAU/USD Engulfing-Long-DBfilter 4h | %",
+  "survivor_tag": "rr3_lb6_r06_rf0_af0",
+  "ticker": "XAU/USD",
+  "timeframe": "4h",
+  "per_seed_results": [
+    {
+      "seed": 42,
+      "survivor_rank": 39,
+      "survivor_sharpe": -0.022694107606066785,
+      "survivor_trade_count": 144,
+      "survivor_in_top_k": false,
+      "top_k_variants": [
+        {
+          "name": "LayerB+: XAU/USD Engulfing-Long-DBfilter 4h | rr5_lb6_r06_rf0_af1",
+          "rank": 1,
+          "sharpe": 0.16175030212963795,
+          "trade_count": 92
+        },
+        {
+          "name": "LayerB+: XAU/USD Engulfing-Long-DBfilter 4h | rr5_lb6_r06_rf1_af0",
+          "rank": 2,
+          "sharpe": 0.1560483440862308,
+          "trade_count": 96
+        },
+        {
+          "name": "LayerB+: XAU/USD Engulfing-Long-DBfilter 4h | rr5_lb4_r06_rf0_af0",
+          "rank": 3,
+          "sharpe": 0.15488291708150798,
+          "trade_count": 163
+        }
+      ],
+      "variant_count": 96
+    },
+    {
+      "seed": 43,
+      "survivor_rank": 35,
+      "survivor_sharpe": 0.09815351743499003,
+      "survivor_trade_count": 167,
+      "survivor_in_top_k": false,
+      "top_k_variants": [
+        {
+          "name": "LayerB+: XAU/USD Engulfing-Long-DBfilter 4h | rr5_lb6_r06_rf1_af0",
+          "rank": 1,
+          "sharpe": 0.2508135390960293,
+          "trade_count": 109
+        },
+        {
+          "name": "LayerB+: XAU/USD Engulfing-Long-DBfilter 4h | rr5_lb6_r06_rf0_af0",
+          "rank": 2,
+          "sharpe": 0.2422000435567256,
+          "trade_count": 173
+        },
+        {
+          "name": "LayerB+: XAU/USD Engulfing-Long-DBfilter 4h | rr5_lb4_r06_rf1_af0",
+          "rank": 3,
+          "sharpe": 0.2412893764082219,
+          "trade_count": 120
+        }
+      ],
+      "variant_count": 96
+    },
+    {
+      "seed": 44,
+      "survivor_rank": 10,
+      "survivor_sharpe": 0.10917060275214928,
+      "survivor_trade_count": 127,
+      "survivor_in_top_k": false,
+      "top_k_variants": [
+        {
+          "name": "LayerB+: XAU/USD Engulfing-Long-DBfilter 4h | rr5_lb6_r06_rf1_af1",
+          "rank": 1,
+          "sharpe": 0.2449880597251485,
+          "trade_count": 54
+        },
+        {
+          "name": "LayerB+: XAU/USD Engulfing-Long-DBfilter 4h | rr5_lb6_r06_rf1_af0",
+          "rank": 2,
+          "sharpe": 0.21963932822280285,
+          "trade_count": 76
+        },
+        {
+          "name": "LayerB+: XAU/USD Engulfing-Long-DBfilter 4h | rr5_lb6_r06_rf0_af1",
+          "rank": 3,
+          "sharpe": 0.2175539279167696,
+          "trade_count": 70
+        }
+      ],
+      "variant_count": 96
+    },
+    {
+      "seed": 45,
+      "survivor_rank": 15,
+      "survivor_sharpe": 0.20239430236870212,
+      "survivor_trade_count": 158,
+      "survivor_in_top_k": false,
+      "top_k_variants": [
+        {
+          "name": "LayerB+: XAU/USD Engulfing-Long-DBfilter 4h | rr5_lb6_r06_rf1_af0",
+          "rank": 1,
+          "sharpe": 0.33312383669741835,
+          "trade_count": 106
+        },
+        {
+          "name": "LayerB+: XAU/USD Engulfing-Long-DBfilter 4h | rr5_lb4_r06_rf1_af0",
+          "rank": 2,
+          "sharpe": 0.3086117098210402,
+          "trade_count": 118
+        },
+        {
+          "name": "LayerB+: XAU/USD Engulfing-Long-DBfilter 4h | rr5_lb3_r06_rf1_af0",
+          "rank": 3,
+          "sharpe": 0.29162089870439495,
+          "trade_count": 123
+        }
+      ],
+      "variant_count": 96
+    },
+    {
+      "seed": 46,
+      "survivor_rank": 42,
+      "survivor_sharpe": 0.2520550293521674,
+      "survivor_trade_count": 168,
+      "survivor_in_top_k": false,
+      "top_k_variants": [
+        {
+          "name": "LayerB+: XAU/USD Engulfing-Long-DBfilter 4h | rr5_lb6_r06_rf1_af1",
+          "rank": 1,
+          "sharpe": 0.3971003734090378,
+          "trade_count": 64
+        },
+        {
+          "name": "LayerB+: XAU/USD Engulfing-Long-DBfilter 4h | rr5_lb6_r06_rf0_af1",
+          "rank": 2,
+          "sharpe": 0.3693782302228561,
+          "trade_count": 92
+        },
+        {
+          "name": "LayerB+: XAU/USD Engulfing-Long-DBfilter 4h | rr5_lb6_r06_rf1_af0",
+          "rank": 3,
+          "sharpe": 0.3691262469173859,
+          "trade_count": 98
+        }
+      ],
+      "variant_count": 96
+    },
+    {
+      "seed": 47,
+      "survivor_rank": 25,
+      "survivor_sharpe": 0.17346135269141424,
+      "survivor_trade_count": 160,
+      "survivor_in_top_k": false,
+      "top_k_variants": [
+        {
+          "name": "LayerB+: XAU/USD Engulfing-Long-DBfilter 4h | rr5_lb6_r06_rf1_af1",
+          "rank": 1,
+          "sharpe": 0.2734964071545286,
+          "trade_count": 73
+        },
+        {
+          "name": "LayerB+: XAU/USD Engulfing-Long-DBfilter 4h | rr5_lb6_r06_rf0_af0",
+          "rank": 2,
+          "sharpe": 0.2687038254280737,
+          "trade_count": 162
+        },
+        {
+          "name": "LayerB+: XAU/USD Engulfing-Long-DBfilter 4h | rr5_lb4_r06_rf1_af1",
+          "rank": 3,
+          "sharpe": 0.2679176539266992,
+          "trade_count": 84
+        }
+      ],
+      "variant_count": 96
+    },
+    {
+      "seed": 48,
+      "survivor_rank": 49,
+      "survivor_sharpe": 0.2377311318104636,
+      "survivor_trade_count": 171,
+      "survivor_in_top_k": false,
+      "top_k_variants": [
+        {
+          "name": "LayerB+: XAU/USD Engulfing-Long-DBfilter 4h | rr5_lb6_r06_rf1_af0",
+          "rank": 1,
+          "sharpe": 0.49836775320680526,
+          "trade_count": 93
+        },
+        {
+          "name": "LayerB+: XAU/USD Engulfing-Long-DBfilter 4h | rr5_lb6_r06_rf1_af1",
+          "rank": 2,
+          "sharpe": 0.42636651586426405,
+          "trade_count": 63
+        },
+        {
+          "name": "LayerB+: XAU/USD Engulfing-Long-DBfilter 4h | rr5_lb4_r06_rf1_af0",
+          "rank": 3,
+          "sharpe": 0.425319160765116,
+          "trade_count": 104
+        }
+      ],
+      "variant_count": 96
+    },
+    {
+      "seed": 49,
+      "survivor_rank": 14,
+      "survivor_sharpe": 0.21231702079217152,
+      "survivor_trade_count": 148,
+      "survivor_in_top_k": false,
+      "top_k_variants": [
+        {
+          "name": "LayerB+: XAU/USD Engulfing-Long-DBfilter 4h | rr5_lb6_r06_rf1_af0",
+          "rank": 1,
+          "sharpe": 0.36776356879027605,
+          "trade_count": 84
+        },
+        {
+          "name": "LayerB+: XAU/USD Engulfing-Long-DBfilter 4h | rr5_lb6_r06_rf0_af0",
+          "rank": 2,
+          "sharpe": 0.3330900838887332,
+          "trade_count": 153
+        },
+        {
+          "name": "LayerB+: XAU/USD Engulfing-Long-DBfilter 4h | rr5_lb6_r1_rf0_af0",
+          "rank": 3,
+          "sharpe": 0.3030646095180274,
+          "trade_count": 168
+        }
+      ],
+      "variant_count": 96
+    },
+    {
+      "seed": 50,
+      "survivor_rank": 23,
+      "survivor_sharpe": 0.09157119640747798,
+      "survivor_trade_count": 127,
+      "survivor_in_top_k": false,
+      "top_k_variants": [
+        {
+          "name": "LayerB+: XAU/USD Engulfing-Long-DBfilter 4h | rr5_lb6_r06_rf1_af0",
+          "rank": 1,
+          "sharpe": 0.27672998033118773,
+          "trade_count": 79
+        },
+        {
+          "name": "LayerB+: XAU/USD Engulfing-Long-DBfilter 4h | rr5_lb6_r06_rf0_af0",
+          "rank": 2,
+          "sharpe": 0.25128425697801837,
+          "trade_count": 142
+        },
+        {
+          "name": "LayerB+: XAU/USD Engulfing-Long-DBfilter 4h | rr5_lb4_r06_rf1_af0",
+          "rank": 3,
+          "sharpe": 0.24710396099813725,
+          "trade_count": 100
+        }
+      ],
+      "variant_count": 96
+    },
+    {
+      "seed": 51,
+      "survivor_rank": 15,
+      "survivor_sharpe": 0.019004651645399266,
+      "survivor_trade_count": 133,
+      "survivor_in_top_k": false,
+      "top_k_variants": [
+        {
+          "name": "LayerB+: XAU/USD Engulfing-Long-DBfilter 4h | rr5_lb6_r06_rf1_af0",
+          "rank": 1,
+          "sharpe": 0.1564464048775808,
+          "trade_count": 87
+        },
+        {
+          "name": "LayerB+: XAU/USD Engulfing-Long-DBfilter 4h | rr5_lb6_r06_rf1_af1",
+          "rank": 2,
+          "sharpe": 0.1467196142472701,
+          "trade_count": 48
+        },
+        {
+          "name": "LayerB+: XAU/USD Engulfing-Long-DBfilter 4h | rr5_lb6_r1_rf1_af0",
+          "rank": 3,
+          "sharpe": 0.12817392228877295,
+          "trade_count": 103
+        }
+      ],
+      "variant_count": 96
+    }
+  ],
+  "generated_at": "2026-06-24T16:26:58.406Z"
+}
