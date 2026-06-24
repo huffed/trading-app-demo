@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { AlertCircle, ArrowRight, CheckCircle2, Layers, ShieldQuestion, TrendingUp } from "lucide-react";
+import { RobustnessAuditCard } from "@/components/reports/robustness-audit-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -49,6 +50,7 @@ export function SearchTab() {
           {data.layer_b_variants.length > 0 && (
             <LayerBVariantsCard variants={data.layer_b_variants} />
           )}
+          <RobustnessAuditCard />
           <EmptyStateHint state={data} />
         </>
       )}

@@ -23,6 +23,9 @@ export { detectOrderBlock } from "./order-block";
 export { detectEngulfing } from "./engulfing";
 export { detectPinBar } from "./pin-bar";
 export { detectMomentum } from "./momentum";
+export { detectInsideBar, type InsideBarDetails } from "./inside-bar";
+export { detectOutsideBar, type OutsideBarDetails } from "./outside-bar";
+export { detectDoji, type DojiDetails, type DojiOptions } from "./doji";
 export {
   detectSessionWindow,
   SESSION_WINDOWS,

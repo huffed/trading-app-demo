@@ -243,3 +243,49 @@ export function passesShipCriteria(
 ): boolean {
   return passesPerCandidate(results) && evaluateDeflatedCriteria(deflated).every((c) => c.passed);
 }
+
+// ────────────────────────────────────────────────────────────────────────────
+// H.4-methodology-revision — per-algo-class gate dispatcher (2026-06-24)
+// ────────────────────────────────────────────────────────────────────────────
+
+/** Algo class for gate dispatching. `pattern-triggered` algos have entries
+ *  driven solely by PatternCondition matches (BOS, Engulfing, Sweep, etc.)
+ *  — their edge is "react when structure appears", not "predict next bar
+ *  direction". `direction-predictive` algos use TechnicalCondition (RSI,
+ *  MA cross, etc.) where bar-direction predictability IS the relevant
+ *  framing.
+ *
+ *  Operator-approved H.4-methodology-revision: use this dispatch to apply
+ *  the RIGHT gate when blocking H.4b composition. AUC ≥ 0.55 is the right
+ *  framing for direction-predictive; feature-as-filter validation is the
+ *  right framing for pattern-triggered. */
+export type AlgoClassForGate = "pattern-triggered" | "direction-predictive" | "mixed";
+
+/** Minimal rules shape this classifier needs. Accepts the partial shape
+ *  that exists on `algorithms.rules` JSONB rows — no requirement on the
+ *  caller to construct full `AlgorithmRules`. */
+export interface ClassifyAlgoRules {
+  entry_conditions?: ReadonlyArray<{ type?: string }>;
+}
+
+/** Classify an algo by entry-condition composition.
+ *  - Pure PatternCondition entries → "pattern-triggered"
+ *  - Pure TechnicalCondition entries → "direction-predictive"
+ *  - Mix of both (or unknown types) → "mixed" (caller's policy decides)
+ *  - Empty / missing entry_conditions → "mixed" (defensive — caller treats as unknown)
+ */
+export function classifyAlgoForGate(rules: ClassifyAlgoRules): AlgoClassForGate {
+  const entries = rules.entry_conditions ?? [];
+  if (entries.length === 0) return "mixed";
+  let patternCount = 0;
+  let technicalCount = 0;
+  let otherCount = 0;
+  for (const c of entries) {
+    if (c.type === "pattern") patternCount++;
+    else if (c.type === "technical") technicalCount++;
+    else otherCount++;
+  }
+  if (patternCount > 0 && technicalCount === 0 && otherCount === 0) return "pattern-triggered";
+  if (technicalCount > 0 && patternCount === 0 && otherCount === 0) return "direction-predictive";
+  return "mixed";
+}

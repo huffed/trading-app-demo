@@ -21,9 +21,11 @@ After the audit at end of 2026-06-23 we promoted it to the repo so:
 | Phase | Purpose | Duration | Gate to exit |
 |---|---|---|---|
 | **F — Overfit gating** | Compute deflated Sharpe + PBO + purged k-fold CV on the existing Layer B candidates before any deploy | ~5 working days | ≥1 candidate passes v3 criteria (DSR-adjusted CI lower > 0 + PBO < 0.5 + k-fold ≥4/5 positive) |
+| **F2 — Search robustness** | Multi-pass audit of F-survivors: multi-cut OOS, pattern leave-N-out, block-bootstrap-bars, alt objectives. Addresses operator's "1-2 passes isn't quant-firm depth" critique (2026-06-24). | ~4 days build + ~20hr/cand compute | Survivor passes ≥3/4 sub-gates |
 | **G — Deploy + safety net** | Build monitoring/safety infrastructure, deploy chosen candidate, run demo period | 1 week build + 3–6 month demo | Demo R within ±50% of deflated in-sample R after 30 trades |
-| **H — Methodology upgrade** | Tier 3 → Tier 2: feature library, vol-targeted sizing, walk-forward optimization in production, factor orthogonality, quarterly research cycle | 8–12 weeks | All H items in production; ≥2 deployed algos for factor model |
-| **I — Advanced / aspirational** | Bayesian optimization, continuous research pipeline, LLM-trader, multi-instrument expansion | 6+ months | None — long-tail backlog |
+| **H — Methodology upgrade** | Tier 3 → Tier 2: feature library, vol-targeted sizing, walk-forward optimization in production, factor orthogonality, quarterly research cycle, Bayesian optimization (promoted from I) | 8–12 weeks | All H items in production; ≥2 deployed algos for factor model |
+| **E2 — Re-search on extended data** | Re-run Phase E pipeline on H.0-extended 10.5yr 4h + 6.46yr 1h gold-only data + H.4c-expanded pattern catalog; F2-calibration of thresholds | 1-2 days build + 40-60hr compute | ≥1 candidate passes F+F2 → deploy via G.6; otherwise iterate methodology |
+| **I — Advanced / aspirational** | Continuous research pipeline, LLM-trader, multi-instrument expansion (AFTER first stable gold demo per `[[feedback_gold_only_demo_stage]]`), market impact, alt data | 6+ months | None — long-tail backlog |
 
 ---
 
@@ -32,15 +34,21 @@ After the audit at end of 2026-06-23 we promoted it to the repo so:
 ```
 F.7 outcome?
 ├── ≥1 candidate passes v3 criteria
-│     └── Phase G (build G.1–G.5, then G.6 stamp+deploy, then G.7 demo)
-│           ├── G.8 PASS → Stage 5.3 real $10K FTMO challenge → eventually H or I
-│           └── G.8 FAIL → Phase H (algo retires; methodology upgrade)
+│     └── Phase F2 — multi-pass robustness audit
+│           ├── F2 PASS → G.6 stamp+deploy → G.7 demo
+│           │           ├── G.8 PASS → Stage 5.3 real $10K FTMO challenge → eventually H or I
+│           │           └── G.8 FAIL → Phase H (algo retires; methodology upgrade)
+│           └── F2 FAIL → archive candidate; Phase H direct
+│                          (re-enter search after H.4a label re-engineering;
+│                           F2 gate carries forward to next candidate)
 └── 0 candidates pass v3 criteria
-      └── Skip G entirely → Phase H direct (build feature library + retry F with new candidates from H.4)
+      └── Skip G entirely → Phase H direct (build feature library + retry F with new candidates from H.4b)
 ```
 
 No third option. No "deploy with disclaimer." No "let's see." The math from
-F.4 produces a deterministic answer; we follow it.
+F.4 produces a deterministic answer; we follow it. F2 (added 2026-06-24)
+makes the same statement about the search itself: pass or fail, no
+"deploy with caveats".
 
 ---
 
@@ -88,11 +96,83 @@ deploy.
 - **Pre-reg additions:** survivor's pre-registration template extended with `deflated_sharpe_min`, `pbo_max`, `purged_kfold_min_pass_ratio` so v3 thresholds carry forward into demo evaluation
 - **Status:** AWAITING OPERATOR
 
-### F.7 — Operator review + decide (operator action, ~30 min)
-- **A:** ≥1 candidate passes ALL v3 criteria → proceed to Phase G with top-by-DSR
+### F.6a — Walk-forward chronological vs purged k-fold equivalence test (1 day) [ADDED 2026-06-24]
+- **Deliverable:** `scripts/canonical/wf-vs-kfold-equivalence.ts` + persisted JSON result
+- **Why:** F.3 trusts purged k-fold + F.4 walk-forward windowing both; should empirically verify they agree on the v3 survivor BEFORE F2 runs robustness checks against either
+- **Method:** for the v3 survivor (Engulfing rr3_lb6_r06), compute per-fold mean R via (a) purged k-fold and (b) chronological walk-forward windows of equivalent span. Report per-fold delta, max delta, sign-agreement rate.
+- **Gate:** sign-agreement ≥80%; max per-fold |delta| < 0.30R
+- **Status:** PENDING (cheap; can run alongside F2.1)
+
+### F.7 — Operator review + decide (operator action, ~30 min) ✅ COMPLETE 2026-06-24
+- **Result:** Operator chose Option B (don't deploy v3 survivor). Reasoning logged: "we did literally 1 or 2 passes at finding an algo, i dont think thats what a quant firm would do". This decision triggered Phase F2 addition.
+- **A:** ≥1 candidate passes ALL v3 criteria → proceed to Phase F2 → G (was direct to G pre-2026-06-24)
 - **B:** 0 candidates pass → skip G entirely; go to Phase H direct
+- **Forward note:** When/if operator reconsiders deploy, F2 audit becomes the prerequisite gate before any G.6 re-stamp.
 
 ### F.8 — Branch on F.7 (no third option)
+- Branch taken: B → v3 survivor stays `status='draft'` (operator chose keep-as-draft over archive); next action = build F2 then re-evaluate.
+
+---
+
+# PHASE F2 — Search robustness (~4 days build + ~20hr per-candidate async compute) [ADDED 2026-06-24]
+
+**Purpose:** the v3 survivor passed F's deflation gates (DSR 0.983, PBO 0.229, k-fold 5/5), but those gates audit a SINGLE search pass. A quant firm bootstraps the search itself — re-runs with varied OOS cuts, leave-one-out catalogs, bootstrapped underlying bars, and alternative objective functions. Without this, the v3 survivor might be search-noise that happens to survive deflation. Operator B-decision on G.6 was driven by this gap.
+
+**Activation:** runs against any F.7-passing candidate BEFORE G.6 stamp. Same gate carries forward to future candidates from H.4b re-runs.
+
+### F2.1 — Multi-cut OOS search (1 day build + ~3hr per candidate) [PENDING]
+- **Driver:** `scripts/canonical/robustness-multi-cut.ts`
+- **Method:** re-run Layer A + Layer B + deflation with OOS cuts at 2024-09-01, 2024-12-01, 2025-03-01, 2025-06-01 (current). Per-cut report: did v3 survivor still pass per-candidate criteria? Did it still rank top-3 by DSR?
+- **Gate:** candidate is per-candidate-passer in ≥3/4 cuts AND ranks top-3 by DSR in ≥2/4 cuts
+- **Compute:** ~45min per cut × 4 = 3hr async
+
+### F2.2 — Pattern leave-N-out (1 day build + ~6hr per candidate) [PENDING]
+- **Driver:** `scripts/canonical/robustness-leave-n-out.ts`
+- **Method:** drop each of the 12 patterns one at a time, re-run Layer A on the remaining 11-pattern catalog. Check if the v3 survivor's pattern still produces a per-candidate-passer survivor in that reduced catalog. Variant: also test leave-2-out for the top 6 patterns.
+- **Gate:** survivor surfaces in ≥9/12 leave-one-out runs AND ≥4/6 leave-2-out runs
+- **Compute:** ~30min per run × (12 + 15) = ~13hr async (run overnight)
+- **Caveat:** leave-one-out where the dropped pattern IS the survivor's pattern is auto-skipped (would trivially fail)
+
+### F2.3 — Block-bootstrap-bars search (2 days build + ~10hr per candidate) [PENDING]
+- **Driver:** `scripts/canonical/robustness-bootstrap-bars.ts` + `src/lib/stats/block-bootstrap-bars.ts` (NEW helper)
+- **Method:** block-bootstrap the underlying OHLC bars (block_size=24 = 1 day at 4h) × 10 seeds. Re-run Layer A on each resample. Track survivor's pass-rate across seeds.
+- **Gate:** survivor surfaces in ≥6/10 bootstrap re-samples
+- **Compute:** ~1hr per seed × 10 = 10hr async
+- **Pre-registration note:** block_size=24 is locked BEFORE running (avoids data-snooping the seed count or block size)
+
+### F2.4 — Alt objective function search (0.5 day build + ~1hr per candidate) [PENDING]
+- **Driver:** `scripts/canonical/robustness-alt-objective.ts`
+- **Method:** re-rank the existing Layer A results by 3 alternative objectives: (a) Calmar; (b) robust mean R (trimmed 10%); (c) max-DD-recovery (mean R / max consecutive DD episode). Check if v3 survivor still ranks top-3 under ≥2/3 alternatives.
+- **Gate:** survivor is top-3 under ≥2/3 alternative objectives
+- **Compute:** ~1hr (pure re-ranking; no new backtests)
+
+### F2.5 — Aggregate verdict + persistence (0.5 day) [PENDING]
+- **Driver:** `scripts/canonical/robustness-aggregate.ts`
+- **Method:** combine F2.1-F2.4 results into single verdict JSON. Persist to `scripts/canonical/robustness-audit-<candidate-id>.json` for re-consultation during F.5 quarterly cycle.
+- **Output format:** per-sub-gate pass/fail + aggregate verdict (≥3/4 sub-gates pass → F2 PASS) + per-sub-gate evidence excerpts
+- **Operator-visible:** `/reports?tab=search` extended to show robustness audit results for any candidate that has one
+
+### F2.6 — Operator decision (re-stamp G.6 with F2 evidence, ~30 min) [PENDING-GATED-ON-F2.1-F2.5]
+- If F2 PASS → operator re-stamps G.6 packet §6 (Decision 1 = A); un-pause SQL fires
+- If F2 FAIL → archive candidate (status='archived'); skip G; go to H.4a label re-engineering as next action
+
+### F2 — Empirical result on v3 survivor ✅ RUN 2026-06-24
+
+| Sub-gate | Verdict | Detail |
+|---|---|---|
+| F2.1 multi-cut OOS | **PASS** | 3/4 cuts pass per-candidate; 4/4 cuts top-3 by Sharpe (rank 1 in 3/4) |
+| F2.2 leave-N-out | **FAIL** | only 2 non-survivor patterns also pass at survivor's cell (BOS, Sweep); needed ≥3 |
+| F2.3 bootstrap-bars | **FAIL** (7/10 seeds done at writing, all ranks 19-44 — mathematically locked) | survivor never reaches top-3 across any seed |
+| F2.4 alt-objective | **FAIL (1/2)** | Calmar top-3 ✓; trimmed mean R rank 6 ✗; recovery factor rank 15 ✗ — outlier-dependent edge |
+| F.6a wf-vs-kfold (info) | **PASS** | 100% sign-agreement, max delta 0.135R, both 5/5 consistency |
+
+- **Aggregate verdict: FAIL** (1/4 sub-gates PASS; need ≥3/4)
+- **Diagnosis:** the v3 survivor is **REAL but FRAGILE**. Genuine signal at the cell (OOS-cut robust + methodologies agree) BUT outlier-dependent (Calmar pass + trimmed-mean fail) + low pattern-family diversity at cell (only 2 other passers) + low rank under bar resampling (consistently outside top-3 across 7+ seeds).
+- **Forward sequence locked:**
+  - v3 survivor stays `status='draft'` (operator's keep-as-draft preference from G.6 stamp)
+  - Re-enter search after H.0 → H.4a-redo → re-Phase-E → re-F → re-F2
+  - H.4a empirical FAILed all 6 label variants → next prereq is H.0 (10yr+ data extension)
+- **Persisted:** `scripts/canonical/robustness-audit-33b705b9-7442-4c73-8d97-4a88ecacb9a1.json` (provisional aggregate; will re-aggregate when F2.3 background completes; aggregate verdict won't change)
 
 ---
 
@@ -182,9 +262,18 @@ protects it. We don't want a Tier 2 algo deployed under Tier 4 monitoring.
 - REV 2 (Layer B becomes diagnostic-only): the manual Layer B sweep script (`scripts/canonical/algo-search.ts MODE=layer-b`) stays in the repo as an exploration tool, but production parameter mutation is now the cron's responsibility. Updated spec.md §5 step 9.
 - REV 4 (static → walk-forward-optimized deployment): infrastructure shipped. Becomes the active deployment model once operator un-pauses the v3 survivor (G.6) AND adds the wfo crontab line. Until then, the algo runs with whatever parameters G.6 stamps in.
 
+### G.5.5 — Multi-account backtest mode (1-2 days) [ADDED 2026-06-24]
+- **Purpose:** FTMO scaling plan envisions multiple funded accounts (multi $50K up to $400K trader cap). Correlated drawdowns across $50K × 4 accounts = single $200K DD; current backtest models per-account, not portfolio-of-accounts. Without this, scaling decisions are made blind to multi-account DD correlation.
+- **Deliverable:** `src/lib/market-data/multi-account-backtest.ts` + `scripts/canonical/multi-account-sweep.ts`
+- **Method:** clone the same algo's trade sequence across N synthetic accounts; per-bar aggregate equity = sum across accounts; compute portfolio DD (worst peak-to-trough across the aggregate) vs sum-of-per-account DDs. Stress test: how does combined DD scale as N increases (linear / sub-linear / super-linear)?
+- **Trigger:** activates when operator considers second funded account (today: gated on first $10K FTMO pass per `[[project_scaling_plan]]`)
+- **Gate:** combined DD at N=4 accounts ≤ 1.2× sum-of-per-account DDs (rule-of-thumb for genuine diversification)
+- **Status:** PENDING (deferred-by-trigger; build is independent of trigger so can be done preemptively if operator wants)
+
 ### G.6 — Operator stamps acceptance packet + execute un-pause SQL (~30 min)
 - Operator stamps 8 decisions in revised `algo-search-acceptance.md` §6
 - I execute UPDATE algorithms + add pre-registration entry to `preregistration.json` BEFORE first live trade + verify SELECT
+- **Prerequisite (added 2026-06-24):** F2 PASS — any candidate stamped here must have a passing `robustness-audit-<id>.json` file in `scripts/canonical/`
 - **Gate:** algo shows `active` in DB; scan cron picks up within 15 min (verifiable in activity_log)
 
 ### G.7 — Demo period (3–6 months for gold 4h)
@@ -210,6 +299,34 @@ protects it. We don't want a Tier 2 algo deployed under Tier 4 monitoring.
 
 **Purpose:** regardless of G outcome, this is the Tier 3 → Tier 2 upgrade.
 Items run in order, not in parallel.
+
+### H.0 — 10yr+ price history extension ✅ COMPLETE 2026-06-24
+- **Shipped:** `scripts/extend-price-cache.ts` — incremental backward-fetch from OANDA via cursor pagination, normalises mixed date formats in existing cache (the existing 14048-bar 4h cache had 254 mixed "YYYY-MM-DD HH:MM:SS" + ISO `T...Z` entries — required normalisation step before merge dedup), prepends fetched bars to existing, validates monotonic ordering before write. Idempotent + resumable.
+- **Empirical extensions:**
+  - **XAU/USD 4h:** 14048 → **19979 bars** (2015-12-31 → 2026-06-19 = **10.5yr** ✓ H.0 4h gate)
+  - **XAU/USD 1h:** 20399 → **39524 bars** (2020-01-01 → 2026-06-18 = **6.46yr** ✓ H.0 1h gate)
+- **Both H.0 gates PASS.** Downstream consumers (H.4a re-run, future F2 audits, walk-forward-opt cron) inherit the deeper history automatically.
+- **Post-H.0 H.4a re-run result** (same 6 label variants on 1.4× more 4h data):
+
+  | Variant | Pre-H.0 AUC | Post-H.0 AUC | Δ |
+  |---|---|---|---|
+  | next_4_bar_sign | 0.5412 | **0.5411** | -0.0001 |
+  | next_bar_sign | 0.5378 | 0.5377 | -0.0001 |
+  | regime_conditioned | 0.5153 | 0.5276 | +0.0123 |
+  | r_aware | 0.4988 | 0.5224 | +0.0236 |
+  | r_aware_regime_conditioned | 0.4288 | 0.5176 | **+0.0888** |
+  | next_24_bar_sign | 0.4873 | 0.4855 | -0.0018 |
+
+  - **Verdict: still all 6 below 0.55 gate.** More data alone doesn't unlock bar-direction signal at 4h on XAU/USD.
+  - The most-overfit variant (r_aware_regime_conditioned) benefited most (+0.0888); the best variant (next_4_bar_sign) was already saturated at small-N AUC ~0.54 and didn't move with more data. Diminishing returns confirmed.
+  - **Implication:** H.4a failure branch (a) — "longer history" — is now CLOSED as not-the-fix. Remaining unblock options: (b) 15m TF, (c) cross-asset features. The DEEPER lesson: bar-direction prediction at 4h may be intrinsically unreachable; the v3 survivor's edge is PATTERN-TRIGGERED, not direction-predictive, so an AUC gate may be the wrong framing for this algo type.
+
+### H.0a — News-veto as Layer B axis (2 days) [ADDED 2026-06-24]
+- **Purpose:** news-veto gate exists in `lib/market-data/economic-calendar.ts` as on/off for entry but is NOT a sweep axis. Phase E search has never tested news-veto on/off vs window-width as a parameter. Post-news re-entry alpha is also unexplored.
+- **Deliverable:** add `news_veto_window_min` ∈ {0, 30, 60, 120} to Layer B enumerator + per-variant trade attribution showing news-vetoed entries that would have been winners (counterfactual)
+- **Method:** for each variant, replay with news-veto window varying; track delta in trade count + mean R + Sharpe
+- **Gate:** at least one variant shows news-veto window with Sharpe Δ > +0.05 OR documented why not (mirrors G.3 pattern)
+- **Status:** PENDING (independent of F2; doesn't block other H items)
 
 ### H.1 — Wire OANDA positioning data as feature (infrastructure ✅ COMPLETE 2026-06-23 / empirical gate deferred → H.1-validation)
 - **Data-reality correction:** the original spec said "uses existing 4-year oanda_positioning_cache data" — actual cache holds **12.97 days** (834 XAU_USD snapshots from 2026-06-10 onward). Per migration 00034: "OANDA only exposes the *current* snapshot via API (no historical positioning data). This table builds history forward from the moment the cron starts running." Empirical Sharpe-improvement validation requires forward-accumulated data and a live-deployed algo using the gate.
@@ -307,10 +424,76 @@ Items run in order, not in parallel.
   - The label choice IS the binding constraint here, not the feature set
 - **Persisted:** `scripts/canonical/feature-importance-results.json` (full ranking of all 48 features; consumable by H.4 + the H.5 quarterly cycle drift-tracking)
 
-### H.4 — Augment chosen algo with top features as composers (2 days)
-- New Layer B sweep on chosen algo's BASE with top-importance features added as filter axes
-- Re-evaluate via DSR + PBO + k-fold CV
-- **Gate:** feature-augmented variant has DSR ≥ baseline + 0.10
+### H.4a — Label re-engineering ✅ COMPLETE (infra + empirical) 2026-06-24
+- **Shipped:**
+  - `src/lib/features/labels.ts` — 6 canonical label fns: `next_bar_sign` (baseline), `next_4_bar_sign`, `next_24_bar_sign`, `r_aware` (TP-before-SL using algo geometry + ATR-derived SL distance), `regime_conditioned` (sign within `medium_vol` per H.6 evidence), `r_aware_regime_conditioned` (composite). Pure functions; `resolveLabelFn(name, opts)` dispatcher.
+  - `src/lib/features/training-rows.ts` — `buildTrainingRows` extended with optional `labelFn` (default = baseline; backwards-compat). New `buildTrainingRowsWithIdx` returns `bar_indices` alongside rows + `findHoldoutCutoffByDates` for date-aware chronological splits — required because bar-dropping label fns (regime + r_aware filter most bars; ~3.5K-4K rows from 14K bars) break the assumed 1:1 row→bar mapping in `findHoldoutCutoff`.
+  - `scripts/canonical/label-reengineering.ts` — H.4a driver iterates all 6 variants × 48-feature library; per-variant AUC + label balance + top-K features; persists `label-reengineering-results.json` + overwrites `feature-importance-results.json` ONLY when a variant passes the 0.55 floor.
+  - **23 new tests** (15 in `labels.test.ts` + 8 in `training-rows.test.ts` extension); 44/44 tests pass.
+
+**Empirical result (v3 survivor, XAU/USD 4h, 14048 bars, 6.4yr in-sample):**
+
+| Variant | AUC train | AUC holdout | Overfit gap | Verdict |
+|---|---|---|---|---|
+| next_4_bar_sign | 0.8272 | **0.5412** | 0.286 | **BEST** — fails 0.55 gate by 0.0088 |
+| next_bar_sign (H.3 baseline) | 0.7930 | 0.5378 | 0.255 | FAIL |
+| regime_conditioned | 0.9205 | 0.5153 | 0.405 | FAIL — massive overfit |
+| r_aware | 0.9121 | 0.4988 | 0.413 | FAIL — slightly worse than random |
+| next_24_bar_sign | 0.8795 | 0.4873 | 0.392 | FAIL — long horizon = noise |
+| r_aware_regime_conditioned | 0.9868 | 0.4288 | 0.558 | FAIL — most overfit; below random |
+
+- **Verdict:** **all 6 label variants FAIL the 0.55 gate.** Best variant (next_4_bar_sign 0.5412) is +0.0034 above H.3 baseline (0.5378) — improvement is real but trivially small. Train AUC of 0.79-0.99 across variants confirms the model CAN fit; holdout AUC near random confirms NO transferable signal at 4h cadence on XAU/USD for any tested label.
+- **Diagnosis:** binding constraint is NOT the label fn — it's **information density**. 6.4yr × 4h × 1 instrument = ~14K bars; insufficient for the 48-feature model to find regime-stable signal at this cadence. The H.3 honest-reading was half-right: label was the SUSPECTED constraint; the actual constraint is data volume.
+- **Per H.4a failure branch → deferred-by-trigger active**, waiting on ONE OF: (a) **H.0 — extend price cache to ≥10yr (NEXT)**; (b) drop to 15m TF giving 16× more training rows; (c) add cross-asset features (positioning infra shipped H.1; would need wiring to feature lib).
+- **H.4b explicitly NOT proceeded** despite spec's "best-available" fallback — composing top features at AUC ~0.54 (statistically indistinguishable from random when accounting for 48-feature trial noise) would add overfit, not signal. Wait for H.0 OR re-evaluate label-fn space after more data.
+- **Persisted:** `scripts/canonical/label-reengineering-results.json` (full per-variant AUC + top-K features for each).
+
+### H.4b — Augment chosen algo with top features as Layer B AXES (2 days; was H.4)
+- **Prereq:** H.4a winning label fn + top-K features file exists (or H.4-methodology-revision feature-veto verdict for pattern-triggered algos)
+- **Methodology lock (operator-clarified 2026-06-24):** features become Layer B **AXES** (binary on/off per variant), NEVER required base conditions. Pre-supposing any feature is universally beneficial is researcher-degrees-of-freedom (RDOF) — the search methodology is explicitly designed to avoid this. Cite: Bailey/López de Prado AFML ch.7 on RDOF; LASSO/elastic-net feature selection in AQR/DE Shaw practice.
+- **Method:** new Layer B sweep on chosen algo's base with top-K features added as binary on/off filter axes. Variant cardinality = `geometry_variants × 2^K`. Selection bias correctly penalised by DSR's `nTrials = 96 × 2^K`.
+- **Pragmatic implementation (compute-bounded):** stepwise feature addition (greedy forward selection):
+  1. Start with the base candidate (no augmentation; 1 baseline)
+  2. Test each of top-K features individually as a single-axis augmentation (K variants)
+  3. Keep the SINGLE feature that improves DSR most (after re-deflation)
+  4. Re-test remaining K-1 features as the NEXT axis on top of step 3's winner
+  5. Stop when no remaining feature improves DSR
+  6. Total backtests: O(K²/2) — for K=10, ~50 backtests, vs 1024 for full grid
+- **Re-evaluate via:** DSR + PBO + k-fold CV + F2 robustness audit on the FINAL augmented variant (against the augmented family of equivalent geometry)
+- **Gate:** final augmented variant has DSR ≥ baseline + 0.10 AND passes F2 audit
+- **Forbidden:** hardcoding any feature as a "required base" in entry_conditions outside the search-enumerated axes. Operator override of this requires explicit roadmap stamp.
+
+### H.4-methodology-revision — Per-algo-class gate dispatcher ✅ APPROVED 2026-06-24
+- **Discovery:** H.4a empirical (both pre-H.0 + post-H.0) saturated all 6 label variants at AUC 0.43-0.54 — never reaching the 0.55 gate. The decisive lesson is that 4h XAU/USD bar-direction signal is genuinely absent at this cadence, INDEPENDENT of label fn or training size.
+- **Methodology insight:** the v3 survivor is a **pattern-triggered** algo (Engulfing fires when a specific structure appears). Its edge comes from WHEN-PATTERN, not WHETHER-NEXT-BAR-UP. AUC measures next-bar predictability — a different objective.
+- **Resolution (operator-approved):** algo-class-aware gate dispatcher:
+  - `direction-predictive` algos (TechnicalCondition or RSI-based entries) → keep AUC ≥ 0.55 gate
+  - `pattern-triggered` algos (PatternCondition-only entries) → replace AUC with **feature-as-filter** test: "does adding any top-K feature as a Layer B veto axis improve baseline Sharpe by ≥5% OR cut max-DD by ≥20%?"
+  - Simpler than DSR-delta gate (DSR shift requires re-deflation of new trial pool); Sharpe/DD-on-baseline measures direct utility-of-feature-as-filter without re-deflation overhead
+- **Implementation scope:** ~1 day total
+  - Extend `src/lib/algo-search/criteria.ts` with `classifyAlgoForGate(rules)` returning `"pattern-triggered" | "direction-predictive"`
+  - New driver `scripts/canonical/feature-veto-validate.ts` — runs top-K features × {veto-on, veto-off} variants × backtest; reports per-feature delta-Sharpe + delta-DD
+  - H.4b prerequisite updated from "AUC ≥ 0.55" to "appropriate-class gate passes"
+
+### H.4c — Pattern catalog expansion (14 → 17 patterns) ✅ COMPLETE 2026-06-24
+- **Shipped:** added 3 new pattern detectors + their PatternCondition dispatch + their SEARCH_PATTERNS enumeration entries. Pure-function detectors matching existing interface (`PatternResult<DetailsType>`); each with own test file + 33 tests (all pass).
+- **Patterns added:**
+  - `inside_bar` (continuation): current bar fully contained within previous bar's range; direction inherited from previous bar's body
+  - `outside_bar` (volatility expansion): current bar's range fully engulfs previous bar's range; direction from current close; reports range_expansion_ratio for filtering marginal vs decisive engulfments
+  - `doji` (indecision): body ≤ 10% of range; classifies as standard / long_legged / dragonfly / gravestone via wick-fraction analysis; direction-agnostic
+- **Files:**
+  - NEW: `src/lib/patterns/inside-bar.ts` + `.test.ts` (7 tests)
+  - NEW: `src/lib/patterns/outside-bar.ts` + `.test.ts` (7 tests)
+  - NEW: `src/lib/patterns/doji.ts` + `.test.ts` (8 tests)
+  - MODIFIED: `src/lib/patterns/index.ts` (export 3 new detectors + types)
+  - MODIFIED: `src/lib/patterns/evaluate.ts` (dispatch new patterns; doji direction-agnostic semantic — refuses when caller passes effectiveDir)
+  - MODIFIED: `src/types/algorithm.ts` (PatternCondition.pattern union extended)
+  - MODIFIED: `src/lib/algo-search/enumerate.ts` (SEARCH_PATTERNS + patternDisplay; inside_bar + outside_bar enumerated L+S, doji long-only since direction-agnostic)
+  - MODIFIED: `src/lib/algo-search/enumerate.test.ts` (Bonferroni denominator: 308 → **368**; 12 L+S → 14 L+S; 1 long-only → 2 long-only; balanced per-instrument count 77 → 92)
+- **Empirical change:** Phase E2 search universe expanded from 308 cells to **368 cells** (19% more enumeration). Bonferroni denominator updates automatically via `layerACardinality()`.
+- **Verification:** 33/33 new tests pass; TS clean; ESLint 0 warnings on new files; existing enumerate test updated + passes.
+- **Consumed by:** Phase E2 — new patterns automatically enumerate; no E2 driver changes needed.
+- **Deferred (operator-decidable in future):** the 7 other proposed patterns (hammer, shooting_star, morning_star, evening_star, harami, three_white_soldiers, three_black_crows) — each adds 1-2 days of detector build + tests. Skipped this turn to ship a working subset; can be added incrementally without disrupting the existing detectors.
 
 ### H.5 — Quarterly research cycle establishment ✅ COMPLETE 2026-06-23
 - **Template:** `scripts/canonical/quarterly-research-cycle.md` — operator-facing process doc; describes the 4 artifacts, the operator review workflow, the on-demand curl preview, and the gate satisfaction trail.
@@ -405,29 +588,108 @@ Items run in order, not in parallel.
 - **Subsumes:** old Phase D.3 (correlation-aware portfolio)
 - **Gate:** each live alpha has factor-orthogonal alpha measured
 
+### H.9 — Bayesian optimization replacing Layer B grid (1-2 weeks) [PROMOTED FROM I.1 2026-06-24]
+- **Purpose:** with F2 robustness gate + H.4a label re-design shipped, the grid search itself (308 cells × 96 variants ≈ 30K evaluations) becomes the compute bottleneck. BO with GP surrogate + expected improvement converges in 30-60 evaluations — 100× faster — enabling broader search families per quarter.
+- **Deliverable:** `src/lib/algo-search/bayesian-optimization.ts` + Python sidecar (`scripts/python/bayesian_optimization.py` using scikit-optimize or similar; matches H.3 sidecar pattern). TS driver `scripts/canonical/bo-search.ts` orchestrates.
+- **Method:** BO over Layer B's 5-axis continuous-relaxation (rr ∈ [1.5, 5], lb ∈ [3, 12], risk_pct ∈ [0.3, 1.2], regime_filter ∈ {0,1} via marginalization, adx_filter ∈ {0,1} via marginalization). Acquisition: expected improvement. 30-60 evaluations.
+- **Composed with F2:** BO-emerged candidates must pass F2 robustness audit just like grid candidates do (BO does NOT replace F2; they compose).
+- **Gate:** BO finds the F.4 winner (Engulfing rr3_lb6_r06) within 60 evaluations on the F.4 search space (sanity check); on a new search space, surfaces ≥1 candidate matching F.4 winner's DSR within 0.05.
+- **Status:** PENDING (blocked on F2 + H.4a shipping first)
+
+### H.10 — Drawdown attribution (3 days) [ADDED 2026-06-24]
+- **Purpose:** when a deployed algo enters drawdown, current `/reports?tab=drift` shows IT, not WHY. Quant-firm rigor requires per-DD-episode factor attribution: which feature subset's signal flipped, which regime entered/exited, which day-of-week clustering caused it.
+- **Deliverable:** `src/lib/cohort/drawdown-attribution.ts` + `/reports?tab=drawdowns` UI section
+- **Method:** for each DD episode (peak → trough exceeding 1% of capital), compute per-feature contribution: which features had different distributions vs healthy periods; rank by absolute z-score difference. Display as a per-episode attribution table.
+- **Trigger:** activates when ≥1 alpha deployed AND ≥10 closed positions exist (so DD episodes have enough trade detail to attribute)
+- **Gate:** per-DD-episode top-3 feature contributions surface in `/reports?tab=drawdowns`; manually-validated against 3 historical synthetic DD episodes
+- **Status:** PENDING (deferred-by-trigger on deploy + position count)
+
+### H.10b — Outlier trade attribution (1 day) [ADDED 2026-06-24]
+- **Purpose:** avoid "1 lucky trade carries the whole edge" failure mode. Per-trade R contribution to total R surfaced as a ranked table; trimmed-mean R reported alongside raw mean R.
+- **Deliverable:** extend `lib/cohort/engine-activity.ts` with `computeOutlierContribution(trades)` + `/reports?tab=cohort` displays trimmed-mean alongside raw mean
+- **Method:** for each algo, compute (a) total R, (b) total R minus top-3 trades, (c) total R minus bottom-3 trades, (d) Gini coefficient on per-trade R. Flag any algo where removing top-3 trades drops total R by ≥50% (alpha-from-outliers signal).
+- **Trigger:** activates with any deployed algo that has ≥20 closed positions
+- **Gate:** outlier contribution table visible in `/reports?tab=cohort`; manually-validated against historical algos
+- **Status:** PENDING (deferred-by-trigger on deploy + position count)
+
+### H.11 — Alpha decay attribution (3 days) [ADDED 2026-06-24]
+- **Purpose:** G.4 alpha-decay-cron detects Sharpe degradation but doesn't explain it. When auto-pause fires, operator needs to know WHY — which feature contribution flipped, which regime distribution shifted.
+- **Deliverable:** extend `src/lib/cohort/alpha-decay.ts` with `attributeDecay(algoId)` that runs when an `alpha_decay_pause` event fires
+- **Method:** compare feature distributions + per-feature R-contribution between baseline period and decay period. Rank features by largest distribution shift (KS test) + largest R-contribution sign-flip. Persist as JSONB on the decay event row.
+- **Trigger:** activates when first `alpha_decay_pause` event fires for any deployed algo
+- **Gate:** decay event JSONB includes top-3 features whose contribution flipped sign + top-3 features whose distribution shifted most; surfaces in `/reports?tab=drift`
+- **Status:** PENDING (deferred-by-trigger on first decay event)
+
+### H.6-extension — Sentiment regime axis (deferred-by-trigger) [ADDED 2026-06-24]
+- **Purpose:** H.6 regime classifier is currently vol-percentile only. Sentiment regime (fear/greed extremes via VIX, news sentiment z-score, positioning crowdedness) is a documented additional regime axis worth testing.
+- **Deliverable:** extend `src/lib/algorithm/regime-classifier.ts` with `classifyRegimeMultiAxis(bars, idx, ctx)` returning `{vol_regime, sentiment_regime, combined}`; per-regime sweep extends to the combined regime grid
+- **Trigger:** activates when ≥1 algo is deployed AND has accumulated ≥30 trades across distinct sentiment-regime cells (so per-cell stats are non-vacuous)
+- **Gate:** sentiment-conditioned per-regime sweep shows ≥1 cell with Sharpe Δ > +0.10 vs pooled OR documented why not (mirrors G.3/H.1-validation pattern)
+- **Status:** PENDING (deferred-by-trigger)
+
+---
+
+# PHASE E2 — Re-search on extended data + expanded catalog (operator-approved 2026-06-24)
+
+**Purpose:** Phase E v1+v2 both produced ~67 per-candidate passers, all from the same 14-pattern × 4-inst × 3-TF × 2-dir universe on 6.4yr 4h data. v3 survivor (the singular pass-through of F+F2) failed F2 robustness. Re-running with **same gold-only universe but (a) extended H.0 data (10.5yr 4h, 6.46yr 1h) and (b) expanded H.4c pattern catalog (14 → 17 patterns)** is the highest-information next action: more cells + more data = more candidates emerging above selection-bias DSR penalty.
+
+**Methodology lock (operator-clarified 2026-06-24):** Phase E2 is GEOMETRY-ONLY at the Layer B stage (96 variants per cell as before). Augmentation features are NOT included as required base conditions or pre-added axes — that would be researcher-degrees-of-freedom (RDOF). Augmentation discovery happens in a SEPARATE per-survivor step (H.4b stepwise feature addition) AFTER Phase E2 identifies geometry-only F-survivors. This sequencing keeps Phase E2 compute manageable (~49hr at 5s/backtest) AND preserves the no-pre-supposition discipline.
+
+### E2.1 — Smoke-test driver on extended cache (0.5hr) [PENDING]
+- Run `MODE=list pnpm dlx tsx scripts/canonical/algo-search.ts` to verify the existing driver picks up the extended H.0 4h+1h caches cleanly
+- Verify cell count = old + (H.4c new patterns × inst × TFs × dirs less exemptions)
+- Verify each cell's bar count reflects extended data
+
+### E2.2 — Re-pre-register search criteria (0.5hr) [PENDING]
+- Update `scripts/canonical/preregistration.json` with E2 pre-reg entry; pre-reg LOCKED before E2.3 runs
+- Mirror previous spec.md per-candidate criteria (1-7); preserve direction-split + 12mo OOS cutoff
+- Bonferroni denominator = updated cell count (308 + H.4c additions)
+
+### E2.3 — Phase E2 Layer A sweep (~40-60hr async) [PENDING-GATED-ON-E2.1+E2.2+H.4c]
+- `MODE=full pnpm dlx tsx scripts/canonical/algo-search.ts` with PERSIST=1
+- Writes new Search:* + LayerB:* rows to algorithms table
+- Wall clock: ~40hr (308 cells × validate-algo) or ~50-60hr if H.4c expands catalog
+- 0$ LLM; pure compute
+- Operator stamp REQUIRED before launch given duration + DB-write scale
+
+### E2.4 — Phase F deflation on E2 candidates (~2-4hr) [PENDING-GATED-ON-E2.3]
+- For each per-candidate passer, run `revalidate-candidates.ts` to compute DSR + PBO + k-fold
+- Expected outcome: 1-5 candidates pass v3 deflation (cf. v2 ratio of 1/3 from Stage 6.7)
+
+### E2.5 — Phase F2 robustness on E2 deflation-survivors (~1.5hr per candidate) [PENDING-GATED-ON-E2.4]
+- For each F-survivor, run full F2 audit (multi-cut, leave-N-out, bootstrap, alt-objective, aggregate)
+- Expected outcome: 0-3 deployable algos
+
+### E2.6 — F2-calibration: empirical re-tuning of F2 thresholds [PENDING-GATED-ON-E2.5]
+- IF E2 produces ≥5 candidates pass F → use the empirical distribution of their F2 sub-gate verdicts to re-calibrate thresholds. Currently F2 thresholds were pre-registered in code WITHOUT empirical N (the v3 survivor's "1/4 PASS" verdict is N=1; insufficient to know if ≥3/4 is reasonable).
+- IF re-calibration relaxes F2 → re-evaluate v3 survivor + E2 candidates under relaxed thresholds; document which would now PASS
+- Treat re-calibrated thresholds as a new pre-reg locked BEFORE applied to any candidate; preserve audit trail of original strict thresholds
+
 ---
 
 # PHASE I — Advanced / aspirational (6+ months; OPTIONAL items)
 
 Operator decides each at the time. No commitment to any.
 
-### I.1 — Bayesian optimization replacing Layer B grid (1–2 weeks)
-GP surrogate with expected improvement. 30–60 evaluations vs 96 grid + continuous parameter resolution. Useful when search families grow to thousands.
+**Note (2026-06-24):** original I.1 Bayesian optimization promoted to H.9 (became part of methodology upgrade, not aspiration). Items below renumbered.
 
-### I.2 — Continuous research pipeline (2–3 weeks)
+### I.1 — Continuous research pipeline (2–3 weeks) [WAS I.2]
 Daily cron re-evaluates all deployed + shadow candidates. Weekly digest. Quarterly full library refresh. Subsumes H.5 cadence into automated weekly.
 
-### I.3 — Phase D.4 LLM-trader path (paid, last; 1–2 weeks)
-Restore from `scripts/archive/2026-06-18/`. `$25/month` budget cap enforced. Runs as Tier 2 alpha alongside rules-based algos. Uses H.2 feature library as context.
+### I.2 — Phase D.4 LLM-trader path (paid, last; 1–2 weeks) [WAS I.3]
+Restore from `scripts/archive/2026-06-18/`. `$25/month` budget cap enforced. Runs as Tier 2 alpha alongside rules-based algos. Uses H.2 + H.3 feature library as context.
 
-### I.4 — Multi-instrument expansion (ongoing; only after gold demo stable per `[[feedback_gold_only_demo_stage]]`)
+### I.3 — Multi-instrument expansion (ongoing; only after gold demo stable per `[[feedback_gold_only_demo_stage]]`) [WAS I.4]
 Forex re-research with H.2/H.3 feature library. Indices, commodities other than gold.
 
-### I.5 — Market impact model (only at $100K+ deployed; Almgren–Chriss square-root impact)
+### I.4 — Market impact model (only at $100K+ deployed; Almgren–Chriss square-root impact) [WAS I.5]
 
-### I.6 — Alternative data (news sentiment, social, options flow; operator + cost decision at the time)
+### I.5 — Alternative data (news sentiment, social, options flow; operator + cost decision at the time) [WAS I.6]
 
-### I.7 — CB.C7 `lib/market-data` restructure (operator-deferred via AOD.1 until after first $10K challenge)
+### I.6 — CB.C7 `lib/market-data` restructure (operator-deferred via AOD.1 until after first $10K challenge) [WAS I.7]
+
+### I.7 — Adversarial replay across structural breaks (2-3 days + blocked on H.0 data extension) [ADDED 2026-06-24]
+Re-run F.4 + F2 audit on the v3 survivor (or future candidate) across 2008 crisis / 2014 oil crash / 2020 COVID / 2022 commodity squeeze sub-windows. Blocked on H.0 (10yr+ price history). Promotes to mandatory F-sub-gate once H.0 lands.
 
 ---
 
@@ -452,12 +714,21 @@ block bootstrap CI, demo-gate spec, per-broker portfolio modeling, `Search:` +
 |---|---|---|
 | B.1.8.a broker spread calibration | ≥50 broker spread samples per forex symbol | H or I (after gold-only relaxes) |
 | B.1.23 portfolio-halt baseline-vs-gated | ≥2 deployed algos sharing broker | H.8 (factor orthogonality) |
-| Phase D.1 strategy generation | Subsumed by H.2 + H.3 | H phase |
+| Phase D.1 strategy generation | Subsumed by H.2 + H.3 + H.4a | H phase |
 | Phase D.2 vol-targeting | Subsumed by G.3 | G phase |
 | Phase D.3 correlation-aware portfolio | Subsumed by H.8 | H phase |
-| Phase D.4 LLM-trader | After Phase H complete | I.3 |
-| Forex re-research | After 1 stable gold demo | I.4 |
-| CB.C7 lib/market-data restructure | After first $10K challenge | I.7 |
+| Phase D.4 LLM-trader | After Phase H complete | I.2 (was I.3) |
+| Forex re-research | After 1 stable gold demo | I.3 (was I.4) |
+| CB.C7 lib/market-data restructure | After first $10K challenge | I.6 (was I.7) |
+| Multi-account backtest | Operator considers 2nd funded account | G.5.5 |
+| Sentiment regime axis | ≥30 trades per sentiment regime cell | H.6-extension |
+| Drawdown attribution | ≥1 deploy + ≥10 closed positions | H.10 |
+| Outlier trade attribution | ≥1 deploy + ≥20 closed positions | H.10b |
+| Alpha decay attribution | First alpha_decay_pause event | H.11 |
+| News-veto as Layer B axis | Independent — operator-priorities | H.0a |
+| 10yr+ price history extension | Independent — operator-priorities | H.0 |
+| Adversarial structural-break replay | Blocked on H.0 | I.7 |
+| H.4a label re-engineering failure mode | If no label variant achieves AUC ≥ 0.55 | H.0 data ext OR 15m TF OR cross-asset features |
 
 ---
 
@@ -477,29 +748,32 @@ block bootstrap CI, demo-gate spec, per-broker portfolio modeling, `Search:` +
 
 ---
 
-## First action this week (concrete)
+## First action this week (concrete) — UPDATED 2026-06-24
 
-| Day | Task | Owner |
+Phase F + G + H mostly shipped. Operator chose B on G.6 (don't deploy v3 survivor); methodology critique surfaced F2 search-robustness gap. Forward sequence:
+
+| Days | Task | Owner |
 |---|---|---|
-| Mon | F.1 — build `src/lib/stats/deflated-sharpe.ts` | me |
-| Tue | F.2 — build `src/lib/stats/pbo.ts` | me |
-| Wed–Thu | F.3 — build `src/lib/stats/purged-kfold.ts` + validate-algo integration | me |
-| Fri AM | F.4 — re-evaluate top 3 Layer B candidates under v3 | me |
-| Fri PM | F.5 + F.6 — revise spec + acceptance packet to v3 | me |
-| Fri EOD | F.7 — operator review of revised packet + decision A/B | operator |
+| 1-4 | F2.1 + F2.2 + F2.3 + F2.4 build (drivers + Python sidecar reuse + aggregator) | me |
+| 4 nights | F2 async runs against v3 survivor (~20hr total) | machine |
+| 5 | F2.5 verdict + operator re-decision on G.6 | operator |
 
-The current `algo-search-acceptance.md` is **DEFERRED** until F.6 completes —
-don't stamp it as-is. v2 numbers may not survive v3 deflation.
+**If F2 PASS:** operator re-stamps G.6; un-pause SQL fires; G.7 demo begins.
+
+**If F2 FAIL:** archive v3 survivor; H.4a label re-engineering becomes next action (~2 days build + measure); re-enter Phase E search; new candidate re-runs F → F2 → G.6.
+
+The current `algo-search-acceptance.md` §6 §1 = Option B; §2-§8 stamps captured as default for any future re-stamp.
 
 ---
 
-## What I am explicitly NOT doing
+## What I am explicitly NOT doing — UPDATED 2026-06-24
 
-- **No new Phase E sweep.** Diminishing returns from another exhaustive grid on the current pattern catalog.
-- **No methodology pivots after seeing F.4 data.** v3 is the locked spec; F.7 outcome is whatever it is.
-- **No parallel work.** Single linear sequence prevents the "which version are we on?" confusion.
-- **No operator decisions until F.7.** All technical decisions are mine through Phase F build.
-- **No deploying an overfit candidate.** If F.7 outcome B (0 candidates pass), we accept null and skip directly to Phase H.
+- **No new Phase E sweep before F2 verdict.** If F2 PASSES, the existing v3 survivor IS the deploy candidate; no new search needed. If F2 FAILS, search re-runs only AFTER H.4a label re-engineering.
+- **No methodology pivots after seeing F2 data.** F2 sub-gates are pre-registered; outcome is whatever it is.
+- **No parallel F2 + H work.** Single linear sequence; F2 verdict gates next action.
+- **No operator decisions until F2.5 verdict.** All technical decisions are mine through F2 build.
+- **No deploying an F2-failing candidate.** If F2 FAIL, we accept null and re-enter search through H.4a.
+- **No archiving the v3 survivor until F2 has actually failed it.** Operator chose `keep-as-draft` 2026-06-24; archive is a one-way action that only fires on F2 FAIL.
 
 ---
 
@@ -513,6 +787,9 @@ don't stamp it as-is. v2 numbers may not survive v3 deflation.
 | 2026-06-23 LATE | Stage 6.7 acceptance packet written | `algo-search-acceptance.md` |
 | 2026-06-23 LATE | Operator audit-question: are we doing "grueling exhaustive search on static ruleset"? Answer: YES, that's the gap | (conversation) |
 | 2026-06-23 LATE | F/G/H/I framework adopted; v3 methodology planned; ROADMAP.md created | this file |
+| 2026-06-24 | Operator G.6 = B (don't deploy v3 survivor); reasoning: "1 or 2 passes at finding an algo isn't quant-firm" | (conversation) |
+| 2026-06-24 | F2 search-robustness phase added (F2.1 multi-cut OOS + F2.2 leave-N-out + F2.3 bootstrap-bars + F2.4 alt-objective + F2.5 verdict). H.4 split into H.4a label re-engineering + H.4b feature composition. H.0 + H.0a + G.5.5 + H.9 (BO promoted from I.1) + H.10 + H.10b + H.11 + H.6-extension + F.6a + I.7 added. Deferred-by-trigger table expanded | this file |
+| 2026-06-24 LATER | F2 BUILD + F2 RUN complete: aggregate FAIL (1/4 PASS). H.4a BUILD + RUN complete: 6/6 label variants FAIL pre + post H.0. H.0 BUILD + RUN complete: 4h cache 10.5yr ✓ + 1h cache 6.46yr ✓. H.4-methodology-revision filed + APPROVED. H.4c pattern catalog expansion + Phase E2 re-search filed + APPROVED. Gold-only constraint re-confirmed by operator (rejected my "gold + USD/JPY" relaxation proposal). | this file |
 
 ---
 

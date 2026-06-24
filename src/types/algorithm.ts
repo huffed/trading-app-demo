@@ -67,6 +67,9 @@ export interface PatternCondition {
     | "pin_bar"
     | "momentum"
     | "mean_reversion"
+    | "inside_bar"
+    | "outside_bar"
+    | "doji"
     | "gold_session_window"
     | "asian_range_break"
     | "post_news_window";

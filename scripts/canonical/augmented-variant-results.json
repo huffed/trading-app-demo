@@ -1,0 +1,90 @@
+{
+  "base_algo_id": "33b705b9-7442-4c73-8d97-4a88ecacb9a1",
+  "augment_pattern": "daily_bias",
+  "augment_direction": "bullish",
+  "baseline": {
+    "trades": 289,
+    "total_r": 111.08399999999996,
+    "mean_r": 0.3843737024221452,
+    "total_return": 6665.04,
+    "sharpe": 0.18552566280067687,
+    "max_dd_r": 15.746166666666667,
+    "max_static_dd_pct": 0.09449999999999999,
+    "max_daily_dd_pct": 0.0098,
+    "win_rate": 33.910034602076124
+  },
+  "augmented": {
+    "trades": 179,
+    "total_r": 110.90366666666664,
+    "mean_r": 0.6195735567970203,
+    "total_return": 6654.22,
+    "sharpe": 0.2792150673117343,
+    "max_dd_r": 11.085999999999984,
+    "max_static_dd_pct": 0.0665,
+    "max_daily_dd_pct": 0.0098,
+    "win_rate": 38.547486033519554
+  },
+  "deltas": {
+    "sharpe_pct": 50.49943123594415,
+    "max_dd_pct": -29.595562941245063,
+    "static_dd_pct": -29.629629629629616,
+    "trade_count_pct": -38.062283737024224
+  },
+  "augmented_in_sample_mean_r": 0.6285224358974357,
+  "augmented_oos_mean_r": 0.5588768115942028,
+  "augmented_oos_delta_pct": -11.080849358032774,
+  "augmented_mean_r_ci_lower": 0.35065168269230773,
+  "per_candidate_results": [
+    {
+      "key": "min_total_return",
+      "label": "total_return > 0",
+      "passed": true,
+      "observed": 6654.22,
+      "threshold": 0
+    },
+    {
+      "key": "min_total_trades",
+      "label": "trades ≥ 30",
+      "passed": true,
+      "observed": 179,
+      "threshold": 30
+    },
+    {
+      "key": "max_static_dd_pct",
+      "label": "static_dd ≤ 10%",
+      "passed": true,
+      "observed": 0.0665,
+      "threshold": 10
+    },
+    {
+      "key": "max_daily_dd_pct",
+      "label": "daily_dd ≤ 5%",
+      "passed": true,
+      "observed": 0.0098,
+      "threshold": 5
+    },
+    {
+      "key": "min_mean_r_ci_lower",
+      "label": "mean R CI lower > 0",
+      "passed": true,
+      "observed": 0.35065168269230773,
+      "threshold": 0
+    },
+    {
+      "key": "min_oos_held_out_trades",
+      "label": "held-out trades ≥ 10",
+      "passed": true,
+      "observed": 23,
+      "threshold": 10
+    },
+    {
+      "key": "max_oos_r_delta_pct",
+      "label": "|oos R delta| ≤ 50%",
+      "passed": true,
+      "observed": -11.080849358032774,
+      "threshold": 50
+    }
+  ],
+  "per_candidate_passes": true,
+  "generated_at": "2026-06-24T12:37:49.726Z"
+}

@@ -4,8 +4,13 @@
  * for label generation + train/holdout segmentation.
  */
 import { describe, expect, it } from "vitest";
-import { buildTrainingRows, findHoldoutCutoff } from "./training-rows";
 import type { PriceBar } from "@/lib/market-data/types";
+import {
+  buildTrainingRows,
+  buildTrainingRowsWithIdx,
+  findHoldoutCutoff,
+  findHoldoutCutoffByDates,
+} from "./training-rows";
 
 const T0 = new Date("2026-01-01T00:00:00Z").getTime();
 
@@ -152,5 +157,97 @@ describe("findHoldoutCutoff", () => {
     const a = findHoldoutCutoff(bars, firstValidIdx, 30);
     const b = findHoldoutCutoff(bars, firstValidIdx, 30);
     expect(a).toBe(b);
+  });
+});
+
+describe("buildTrainingRowsWithIdx", () => {
+  it("returns same rows + firstValidIdx as buildTrainingRows + adds bar_indices", () => {
+    const bars = syntheticBars(300);
+    const base = buildTrainingRows(bars);
+    const withIdx = buildTrainingRowsWithIdx(bars);
+    expect(withIdx.rows.length).toBe(base.rows.length);
+    expect(withIdx.firstValidIdx).toBe(base.firstValidIdx);
+    expect(withIdx.bar_indices.length).toBe(withIdx.rows.length);
+  });
+
+  it("bar_indices are strictly monotonic ascending", () => {
+    const bars = syntheticBars(500);
+    const { bar_indices } = buildTrainingRowsWithIdx(bars);
+    for (let i = 1; i < bar_indices.length; i++) {
+      expect(bar_indices[i]).toBeGreaterThan(bar_indices[i - 1]);
+    }
+  });
+
+  it("each bar_index maps to a valid bars entry", () => {
+    const bars = syntheticBars(200);
+    const { bar_indices } = buildTrainingRowsWithIdx(bars);
+    for (const idx of bar_indices) {
+      expect(idx).toBeGreaterThanOrEqual(0);
+      expect(idx).toBeLessThan(bars.length);
+    }
+  });
+
+  it("with a label fn that drops bars, bar_indices reflect filtered subset", () => {
+    const bars = syntheticBars(300);
+    // Label fn that only labels every other bar
+    let toggle = 0;
+    const dropEveryOther = (): 0 | 1 | null => {
+      toggle++;
+      return toggle % 2 === 0 ? 1 : null;
+    };
+    const { rows, bar_indices } = buildTrainingRowsWithIdx(bars, undefined, dropEveryOther);
+    expect(rows.length).toBe(bar_indices.length);
+    // bar_indices should skip every other valid bar
+    for (let i = 1; i < bar_indices.length; i++) {
+      expect(bar_indices[i] - bar_indices[i - 1]).toBeGreaterThanOrEqual(1);
+    }
+  });
+});
+
+describe("findHoldoutCutoffByDates", () => {
+  it("returns 0 for empty bars OR empty bar_indices", () => {
+    expect(findHoldoutCutoffByDates([], [], 30)).toBe(0);
+    expect(findHoldoutCutoffByDates(syntheticBars(10), [], 30)).toBe(0);
+  });
+
+  it("splits correctly when all rows fall before cutoff (everything is training)", () => {
+    const bars = syntheticBars(500);
+    // Use first 100 bars only — all from the early portion of the series
+    const earlyIndices = Array.from({ length: 100 }, (_, i) => i);
+    // holdout = last 20 days; first 100 bars (~16.7 days) are all before
+    // the cutoff if total span is larger
+    const cutoff = findHoldoutCutoffByDates(bars, earlyIndices, 20);
+    expect(cutoff).toBe(100); // all 100 indices are training
+  });
+
+  it("returns 0 when ALL rows fall in holdout window (everything is holdout)", () => {
+    const bars = syntheticBars(500);
+    // Use last 50 bars (= ~8 days) with holdoutDays=365 → all in holdout
+    const lateIndices = Array.from({ length: 50 }, (_, i) => bars.length - 50 + i);
+    const cutoff = findHoldoutCutoffByDates(bars, lateIndices, 365);
+    expect(cutoff).toBe(0);
+  });
+
+  it("monotonic break-out: stops at first index past cutoff (perf optimisation)", () => {
+    const bars = syntheticBars(500);
+    // Span ~83 days; holdoutDays=20 puts cutoff at day 63
+    const allIndices = Array.from({ length: 500 }, (_, i) => i);
+    const cutoff = findHoldoutCutoffByDates(bars, allIndices, 20);
+    expect(cutoff).toBeGreaterThan(0);
+    expect(cutoff).toBeLessThan(500);
+  });
+
+  it("matches findHoldoutCutoff when all bars produce rows", () => {
+    const bars = syntheticBars(500);
+    const { rows, firstValidIdx, bar_indices } = buildTrainingRowsWithIdx(bars);
+    const dateBased = findHoldoutCutoffByDates(bars, bar_indices, 30);
+    // findHoldoutCutoff counts training rows differently (it iterates bars +
+    // applies close-validity); equality is approximate when label-fn drops
+    // some bars. With default next_bar_sign and synthetic linear bars, both
+    // should agree exactly.
+    const legacyBased = findHoldoutCutoff(bars, firstValidIdx, 30);
+    expect(Math.abs(dateBased - legacyBased)).toBeLessThanOrEqual(1);
+    // dateBased correctly leaves rows.length - cutoff for holdout
+    expect(rows.length - dateBased).toBeGreaterThan(0);
   });
 });

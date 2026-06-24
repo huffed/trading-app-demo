@@ -21,17 +21,20 @@ import type { PatternCondition } from "@/types/algorithm";
 import { detectAsianRangeBreak } from "./asian-range-break";
 import { detectBos } from "./bos";
 import { detectChoch } from "./choch";
+import { detectDoji } from "./doji";
 import { detectEqualLevels } from "./equal-levels";
 import { detectOte } from "./ote";
 import { detectDailyBias } from "./daily-bias";
 import { detectEngulfing } from "./engulfing";
 import { detectFvg, scanFvgs } from "./fvg";
 import { detectSessionWindow } from "./gold-session-window";
+import { detectInsideBar } from "./inside-bar";
 import { detectLiquiditySweep } from "./liquidity-sweep";
 import { detectLiquiditySweepReclaim } from "./liquidity-sweep-reclaim";
 import { detectMeanReversion } from "./mean-reversion";
 import { detectMomentum } from "./momentum";
 import { detectOrderBlock } from "./order-block";
+import { detectOutsideBar } from "./outside-bar";
 import { detectPinBar } from "./pin-bar";
 import { detectPostNewsWindow } from "./post-news-window";
 
@@ -200,6 +203,23 @@ function evaluateCandlePattern(
     case "mean_reversion": {
       const r = detectMeanReversion(bars, idx, { lookback: cond.lookback });
       return Boolean(r.detected && r.details && matchDir(r.details.direction));
+    }
+    case "inside_bar": {
+      const r = detectInsideBar(bars, idx);
+      return Boolean(r.detected && r.details && matchDir(r.details.direction));
+    }
+    case "outside_bar": {
+      const r = detectOutsideBar(bars, idx);
+      return Boolean(r.detected && r.details && matchDir(r.details.direction));
+    }
+    case "doji": {
+      // Doji is direction-agnostic (close ≈ open). When a direction filter
+      // is set, the doji condition cannot satisfy it on its own — the
+      // caller must combine with another directional pattern (daily_bias,
+      // BOS, etc.). When no direction filter is set, any detected doji fires.
+      if (effectiveDir) return false;
+      const r = detectDoji(bars, idx);
+      return Boolean(r.detected);
     }
     default:
       return null;

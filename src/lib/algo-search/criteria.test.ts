@@ -6,6 +6,7 @@
  */
 import { describe, expect, it } from "vitest";
 import {
+  classifyAlgoForGate,
   evaluateAgainstCriteria,
   evaluateDeflatedCriteria,
   passesPerCandidate,
@@ -217,5 +218,52 @@ describe("deflated criteria (spec §4 criteria 8–10)", () => {
       max_pbo: 0.5,
       min_purged_kfold_pass_ratio: 0.8,
     });
+  });
+});
+
+describe("classifyAlgoForGate (H.4-methodology-revision)", () => {
+  it("pure PatternCondition entries → pattern-triggered", () => {
+    expect(
+      classifyAlgoForGate({
+        entry_conditions: [{ type: "pattern" }, { type: "pattern" }],
+      }),
+    ).toBe("pattern-triggered");
+  });
+
+  it("pure TechnicalCondition entries → direction-predictive", () => {
+    expect(
+      classifyAlgoForGate({
+        entry_conditions: [{ type: "technical" }, { type: "technical" }],
+      }),
+    ).toBe("direction-predictive");
+  });
+
+  it("mix of pattern + technical → mixed", () => {
+    expect(
+      classifyAlgoForGate({
+        entry_conditions: [{ type: "pattern" }, { type: "technical" }],
+      }),
+    ).toBe("mixed");
+  });
+
+  it("empty entry_conditions → mixed (defensive)", () => {
+    expect(classifyAlgoForGate({ entry_conditions: [] })).toBe("mixed");
+    expect(classifyAlgoForGate({})).toBe("mixed");
+  });
+
+  it("unknown type → counts as other → mixed", () => {
+    expect(
+      classifyAlgoForGate({
+        entry_conditions: [{ type: "pattern" }, { type: "sentiment" }],
+      }),
+    ).toBe("mixed");
+  });
+
+  it("v3 survivor rules shape (Engulfing PatternCondition) → pattern-triggered", () => {
+    // Real v3 survivor entry shape
+    const rules = {
+      entry_conditions: [{ type: "pattern", pattern: "engulfing", direction: "bullish", timeframe: "4h" }],
+    };
+    expect(classifyAlgoForGate(rules)).toBe("pattern-triggered");
   });
 });

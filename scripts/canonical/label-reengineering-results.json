@@ -1,0 +1,369 @@
+{
+  "generated_at": "2026-06-24T12:11:09.069Z",
+  "algo_id": "33b705b9-7442-4c73-8d97-4a88ecacb9a1",
+  "ticker": "XAU/USD",
+  "timeframe": "4h",
+  "auc_gate": 0.55,
+  "holdout_days": 365,
+  "overall_passes": false,
+  "best_variant": {
+    "label_fn": "next_4_bar_sign",
+    "auc_holdout": 0.5410746461601124
+  },
+  "variants": [
+    {
+      "label_fn": "next_bar_sign",
+      "auc_train": 0.7393807181990376,
+      "auc_holdout": 0.5376784707664015,
+      "n_train": 16289,
+      "n_holdout": 3689,
+      "label_balance_train": {
+        "pos": 8417,
+        "neg": 7872
+      },
+      "label_balance_holdout": {
+        "pos": 1927,
+        "neg": 1762
+      },
+      "top_features": [
+        {
+          "name": "pattern_daily_bias_signed",
+          "gain": 18.510488510131836
+        },
+        {
+          "name": "is_us_session",
+          "gain": 12.009111404418945
+        },
+        {
+          "name": "ema_alignment_score",
+          "gain": 9.871444702148438
+        },
+        {
+          "name": "sma200_distance",
+          "gain": 8.43882942199707
+        },
+        {
+          "name": "pattern_momentum_signed",
+          "gain": 8.36256217956543
+        },
+        {
+          "name": "hour_of_day_utc",
+          "gain": 8.3065185546875
+        },
+        {
+          "name": "rsi14",
+          "gain": 7.544013977050781
+        },
+        {
+          "name": "lower_low_count_20",
+          "gain": 6.776055812835693
+        },
+        {
+          "name": "pattern_ifvg_signed",
+          "gain": 6.701780796051025
+        },
+        {
+          "name": "pattern_ote_signed",
+          "gain": 6.694065570831299
+        }
+      ],
+      "error": null,
+      "passes_gate": false
+    },
+    {
+      "label_fn": "next_4_bar_sign",
+      "auc_train": 0.7824271072293748,
+      "auc_holdout": 0.5410746461601124,
+      "n_train": 16289,
+      "n_holdout": 3686,
+      "label_balance_train": {
+        "pos": 8631,
+        "neg": 7658
+      },
+      "label_balance_holdout": {
+        "pos": 1935,
+        "neg": 1751
+      },
+      "top_features": [
+        {
+          "name": "pattern_daily_bias_signed",
+          "gain": 30.02195930480957
+        },
+        {
+          "name": "hour_of_day_utc",
+          "gain": 22.892759323120117
+        },
+        {
+          "name": "ema_alignment_score",
+          "gain": 19.515674591064453
+        },
+        {
+          "name": "sma200_distance",
+          "gain": 14.964573860168457
+        },
+        {
+          "name": "ema12_above_ema26",
+          "gain": 14.21409797668457
+        },
+        {
+          "name": "rsi14",
+          "gain": 14.010005950927734
+        },
+        {
+          "name": "momentum_20",
+          "gain": 11.362074851989746
+        },
+        {
+          "name": "pattern_ifvg_signed",
+          "gain": 11.2589693069458
+        },
+        {
+          "name": "swing_low_distance_pct",
+          "gain": 11.154212951660156
+        },
+        {
+          "name": "bb_width_20",
+          "gain": 10.731882095336914
+        }
+      ],
+      "error": null,
+      "passes_gate": false
+    },
+    {
+      "label_fn": "next_24_bar_sign",
+      "auc_train": 0.8251032718974286,
+      "auc_holdout": 0.48553272646213824,
+      "n_train": 16289,
+      "n_holdout": 3666,
+      "label_balance_train": {
+        "pos": 8951,
+        "neg": 7338
+      },
+      "label_balance_holdout": {
+        "pos": 2039,
+        "neg": 1627
+      },
+      "top_features": [
+        {
+          "name": "ema_alignment_score",
+          "gain": 29.260658264160156
+        },
+        {
+          "name": "pattern_daily_bias_signed",
+          "gain": 20.898788452148438
+        },
+        {
+          "name": "ema12_above_ema26",
+          "gain": 19.281085968017578
+        },
+        {
+          "name": "sma200_distance",
+          "gain": 19.13233184814453
+        },
+        {
+          "name": "atr14",
+          "gain": 18.55459213256836
+        },
+        {
+          "name": "ema_cross_freshness",
+          "gain": 16.570781707763672
+        },
+        {
+          "name": "atr_percentile_200",
+          "gain": 16.351572036743164
+        },
+        {
+          "name": "realized_vol_20",
+          "gain": 15.898625373840332
+        },
+        {
+          "name": "lower_low_count_20",
+          "gain": 15.310696601867676
+        },
+        {
+          "name": "atr14_pct",
+          "gain": 14.496652603149414
+        }
+      ],
+      "error": null,
+      "passes_gate": false
+    },
+    {
+      "label_fn": "r_aware",
+      "auc_train": 0.858364220858361,
+      "auc_holdout": 0.5224335443037975,
+      "n_train": 14937,
+      "n_holdout": 3170,
+      "label_balance_train": {
+        "pos": 4209,
+        "neg": 10728
+      },
+      "label_balance_holdout": {
+        "pos": 800,
+        "neg": 2370
+      },
+      "top_features": [
+        {
+          "name": "pattern_daily_bias_signed",
+          "gain": 27.310659408569336
+        },
+        {
+          "name": "sma200_distance",
+          "gain": 19.60369110107422
+        },
+        {
+          "name": "swing_low_distance_pct",
+          "gain": 16.99480628967285
+        },
+        {
+          "name": "hour_of_day_utc",
+          "gain": 16.50295066833496
+        },
+        {
+          "name": "atr_ratio_50",
+          "gain": 16.407068252563477
+        },
+        {
+          "name": "pattern_equal_levels_signed",
+          "gain": 16.04380226135254
+        },
+        {
+          "name": "higher_high_count_20",
+          "gain": 15.86769962310791
+        },
+        {
+          "name": "pattern_choch_signed",
+          "gain": 15.747198104858398
+        },
+        {
+          "name": "atr_percentile_200",
+          "gain": 15.51531982421875
+        },
+        {
+          "name": "realized_vol_20",
+          "gain": 15.089628219604492
+        }
+      ],
+      "error": null,
+      "passes_gate": false
+    },
+    {
+      "label_fn": "regime_conditioned",
+      "auc_train": 0.8867976983360925,
+      "auc_holdout": 0.5275755394283713,
+      "n_train": 4685,
+      "n_holdout": 1014,
+      "label_balance_train": {
+        "pos": 2447,
+        "neg": 2238
+      },
+      "label_balance_holdout": {
+        "pos": 515,
+        "neg": 499
+      },
+      "top_features": [
+        {
+          "name": "pattern_daily_bias_signed",
+          "gain": 7.160495281219482
+        },
+        {
+          "name": "pattern_equal_levels_signed",
+          "gain": 6.270541667938232
+        },
+        {
+          "name": "range_contraction_5",
+          "gain": 5.946583271026611
+        },
+        {
+          "name": "ema_alignment_score",
+          "gain": 5.760778903961182
+        },
+        {
+          "name": "atr14",
+          "gain": 5.4547343254089355
+        },
+        {
+          "name": "day_of_week",
+          "gain": 5.420926094055176
+        },
+        {
+          "name": "sma200_distance",
+          "gain": 5.400946617126465
+        },
+        {
+          "name": "pattern_ifvg_signed",
+          "gain": 5.274490833282471
+        },
+        {
+          "name": "atr_ratio_50",
+          "gain": 5.253227710723877
+        },
+        {
+          "name": "swing_high_distance_pct",
+          "gain": 5.219700813293457
+        }
+      ],
+      "error": null,
+      "passes_gate": false
+    },
+    {
+      "label_fn": "r_aware_regime_conditioned",
+      "auc_train": 0.9592860137197275,
+      "auc_holdout": 0.5175796717026102,
+      "n_train": 4247,
+      "n_holdout": 862,
+      "label_balance_train": {
+        "pos": 1139,
+        "neg": 3108
+      },
+      "label_balance_holdout": {
+        "pos": 195,
+        "neg": 667
+      },
+      "top_features": [
+        {
+          "name": "price_above_sma20",
+          "gain": 15.798256874084473
+        },
+        {
+          "name": "sma200_distance",
+          "gain": 10.801218032836914
+        },
+        {
+          "name": "pattern_ote_signed",
+          "gain": 10.692689895629883
+        },
+        {
+          "name": "pattern_daily_bias_signed",
+          "gain": 10.476910591125488
+        },
+        {
+          "name": "ema_alignment_score",
+          "gain": 10.217069625854492
+        },
+        {
+          "name": "pattern_order_block_signed",
+          "gain": 9.47116470336914
+        },
+        {
+          "name": "pattern_equal_levels_signed",
+          "gain": 9.312429428100586
+        },
+        {
+          "name": "sma20_slope",
+          "gain": 9.182415962219238
+        },
+        {
+          "name": "realized_vol_20",
+          "gain": 9.169480323791504
+        },
+        {
+          "name": "rsi14_extreme",
+          "gain": 8.97305679321289
+        }
+      ],
+      "error": null,
+      "passes_gate": false
+    }
+  ]
+}

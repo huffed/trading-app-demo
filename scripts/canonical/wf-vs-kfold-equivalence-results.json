@@ -1,0 +1,73 @@
+{
+  "sub_gate": "F.6a wf-vs-kfold",
+  "verdict": "PASS",
+  "sign_agreement_rate": 1,
+  "sign_agreement_gate": 0.8,
+  "sign_gate_passed": true,
+  "max_abs_delta_r": 0.13497359859859837,
+  "max_delta_gate": 0.3,
+  "delta_gate_passed": true,
+  "aggregate_delta": 0.006150506825506885,
+  "kfold_aggregate_mean_r": 0.5386974160974161,
+  "wf_aggregate_mean_r": 0.544847922922923,
+  "kfold_consistency_count": 5,
+  "wf_consistency_count": 5,
+  "k_folds": 5,
+  "embargo_fraction": 0.01,
+  "target_name": "LayerB: XAU/USD Engulfing-Long 4h | rr3_lb6_r06_rf0_af0",
+  "trade_count": 181,
+  "risk_dollars": 60,
+  "per_fold_comparison": [
+    {
+      "fold_index": 0,
+      "kfold_test_mean_r": 0.4450238095238096,
+      "kfold_test_n": 28,
+      "wf_test_mean_r": 0.47964351851851855,
+      "wf_test_n": 36,
+      "delta_r": 0.03461970899470895,
+      "sign_agrees": true
+    },
+    {
+      "fold_index": 1,
+      "kfold_test_mean_r": 0.3818385416666667,
+      "kfold_test_n": 32,
+      "wf_test_mean_r": 0.4628148148148148,
+      "wf_test_n": 36,
+      "delta_r": 0.08097627314814809,
+      "sign_agrees": true
+    },
+    {
+      "fold_index": 2,
+      "kfold_test_mean_r": 0.36841145833333333,
+      "kfold_test_n": 32,
+      "wf_test_mean_r": 0.4599305555555557,
+      "wf_test_n": 36,
+      "delta_r": 0.09151909722222235,
+      "sign_agrees": true
+    },
+    {
+      "fold_index": 3,
+      "kfold_test_mean_r": 1.0604504504504502,
+      "kfold_test_n": 37,
+      "wf_test_mean_r": 0.9254768518518518,
+      "wf_test_n": 36,
+      "delta_r": -0.13497359859859837,
+      "sign_agrees": true
+    },
+    {
+      "fold_index": 4,
+      "kfold_test_mean_r": 0.4377628205128205,
+      "kfold_test_n": 52,
+      "wf_test_mean_r": 0.3963738738738738,
+      "wf_test_n": 37,
+      "delta_r": -0.04138894663894671,
+      "sign_agrees": true
+    }
+  ],
+  "notes": [
+    "purgedKFoldEvaluate splits TIME AXIS into k equal-duration folds; chronologicalWalkForward splits TRADE COUNT into k equal bins.",
+    "Per-fold index comparison is approximate when trades clump temporally — use aggregate delta for primary signal.",
+    "Sign agreement = both folds positive or both folds negative (zero counts as agreement to avoid false-fail on empty folds)."
+  ],
+  "generated_at": "2026-06-24T10:46:45.466Z"
+}

@@ -16,29 +16,29 @@ import {
 } from "./enumerate";
 
 describe("algo-search Layer A enumerator", () => {
-  it("produces 308 candidates (Bonferroni denominator — locked)", () => {
-    expect(layerACardinality()).toBe(308);
+  it("produces 368 candidates (Bonferroni denominator — H.4c expanded from 308)", () => {
+    expect(layerACardinality()).toBe(368);
   });
 
-  it("axis decomposition: 12 L+S patterns × 4 inst × 3 TFs × 2 dirs + ote (12) + asian_range_break (8) = 308", () => {
+  it("axis decomposition: 14 L+S patterns × 4 inst × 3 TFs × 2 dirs + 2 long-only (ote+doji, 24) + asian_range_break (8) = 368", () => {
     const lsPatterns = SEARCH_PATTERNS.filter(
       (p) => p.supportsShort && !p.allowedTimeframes,
     ).length;
-    const otePatterns = SEARCH_PATTERNS.filter(
+    const longOnlyPatterns = SEARCH_PATTERNS.filter(
       (p) => !p.supportsShort && !p.allowedTimeframes,
     ).length;
     const restrictedPatterns = SEARCH_PATTERNS.filter((p) => p.allowedTimeframes).length;
-    expect(lsPatterns).toBe(12);
-    expect(otePatterns).toBe(1);
+    expect(lsPatterns).toBe(14); // H.4c added inside_bar + outside_bar
+    expect(longOnlyPatterns).toBe(2); // ote + doji (H.4c added doji as long-only direction-agnostic)
     expect(restrictedPatterns).toBe(1);
     expect(SEARCH_INSTRUMENTS).toHaveLength(4);
     expect(SEARCH_TIMEFRAMES).toHaveLength(3);
 
     const expected =
-      lsPatterns * 4 * 3 * 2 + // 12 × 4 × 3 × 2 = 288
-      otePatterns * 4 * 3 * 1 + // 1 × 4 × 3 × 1 = 12
+      lsPatterns * 4 * 3 * 2 + // 14 × 4 × 3 × 2 = 336
+      longOnlyPatterns * 4 * 3 * 1 + // 2 × 4 × 3 × 1 = 24
       restrictedPatterns * 4 * 1 * 2; // 1 × 4 × 1 × 2 = 8
-    expect(expected).toBe(308);
+    expect(expected).toBe(368);
   });
 
   it("each candidate has unique name + unique cell_key (no dupes from cartesian)", () => {
@@ -61,6 +61,17 @@ describe("algo-search Layer A enumerator", () => {
     expect(ote.every((c) => c.side === "long")).toBe(true);
   });
 
+  it("H.4c additions: inside_bar + outside_bar (L+S full), doji (long-only direction-agnostic)", () => {
+    const candidates = enumerateLayerACandidates();
+    const inside = candidates.filter((c) => c.pattern === "inside_bar");
+    const outside = candidates.filter((c) => c.pattern === "outside_bar");
+    const doji = candidates.filter((c) => c.pattern === "doji");
+    expect(inside).toHaveLength(4 * 3 * 2); // 24
+    expect(outside).toHaveLength(4 * 3 * 2); // 24
+    expect(doji).toHaveLength(4 * 3 * 1); // 12 (long-only)
+    expect(doji.every((c) => c.side === "long")).toBe(true);
+  });
+
   it("asian_range_break enumerated 4h-only (1 TF not 3) — session-aware", () => {
     const candidates = enumerateLayerACandidates();
     const arb = candidates.filter((c) => c.pattern === "asian_range_break");
@@ -68,14 +79,14 @@ describe("algo-search Layer A enumerator", () => {
     expect(arb.every((c) => c.timeframe === "4h")).toBe(true);
   });
 
-  it("balanced across instruments (77 candidates each)", () => {
+  it("balanced across instruments (92 candidates each — post-H.4c)", () => {
     const candidates = enumerateLayerACandidates();
     const byInst = new Map<string, number>();
     for (const c of candidates) byInst.set(c.ticker, (byInst.get(c.ticker) ?? 0) + 1);
-    expect(byInst.get("XAU/USD")).toBe(77);
-    expect(byInst.get("EUR/USD")).toBe(77);
-    expect(byInst.get("GBP/USD")).toBe(77);
-    expect(byInst.get("USD/JPY")).toBe(77);
+    expect(byInst.get("XAU/USD")).toBe(92);
+    expect(byInst.get("EUR/USD")).toBe(92);
+    expect(byInst.get("GBP/USD")).toBe(92);
+    expect(byInst.get("USD/JPY")).toBe(92);
   });
 
   it("each candidate carries the full canonical rule shape (passes downstream insert + validate-algo)", () => {

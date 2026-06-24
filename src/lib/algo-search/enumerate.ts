@@ -52,7 +52,10 @@ export type SearchPattern =
   | "liquidity_sweep"
   | "liquidity_sweep_reclaim"
   | "equal_levels"
-  | "asian_range_break";
+  | "asian_range_break"
+  | "inside_bar"
+  | "outside_bar"
+  | "doji";
 
 export interface SearchPatternMeta {
   pattern: SearchPattern;
@@ -84,6 +87,13 @@ export const SEARCH_PATTERNS: SearchPatternMeta[] = [
   { pattern: "liquidity_sweep_reclaim", supportsShort: true },
   { pattern: "equal_levels", supportsShort: true },
   { pattern: "asian_range_break", supportsShort: true, allowedTimeframes: ["4h"] },
+  { pattern: "inside_bar", supportsShort: true },
+  { pattern: "outside_bar", supportsShort: true },
+  // doji is direction-agnostic — supportsShort=false reflects this (no
+  // standalone short variant; consumers combine with directional patterns).
+  // Enumerated as long-only so the search produces meaningful cells; for
+  // doji as a SHORT filter, operator composes via daily_bias-bearish + doji.
+  { pattern: "doji", supportsShort: false },
 ];
 
 export interface SearchInstrumentMeta {
@@ -159,6 +169,9 @@ function patternDisplay(p: SearchPattern): string {
     case "liquidity_sweep_reclaim": return "Sweep-Reclaim";
     case "equal_levels": return "EqualLevels";
     case "asian_range_break": return "AsianRangeBreak";
+    case "inside_bar": return "InsideBar";
+    case "outside_bar": return "OutsideBar";
+    case "doji": return "Doji";
   }
 }
 

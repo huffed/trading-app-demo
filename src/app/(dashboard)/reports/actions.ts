@@ -1,5 +1,9 @@
 "use server";
 
+import {
+  listRobustnessAudits,
+  type RobustnessAudit,
+} from "@/lib/algo-search/robustness-audit-loader";
 import { buildSearchState, type SearchState } from "@/lib/algo-search/state";
 import {
   buildAlphaDecaySummary,
@@ -201,6 +205,28 @@ export async function getAlgoSearchStateAction(): Promise<ActionResult<SearchSta
     return { success: true, data };
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Algo-search state query failed";
+    return { success: false, error: msg };
+  }
+}
+
+/**
+ * F2 — search-robustness audit results loaded from
+ * `scripts/canonical/robustness-audit-*.json`. Auth-gated like the rest
+ * of /reports. Returns empty list when no audits have been run yet; the
+ * UI tolerates that as a normal state.
+ */
+export async function getRobustnessAuditsAction(): Promise<ActionResult<RobustnessAudit[]>> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { success: false, error: "Not authenticated" };
+
+  try {
+    const data = listRobustnessAudits();
+    return { success: true, data };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Robustness audit load failed";
     return { success: false, error: msg };
   }
 }
