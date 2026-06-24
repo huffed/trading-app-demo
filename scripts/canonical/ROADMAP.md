@@ -445,11 +445,26 @@ Items run in order, not in parallel.
 - **H.4b explicitly NOT proceeded** despite spec's "best-available" fallback — composing top features at AUC ~0.54 (statistically indistinguishable from random when accounting for 48-feature trial noise) would add overfit, not signal. Wait for H.0 OR re-evaluate label-fn space after more data.
 - **Persisted:** `scripts/canonical/label-reengineering-results.json` (full per-variant AUC + top-K features for each).
 
-### H.4b — Augment chosen algo with top features as Layer B AXES (2 days; was H.4) [PENDING-PROPER-BUILD; first hypothesis test ran 2026-06-24]
+### H.4b — Augment chosen algo with top features as Layer B AXES ✅ DRIVER BUILT 2026-06-24 (smoke-tested on v3 survivor; per-survivor F+F2 audit pending per E2 candidate)
 
 **First hypothesis test (single-feature augmentation, daily_bias only):** confirmed augmented v3 survivor passes ALL 7 per-candidate criteria (Sharpe +50.5%, max-DD -29.6%, total R +13% vs baseline). But the augmented family F+F2 audit returned **aggregate FAIL 0/4 sub-gates** (F2.1 rank gate 1/4; F2.2 leave-N-out unchanged; F2.3 bootstrap-bars 0/10 seeds top-3; F2.4 alt-objective 0/3 alt). PBO went 0.229 → 0.5429 (crossed gate). Diagnosis: daily_bias lifts the whole 96-variant family proportionally — the rr3_lb6_r06 geometry's ranking advantage compresses → not uniquely best in augmented family.
 
 **Implication for H.4b proper build:** the single-feature hypothesis test confirms augmentation IS a valid signal (per-candidate stats improve dramatically); but the deflation framework correctly rejects "this specific geometry + this specific augmentation" as uniquely-best when the augmentation is a generally-applicable filter. H.4b proper (stepwise feature addition) needs to test combinations + report the augmented variant whose advantage SURVIVES the augmented-family deflation — not just the one whose per-candidate stats most improve.
+
+**H.4b proper DRIVER shipped 2026-06-24:** `scripts/canonical/stepwise-feature-augmentation.ts` implements greedy forward selection over top-K pattern features. Gate: Sharpe Δ ≥ +5% OR max-DD Δ ≤ -20%, AND trades ≥ 30 floor (per-candidate criterion 2 — without this floor greedy collapses sample size; smoke test showed it picking ote at n=3 trades with "Sharpe +204%" noise). Compute O(K × MAX_FEATURES) backtests — for K=6, MAX_FEATURES=4: ~20 backtests × ~5s = ~2min per candidate. Persists `stepwise-augmentation-results.json` with full trace.
+
+**Smoke test result on v3 survivor (Engulfing rr3_lb6_r06):**
+| Step | Added feature | Sharpe after | max_DD_R after | Trades | Cum ΔSharpe |
+|---|---|---|---|---|---|
+| 0 (baseline) | — | 0.186 | 15.75 | 289 | — |
+| 1 | order_block-bullish | 0.296 | 5.88 | 79 | +59% |
+| 2 | daily_bias-bullish | 0.531 | 4.03 | 50 | +186% |
+| 3 | ifvg-bullish | **0.559** | **4.03** | **47** | **+201%** |
+| 4 | (stop: no remaining feature passes gate) | | | | |
+
+Final augmented entry_conditions = [engulfing-bullish, order_block-bullish, daily_bias-bullish, ifvg-bullish], entry_logic = "all". Trade count 47 (just above 30-floor) is at edge of statistical significance — operator-recommended next step: clone-augmented-family with these 4 conditions + run-augmented-f-f2.sh to re-deflate against the augmented family + check F+F2 verdict (the deflation may reject due to selection-bias N=K² considered combinations).
+
+**Constraint:** driver only adds PATTERN features as new entry_conditions. Technical features (sma200_distance, ema_alignment_score) would need a NEW continuous-feature-as-gate condition type — filed as H.4b-extension if needed in future.
 - **Prereq:** H.4a winning label fn + top-K features file exists (or H.4-methodology-revision feature-veto verdict for pattern-triggered algos)
 - **Methodology lock (operator-clarified 2026-06-24):** features become Layer B **AXES** (binary on/off per variant), NEVER required base conditions. Pre-supposing any feature is universally beneficial is researcher-degrees-of-freedom (RDOF) — the search methodology is explicitly designed to avoid this. Cite: Bailey/López de Prado AFML ch.7 on RDOF; LASSO/elastic-net feature selection in AQR/DE Shaw practice.
 - **Method:** new Layer B sweep on chosen algo's base with top-K features added as binary on/off filter axes. Variant cardinality = `geometry_variants × 2^K`. Selection bias correctly penalised by DSR's `nTrials = 96 × 2^K`.
