@@ -178,7 +178,7 @@ function stdOf(values: number[]): number {
  *  "Search: TICKER PATTERN-SIDE TF" → TICKER
  *  "LayerB: TICKER PATTERN-SIDE TF | tag" → TICKER */
 function extractTicker(name: string): string {
-  const noPrefix = name.replace(/^(Search|LayerB\+?):\s*/, "");
+  const noPrefix = name.replace(/^(Search|LayerB\+?|BO\+?):\s*/, "");
   const tokens = noPrefix.split(" ");
   return tokens[0] ?? "XAU/USD";
 }

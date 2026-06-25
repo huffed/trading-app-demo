@@ -1,0 +1,25 @@
+
+===== revalidate-candidates @ 2026-06-25T09:24 =====
+Targets (1):
+  1. BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr30_lb12_r45_rf1_af0
+NSPLITS=8 PERSIST=1
+Families (1):
+  BO+: XAU/USD AsianRangeBreak-Long 4h | %
+
+[BO+: XAU/USD AsianRangeBreak-Long 4h | %] 40 variants → running backtests...
+  Loaded 19979 XAU/USD 4h bars
+  [BO+: XAU/USD AsianRangeBreak-Long 4h | %] 20/40 backtested
+  [BO+: XAU/USD AsianRangeBreak-Long 4h | %] 40/40 backtested
+  [BO+: XAU/USD AsianRangeBreak-Long 4h | %] time grid: 547 weeks
+
+[BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr30_lb12_r45_rf1_af0]
+  Observed Sharpe (per-trade):  0.3469
+  Family Sharpe mean / std:     0.2574 / 0.0508
+  DSR / p-value:                0.9979 / 0.0021
+  Expected-max-SR:              0.1111
+  skewness / kurtosis:          0.399 / 1.290
+  PBO:                          0.5571 (N=40, T=547, combos=70)
+  purged_kfold:                 missing (run validate-algo with KFOLD=N first)
+
+revalidate-candidates complete. Inspect via:
+  SELECT name, backtest_results->'statistical_rigor'->'deflated' FROM algorithms WHERE backtest_results->'statistical_rigor'->'deflated' IS NOT NULL;

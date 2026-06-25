@@ -114,7 +114,7 @@ function requireEnv(): { url: string; key: string } {
 }
 
 function extractTicker(name: string): string {
-  return name.replace(/^(Search|LayerB\+?):\s*/, "").split(" ")[0] ?? "XAU/USD";
+  return name.replace(/^(Search|LayerB\+?|BO\+?):\s*/, "").split(" ")[0] ?? "XAU/USD";
 }
 
 function extractTimeframe(name: string): string {

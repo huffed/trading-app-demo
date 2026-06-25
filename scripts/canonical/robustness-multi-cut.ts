@@ -93,7 +93,7 @@ function requireEnv(): { url: string; key: string } {
 }
 
 function extractTicker(name: string): string {
-  const noPrefix = name.replace(/^(Search|LayerB\+?):\s*/, "");
+  const noPrefix = name.replace(/^(Search|LayerB\+?|BO\+?):\s*/, "");
   const tokens = noPrefix.split(" ");
   return tokens[0] ?? "XAU/USD";
 }
