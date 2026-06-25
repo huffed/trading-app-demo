@@ -604,13 +604,14 @@ Final augmented entry_conditions = [engulfing-bullish, order_block-bullish, dail
 - **Subsumes:** old Phase D.3 (correlation-aware portfolio)
 - **Gate:** each live alpha has factor-orthogonal alpha measured
 
-### H.9 — Bayesian optimization replacing Layer B grid (1-2 weeks) [PROMOTED FROM I.1 2026-06-24]
-- **Purpose:** with F2 robustness gate + H.4a label re-design shipped, the grid search itself (308 cells × 96 variants ≈ 30K evaluations) becomes the compute bottleneck. BO with GP surrogate + expected improvement converges in 30-60 evaluations — 100× faster — enabling broader search families per quarter.
+### H.9 — Bayesian optimization replacing Layer B grid (1-2 weeks) [PROMOTED FROM I.1 2026-06-24; UPGRADED TO HIGHEST H-PRIORITY 2026-06-25]
+- **Purpose:** with F2 robustness gate + H.4a label re-design shipped, the grid search itself (368 cells × 96 variants ≈ 35K evaluations) becomes the compute bottleneck. BO with GP surrogate + expected improvement converges in 30-60 evaluations — 100× faster — enabling broader search families per quarter.
+- **Empirical motivation (2026-06-25 strategic audit):** TWO consecutive top-of-pipeline candidates (v3 Engulfing rr3_lb6_r06 + ARB rr5_lb6_r1_rf0_af1) have failed F+F2 in the SAME pattern: high DSR + KFOLD 5/5 (within-data significance) but F2.3 0/10 seeds top-3 + PBO 0.93 (perturbation-fragile). Diagnosis: at our data volume, grid-search produces FLAT Sharpe distributions within 96-variant families — the "winner" is selected by tiny noise differences that don't survive bar resampling. BO directly addresses this by finding peaks via continuous parameter resolution + adaptive sampling, producing ~5-10 candidates with discriminating Sharpe gaps instead of 96 near-tied variants. Likely unlocks F2.3 + PBO naturally without threshold relaxation.
 - **Deliverable:** `src/lib/algo-search/bayesian-optimization.ts` + Python sidecar (`scripts/python/bayesian_optimization.py` using scikit-optimize or similar; matches H.3 sidecar pattern). TS driver `scripts/canonical/bo-search.ts` orchestrates.
 - **Method:** BO over Layer B's 5-axis continuous-relaxation (rr ∈ [1.5, 5], lb ∈ [3, 12], risk_pct ∈ [0.3, 1.2], regime_filter ∈ {0,1} via marginalization, adx_filter ∈ {0,1} via marginalization). Acquisition: expected improvement. 30-60 evaluations.
-- **Composed with F2:** BO-emerged candidates must pass F2 robustness audit just like grid candidates do (BO does NOT replace F2; they compose).
-- **Gate:** BO finds the F.4 winner (Engulfing rr3_lb6_r06) within 60 evaluations on the F.4 search space (sanity check); on a new search space, surfaces ≥1 candidate matching F.4 winner's DSR within 0.05.
-- **Status:** PENDING (blocked on F2 + H.4a shipping first)
+- **Composed with F2:** BO-emerged candidates must pass F2 robustness audit just like grid candidates do (BO does NOT replace F2; they compose). The hypothesis: BO surfaces candidates with sufficient Sharpe gaps that F2.3 + PBO pass naturally at strict thresholds.
+- **Gate:** BO finds the F.4 winner (Engulfing rr3_lb6_r06) within 60 evaluations on the F.4 search space (sanity check); on a new search space, surfaces ≥1 candidate matching F.4 winner's DSR within 0.05; **then on the ARB Layer A family it produces ≥1 candidate passing the full F2 strict-gate suite** (the empirical test of the hypothesis).
+- **Status:** PENDING — **operator-stamped as next priority 2026-06-25 strategic audit** after E2 grid-search produced 0 F+F2 survivors despite 2 strong-edge candidates surfacing
 
 ### H.10 — Drawdown attribution (3 days) [ADDED 2026-06-24]
 - **Purpose:** when a deployed algo enters drawdown, current `/reports?tab=drift` shows IT, not WHY. Quant-firm rigor requires per-DD-episode factor attribution: which feature subset's signal flipped, which regime entered/exited, which day-of-week clustering caused it.
@@ -678,10 +679,12 @@ Final augmented entry_conditions = [engulfing-bullish, order_block-bullish, dail
 - For each F-survivor, run full F2 audit (multi-cut, leave-N-out, bootstrap, alt-objective, aggregate)
 - Expected outcome: 0-3 deployable algos
 
-### E2.6 — F2-calibration: empirical re-tuning of F2 thresholds [PENDING-GATED-ON-E2.5]
-- IF E2 produces ≥5 candidates pass F → use the empirical distribution of their F2 sub-gate verdicts to re-calibrate thresholds. Currently F2 thresholds were pre-registered in code WITHOUT empirical N (the v3 survivor's "1/4 PASS" verdict is N=1; insufficient to know if ≥3/4 is reasonable).
-- IF re-calibration relaxes F2 → re-evaluate v3 survivor + E2 candidates under relaxed thresholds; document which would now PASS
-- Treat re-calibrated thresholds as a new pre-reg locked BEFORE applied to any candidate; preserve audit trail of original strict thresholds
+### E2.6 — F2-calibration: empirical re-tuning of F2 thresholds [DEFERRED — pending H.9 BO outcome per 2026-06-25 audit]
+- **Original gate:** IF E2 produces ≥5 candidates pass F → empirical re-calibration with N≥5
+- **Actual outcome:** 0 F+F2 survivors from E2 grid sweep on gold-only universe. Two top candidates (v3 + ARB) both fail F2.3 + PBO identically. N=2 empirical observations.
+- **Audit verdict (2026-06-25):** half-fix only. Recalibration with N=2 could move PBO threshold from <0.5 to ≤0.95 + relax F2.3 from "top-3 in ≥6/10" to "top-10 in ≥6/10" — but ARB still fails F2 aggregate (lifts 1/4 → 2/4, gate is ≥3/4). Recalibration alone doesn't unblock deploy.
+- **Pivot decision:** address the structural cause via H.9 (BO) before considering threshold relaxation. If BO under STRICT thresholds still produces 0 survivors, THEN E2.6 recalibration becomes the next-best action with stronger empirical justification (N=2-from-grid + N=2-from-BO observations).
+- **Status:** DEFERRED until post-H.9 empirical (estimate 3-4 weeks). Threshold relaxation reserved as last-resort lever, not first-resort.
 
 ---
 
@@ -809,6 +812,8 @@ The augmented v3 stays in DB as `LayerB+:` audit trail; not deployed; not archiv
 | 2026-06-24 | F2 search-robustness phase added (F2.1 multi-cut OOS + F2.2 leave-N-out + F2.3 bootstrap-bars + F2.4 alt-objective + F2.5 verdict). H.4 split into H.4a label re-engineering + H.4b feature composition. H.0 + H.0a + G.5.5 + H.9 (BO promoted from I.1) + H.10 + H.10b + H.11 + H.6-extension + F.6a + I.7 added. Deferred-by-trigger table expanded | this file |
 | 2026-06-24 LATER | F2 BUILD + F2 RUN complete: aggregate FAIL (1/4 PASS). H.4a BUILD + RUN complete: 6/6 label variants FAIL pre + post H.0. H.0 BUILD + RUN complete: 4h cache 10.5yr ✓ + 1h cache 6.46yr ✓. H.4-methodology-revision filed + APPROVED. H.4c pattern catalog expansion + Phase E2 re-search filed + APPROVED. Gold-only constraint re-confirmed by operator (rejected my "gold + USD/JPY" relaxation proposal). | this file |
 | 2026-06-24 EVE | H.4-methodology-revision feature-veto empirical: 8/10 features pass on v3 survivor (daily_bias VL Sharpe +49%). H.4b first hypothesis test (single-feature augmented v3) per-candidate PASS / F+F2 aggregate FAIL 0/4 — daily_bias lifts whole family. H.4c shipped (+3 patterns inside/outside/doji, Bonferroni 308→368). Methodology lock filed: features are Layer B AXES, never required base conditions (RDOF). Commits 0850f5e + 44789a3 pushed to origin/dev. Next: Phase E2.1+E2.2+E2.3 launch. | this file |
+| 2026-06-25 | E2 grid sweep complete on gold-only (92 cells); 2 per-candidate passers (AsianRangeBreak-Long 4h $16K, MeanRev-Long 30m data-issue). Layer B sweep + deflation: ARB top variant rr5_lb6_r1_rf0_af1 has DSR 0.995 + KFOLD 5/5 + F2.4 3/3 PASS, but PBO 0.929 + F2.3 0/10 + F2.2 ✗ + F2.1 per-cand 2/4 → F2 aggregate FAIL 1/4. Same failure pattern as v3 Engulfing (both fail F2.3 + PBO identically). | E2.4 + E2.5 results in scripts/canonical/e2-results/arb-top/ |
+| 2026-06-25 | Strategic audit: failure pattern is STRUCTURAL (grid produces flat Sharpe distributions at retail data volume). Decision: H.9 Bayesian Optimization upgraded to highest H-priority. Order: build H.9 → re-run E2 with BO replacing grid Layer B → re-run F+F2 STRICT thresholds → IF still 0 survivors THEN E2.6 threshold recalibration with N≥4 empirical. Threshold relaxation = last-resort lever. Memory locked: feedback_grid_search_flatness_at_retail_data. | this file + memory |
 
 ---
 
