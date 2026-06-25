@@ -1,0 +1,950 @@
+{
+  "sub_gate": "F2.4 alt-objective",
+  "verdict": "PASS",
+  "pass_count": 3,
+  "gate_threshold": 2,
+  "top_k": 3,
+  "family_pattern": "LayerB: XAU/USD AsianRangeBreak-Long 4h | %",
+  "survivor_tag": "rr5_lb6_r1_rf0_af1",
+  "survivor_score": {
+    "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr5_lb6_r1_rf0_af1",
+    "is_survivor": true,
+    "total_r": 164.93019999999999,
+    "trade_count": 117,
+    "calmar": 13.486258636902592,
+    "trimmed_mean_r": 0.8610494736842107,
+    "recovery_factor": 0.4687593169815837
+  },
+  "ranks_by_objective": {
+    "calmar": {
+      "survivor_rank": 2,
+      "passes": true,
+      "top_3": [
+        {
+          "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr5_lb6_r06_rf0_af1",
+          "rank": 1,
+          "score": 16.033941297258124
+        },
+        {
+          "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr5_lb6_r1_rf0_af1",
+          "rank": 2,
+          "score": 13.486258636902592
+        },
+        {
+          "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr5_lb4_r1_rf0_af0",
+          "rank": 3,
+          "score": 13.104883815185083
+        }
+      ]
+    },
+    "trimmed_mean_r": {
+      "survivor_rank": 1,
+      "passes": true,
+      "top_3": [
+        {
+          "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr5_lb6_r1_rf0_af1",
+          "rank": 1,
+          "score": 0.8610494736842107
+        },
+        {
+          "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr5_lb6_r1_rf0_af0",
+          "rank": 2,
+          "score": 0.7652739130434787
+        },
+        {
+          "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr5_lb6_r1_rf1_af1",
+          "rank": 3,
+          "score": 0.6792712499999999
+        }
+      ]
+    },
+    "recovery_factor": {
+      "survivor_rank": 2,
+      "passes": true,
+      "top_3": [
+        {
+          "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr5_lb6_r06_rf0_af1",
+          "rank": 1,
+          "score": 0.5073542058158429
+        },
+        {
+          "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr5_lb6_r1_rf0_af1",
+          "rank": 2,
+          "score": 0.4687593169815837
+        },
+        {
+          "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr5_lb6_r06_rf1_af1",
+          "rank": 3,
+          "score": 0.4158834440781655
+        }
+      ]
+    }
+  },
+  "full_scores": [
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr2_lb6_r06_rf1_af0",
+      "is_survivor": false,
+      "total_r": 58.450833333333335,
+      "trade_count": 235,
+      "calmar": 4.487358292601788,
+      "trimmed_mean_r": 0.17728130511463847,
+      "recovery_factor": 0.06409779572157429
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr2_lb6_r06_rf0_af1",
+      "is_survivor": false,
+      "total_r": 57.43716666666667,
+      "trade_count": 250,
+      "calmar": 5.313664117429383,
+      "trimmed_mean_r": 0.1530783333333332,
+      "recovery_factor": 0.06740709112044196
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr25_lb3_r06_rf1_af0",
+      "is_survivor": false,
+      "total_r": 94.599,
+      "trade_count": 251,
+      "calmar": 7.518896792910224,
+      "trimmed_mean_r": 0.24778192371475968,
+      "recovery_factor": 0.12133275046253786
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr25_lb3_r1_rf0_af1",
+      "is_survivor": false,
+      "total_r": 120.05739999999997,
+      "trade_count": 281,
+      "calmar": 7.281280892743428,
+      "trimmed_mean_r": 0.2370862222222227,
+      "recovery_factor": 0.09920293024336149
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr25_lb3_r1_rf1_af0",
+      "is_survivor": false,
+      "total_r": 136.57439999999997,
+      "trade_count": 247,
+      "calmar": 9.409190492593867,
+      "trimmed_mean_r": 0.3662366834170854,
+      "recovery_factor": 0.14294733528040512
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr25_lb3_r1_rf1_af1",
+      "is_survivor": false,
+      "total_r": 80.49939999999997,
+      "trade_count": 207,
+      "calmar": 5.962035254036436,
+      "trimmed_mean_r": 0.2411305389221558,
+      "recovery_factor": 0.08612433536659597
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr25_lb4_r06_rf0_af0",
+      "is_survivor": false,
+      "total_r": 113.18416666666666,
+      "trade_count": 325,
+      "calmar": 6.526843379978469,
+      "trimmed_mean_r": 0.19835887611749728,
+      "recovery_factor": 0.1061638851287394
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr25_lb4_r06_rf1_af0",
+      "is_survivor": false,
+      "total_r": 90.10399999999998,
+      "trade_count": 246,
+      "calmar": 7.061626479270618,
+      "trimmed_mean_r": 0.2422112794612795,
+      "recovery_factor": 0.1277385723828046
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr25_lb4_r1_rf0_af1",
+      "is_survivor": false,
+      "total_r": 105.483,
+      "trade_count": 277,
+      "calmar": 7.2392920135338255,
+      "trimmed_mean_r": 0.19632914798206302,
+      "recovery_factor": 0.09198212172338273
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr25_lb4_r1_rf0_af0",
+      "is_survivor": false,
+      "total_r": 141.87509999999997,
+      "trade_count": 321,
+      "calmar": 7.363097091611118,
+      "trimmed_mean_r": 0.2149556420233465,
+      "recovery_factor": 0.10304881179991775
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr25_lb4_r1_rf1_af1",
+      "is_survivor": false,
+      "total_r": 79.49649999999998,
+      "trade_count": 208,
+      "calmar": 7.187553682992322,
+      "trimmed_mean_r": 0.2319964285714289,
+      "recovery_factor": 0.11576893251247851
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr25_lb6_r06_rf1_af0",
+      "is_survivor": false,
+      "total_r": 64.44166666666666,
+      "trade_count": 198,
+      "calmar": 5.110902553798974,
+      "trimmed_mean_r": 0.20273541666666706,
+      "recovery_factor": 0.08363242225580643
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr25_lb6_r1_rf0_af1",
+      "is_survivor": false,
+      "total_r": 78.49970000000005,
+      "trade_count": 220,
+      "calmar": 6.150953597342156,
+      "trimmed_mean_r": 0.20339204545454515,
+      "recovery_factor": 0.09943171706565132
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr3_lb3_r06_rf0_af0",
+      "is_survivor": false,
+      "total_r": 107.0758333333333,
+      "trade_count": 278,
+      "calmar": 7.9282153170274166,
+      "trimmed_mean_r": 0.1877306547619048,
+      "recovery_factor": 0.10569485953032982
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr5_lb3_r06_rf1_af0",
+      "is_survivor": false,
+      "total_r": 70.90716666666668,
+      "trade_count": 137,
+      "calmar": 3.9549603986167425,
+      "trimmed_mean_r": 0.1395240240240243,
+      "recovery_factor": 0.0918230295386025
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr2_lb3_r06_rf0_af0",
+      "is_survivor": false,
+      "total_r": 113.46799999999996,
+      "trade_count": 414,
+      "calmar": 7.680942280788842,
+      "trimmed_mean_r": 0.185467871485944,
+      "recovery_factor": 0.07767764816569143
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr3_lb3_r1_rf0_af0",
+      "is_survivor": false,
+      "total_r": 152.05940000000004,
+      "trade_count": 275,
+      "calmar": 7.892178895630377,
+      "trimmed_mean_r": 0.2339723981900453,
+      "recovery_factor": 0.11457738928443258
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr3_lb3_r1_rf1_af0",
+      "is_survivor": false,
+      "total_r": 123.61920000000002,
+      "trade_count": 206,
+      "calmar": 9.226621685164318,
+      "trimmed_mean_r": 0.36297891566265017,
+      "recovery_factor": 0.17883469965355425
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr3_lb4_r06_rf0_af1",
+      "is_survivor": false,
+      "total_r": 98.98583333333333,
+      "trade_count": 235,
+      "calmar": 9.060211740297795,
+      "trimmed_mean_r": 0.2184409171075836,
+      "recovery_factor": 0.15380868226658387
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr3_lb4_r06_rf1_af1",
+      "is_survivor": false,
+      "total_r": 73.12366666666668,
+      "trade_count": 187,
+      "calmar": 8.581918472732964,
+      "trimmed_mean_r": 0.2106214128035321,
+      "recovery_factor": 0.17371153184492338
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr3_lb4_r1_rf0_af1",
+      "is_survivor": false,
+      "total_r": 130.50899999999996,
+      "trade_count": 233,
+      "calmar": 9.371270599217313,
+      "trimmed_mean_r": 0.26555240641711264,
+      "recovery_factor": 0.16384311013791242
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr3_lb6_r06_rf0_af0",
+      "is_survivor": false,
+      "total_r": 90.29000000000002,
+      "trade_count": 204,
+      "calmar": 7.897545046358383,
+      "trimmed_mean_r": 0.2642388211382114,
+      "recovery_factor": 0.14470378381670318
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr3_lb6_r06_rf0_af1",
+      "is_survivor": false,
+      "total_r": 77.4781666666667,
+      "trade_count": 182,
+      "calmar": 7.909836483980197,
+      "trimmed_mean_r": 0.2477077625570776,
+      "recovery_factor": 0.15963184361148475
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr3_lb6_r06_rf1_af1",
+      "is_survivor": false,
+      "total_r": 69.83183333333335,
+      "trade_count": 154,
+      "calmar": 7.4442292658659674,
+      "trimmed_mean_r": 0.28337096774193565,
+      "recovery_factor": 0.17416970396333967
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr3_lb6_r1_rf0_af1",
+      "is_survivor": false,
+      "total_r": 108.092,
+      "trade_count": 175,
+      "calmar": 7.783066078153237,
+      "trimmed_mean_r": 0.3839957446808507,
+      "recovery_factor": 0.1838347779575822
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr3_lb6_r1_rf1_af1",
+      "is_survivor": false,
+      "total_r": 77.00349999999999,
+      "trade_count": 155,
+      "calmar": 7.412949931168593,
+      "trimmed_mean_r": 0.31194559999999977,
+      "recovery_factor": 0.1579954368067496
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr5_lb3_r1_rf0_af0",
+      "is_survivor": false,
+      "total_r": 199.30780000000007,
+      "trade_count": 158,
+      "calmar": 10.204324252369222,
+      "trimmed_mean_r": 0.5605578125000003,
+      "recovery_factor": 0.27487580389061633
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr5_lb4_r06_rf0_af0",
+      "is_survivor": false,
+      "total_r": 130.67016666666666,
+      "trade_count": 153,
+      "calmar": 8.649166547155433,
+      "trimmed_mean_r": 0.44619241192411924,
+      "recovery_factor": 0.2759284885717985
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr5_lb3_r1_rf1_af0",
+      "is_survivor": false,
+      "total_r": 83.13150000000002,
+      "trade_count": 135,
+      "calmar": 3.839668001496488,
+      "trimmed_mean_r": 0.16404220183486246,
+      "recovery_factor": 0.08864544148002905
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr5_lb3_r1_rf1_af1",
+      "is_survivor": false,
+      "total_r": 96.4846,
+      "trade_count": 130,
+      "calmar": 4.295210409868543,
+      "trimmed_mean_r": 0.2395874999999999,
+      "recovery_factor": 0.11249484364918301
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr5_lb3_r1_rf0_af1",
+      "is_survivor": false,
+      "total_r": 173.25520000000003,
+      "trade_count": 152,
+      "calmar": 8.865605043392826,
+      "trimmed_mean_r": 0.5054704918032791,
+      "recovery_factor": 0.2512075361448884
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr5_lb4_r06_rf1_af0",
+      "is_survivor": false,
+      "total_r": 90.4056666666667,
+      "trade_count": 128,
+      "calmar": 6.1038855818245255,
+      "trimmed_mean_r": 0.34474679487179494,
+      "recovery_factor": 0.21596891261849877
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr5_lb4_r06_rf1_af1",
+      "is_survivor": false,
+      "total_r": 77.60166666666666,
+      "trade_count": 121,
+      "calmar": 4.507793590860681,
+      "trimmed_mean_r": 0.2749587628865981,
+      "recovery_factor": 0.14579293401664992
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr5_lb4_r1_rf0_af0",
+      "is_survivor": false,
+      "total_r": 194.00469999999999,
+      "trade_count": 147,
+      "calmar": 13.104883815185083,
+      "trimmed_mean_r": 0.6432403361344535,
+      "recovery_factor": 0.3417371027314351
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr5_lb4_r1_rf0_af1",
+      "is_survivor": false,
+      "total_r": 164.66600000000003,
+      "trade_count": 143,
+      "calmar": 7.708757589801926,
+      "trimmed_mean_r": 0.5533286956521738,
+      "recovery_factor": 0.25619734287013646
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr5_lb4_r1_rf1_af0",
+      "is_survivor": false,
+      "total_r": 101.89240000000002,
+      "trade_count": 118,
+      "calmar": 5.662828179534492,
+      "trimmed_mean_r": 0.4336802083333335,
+      "recovery_factor": 0.20367909055200353
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr5_lb6_r1_rf0_af0",
+      "is_survivor": false,
+      "total_r": 150.44319999999996,
+      "trade_count": 114,
+      "calmar": 13.016482232931589,
+      "trimmed_mean_r": 0.7652739130434787,
+      "recovery_factor": 0.39018125250601293
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr5_lb6_r06_rf0_af1",
+      "is_survivor": false,
+      "total_r": 132.74500000000006,
+      "trade_count": 126,
+      "calmar": 16.033941297258124,
+      "trimmed_mean_r": 0.6630718954248369,
+      "recovery_factor": 0.5073542058158429
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr5_lb6_r06_rf1_af0",
+      "is_survivor": false,
+      "total_r": 98.35316666666667,
+      "trade_count": 112,
+      "calmar": 8.453094784489547,
+      "trimmed_mean_r": 0.4890648148148148,
+      "recovery_factor": 0.31477848330836955
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr5_lb6_r06_rf1_af1",
+      "is_survivor": false,
+      "total_r": 107.31899999999999,
+      "trade_count": 112,
+      "calmar": 11.902512061221092,
+      "trimmed_mean_r": 0.5749277777777777,
+      "recovery_factor": 0.4158834440781655
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr5_lb6_r06_rf0_af0",
+      "is_survivor": false,
+      "total_r": 120.68583333333335,
+      "trade_count": 127,
+      "calmar": 10.368792599805278,
+      "trimmed_mean_r": 0.548467637540453,
+      "recovery_factor": 0.3120215657116906
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr5_lb6_r1_rf1_af1",
+      "is_survivor": false,
+      "total_r": 112.01669999999999,
+      "trade_count": 98,
+      "calmar": 10.435787551588891,
+      "trimmed_mean_r": 0.6792712499999999,
+      "recovery_factor": 0.409105252201352
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr5_lb6_r1_rf1_af0",
+      "is_survivor": false,
+      "total_r": 104.96310000000001,
+      "trade_count": 97,
+      "calmar": 7.505030137926597,
+      "trimmed_mean_r": 0.6003177215189873,
+      "recovery_factor": 0.3146186335895231
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr2_lb3_r06_rf0_af1",
+      "is_survivor": false,
+      "total_r": 62.91216666666667,
+      "trade_count": 322,
+      "calmar": 4.205499292534288,
+      "trimmed_mean_r": 0.11153036175710584,
+      "recovery_factor": 0.04701820363664172
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr2_lb3_r06_rf1_af0",
+      "is_survivor": false,
+      "total_r": 70.86916666666664,
+      "trade_count": 302,
+      "calmar": 5.126963840023148,
+      "trimmed_mean_r": 0.15636432506887046,
+      "recovery_factor": 0.05658975194680112
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr2_lb3_r06_rf1_af1",
+      "is_survivor": false,
+      "total_r": 32.78466666666665,
+      "trade_count": 241,
+      "calmar": 2.2121161004464533,
+      "trimmed_mean_r": 0.050491364421416315,
+      "recovery_factor": 0.026112594201301704
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr2_lb3_r1_rf0_af1",
+      "is_survivor": false,
+      "total_r": 78.33609999999999,
+      "trade_count": 318,
+      "calmar": 4.941873008863513,
+      "trimmed_mean_r": 0.14926367187499984,
+      "recovery_factor": 0.05437255466626015
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr2_lb3_r1_rf1_af0",
+      "is_survivor": false,
+      "total_r": 81.65639999999999,
+      "trade_count": 301,
+      "calmar": 5.326505851195678,
+      "trimmed_mean_r": 0.17018257261410788,
+      "recovery_factor": 0.05504167133456255
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr2_lb3_r1_rf1_af1",
+      "is_survivor": false,
+      "total_r": 44.032600000000016,
+      "trade_count": 242,
+      "calmar": 2.7322797024020065,
+      "trimmed_mean_r": 0.09509381443299002,
+      "recovery_factor": 0.029905430255526586
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr2_lb4_r06_rf0_af0",
+      "is_survivor": false,
+      "total_r": 113.18449999999993,
+      "trade_count": 375,
+      "calmar": 5.832298456702641,
+      "trimmed_mean_r": 0.2117984496124031,
+      "recovery_factor": 0.09275979749041637
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr2_lb4_r06_rf0_af1",
+      "is_survivor": false,
+      "total_r": 73.40749999999998,
+      "trade_count": 303,
+      "calmar": 5.60790679908327,
+      "trimmed_mean_r": 0.1597695473251027,
+      "recovery_factor": 0.06124023840096437
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr2_lb4_r06_rf1_af0",
+      "is_survivor": false,
+      "total_r": 65.804,
+      "trade_count": 279,
+      "calmar": 5.078579421941526,
+      "trimmed_mean_r": 0.15797333333333308,
+      "recovery_factor": 0.06824827795066409
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr2_lb4_r06_rf1_af1",
+      "is_survivor": false,
+      "total_r": 31.61166666666665,
+      "trade_count": 223,
+      "calmar": 1.940278658673813,
+      "trimmed_mean_r": 0.06216573556797014,
+      "recovery_factor": 0.023100471277870006
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr2_lb4_r1_rf0_af0",
+      "is_survivor": false,
+      "total_r": 159.61069999999998,
+      "trade_count": 372,
+      "calmar": 6.544077310056132,
+      "trimmed_mean_r": 0.28036073825503427,
+      "recovery_factor": 0.10099703205061358
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr2_lb4_r1_rf0_af1",
+      "is_survivor": false,
+      "total_r": 97.68849999999995,
+      "trade_count": 297,
+      "calmar": 6.705552466657054,
+      "trimmed_mean_r": 0.22500543933054407,
+      "recovery_factor": 0.07491964746347955
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr2_lb4_r1_rf1_af0",
+      "is_survivor": false,
+      "total_r": 78.60670000000003,
+      "trade_count": 275,
+      "calmar": 5.456373556197247,
+      "trimmed_mean_r": 0.19102443438914038,
+      "recovery_factor": 0.06774364713980274
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr2_lb4_r1_rf1_af1",
+      "is_survivor": false,
+      "total_r": 52.919700000000006,
+      "trade_count": 220,
+      "calmar": 3.1217746787951723,
+      "trimmed_mean_r": 0.14956193181818192,
+      "recovery_factor": 0.035800721985319604
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr2_lb6_r06_rf1_af1",
+      "is_survivor": false,
+      "total_r": 41.636833333333335,
+      "trade_count": 188,
+      "calmar": 4.849669015588299,
+      "trimmed_mean_r": 0.15789364035087736,
+      "recovery_factor": 0.08084235964771487
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr2_lb6_r1_rf0_af0",
+      "is_survivor": false,
+      "total_r": 95.77719999999994,
+      "trade_count": 303,
+      "calmar": 5.798879907970815,
+      "trimmed_mean_r": 0.20309917695473276,
+      "recovery_factor": 0.07190820046982692
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr2_lb6_r1_rf0_af1",
+      "is_survivor": false,
+      "total_r": 77.11260000000003,
+      "trade_count": 239,
+      "calmar": 6.371730993282274,
+      "trimmed_mean_r": 0.24114974093264216,
+      "recovery_factor": 0.08706059646747545
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr2_lb6_r1_rf1_af0",
+      "is_survivor": false,
+      "total_r": 75.97440000000002,
+      "trade_count": 231,
+      "calmar": 6.30111218929611,
+      "trimmed_mean_r": 0.2372978378378378,
+      "recovery_factor": 0.1014862323604916
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr2_lb6_r1_rf1_af1",
+      "is_survivor": false,
+      "total_r": 61.777100000000004,
+      "trade_count": 185,
+      "calmar": 5.959416571004118,
+      "trimmed_mean_r": 0.27107986577181187,
+      "recovery_factor": 0.11586813369837204
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr25_lb3_r06_rf1_af1",
+      "is_survivor": false,
+      "total_r": 52.292333333333346,
+      "trade_count": 218,
+      "calmar": 4.129917995024418,
+      "trimmed_mean_r": 0.11650757575757562,
+      "recovery_factor": 0.056425805732249236
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr25_lb3_r06_rf0_af1",
+      "is_survivor": false,
+      "total_r": 82.93766666666666,
+      "trade_count": 287,
+      "calmar": 5.983742770222332,
+      "trimmed_mean_r": 0.15093362193362198,
+      "recovery_factor": 0.07900976218129224
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr25_lb3_r1_rf0_af0",
+      "is_survivor": false,
+      "total_r": 149.01549999999997,
+      "trade_count": 327,
+      "calmar": 7.053453939583265,
+      "trimmed_mean_r": 0.23655285171102658,
+      "recovery_factor": 0.08642406918634868
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr25_lb4_r06_rf1_af1",
+      "is_survivor": false,
+      "total_r": 56.06683333333333,
+      "trade_count": 212,
+      "calmar": 5.422586520947176,
+      "trimmed_mean_r": 0.12840196078431357,
+      "recovery_factor": 0.09030991457094051
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr25_lb4_r1_rf1_af0",
+      "is_survivor": false,
+      "total_r": 110.05989999999996,
+      "trade_count": 243,
+      "calmar": 7.295257349285783,
+      "trimmed_mean_r": 0.2861856410256412,
+      "recovery_factor": 0.12306149457571798
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr25_lb6_r06_rf0_af0",
+      "is_survivor": false,
+      "total_r": 83.78566666666661,
+      "trade_count": 257,
+      "calmar": 6.829610911857395,
+      "trimmed_mean_r": 0.19533977455716528,
+      "recovery_factor": 0.11094091473941518
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr25_lb6_r06_rf0_af1",
+      "is_survivor": false,
+      "total_r": 62.21266666666665,
+      "trade_count": 224,
+      "calmar": 5.425207836753676,
+      "trimmed_mean_r": 0.14546018518518475,
+      "recovery_factor": 0.0864960008379042
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr25_lb6_r06_rf1_af1",
+      "is_survivor": false,
+      "total_r": 47.05949999999999,
+      "trade_count": 168,
+      "calmar": 4.559587249297549,
+      "trimmed_mean_r": 0.16458088235294144,
+      "recovery_factor": 0.08100852612607234
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr25_lb6_r1_rf0_af0",
+      "is_survivor": false,
+      "total_r": 108.10329999999998,
+      "trade_count": 246,
+      "calmar": 7.13317716925107,
+      "trimmed_mean_r": 0.25375555555555546,
+      "recovery_factor": 0.1294515421746476
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr25_lb6_r1_rf1_af0",
+      "is_survivor": false,
+      "total_r": 83.05000000000001,
+      "trade_count": 196,
+      "calmar": 6.755877328560971,
+      "trimmed_mean_r": 0.2732759493670882,
+      "recovery_factor": 0.11703189637047531
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr25_lb6_r1_rf1_af1",
+      "is_survivor": false,
+      "total_r": 72.86170000000003,
+      "trade_count": 172,
+      "calmar": 6.655616858797524,
+      "trimmed_mean_r": 0.2912326086956519,
+      "recovery_factor": 0.1262066519019069
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr3_lb3_r06_rf0_af1",
+      "is_survivor": false,
+      "total_r": 94.65966666666667,
+      "trade_count": 247,
+      "calmar": 7.246395672254968,
+      "trimmed_mean_r": 0.19210469011725284,
+      "recovery_factor": 0.11666073392011721
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr3_lb3_r06_rf1_af0",
+      "is_survivor": false,
+      "total_r": 103.93933333333334,
+      "trade_count": 210,
+      "calmar": 9.612293654341158,
+      "trimmed_mean_r": 0.31358730158730197,
+      "recovery_factor": 0.19038251366120226
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr3_lb3_r06_rf1_af1",
+      "is_survivor": false,
+      "total_r": 70.025,
+      "trade_count": 187,
+      "calmar": 7.019580980385605,
+      "trimmed_mean_r": 0.19740286975717453,
+      "recovery_factor": 0.11557066851367014
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr3_lb3_r1_rf0_af1",
+      "is_survivor": false,
+      "total_r": 116.71619999999996,
+      "trade_count": 245,
+      "calmar": 6.448551349201083,
+      "trimmed_mean_r": 0.22119492385786832,
+      "recovery_factor": 0.11526569647555156
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr3_lb3_r1_rf1_af1",
+      "is_survivor": false,
+      "total_r": 73.4357,
+      "trade_count": 188,
+      "calmar": 5.846837952531468,
+      "trimmed_mean_r": 0.17917105263157831,
+      "recovery_factor": 0.09460400931151713
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr3_lb4_r06_rf0_af0",
+      "is_survivor": false,
+      "total_r": 111.85999999999993,
+      "trade_count": 277,
+      "calmar": 7.248104710684895,
+      "trimmed_mean_r": 0.19632585949177833,
+      "recovery_factor": 0.12088531798858035
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr3_lb4_r06_rf1_af0",
+      "is_survivor": false,
+      "total_r": 96.02016666666671,
+      "trade_count": 207,
+      "calmar": 8.680050622994294,
+      "trimmed_mean_r": 0.2874051896207582,
+      "recovery_factor": 0.1802690639085453
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr3_lb4_r1_rf1_af0",
+      "is_survivor": false,
+      "total_r": 118.38930000000002,
+      "trade_count": 202,
+      "calmar": 9.819867121208356,
+      "trimmed_mean_r": 0.35231111111111085,
+      "recovery_factor": 0.187481056209177
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr3_lb4_r1_rf1_af1",
+      "is_survivor": false,
+      "total_r": 88.22470000000003,
+      "trade_count": 185,
+      "calmar": 8.995360835253576,
+      "trimmed_mean_r": 0.2595375838926173,
+      "recovery_factor": 0.1651331242357478
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr3_lb6_r06_rf1_af0",
+      "is_survivor": false,
+      "total_r": 91.14250000000004,
+      "trade_count": 174,
+      "calmar": 9.308328652402597,
+      "trimmed_mean_r": 0.3613607142857143,
+      "recovery_factor": 0.1841023355213769
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr3_lb6_r1_rf0_af0",
+      "is_survivor": false,
+      "total_r": 116.60900000000002,
+      "trade_count": 193,
+      "calmar": 8.986236552510714,
+      "trimmed_mean_r": 0.357748387096774,
+      "recovery_factor": 0.1681676077653404
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr3_lb6_r1_rf1_af0",
+      "is_survivor": false,
+      "total_r": 108.13599999999998,
+      "trade_count": 172,
+      "calmar": 10.898499309621952,
+      "trimmed_mean_r": 0.3979739130434783,
+      "recovery_factor": 0.1922253745458165
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr5_lb3_r06_rf1_af1",
+      "is_survivor": false,
+      "total_r": 75.51149999999998,
+      "trade_count": 131,
+      "calmar": 3.938908401724856,
+      "trimmed_mean_r": 0.1906730158730161,
+      "recovery_factor": 0.1020759491617528
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr5_lb4_r1_rf1_af1",
+      "is_survivor": false,
+      "total_r": 100.9968,
+      "trade_count": 121,
+      "calmar": 5.418166992124634,
+      "trimmed_mean_r": 0.3558484536082474,
+      "recovery_factor": 0.17210258252367303
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr5_lb4_r06_rf0_af1",
+      "is_survivor": false,
+      "total_r": 123.67216666666667,
+      "trade_count": 148,
+      "calmar": 8.315213249960784,
+      "trimmed_mean_r": 0.40500833333333347,
+      "recovery_factor": 0.24272392166842693
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr5_lb6_r1_rf0_af1",
+      "is_survivor": true,
+      "total_r": 164.93019999999999,
+      "trade_count": 117,
+      "calmar": 13.486258636902592,
+      "trimmed_mean_r": 0.8610494736842107,
+      "recovery_factor": 0.4687593169815837
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr2_lb3_r1_rf0_af0",
+      "is_survivor": false,
+      "total_r": 145.97330000000008,
+      "trade_count": 408,
+      "calmar": 7.593126443478083,
+      "trimmed_mean_r": 0.2226414634146343,
+      "recovery_factor": 0.07547638186080428
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr2_lb6_r06_rf0_af0",
+      "is_survivor": false,
+      "total_r": 76.95899999999997,
+      "trade_count": 312,
+      "calmar": 5.67523321411452,
+      "trimmed_mean_r": 0.16626799999999978,
+      "recovery_factor": 0.06029473193788528
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr25_lb3_r06_rf0_af0",
+      "is_survivor": false,
+      "total_r": 118.38216666666675,
+      "trade_count": 332,
+      "calmar": 8.231368277108867,
+      "trimmed_mean_r": 0.2057838345864664,
+      "recovery_factor": 0.09429608599016927
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr25_lb4_r06_rf0_af1",
+      "is_survivor": false,
+      "total_r": 89.28599999999999,
+      "trade_count": 281,
+      "calmar": 6.846998376810113,
+      "trimmed_mean_r": 0.1730548148148148,
+      "recovery_factor": 0.08960120209543801
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr3_lb4_r1_rf0_af0",
+      "is_survivor": false,
+      "total_r": 165.53569999999988,
+      "trade_count": 270,
+      "calmar": 8.215415843647927,
+      "trimmed_mean_r": 0.27199490740740756,
+      "recovery_factor": 0.14821919245751175
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr5_lb3_r06_rf0_af0",
+      "is_survivor": false,
+      "total_r": 139.39499999999995,
+      "trade_count": 164,
+      "calmar": 9.771819137749734,
+      "trimmed_mean_r": 0.39678535353535366,
+      "recovery_factor": 0.24174548582497993
+    },
+    {
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr5_lb3_r06_rf0_af1",
+      "is_survivor": false,
+      "total_r": 142.25949999999995,
+      "trade_count": 162,
+      "calmar": 9.767215928595952,
+      "trimmed_mean_r": 0.4123012820512823,
+      "recovery_factor": 0.2542949439650023
+    }
+  ],
+  "generated_at": "2026-06-24T19:23:58.160Z"
+}

@@ -1,0 +1,14 @@
+
+===== revalidate-candidates @ 2026-06-24T17:17 =====
+Targets (2):
+  1. Search: XAU/USD AsianRangeBreak-Long 4h
+  2. Search: XAU/USD MeanRev-Long 30m
+NSPLITS=8 PERSIST=1
+Families (2):
+  Search: XAU/USD AsianRangeBreak-Long 4h | %
+  Search: XAU/USD MeanRev-Long 30m | %
+revalidate-candidates FAILED: No rows for family Search: XAU/USD AsianRangeBreak-Long 4h | %
+Error: No rows for family Search: XAU/USD AsianRangeBreak-Long 4h | %
+    at runFamilyBacktests (/Users/jack.jones/Documents/trading-app/demo-1/scripts/canonical/revalidate-candidates.ts:196:41)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async main (/Users/jack.jones/Documents/trading-app/demo-1/scripts/canonical/revalidate-candidates.ts:346:19)

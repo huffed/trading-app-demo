@@ -89,12 +89,39 @@ if [ "$PASSER_COUNT" -eq 0 ]; then
 fi
 echo ""
 
-# Step 2: Phase F deflation
-echo "STEP 2/4: Phase F deflation (DSR + PBO + purged k-fold) per per-candidate passer..."
+# Step 1.5: Layer B enumeration sweep per per-candidate passer
+# Per Phase E methodology: per-candidate passers at Layer A need a Layer B
+# geometry sweep (96 variants per cell) before deflation. revalidate-candidates
+# computes DSR with the 96-variant family as the trial pool for selection-bias
+# correction. Without Layer B, the "family" is a singleton + DSR doesn't
+# meaningfully penalize search.
+echo "STEP 1.5/5: Layer B enumeration sweep on per-candidate passers..."
+
+if [ "$FORCE" -eq 1 ] || [ ! -f "$E2_RESULTS_DIR/e2-layer-b-done.marker" ]; then
+  BASE_NAMES_CSV=$(tr '\n' ',' < "$PASSERS_FILE" | sed 's/,$//')
+  MODE=layer-b BASE_NAMES="$BASE_NAMES_CSV" PERSIST=1 pnpm dlx tsx scripts/canonical/algo-search.ts 2>&1 | tee "$E2_RESULTS_DIR/e2-layer-b.log"
+  touch "$E2_RESULTS_DIR/e2-layer-b-done.marker"
+else
+  echo "  (skipped — marker exists; set FORCE=1 to re-run)"
+fi
+echo ""
+
+# Step 2: Phase F deflation against Layer B families
+echo "STEP 2/5: Phase F deflation (DSR + PBO + purged k-fold) per per-candidate family..."
 
 if [ "$FORCE" -eq 1 ] || [ ! -f "$E2_RESULTS_DIR/e2-deflation-done.marker" ]; then
-  ALL_PASSERS=$(tr '\n' ',' < "$PASSERS_FILE" | sed 's/,$//')
-  TARGETS="$ALL_PASSERS" pnpm dlx tsx scripts/canonical/revalidate-candidates.ts 2>&1 | tee "$E2_RESULTS_DIR/e2-deflation.log"
+  # For each per-candidate passer, the Layer B family is "LayerB: <body> | %"
+  # where <body> is the Search:* name minus the "Search:" prefix. The
+  # revalidate-candidates targets need to be ONE representative LayerB variant
+  # per family — the family pattern is auto-derived from " | " delimiter.
+  # Cheapest target: just pick any LayerB:* row from each passer's family +
+  # let revalidate-candidates auto-discover the rest via the family pattern.
+  LAYER_B_TARGETS=$(SEARCH_NAME_LIKE="LayerB:%" pnpm dlx tsx scripts/canonical/e2-list-layer-b-targets.ts < "$PASSERS_FILE" 2>/dev/null)
+  if [ -z "$LAYER_B_TARGETS" ]; then
+    echo "  no LayerB rows found for passers (Layer B sweep may have failed); aborting"
+    exit 1
+  fi
+  TARGETS="$LAYER_B_TARGETS" pnpm dlx tsx scripts/canonical/revalidate-candidates.ts 2>&1 | tee "$E2_RESULTS_DIR/e2-deflation.log"
   touch "$E2_RESULTS_DIR/e2-deflation-done.marker"
 else
   echo "  (skipped — marker exists; set FORCE=1 to re-run)"
@@ -102,7 +129,7 @@ fi
 echo ""
 
 # Step 3: identify F-survivors + run F2 audit per
-echo "STEP 3/4: identifying F-survivors (criteria 1-10) + running F2 audit per..."
+echo "STEP 3/5: identifying F-survivors (criteria 1-10) + running F2 audit per..."
 F_SURVIVORS_FILE="$E2_RESULTS_DIR/e2-f-survivors.txt"
 
 pnpm dlx tsx -e '
@@ -189,11 +216,11 @@ echo ""
 
 # Step 4: stepwise feature augmentation per F+F2 passer
 if [ "$STEPWISE_AFTER_F_F2" -ne 1 ]; then
-  echo "STEP 4/4: SKIPPED (STEPWISE_AFTER_F_F2=0)"
+  echo "STEP 4/5: SKIPPED (STEPWISE_AFTER_F_F2=0)"
   exit 0
 fi
 
-echo "STEP 4/4: stepwise feature augmentation per F+F2 passer..."
+echo "STEP 4/5: stepwise feature augmentation per F+F2 passer..."
 F_F2_PASSERS_FILE="$E2_RESULTS_DIR/e2-f-f2-passers.txt"
 > "$F_F2_PASSERS_FILE"
 
