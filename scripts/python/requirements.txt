@@ -25,3 +25,10 @@ xgboost>=2.0
 scikit-learn>=1.3
 pandas>=2.0
 numpy>=1.24
+
+# H.9 Bayesian optimization sidecar — replaces grid Layer B with adaptive
+# peak-finding search over continuous geometry space. 30-60 evaluations
+# vs 96 grid; produces candidates with discriminating Sharpe gaps that
+# survive F2.3 + PBO at strict thresholds (per 2026-06-25 strategic
+# audit: grid produces flat Sharpe distributions at retail data volume).
+scikit-optimize>=0.10
