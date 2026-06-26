@@ -56,6 +56,16 @@ trusting it, or re-run with SURVIVOR_PATTERN=Engulfing.
 - rank pass count: 2/2 ✓ (top-3 rank holds across 2/4 cuts at threshold)
 - aggregate: per-cand criterion fails → FAIL
 
+**Deflation (post-restart 2026-06-26) — DSR PASS, PBO FAIL (and WORSE than grid):**
+- Observed Sharpe (per-trade): 0.3213
+- Family Sharpe mean / std: 0.2228 / 0.0675
+- **DSR / p-value: 0.9709 / 0.0291** — PASS (>0.95)
+- Expected-max-SR: 0.1478
+- Skewness / kurtosis: 0.829 / 1.879
+- **PBO: 0.8143** — FAIL (>0.5 strict threshold). NOTE: WORSE than grid Engulfing's PBO 0.229. BO converged to high-rr=5.0 edge of search space → CSCV reads as MORE overfit-shaped. Surface-dependent BO outcome (PBO improved on ARB, worsened on Engulfing) — important finding.
+
+**F2.3 (post-restart 2026-06-26) — IN PROGRESS:** seed 42 rank 15/40 ✗ as of last check. Pattern matches ARB (trending 0/10 FAIL).
+
 ## Definitive empirical interpretation (only F2.3 + deflation unrun)
 
 With F2.4 FAIL + F2.1 FAIL already + F2.2 likely FAIL (Engulfing-

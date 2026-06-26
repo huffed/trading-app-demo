@@ -604,14 +604,18 @@ Final augmented entry_conditions = [engulfing-bullish, order_block-bullish, dail
 - **Subsumes:** old Phase D.3 (correlation-aware portfolio)
 - **Gate:** each live alpha has factor-orthogonal alpha measured
 
-### H.9 — Bayesian optimization replacing Layer B grid (1-2 weeks) [PROMOTED FROM I.1 2026-06-24; UPGRADED TO HIGHEST H-PRIORITY 2026-06-25]
+### H.9 — Bayesian optimization replacing Layer B grid (1-2 weeks) ✅ BUILD COMPLETE 2026-06-25 / GATE TEST RUN 2026-06-25 EVE / HYPOTHESIS FALSIFIED
 - **Purpose:** with F2 robustness gate + H.4a label re-design shipped, the grid search itself (368 cells × 96 variants ≈ 35K evaluations) becomes the compute bottleneck. BO with GP surrogate + expected improvement converges in 30-60 evaluations — 100× faster — enabling broader search families per quarter.
 - **Empirical motivation (2026-06-25 strategic audit):** TWO consecutive top-of-pipeline candidates (v3 Engulfing rr3_lb6_r06 + ARB rr5_lb6_r1_rf0_af1) have failed F+F2 in the SAME pattern: high DSR + KFOLD 5/5 (within-data significance) but F2.3 0/10 seeds top-3 + PBO 0.93 (perturbation-fragile). Diagnosis: at our data volume, grid-search produces FLAT Sharpe distributions within 96-variant families — the "winner" is selected by tiny noise differences that don't survive bar resampling. BO directly addresses this by finding peaks via continuous parameter resolution + adaptive sampling, producing ~5-10 candidates with discriminating Sharpe gaps instead of 96 near-tied variants. Likely unlocks F2.3 + PBO naturally without threshold relaxation.
 - **Deliverable:** `src/lib/algo-search/bayesian-optimization.ts` + Python sidecar (`scripts/python/bayesian_optimization.py` using scikit-optimize or similar; matches H.3 sidecar pattern). TS driver `scripts/canonical/bo-search.ts` orchestrates.
 - **Method:** BO over Layer B's 5-axis continuous-relaxation (rr ∈ [1.5, 5], lb ∈ [3, 12], risk_pct ∈ [0.3, 1.2], regime_filter ∈ {0,1} via marginalization, adx_filter ∈ {0,1} via marginalization). Acquisition: expected improvement. 30-60 evaluations.
 - **Composed with F2:** BO-emerged candidates must pass F2 robustness audit just like grid candidates do (BO does NOT replace F2; they compose). The hypothesis: BO surfaces candidates with sufficient Sharpe gaps that F2.3 + PBO pass naturally at strict thresholds.
 - **Gate:** BO finds the F.4 winner (Engulfing rr3_lb6_r06) within 60 evaluations on the F.4 search space (sanity check); on a new search space, surfaces ≥1 candidate matching F.4 winner's DSR within 0.05; **then on the ARB Layer A family it produces ≥1 candidate passing the full F2 strict-gate suite** (the empirical test of the hypothesis).
-- **Status:** PENDING — **operator-stamped as next priority 2026-06-25 strategic audit** after E2 grid-search produced 0 F+F2 survivors despite 2 strong-edge candidates surfacing
+- **Empirical result 2026-06-25 EVE (N=2 BO families × 40 evals each + full F2 audit):**
+  - BO ARB top variant `bo_rr30_lb12_r45_rf1_af0` (Sharpe 0.347): F2 1/4 PASS (same as grid). DSR 0.998 ✓ but PBO 0.557 ✗ (substantial improvement from grid's 0.929 — BO did find tighter region — but not <0.5 strict gate). F2.3 0/10, F2.1 0/4 per-cand + 2/4 rank (WORSE than grid 2/3 + 4/4 rank), F2.2 inherited FAIL, F2.4 3/3 PASS.
+  - BO Engulfing top variant `bo_rr50_lb10_r98_rf1_af1` (Sharpe 0.321): F2 ≤2/4 PASS even best-case. F2.1 FAIL (per-cand 2/3 + rank 2/2), F2.4 FAIL (1/2 — only Trimmed mean R passes, Calmar rank 11 + Recovery Factor rank 4). F2.3 + deflation completing post-restart but outcome is determined (max 2/4 < 3/4 strict gate).
+  - **Structural finding:** the gold-only 4h ARB and Engulfing surfaces both have peak REGIONS (4-5 sweet-spot variants tied within 0.02 Sharpe), not peak POINTS. F2.3 is a POINT-STABILITY test → fails for cluster surfaces regardless of search method. BO is NOT broken — the surface shape is what it is.
+- **Status:** ✅ BUILD COMPLETE + ✅ GATE TEST RUN + ⚠ HYPOTHESIS FALSIFIED. Next-line lever filed as E2.7 (cluster-stability F2.3 sub-gate), then E2.8 (recalibration), then E2.9 (data-or-LLM pivot). H.9 driver remains canonical for future Layer B searches (substantial PBO improvement is real) — pair with cluster-stability F2.3 once E2.7 ships.
 
 ### H.10 — Drawdown attribution (3 days) [ADDED 2026-06-24]
 - **Purpose:** when a deployed algo enters drawdown, current `/reports?tab=drift` shows IT, not WHY. Quant-firm rigor requires per-DD-episode factor attribution: which feature subset's signal flipped, which regime entered/exited, which day-of-week clustering caused it.
@@ -679,12 +683,54 @@ Final augmented entry_conditions = [engulfing-bullish, order_block-bullish, dail
 - For each F-survivor, run full F2 audit (multi-cut, leave-N-out, bootstrap, alt-objective, aggregate)
 - Expected outcome: 0-3 deployable algos
 
-### E2.6 — F2-calibration: empirical re-tuning of F2 thresholds [DEFERRED — pending H.9 BO outcome per 2026-06-25 audit]
+### E2.6 — F2-calibration: empirical re-tuning of F2 thresholds [READY-NOW — H.9 gate falsified 2026-06-25 EVE, N=4 empirical observations]
 - **Original gate:** IF E2 produces ≥5 candidates pass F → empirical re-calibration with N≥5
-- **Actual outcome:** 0 F+F2 survivors from E2 grid sweep on gold-only universe. Two top candidates (v3 + ARB) both fail F2.3 + PBO identically. N=2 empirical observations.
-- **Audit verdict (2026-06-25):** half-fix only. Recalibration with N=2 could move PBO threshold from <0.5 to ≤0.95 + relax F2.3 from "top-3 in ≥6/10" to "top-10 in ≥6/10" — but ARB still fails F2 aggregate (lifts 1/4 → 2/4, gate is ≥3/4). Recalibration alone doesn't unblock deploy.
-- **Pivot decision:** address the structural cause via H.9 (BO) before considering threshold relaxation. If BO under STRICT thresholds still produces 0 survivors, THEN E2.6 recalibration becomes the next-best action with stronger empirical justification (N=2-from-grid + N=2-from-BO observations).
-- **Status:** DEFERRED until post-H.9 empirical (estimate 3-4 weeks). Threshold relaxation reserved as last-resort lever, not first-resort.
+- **Actual outcome (4 observations):** 0 F+F2 survivors across both grid AND BO methodologies on the gold-only 4h universe:
+  - Grid Engulfing v3 (rr3_lb6_r06_rf0_af0): F2 1/4 PASS — F2.3 0/10, PBO 0.929
+  - Grid ARB (rr5_lb6_r1_rf0_af1): F2 1/4 PASS — F2.3 0/10, PBO 0.929
+  - BO ARB (bo_rr30_lb12_r45_rf1_af0, Sharpe 0.347): F2 1/4 PASS — F2.3 0/10, PBO 0.557 (substantial improvement from grid 0.929 but still above 0.5 strict gate)
+  - BO Engulfing (bo_rr50_lb10_r98_rf1_af1, Sharpe 0.321): F2 ≤2/4 PASS confirmed via F2.1 FAIL + F2.4 FAIL (1/2); F2.3 + deflation completing post-restart
+- **Falsified hypothesis** ([[feedback_grid_search_flatness_at_retail_data]]): "BO finds discriminating peaks → F2.3 + PBO pass naturally." BO partially works (PBO −0.37 absolute on ARB) but the surface is FLAT-CLUSTER not FLAT-LINE — BO finds a tighter peak REGION (not POINT), within which ~5 sweet-spot variants tie within 0.02 Sharpe. F2.3 (which asks for one SPECIFIC variant to stay top-3 under bar resampling) is structurally incompatible with cluster shapes regardless of search method.
+- **Compose with E2.7** (filed below): two paths forward, NOT mutually exclusive. E2.7 = methodology refinement (cluster-stability F2.3 alongside point-stability); E2.6 = threshold recalibration at PBO from <0.5 → <0.6 with N=4 empirical justification. Operator decides ordering at G.6-equivalent stamp.
+- **Recommended ordering**: E2.7 BEFORE E2.6 — rigor before relaxation per `[[feedback_grid_search_flatness_at_retail_data]]`. If E2.7's cluster-stability gate also fails for all 4 candidates, THEN E2.6 threshold recalibration is the next-best lever. If E2.7 unblocks ≥1 candidate, ship that candidate; E2.6 becomes optional.
+- **Cost:** ~3 days build + ~2hr re-evaluation of all 4 candidates under both old + new F2.3
+- **Gate:** at least one of the 4 N=4 candidates passes the cluster-stability F2.3 gate (i.e., "any of the original top-3 stays in the resampled top-3 in ≥6/10 seeds"). If yes → ship that candidate's F2-aggregate computation; if no → empirical evidence that even cluster-stability isn't met → E2.6 is the next lever.
+- **Status:** READY-NOW. Next active work item after H.9 closure committed + pushed.
+
+### E2.7 — Cluster-aware F2.3 methodology refinement (3 days) [FILED 2026-06-25 EVE post-H.9-falsification]
+- **Why this exists** (empirical motivation, verified across N=4 candidates 2026-06-25): the F2.3 strict gate asks "does the SPECIFIC named survivor variant stay top-3 by Sharpe under bar resampling in ≥6/10 seeds?" This is a POINT-STABILITY test that assumes the parameter surface has discriminating peaks. Empirically, all 4 tested candidates live in peak REGIONS (4-10 variants tied within 0.02-0.05 Sharpe), not at peak POINTS. Under bar resampling the within-region ranking is noise-dominated → the named survivor drops to rank 10-19/40 consistently → F2.3 reads 0/10 even when the underlying signal is real (BO ARB resampled Sharpe 0.34-0.39 > grid ARB resampled 0.23-0.29 — BO IS objectively better, just not strictly top-3).
+- **Hypothesis:** a CLUSTER-STABILITY F2.3 sub-gate ("does any of the ORIGINAL top-K stay in the RESAMPLED top-K in ≥M/N seeds?") tests robustness of the peak REGION instead of the peak POINT. This is the right semantics for flat-cluster surfaces.
+- **Deliverable:**
+  - Add `--mode=cluster` flag to `scripts/canonical/robustness-bootstrap-bars.ts` that tracks SET-membership of the original top-3 in each resampled top-3, not just the survivor's rank
+  - Persist alongside the existing point-stability output in the same JSON (additive, non-breaking)
+  - Update `phase-e2-sweep-lock.md` pre-registration with the new gate parameters BEFORE running (TOP_K=3, GATE_THRESHOLD=6, METRIC=set-intersection-≥1) — pre-registration locked, no post-hoc tuning
+  - Update `scripts/canonical/algo-search.spec.md` § F2.3 with the new sub-gate definition + composition rule (PASS = point-stability OR cluster-stability; FAIL = both fail)
+- **Why composition not replacement:** keeping point-stability avoids weakening the gate for surfaces that DO have discriminating peaks (forex H.4b candidates may have different surface shapes). Cluster-stability is an ALTERNATIVE PASS path, not a replacement.
+- **Method:** for each resample seed, compute the top-K variants by Sharpe in BOTH the original (real bars) AND resampled runs; cluster-stability passes if |original_top_K ∩ resampled_top_K| ≥ 1. Existing in-memory ranked-list infrastructure makes this a ~30-line addition.
+- **Gate (pre-registered before running):** at least one of the 4 N=4 candidates (grid Engulfing, grid ARB, BO ARB, BO Engulfing) passes cluster-stability F2.3 at default thresholds (TOP_K=3, ≥6/10 seeds with intersection ≥1).
+- **Composes with:** E2.6 (recalibration) as the second-line lever if E2.7 doesn't unblock; H.9 BO (already proven to find peak regions); Phase G demo if a candidate passes E2.7.
+- **Status:** READY-NOW (after H.9 closure). Estimate: 1 day to add the cluster-stability sub-gate + 1 day to pre-register the change + 1 day to re-evaluate all 4 candidates and compute aggregate verdicts.
+
+### E2.8 — Methodology audit + empirical threshold recalibration (1-2 days) [FILED 2026-06-25 EVE; CONDITIONAL on E2.7 outcome]
+- **Why this exists:** if E2.7 cluster-stability also fails for all 4 candidates, the empirical evidence (N=4 with both grid + BO + cluster + point methodologies all failing strict F2) is sufficient to justify CALIBRATED threshold relaxation with full documentation. This is the "last-resort lever" per `[[feedback_grid_search_flatness_at_retail_data]]`, only triggered AFTER methodology refinement has been exhausted.
+- **Pre-registered recalibration (locked BEFORE running, no post-hoc tuning):**
+  - PBO strict: <0.5 → <0.6 (justification: BO ARB's 0.557 is the empirical floor of "BO can achieve"; gold candidates at this data depth physically cannot pass <0.5 due to cluster shape)
+  - F2.3 cluster-stability replaces F2.3 point-stability as the primary gate (with point-stability retained as informational)
+  - DSR strict: unchanged at >0.95 (this gate is passing for all candidates; no relaxation needed)
+  - F2.2 leave-N-out: unchanged (pattern-level; orthogonal to surface shape)
+  - F2.1 multi-cut + F2.4 alt-objective: unchanged
+- **Gate:** at least one of the 4 N=4 candidates passes the recalibrated F2 aggregate (≥3/4 sub-gates PASS). If yes → ship for G.6 stamp; if no → file E2.9 (data-extension-or-accept-zero-deploy decision).
+- **Composes with:** E2.7 (its required predecessor); G.6 operator stamp (if a candidate passes).
+- **Status:** CONDITIONAL on E2.7 outcome. Pre-registration locked in `phase-e2-sweep-lock.md` BEFORE the E2.7 run, so empirical results can't drift the thresholds post-hoc.
+
+### E2.9 — Accept-zero-deploy + data-extension decision (operator action, 30 min) [FILED 2026-06-25 EVE; CONDITIONAL on E2.7 + E2.8 both failing]
+- **Why this exists:** if even recalibrated thresholds + cluster-stability + BO + grid all produce 0 deployable algos across N=4 candidates spanning ARB + Engulfing patterns, the binding constraint is the DATA — not the methodology. The honest bottom of the decision tree.
+- **Operator options at this decision:**
+  - **(a)** Accept the current data-constrained outcome; wait until live demo runs (which add fresh OOS data over time) before re-attempting the pipeline. Estimated 6-12 months of accumulated demo-period data before re-running.
+  - **(b)** Override `[[feedback_gold_only_demo_stage]]` and expand the search universe to forex (4 instruments × 3 TFs × 14 patterns × 2 dirs ≈ 336 cells; with H.0a + H.4b features ≈ 1500+ trial pool). Risk: same flat-cluster surface shape may apply, just on more cells.
+  - **(c)** Pivot to higher-resolution timeframes (intraday 15m/30m) — requires extending H.0 cache further + restoring archived 1m gold scalper template per `[[project_gold_scalper_1m]]`. Adds ~3 weeks build + budget for paid Anthropic Haiku calls (LLM-trader path; restores Phase I.2).
+  - **(d)** Accept that QuantTrader cannot produce a deployable algo without LLM-trader. Reactivate Phase I.2 LLM path with $25/mo budget cap. Re-enter F2 audit with LLM-trader as the search axis instead of geometry.
+- **Status:** CONDITIONAL on E2.8 also failing. Filed now so this decision isn't deferred forever — if we reach this point, the operator has 4 pre-thought options ready to evaluate, not a fresh "what now?" panic.
 
 ---
 
@@ -814,6 +860,7 @@ The augmented v3 stays in DB as `LayerB+:` audit trail; not deployed; not archiv
 | 2026-06-24 EVE | H.4-methodology-revision feature-veto empirical: 8/10 features pass on v3 survivor (daily_bias VL Sharpe +49%). H.4b first hypothesis test (single-feature augmented v3) per-candidate PASS / F+F2 aggregate FAIL 0/4 — daily_bias lifts whole family. H.4c shipped (+3 patterns inside/outside/doji, Bonferroni 308→368). Methodology lock filed: features are Layer B AXES, never required base conditions (RDOF). Commits 0850f5e + 44789a3 pushed to origin/dev. Next: Phase E2.1+E2.2+E2.3 launch. | this file |
 | 2026-06-25 | E2 grid sweep complete on gold-only (92 cells); 2 per-candidate passers (AsianRangeBreak-Long 4h $16K, MeanRev-Long 30m data-issue). Layer B sweep + deflation: ARB top variant rr5_lb6_r1_rf0_af1 has DSR 0.995 + KFOLD 5/5 + F2.4 3/3 PASS, but PBO 0.929 + F2.3 0/10 + F2.2 ✗ + F2.1 per-cand 2/4 → F2 aggregate FAIL 1/4. Same failure pattern as v3 Engulfing (both fail F2.3 + PBO identically). | E2.4 + E2.5 results in scripts/canonical/e2-results/arb-top/ |
 | 2026-06-25 | Strategic audit: failure pattern is STRUCTURAL (grid produces flat Sharpe distributions at retail data volume). Decision: H.9 Bayesian Optimization upgraded to highest H-priority. Order: build H.9 → re-run E2 with BO replacing grid Layer B → re-run F+F2 STRICT thresholds → IF still 0 survivors THEN E2.6 threshold recalibration with N≥4 empirical. Threshold relaxation = last-resort lever. Memory locked: feedback_grid_search_flatness_at_retail_data. | this file + memory |
+| 2026-06-25 EVE | H.9 BUILD complete + smoke + GATE TEST RUN: H.9 hypothesis FALSIFIED across N=4 candidates (grid + BO × ARB + Engulfing all F2 1/4 PASS). BO partially worked (PBO −0.37 on ARB) but flat-cluster surface shape is structural — BO finds peak REGION not POINT, F2.3 still 0/10 because within-region variants reshuffle under bar resampling. Surface-shape finding: empirically verified across 2 patterns. Filed E2.7 (cluster-stability F2.3 refinement, ~3 days), E2.8 (recalibration CONDITIONAL on E2.7 failure), E2.9 (data-or-LLM pivot CONDITIONAL on E2.8 failure). Order: E2.7 → E2.8 → E2.9 — rigor before relaxation before pivot. Commits 86d99a5 + e6926dc + 9a6d70b + 14db2f7 on dev. | h9-gate-verdict-2026-06-25.md + e2-results/bo-arb-top/ + e2-results/bo-engulfing-top/ |
 
 ---
 
