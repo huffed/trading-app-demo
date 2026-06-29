@@ -33,6 +33,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import {
   composePortfolio,
   DEFAULT_PORTFOLIO_COMPOSER_CONFIG,
+  perTradePnlDollarsFromTrades,
   perTradeRFromTrades,
   type CandidateInput,
   type PortfolioComposerConfig,
@@ -65,10 +66,13 @@ const MAX_STATIC_DD = Number(process.env.MAX_STATIC_DD ?? 10);
 const MAX_DAILY_DD = Number(process.env.MAX_DAILY_DD ?? 5);
 const MIN_TRADES = Math.max(1, Number(process.env.MIN_TRADES ?? 30));
 const PAIRWISE_CORR_CEILING = Number(process.env.PAIRWISE_CORR_CEILING ?? 0.4);
-const COMBINED_DD_CEILING = Number(process.env.COMBINED_DD_CEILING ?? 10.0);
+// E2.11 fix: default lowered 10.0 → 5.0 to match [[feedback_dd_validation_gate]]
+// (operator-locked rule); FTMO 10% is the SECONDARY ceiling. Override via env.
+const COMBINED_DD_CEILING = Number(process.env.COMBINED_DD_CEILING ?? 5.0);
+const POOL_CAPITAL = Number(process.env.POOL_CAPITAL ?? 10000);
 const MAX_PORTFOLIO_SIZE = Math.max(1, Number(process.env.MAX_PORTFOLIO_SIZE ?? 5));
 const OUTPUT_JSON =
-  process.env.OUTPUT_JSON ?? "scripts/canonical/e2-results/portfolio-2026-06-29.json";
+  process.env.OUTPUT_JSON ?? "scripts/canonical/e2-results/portfolio-2026-06-29-v2.json";
 const PERSIST = process.env.PERSIST !== "0";
 
 function requireEnv(): { url: string; key: string } {
@@ -202,14 +206,17 @@ async function main(): Promise<void> {
       console.log(`  bars cached : ${barsKey} (${bars.length} bars)`);
     }
     const pricesByTicker = new Map<string, PriceBar[]>([[ticker.toUpperCase(), bars]]);
-    const result = runPortfolioBacktest(v.rules, pricesByTicker, v.capital);
+    // E2.11 fix: run at POOL_CAPITAL not v.capital so pnl is on shared pool
+    const result = runPortfolioBacktest(v.rules, pricesByTicker, POOL_CAPITAL);
     const trades = result.trades ?? [];
-    const risk = riskDollarsFor(v.rules, v.capital);
+    const risk = riskDollarsFor(v.rules, POOL_CAPITAL);
     const { r, exit_dates } = perTradeRFromTrades(trades, risk);
+    const { pnl } = perTradePnlDollarsFromTrades(trades);
     candidates.push({
       id: v.name,
       total_return: v.total_return,
       per_trade_r: r,
+      per_trade_pnl_dollars: pnl,
       exit_dates,
       max_drawdown_pct: v.max_drawdown_pct,
     });
@@ -226,6 +233,7 @@ async function main(): Promise<void> {
     pairwise_correlation_ceiling: PAIRWISE_CORR_CEILING,
     combined_portfolio_dd_ceiling: COMBINED_DD_CEILING,
     max_portfolio_size: MAX_PORTFOLIO_SIZE,
+    pool_capital: POOL_CAPITAL,
   };
   console.log("Running greedy composer...");
   const composerOut = composePortfolio(candidates, config);

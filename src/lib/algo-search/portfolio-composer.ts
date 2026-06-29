@@ -29,26 +29,36 @@ export interface CandidateInput {
   id: string;
   /** For ranking — typically total_return USD. */
   total_return: number;
-  /** Per-trade R-multiples for correlation + combined-DD. */
+  /** Per-trade R-multiples for correlation (Pearson on monthly aggregates). */
   per_trade_r: readonly number[];
   /** ISO exit-date strings parallel to per_trade_r (for monthly aggregation + combined-DD). */
   exit_dates: readonly string[];
+  /** Per-trade DOLLAR pnl for realistic combined-DD dollar-pool simulation
+   *  (E2.11 fix 2026-06-29 EVE LATE). Length must equal per_trade_r.length.
+   *  Required for any portfolio risk gate that maps to FTMO/operator dollar limits. */
+  per_trade_pnl_dollars: readonly number[];
   /** Static DD from per-candidate backtest (used as a tiebreak + sanity log). */
   max_drawdown_pct: number;
 }
 
 export interface PortfolioComposerConfig {
   pairwise_correlation_ceiling: number; // default 0.40
-  combined_portfolio_dd_ceiling: number; // default 10.0 (percent)
+  combined_portfolio_dd_ceiling: number; // default 5.0 (operator DD-gate; was 10.0 — corrected E2.11)
+  combined_portfolio_daily_dd_ceiling: number; // default 5.0 (FTMO daily DD)
   max_portfolio_size: number; // default 5
   min_portfolio_size: number; // default 1 (fallback)
+  pool_capital: number; // default 10000 — shared capital pool for dollar-pool DD sim
 }
 
 export const DEFAULT_PORTFOLIO_COMPOSER_CONFIG: PortfolioComposerConfig = {
   pairwise_correlation_ceiling: 0.4,
-  combined_portfolio_dd_ceiling: 10.0,
+  // E2.11 fix: default lowered 10.0 → 5.0 to match [[feedback_dd_validation_gate]]
+  // operator-locked rule. Was 10.0 (FTMO-only); operator's tighter rule is 5%.
+  combined_portfolio_dd_ceiling: 5.0,
+  combined_portfolio_daily_dd_ceiling: 5.0,
   max_portfolio_size: 5,
   min_portfolio_size: 1,
+  pool_capital: 10000,
 };
 
 export interface PortfolioComposerOutput {
@@ -140,37 +150,69 @@ export function alignMonthlySeries(
   };
 }
 
-/** Combined-DD: simulate trading all selected variants simultaneously with
- *  equal-weight risk allocation per variant. Each variant contributes its
- *  per-trade R values stamped to its exit_date; we walk a combined equity
- *  curve in R units and report peak-to-trough as a percentage of the
- *  starting capital headroom (assumed 1.0 R-per-pct, i.e. 1R = 1% DD).
- *  This is conservative — actual live combined DD with capital sharing is
- *  bounded by this proxy. */
+/** Combined-DD (REALISTIC dollar-pool sim — E2.11 fix 2026-06-29 EVE LATE).
+ *
+ *  Walks a SINGLE equity curve at DOLLAR precision with each algo
+ *  contributing its actual per-trade pnl to a SHARED capital pool.
+ *  Returns peak-to-trough as percentage of pool_capital.
+ *
+ *  Replaces prior 1/N R-scaling proxy that underestimated true DD by ~3x
+ *  (empirically verified 2026-06-29 EVE LATE on E2.10 portfolio: proxy
+ *  said 9.66%, dollar-pool sim said 28.98%). The proxy assumed equal-
+ *  weight risk allocation (each algo at 1/N risk) which is operationally
+ *  wrong — in deployment each algo runs at its OWN backtested risk and
+ *  the pool absorbs all losses.
+ *
+ *  Mirrors `scripts/canonical/portfolio-realistic-sim.ts` logic.
+ *
+ *  See `[[feedback_combined_dd_proxy_misleading]]` memory. */
 export function combinedDrawdownPct(
-  candidates: ReadonlyArray<{ per_trade_r: readonly number[]; exit_dates: readonly string[] }>,
+  candidates: ReadonlyArray<{
+    per_trade_pnl_dollars: readonly number[];
+    exit_dates: readonly string[];
+  }>,
+  poolCapital: number,
 ): number {
-  if (candidates.length === 0) return 0;
-  // Flatten + sort by exit_date
-  const events: Array<{ date: string; r: number }> = [];
+  if (candidates.length === 0 || poolCapital <= 0) return 0;
+  const events: Array<{ date: string; pnl: number }> = [];
   for (const c of candidates) {
-    for (let i = 0; i < c.per_trade_r.length; i++) {
-      events.push({ date: c.exit_dates[i], r: c.per_trade_r[i] });
+    for (let i = 0; i < c.per_trade_pnl_dollars.length; i++) {
+      events.push({ date: c.exit_dates[i], pnl: c.per_trade_pnl_dollars[i] });
     }
   }
   events.sort((x, y) => x.date.localeCompare(y.date));
-  // Walk equity in R per portfolio risk unit. Equal-weight allocation: each
-  // variant's R is scaled by 1/N so total per-trade risk stays bounded.
-  const scale = 1 / candidates.length;
-  let equity = 0, peak = 0, maxDd = 0;
+  let equity = poolCapital, peak = poolCapital, maxDdDollars = 0;
   for (const e of events) {
-    equity += e.r * scale;
+    equity += e.pnl;
     if (equity > peak) peak = equity;
     const dd = peak - equity;
-    if (dd > maxDd) maxDd = dd;
+    if (dd > maxDdDollars) maxDdDollars = dd;
   }
-  // 1R = 1% capital DD by convention (matches portfolio-backtest assumption)
-  return maxDd;
+  return (maxDdDollars / poolCapital) * 100;
+}
+
+/** Combined DAILY DD (worst single-day net PnL as % of pool capital).
+ *  Companion to combinedDrawdownPct for FTMO daily-DD gate (≤5%). */
+export function combinedDailyDrawdownPct(
+  candidates: ReadonlyArray<{
+    per_trade_pnl_dollars: readonly number[];
+    exit_dates: readonly string[];
+  }>,
+  poolCapital: number,
+): number {
+  if (candidates.length === 0 || poolCapital <= 0) return 0;
+  const dailyPnl = new Map<string, number>();
+  for (const c of candidates) {
+    for (let i = 0; i < c.per_trade_pnl_dollars.length; i++) {
+      const day = c.exit_dates[i].slice(0, 10);
+      dailyPnl.set(day, (dailyPnl.get(day) ?? 0) + c.per_trade_pnl_dollars[i]);
+    }
+  }
+  let worst = 0;
+  for (const pnl of dailyPnl.values()) {
+    if (pnl < worst) worst = pnl;
+  }
+  return (Math.abs(worst) / poolCapital) * 100;
 }
 
 /** The greedy portfolio composer.
@@ -211,11 +253,24 @@ export function composePortfolio(
       break;
     }
 
-    // First candidate: accept (subject to combined_dd which is just its own dd)
+    // First candidate: must individually pass DD ceiling (no longer
+    // unconditional accept — the prior version's "accept first regardless"
+    // was a holdover from the buggy proxy; with realistic dollar-pool DD,
+    // a first candidate whose own DD exceeds the ceiling shouldn't be the
+    // foundation for a portfolio. Spec line 232 fallback (size-1) handled
+    // post-loop via fallback_applied.)
     if (selected.length === 0) {
-      const dd = combinedDrawdownPct([c]);
-      // Allow first acceptance unconditionally; even if its own DD > ceiling,
-      // accept as the fallback then bail per spec line 232 logic later.
+      const dd = combinedDrawdownPct([c], config.pool_capital);
+      if (dd > config.combined_portfolio_dd_ceiling) {
+        log.push({
+          candidate_id: c.id,
+          action: "skipped_combined_dd",
+          max_corr_with_selected: null,
+          combined_dd_with_selected_pct: dd,
+          selected_size_after: 0,
+        });
+        continue;
+      }
       selected.push(c);
       log.push({
         candidate_id: c.id,
@@ -253,8 +308,8 @@ export function composePortfolio(
       continue;
     }
 
-    // Check combined-DD with proposed addition
-    const combinedDd = combinedDrawdownPct([...selected, c]);
+    // Check combined-DD with proposed addition (dollar-pool sim)
+    const combinedDd = combinedDrawdownPct([...selected, c], config.pool_capital);
     if (combinedDd > config.combined_portfolio_dd_ceiling) {
       log.push({
         candidate_id: c.id,
@@ -276,15 +331,24 @@ export function composePortfolio(
     });
   }
 
-  // Fallback per spec line 232: if greedy produced 0, force top-1
+  // Fallback per spec line 232: if greedy produced 0, force top-1 candidate
+  // that individually passes the DD ceiling (E2.11 fix: prior version forced
+  // top-1 even if it breached DD — that's dishonest). If NO candidate
+  // passes DD individually, fallback to empty portfolio + flag for operator.
   let fallback = false;
   if (selected.length < config.min_portfolio_size && rankedCandidates.length > 0) {
-    selected.length = 0;
-    selected.push(rankedCandidates[0]);
-    fallback = true;
+    for (const c of rankedCandidates) {
+      const dd = combinedDrawdownPct([c], config.pool_capital);
+      if (dd <= config.combined_portfolio_dd_ceiling) {
+        selected.length = 0;
+        selected.push(c);
+        fallback = true;
+        break;
+      }
+    }
   }
 
-  const finalDd = combinedDrawdownPct(selected);
+  const finalDd = combinedDrawdownPct(selected, config.pool_capital);
 
   return {
     selected: selected.map((s) => s.id),
@@ -303,6 +367,17 @@ export function perTradeRFromTrades(
   if (riskDollars <= 0) return { r: [], exit_dates: [] };
   return {
     r: trades.map((t) => t.pnl / riskDollars),
+    exit_dates: trades.map((t) => t.exit_date),
+  };
+}
+
+/** Compute per-trade dollar pnl from BacktestTrade[] (already in dollars).
+ *  Companion to perTradeRFromTrades for the realistic combined-DD pool sim. */
+export function perTradePnlDollarsFromTrades(
+  trades: readonly BacktestTrade[],
+): { pnl: number[]; exit_dates: string[] } {
+  return {
+    pnl: trades.map((t) => t.pnl),
     exit_dates: trades.map((t) => t.exit_date),
   };
 }

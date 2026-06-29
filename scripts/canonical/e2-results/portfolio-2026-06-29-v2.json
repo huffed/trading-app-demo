@@ -1,0 +1,804 @@
+{
+  "sub_phase": "E2.10 portfolio composer",
+  "verdict": "FAIL",
+  "pre_registration": {
+    "lock_doc": "scripts/canonical/phase-e2-sweep-lock.md § E2.10 Addendum (2026-06-29 LATE)",
+    "params": {
+      "pairwise_correlation_ceiling": 0.4,
+      "combined_portfolio_dd_ceiling": 5,
+      "max_portfolio_size": 5,
+      "min_win_rate": 37,
+      "max_static_dd": 10,
+      "max_daily_dd": 5,
+      "min_trades": 30
+    }
+  },
+  "universe": {
+    "filter": "LayerB: XAU/USD %-Long 4h | %",
+    "candidate_count": 111
+  },
+  "selected_portfolio": [],
+  "combined_dd_final_pct": 0,
+  "fallback_applied": false,
+  "per_step_log": [
+    {
+      "candidate_id": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr3_lb6_r1_rf1_af0",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 9.92210000000001,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD Engulfing-Long 4h | rr3_lb6_r1_rf0_af1",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 10.913199999999996,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr25_lb3_r06_rf0_af0",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 8.629099999999998,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD BOS-Long 4h | rr3_lb3_r1_rf0_af0",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 13.975800000000035,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr2_lb3_r06_rf0_af0",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 8.86359999999997,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr25_lb3_r06_rf1_af0",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 7.548899999999994,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD BOS-Long 4h | rr3_lb4_r1_rf0_af0",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 12.633999999999995,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr3_lb3_r06_rf1_af0",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 6.487900000000009,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD BOS-Long 4h | rr25_lb6_r1_rf0_af0",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 12.20770000000004,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr3_lb6_r06_rf0_af0",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 6.859600000000028,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD BOS-Long 4h | rr3_lb3_r1_rf0_af1",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 13.90289999999999,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD Engulfing-Long 4h | rr25_lb6_r1_rf1_af1",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 9.54140000000005,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr3_lb6_r06_rf1_af0",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 5.874899999999998,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD BOS-Long 4h | rr25_lb3_r1_rf1_af0",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 14.74059999999996,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr3_lb4_r06_rf1_af0",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 6.637299999999996,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr25_lb4_r06_rf1_af0",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 7.655799999999998,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD Engulfing-Long 4h | rr25_lb6_r06_rf0_af0",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 8.256600000000034,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr25_lb4_r06_rf0_af1",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 7.824099999999944,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr25_lb3_r06_rf0_af1",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 8.316299999999973,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr2_lb4_r06_rf0_af1",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 7.854000000000052,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr25_lb6_r06_rf0_af0",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 7.360800000000017,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr2_lb3_r06_rf1_af0",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 8.293700000000008,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD BOS-Long 4h | rr2_lb6_r1_rf1_af0",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 9.627499999999982,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr2_lb6_r06_rf0_af0",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 8.136299999999974,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD BOS-Long 4h | rr3_lb4_r1_rf0_af1",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 12.215400000000008,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD BOS-Long 4h | rr2_lb6_r1_rf1_af1",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 10.166899999999988,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD BOS-Long 4h | rr25_lb6_r1_rf1_af0",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 11.100099999999966,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD BOS-Long 4h | rr25_lb4_r1_rf1_af1",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 11.770300000000008,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr3_lb6_r06_rf0_af1",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 5.877100000000009,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD Engulfing-Long 4h | rr2_lb6_r1_rf1_af1",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 8.54189999999997,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD BOS-Long 4h | rr3_lb4_r1_rf1_af1",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 10.144999999999964,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr2_lb4_r06_rf1_af0",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 7.7743000000000215,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD Engulfing-Long 4h | rr3_lb6_r06_rf0_af1",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 5.602599999999984,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr2_lb3_r06_rf0_af1",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 8.97569999999996,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD Engulfing-Long 4h | rr25_lb6_r06_rf0_af1",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 5.835,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD Engulfing-Long 4h | rr2_lb4_r1_rf0_af1",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 10.843099999999941,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr3_lb6_r06_rf1_af1",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 5.628399999999965,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD BOS-Long 4h | rr25_lb6_r1_rf1_af1",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 10.415599999999976,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD BOS-Long 4h | rr2_lb4_r1_rf1_af1",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 11.366499999999977,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD BOS-Long 4h | rr2_lb4_r1_rf1_af0",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 14.602799999999988,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr25_lb6_r06_rf1_af0",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 7.565199999999986,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr2_lb6_r06_rf0_af1",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 6.485599999999976,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr25_lb6_r06_rf0_af1",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 6.880399999999991,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr2_lb6_r06_rf1_af0",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 7.815399999999991,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD BOS-Long 4h | rr3_lb6_r1_rf1_af1",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 10.111699999999983,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD Sweep-Long 4h | rr2_lb4_r1_rf0_af0",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 18.966400000000032,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD Sweep-Long 4h | rr2_lb6_r1_rf0_af0",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 18.966400000000032,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD Engulfing-Long 4h | rr25_lb4_r06_rf0_af0",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 7.398999999999996,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD Engulfing-Long 4h | rr2_lb4_r1_rf1_af0",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 20.082299999999943,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD Engulfing-Long 4h | rr2_lb3_r1_rf0_af1",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 11.436899999999932,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD BOS-Long 4h | rr25_lb4_r06_rf0_af1",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 9.121099999999988,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD Engulfing-Long 4h | rr2_lb3_r1_rf1_af0",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 17.17069999999998,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr25_lb4_r06_rf1_af1",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 6.203700000000026,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD Engulfing-Long 4h | rr2_lb6_r06_rf0_af1",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 6.547299999999979,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr25_lb3_r06_rf1_af1",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 7.597100000000063,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD BOS-Long 4h | rr25_lb6_r06_rf0_af1",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 5.71510000000002,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD Engulfing-Long 4h | rr25_lb6_r06_rf1_af0",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 9.277799999999989,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD BOS-Long 4h | rr25_lb6_r06_rf0_af0",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 9.529299999999985,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD BOS-Long 4h | rr3_lb3_r06_rf0_af1",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 8.1134,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD Engulfing-Long 4h | rr25_lb3_r06_rf1_af0",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 16.09990000000005,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD Engulfing-Long 4h | rr2_lb6_r06_rf0_af0",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 9.82659999999998,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD BOS-Long 4h | rr2_lb6_r06_rf0_af1",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 6.337700000000004,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD BOS-Long 4h | rr2_lb6_r06_rf0_af0",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 9.053799999999974,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD Engulfing-Long 4h | rr2_lb4_r06_rf0_af0",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 8.363999999999978,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD Engulfing-Long 4h | rr25_lb6_r06_rf1_af1",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 6.0438999999999945,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD BOS-Long 4h | rr25_lb4_r06_rf1_af0",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 7.124700000000011,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD BOS-Long 4h | rr25_lb6_r06_rf1_af0",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 6.381500000000033,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr25_lb6_r06_rf1_af1",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 6.192599999999985,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD BOS-Long 4h | rr3_lb4_r06_rf0_af1",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 8.843500000000004,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr2_lb6_r06_rf1_af1",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 5.151300000000028,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD Engulfing-Long 4h | rr25_lb3_r06_rf0_af1",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 7.828999999999995,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD BOS-Long 4h | rr3_lb6_r06_rf0_af1",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 6.758800000000011,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD BOS-Long 4h | rr25_lb3_r06_rf0_af1",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 8.48909999999998,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD BOS-Long 4h | rr2_lb4_r06_rf0_af1",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 8.51079999999998,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD Engulfing-Long 4h | rr2_lb3_r06_rf0_af0",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 8.592499999999964,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD BOS-Long 4h | rr2_lb3_r06_rf0_af1",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 7.256500000000033,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD Engulfing-Long 4h | rr25_lb4_r06_rf0_af1",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 6.873099999999923,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD BOS-Long 4h | rr25_lb3_r06_rf1_af0",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 7.298399999999983,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD Engulfing-Long 4h | rr3_lb6_r06_rf1_af1",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 5.142700000000041,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD BOS-Long 4h | rr25_lb6_r06_rf1_af1",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 5.312400000000015,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD Engulfing-Long 4h | rr2_lb3_r1_rf1_af1",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 14.416799999999967,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD Engulfing-Long 4h | rr2_lb4_r06_rf0_af1",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 5.78279999999997,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD BOS-Long 4h | rr3_lb4_r06_rf1_af1",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 5.705599999999995,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD Engulfing-Long 4h | rr2_lb6_r06_rf1_af0",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 8.962500000000036,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD BOS-Long 4h | rr2_lb6_r06_rf1_af0",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 6.930900000000001,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD Engulfing-Long 4h | rr2_lb6_r06_rf1_af1",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 5.33470000000003,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD Engulfing-Long 4h | rr2_lb3_r06_rf0_af1",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 7.104199999999965,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD BOS-Long 4h | rr25_lb4_r06_rf1_af1",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 5.784399999999986,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD BOS-Long 4h | rr2_lb6_r06_rf1_af1",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 5.503300000000017,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr2_lb3_r06_rf1_af1",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 8.892299999999995,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD BOS-Long 4h | rr3_lb6_r06_rf1_af1",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 5.483300000000018,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr2_lb4_r06_rf1_af1",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 9.775400000000046,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD Engulfing-Long 4h | rr2_lb4_r1_rf1_af1",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 13.452399999999997,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD Sweep-Long 4h | rr2_lb4_r06_rf0_af0",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 13.194199999999965,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD Sweep-Long 4h | rr2_lb6_r06_rf0_af0",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 13.194199999999965,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD BOS-Long 4h | rr2_lb3_r06_rf1_af0",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 7.842399999999944,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD Engulfing-Long 4h | rr2_lb4_r06_rf1_af0",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 11.831200000000026,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD Engulfing-Long 4h | rr2_lb3_r06_rf1_af0",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 10.651900000000005,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD Engulfing-Long 4h | rr25_lb3_r06_rf1_af1",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 8.188200000000014,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD Sweep-Long 4h | rr2_lb3_r06_rf0_af0",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 13.149299999999966,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD BOS-Long 4h | rr25_lb3_r06_rf1_af1",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 8.952299999999996,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD BOS-Long 4h | rr2_lb3_r06_rf1_af1",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 6.949000000000015,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD BOS-Long 4h | rr2_lb4_r06_rf1_af0",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 9.439299999999985,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD Engulfing-Long 4h | rr2_lb3_r06_rf1_af1",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 8.163600000000006,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD Engulfing-Long 4h | rr2_lb4_r06_rf1_af1",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 7.08739999999998,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD BOS-Long 4h | rr2_lb4_r06_rf1_af1",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 6.45930000000002,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD Sweep-Long 4h | rr2_lb4_r1_rf1_af0",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 15.514600000000028,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD Sweep-Long 4h | rr2_lb6_r1_rf1_af0",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 15.514600000000028,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD Sweep-Long 4h | rr2_lb3_r1_rf1_af0",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 15.57050000000003,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD Sweep-Long 4h | rr2_lb4_r06_rf1_af0",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 13.003299999999946,
+      "selected_size_after": 0
+    },
+    {
+      "candidate_id": "LayerB: XAU/USD Sweep-Long 4h | rr2_lb6_r06_rf1_af0",
+      "action": "skipped_combined_dd",
+      "max_corr_with_selected": null,
+      "combined_dd_with_selected_pct": 13.003299999999946,
+      "selected_size_after": 0
+    }
+  ],
+  "pairwise_correlations": [],
+  "generated_at": "2026-06-29T15:56:42.904Z"
+}
