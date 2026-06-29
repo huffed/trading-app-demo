@@ -123,5 +123,49 @@ This is a SCOPE decision (operator's risk-management boundary), distinct from si
 | 2026-06-24 EVE | E2.3 sweep ran against 368 cells before gold-only correction; 276 forex backtests wasted but stay in DB as audit | `/tmp/e2.3-sweep.log` |
 | 2026-06-24 EVE | Operator pushback: "we're only working on gold for now, why are we working on forex" | conversation |
 | 2026-06-24 EVE | Gold-only enforced at enumerator (`enumerate.ts` default-filters to XAU/USD; `ENABLE_FOREX_SEARCH=1` opts in); Bonferroni denominator drops 368 → 92 | this commit |
+| 2026-06-25 EVE | H.9 BO gate test FALSIFIED — all 4 candidates (grid+BO × ARB+Engulfing) fail F2 strict aggregate. ROADMAP E2.7/E2.8/E2.9 filed | h9-gate-verdict-2026-06-25.md |
+| 2026-06-29 | E2.7 cluster-stability F2.3 sub-gate pre-registration appended (this commit, BEFORE empirical re-evaluation run); parameters locked: TOP_K=3, GATE_THRESHOLD=6/10, METRIC=set-intersection≥1, COMPOSITION=PASS iff point-OR-cluster | this commit |
+
+---
+
+## E2.7 Pre-registration Addendum — Cluster-stability F2.3 sub-gate (LOCKED 2026-06-29 BEFORE empirical run)
+
+**Why this addendum exists:** the N=4 H.9 gate test (2026-06-25 EVE) empirically established that at gold-only 4h retail data depth, parameter surfaces are flat-CLUSTER (peak regions 4-10 variants tied within 0.02-0.05 Sharpe), not flat-LINE. F2.3 point-stability ("does THIS specific variant stay top-3 under bar resampling?") is structurally incompatible with cluster surfaces — under resampling, within-region variants reshuffle stochastically → named survivor drops to rank 10-22/40 even when its absolute resampled Sharpe is high. This addendum adds a cluster-stability sub-gate as an ALTERNATIVE PASS PATH (composition, NOT replacement of point-stability), pre-registered with parameters LOCKED before any empirical re-evaluation.
+
+**New gate definition (cluster-stability F2.3-C):**
+
+> For seed s, compute top-K variants by per-trade Sharpe on (a) the REAL bars and (b) the RESAMPLED bars (block-bootstrap with the seed). Cluster-stability passes for seed s iff
+>
+>   `|original_top_K ∩ resampled_top_K| ≥ MIN_INTERSECT`
+>
+> i.e. at least MIN_INTERSECT of the original top-K variants is still in the resampled top-K. Aggregate cluster-stability passes iff `cluster_pass_count ≥ GATE_THRESHOLD` across N seeds.
+
+**Pre-registered parameters (LOCKED; do NOT tune after empirical run):**
+
+| Parameter | Value | Rationale |
+|---|---|---|
+| TOP_K | 3 | Same as point-stability; preserves "top quartile of best variants" semantic |
+| MIN_INTERSECT | 1 | Most lenient cluster definition: ANY original-top-K variant survives. Stricter values (2 or 3) tested post-hoc would be data-snooped. |
+| GATE_THRESHOLD | 6 of 10 seeds | Same as point-stability; same rigor on aggregate |
+| BASE_SEED | 42 | Same as point-stability; shared bar resampling for direct comparison |
+| N_RESAMPLES | 10 | Same as point-stability |
+| BLOCK_SIZE | 24 bars (= 1 day at 4h) | Same as point-stability |
+
+**Composition rule (LOCKED):**
+
+`F2.3 overall PASS = (point-stability ≥ 6/10) OR (cluster-stability ≥ 6/10)`
+
+Composition is OR, not AND, so cluster-stability provides an ALTERNATIVE PASS path. F2.3 only FAILS if BOTH point-stability AND cluster-stability fail.
+
+**Rationale for OR composition (not AND or replacement):**
+- AND (point AND cluster): mathematically stricter than point alone — guarantees no candidate could ever pass the gate without also passing point. Defeats the purpose.
+- Replacement (cluster only, no point): weakens the gate for surfaces that DO have discriminating peaks (e.g., future forex H.4b candidates with feature-augmented signals may have steeper surfaces). Keeping point-stability preserves rigor for those cases.
+- OR (this choice): adds an ALTERNATIVE pass path for cluster surfaces while preserving the gate for point surfaces. Methodology refinement that fits OBSERVED surface shape per `[[feedback_grid_search_flatness_at_retail_data]]` "rigor before relaxation" rule.
+
+**E2.7 PASS criterion (LOCKED):** at least 1 of the N=4 candidates (Grid Engulfing rr3_lb6_r06, Grid ARB rr5_lb6_r1_rf0_af1, BO ARB bo_rr30_lb12_r45_rf1_af0, BO Engulfing bo_rr50_lb10_r98_rf1_af1) passes cluster-stability ≥ 6/10. If yes → that candidate's full F2 aggregate is recomputed with the new sub-gate and ships for G.6 stamp if aggregate ≥ 3/4. If no → E2.7 falsified, escalate to E2.8 (pre-registered threshold recalibration).
+
+**Implementation lock:** the cluster-stability code is in `scripts/canonical/robustness-bootstrap-bars.ts` (commit hash to be added at E2.7 commit time). The cluster-stability gate runs IN ADDITION TO point-stability in a single pass — same backtests, same bars, just two aggregations of the same per-seed ranked list. No new compute cost vs the existing F2.3 run.
+
+**Forensic-archive policy:** if these parameters are changed after the E2.7 empirical run completes, this entire addendum becomes invalid — copy to `phase-e2-sweep-lock.archive.md` and start a new pre-registration with E2.7v2.
 
 **End of pre-registration lock.** Modifying this document after sweep launch constitutes a forensic-archive event — copy to `phase-e2-sweep-lock.archive.md` first.

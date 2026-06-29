@@ -16,16 +16,31 @@
  *      c. Rank by Sharpe; capture survivor's rank
  *   4. Aggregate: survivor's top-K hit-rate across resamples
  *
- * Pre-registered gate:
- *   Survivor in top-K (default 3) by Sharpe in ≥ GATE_THRESHOLD/N seeds
- *   Defaults: TOP_K=3, GATE_THRESHOLD=6, N_RESAMPLES=10
+ * Pre-registered gate (TWO sub-tests, OR-composed per phase-e2-sweep-lock.md E2.7 addendum):
+ *   POINT-STABILITY (original F2.3): the named SURVIVOR variant ranks in
+ *     top-K (default 3) by Sharpe in ≥ GATE_THRESHOLD/N seeds.
+ *   CLUSTER-STABILITY (E2.7 addition 2026-06-29): |original_top_K ∩
+ *     resampled_top_K| ≥ MIN_INTERSECT (default 1) in ≥ GATE_THRESHOLD/N
+ *     seeds. Tests robustness of the peak REGION (correct semantic for
+ *     flat-cluster surfaces) instead of the peak POINT.
+ *   COMPOSITION: F2.3 PASS iff point-stability OR cluster-stability passes.
+ *   Defaults: TOP_K=3, MIN_INTERSECT=1, GATE_THRESHOLD=6, N_RESAMPLES=10
  *
- * Compute: 10 seeds × 96 backtests × ~5s/each = ~80min wall-clock.
+ * Why composition (not AND, not replacement): cluster-stability provides
+ * an ALTERNATIVE PASS path for flat-cluster surfaces while preserving the
+ * existing point-stability gate for surfaces with discriminating peaks.
+ * Empirical motivation: N=4 H.9 gate test (2026-06-25) found all 4
+ * candidates (grid+BO × ARB+Engulfing) failed point-stability because
+ * gold-only 4h surfaces are flat-cluster, NOT flat-line. See
+ * `[[feedback_grid_search_flatness_at_retail_data]]`.
  *
- * Pre-registration locking: block_size=24, base_seed=42, n_resamples=10
- * are hardcoded in the driver and cannot be tuned post-hoc without a
- * commit. Env overrides emit a WARNING to stderr so any deviation is
- * conspicuous in the result file.
+ * Compute: 10 seeds × 96 backtests × ~5s/each = ~80min wall-clock (+ 1
+ * pre-loop pass for original ranking; ~5s × 96 = +8min).
+ *
+ * Pre-registration locking: block_size=24, base_seed=42, n_resamples=10,
+ * top_k=3, gate_threshold=6, min_intersect=1 are hardcoded in the driver
+ * and cannot be tuned post-hoc without a commit. Env overrides emit a
+ * WARNING to stderr so any deviation is conspicuous in the result file.
  *
  * Persists scripts/canonical/robustness-bootstrap-bars-results.json with
  * per-seed survivor rank + Sharpe + family-summary for F2.5.
@@ -41,6 +56,7 @@
  *   N_RESAMPLES      default 10
  *   TOP_K            default 3
  *   GATE_THRESHOLD   default 6 (out of N_RESAMPLES)
+ *   MIN_INTERSECT    default 1 (E2.7 cluster-stability — minimum intersection size)
  *   OUTPUT_JSON      default scripts/canonical/robustness-bootstrap-bars-results.json
  *   PERSIST          default 1
  */
@@ -72,6 +88,10 @@ const DEFAULT_BASE_SEED = 42;
 const DEFAULT_N_RESAMPLES = 10;
 const DEFAULT_TOP_K = 3;
 const DEFAULT_GATE_THRESHOLD = 6;
+// E2.7 cluster-stability sub-gate (pre-registered 2026-06-29 per phase-e2-sweep-lock.md addendum).
+// Cluster-stability passes for seed s iff |original_top_K ∩ resampled_top_K| ≥ MIN_INTERSECT.
+// Defaults locked to MIN_INTERSECT=1 (most lenient cluster definition: ANY original top-K survives).
+const DEFAULT_MIN_INTERSECT = 1;
 
 const FAMILY_PATTERN =
   process.env.FAMILY_PATTERN ?? "LayerB: XAU/USD Engulfing-Long 4h | %";
@@ -82,6 +102,7 @@ const BASE_SEED = Number(process.env.BASE_SEED ?? DEFAULT_BASE_SEED);
 const N_RESAMPLES = Math.max(1, Number(process.env.N_RESAMPLES ?? DEFAULT_N_RESAMPLES));
 const TOP_K = Math.max(1, Number(process.env.TOP_K ?? DEFAULT_TOP_K));
 const GATE_THRESHOLD = Math.max(1, Number(process.env.GATE_THRESHOLD ?? DEFAULT_GATE_THRESHOLD));
+const MIN_INTERSECT = Math.max(1, Number(process.env.MIN_INTERSECT ?? DEFAULT_MIN_INTERSECT));
 const OUTPUT_JSON =
   process.env.OUTPUT_JSON ?? "scripts/canonical/robustness-bootstrap-bars-results.json";
 const PERSIST = process.env.PERSIST !== "0";
@@ -99,6 +120,7 @@ warnOverride("BASE_SEED", DEFAULT_BASE_SEED, BASE_SEED);
 warnOverride("N_RESAMPLES", DEFAULT_N_RESAMPLES, N_RESAMPLES);
 warnOverride("TOP_K", DEFAULT_TOP_K, TOP_K);
 warnOverride("GATE_THRESHOLD", DEFAULT_GATE_THRESHOLD, GATE_THRESHOLD);
+warnOverride("MIN_INTERSECT", DEFAULT_MIN_INTERSECT, MIN_INTERSECT);
 
 function requireEnv(): { url: string; key: string } {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -172,6 +194,10 @@ interface PerSeedResult {
   survivor_in_top_k: boolean;
   top_k_variants: Array<{ name: string; rank: number; sharpe: number; trade_count: number }>;
   variant_count: number;
+  /** E2.7 cluster-stability: variants that appear in BOTH original top-K and resampled top-K for this seed. */
+  cluster_intersection: string[];
+  /** E2.7 cluster-stability passes for this seed iff cluster_intersection.length ≥ MIN_INTERSECT. */
+  cluster_in_top_k: boolean;
 }
 
 async function main(): Promise<void> {
@@ -183,7 +209,9 @@ async function main(): Promise<void> {
   console.log(`  survivor tag : ${SURVIVOR_TAG}`);
   console.log(`  block_size : ${BLOCK_SIZE} bars (pre-registered: ${DEFAULT_BLOCK_SIZE})`);
   console.log(`  resamples : ${N_RESAMPLES} (seeds [${BASE_SEED}, ${BASE_SEED + N_RESAMPLES - 1}])`);
-  console.log(`  gate : survivor top-${TOP_K} in ≥${GATE_THRESHOLD}/${N_RESAMPLES} seeds`);
+  console.log(`  point-stability gate : survivor top-${TOP_K} in ≥${GATE_THRESHOLD}/${N_RESAMPLES} seeds`);
+  console.log(`  cluster-stability gate (E2.7) : |original top-${TOP_K} ∩ resampled top-${TOP_K}| ≥ ${MIN_INTERSECT} in ≥${GATE_THRESHOLD}/${N_RESAMPLES} seeds`);
+  console.log(`  composition : F2.3 PASS iff point-stability OR cluster-stability passes`);
   console.log("");
 
   const { data: rows, error } = await supabase
@@ -215,6 +243,30 @@ async function main(): Promise<void> {
     rules: r.rules as unknown as AlgorithmRules,
     capital: Number(r.capital),
   }));
+
+  // E2.7: compute ORIGINAL top-K ranking on REAL bars BEFORE the bootstrap loop.
+  // This is the cluster against which we test resampled top-K intersection.
+  console.log("");
+  console.log("Original ranking (real bars, for cluster-stability comparison):");
+  const realPricesByTicker = new Map<string, PriceBar[]>([[ticker.toUpperCase(), realBars]]);
+  const realScores: Array<{ name: string; sharpe: number; trade_count: number }> = [];
+  for (const v of variants) {
+    const result = runPortfolioBacktest(v.rules, realPricesByTicker, v.capital);
+    const trades = result.trades ?? [];
+    const risk = riskDollarsFor(v.rules, v.capital);
+    realScores.push({
+      name: v.name,
+      sharpe: sharpe(trades, risk),
+      trade_count: trades.length,
+    });
+  }
+  const realRanked = [...realScores].sort((a, b) => b.sharpe - a.sharpe);
+  const originalTopK = realRanked.slice(0, TOP_K).map((e) => e.name);
+  const originalTopKSet = new Set(originalTopK);
+  for (let i = 0; i < originalTopK.length; i++) {
+    const e = realRanked[i];
+    console.log(`  #${i + 1} ${e.name.padEnd(70)} sharpe=${e.sharpe.toFixed(4)} trades=${e.trade_count}`);
+  }
 
   console.log("");
   console.log("Bootstrap loop:");
@@ -250,6 +302,11 @@ async function main(): Promise<void> {
       trade_count: e.trade_count,
     }));
 
+    // E2.7 cluster-stability: which of the ORIGINAL top-K appear in the RESAMPLED top-K?
+    const resampledTopKSet = new Set(topK.map((e) => e.name));
+    const clusterIntersection = originalTopK.filter((n) => resampledTopKSet.has(n));
+    const clusterInTopK = clusterIntersection.length >= MIN_INTERSECT;
+
     perSeed.push({
       seed,
       survivor_rank: survivorRank,
@@ -258,20 +315,29 @@ async function main(): Promise<void> {
       survivor_in_top_k: survivorInTopK,
       top_k_variants: topK,
       variant_count: variantScores.length,
+      cluster_intersection: clusterIntersection,
+      cluster_in_top_k: clusterInTopK,
     });
 
-    const marker = survivorInTopK ? "✓" : "✗";
+    const pointMarker = survivorInTopK ? "✓" : "✗";
+    const clusterMarker = clusterInTopK ? "✓" : "✗";
     console.log(
-      `  seed=${seed} → survivor rank=${survivorRank}/${variantScores.length} sharpe=${(survivor?.sharpe ?? 0).toFixed(4)} top-${TOP_K}=${marker}`,
+      `  seed=${seed} → point rank=${survivorRank}/${variantScores.length} sharpe=${(survivor?.sharpe ?? 0).toFixed(4)} top-${TOP_K}=${pointMarker} | cluster ∩=${clusterIntersection.length}/${TOP_K} =${clusterMarker}`,
     );
   }
 
   const inTopK = perSeed.filter((r) => r.survivor_in_top_k).length;
-  const verdict: "PASS" | "FAIL" = inTopK >= GATE_THRESHOLD ? "PASS" : "FAIL";
+  const clusterInTopK = perSeed.filter((r) => r.cluster_in_top_k).length;
+  const pointVerdict: "PASS" | "FAIL" = inTopK >= GATE_THRESHOLD ? "PASS" : "FAIL";
+  const clusterVerdict: "PASS" | "FAIL" = clusterInTopK >= GATE_THRESHOLD ? "PASS" : "FAIL";
+  // E2.7 composition: F2.3 PASS iff point-stability OR cluster-stability passes
+  const verdict: "PASS" | "FAIL" =
+    pointVerdict === "PASS" || clusterVerdict === "PASS" ? "PASS" : "FAIL";
 
   console.log("");
-  console.log(`F2.3 BOOTSTRAP-BARS VERDICT: ${verdict}`);
-  console.log(`  survivor in top-${TOP_K} : ${inTopK}/${N_RESAMPLES} seeds (need ≥${GATE_THRESHOLD})`);
+  console.log(`F2.3 BOOTSTRAP-BARS VERDICT (composite): ${verdict}`);
+  console.log(`  point-stability   : ${pointVerdict} (survivor top-${TOP_K} in ${inTopK}/${N_RESAMPLES} seeds; need ≥${GATE_THRESHOLD})`);
+  console.log(`  cluster-stability : ${clusterVerdict} (original top-${TOP_K} ∩ resampled top-${TOP_K} ≥ ${MIN_INTERSECT} in ${clusterInTopK}/${N_RESAMPLES} seeds; need ≥${GATE_THRESHOLD})`);
 
   const output = {
     sub_gate: "F2.3 bootstrap-bars" as const,
@@ -282,18 +348,34 @@ async function main(): Promise<void> {
     n_resamples: N_RESAMPLES,
     block_size: BLOCK_SIZE,
     base_seed: BASE_SEED,
+    // E2.7 cluster-stability companion fields (always populated; null/0 if disabled)
+    point_stability: {
+      verdict: pointVerdict,
+      in_top_k_count: inTopK,
+      gate_threshold: GATE_THRESHOLD,
+    },
+    cluster_stability: {
+      verdict: clusterVerdict,
+      in_top_k_count: clusterInTopK,
+      gate_threshold: GATE_THRESHOLD,
+      min_intersect: MIN_INTERSECT,
+      original_top_k: originalTopK,
+    },
+    composition_rule: "F2.3 PASS iff point-stability OR cluster-stability passes",
     pre_registration: {
       block_size_default: DEFAULT_BLOCK_SIZE,
       base_seed_default: DEFAULT_BASE_SEED,
       n_resamples_default: DEFAULT_N_RESAMPLES,
       top_k_default: DEFAULT_TOP_K,
       gate_threshold_default: DEFAULT_GATE_THRESHOLD,
+      min_intersect_default: DEFAULT_MIN_INTERSECT,
       overrides_present:
         BLOCK_SIZE !== DEFAULT_BLOCK_SIZE ||
         BASE_SEED !== DEFAULT_BASE_SEED ||
         N_RESAMPLES !== DEFAULT_N_RESAMPLES ||
         TOP_K !== DEFAULT_TOP_K ||
-        GATE_THRESHOLD !== DEFAULT_GATE_THRESHOLD,
+        GATE_THRESHOLD !== DEFAULT_GATE_THRESHOLD ||
+        MIN_INTERSECT !== DEFAULT_MIN_INTERSECT,
     },
     family_pattern: FAMILY_PATTERN,
     survivor_tag: SURVIVOR_TAG,
