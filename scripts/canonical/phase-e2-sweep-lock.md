@@ -200,4 +200,72 @@ Composition is OR, not AND, so cluster-stability provides an ALTERNATIVE PASS pa
 
 **Forensic-archive policy:** if these parameters are changed after the E2.7.5 empirical run completes, this entire addendum becomes invalid — copy to `phase-e2-sweep-lock.archive.md` and start a new pre-registration with E2.7.5v2.
 
+---
+
+## E2.10 Pre-registration Addendum — Portfolio composer execution (LOCKED 2026-06-29 LATE BEFORE empirical run)
+
+**Why this addendum exists:** Phase E spec line 244 ("Portfolio composer (when ≥ 2 ship-ready rows) computes pairwise correlation matrix → greedy selection: highest DSR + |ρ| < 0.40 with all already-selected + criteria 12–15 jointly satisfied") was never built — F2 single-survivor audit work consumed all attention. Empirical 2026-06-29 LATE query found 108 Layer B variants pass operator hard deploy criteria. The portfolio composer is the missing methodology piece between Layer B and operator G.6 stamp.
+
+**Pre-registered methodology (E2.10 — LOCKED; do NOT tune after empirical):**
+
+1. **Universe filter (input pool):** all `LayerB: XAU/USD %-Long 4h | %` rows in `algorithms` table where
+   - `backtest_results.step2.verdict = 'PASS'`
+   - `backtest_results.step2.win_rate ≥ 37.0`
+   - `backtest_results.step2.max_drawdown ≤ 10.0`
+   - `backtest_results.step2.max_daily_dd ≤ 5.0`
+   - `backtest_results.step2.total_trades ≥ 30`
+   - `backtest_results.step2.total_return > 0`
+   
+   Expected: ~108 variants per 2026-06-29 LATE query.
+
+2. **Per-variant backtest (for per-trade R series):** each universe variant re-backtested via `runPortfolioBacktest` to capture per-trade R series (not stored in DB step2). Risk per trade computed via `riskDollarsFor` (same as F2 drivers).
+
+3. **Correlation aggregation:** monthly-aggregated R per variant. For variant with N trades over T months, R_monthly[m] = sum of R values for trades closed in month m. Empty months → 0 R.
+
+4. **Pairwise correlation matrix:** Pearson correlation on the monthly-R series across all pairs of variants. Symmetric matrix.
+
+5. **Greedy selection algorithm:**
+   ```
+   selected = []
+   candidates = universe sorted DESC by total_return
+   for c in candidates:
+     if len(selected) == 0:
+       selected.append(c)
+       continue
+     if max(|corr(c, s)| for s in selected) >= 0.40:  # correlation gate
+       continue  # skip; too correlated with already-selected
+     if combined_dd(selected + [c]) > 10.0:  # combined DD gate
+       continue  # skip; portfolio DD breach
+     selected.append(c)
+     if len(selected) >= 5:  # max portfolio size
+       break
+   ```
+
+6. **Combined DD computation:** for each candidate combination `(selected ∪ {c})`, compute the simultaneous peak-to-trough DD as if all variants traded the same capital pool with risk-per-trade summed. Implementation: aggregate trades from all variants by exit timestamp, run a cumulative-equity walk, compute peak-to-trough as a percentage of starting capital.
+
+7. **Fallback (per spec line 232):** if greedy selection produces 0 variants (e.g., first candidate's own DD > 10 OR no candidate passes initial DD), output the SINGLE highest-total_return variant that satisfies all per-variant criteria, with documented "diversification failure for Phase D.3".
+
+**Pre-registered parameters (LOCKED; do NOT tune after empirical run):**
+
+| Parameter | Value | Rationale |
+|---|---|---|
+| PAIRWISE_CORRELATION_CEILING | 0.40 | Phase E spec line 224 — pre-registered before E2.3 sweep |
+| COMBINED_PORTFOLIO_DD_CEILING | 10.0% | FTMO static DD; matches per-algo criterion 3 |
+| RANKING_METRIC | `total_return` DESC | `[[feedback_winner_rule_return_within_ftmo]]` operator override of Calmar |
+| MAX_PORTFOLIO_SIZE | 5 | Operator practicality + diversification balance (per scaling plan: 3-5 uncorrelated algos targeting 0.5-1%/algo) |
+| MIN_PORTFOLIO_SIZE | 1 | Spec line 232 fallback |
+| CORRELATION_AGGREGATION | monthly per-trade R | Spec line 224 — pre-registered |
+| UNIVERSE_FILTER | step2.verdict=PASS + WR ≥ 37 + DD ≤ 10 + daily_dd ≤ 5 + trades ≥ 30 + total_return > 0 | `[[feedback_winner_rule_return_within_ftmo]]` operator-locked deploy criteria |
+| OOS_CUTOFF | 2025-06-18 (same as F.4/E2.7) | Methodology consistency |
+
+**Composition rule (no AND, no OR — sequential gates):** greedy selection means each candidate must pass BOTH correlation gate AND combined-DD gate against the already-selected set. No tunable composition; algorithm is deterministic given universe + parameters.
+
+**E2.10 PASS criterion (LOCKED):** ≥1 variant in the output portfolio (could be size-1 fallback per spec line 232). PASS triggers operator G.6 stamp decision → if stamped, unpause for demo. FAIL (impossible at this step — fallback guarantees ≥1) triggers E2.8.
+
+**Implementation lock:** `src/lib/algo-search/portfolio-composer.ts` (pure functions: filter, backtest, monthly-aggregate, correlate, greedy-select, combined-DD) + `scripts/canonical/compose-portfolio.ts` (driver: load + orchestrate + emit acceptance packet). Commit hash to be added at E2.10 commit time.
+
+**Compute estimate:** ~108 backtests × ~5s = ~10min + ~108² / 2 correlation pairs × O(N_months) = ~30s + greedy walk O(108) = trivial. Total: ~15min compute. $0 LLM cost.
+
+**Forensic-archive policy:** if these parameters are changed after the E2.10 empirical run completes, this entire addendum becomes invalid — copy to `phase-e2-sweep-lock.archive.md` and start a new pre-registration with E2.10v2.
+
 **End of pre-registration lock.** Modifying this document after sweep launch constitutes a forensic-archive event — copy to `phase-e2-sweep-lock.archive.md` first.
