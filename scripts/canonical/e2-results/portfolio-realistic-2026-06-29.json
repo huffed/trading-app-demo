@@ -1,0 +1,33 @@
+{
+  "audit": "E2.10 realistic combined-DD simulation",
+  "pool_capital": 10000,
+  "portfolio_algos": [
+    "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr3_lb6_r1_rf1_af0",
+    "LayerB: XAU/USD Engulfing-Long 4h | rr3_lb6_r1_rf0_af1",
+    "LayerB: XAU/USD Engulfing-Long 4h | rr2_lb4_r1_rf1_af0"
+  ],
+  "sample_period": {
+    "first": "2016-01-06",
+    "last": "2026-06-14",
+    "years_approx": 10.43668720054757
+  },
+  "total_trades": 528,
+  "total_return_dollars": 22430.259999999995,
+  "total_return_pct_cumulative": 224.30259999999996,
+  "annual_return_pct": 21.491743087618044,
+  "monthly_return_pct": 1.790978590634837,
+  "max_static_dd_dollars": 2897.6299999999956,
+  "max_static_dd_pct": 28.976299999999956,
+  "max_static_dd_peak_date": "2016-07-06",
+  "max_static_dd_trough_date": "2018-08-15",
+  "max_daily_dd_dollars": 395.42,
+  "max_daily_dd_pct": 3.9542,
+  "max_daily_dd_date": "2025-12-31",
+  "gate_verdicts": {
+    "ftmo_static_dd_10pct": false,
+    "ftmo_daily_dd_5pct": true,
+    "operator_dd_gate_5pct": false,
+    "operator_monthly_target_2pct": false
+  },
+  "generated_at": "2026-06-29T15:30:01.714Z"
+}
