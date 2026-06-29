@@ -63,19 +63,35 @@ data, the SURFACE itself has flat plateaus around the best region;
 search method (grid vs BO) affects how those plateaus are discovered
 but cannot create a single point where the data has a cluster.
 
-## Empirical N for E2.6 threshold-recalibration consideration
+## Empirical N for E2.6 threshold-recalibration consideration — N=4 COMPLETE 2026-06-26 EVE
 
 ROADMAP.md L687 gate for E2.6: "IF BO under STRICT thresholds still
 produces 0 survivors, THEN E2.6 recalibration becomes the next-best
 action with stronger empirical justification (N=2-from-grid +
 N=2-from-BO observations)."
 
-- N=2-from-grid: ✓ (v3 Engulfing F2 1/4, ARB grid F2 1/4)
-- N=2-from-BO: needs ≥2 BO families. ARB-BO ✓ done; **Engulfing-BO
-  running now** (will be 2nd data point).
+**N=4 final table:**
 
-Once Engulfing-BO completes, the N=2+2=4 empirical foundation is in
-place for E2.6 operator decision.
+| Candidate | DSR | PBO | F2.1 | F2.2 | F2.3 | F2.4 | F2 Agg |
+|---|---|---|---|---|---|---|---|
+| Grid Engulfing rr3_lb6_r06 | 0.983 ✓ | 0.229 ✓ | n/a | 2/3 ✗ | 0/10 ✗ | (n/a) | 1/4 FAIL |
+| Grid ARB rr5_lb6_r1_rf0_af1 | 0.995 ✓ | 0.929 ✗ | 2/3 ✗ + 4/4 rank ✓ | 0/16 ✗ | 0/10 ✗ | 3/3 ✓ | 1/4 FAIL |
+| BO ARB bo_rr30_lb12_r45_rf1_af0 | 0.998 ✓ | **0.557 ✗** | 0/4 ✗ + 2/4 ✗ | 0/16 ✗ | 0/10 ✗ | 3/3 ✓ | 1/4 FAIL |
+| BO Engulfing bo_rr50_lb10_r98_rf1_af1 | 0.971 ✓ | **0.814 ✗** | 2/3 ✗ + 2/2 ✓ | 2/13 ✗ | 0/10 ✗ | 1/2 ✗ | **0/4 FAIL** |
+
+**Surprise empirical finding:** BO's PBO improvement is NOT universal.
+ARB: BO went 0.929 → 0.557 (−0.37, improved). Engulfing: BO went
+0.229 → 0.814 (+0.59, WORSE). BO converged to the high-rr=5.0 edge
+of the search space for Engulfing → CSCV reads as MORE overfit-shaped.
+Pair BO with cluster-stability F2.3 (E2.7), don't use either alone.
+
+**N=2-from-grid: ✓ COMPLETE. N=2-from-BO: ✓ COMPLETE.** All four
+candidates fail F2 strict gates. E2.6 (now READY-NOW) has full empirical
+foundation, BUT per `[[feedback_grid_search_flatness_at_retail_data]]`
+"rigor before relaxation" rule, the pre-registered ordering is:
+E2.7 → E2.8 → E2.9. E2.6's prior framing is subsumed by E2.8
+(threshold recalibration is just one lever, methodology refinement
+comes first).
 
 ## Recommended next moves (operator decision)
 

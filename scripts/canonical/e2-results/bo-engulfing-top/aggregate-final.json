@@ -1,0 +1,2726 @@
+{
+  "aggregate_verdict": "FAIL",
+  "candidate_id": "33b705b9-7442-4c73-8d97-4a88ecacb9a1",
+  "candidate_name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb10_r98_rf1_af1",
+  "gate_threshold": 3,
+  "pass_count": 0,
+  "fail_count": 4,
+  "missing_count": 0,
+  "audit_complete": true,
+  "sub_gates": [
+    {
+      "label": "F2.1 multi-cut-oos",
+      "path": "scripts/canonical/e2-results/bo-engulfing-top/f2.1-multi-cut.json",
+      "present": true,
+      "verdict": "FAIL",
+      "excerpt": {
+        "sub_gate": "F2.1 multi-cut-oos",
+        "verdict": "FAIL",
+        "per_candidate_pass_count": 2,
+        "per_candidate_threshold": 3,
+        "rank_pass_count": 2,
+        "rank_threshold": 2,
+        "top_k": 3,
+        "cut_dates": [
+          "2024-09-01",
+          "2024-12-01",
+          "2025-03-01",
+          "2025-06-01"
+        ],
+        "family_pattern": "BO+: XAU/USD Engulfing-Long 4h | %",
+        "survivor_tag": "bo_rr50_lb10_r98_rf1_af1",
+        "per_cut_results": [
+          {
+            "cut_date": "2024-09-01",
+            "survivor_passes_per_candidate": true,
+            "survivor_rank_by_sharpe": 1,
+            "survivor_in_top_k": true,
+            "top_k_variants": [
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb10_r98_rf1_af1",
+                "rank": 1,
+                "sharpe": 0.32379828071633443
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb10_r74_rf1_af1",
+                "rank": 2,
+                "sharpe": 0.30301216036891887
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb10_r96_rf1_af1",
+                "rank": 3,
+                "sharpe": 0.2942897402115526
+              }
+            ],
+            "variant_evaluations": [
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb10_r120_rf0_af1",
+                "is_survivor": false,
+                "in_sample_n": 77,
+                "oos_n": 34,
+                "in_sample_mean_r": 0.9639090909090908,
+                "oos_mean_r": 0.8392009803921567,
+                "oos_r_delta_pct": -12.937746068907622,
+                "in_sample_sharpe": 0.2761836758541375,
+                "mean_r_ci_lower": 0.18669935064935084,
+                "per_candidate_passes": true,
+                "per_candidate_blockers": []
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr21_lb8_r120_rf0_af1",
+                "is_survivor": false,
+                "in_sample_n": 188,
+                "oos_n": 52,
+                "in_sample_mean_r": 0.19172251773049648,
+                "oos_mean_r": 0.7329487179487177,
+                "oos_r_delta_pct": 282.29662672123925,
+                "in_sample_sharpe": 0.11107875369204998,
+                "mean_r_ci_lower": -0.022418317819149016,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "mean_r_ci_lower -0.0224 ≤ 0",
+                  "|oos_r_delta| 282.3% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr36_lb7_r107_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 149,
+                "oos_n": 34,
+                "in_sample_mean_r": 0.33996525255247995,
+                "oos_mean_r": 1.398924235758416,
+                "oos_r_delta_pct": 311.490358280797,
+                "in_sample_sharpe": 0.14035495871361203,
+                "mean_r_ci_lower": -0.03451458742908644,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "mean_r_ci_lower -0.0345 ≤ 0",
+                  "|oos_r_delta| 311.5% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr33_lb5_r86_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 172,
+                "oos_n": 43,
+                "in_sample_mean_r": 0.16007837889770782,
+                "oos_mean_r": 1.0224739866061436,
+                "oos_r_delta_pct": 538.7333465311501,
+                "in_sample_sharpe": 0.08372005309647197,
+                "mean_r_ci_lower": -0.11307407848774415,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "mean_r_ci_lower -0.1131 ≤ 0",
+                  "|oos_r_delta| 538.7% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr24_lb11_r97_rf0_af0",
+                "is_survivor": false,
+                "in_sample_n": 174,
+                "oos_n": 66,
+                "in_sample_mean_r": 0.22084949275183802,
+                "oos_mean_r": 0.6066308007370975,
+                "oos_r_delta_pct": 174.68064027602293,
+                "in_sample_sharpe": 0.1318958987690637,
+                "mean_r_ci_lower": -0.022698015707265377,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "mean_r_ci_lower -0.0227 ≤ 0",
+                  "|oos_r_delta| 174.7% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr33_lb9_r85_rf0_af0",
+                "is_survivor": false,
+                "in_sample_n": 162,
+                "oos_n": 53,
+                "in_sample_mean_r": 0.44832783834241047,
+                "oos_mean_r": 0.855842670216744,
+                "oos_r_delta_pct": 90.8966156063443,
+                "in_sample_sharpe": 0.1978247305571074,
+                "mean_r_ci_lower": 0.12886040334643475,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 90.9% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr44_lb3_r83_rf0_af0",
+                "is_survivor": false,
+                "in_sample_n": 229,
+                "oos_n": 74,
+                "in_sample_mean_r": 0.18968017720241828,
+                "oos_mean_r": 0.9285228689151483,
+                "oos_r_delta_pct": 389.5202453993228,
+                "in_sample_sharpe": 0.0803999249117278,
+                "mean_r_ci_lower": -0.05079825135966308,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "mean_r_ci_lower -0.0508 ≤ 0",
+                  "|oos_r_delta| 389.5% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr17_lb4_r101_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 239,
+                "oos_n": 65,
+                "in_sample_mean_r": 0.057110562727480677,
+                "oos_mean_r": 0.5294660980968431,
+                "oos_r_delta_pct": 827.0896184710024,
+                "in_sample_sharpe": 0.046133311853358054,
+                "mean_r_ci_lower": -0.07975613315303783,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "mean_r_ci_lower -0.0798 ≤ 0",
+                  "|oos_r_delta| 827.1% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr21_lb11_r74_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 149,
+                "oos_n": 42,
+                "in_sample_mean_r": 0.12591420727099978,
+                "oos_mean_r": 0.5319917954180531,
+                "oos_r_delta_pct": 322.5033909581544,
+                "in_sample_sharpe": 0.09213912733681304,
+                "mean_r_ci_lower": -0.12294781371699719,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "mean_r_ci_lower -0.1229 ≤ 0",
+                  "|oos_r_delta| 322.5% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr31_lb3_r35_rf1_af1",
+                "is_survivor": false,
+                "in_sample_n": 170,
+                "oos_n": 24,
+                "in_sample_mean_r": 0.042809510498142835,
+                "oos_mean_r": 0.3173494150655677,
+                "oos_r_delta_pct": 641.3058719261342,
+                "in_sample_sharpe": 0.02807764351482595,
+                "mean_r_ci_lower": -0.10421747598923098,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "mean_r_ci_lower -0.1042 ≤ 0",
+                  "|oos_r_delta| 641.3% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr24_lb9_r49_rf0_af1",
+                "is_survivor": false,
+                "in_sample_n": 181,
+                "oos_n": 44,
+                "in_sample_mean_r": 0.22235287630343453,
+                "oos_mean_r": 0.7844816369663057,
+                "oos_r_delta_pct": 252.80930474484188,
+                "in_sample_sharpe": 0.14714673322881144,
+                "mean_r_ci_lower": 0.05239479074164289,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 252.8% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr45_lb8_r48_rf0_af0",
+                "is_survivor": false,
+                "in_sample_n": 142,
+                "oos_n": 46,
+                "in_sample_mean_r": 0.35603644999060063,
+                "oos_mean_r": 0.6006254290270339,
+                "oos_r_delta_pct": 68.69773559501854,
+                "in_sample_sharpe": 0.1583572656650335,
+                "mean_r_ci_lower": 0.01697181901245055,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 68.7% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr29_lb9_r120_rf0_af0",
+                "is_survivor": false,
+                "in_sample_n": 190,
+                "oos_n": 43,
+                "in_sample_mean_r": 0.3117622807017545,
+                "oos_mean_r": 1.6325271317829462,
+                "oos_r_delta_pct": 423.6448514901306,
+                "in_sample_sharpe": 0.14894483045369006,
+                "mean_r_ci_lower": 0.035061984649122815,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 423.6% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr42_lb9_r120_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 107,
+                "oos_n": 30,
+                "in_sample_mean_r": 0.531301401869159,
+                "oos_mean_r": 1.098186111111111,
+                "oos_r_delta_pct": 106.69738631360812,
+                "in_sample_sharpe": 0.19650591786322213,
+                "mean_r_ci_lower": -0.011230334890965626,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "mean_r_ci_lower -0.0112 ≤ 0",
+                  "|oos_r_delta| 106.7% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr29_lb8_r120_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 153,
+                "oos_n": 37,
+                "in_sample_mean_r": 0.27040087145969505,
+                "oos_mean_r": 0.987295045045045,
+                "oos_r_delta_pct": 265.1227304539984,
+                "in_sample_sharpe": 0.1424807449557694,
+                "mean_r_ci_lower": -0.01424833877995625,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "mean_r_ci_lower -0.0142 ≤ 0",
+                  "|oos_r_delta| 265.1% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr49_lb10_r120_rf0_af0",
+                "is_survivor": false,
+                "in_sample_n": 90,
+                "oos_n": 29,
+                "in_sample_mean_r": 0.8539453703703704,
+                "oos_mean_r": 1.5630545977011503,
+                "oos_r_delta_pct": 83.03917931228169,
+                "in_sample_sharpe": 0.24536038547466468,
+                "mean_r_ci_lower": 0.14183997685185232,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 83.0% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb9_r120_rf0_af1",
+                "is_survivor": false,
+                "in_sample_n": 90,
+                "oos_n": 28,
+                "in_sample_mean_r": 0.9822453703703704,
+                "oos_mean_r": 1.544880952380953,
+                "oos_r_delta_pct": 57.28055320825105,
+                "in_sample_sharpe": 0.27212302527737453,
+                "mean_r_ci_lower": 0.2219983101851853,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 57.3% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb7_r120_rf0_af0",
+                "is_survivor": false,
+                "in_sample_n": 159,
+                "oos_n": 32,
+                "in_sample_mean_r": 0.44013941299790366,
+                "oos_mean_r": 2.152614583333334,
+                "oos_r_delta_pct": 389.075624623416,
+                "in_sample_sharpe": 0.1390746265489847,
+                "mean_r_ci_lower": 0.07905123165618452,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 389.1% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr28_lb6_r30_rf1_af1",
+                "is_survivor": false,
+                "in_sample_n": 146,
+                "oos_n": 15,
+                "in_sample_mean_r": 0.16173059360730607,
+                "oos_mean_r": 0.8494666666666667,
+                "oos_r_delta_pct": 425.23560800700153,
+                "in_sample_sharpe": 0.11030995106804924,
+                "mean_r_ci_lower": -0.03757922374429225,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "mean_r_ci_lower -0.0376 ≤ 0",
+                  "|oos_r_delta| 425.2% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr45_lb12_r120_rf0_af1",
+                "is_survivor": false,
+                "in_sample_n": 90,
+                "oos_n": 34,
+                "in_sample_mean_r": 0.7320990740740743,
+                "oos_mean_r": 0.6894730392156861,
+                "oos_r_delta_pct": -5.822440755344432,
+                "in_sample_sharpe": 0.22029046342823694,
+                "mean_r_ci_lower": 0.07430201388888898,
+                "per_candidate_passes": true,
+                "per_candidate_blockers": []
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb10_r30_rf0_af1",
+                "is_survivor": false,
+                "in_sample_n": 109,
+                "oos_n": 22,
+                "in_sample_mean_r": 0.4002813455657495,
+                "oos_mean_r": 0.47831818181818164,
+                "oos_r_delta_pct": 19.495496634282684,
+                "in_sample_sharpe": 0.1821920296897199,
+                "mean_r_ci_lower": 0.0613523700305811,
+                "per_candidate_passes": true,
+                "per_candidate_blockers": []
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr19_lb12_r120_rf0_af0",
+                "is_survivor": false,
+                "in_sample_n": 212,
+                "oos_n": 70,
+                "in_sample_mean_r": 0.1853934748427673,
+                "oos_mean_r": 0.5239547619047621,
+                "oos_r_delta_pct": 182.6176931788616,
+                "in_sample_sharpe": 0.11939481699676437,
+                "mean_r_ci_lower": -0.0067911261792452625,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "mean_r_ci_lower -0.0068 ≤ 0",
+                  "|oos_r_delta| 182.6% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb12_r30_rf0_af1",
+                "is_survivor": false,
+                "in_sample_n": 118,
+                "oos_n": 21,
+                "in_sample_mean_r": 0.33990891024312564,
+                "oos_mean_r": 0.577209986344955,
+                "oos_r_delta_pct": 69.81313785863858,
+                "in_sample_sharpe": 0.1611180186749162,
+                "mean_r_ci_lower": 0.03674165005846987,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 69.8% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb10_r102_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 74,
+                "oos_n": 25,
+                "in_sample_mean_r": 0.8812577894639761,
+                "oos_mean_r": 2.026055053403729,
+                "oos_r_delta_pct": 129.90492426013893,
+                "in_sample_sharpe": 0.28154452197576335,
+                "mean_r_ci_lower": 0.09512340938770314,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 129.9% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb10_r89_rf0_af1",
+                "is_survivor": false,
+                "in_sample_n": 77,
+                "oos_n": 32,
+                "in_sample_mean_r": 0.8593268712676606,
+                "oos_mean_r": 1.0466262020994221,
+                "oos_r_delta_pct": 21.796051897627915,
+                "in_sample_sharpe": 0.27600586176773956,
+                "mean_r_ci_lower": 0.15540900909611616,
+                "per_candidate_passes": true,
+                "per_candidate_blockers": []
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb12_r81_rf1_af1",
+                "is_survivor": false,
+                "in_sample_n": 62,
+                "oos_n": 24,
+                "in_sample_mean_r": 0.7299306373884938,
+                "oos_mean_r": 1.23556596400461,
+                "oos_r_delta_pct": 69.27169524287275,
+                "in_sample_sharpe": 0.25938519778007885,
+                "mean_r_ci_lower": 0.01099939642918944,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 69.3% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb12_r93_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 69,
+                "oos_n": 30,
+                "in_sample_mean_r": 0.7479201615673966,
+                "oos_mean_r": 1.379707239095776,
+                "oos_r_delta_pct": 84.47252928766619,
+                "in_sample_sharpe": 0.2525030607670944,
+                "mean_r_ci_lower": 0.012268623847812608,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 84.5% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr15_lb12_r30_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 190,
+                "oos_n": 19,
+                "in_sample_mean_r": 0.0818017543859649,
+                "oos_mean_r": 0.30280701754385964,
+                "oos_r_delta_pct": 270.1717888776889,
+                "in_sample_sharpe": 0.08270309127309458,
+                "mean_r_ci_lower": -0.055239385964912235,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "mean_r_ci_lower -0.0552 ≤ 0",
+                  "|oos_r_delta| 270.2% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb10_r87_rf1_af1",
+                "is_survivor": false,
+                "in_sample_n": 67,
+                "oos_n": 24,
+                "in_sample_mean_r": 0.8846991925060166,
+                "oos_mean_r": 1.4990652391251664,
+                "oos_r_delta_pct": 69.44349580323276,
+                "in_sample_sharpe": 0.29073829527197276,
+                "mean_r_ci_lower": 0.12959847414326245,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 69.4% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb10_r86_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 74,
+                "oos_n": 28,
+                "in_sample_mean_r": 0.7917498172947426,
+                "oos_mean_r": 1.272432584870371,
+                "oos_r_delta_pct": 60.71144660544784,
+                "in_sample_sharpe": 0.27202007027318026,
+                "mean_r_ci_lower": 0.10509284691846202,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 60.7% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb11_r120_rf1_af1",
+                "is_survivor": false,
+                "in_sample_n": 66,
+                "oos_n": 26,
+                "in_sample_mean_r": 0.909757575757576,
+                "oos_mean_r": 0.9949679487179488,
+                "oos_r_delta_pct": 9.366272425862041,
+                "in_sample_sharpe": 0.26701767278984156,
+                "mean_r_ci_lower": 0.12267765151515148,
+                "per_candidate_passes": true,
+                "per_candidate_blockers": []
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb11_r78_rf1_af1",
+                "is_survivor": false,
+                "in_sample_n": 66,
+                "oos_n": 24,
+                "in_sample_mean_r": 0.807945869824071,
+                "oos_mean_r": 1.1931094638932713,
+                "oos_r_delta_pct": 47.671955319614305,
+                "in_sample_sharpe": 0.2796598450435662,
+                "mean_r_ci_lower": 0.1732748088658442,
+                "per_candidate_passes": true,
+                "per_candidate_blockers": []
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb10_r86_rf1_af1",
+                "is_survivor": false,
+                "in_sample_n": 67,
+                "oos_n": 24,
+                "in_sample_mean_r": 0.8680585756580258,
+                "oos_mean_r": 1.3323881323269389,
+                "oos_r_delta_pct": 53.49057882608109,
+                "in_sample_sharpe": 0.2868312108627799,
+                "mean_r_ci_lower": 0.10122085139695126,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 53.5% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb9_r87_rf1_af1",
+                "is_survivor": false,
+                "in_sample_n": 76,
+                "oos_n": 24,
+                "in_sample_mean_r": 0.794605425668632,
+                "oos_mean_r": 1.486634768907671,
+                "oos_r_delta_pct": 87.0909410990645,
+                "in_sample_sharpe": 0.2716575561643081,
+                "mean_r_ci_lower": 0.1121998376335445,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 87.1% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb11_r93_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 79,
+                "oos_n": 29,
+                "in_sample_mean_r": 0.7959183641083488,
+                "oos_mean_r": 1.1283250808405783,
+                "oos_r_delta_pct": 41.76392099014048,
+                "in_sample_sharpe": 0.2581909757803165,
+                "mean_r_ci_lower": 0.16055554072196157,
+                "per_candidate_passes": true,
+                "per_candidate_blockers": []
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb9_r82_rf1_af1",
+                "is_survivor": false,
+                "in_sample_n": 76,
+                "oos_n": 24,
+                "in_sample_mean_r": 0.8056769894725556,
+                "oos_mean_r": 1.42192435269219,
+                "oos_r_delta_pct": 76.48814242827846,
+                "in_sample_sharpe": 0.27403193827251,
+                "mean_r_ci_lower": 0.09457312002364753,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 76.5% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb10_r96_rf1_af1",
+                "is_survivor": false,
+                "in_sample_n": 67,
+                "oos_n": 24,
+                "in_sample_mean_r": 0.91411646810317,
+                "oos_mean_r": 1.4085273111497656,
+                "oos_r_delta_pct": 54.08619801725252,
+                "in_sample_sharpe": 0.2942897402115526,
+                "mean_r_ci_lower": 0.09814811466397595,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 54.1% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb10_r74_rf1_af1",
+                "is_survivor": false,
+                "in_sample_n": 67,
+                "oos_n": 24,
+                "in_sample_mean_r": 0.8929381053986528,
+                "oos_mean_r": 0.8711554933372151,
+                "oos_r_delta_pct": -2.439431348011838,
+                "in_sample_sharpe": 0.30301216036891887,
+                "mean_r_ci_lower": 0.10939712394568425,
+                "per_candidate_passes": true,
+                "per_candidate_blockers": []
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb10_r98_rf1_af1",
+                "is_survivor": true,
+                "in_sample_n": 67,
+                "oos_n": 24,
+                "in_sample_mean_r": 1.0856040888108818,
+                "oos_mean_r": 1.4423368044663916,
+                "oos_r_delta_pct": 32.8602958787911,
+                "in_sample_sharpe": 0.32379828071633443,
+                "mean_r_ci_lower": 0.21214749622276136,
+                "per_candidate_passes": true,
+                "per_candidate_blockers": []
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr47_lb3_r119_rf1_af1",
+                "is_survivor": false,
+                "in_sample_n": 131,
+                "oos_n": 39,
+                "in_sample_mean_r": 0.41008639978792943,
+                "oos_mean_r": 1.5682905032786232,
+                "oos_r_delta_pct": 282.4292890692408,
+                "in_sample_sharpe": 0.13915254760865806,
+                "mean_r_ci_lower": 0.05641092674861,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 282.4% > 50%"
+                ]
+              }
+            ]
+          },
+          {
+            "cut_date": "2024-12-01",
+            "survivor_passes_per_candidate": false,
+            "survivor_rank_by_sharpe": 1,
+            "survivor_in_top_k": true,
+            "top_k_variants": [
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb10_r98_rf1_af1",
+                "rank": 1,
+                "sharpe": 0.3036624170502877
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb10_r74_rf1_af1",
+                "rank": 2,
+                "sharpe": 0.28664236021595
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb10_r96_rf1_af1",
+                "rank": 3,
+                "sharpe": 0.27544503381927754
+              }
+            ],
+            "variant_evaluations": [
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb10_r120_rf0_af1",
+                "is_survivor": false,
+                "in_sample_n": 85,
+                "oos_n": 26,
+                "in_sample_mean_r": 0.954329411764706,
+                "oos_mean_r": 0.8321474358974356,
+                "oos_r_delta_pct": -12.802914209815311,
+                "in_sample_sharpe": 0.26279538545929365,
+                "mean_r_ci_lower": 0.26659693627451,
+                "per_candidate_passes": true,
+                "per_candidate_blockers": []
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr21_lb8_r120_rf0_af1",
+                "is_survivor": false,
+                "in_sample_n": 195,
+                "oos_n": 45,
+                "in_sample_mean_r": 0.22130000000000005,
+                "oos_mean_r": 0.6889703703703703,
+                "oos_r_delta_pct": 211.32868069153648,
+                "in_sample_sharpe": 0.12671236277379472,
+                "mean_r_ci_lower": 0.0036604380341880407,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 211.3% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr36_lb7_r107_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 155,
+                "oos_n": 28,
+                "in_sample_mean_r": 0.399823531271418,
+                "oos_mean_r": 1.294485689251281,
+                "oos_r_delta_pct": 223.7642579802354,
+                "in_sample_sharpe": 0.16069906949963153,
+                "mean_r_ci_lower": -0.0001948537002966819,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "mean_r_ci_lower -0.0002 ≤ 0",
+                  "|oos_r_delta| 223.8% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr33_lb5_r86_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 178,
+                "oos_n": 37,
+                "in_sample_mean_r": 0.19521436589925006,
+                "oos_mean_r": 0.9932893368757681,
+                "oos_r_delta_pct": 408.81979525441466,
+                "in_sample_sharpe": 0.10082757320472047,
+                "mean_r_ci_lower": -0.09179664597922882,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "mean_r_ci_lower -0.0918 ≤ 0",
+                  "|oos_r_delta| 408.8% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr24_lb11_r97_rf0_af0",
+                "is_survivor": false,
+                "in_sample_n": 180,
+                "oos_n": 60,
+                "in_sample_mean_r": 0.2687411375779409,
+                "oos_mean_r": 0.5015339970573145,
+                "oos_r_delta_pct": 86.62345541045369,
+                "in_sample_sharpe": 0.15706250059712074,
+                "mean_r_ci_lower": -0.0005415466999085939,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "mean_r_ci_lower -0.0005 ≤ 0",
+                  "|oos_r_delta| 86.6% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr33_lb9_r85_rf0_af0",
+                "is_survivor": false,
+                "in_sample_n": 167,
+                "oos_n": 48,
+                "in_sample_mean_r": 0.5073320161926889,
+                "oos_mean_r": 0.6930067630995603,
+                "oos_r_delta_pct": 36.59827114801102,
+                "in_sample_sharpe": 0.21829326486843084,
+                "mean_r_ci_lower": 0.16197124955439582,
+                "per_candidate_passes": true,
+                "per_candidate_blockers": []
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr44_lb3_r83_rf0_af0",
+                "is_survivor": false,
+                "in_sample_n": 242,
+                "oos_n": 61,
+                "in_sample_mean_r": 0.22276181110503168,
+                "oos_mean_r": 0.9547392556009359,
+                "oos_r_delta_pct": 328.5919794173241,
+                "in_sample_sharpe": 0.09212341081465653,
+                "mean_r_ci_lower": -0.02445425509722148,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "mean_r_ci_lower -0.0245 ≤ 0",
+                  "|oos_r_delta| 328.6% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr17_lb4_r101_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 247,
+                "oos_n": 57,
+                "in_sample_mean_r": 0.08091184389038775,
+                "oos_mean_r": 0.4926227267936299,
+                "oos_r_delta_pct": 508.83883385600734,
+                "in_sample_sharpe": 0.06473079278742855,
+                "mean_r_ci_lower": -0.05931029672829562,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "mean_r_ci_lower -0.0593 ≤ 0",
+                  "|oos_r_delta| 508.8% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr21_lb11_r74_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 155,
+                "oos_n": 36,
+                "in_sample_mean_r": 0.13221527171645028,
+                "oos_mean_r": 0.5725418104135392,
+                "oos_r_delta_pct": 333.037578020046,
+                "in_sample_sharpe": 0.09680806695538269,
+                "mean_r_ci_lower": -0.10262760950431461,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "mean_r_ci_lower -0.1026 ≤ 0",
+                  "|oos_r_delta| 333.0% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr31_lb3_r35_rf1_af1",
+                "is_survivor": false,
+                "in_sample_n": 176,
+                "oos_n": 18,
+                "in_sample_mean_r": 0.048297843444277296,
+                "oos_mean_r": 0.3551990166702835,
+                "oos_r_delta_pct": 635.4345273823405,
+                "in_sample_sharpe": 0.031786372130558,
+                "mean_r_ci_lower": -0.09718396456581378,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "mean_r_ci_lower -0.0972 ≤ 0",
+                  "|oos_r_delta| 635.4% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr24_lb9_r49_rf0_af1",
+                "is_survivor": false,
+                "in_sample_n": 188,
+                "oos_n": 37,
+                "in_sample_mean_r": 0.2494023498755939,
+                "oos_mean_r": 0.7533897529953365,
+                "oos_r_delta_pct": 202.0780491327127,
+                "in_sample_sharpe": 0.16377010145745668,
+                "mean_r_ci_lower": 0.061949930629823666,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 202.1% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr45_lb8_r48_rf0_af0",
+                "is_survivor": false,
+                "in_sample_n": 146,
+                "oos_n": 42,
+                "in_sample_mean_r": 0.35400106297168604,
+                "oos_mean_r": 0.6309950104772069,
+                "oos_r_delta_pct": 78.24664287171238,
+                "in_sample_sharpe": 0.15750677595329365,
+                "mean_r_ci_lower": 0.02868283160456394,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 78.2% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr29_lb9_r120_rf0_af0",
+                "is_survivor": false,
+                "in_sample_n": 195,
+                "oos_n": 38,
+                "in_sample_mean_r": 0.360524358974359,
+                "oos_mean_r": 1.5560855263157893,
+                "oos_r_delta_pct": 331.61730617665705,
+                "in_sample_sharpe": 0.1678278178521461,
+                "mean_r_ci_lower": 0.08631637820512829,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 331.6% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr42_lb9_r120_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 112,
+                "oos_n": 25,
+                "in_sample_mean_r": 0.5064099702380952,
+                "oos_mean_r": 1.3230766666666665,
+                "oos_r_delta_pct": 161.26591979312826,
+                "in_sample_sharpe": 0.18583906681273624,
+                "mean_r_ci_lower": -0.006106845238094955,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "mean_r_ci_lower -0.0061 ≤ 0",
+                  "|oos_r_delta| 161.3% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr29_lb8_r120_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 159,
+                "oos_n": 31,
+                "in_sample_mean_r": 0.31030398322851155,
+                "oos_mean_r": 0.9213844086021505,
+                "oos_r_delta_pct": 196.92961044706672,
+                "in_sample_sharpe": 0.15937764339630184,
+                "mean_r_ci_lower": 0.02073557389937102,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 196.9% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr49_lb10_r120_rf0_af0",
+                "is_survivor": false,
+                "in_sample_n": 99,
+                "oos_n": 20,
+                "in_sample_mean_r": 0.8219579124579128,
+                "oos_mean_r": 2.040491666666667,
+                "oos_r_delta_pct": 148.247706572342,
+                "in_sample_sharpe": 0.2289677102035233,
+                "mean_r_ci_lower": 0.1801610479797981,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 148.2% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb9_r120_rf0_af1",
+                "is_survivor": false,
+                "in_sample_n": 98,
+                "oos_n": 20,
+                "in_sample_mean_r": 0.9775306122448978,
+                "oos_mean_r": 1.7930374999999998,
+                "oos_r_delta_pct": 83.42520198751541,
+                "in_sample_sharpe": 0.25958467665746754,
+                "mean_r_ci_lower": 0.2902654549319728,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 83.4% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb7_r120_rf0_af0",
+                "is_survivor": false,
+                "in_sample_n": 163,
+                "oos_n": 28,
+                "in_sample_mean_r": 0.447616564417178,
+                "oos_mean_r": 2.353726190476191,
+                "oos_r_delta_pct": 425.83536392154633,
+                "in_sample_sharpe": 0.13987851752082028,
+                "mean_r_ci_lower": 0.07679695807770967,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 425.8% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr28_lb6_r30_rf1_af1",
+                "is_survivor": false,
+                "in_sample_n": 151,
+                "oos_n": 10,
+                "in_sample_mean_r": 0.16916335540838864,
+                "oos_mean_r": 1.0811000000000002,
+                "oos_r_delta_pct": 539.0864010648429,
+                "in_sample_sharpe": 0.11538946873483355,
+                "mean_r_ci_lower": -0.028442715231788054,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "mean_r_ci_lower -0.0284 ≤ 0",
+                  "|oos_r_delta| 539.1% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr45_lb12_r120_rf0_af1",
+                "is_survivor": false,
+                "in_sample_n": 97,
+                "oos_n": 27,
+                "in_sample_mean_r": 0.7465146048109969,
+                "oos_mean_r": 0.6266327160493824,
+                "oos_r_delta_pct": -16.058880561615567,
+                "in_sample_sharpe": 0.21990572023308852,
+                "mean_r_ci_lower": 0.07657935996563595,
+                "per_candidate_passes": true,
+                "per_candidate_blockers": []
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb10_r30_rf0_af1",
+                "is_survivor": false,
+                "in_sample_n": 117,
+                "oos_n": 14,
+                "in_sample_mean_r": 0.40257264957264993,
+                "oos_mean_r": 0.5037619047619045,
+                "oos_r_delta_pct": 25.13565074444869,
+                "in_sample_sharpe": 0.18187923259777167,
+                "mean_r_ci_lower": 0.07331794871794872,
+                "per_candidate_passes": true,
+                "per_candidate_blockers": []
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr19_lb12_r120_rf0_af0",
+                "is_survivor": false,
+                "in_sample_n": 219,
+                "oos_n": 63,
+                "in_sample_mean_r": 0.2275662100456621,
+                "oos_mean_r": 0.4149722222222224,
+                "oos_r_delta_pct": 82.35230183732308,
+                "in_sample_sharpe": 0.14411859618404843,
+                "mean_r_ci_lower": 0.021703710045662124,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 82.4% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb12_r30_rf0_af1",
+                "is_survivor": false,
+                "in_sample_n": 126,
+                "oos_n": 13,
+                "in_sample_mean_r": 0.3482022001755894,
+                "oos_mean_r": 0.6428602999852775,
+                "oos_r_delta_pct": 84.6226990125564,
+                "in_sample_sharpe": 0.16359017487782773,
+                "mean_r_ci_lower": 0.0642632899164906,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 84.6% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb10_r102_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 79,
+                "oos_n": 20,
+                "in_sample_mean_r": 0.8400448917974566,
+                "oos_mean_r": 2.475045315171419,
+                "oos_r_delta_pct": 194.63250587424295,
+                "in_sample_sharpe": 0.26477706600943524,
+                "mean_r_ci_lower": 0.13221057279882317,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 194.6% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb10_r89_rf0_af1",
+                "is_survivor": false,
+                "in_sample_n": 85,
+                "oos_n": 24,
+                "in_sample_mean_r": 0.8475401890278279,
+                "oos_mean_r": 1.1508038119760835,
+                "oos_r_delta_pct": 35.781621553087,
+                "in_sample_sharpe": 0.26503456731264097,
+                "mean_r_ci_lower": 0.24314652531902894,
+                "per_candidate_passes": true,
+                "per_candidate_blockers": []
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb12_r81_rf1_af1",
+                "is_survivor": false,
+                "in_sample_n": 67,
+                "oos_n": 19,
+                "in_sample_mean_r": 0.6900944768345519,
+                "oos_mean_r": 1.5091027740148568,
+                "oos_r_delta_pct": 118.68060456549048,
+                "in_sample_sharpe": 0.24609544058927946,
+                "mean_r_ci_lower": 0.01896160004555112,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 118.7% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb12_r93_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 75,
+                "oos_n": 24,
+                "in_sample_mean_r": 0.8053455326543115,
+                "oos_mean_r": 1.3581997238312615,
+                "oos_r_delta_pct": 68.64807325059795,
+                "in_sample_sharpe": 0.2628422904343005,
+                "mean_r_ci_lower": 0.10784581563996312,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 68.6% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr15_lb12_r30_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 196,
+                "oos_n": 13,
+                "in_sample_mean_r": 0.08590986394557822,
+                "oos_mean_r": 0.34287179487179487,
+                "oos_r_delta_pct": 299.10643449394325,
+                "in_sample_sharpe": 0.08688427796203081,
+                "mean_r_ci_lower": -0.04854277210884336,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "mean_r_ci_lower -0.0485 ≤ 0",
+                  "|oos_r_delta| 299.1% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb10_r87_rf1_af1",
+                "is_survivor": false,
+                "in_sample_n": 72,
+                "oos_n": 19,
+                "in_sample_mean_r": 0.8359455741315407,
+                "oos_mean_r": 1.8454910683913779,
+                "oos_r_delta_pct": 120.76689266626582,
+                "in_sample_sharpe": 0.273931069922135,
+                "mean_r_ci_lower": 0.14737570933789226,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 120.8% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb10_r86_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 79,
+                "oos_n": 23,
+                "in_sample_mean_r": 0.7533419610184223,
+                "oos_mean_r": 1.5088514754663465,
+                "oos_r_delta_pct": 100.28772503612721,
+                "in_sample_sharpe": 0.25721740287333456,
+                "mean_r_ci_lower": 0.1375899686058972,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 100.3% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb11_r120_rf1_af1",
+                "is_survivor": false,
+                "in_sample_n": 71,
+                "oos_n": 21,
+                "in_sample_mean_r": 0.8694917840375588,
+                "oos_mean_r": 1.151392857142857,
+                "oos_r_delta_pct": 32.421361337799745,
+                "in_sample_sharpe": 0.2517359653555413,
+                "mean_r_ci_lower": 0.11494997065727702,
+                "per_candidate_passes": true,
+                "per_candidate_blockers": []
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb11_r78_rf1_af1",
+                "is_survivor": false,
+                "in_sample_n": 71,
+                "oos_n": 19,
+                "in_sample_mean_r": 0.7595440454537203,
+                "oos_mean_r": 1.4753382797164758,
+                "oos_r_delta_pct": 94.23999023455835,
+                "in_sample_sharpe": 0.2631092600476792,
+                "mean_r_ci_lower": 0.14131048230695722,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 94.2% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb10_r86_rf1_af1",
+                "is_survivor": false,
+                "in_sample_n": 72,
+                "oos_n": 19,
+                "in_sample_mean_r": 0.8205623899217717,
+                "oos_mean_r": 1.634565666871931,
+                "oos_r_delta_pct": 99.20065639710374,
+                "in_sample_sharpe": 0.2701180258329362,
+                "mean_r_ci_lower": 0.10174732253367079,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 99.2% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb9_r87_rf1_af1",
+                "is_survivor": false,
+                "in_sample_n": 81,
+                "oos_n": 19,
+                "in_sample_mean_r": 0.7523614156440964,
+                "oos_mean_r": 1.8488406388120173,
+                "oos_r_delta_pct": 145.73836461685445,
+                "in_sample_sharpe": 0.2557184287014923,
+                "mean_r_ci_lower": 0.1255207956394709,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 145.7% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb11_r93_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 84,
+                "oos_n": 24,
+                "in_sample_mean_r": 0.759192060731995,
+                "oos_mean_r": 1.3261185419770316,
+                "oos_r_delta_pct": 74.67497495935608,
+                "in_sample_sharpe": 0.24409892801124444,
+                "mean_r_ci_lower": 0.1792164982395427,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 74.7% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb9_r82_rf1_af1",
+                "is_survivor": false,
+                "in_sample_n": 81,
+                "oos_n": 19,
+                "in_sample_mean_r": 0.7709265559094912,
+                "oos_mean_r": 1.732241296624105,
+                "oos_r_delta_pct": 124.69602108601829,
+                "in_sample_sharpe": 0.26026020596664023,
+                "mean_r_ci_lower": 0.11463188281248152,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 124.7% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb10_r96_rf1_af1",
+                "is_survivor": false,
+                "in_sample_n": 72,
+                "oos_n": 19,
+                "in_sample_mean_r": 0.8627913428172503,
+                "oos_mean_r": 1.733130639350776,
+                "oos_r_delta_pct": 100.87482956094914,
+                "in_sample_sharpe": 0.27544503381927754,
+                "mean_r_ci_lower": 0.1165718731675806,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 100.9% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb10_r74_rf1_af1",
+                "is_survivor": false,
+                "in_sample_n": 72,
+                "oos_n": 19,
+                "in_sample_mean_r": 0.845010111834684,
+                "oos_mean_r": 1.0470450973529297,
+                "oos_r_delta_pct": 23.90917962858312,
+                "in_sample_sharpe": 0.28664236021595,
+                "mean_r_ci_lower": 0.14011376458209124,
+                "per_candidate_passes": true,
+                "per_candidate_blockers": []
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb10_r98_rf1_af1",
+                "is_survivor": true,
+                "in_sample_n": 72,
+                "oos_n": 19,
+                "in_sample_mean_r": 1.0296030233676194,
+                "oos_mean_r": 1.748428398687047,
+                "oos_r_delta_pct": 69.81577938342662,
+                "in_sample_sharpe": 0.3036624170502877,
+                "mean_r_ci_lower": 0.21212863364456033,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 69.8% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr47_lb3_r119_rf1_af1",
+                "is_survivor": false,
+                "in_sample_n": 137,
+                "oos_n": 33,
+                "in_sample_mean_r": 0.38347201038712775,
+                "oos_mean_r": 1.8893631083954112,
+                "oos_r_delta_pct": 392.699090733646,
+                "in_sample_sharpe": 0.12947906602455406,
+                "mean_r_ci_lower": 0.07256927798533766,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 392.7% > 50%"
+                ]
+              }
+            ]
+          },
+          {
+            "cut_date": "2025-03-01",
+            "survivor_passes_per_candidate": true,
+            "survivor_rank_by_sharpe": 4,
+            "survivor_in_top_k": false,
+            "top_k_variants": [
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb10_r102_rf1_af0",
+                "rank": 1,
+                "sharpe": 0.324371854273018
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb10_r86_rf1_af0",
+                "rank": 2,
+                "sharpe": 0.31565844138621413
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb12_r93_rf1_af0",
+                "rank": 3,
+                "sharpe": 0.31549014509669276
+              }
+            ],
+            "variant_evaluations": [
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb10_r120_rf0_af1",
+                "is_survivor": false,
+                "in_sample_n": 87,
+                "oos_n": 24,
+                "in_sample_mean_r": 1.0228994252873564,
+                "oos_mean_r": 0.5733993055555553,
+                "oos_r_delta_pct": -43.94372590497116,
+                "in_sample_sharpe": 0.27503833905250596,
+                "mean_r_ci_lower": 0.35126089559387014,
+                "per_candidate_passes": true,
+                "per_candidate_blockers": []
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr21_lb8_r120_rf0_af1",
+                "is_survivor": false,
+                "in_sample_n": 201,
+                "oos_n": 39,
+                "in_sample_mean_r": 0.2354170812603649,
+                "oos_mean_r": 0.6881623931623932,
+                "oos_r_delta_pct": 192.31625397704443,
+                "in_sample_sharpe": 0.13362602056895295,
+                "mean_r_ci_lower": 0.004237852404643396,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 192.3% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr36_lb7_r107_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 161,
+                "oos_n": 22,
+                "in_sample_mean_r": 0.4531507432737829,
+                "oos_mean_r": 1.1482262263193919,
+                "oos_r_delta_pct": 153.3872543216068,
+                "in_sample_sharpe": 0.17831318421451686,
+                "mean_r_ci_lower": 0.04261885842532093,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 153.4% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr33_lb5_r86_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 185,
+                "oos_n": 30,
+                "in_sample_mean_r": 0.2255786322136624,
+                "oos_mean_r": 0.9922605211647462,
+                "oos_r_delta_pct": 339.87345407117374,
+                "in_sample_sharpe": 0.11477739665459327,
+                "mean_r_ci_lower": -0.08178802806310012,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "mean_r_ci_lower -0.0818 ≤ 0",
+                  "|oos_r_delta| 339.9% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr24_lb11_r97_rf0_af0",
+                "is_survivor": false,
+                "in_sample_n": 188,
+                "oos_n": 52,
+                "in_sample_mean_r": 0.2994274318769629,
+                "oos_mean_r": 0.4264055268192155,
+                "oos_r_delta_pct": 42.40696790747913,
+                "in_sample_sharpe": 0.17213828726725489,
+                "mean_r_ci_lower": 0.029520322831709,
+                "per_candidate_passes": true,
+                "per_candidate_blockers": []
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr33_lb9_r85_rf0_af0",
+                "is_survivor": false,
+                "in_sample_n": 174,
+                "oos_n": 41,
+                "in_sample_mean_r": 0.5717815695122523,
+                "oos_mean_r": 0.45118971311770756,
+                "oos_r_delta_pct": -21.090546254824798,
+                "in_sample_sharpe": 0.2392553710874303,
+                "mean_r_ci_lower": 0.2118890544417582,
+                "per_candidate_passes": true,
+                "per_candidate_blockers": []
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr44_lb3_r83_rf0_af0",
+                "is_survivor": false,
+                "in_sample_n": 250,
+                "oos_n": 53,
+                "in_sample_mean_r": 0.1963467182623409,
+                "oos_mean_r": 1.1898259115752738,
+                "oos_r_delta_pct": 505.98207197205863,
+                "in_sample_sharpe": 0.08141856170140276,
+                "mean_r_ci_lower": -0.04036031613291298,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "mean_r_ci_lower -0.0404 ≤ 0",
+                  "|oos_r_delta| 506.0% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr17_lb4_r101_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 260,
+                "oos_n": 44,
+                "in_sample_mean_r": 0.08982128952711287,
+                "oos_mean_r": 0.5616178543434847,
+                "oos_r_delta_pct": 525.2614021689795,
+                "in_sample_sharpe": 0.07104918013280427,
+                "mean_r_ci_lower": -0.04729992098653114,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "mean_r_ci_lower -0.0473 ≤ 0",
+                  "|oos_r_delta| 525.3% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr21_lb11_r74_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 164,
+                "oos_n": 27,
+                "in_sample_mean_r": 0.1586453888071604,
+                "oos_mean_r": 0.5587788343171441,
+                "oos_r_delta_pct": 252.21876823433013,
+                "in_sample_sharpe": 0.11490551202928666,
+                "mean_r_ci_lower": -0.0711761753405504,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "mean_r_ci_lower -0.0712 ≤ 0",
+                  "|oos_r_delta| 252.2% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr31_lb3_r35_rf1_af1",
+                "is_survivor": false,
+                "in_sample_n": 181,
+                "oos_n": 13,
+                "in_sample_mean_r": 0.02266566888373854,
+                "oos_mean_r": 0.830116667561633,
+                "oos_r_delta_pct": 3562.4406357458056,
+                "in_sample_sharpe": 0.015049021759092077,
+                "mean_r_ci_lower": -0.1163743677836385,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "mean_r_ci_lower -0.1164 ≤ 0",
+                  "|oos_r_delta| 3562.4% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr24_lb9_r49_rf0_af1",
+                "is_survivor": false,
+                "in_sample_n": 192,
+                "oos_n": 33,
+                "in_sample_mean_r": 0.26000226820216926,
+                "oos_mean_r": 0.7528068831097762,
+                "oos_r_delta_pct": 189.53858299590607,
+                "in_sample_sharpe": 0.17057183527681302,
+                "mean_r_ci_lower": 0.06952361678780822,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 189.5% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr45_lb8_r48_rf0_af0",
+                "is_survivor": false,
+                "in_sample_n": 152,
+                "oos_n": 36,
+                "in_sample_mean_r": 0.40996036871231184,
+                "oos_mean_r": 0.44088804415659566,
+                "oos_r_delta_pct": 7.5440646961626685,
+                "in_sample_sharpe": 0.1788061666034624,
+                "mean_r_ci_lower": 0.06586333988019095,
+                "per_candidate_passes": true,
+                "per_candidate_blockers": []
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr29_lb9_r120_rf0_af0",
+                "is_survivor": false,
+                "in_sample_n": 202,
+                "oos_n": 31,
+                "in_sample_mean_r": 0.421003300330033,
+                "oos_mean_r": 1.4319623655913982,
+                "oos_r_delta_pct": 240.13091214934747,
+                "in_sample_sharpe": 0.18882900297441,
+                "mean_r_ci_lower": 0.11756174711221123,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 240.1% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr42_lb9_r120_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 116,
+                "oos_n": 21,
+                "in_sample_mean_r": 0.6442528735632185,
+                "oos_mean_r": 0.7172142857142858,
+                "oos_r_delta_pct": 11.32496495475978,
+                "in_sample_sharpe": 0.22582084015339984,
+                "mean_r_ci_lower": 0.08327297054597707,
+                "per_candidate_passes": true,
+                "per_candidate_blockers": []
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr29_lb8_r120_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 165,
+                "oos_n": 25,
+                "in_sample_mean_r": 0.3526843434343435,
+                "oos_mean_r": 0.7883333333333334,
+                "oos_r_delta_pct": 123.5237679270816,
+                "in_sample_sharpe": 0.17577205129979778,
+                "mean_r_ci_lower": 0.03888273989898994,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 123.5% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr49_lb10_r120_rf0_af0",
+                "is_survivor": false,
+                "in_sample_n": 102,
+                "oos_n": 17,
+                "in_sample_mean_r": 1.0670334967320263,
+                "oos_mean_r": 0.7850735294117647,
+                "oos_r_delta_pct": -26.42465941170662,
+                "in_sample_sharpe": 0.2802749591970062,
+                "mean_r_ci_lower": 0.31585686274509805,
+                "per_candidate_passes": true,
+                "per_candidate_blockers": []
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb9_r120_rf0_af1",
+                "is_survivor": false,
+                "in_sample_n": 100,
+                "oos_n": 18,
+                "in_sample_mean_r": 1.035400833333333,
+                "oos_mean_r": 1.5621481481481483,
+                "oos_r_delta_pct": 50.87375805165458,
+                "in_sample_sharpe": 0.26980585380569433,
+                "mean_r_ci_lower": 0.33620850000000063,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 50.9% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb7_r120_rf0_af0",
+                "is_survivor": false,
+                "in_sample_n": 169,
+                "oos_n": 22,
+                "in_sample_mean_r": 0.559199704142012,
+                "oos_mean_r": 2.016412878787879,
+                "oos_r_delta_pct": 260.58904606927314,
+                "in_sample_sharpe": 0.16612389580231526,
+                "mean_r_ci_lower": 0.13126131656804743,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 260.6% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr28_lb6_r30_rf1_af1",
+                "is_survivor": false,
+                "in_sample_n": 156,
+                "oos_n": 5,
+                "in_sample_mean_r": 0.19652564102564113,
+                "oos_mean_r": 1.1393333333333335,
+                "oos_r_delta_pct": 479.73775197338364,
+                "in_sample_sharpe": 0.1327331770276096,
+                "mean_r_ci_lower": -0.00684011752136749,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "mean_r_ci_lower -0.0068 ≤ 0",
+                  "oos_n 5 < 10",
+                  "|oos_r_delta| 479.7% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr45_lb12_r120_rf0_af1",
+                "is_survivor": false,
+                "in_sample_n": 99,
+                "oos_n": 25,
+                "in_sample_mean_r": 0.7809789562289565,
+                "oos_mean_r": 0.48056333333333334,
+                "oos_r_delta_pct": -38.466545160987856,
+                "in_sample_sharpe": 0.22823961417461483,
+                "mean_r_ci_lower": 0.09172329545454556,
+                "per_candidate_passes": true,
+                "per_candidate_blockers": []
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb10_r30_rf0_af1",
+                "is_survivor": false,
+                "in_sample_n": 118,
+                "oos_n": 13,
+                "in_sample_mean_r": 0.3898898305084749,
+                "oos_mean_r": 0.6266666666666665,
+                "oos_r_delta_pct": 60.729164402518265,
+                "in_sample_sharpe": 0.17655871659880196,
+                "mean_r_ci_lower": 0.06660381355932206,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 60.7% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr19_lb12_r120_rf0_af0",
+                "is_survivor": false,
+                "in_sample_n": 227,
+                "oos_n": 55,
+                "in_sample_mean_r": 0.2817595447870778,
+                "oos_mean_r": 0.21856060606060618,
+                "oos_r_delta_pct": -22.43009683105156,
+                "in_sample_sharpe": 0.1743477932008539,
+                "mean_r_ci_lower": 0.045501073788546224,
+                "per_candidate_passes": true,
+                "per_candidate_blockers": []
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb12_r30_rf0_af1",
+                "is_survivor": false,
+                "in_sample_n": 127,
+                "oos_n": 12,
+                "in_sample_mean_r": 0.33690410615040045,
+                "oos_mean_r": 0.7869866367360011,
+                "oos_r_delta_pct": 133.5936613324253,
+                "in_sample_sharpe": 0.15862549368696147,
+                "mean_r_ci_lower": 0.06068141472237795,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 133.6% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb10_r102_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 82,
+                "oos_n": 17,
+                "in_sample_mean_r": 1.0971318113165662,
+                "oos_mean_r": 1.5235084839687667,
+                "oos_r_delta_pct": 38.86284840656889,
+                "in_sample_sharpe": 0.324371854273018,
+                "mean_r_ci_lower": 0.24597735498028356,
+                "per_candidate_passes": true,
+                "per_candidate_blockers": []
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb10_r89_rf0_af1",
+                "is_survivor": false,
+                "in_sample_n": 87,
+                "oos_n": 22,
+                "in_sample_mean_r": 0.8860692494528842,
+                "oos_mean_r": 1.0260083114722935,
+                "oos_r_delta_pct": 15.793242131562135,
+                "in_sample_sharpe": 0.27459837550941396,
+                "mean_r_ci_lower": 0.3039994808445522,
+                "per_candidate_passes": true,
+                "per_candidate_blockers": []
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb12_r81_rf1_af1",
+                "is_survivor": false,
+                "in_sample_n": 69,
+                "oos_n": 17,
+                "in_sample_mean_r": 0.7346037925380478,
+                "oos_mean_r": 1.4248012334748221,
+                "oos_r_delta_pct": 93.9550609386524,
+                "in_sample_sharpe": 0.2595255716862175,
+                "mean_r_ci_lower": 0.044760445495766396,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 94.0% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb12_r93_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 79,
+                "oos_n": 20,
+                "in_sample_mean_r": 1.028202554575194,
+                "oos_mean_r": 0.5884853254791663,
+                "oos_r_delta_pct": -42.765623090452124,
+                "in_sample_sharpe": 0.31549014509669276,
+                "mean_r_ci_lower": 0.232391572926802,
+                "per_candidate_passes": true,
+                "per_candidate_blockers": []
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr15_lb12_r30_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 203,
+                "oos_n": 6,
+                "in_sample_mean_r": 0.08980952380952378,
+                "oos_mean_r": 0.5107222222222223,
+                "oos_r_delta_pct": 468.6726758571936,
+                "in_sample_sharpe": 0.09055310809227157,
+                "mean_r_ci_lower": -0.04360509031198683,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "mean_r_ci_lower -0.0436 ≤ 0",
+                  "oos_n 6 < 10",
+                  "|oos_r_delta| 468.7% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb10_r87_rf1_af1",
+                "is_survivor": false,
+                "in_sample_n": 74,
+                "oos_n": 17,
+                "in_sample_mean_r": 0.8834910958292879,
+                "oos_mean_r": 1.7572982673846949,
+                "oos_r_delta_pct": 98.90390244795947,
+                "in_sample_sharpe": 0.2853341704725944,
+                "mean_r_ci_lower": 0.19534955624299322,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 98.9% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb10_r86_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 82,
+                "oos_n": 20,
+                "in_sample_mean_r": 0.9787224382133781,
+                "oos_mean_r": 0.6981179461342164,
+                "oos_r_delta_pct": -28.670487272305202,
+                "in_sample_sharpe": 0.31565844138621413,
+                "mean_r_ci_lower": 0.255524521038608,
+                "per_candidate_passes": true,
+                "per_candidate_blockers": []
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb11_r120_rf1_af1",
+                "is_survivor": false,
+                "in_sample_n": 73,
+                "oos_n": 19,
+                "in_sample_mean_r": 0.9377020547945206,
+                "oos_mean_r": 0.9189956140350877,
+                "oos_r_delta_pct": -1.994923724842654,
+                "in_sample_sharpe": 0.26637248137476693,
+                "mean_r_ci_lower": 0.1888879280821918,
+                "per_candidate_passes": true,
+                "per_candidate_blockers": []
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb11_r78_rf1_af1",
+                "is_survivor": false,
+                "in_sample_n": 73,
+                "oos_n": 17,
+                "in_sample_mean_r": 0.7923695848592496,
+                "oos_mean_r": 1.4185926380648213,
+                "oos_r_delta_pct": 79.03168738068223,
+                "in_sample_sharpe": 0.2734352240870482,
+                "mean_r_ci_lower": 0.18672957084748298,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 79.0% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb10_r86_rf1_af1",
+                "is_survivor": false,
+                "in_sample_n": 74,
+                "oos_n": 17,
+                "in_sample_mean_r": 0.869086793372143,
+                "oos_mean_r": 1.519106884435039,
+                "oos_r_delta_pct": 74.79346090863417,
+                "in_sample_sharpe": 0.2817365763952917,
+                "mean_r_ci_lower": 0.160584239955116,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 74.8% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb9_r87_rf1_af1",
+                "is_survivor": false,
+                "in_sample_n": 83,
+                "oos_n": 17,
+                "in_sample_mean_r": 0.7984405348222087,
+                "oos_mean_r": 1.7528636714327543,
+                "oos_r_delta_pct": 119.53590718225122,
+                "in_sample_sharpe": 0.26743262726539935,
+                "mean_r_ci_lower": 0.17941044019388722,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 119.5% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb11_r93_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 88,
+                "oos_n": 20,
+                "in_sample_mean_r": 0.9593651707508951,
+                "oos_mean_r": 0.5587421541428772,
+                "oos_r_delta_pct": -41.75917875926747,
+                "in_sample_sharpe": 0.2924489348097628,
+                "mean_r_ci_lower": 0.31184796812457655,
+                "per_candidate_passes": true,
+                "per_candidate_blockers": []
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb9_r82_rf1_af1",
+                "is_survivor": false,
+                "in_sample_n": 83,
+                "oos_n": 17,
+                "in_sample_mean_r": 0.8201244452399028,
+                "oos_mean_r": 1.6051356888008737,
+                "oos_r_delta_pct": 95.71855199747635,
+                "in_sample_sharpe": 0.27209491306934414,
+                "mean_r_ci_lower": 0.1627651212498371,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 95.7% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb10_r96_rf1_af1",
+                "is_survivor": false,
+                "in_sample_n": 74,
+                "oos_n": 17,
+                "in_sample_mean_r": 0.903303557508618,
+                "oos_mean_r": 1.6591762102864134,
+                "oos_r_delta_pct": 83.67869765315122,
+                "in_sample_sharpe": 0.2860205786481772,
+                "mean_r_ci_lower": 0.15882232838923308,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 83.7% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb10_r74_rf1_af1",
+                "is_survivor": false,
+                "in_sample_n": 74,
+                "oos_n": 17,
+                "in_sample_mean_r": 0.8770143354094526,
+                "oos_mean_r": 0.9315014165590244,
+                "oos_r_delta_pct": 6.212792533674304,
+                "in_sample_sharpe": 0.29623977619448,
+                "mean_r_ci_lower": 0.18807748935512172,
+                "per_candidate_passes": true,
+                "per_candidate_blockers": []
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb10_r98_rf1_af1",
+                "is_survivor": true,
+                "in_sample_n": 74,
+                "oos_n": 17,
+                "in_sample_mean_r": 1.0839012657402258,
+                "oos_mean_r": 1.5966390348673996,
+                "oos_r_delta_pct": 47.30484088668455,
+                "in_sample_sharpe": 0.31413374758247714,
+                "mean_r_ci_lower": 0.2797987115055225,
+                "per_candidate_passes": true,
+                "per_candidate_blockers": []
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr47_lb3_r119_rf1_af1",
+                "is_survivor": false,
+                "in_sample_n": 142,
+                "oos_n": 28,
+                "in_sample_mean_r": 0.31670948275139366,
+                "oos_mean_r": 2.4968536231923992,
+                "oos_r_delta_pct": 688.3734965878322,
+                "in_sample_sharpe": 0.10809217479072272,
+                "mean_r_ci_lower": 0.008011961584319712,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 688.4% > 50%"
+                ]
+              }
+            ]
+          },
+          {
+            "cut_date": "2025-06-01",
+            "survivor_passes_per_candidate": false,
+            "survivor_rank_by_sharpe": 4,
+            "survivor_in_top_k": false,
+            "top_k_variants": [
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb10_r102_rf1_af0",
+                "rank": 1,
+                "sharpe": 0.31685949173085454
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb10_r86_rf1_af0",
+                "rank": 2,
+                "sharpe": 0.30770337190624836
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb12_r93_rf1_af0",
+                "rank": 3,
+                "sharpe": 0.3017893751753727
+              }
+            ],
+            "variant_evaluations": [
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb10_r120_rf0_af1",
+                "is_survivor": false,
+                "in_sample_n": 94,
+                "oos_n": 17,
+                "in_sample_mean_r": 1.0535230496453905,
+                "oos_mean_r": 0.21898039215686255,
+                "oos_r_delta_pct": -79.2144659549148,
+                "in_sample_sharpe": 0.27299727516579203,
+                "mean_r_ci_lower": 0.3667631427304968,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 79.2% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr21_lb8_r120_rf0_af1",
+                "is_survivor": false,
+                "in_sample_n": 211,
+                "oos_n": 29,
+                "in_sample_mean_r": 0.2597468404423381,
+                "oos_mean_r": 0.6672614942528735,
+                "oos_r_delta_pct": 156.88916681972142,
+                "in_sample_sharpe": 0.1452999953785484,
+                "mean_r_ci_lower": 0.03629814375987362,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 156.9% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr36_lb7_r107_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 169,
+                "oos_n": 14,
+                "in_sample_mean_r": 0.48976866759741533,
+                "oos_mean_r": 1.103381558724463,
+                "oos_r_delta_pct": 125.28626915583565,
+                "in_sample_sharpe": 0.18786883146704947,
+                "mean_r_ci_lower": 0.0968187260541964,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 125.3% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr33_lb5_r86_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 193,
+                "oos_n": 22,
+                "in_sample_mean_r": 0.2721271747270536,
+                "oos_mean_r": 0.8626962669158446,
+                "oos_r_delta_pct": 217.01952139882312,
+                "in_sample_sharpe": 0.13581031757038314,
+                "mean_r_ci_lower": -0.046407484205318414,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "mean_r_ci_lower -0.0464 ≤ 0",
+                  "|oos_r_delta| 217.0% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr24_lb11_r97_rf0_af0",
+                "is_survivor": false,
+                "in_sample_n": 198,
+                "oos_n": 42,
+                "in_sample_mean_r": 0.32306079237500435,
+                "oos_mean_r": 0.34522399279088994,
+                "oos_r_delta_pct": 6.860380751545632,
+                "in_sample_sharpe": 0.18261249679437944,
+                "mean_r_ci_lower": 0.05953690600771373,
+                "per_candidate_passes": true,
+                "per_candidate_blockers": []
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr33_lb9_r85_rf0_af0",
+                "is_survivor": false,
+                "in_sample_n": 182,
+                "oos_n": 33,
+                "in_sample_mean_r": 0.620420283042676,
+                "oos_mean_r": 0.15370544906638994,
+                "oos_r_delta_pct": -75.2255925108404,
+                "in_sample_sharpe": 0.25350654686269264,
+                "mean_r_ci_lower": 0.26570045188126057,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 75.2% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr44_lb3_r83_rf0_af0",
+                "is_survivor": false,
+                "in_sample_n": 260,
+                "oos_n": 43,
+                "in_sample_mean_r": 0.23769110571087051,
+                "oos_mean_r": 1.1708782649825213,
+                "oos_r_delta_pct": 392.60499734760276,
+                "in_sample_sharpe": 0.0970708688846814,
+                "mean_r_ci_lower": -0.009427546377447112,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "mean_r_ci_lower -0.0094 ≤ 0",
+                  "|oos_r_delta| 392.6% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr17_lb4_r101_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 272,
+                "oos_n": 32,
+                "in_sample_mean_r": 0.11333283554502142,
+                "oos_mean_r": 0.5386934249974014,
+                "oos_r_delta_pct": 375.31981566225403,
+                "in_sample_sharpe": 0.0890683635425353,
+                "mean_r_ci_lower": -0.027068726995089276,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "mean_r_ci_lower -0.0271 ≤ 0",
+                  "|oos_r_delta| 375.3% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr21_lb11_r74_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 174,
+                "oos_n": 17,
+                "in_sample_mean_r": 0.16969659310697002,
+                "oos_mean_r": 0.6810391229602598,
+                "oos_r_delta_pct": 301.327516652594,
+                "in_sample_sharpe": 0.12311541894091284,
+                "mean_r_ci_lower": -0.053519433014578136,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "mean_r_ci_lower -0.0535 ≤ 0",
+                  "|oos_r_delta| 301.3% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr31_lb3_r35_rf1_af1",
+                "is_survivor": false,
+                "in_sample_n": 186,
+                "oos_n": 8,
+                "in_sample_mean_r": 0.014615746143329892,
+                "oos_mean_r": 1.5219342454498184,
+                "oos_r_delta_pct": 10312.976734303607,
+                "in_sample_sharpe": 0.009778441874258817,
+                "mean_r_ci_lower": -0.1273733628721342,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "mean_r_ci_lower -0.1274 ≤ 0",
+                  "oos_n 8 < 10",
+                  "|oos_r_delta| 10313.0% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr24_lb9_r49_rf0_af1",
+                "is_survivor": false,
+                "in_sample_n": 201,
+                "oos_n": 24,
+                "in_sample_mean_r": 0.29073492795475814,
+                "oos_mean_r": 0.6802225882721976,
+                "oos_r_delta_pct": 133.96658704111687,
+                "in_sample_sharpe": 0.18814213588344425,
+                "mean_r_ci_lower": 0.09345438582990039,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 134.0% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr45_lb8_r48_rf0_af0",
+                "is_survivor": false,
+                "in_sample_n": 158,
+                "oos_n": 30,
+                "in_sample_mean_r": 0.4355588100246085,
+                "oos_mean_r": 0.31225512166735686,
+                "oos_r_delta_pct": -28.30930875908242,
+                "in_sample_sharpe": 0.18676442838743093,
+                "mean_r_ci_lower": 0.10141052048454835,
+                "per_candidate_passes": true,
+                "per_candidate_blockers": []
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr29_lb9_r120_rf0_af0",
+                "is_survivor": false,
+                "in_sample_n": 210,
+                "oos_n": 23,
+                "in_sample_mean_r": 0.46401785714285726,
+                "oos_mean_r": 1.390858695652174,
+                "oos_r_delta_pct": 199.7424935790715,
+                "in_sample_sharpe": 0.20187938012584838,
+                "mean_r_ci_lower": 0.14103323412698435,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 199.7% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr42_lb9_r120_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 123,
+                "oos_n": 14,
+                "in_sample_mean_r": 0.6372737127371274,
+                "oos_mean_r": 0.8150119047619049,
+                "oos_r_delta_pct": 27.890400697901324,
+                "in_sample_sharpe": 0.21994242538813785,
+                "mean_r_ci_lower": 0.09992772696476962,
+                "per_candidate_passes": true,
+                "per_candidate_blockers": []
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr29_lb8_r120_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 173,
+                "oos_n": 17,
+                "in_sample_mean_r": 0.3953395953757226,
+                "oos_mean_r": 0.559264705882353,
+                "oos_r_delta_pct": 41.46437959264853,
+                "in_sample_sharpe": 0.19235202398858714,
+                "mean_r_ci_lower": 0.08210539499036608,
+                "per_candidate_passes": true,
+                "per_candidate_blockers": []
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr49_lb10_r120_rf0_af0",
+                "is_survivor": false,
+                "in_sample_n": 109,
+                "oos_n": 10,
+                "in_sample_mean_r": 1.080150611620795,
+                "oos_mean_r": 0.44472499999999987,
+                "oos_r_delta_pct": -58.82750097852762,
+                "in_sample_sharpe": 0.275675848725699,
+                "mean_r_ci_lower": 0.3845531345565748,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 58.8% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb9_r120_rf0_af1",
+                "is_survivor": false,
+                "in_sample_n": 107,
+                "oos_n": 11,
+                "in_sample_mean_r": 1.053328660436137,
+                "oos_mean_r": 1.7229621212121216,
+                "oos_r_delta_pct": 63.5730789380324,
+                "in_sample_sharpe": 0.26625354031616383,
+                "mean_r_ci_lower": 0.3797278816199379,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 63.6% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb7_r120_rf0_af0",
+                "is_survivor": false,
+                "in_sample_n": 177,
+                "oos_n": 14,
+                "in_sample_mean_r": 0.6444576271186443,
+                "oos_mean_r": 1.7712023809523814,
+                "oos_r_delta_pct": 174.83612675535986,
+                "in_sample_sharpe": 0.1825672453646908,
+                "mean_r_ci_lower": 0.2162272834274953,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 174.8% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr28_lb6_r30_rf1_af1",
+                "is_survivor": false,
+                "in_sample_n": 158,
+                "oos_n": 3,
+                "in_sample_mean_r": 0.1831856540084389,
+                "oos_mean_r": 2.4704444444444444,
+                "oos_r_delta_pct": 1248.6014818227181,
+                "in_sample_sharpe": 0.1241160396284488,
+                "mean_r_ci_lower": -0.006971888185654004,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "mean_r_ci_lower -0.0070 ≤ 0",
+                  "oos_n 3 < 10",
+                  "|oos_r_delta| 1248.6% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr45_lb12_r120_rf0_af1",
+                "is_survivor": false,
+                "in_sample_n": 106,
+                "oos_n": 18,
+                "in_sample_mean_r": 0.7707531446540883,
+                "oos_mean_r": 0.42395370370370355,
+                "oos_r_delta_pct": -44.99487849719086,
+                "in_sample_sharpe": 0.22318736829586489,
+                "mean_r_ci_lower": 0.13641977201257874,
+                "per_candidate_passes": true,
+                "per_candidate_blockers": []
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb10_r30_rf0_af1",
+                "is_survivor": false,
+                "in_sample_n": 121,
+                "oos_n": 10,
+                "in_sample_mean_r": 0.39105509641873315,
+                "oos_mean_r": 0.6835999999999999,
+                "oos_r_delta_pct": 74.80912696455849,
+                "in_sample_sharpe": 0.1777761485136983,
+                "mean_r_ci_lower": 0.08099924242424252,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 74.8% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr19_lb12_r120_rf0_af0",
+                "is_survivor": false,
+                "in_sample_n": 237,
+                "oos_n": 45,
+                "in_sample_mean_r": 0.3004999999999999,
+                "oos_mean_r": 0.10581666666666666,
+                "oos_r_delta_pct": -64.78646699944535,
+                "in_sample_sharpe": 0.1820995803706578,
+                "mean_r_ci_lower": 0.06117645042194091,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 64.8% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb12_r30_rf0_af1",
+                "is_survivor": false,
+                "in_sample_n": 130,
+                "oos_n": 9,
+                "in_sample_mean_r": 0.33911320162608344,
+                "oos_mean_r": 0.9051049900602245,
+                "oos_r_delta_pct": 166.90349585924432,
+                "in_sample_sharpe": 0.16015902675461485,
+                "mean_r_ci_lower": 0.08129307356920348,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "oos_n 9 < 10",
+                  "|oos_r_delta| 166.9% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb10_r102_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 89,
+                "oos_n": 10,
+                "in_sample_mean_r": 1.109722518480101,
+                "oos_mean_r": 1.709914861069846,
+                "oos_r_delta_pct": 54.08490254048202,
+                "in_sample_sharpe": 0.31685949173085454,
+                "mean_r_ci_lower": 0.33708145935790357,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 54.1% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb10_r89_rf0_af1",
+                "is_survivor": false,
+                "in_sample_n": 94,
+                "oos_n": 15,
+                "in_sample_mean_r": 0.8830563736245761,
+                "oos_mean_r": 1.1101938956054158,
+                "oos_r_delta_pct": 25.7217465118943,
+                "in_sample_sharpe": 0.27105256436292136,
+                "mean_r_ci_lower": 0.3015923701795312,
+                "per_candidate_passes": true,
+                "per_candidate_blockers": []
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb12_r81_rf1_af1",
+                "is_survivor": false,
+                "in_sample_n": 76,
+                "oos_n": 10,
+                "in_sample_mean_r": 0.7176231952291168,
+                "oos_mean_r": 2.0369919816784394,
+                "oos_r_delta_pct": 183.85258381009905,
+                "in_sample_sharpe": 0.25491815973194043,
+                "mean_r_ci_lower": 0.11525842731113828,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 183.9% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb12_r93_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 86,
+                "oos_n": 13,
+                "in_sample_mean_r": 0.9854214662730961,
+                "oos_mean_r": 0.6347278631951843,
+                "oos_r_delta_pct": -35.58818384627334,
+                "in_sample_sharpe": 0.3017893751753727,
+                "mean_r_ci_lower": 0.30381897394946816,
+                "per_candidate_passes": true,
+                "per_candidate_blockers": []
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr15_lb12_r30_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 206,
+                "oos_n": 3,
+                "in_sample_mean_r": 0.09430420711974108,
+                "oos_mean_r": 0.6230000000000001,
+                "oos_r_delta_pct": 560.6280027453674,
+                "in_sample_sharpe": 0.09511085790238348,
+                "mean_r_ci_lower": -0.0359695388349514,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "mean_r_ci_lower -0.0360 ≤ 0",
+                  "oos_n 3 < 10",
+                  "|oos_r_delta| 560.6% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb10_r87_rf1_af1",
+                "is_survivor": false,
+                "in_sample_n": 81,
+                "oos_n": 10,
+                "in_sample_mean_r": 0.8957429070243009,
+                "oos_mean_r": 2.2697236167938737,
+                "oos_r_delta_pct": 153.3900742048854,
+                "in_sample_sharpe": 0.2847026335023333,
+                "mean_r_ci_lower": 0.2312616743593813,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 153.4% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb10_r86_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 89,
+                "oos_n": 13,
+                "in_sample_mean_r": 0.9717177768536389,
+                "oos_mean_r": 0.5949782089390351,
+                "oos_r_delta_pct": -38.77047193007654,
+                "in_sample_sharpe": 0.30770337190624836,
+                "mean_r_ci_lower": 0.31223012241171466,
+                "per_candidate_passes": true,
+                "per_candidate_blockers": []
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb11_r120_rf1_af1",
+                "is_survivor": false,
+                "in_sample_n": 80,
+                "oos_n": 12,
+                "in_sample_mean_r": 0.9386052083333334,
+                "oos_mean_r": 0.9020625000000001,
+                "oos_r_delta_pct": -3.893299121813057,
+                "in_sample_sharpe": 0.2621040725891883,
+                "mean_r_ci_lower": 0.24662200520833324,
+                "per_candidate_passes": true,
+                "per_candidate_blockers": []
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb11_r78_rf1_af1",
+                "is_survivor": false,
+                "in_sample_n": 80,
+                "oos_n": 10,
+                "in_sample_mean_r": 0.7733535556941749,
+                "oos_mean_r": 2.00907700862932,
+                "oos_r_delta_pct": 159.78764742678908,
+                "in_sample_sharpe": 0.26790001463536334,
+                "mean_r_ci_lower": 0.22606513477690357,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 159.8% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb10_r86_rf1_af1",
+                "is_survivor": false,
+                "in_sample_n": 81,
+                "oos_n": 10,
+                "in_sample_mean_r": 0.8832947841965787,
+                "oos_mean_r": 1.8590362225011372,
+                "oos_r_delta_pct": 110.46611570247941,
+                "in_sample_sharpe": 0.281408416801246,
+                "mean_r_ci_lower": 0.20183647238326322,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 110.5% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb9_r87_rf1_af1",
+                "is_survivor": false,
+                "in_sample_n": 90,
+                "oos_n": 10,
+                "in_sample_mean_r": 0.8158809756297539,
+                "oos_mean_r": 2.2639958997922296,
+                "oos_r_delta_pct": 177.4909536338581,
+                "in_sample_sharpe": 0.2683551783729152,
+                "mean_r_ci_lower": 0.20540675102803355,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 177.5% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb11_r93_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 95,
+                "oos_n": 13,
+                "in_sample_mean_r": 0.9253979247394469,
+                "oos_mean_r": 0.5912442506683715,
+                "oos_r_delta_pct": -36.10918774916845,
+                "in_sample_sharpe": 0.2819804741490288,
+                "mean_r_ci_lower": 0.3181963694626702,
+                "per_candidate_passes": true,
+                "per_candidate_blockers": []
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb9_r82_rf1_af1",
+                "is_survivor": false,
+                "in_sample_n": 90,
+                "oos_n": 10,
+                "in_sample_mean_r": 0.8438321422640975,
+                "oos_mean_r": 1.9412742860757994,
+                "oos_r_delta_pct": 130.05455573985842,
+                "in_sample_sharpe": 0.2737214742677994,
+                "mean_r_ci_lower": 0.2069498524427117,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 130.1% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb10_r96_rf1_af1",
+                "is_survivor": false,
+                "in_sample_n": 81,
+                "oos_n": 10,
+                "in_sample_mean_r": 0.8936320011108946,
+                "oos_mean_r": 2.266626674052431,
+                "oos_r_delta_pct": 153.6420664473446,
+                "in_sample_sharpe": 0.2811041930396702,
+                "mean_r_ci_lower": 0.171097203986962,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 153.6% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb10_r74_rf1_af1",
+                "is_survivor": false,
+                "in_sample_n": 81,
+                "oos_n": 10,
+                "in_sample_mean_r": 0.8256124224856868,
+                "oos_mean_r": 1.38599786804623,
+                "oos_r_delta_pct": 67.87512279349917,
+                "in_sample_sharpe": 0.28306044311883727,
+                "mean_r_ci_lower": 0.17285466439462377,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 67.9% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb10_r98_rf1_af1",
+                "is_survivor": true,
+                "in_sample_n": 81,
+                "oos_n": 10,
+                "in_sample_mean_r": 1.035311539490598,
+                "oos_mean_r": 2.349132255878403,
+                "oos_r_delta_pct": 126.90100189883337,
+                "in_sample_sharpe": 0.29988940972878936,
+                "mean_r_ci_lower": 0.2956134061775911,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 126.9% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr47_lb3_r119_rf1_af1",
+                "is_survivor": false,
+                "in_sample_n": 152,
+                "oos_n": 18,
+                "in_sample_mean_r": 0.40959145820842485,
+                "oos_mean_r": 2.9237081306891377,
+                "oos_r_delta_pct": 613.8108161428939,
+                "in_sample_sharpe": 0.1356220950489387,
+                "mean_r_ci_lower": 0.05669293402421965,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 613.8% > 50%"
+                ]
+              }
+            ]
+          }
+        ],
+        "generated_at": "2026-06-25T11:23:07.542Z"
+      }
+    },
+    {
+      "label": "F2.2 leave-n-out",
+      "path": "scripts/canonical/e2-results/bo-engulfing-top/f2.2-leave-n-out.json",
+      "present": true,
+      "verdict": "FAIL",
+      "excerpt": {
+        "sub_gate": "F2.2 leave-n-out",
+        "verdict": "FAIL",
+        "pass_count": 2,
+        "gate_threshold": 3,
+        "survivor_cell": {
+          "ticker": "XAU/USD",
+          "timeframe": "4h",
+          "direction": "Long",
+          "pattern": "Engulfing"
+        },
+        "non_survivor_total": 13,
+        "non_survivor_passers": [
+          "BOS",
+          "Sweep"
+        ],
+        "per_pattern": "<array length 14>",
+        "generated_at": "2026-06-24T10:46:30.103Z"
+      }
+    },
+    {
+      "label": "F2.3 bootstrap-bars",
+      "path": "scripts/canonical/e2-results/bo-engulfing-top/f2.3-bootstrap-bars.json",
+      "present": true,
+      "verdict": "FAIL",
+      "excerpt": {
+        "sub_gate": "F2.3 bootstrap-bars",
+        "verdict": "FAIL",
+        "in_top_k_count": 0,
+        "gate_threshold": 6,
+        "top_k": 3,
+        "n_resamples": 10,
+        "block_size": 24,
+        "base_seed": 42,
+        "pre_registration": {
+          "block_size_default": 24,
+          "base_seed_default": 42,
+          "n_resamples_default": 10,
+          "top_k_default": 3,
+          "gate_threshold_default": 6,
+          "overrides_present": false
+        },
+        "family_pattern": "BO+: XAU/USD Engulfing-Long 4h | %",
+        "survivor_tag": "bo_rr50_lb10_r98_rf1_af1",
+        "ticker": "XAU/USD",
+        "timeframe": "4h",
+        "per_seed_results": "<array length 10>",
+        "generated_at": "2026-06-26T20:56:25.555Z"
+      }
+    },
+    {
+      "label": "F2.4 alt-objective",
+      "path": "scripts/canonical/e2-results/bo-engulfing-top/f2.4-alt-objective.json",
+      "present": true,
+      "verdict": "FAIL",
+      "excerpt": {
+        "sub_gate": "F2.4 alt-objective",
+        "verdict": "FAIL",
+        "pass_count": 1,
+        "gate_threshold": 2,
+        "top_k": 3,
+        "family_pattern": "BO+: XAU/USD Engulfing-Long 4h | %",
+        "survivor_tag": "bo_rr50_lb10_r98_rf1_af1",
+        "survivor_score": {
+          "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb10_r98_rf1_af1",
+          "is_survivor": true,
+          "total_r": 107.35155725752246,
+          "trade_count": 91,
+          "calmar": 6.96686876433913,
+          "trimmed_mean_r": 0.7300483459951843,
+          "recovery_factor": 0.34165211932880796
+        },
+        "ranks_by_objective": {
+          "calmar": {
+            "survivor_rank": 11,
+            "passes": false,
+            "top_3": [
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr29_lb9_r120_rf0_af0",
+                "rank": 1,
+                "score": 9.210545978545127
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb9_r120_rf0_af1",
+                "rank": 2,
+                "score": 9.146673999884213
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb10_r89_rf0_af1",
+                "rank": 3,
+                "score": 8.880652202078988
+              }
+            ]
+          },
+          "trimmed_mean_r": {
+            "survivor_rank": 1,
+            "passes": true,
+            "top_3": [
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb10_r98_rf1_af1",
+                "rank": 1,
+                "score": 0.7300483459951843
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb10_r102_rf1_af0",
+                "rank": 2,
+                "score": 0.6832187329599062
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb10_r96_rf1_af1",
+                "rank": 3,
+                "score": 0.6200357770951147
+              }
+            ]
+          },
+          "recovery_factor": {
+            "survivor_rank": 4,
+            "passes": false,
+            "top_3": [
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb9_r120_rf0_af1",
+                "rank": 1,
+                "score": 0.3568660756940389
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb10_r89_rf0_af1",
+                "rank": 2,
+                "score": 0.35204127188064704
+              },
+              {
+                "name": "BO+: XAU/USD Engulfing-Long 4h | bo_rr50_lb10_r102_rf1_af0",
+                "rank": 3,
+                "score": 0.3426030652223746
+              }
+            ]
+          }
+        },
+        "full_scores": "<array length 40>",
+        "generated_at": "2026-06-25T11:23:05.297Z"
+      }
+    }
+  ],
+  "informational": {
+    "wf_vs_kfold": {
+      "label": "F.6a wf-vs-kfold (info)",
+      "path": "scripts/canonical/wf-vs-kfold-equivalence-results.json",
+      "present": true,
+      "verdict": "PASS",
+      "excerpt": {
+        "sub_gate": "F.6a wf-vs-kfold",
+        "verdict": "PASS",
+        "sign_agreement_rate": 1,
+        "sign_agreement_gate": 0.8,
+        "sign_gate_passed": true,
+        "max_abs_delta_r": 0.13497359859859837,
+        "max_delta_gate": 0.3,
+        "delta_gate_passed": true,
+        "aggregate_delta": 0.006150506825506885,
+        "kfold_aggregate_mean_r": 0.5386974160974161,
+        "wf_aggregate_mean_r": 0.544847922922923,
+        "kfold_consistency_count": 5,
+        "wf_consistency_count": 5,
+        "k_folds": 5,
+        "embargo_fraction": 0.01,
+        "target_name": "LayerB: XAU/USD Engulfing-Long 4h | rr3_lb6_r06_rf0_af0",
+        "trade_count": 181,
+        "risk_dollars": 60,
+        "per_fold_comparison": [
+          {
+            "fold_index": 0,
+            "kfold_test_mean_r": 0.4450238095238096,
+            "kfold_test_n": 28,
+            "wf_test_mean_r": 0.47964351851851855,
+            "wf_test_n": 36,
+            "delta_r": 0.03461970899470895,
+            "sign_agrees": true
+          },
+          {
+            "fold_index": 1,
+            "kfold_test_mean_r": 0.3818385416666667,
+            "kfold_test_n": 32,
+            "wf_test_mean_r": 0.4628148148148148,
+            "wf_test_n": 36,
+            "delta_r": 0.08097627314814809,
+            "sign_agrees": true
+          },
+          {
+            "fold_index": 2,
+            "kfold_test_mean_r": 0.36841145833333333,
+            "kfold_test_n": 32,
+            "wf_test_mean_r": 0.4599305555555557,
+            "wf_test_n": 36,
+            "delta_r": 0.09151909722222235,
+            "sign_agrees": true
+          },
+          {
+            "fold_index": 3,
+            "kfold_test_mean_r": 1.0604504504504502,
+            "kfold_test_n": 37,
+            "wf_test_mean_r": 0.9254768518518518,
+            "wf_test_n": 36,
+            "delta_r": -0.13497359859859837,
+            "sign_agrees": true
+          },
+          {
+            "fold_index": 4,
+            "kfold_test_mean_r": 0.4377628205128205,
+            "kfold_test_n": 52,
+            "wf_test_mean_r": 0.3963738738738738,
+            "wf_test_n": 37,
+            "delta_r": -0.04138894663894671,
+            "sign_agrees": true
+          }
+        ],
+        "notes": [
+          "purgedKFoldEvaluate splits TIME AXIS into k equal-duration folds; chronologicalWalkForward splits TRADE COUNT into k equal bins.",
+          "Per-fold index comparison is approximate when trades clump temporally — use aggregate delta for primary signal.",
+          "Sign agreement = both folds positive or both folds negative (zero counts as agreement to avoid false-fail on empty folds)."
+        ],
+        "generated_at": "2026-06-24T10:46:45.466Z"
+      }
+    }
+  },
+  "next_action": "Operator decides: archive candidate (status='archived') then H.4a label re-engineering; OR keep-as-draft + re-run search after H.4a",
+  "generated_at": "2026-06-29T10:09:57.269Z"
+}

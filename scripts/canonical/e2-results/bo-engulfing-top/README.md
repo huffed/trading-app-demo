@@ -64,7 +64,15 @@ trusting it, or re-run with SURVIVOR_PATTERN=Engulfing.
 - Skewness / kurtosis: 0.829 / 1.879
 - **PBO: 0.8143** — FAIL (>0.5 strict threshold). NOTE: WORSE than grid Engulfing's PBO 0.229. BO converged to high-rr=5.0 edge of search space → CSCV reads as MORE overfit-shaped. Surface-dependent BO outcome (PBO improved on ARB, worsened on Engulfing) — important finding.
 
-**F2.3 (post-restart 2026-06-26) — IN PROGRESS:** seed 42 rank 15/40 ✗ as of last check. Pattern matches ARB (trending 0/10 FAIL).
+**F2.3 (post-restart 2026-06-26, complete) — FAIL 0/10:**
+- All 10 seeds ✗ (survivor ranks 12-22/40); same pattern as ARB grid + ARB BO + Engulfing grid
+
+**F2.2 leave-n-out (inherited from prior F.4 v3 Engulfing run) — FAIL 2/3:**
+- At cell (XAU/USD, 4h, Long, Engulfing-survivor): 2 of 13 non-survivor patterns also pass per-candidate (need ≥3). Same pattern-level result as v3 survivor; geometry-independent so inherited unchanged.
+
+**F2.5 aggregate — FAIL 0/4 (the WORST of N=4 candidates):**
+- F2.1 ✗ + F2.2 ✗ + F2.3 ✗ + F2.4 ✗ → 0/4 PASS, need ≥3/4
+- Confirms the H.9 hypothesis is universally falsified for both ARB and Engulfing patterns at gold-only 4h retail data depth
 
 ## Definitive empirical interpretation (only F2.3 + deflation unrun)
 

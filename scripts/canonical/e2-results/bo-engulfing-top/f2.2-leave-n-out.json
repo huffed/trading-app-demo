@@ -1,0 +1,174 @@
+{
+  "sub_gate": "F2.2 leave-n-out",
+  "verdict": "FAIL",
+  "pass_count": 2,
+  "gate_threshold": 3,
+  "survivor_cell": {
+    "ticker": "XAU/USD",
+    "timeframe": "4h",
+    "direction": "Long",
+    "pattern": "Engulfing"
+  },
+  "non_survivor_total": 13,
+  "non_survivor_passers": [
+    "BOS",
+    "Sweep"
+  ],
+  "per_pattern": [
+    {
+      "pattern": "FVG",
+      "is_survivor_pattern": false,
+      "algo_name": "Search: XAU/USD FVG-Long 4h",
+      "has_backtest": true,
+      "passes_per_candidate": false,
+      "criteria_summary": {
+        "passed": 5,
+        "total": 7
+      }
+    },
+    {
+      "pattern": "IFVG",
+      "is_survivor_pattern": false,
+      "algo_name": "Search: XAU/USD IFVG-Long 4h",
+      "has_backtest": true,
+      "passes_per_candidate": false,
+      "criteria_summary": {
+        "passed": 3,
+        "total": 7
+      }
+    },
+    {
+      "pattern": "BOS",
+      "is_survivor_pattern": false,
+      "algo_name": "Search: XAU/USD BOS-Long 4h",
+      "has_backtest": true,
+      "passes_per_candidate": true,
+      "criteria_summary": {
+        "passed": 7,
+        "total": 7
+      }
+    },
+    {
+      "pattern": "CHOCH",
+      "is_survivor_pattern": false,
+      "algo_name": "Search: XAU/USD CHOCH-Long 4h",
+      "has_backtest": true,
+      "passes_per_candidate": false,
+      "criteria_summary": {
+        "passed": 6,
+        "total": 7
+      }
+    },
+    {
+      "pattern": "OrderBlock",
+      "is_survivor_pattern": false,
+      "algo_name": "Search: XAU/USD OrderBlock-Long 4h",
+      "has_backtest": true,
+      "passes_per_candidate": false,
+      "criteria_summary": {
+        "passed": 6,
+        "total": 7
+      }
+    },
+    {
+      "pattern": "Engulfing",
+      "is_survivor_pattern": true,
+      "algo_name": "Search: XAU/USD Engulfing-Long 4h",
+      "has_backtest": true,
+      "passes_per_candidate": true,
+      "criteria_summary": {
+        "passed": 7,
+        "total": 7
+      }
+    },
+    {
+      "pattern": "PinBar",
+      "is_survivor_pattern": false,
+      "algo_name": "Search: XAU/USD PinBar-Long 4h",
+      "has_backtest": true,
+      "passes_per_candidate": false,
+      "criteria_summary": {
+        "passed": 3,
+        "total": 7
+      }
+    },
+    {
+      "pattern": "Sweep-Reclaim",
+      "is_survivor_pattern": false,
+      "algo_name": "Search: XAU/USD Sweep-Reclaim-Long 4h",
+      "has_backtest": true,
+      "passes_per_candidate": false,
+      "criteria_summary": {
+        "passed": 3,
+        "total": 7
+      }
+    },
+    {
+      "pattern": "EqualLevels",
+      "is_survivor_pattern": false,
+      "algo_name": "Search: XAU/USD EqualLevels-Long 4h",
+      "has_backtest": true,
+      "passes_per_candidate": false,
+      "criteria_summary": {
+        "passed": 6,
+        "total": 7
+      }
+    },
+    {
+      "pattern": "AsianRangeBreak",
+      "is_survivor_pattern": false,
+      "algo_name": "Search: XAU/USD AsianRangeBreak-Long 4h",
+      "has_backtest": true,
+      "passes_per_candidate": false,
+      "criteria_summary": {
+        "passed": 6,
+        "total": 7
+      }
+    },
+    {
+      "pattern": "Momentum",
+      "is_survivor_pattern": false,
+      "algo_name": "Search: XAU/USD Momentum-Long 4h",
+      "has_backtest": true,
+      "passes_per_candidate": false,
+      "criteria_summary": {
+        "passed": 6,
+        "total": 7
+      }
+    },
+    {
+      "pattern": "OTE",
+      "is_survivor_pattern": false,
+      "algo_name": "Search: XAU/USD OTE-Long 4h",
+      "has_backtest": true,
+      "passes_per_candidate": false,
+      "criteria_summary": {
+        "passed": 6,
+        "total": 7
+      }
+    },
+    {
+      "pattern": "MeanRev",
+      "is_survivor_pattern": false,
+      "algo_name": "Search: XAU/USD MeanRev-Long 4h",
+      "has_backtest": true,
+      "passes_per_candidate": false,
+      "criteria_summary": {
+        "passed": 6,
+        "total": 7
+      }
+    },
+    {
+      "pattern": "Sweep",
+      "is_survivor_pattern": false,
+      "algo_name": "Search: XAU/USD Sweep-Long 4h",
+      "has_backtest": true,
+      "passes_per_candidate": true,
+      "criteria_summary": {
+        "passed": 7,
+        "total": 7
+      }
+    }
+  ],
+  "generated_at": "2026-06-24T10:46:30.103Z"
+}
