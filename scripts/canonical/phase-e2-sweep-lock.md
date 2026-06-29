@@ -168,4 +168,36 @@ Composition is OR, not AND, so cluster-stability provides an ALTERNATIVE PASS pa
 
 **Forensic-archive policy:** if these parameters are changed after the E2.7 empirical run completes, this entire addendum becomes invalid — copy to `phase-e2-sweep-lock.archive.md` and start a new pre-registration with E2.7v2.
 
+---
+
+## E2.7.5 Pre-registration Addendum — Cell-coverage F2.2 with augmented universe (LOCKED 2026-06-29 BEFORE empirical run)
+
+**Why this addendum exists:** E2.7's empirical verdict (2026-06-29, see `e27-verdict-2026-06-29.md`) found cluster-stability F2.3 unlocks the methodology gate (Grid ARB 10/10) but no candidate hits F2 aggregate ≥3/4 because **F2.2 leave-N-out fails universally (4/4 candidates)**. At every gold-only 4h cell tested, only 0-2 non-survivor patterns produce per-candidate-passing signal (need ≥3). The F2.2 driver currently reads UNAUGMENTED Layer A backtests; this addendum tests whether augmented (per `[[feedback_no_presupposed_features]]` features-as-axes) non-survivor patterns CHANGE the cell-coverage verdict. This is methodology-completeness, NOT threshold relaxation — pre-empts E2.8 in priority order per "rigor before relaxation".
+
+**New methodology (E2.7.5 cell-coverage F2.2):**
+
+> For survivor cell C = (ticker, timeframe, direction, survivor-pattern), enumerate all OTHER patterns enumerated at C in Layer A (the non-survivor patterns). For each non-survivor pattern P, run H.4b stepwise-feature-augmentation on the Search:* base of P → produces augmented variants. Pattern P is counted as "augmented passer" iff at least one augmented variant of P satisfies per-candidate criteria 1-7. Cell C passes augmented-F2.2 iff `augmented_passer_count ≥ GATE_THRESHOLD`.
+
+**Pre-registered parameters (LOCKED; do NOT tune after empirical run):**
+
+| Parameter | Value | Rationale |
+|---|---|---|
+| GATE_THRESHOLD | ≥3 augmented non-survivor passers per cell | Same as unaugmented F2.2 (`scripts/canonical/robustness-leave-n-out.ts` default) — preserves rigor of the original gate |
+| H.4b TOP_K | 10 | Same as default; only pattern_* feature library entries used |
+| H.4b MAX_FEATURES | 4 | Same as default; greedy stop-rule cap |
+| H.4b MIN_DELTA_SHARPE_PCT | 5 | Same as default (F.4 v3 pre-registered) |
+| H.4b MIN_DELTA_DD_PCT | 20 | Same as default |
+| H.4b MIN_TRADES_FLOOR | 30 | Same as default (matches per-candidate criterion 2) |
+| H.4b AUGMENT_DIRECTION | "bullish" | All N=4 candidates are at Long cells; bullish is the directionally-correct default |
+| Cells tested | 2 unique: (XAU/USD, 4h, Long, Engulfing) + (XAU/USD, 4h, Long, AsianRangeBreak) | These are the survivor cells across N=4 — geometry-independent so BO + grid share. Engulfing cell covers Grid Engulfing + BO Engulfing; ARB cell covers Grid ARB + BO ARB. |
+| Per-candidate criteria for "augmented passer" | unchanged: criteria 1-7 from criteria.ts | Same as unaugmented F2.2 |
+
+**E2.7.5 PASS criterion (LOCKED):** at least 1 of the 2 unique cells passes augmented-F2.2 (≥3 augmented non-survivor passers). If yes → that cell's candidates' F2 aggregate recomputed with augmented F2.2; if any candidate's aggregate ≥3/4 → ship for G.6 stamp. If no cell shows ≥3 augmented passers → empirically validated that gold-only 4h cells are STRUCTURALLY single-pattern even under augmentation → escalate to E2.8 with stronger empirical justification (N=4 candidates' candidate-level FAIL + 2 cells' universe-level FAIL).
+
+**Implementation lock:** new driver `scripts/canonical/e27.5-cell-coverage-augmented.ts` orchestrates H.4b per non-survivor pattern + counts passers (commit hash to be added at E2.7.5 commit time). Uses existing `scripts/canonical/stepwise-feature-augmentation.ts` infrastructure unchanged. Persists per-cell augmented-passer count to `scripts/canonical/e2-results/e27.5-cell-coverage/<cell>.json`.
+
+**Compute estimate (CORRECTED):** ~13 non-survivor patterns per cell × ~2min H.4b per pattern × 2 cells = ~52min serial; ~25-30min parallel. $0 cost (deterministic rules only, no LLM).
+
+**Forensic-archive policy:** if these parameters are changed after the E2.7.5 empirical run completes, this entire addendum becomes invalid — copy to `phase-e2-sweep-lock.archive.md` and start a new pre-registration with E2.7.5v2.
+
 **End of pre-registration lock.** Modifying this document after sweep launch constitutes a forensic-archive event — copy to `phase-e2-sweep-lock.archive.md` first.

@@ -1,0 +1,680 @@
+{
+  "sub_gate": "E2.7.5 cell-coverage F2.2 (augmented universe)",
+  "verdict": "FAIL",
+  "pass_count": 0,
+  "gate_threshold": 3,
+  "cell": {
+    "ticker": "XAU/USD",
+    "timeframe": "4h",
+    "direction": "Long",
+    "survivor_pattern": "engulfing"
+  },
+  "augment_patterns_tried": [
+    "daily_bias",
+    "order_block",
+    "momentum",
+    "ote"
+  ],
+  "augment_direction": "bullish",
+  "feature_importance_file": "scripts/canonical/feature-importance-results.json",
+  "non_survivor_count": 15,
+  "per_pattern_results": [
+    {
+      "algo_id": "cd2692b1-333b-49ce-94da-0dafb7ec81cb",
+      "algo_name": "Search: XAU/USD FVG-Long 4h",
+      "pattern": "fvg",
+      "augmented_passer": false,
+      "passing_augmentation": null,
+      "metrics": null,
+      "tried_augmentations": [
+        {
+          "augment_pattern": "daily_bias",
+          "per_candidate_passes": false,
+          "failure_reasons": [
+            "undefined"
+          ]
+        },
+        {
+          "augment_pattern": "order_block",
+          "per_candidate_passes": false,
+          "failure_reasons": [
+            "undefined",
+            "undefined"
+          ]
+        },
+        {
+          "augment_pattern": "momentum",
+          "per_candidate_passes": false,
+          "failure_reasons": [
+            "undefined",
+            "undefined"
+          ]
+        },
+        {
+          "augment_pattern": "ote",
+          "per_candidate_passes": false,
+          "failure_reasons": [
+            "undefined",
+            "undefined",
+            "undefined",
+            "undefined"
+          ]
+        }
+      ]
+    },
+    {
+      "algo_id": "187693c2-8651-42ff-8f6a-010a33a01be5",
+      "algo_name": "Search: XAU/USD CHOCH-Long 4h",
+      "pattern": "choch",
+      "augmented_passer": false,
+      "passing_augmentation": null,
+      "metrics": null,
+      "tried_augmentations": [
+        {
+          "augment_pattern": "daily_bias",
+          "per_candidate_passes": false,
+          "failure_reasons": [
+            "undefined",
+            "undefined"
+          ]
+        },
+        {
+          "augment_pattern": "order_block",
+          "per_candidate_passes": false,
+          "failure_reasons": [
+            "undefined",
+            "undefined",
+            "undefined"
+          ]
+        },
+        {
+          "augment_pattern": "momentum",
+          "per_candidate_passes": false,
+          "failure_reasons": [
+            "undefined"
+          ]
+        },
+        {
+          "augment_pattern": "ote",
+          "per_candidate_passes": false,
+          "failure_reasons": [
+            "undefined",
+            "undefined",
+            "undefined",
+            "undefined"
+          ]
+        }
+      ]
+    },
+    {
+      "algo_id": "80a840b4-4cb1-4990-82f3-7951fd74bd93",
+      "algo_name": "Search: XAU/USD IFVG-Long 4h",
+      "pattern": "ifvg",
+      "augmented_passer": false,
+      "passing_augmentation": null,
+      "metrics": null,
+      "tried_augmentations": [
+        {
+          "augment_pattern": "daily_bias",
+          "per_candidate_passes": false,
+          "failure_reasons": [
+            "undefined",
+            "undefined"
+          ]
+        },
+        {
+          "augment_pattern": "order_block",
+          "per_candidate_passes": false,
+          "failure_reasons": [
+            "undefined",
+            "undefined",
+            "undefined"
+          ]
+        },
+        {
+          "augment_pattern": "momentum",
+          "per_candidate_passes": false,
+          "failure_reasons": [
+            "undefined",
+            "undefined"
+          ]
+        },
+        {
+          "augment_pattern": "ote",
+          "per_candidate_passes": false,
+          "failure_reasons": [
+            "undefined",
+            "undefined",
+            "undefined"
+          ]
+        }
+      ]
+    },
+    {
+      "algo_id": "b6c675b2-3ca9-4678-bd62-199a3c0372cc",
+      "algo_name": "Search: XAU/USD OrderBlock-Long 4h",
+      "pattern": "order_block",
+      "augmented_passer": false,
+      "passing_augmentation": null,
+      "metrics": null,
+      "tried_augmentations": [
+        {
+          "augment_pattern": "daily_bias",
+          "per_candidate_passes": false,
+          "failure_reasons": [
+            "undefined"
+          ]
+        },
+        {
+          "augment_pattern": "momentum",
+          "per_candidate_passes": false,
+          "failure_reasons": [
+            "undefined",
+            "undefined"
+          ]
+        },
+        {
+          "augment_pattern": "ote",
+          "per_candidate_passes": false,
+          "failure_reasons": [
+            "undefined",
+            "undefined",
+            "undefined"
+          ]
+        }
+      ]
+    },
+    {
+      "algo_id": "f0af3595-9350-4d4c-b3d0-4de96b786424",
+      "algo_name": "Search: XAU/USD EqualLevels-Long 4h",
+      "pattern": "equal_levels",
+      "augmented_passer": false,
+      "passing_augmentation": null,
+      "metrics": null,
+      "tried_augmentations": [
+        {
+          "augment_pattern": "daily_bias",
+          "per_candidate_passes": false,
+          "failure_reasons": [
+            "undefined",
+            "undefined",
+            "undefined"
+          ]
+        },
+        {
+          "augment_pattern": "order_block",
+          "per_candidate_passes": false,
+          "failure_reasons": [
+            "undefined",
+            "undefined",
+            "undefined",
+            "undefined"
+          ]
+        },
+        {
+          "augment_pattern": "momentum",
+          "per_candidate_passes": false,
+          "failure_reasons": [
+            "undefined",
+            "undefined"
+          ]
+        },
+        {
+          "augment_pattern": "ote",
+          "per_candidate_passes": false,
+          "failure_reasons": [
+            "undefined",
+            "undefined",
+            "undefined",
+            "undefined",
+            "undefined",
+            "undefined"
+          ]
+        }
+      ]
+    },
+    {
+      "algo_id": "0024a463-cd5c-439d-bb17-b8c0076de17d",
+      "algo_name": "Search: XAU/USD OTE-Long 4h",
+      "pattern": "ote",
+      "augmented_passer": false,
+      "passing_augmentation": null,
+      "metrics": null,
+      "tried_augmentations": [
+        {
+          "augment_pattern": "daily_bias",
+          "per_candidate_passes": false,
+          "failure_reasons": [
+            "undefined",
+            "undefined",
+            "undefined"
+          ]
+        },
+        {
+          "augment_pattern": "order_block",
+          "per_candidate_passes": false,
+          "failure_reasons": [
+            "undefined",
+            "undefined",
+            "undefined"
+          ]
+        },
+        {
+          "augment_pattern": "momentum",
+          "per_candidate_passes": false,
+          "failure_reasons": [
+            "undefined",
+            "undefined",
+            "undefined"
+          ]
+        }
+      ]
+    },
+    {
+      "algo_id": "0aa46052-f6bc-4965-aae0-605badecf357",
+      "algo_name": "Search: XAU/USD Sweep-Long 4h",
+      "pattern": "sweep",
+      "augmented_passer": false,
+      "passing_augmentation": null,
+      "metrics": null,
+      "tried_augmentations": [
+        {
+          "augment_pattern": "daily_bias",
+          "per_candidate_passes": false,
+          "failure_reasons": [
+            "undefined",
+            "undefined"
+          ]
+        },
+        {
+          "augment_pattern": "order_block",
+          "per_candidate_passes": false,
+          "failure_reasons": [
+            "undefined",
+            "undefined"
+          ]
+        },
+        {
+          "augment_pattern": "momentum",
+          "per_candidate_passes": false,
+          "failure_reasons": [
+            "undefined",
+            "undefined"
+          ]
+        },
+        {
+          "augment_pattern": "ote",
+          "per_candidate_passes": false,
+          "failure_reasons": [
+            "undefined",
+            "undefined",
+            "undefined",
+            "undefined",
+            "undefined",
+            "undefined"
+          ]
+        }
+      ]
+    },
+    {
+      "algo_id": "6c456290-9d29-46f0-85c1-6dfc9dbd4fe9",
+      "algo_name": "Search: XAU/USD Doji-Long 4h",
+      "pattern": "doji",
+      "augmented_passer": false,
+      "passing_augmentation": null,
+      "metrics": null,
+      "tried_augmentations": [
+        {
+          "augment_pattern": "daily_bias",
+          "per_candidate_passes": false,
+          "failure_reasons": [
+            "undefined",
+            "undefined",
+            "undefined",
+            "undefined"
+          ]
+        },
+        {
+          "augment_pattern": "order_block",
+          "per_candidate_passes": false,
+          "failure_reasons": [
+            "undefined",
+            "undefined",
+            "undefined",
+            "undefined"
+          ]
+        },
+        {
+          "augment_pattern": "momentum",
+          "per_candidate_passes": false,
+          "failure_reasons": [
+            "undefined",
+            "undefined",
+            "undefined",
+            "undefined"
+          ]
+        },
+        {
+          "augment_pattern": "ote",
+          "per_candidate_passes": false,
+          "failure_reasons": [
+            "undefined",
+            "undefined",
+            "undefined",
+            "undefined"
+          ]
+        }
+      ]
+    },
+    {
+      "algo_id": "23aec620-11fe-4af1-9149-83e6ed83854a",
+      "algo_name": "Search: XAU/USD InsideBar-Long 4h",
+      "pattern": "inside_bar",
+      "augmented_passer": false,
+      "passing_augmentation": null,
+      "metrics": null,
+      "tried_augmentations": [
+        {
+          "augment_pattern": "daily_bias",
+          "per_candidate_passes": false,
+          "failure_reasons": [
+            "undefined",
+            "undefined"
+          ]
+        },
+        {
+          "augment_pattern": "order_block",
+          "per_candidate_passes": false,
+          "failure_reasons": [
+            "undefined"
+          ]
+        },
+        {
+          "augment_pattern": "momentum",
+          "per_candidate_passes": false,
+          "failure_reasons": [
+            "undefined",
+            "undefined"
+          ]
+        },
+        {
+          "augment_pattern": "ote",
+          "per_candidate_passes": false,
+          "failure_reasons": [
+            "undefined",
+            "undefined",
+            "undefined",
+            "undefined"
+          ]
+        }
+      ]
+    },
+    {
+      "algo_id": "fb82095d-3e1a-4722-9fee-c216ea5a78b4",
+      "algo_name": "Search: XAU/USD OutsideBar-Long 4h",
+      "pattern": "outside_bar",
+      "augmented_passer": false,
+      "passing_augmentation": null,
+      "metrics": null,
+      "tried_augmentations": [
+        {
+          "augment_pattern": "daily_bias",
+          "per_candidate_passes": false,
+          "failure_reasons": [
+            "undefined",
+            "undefined"
+          ]
+        },
+        {
+          "augment_pattern": "order_block",
+          "per_candidate_passes": false,
+          "failure_reasons": [
+            "undefined"
+          ]
+        },
+        {
+          "augment_pattern": "momentum",
+          "per_candidate_passes": false,
+          "failure_reasons": [
+            "undefined"
+          ]
+        },
+        {
+          "augment_pattern": "ote",
+          "per_candidate_passes": false,
+          "failure_reasons": [
+            "undefined",
+            "undefined",
+            "undefined",
+            "undefined",
+            "undefined"
+          ]
+        }
+      ]
+    },
+    {
+      "algo_id": "a381223e-c805-4f75-a8a2-42f56c0ef374",
+      "algo_name": "Search: XAU/USD AsianRangeBreak-Long 4h",
+      "pattern": "asian_range_break",
+      "augmented_passer": false,
+      "passing_augmentation": null,
+      "metrics": null,
+      "tried_augmentations": [
+        {
+          "augment_pattern": "daily_bias",
+          "per_candidate_passes": false,
+          "failure_reasons": [
+            "undefined",
+            "undefined"
+          ]
+        },
+        {
+          "augment_pattern": "order_block",
+          "per_candidate_passes": false,
+          "failure_reasons": [
+            "undefined",
+            "undefined"
+          ]
+        },
+        {
+          "augment_pattern": "momentum",
+          "per_candidate_passes": false,
+          "failure_reasons": [
+            "undefined"
+          ]
+        },
+        {
+          "augment_pattern": "ote",
+          "per_candidate_passes": false,
+          "failure_reasons": [
+            "undefined",
+            "undefined",
+            "undefined",
+            "undefined"
+          ]
+        }
+      ]
+    },
+    {
+      "algo_id": "4bf95df3-63fb-4893-89a9-53aecc6dbe1c",
+      "algo_name": "Search: XAU/USD BOS-Long 4h",
+      "pattern": "bos",
+      "augmented_passer": false,
+      "passing_augmentation": null,
+      "metrics": null,
+      "tried_augmentations": [
+        {
+          "augment_pattern": "daily_bias",
+          "per_candidate_passes": false,
+          "failure_reasons": [
+            "undefined",
+            "undefined"
+          ]
+        },
+        {
+          "augment_pattern": "order_block",
+          "per_candidate_passes": false,
+          "failure_reasons": [
+            "undefined",
+            "undefined"
+          ]
+        },
+        {
+          "augment_pattern": "momentum",
+          "per_candidate_passes": false,
+          "failure_reasons": [
+            "undefined",
+            "undefined"
+          ]
+        },
+        {
+          "augment_pattern": "ote",
+          "per_candidate_passes": false,
+          "failure_reasons": [
+            "undefined",
+            "undefined",
+            "undefined",
+            "undefined"
+          ]
+        }
+      ]
+    },
+    {
+      "algo_id": "f89e7898-73b1-4207-a12a-b79078f291ff",
+      "algo_name": "Search: XAU/USD MeanRev-Long 4h",
+      "pattern": "mean_rev",
+      "augmented_passer": false,
+      "passing_augmentation": null,
+      "metrics": null,
+      "tried_augmentations": [
+        {
+          "augment_pattern": "daily_bias",
+          "per_candidate_passes": false,
+          "failure_reasons": [
+            "undefined",
+            "undefined"
+          ]
+        },
+        {
+          "augment_pattern": "order_block",
+          "per_candidate_passes": false,
+          "failure_reasons": [
+            "undefined",
+            "undefined",
+            "undefined",
+            "undefined"
+          ]
+        },
+        {
+          "augment_pattern": "momentum",
+          "per_candidate_passes": false,
+          "failure_reasons": [
+            "undefined",
+            "undefined",
+            "undefined"
+          ]
+        },
+        {
+          "augment_pattern": "ote",
+          "per_candidate_passes": false,
+          "failure_reasons": [
+            "undefined",
+            "undefined",
+            "undefined",
+            "undefined",
+            "undefined",
+            "undefined"
+          ]
+        }
+      ]
+    },
+    {
+      "algo_id": "bd8927b0-9399-4b11-b6e7-8481ba5c711b",
+      "algo_name": "Search: XAU/USD Momentum-Long 4h",
+      "pattern": "momentum",
+      "augmented_passer": false,
+      "passing_augmentation": null,
+      "metrics": null,
+      "tried_augmentations": [
+        {
+          "augment_pattern": "daily_bias",
+          "per_candidate_passes": false,
+          "failure_reasons": [
+            "undefined"
+          ]
+        },
+        {
+          "augment_pattern": "order_block",
+          "per_candidate_passes": false,
+          "failure_reasons": [
+            "undefined",
+            "undefined"
+          ]
+        },
+        {
+          "augment_pattern": "ote",
+          "per_candidate_passes": false,
+          "failure_reasons": [
+            "undefined",
+            "undefined",
+            "undefined"
+          ]
+        }
+      ]
+    },
+    {
+      "algo_id": "4979e689-f690-4aa0-a851-d1df673f007a",
+      "algo_name": "Search: XAU/USD PinBar-Long 4h",
+      "pattern": "pin_bar",
+      "augmented_passer": false,
+      "passing_augmentation": null,
+      "metrics": null,
+      "tried_augmentations": [
+        {
+          "augment_pattern": "daily_bias",
+          "per_candidate_passes": false,
+          "failure_reasons": [
+            "undefined",
+            "undefined",
+            "undefined",
+            "undefined",
+            "undefined"
+          ]
+        },
+        {
+          "augment_pattern": "order_block",
+          "per_candidate_passes": false,
+          "failure_reasons": [
+            "undefined",
+            "undefined"
+          ]
+        },
+        {
+          "augment_pattern": "momentum",
+          "per_candidate_passes": false,
+          "failure_reasons": [
+            "undefined",
+            "undefined",
+            "undefined",
+            "undefined",
+            "undefined",
+            "undefined"
+          ]
+        },
+        {
+          "augment_pattern": "ote",
+          "per_candidate_passes": false,
+          "failure_reasons": [
+            "undefined"
+          ]
+        }
+      ]
+    }
+  ],
+  "pre_registration": {
+    "lock_doc": "scripts/canonical/phase-e2-sweep-lock.md § E2.7.5 Addendum (2026-06-29)",
+    "gate_threshold": 3,
+    "top_k_augment_patterns": 4
+  },
+  "generated_at": "2026-06-29T14:19:37.964Z"
+}

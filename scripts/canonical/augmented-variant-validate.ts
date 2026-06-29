@@ -120,8 +120,16 @@ function computeMetrics(trades: readonly BacktestTrade[], riskDollars: number, p
   }
   const wins = trades.filter((t) => t.pnl > 0).length;
   const winRate = (wins / trades.length) * 100;
-  const peakDdDollars = propReport?.peak_drawdown ?? 0;
-  const dailyLossDollars = propReport?.max_daily_loss ?? 0;
+  // FIXED 2026-06-29 (E2.7.5 audit): propReport.peak_drawdown and
+  // max_daily_loss are ALREADY percentages (per
+  // `src/lib/market-data/prop-firm-backtest.ts` lines 564-608, both
+  // computed as `(value / capital) * 100`). The prior code re-divided
+  // by capital and re-multiplied by 100, producing values 100× smaller
+  // than the true percentage (e.g., 13.19% DD → 0.1319) which then
+  // false-passed criteria.ts max_static_dd ≤ 10 gate for any DD > 10%.
+  // Treat these as percentages directly.
+  const peakDdPct = propReport?.peak_drawdown ?? 0;
+  const dailyLossPct = propReport?.max_daily_loss ?? 0;
   return {
     trades: trades.length,
     total_r: total,
@@ -129,8 +137,8 @@ function computeMetrics(trades: readonly BacktestTrade[], riskDollars: number, p
     total_return: totalReturn,
     sharpe,
     max_dd_r: maxDd,
-    max_static_dd_pct: capital > 0 ? (peakDdDollars / capital) * 100 : 0,
-    max_daily_dd_pct: capital > 0 ? (dailyLossDollars / capital) * 100 : 0,
+    max_static_dd_pct: peakDdPct,
+    max_daily_dd_pct: dailyLossPct,
     win_rate: winRate,
   };
 }
