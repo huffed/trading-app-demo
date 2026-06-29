@@ -1,0 +1,2796 @@
+{
+  "aggregate_verdict": "FAIL",
+  "candidate_id": "33b705b9-7442-4c73-8d97-4a88ecacb9a1",
+  "candidate_name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr30_lb12_r45_rf1_af0",
+  "gate_threshold": 3,
+  "pass_count": 1,
+  "fail_count": 3,
+  "missing_count": 0,
+  "audit_complete": true,
+  "sub_gates": [
+    {
+      "label": "F2.1 multi-cut-oos",
+      "path": "scripts/canonical/e2-results/bo-arb-top/f2.1-multi-cut.json",
+      "present": true,
+      "verdict": "FAIL",
+      "excerpt": {
+        "sub_gate": "F2.1 multi-cut-oos",
+        "verdict": "FAIL",
+        "per_candidate_pass_count": 0,
+        "per_candidate_threshold": 3,
+        "rank_pass_count": 2,
+        "rank_threshold": 2,
+        "top_k": 3,
+        "cut_dates": [
+          "2024-09-01",
+          "2024-12-01",
+          "2025-03-01",
+          "2025-06-01"
+        ],
+        "family_pattern": "BO+: XAU/USD AsianRangeBreak-Long 4h | %",
+        "survivor_tag": "bo_rr30_lb12_r45_rf1_af0",
+        "per_cut_results": [
+          {
+            "cut_date": "2024-09-01",
+            "survivor_passes_per_candidate": false,
+            "survivor_rank_by_sharpe": 5,
+            "survivor_in_top_k": false,
+            "top_k_variants": [
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr45_lb8_r48_rf0_af0",
+                "rank": 1,
+                "sharpe": 0.2859337756488998
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr29_lb12_r44_rf1_af0",
+                "rank": 2,
+                "sharpe": 0.2680073326809009
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr31_lb12_r46_rf1_af0",
+                "rank": 3,
+                "sharpe": 0.26483844723167377
+              }
+            ],
+            "variant_evaluations": [
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr36_lb7_r107_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 96,
+                "oos_n": 34,
+                "in_sample_mean_r": 0.5232211520066387,
+                "oos_mean_r": 1.3272288381601702,
+                "oos_r_delta_pct": 153.66498144618782,
+                "in_sample_sharpe": 0.22421900400826633,
+                "mean_r_ci_lower": 0.023354894042757875,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 153.7% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr33_lb5_r86_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 121,
+                "oos_n": 32,
+                "in_sample_mean_r": 0.42065873600127957,
+                "oos_mean_r": 1.2915506529156209,
+                "oos_r_delta_pct": 207.03050772056048,
+                "in_sample_sharpe": 0.20082104415245094,
+                "mean_r_ci_lower": -0.00624435154244135,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "mean_r_ci_lower -0.0062 ≤ 0",
+                  "|oos_r_delta| 207.0% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr24_lb11_r97_rf0_af0",
+                "is_survivor": false,
+                "in_sample_n": 168,
+                "oos_n": 59,
+                "in_sample_mean_r": 0.3670265036946373,
+                "oos_mean_r": 0.6647188062588198,
+                "oos_r_delta_pct": 81.10921134236666,
+                "in_sample_sharpe": 0.2040930348255832,
+                "mean_r_ci_lower": 0.05086625330776997,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 81.1% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr33_lb9_r85_rf0_af0",
+                "is_survivor": false,
+                "in_sample_n": 125,
+                "oos_n": 40,
+                "in_sample_mean_r": 0.41690721868925107,
+                "oos_mean_r": 0.8197225347591364,
+                "oos_r_delta_pct": 96.61989479009972,
+                "in_sample_sharpe": 0.2057465954891835,
+                "mean_r_ci_lower": 0.0428246751518119,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 96.6% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr44_lb3_r83_rf0_af0",
+                "is_survivor": false,
+                "in_sample_n": 139,
+                "oos_n": 32,
+                "in_sample_mean_r": 0.7236096243040121,
+                "oos_mean_r": 1.6810614094710585,
+                "oos_r_delta_pct": 132.31606559793207,
+                "in_sample_sharpe": 0.23639628691304082,
+                "mean_r_ci_lower": 0.1420074107881177,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 132.3% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr17_lb4_r101_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 227,
+                "oos_n": 77,
+                "in_sample_mean_r": 0.1403093203584365,
+                "oos_mean_r": 0.6135414197332797,
+                "oos_r_delta_pct": 337.2777361945142,
+                "in_sample_sharpe": 0.11071981804652717,
+                "mean_r_ci_lower": -0.027343118231781583,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "mean_r_ci_lower -0.0273 ≤ 0",
+                  "|oos_r_delta| 337.3% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr21_lb11_r74_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 119,
+                "oos_n": 43,
+                "in_sample_mean_r": 0.2726976694425744,
+                "oos_mean_r": 0.7979063187520504,
+                "oos_r_delta_pct": 192.59741030536247,
+                "in_sample_sharpe": 0.19953821028085483,
+                "mean_r_ci_lower": -0.030793428125293273,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "mean_r_ci_lower -0.0308 ≤ 0",
+                  "|oos_r_delta| 192.6% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr31_lb3_r35_rf1_af1",
+                "is_survivor": false,
+                "in_sample_n": 150,
+                "oos_n": 39,
+                "in_sample_mean_r": 0.20624390712821808,
+                "oos_mean_r": 0.48236489046753417,
+                "oos_r_delta_pct": 133.88079540582828,
+                "in_sample_sharpe": 0.13042928990612002,
+                "mean_r_ci_lower": -0.08119427864647673,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "mean_r_ci_lower -0.0812 ≤ 0",
+                  "|oos_r_delta| 133.9% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr24_lb9_r49_rf0_af1",
+                "is_survivor": false,
+                "in_sample_n": 161,
+                "oos_n": 41,
+                "in_sample_mean_r": 0.27672049483433686,
+                "oos_mean_r": 0.529351172295718,
+                "oos_r_delta_pct": 91.29453082707971,
+                "in_sample_sharpe": 0.19119639058146845,
+                "mean_r_ci_lower": 0.03032187296001556,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 91.3% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr45_lb8_r48_rf0_af0",
+                "is_survivor": false,
+                "in_sample_n": 106,
+                "oos_n": 40,
+                "in_sample_mean_r": 0.7057719731732639,
+                "oos_mean_r": 0.15775022911455266,
+                "oos_r_delta_pct": -77.64855575019756,
+                "in_sample_sharpe": 0.2859337756488998,
+                "mean_r_ci_lower": 0.15062358352007849,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 77.6% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr31_lb12_r46_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 104,
+                "oos_n": 27,
+                "in_sample_mean_r": 0.4618129112044568,
+                "oos_mean_r": 1.1867243225778037,
+                "oos_r_delta_pct": 156.97079786762598,
+                "in_sample_sharpe": 0.26483844723167377,
+                "mean_r_ci_lower": 0.13361710598555054,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 157.0% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr48_lb12_r30_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 102,
+                "oos_n": 12,
+                "in_sample_mean_r": 0.33970588235294114,
+                "oos_mean_r": 1.1663333333333334,
+                "oos_r_delta_pct": 243.33621933621941,
+                "in_sample_sharpe": 0.16631581112789198,
+                "mean_r_ci_lower": -0.027244689542483613,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "mean_r_ci_lower -0.0272 ≤ 0",
+                  "|oos_r_delta| 243.3% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr28_lb12_r95_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 110,
+                "oos_n": 42,
+                "in_sample_mean_r": 0.36081789912902573,
+                "oos_mean_r": 1.0408912425721717,
+                "oos_r_delta_pct": 188.48104406260535,
+                "in_sample_sharpe": 0.20665834909114814,
+                "mean_r_ci_lower": 0.03335728651530858,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 188.5% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr27_lb12_r30_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 138,
+                "oos_n": 14,
+                "in_sample_mean_r": 0.24444685990338172,
+                "oos_mean_r": 1.019785714285714,
+                "oos_r_delta_pct": 317.1809425937347,
+                "in_sample_sharpe": 0.16905188903868448,
+                "mean_r_ci_lower": 0.021806280193236705,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 317.2% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr25_lb12_r46_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 125,
+                "oos_n": 29,
+                "in_sample_mean_r": 0.29420658251573,
+                "oos_mean_r": 1.2027138410991345,
+                "oos_r_delta_pct": 308.7990930776779,
+                "in_sample_sharpe": 0.20491772687892146,
+                "mean_r_ci_lower": 0.01035739511974584,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 308.8% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr36_lb12_r47_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 105,
+                "oos_n": 21,
+                "in_sample_mean_r": 0.3667007537572969,
+                "oos_mean_r": 1.0543095112338159,
+                "oos_r_delta_pct": 187.5122290944668,
+                "in_sample_sharpe": 0.1987598392048572,
+                "mean_r_ci_lower": 0.04482811875573707,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 187.5% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr23_lb9_r46_rf1_af1",
+                "is_survivor": false,
+                "in_sample_n": 123,
+                "oos_n": 26,
+                "in_sample_mean_r": 0.2379797409663269,
+                "oos_mean_r": 0.35192011360220704,
+                "oos_r_delta_pct": 47.878181635638555,
+                "in_sample_sharpe": 0.1779054149908326,
+                "mean_r_ci_lower": -0.04863547426417983,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "mean_r_ci_lower -0.0486 ≤ 0"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr24_lb12_r45_rf0_af0",
+                "is_survivor": false,
+                "in_sample_n": 169,
+                "oos_n": 44,
+                "in_sample_mean_r": 0.3071949980066348,
+                "oos_mean_r": 0.5490299366922841,
+                "oos_r_delta_pct": 78.7235925893644,
+                "in_sample_sharpe": 0.2141073754770507,
+                "mean_r_ci_lower": 0.06844148781837903,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 78.7% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr30_lb12_r45_rf1_af0",
+                "is_survivor": true,
+                "in_sample_n": 104,
+                "oos_n": 25,
+                "in_sample_mean_r": 0.4400584238539892,
+                "oos_mean_r": 1.444646031088389,
+                "oos_r_delta_pct": 228.2850532518657,
+                "in_sample_sharpe": 0.2583164801591818,
+                "mean_r_ci_lower": 0.1293370785515568,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 228.3% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr41_lb12_r44_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 113,
+                "oos_n": 21,
+                "in_sample_mean_r": 0.34091053163967894,
+                "oos_mean_r": 0.9349466078933935,
+                "oos_r_delta_pct": 174.24984596297932,
+                "in_sample_sharpe": 0.1720902358646972,
+                "mean_r_ci_lower": -0.0005462117280649647,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "mean_r_ci_lower -0.0005 ≤ 0",
+                  "|oos_r_delta| 174.2% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr29_lb12_r44_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 109,
+                "oos_n": 26,
+                "in_sample_mean_r": 0.44512493671354325,
+                "oos_mean_r": 1.318972973386136,
+                "oos_r_delta_pct": 196.31522851188876,
+                "in_sample_sharpe": 0.2680073326809009,
+                "mean_r_ci_lower": 0.13324780599794364,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 196.3% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr29_lb12_r45_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 104,
+                "oos_n": 25,
+                "in_sample_mean_r": 0.40903486460514404,
+                "oos_mean_r": 1.4083779880563083,
+                "oos_r_delta_pct": 244.31734551915665,
+                "in_sample_sharpe": 0.24671038969824488,
+                "mean_r_ci_lower": 0.11187791001400155,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 244.3% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr30_lb12_r44_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 107,
+                "oos_n": 25,
+                "in_sample_mean_r": 0.43420684365678425,
+                "oos_mean_r": 1.4703921029521754,
+                "oos_r_delta_pct": 238.63862913096702,
+                "in_sample_sharpe": 0.254376309059755,
+                "mean_r_ci_lower": 0.14224568366353016,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 238.6% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr17_lb11_r61_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 179,
+                "oos_n": 42,
+                "in_sample_mean_r": 0.14418937083986944,
+                "oos_mean_r": 0.45747546541356837,
+                "oos_r_delta_pct": 217.27405615884203,
+                "in_sample_sharpe": 0.1246812181567454,
+                "mean_r_ci_lower": -0.018544546332558098,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "mean_r_ci_lower -0.0185 ≤ 0",
+                  "|oos_r_delta| 217.3% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr29_lb9_r120_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 110,
+                "oos_n": 42,
+                "in_sample_mean_r": 0.4720174242424241,
+                "oos_mean_r": 1.0394841269841268,
+                "oos_r_delta_pct": 120.22155827244563,
+                "in_sample_sharpe": 0.23451549854830336,
+                "mean_r_ci_lower": 0.044145833333333384,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 120.2% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr29_lb11_r79_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 106,
+                "oos_n": 43,
+                "in_sample_mean_r": 0.4148201531521975,
+                "oos_mean_r": 0.9540152624559469,
+                "oos_r_delta_pct": 129.98286250232368,
+                "in_sample_sharpe": 0.21915974020228438,
+                "mean_r_ci_lower": 0.06141418045077264,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 130.0% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr23_lb11_r80_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 117,
+                "oos_n": 45,
+                "in_sample_mean_r": 0.41290412034789575,
+                "oos_mean_r": 0.8969338594283597,
+                "oos_r_delta_pct": 117.22569846787691,
+                "in_sample_sharpe": 0.2615557703365231,
+                "mean_r_ci_lower": 0.045389496823717776,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 117.2% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr17_lb4_r83_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 238,
+                "oos_n": 82,
+                "in_sample_mean_r": 0.10162970773926207,
+                "oos_mean_r": 0.5158113469406664,
+                "oos_r_delta_pct": 407.5399294308861,
+                "in_sample_sharpe": 0.08760988102927382,
+                "mean_r_ci_lower": -0.0517589871635099,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "mean_r_ci_lower -0.0518 ≤ 0",
+                  "|oos_r_delta| 407.5% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr30_lb9_r30_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 138,
+                "oos_n": 18,
+                "in_sample_mean_r": 0.40912318840579703,
+                "oos_mean_r": 1.3618148148148148,
+                "oos_r_delta_pct": 232.86180138586312,
+                "in_sample_sharpe": 0.2518882854800675,
+                "mean_r_ci_lower": 0.14510036231884066,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 232.9% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr25_lb6_r74_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 144,
+                "oos_n": 58,
+                "in_sample_mean_r": 0.21143791284254407,
+                "oos_mean_r": 0.8150097293384593,
+                "oos_r_delta_pct": 285.46054412927816,
+                "in_sample_sharpe": 0.14300558791878853,
+                "mean_r_ci_lower": -0.06540969771231238,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "mean_r_ci_lower -0.0654 ≤ 0",
+                  "|oos_r_delta| 285.5% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr21_lb11_r83_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 114,
+                "oos_n": 45,
+                "in_sample_mean_r": 0.3368056683462661,
+                "oos_mean_r": 0.8418192182126404,
+                "oos_r_delta_pct": 149.94211716982616,
+                "in_sample_sharpe": 0.22541105894496735,
+                "mean_r_ci_lower": 0.005812321550164673,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 149.9% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr30_lb12_r30_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 135,
+                "oos_n": 15,
+                "in_sample_mean_r": 0.27843950617283947,
+                "oos_mean_r": 1.0081555555555557,
+                "oos_r_delta_pct": 262.0734605561862,
+                "in_sample_sharpe": 0.17986045057348826,
+                "mean_r_ci_lower": 0.026088703703703857,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 262.1% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr38_lb9_r30_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 122,
+                "oos_n": 12,
+                "in_sample_mean_r": 0.47389958594695814,
+                "oos_mean_r": 1.3384934941930986,
+                "oos_r_delta_pct": 182.44242744346084,
+                "in_sample_sharpe": 0.24627654096170554,
+                "mean_r_ci_lower": 0.18156642113953642,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 182.4% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr28_lb9_r30_rf0_af0",
+                "is_survivor": false,
+                "in_sample_n": 199,
+                "oos_n": 34,
+                "in_sample_mean_r": 0.3749798994974872,
+                "oos_mean_r": 0.7289607843137255,
+                "oos_r_delta_pct": 94.3999625821571,
+                "in_sample_sharpe": 0.23774525173488428,
+                "mean_r_ci_lower": 0.16062906197654953,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 94.4% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr29_lb9_r39_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 118,
+                "oos_n": 28,
+                "in_sample_mean_r": 0.40183981583379896,
+                "oos_mean_r": 0.9477339799484097,
+                "oos_r_delta_pct": 135.8486995575353,
+                "in_sample_sharpe": 0.2542735551893298,
+                "mean_r_ci_lower": 0.09853068496365888,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 135.8% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr29_lb11_r44_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 111,
+                "oos_n": 26,
+                "in_sample_mean_r": 0.39042622373866376,
+                "oos_mean_r": 1.2927031864684742,
+                "oos_r_delta_pct": 231.10050193087432,
+                "in_sample_sharpe": 0.23423833784872966,
+                "mean_r_ci_lower": 0.12678463495305914,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 231.1% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr31_lb7_r30_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 143,
+                "oos_n": 19,
+                "in_sample_mean_r": 0.31392315740967963,
+                "oos_mean_r": 1.0713892522758555,
+                "oos_r_delta_pct": 241.29028935500244,
+                "in_sample_sharpe": 0.19889982603967166,
+                "mean_r_ci_lower": 0.02216894791305499,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 241.3% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr24_lb12_r80_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 125,
+                "oos_n": 45,
+                "in_sample_mean_r": 0.2908885860393746,
+                "oos_mean_r": 0.9287028981950021,
+                "oos_r_delta_pct": 219.26412474269205,
+                "in_sample_sharpe": 0.1871867268134975,
+                "mean_r_ci_lower": -0.027635772629582972,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "mean_r_ci_lower -0.0276 ≤ 0",
+                  "|oos_r_delta| 219.3% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr24_lb10_r80_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 121,
+                "oos_n": 50,
+                "in_sample_mean_r": 0.3230716759030141,
+                "oos_mean_r": 0.6027968512310369,
+                "oos_r_delta_pct": 86.5830081037485,
+                "in_sample_sharpe": 0.2087599507078844,
+                "mean_r_ci_lower": -0.005435959048073572,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "mean_r_ci_lower -0.0054 ≤ 0",
+                  "|oos_r_delta| 86.6% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr30_lb10_r35_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 120,
+                "oos_n": 14,
+                "in_sample_mean_r": 0.3670676554132443,
+                "oos_mean_r": 0.9525589702301674,
+                "oos_r_delta_pct": 159.50501390752552,
+                "in_sample_sharpe": 0.22874529797309145,
+                "mean_r_ci_lower": 0.13936159685219604,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 159.5% > 50%"
+                ]
+              }
+            ]
+          },
+          {
+            "cut_date": "2024-12-01",
+            "survivor_passes_per_candidate": false,
+            "survivor_rank_by_sharpe": 3,
+            "survivor_in_top_k": true,
+            "top_k_variants": [
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr45_lb8_r48_rf0_af0",
+                "rank": 1,
+                "sharpe": 0.2912594016835416
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr29_lb12_r44_rf1_af0",
+                "rank": 2,
+                "sharpe": 0.2838026960120046
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr30_lb12_r45_rf1_af0",
+                "rank": 3,
+                "sharpe": 0.2754969620397919
+              }
+            ],
+            "variant_evaluations": [
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr36_lb7_r107_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 98,
+                "oos_n": 32,
+                "in_sample_mean_r": 0.5423574445105644,
+                "oos_mean_r": 1.3188744227514932,
+                "oos_r_delta_pct": 143.1743928474468,
+                "in_sample_sharpe": 0.2312722538443,
+                "mean_r_ci_lower": 0.04242022920276311,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 143.2% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr33_lb5_r86_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 126,
+                "oos_n": 27,
+                "in_sample_mean_r": 0.4422508021353022,
+                "oos_mean_r": 1.352063958533578,
+                "oos_r_delta_pct": 205.72334792960478,
+                "in_sample_sharpe": 0.2082525347414436,
+                "mean_r_ci_lower": 0.012736450883617476,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 205.7% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr24_lb11_r97_rf0_af0",
+                "is_survivor": false,
+                "in_sample_n": 178,
+                "oos_n": 49,
+                "in_sample_mean_r": 0.37546981615615876,
+                "oos_mean_r": 0.6948007125341467,
+                "oos_r_delta_pct": 85.04835345943692,
+                "in_sample_sharpe": 0.20511067539798924,
+                "mean_r_ci_lower": 0.06276475607722438,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 85.0% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr33_lb9_r85_rf0_af0",
+                "is_survivor": false,
+                "in_sample_n": 133,
+                "oos_n": 32,
+                "in_sample_mean_r": 0.39341428521631333,
+                "oos_mean_r": 1.0180688685235053,
+                "oos_r_delta_pct": 158.77780924089586,
+                "in_sample_sharpe": 0.1934475253759021,
+                "mean_r_ci_lower": 0.050912604804552765,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 158.8% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr44_lb3_r83_rf0_af0",
+                "is_survivor": false,
+                "in_sample_n": 144,
+                "oos_n": 27,
+                "in_sample_mean_r": 0.7510462044906622,
+                "oos_mean_r": 1.7120388679509702,
+                "oos_r_delta_pct": 127.95386724735869,
+                "in_sample_sharpe": 0.24226983166595445,
+                "mean_r_ci_lower": 0.16998164334533936,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 128.0% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr17_lb4_r101_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 235,
+                "oos_n": 69,
+                "in_sample_mean_r": 0.15186293139462886,
+                "oos_mean_r": 0.6290596545375339,
+                "oos_r_delta_pct": 314.2285735963231,
+                "in_sample_sharpe": 0.11816348282636814,
+                "mean_r_ci_lower": -0.016078595970257,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "mean_r_ci_lower -0.0161 ≤ 0",
+                  "|oos_r_delta| 314.2% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr21_lb11_r74_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 124,
+                "oos_n": 38,
+                "in_sample_mean_r": 0.2932552606931332,
+                "oos_mean_r": 0.7999300537909478,
+                "oos_r_delta_pct": 172.77602860397002,
+                "in_sample_sharpe": 0.21211920218394353,
+                "mean_r_ci_lower": 0.0005185155489527656,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 172.8% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr31_lb3_r35_rf1_af1",
+                "is_survivor": false,
+                "in_sample_n": 155,
+                "oos_n": 34,
+                "in_sample_mean_r": 0.2108766623415491,
+                "oos_mean_r": 0.50185100395666,
+                "oos_r_delta_pct": 137.9831880797841,
+                "in_sample_sharpe": 0.13349686884611392,
+                "mean_r_ci_lower": -0.07491775584941247,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "mean_r_ci_lower -0.0749 ≤ 0",
+                  "|oos_r_delta| 138.0% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr24_lb9_r49_rf0_af1",
+                "is_survivor": false,
+                "in_sample_n": 168,
+                "oos_n": 34,
+                "in_sample_mean_r": 0.27745320202476204,
+                "oos_mean_r": 0.5777429350674307,
+                "oos_r_delta_pct": 108.23076859493894,
+                "in_sample_sharpe": 0.19217976949611415,
+                "mean_r_ci_lower": 0.05548677213264323,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 108.2% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr45_lb8_r48_rf0_af0",
+                "is_survivor": false,
+                "in_sample_n": 108,
+                "oos_n": 38,
+                "in_sample_mean_r": 0.7190747878268934,
+                "oos_mean_r": 0.09109897988535798,
+                "oos_r_delta_pct": -87.3310841337287,
+                "in_sample_sharpe": 0.2912594016835416,
+                "mean_r_ci_lower": 0.15395500744181662,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 87.3% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr31_lb12_r46_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 109,
+                "oos_n": 22,
+                "in_sample_mean_r": 0.46938378274919995,
+                "oos_mean_r": 1.3139666888727908,
+                "oos_r_delta_pct": 179.93440275606335,
+                "in_sample_sharpe": 0.2682913580717182,
+                "mean_r_ci_lower": 0.14573568298147446,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 179.9% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr48_lb12_r30_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 106,
+                "oos_n": 8,
+                "in_sample_mean_r": 0.29157547169811315,
+                "oos_mean_r": 2.217375,
+                "oos_r_delta_pct": 660.4806354547515,
+                "in_sample_sharpe": 0.14446114585742614,
+                "mean_r_ci_lower": -0.034215644654087954,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "mean_r_ci_lower -0.0342 ≤ 0",
+                  "oos_n 8 < 10",
+                  "|oos_r_delta| 660.5% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr28_lb12_r95_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 115,
+                "oos_n": 37,
+                "in_sample_mean_r": 0.3754244364564172,
+                "oos_mean_r": 1.087394348641515,
+                "oos_r_delta_pct": 189.64399837828614,
+                "in_sample_sharpe": 0.2114239776817624,
+                "mean_r_ci_lower": 0.06306525377228778,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 189.6% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr27_lb12_r30_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 142,
+                "oos_n": 10,
+                "in_sample_mean_r": 0.26207981220657284,
+                "oos_mean_r": 1.0795333333333332,
+                "oos_r_delta_pct": 311.91014456406845,
+                "in_sample_sharpe": 0.17959420998839729,
+                "mean_r_ci_lower": 0.034193427230047084,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 311.9% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr25_lb12_r46_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 130,
+                "oos_n": 24,
+                "in_sample_mean_r": 0.3158052498181752,
+                "oos_mean_r": 1.274993405415766,
+                "oos_r_delta_pct": 303.72774238232046,
+                "in_sample_sharpe": 0.2186735798244445,
+                "mean_r_ci_lower": 0.0293879816432381,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 303.7% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr36_lb12_r47_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 107,
+                "oos_n": 19,
+                "in_sample_mean_r": 0.3788034120138972,
+                "oos_mean_r": 1.0585323049968052,
+                "oos_r_delta_pct": 179.4410692789564,
+                "in_sample_sharpe": 0.20443734623592352,
+                "mean_r_ci_lower": 0.07014711147731054,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 179.4% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr23_lb9_r46_rf1_af1",
+                "is_survivor": false,
+                "in_sample_n": 128,
+                "oos_n": 21,
+                "in_sample_mean_r": 0.2333428931397757,
+                "oos_mean_r": 0.4073114652678238,
+                "oos_r_delta_pct": 74.55490492433317,
+                "in_sample_sharpe": 0.17422698935257844,
+                "mean_r_ci_lower": -0.02881580519832498,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "mean_r_ci_lower -0.0288 ≤ 0",
+                  "|oos_r_delta| 74.6% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr24_lb12_r45_rf0_af0",
+                "is_survivor": false,
+                "in_sample_n": 175,
+                "oos_n": 38,
+                "in_sample_mean_r": 0.31590916484046955,
+                "oos_mean_r": 0.547083369223674,
+                "oos_r_delta_pct": 73.17742886628335,
+                "in_sample_sharpe": 0.2196391786217987,
+                "mean_r_ci_lower": 0.07993383609729494,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 73.2% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr30_lb12_r45_rf1_af0",
+                "is_survivor": true,
+                "in_sample_n": 109,
+                "oos_n": 20,
+                "in_sample_mean_r": 0.47235958536634787,
+                "oos_mean_r": 1.519751602654635,
+                "oos_r_delta_pct": 221.73616239330923,
+                "in_sample_sharpe": 0.2754969620397919,
+                "mean_r_ci_lower": 0.13876262488931015,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 221.7% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr41_lb12_r44_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 116,
+                "oos_n": 18,
+                "in_sample_mean_r": 0.34733204294566994,
+                "oos_mean_r": 0.992569547741515,
+                "oos_r_delta_pct": 185.76964547344505,
+                "in_sample_sharpe": 0.1746506189237014,
+                "mean_r_ci_lower": 0.014385595326239725,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 185.8% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr29_lb12_r44_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 114,
+                "oos_n": 21,
+                "in_sample_mean_r": 0.4748763413980536,
+                "oos_mean_r": 1.3655244043065538,
+                "oos_r_delta_pct": 187.55368193041562,
+                "in_sample_sharpe": 0.2838026960120046,
+                "mean_r_ci_lower": 0.17064186507575452,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 187.6% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr29_lb12_r45_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 109,
+                "oos_n": 20,
+                "in_sample_mean_r": 0.4412710648523,
+                "oos_mean_r": 1.4825264775720997,
+                "oos_r_delta_pct": 235.96729893638582,
+                "in_sample_sharpe": 0.2642164632283425,
+                "mean_r_ci_lower": 0.12241420515997115,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 236.0% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr30_lb12_r44_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 112,
+                "oos_n": 20,
+                "in_sample_mean_r": 0.466683051842767,
+                "oos_mean_r": 1.5475716519345197,
+                "oos_r_delta_pct": 231.6108536240398,
+                "in_sample_sharpe": 0.2713652867467095,
+                "mean_r_ci_lower": 0.15584946370013156,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 231.6% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr17_lb11_r61_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 187,
+                "oos_n": 34,
+                "in_sample_mean_r": 0.15285900995432858,
+                "oos_mean_r": 0.48350682547785484,
+                "oos_r_delta_pct": 216.30901287553655,
+                "in_sample_sharpe": 0.13216825777531982,
+                "mean_r_ci_lower": -0.0079806667214256,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "mean_r_ci_lower -0.0080 ≤ 0",
+                  "|oos_r_delta| 216.3% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr29_lb9_r120_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 116,
+                "oos_n": 36,
+                "in_sample_mean_r": 0.4692392241379309,
+                "oos_mean_r": 1.1430138888888888,
+                "oos_r_delta_pct": 143.58873472028944,
+                "in_sample_sharpe": 0.22900394994537587,
+                "mean_r_ci_lower": 0.03932505387931047,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 143.6% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr29_lb11_r79_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 110,
+                "oos_n": 39,
+                "in_sample_mean_r": 0.4385277905440102,
+                "oos_mean_r": 0.942449629740962,
+                "oos_r_delta_pct": 114.91217890018277,
+                "in_sample_sharpe": 0.22995283596585503,
+                "mean_r_ci_lower": 0.09224763101747585,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 114.9% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr23_lb11_r80_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 122,
+                "oos_n": 40,
+                "in_sample_mean_r": 0.43181340820113967,
+                "oos_mean_r": 0.8997642488610239,
+                "oos_r_delta_pct": 108.36876108347049,
+                "in_sample_sharpe": 0.2718750995636456,
+                "mean_r_ci_lower": 0.06887621214435896,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 108.4% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr17_lb4_r83_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 246,
+                "oos_n": 74,
+                "in_sample_mean_r": 0.11089050478922849,
+                "oos_mean_r": 0.5298018474720111,
+                "oos_r_delta_pct": 377.77025497270006,
+                "in_sample_sharpe": 0.09503794376433382,
+                "mean_r_ci_lower": -0.036377213606294125,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "mean_r_ci_lower -0.0364 ≤ 0",
+                  "|oos_r_delta| 377.8% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr30_lb9_r30_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 142,
+                "oos_n": 14,
+                "in_sample_mean_r": 0.4287934272300469,
+                "oos_mean_r": 1.4344999999999999,
+                "oos_r_delta_pct": 234.5433742458914,
+                "in_sample_sharpe": 0.26103595162001786,
+                "mean_r_ci_lower": 0.155950176056338,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 234.5% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr25_lb6_r74_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 149,
+                "oos_n": 53,
+                "in_sample_mean_r": 0.2148395907267622,
+                "oos_mean_r": 0.8623872591069701,
+                "oos_r_delta_pct": 301.40984079781344,
+                "in_sample_sharpe": 0.1445530791408714,
+                "mean_r_ci_lower": -0.037526995735633305,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "mean_r_ci_lower -0.0375 ≤ 0",
+                  "|oos_r_delta| 301.4% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr21_lb11_r83_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 119,
+                "oos_n": 40,
+                "in_sample_mean_r": 0.35972957274460055,
+                "oos_mean_r": 0.836747296360892,
+                "oos_r_delta_pct": 132.60453400503792,
+                "in_sample_sharpe": 0.23862155493265036,
+                "mean_r_ci_lower": 0.04036074187411556,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 132.6% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr30_lb12_r30_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 139,
+                "oos_n": 11,
+                "in_sample_mean_r": 0.29955635491606714,
+                "oos_mean_r": 1.0066666666666668,
+                "oos_r_delta_pct": 236.05251571068334,
+                "in_sample_sharpe": 0.19152543293993102,
+                "mean_r_ci_lower": 0.05432649880095927,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 236.1% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr38_lb9_r30_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 125,
+                "oos_n": 9,
+                "in_sample_mean_r": 0.4809196530868195,
+                "oos_mean_r": 1.5291905311104033,
+                "oos_r_delta_pct": 217.97214384880655,
+                "in_sample_sharpe": 0.24805250449261076,
+                "mean_r_ci_lower": 0.19986552695975,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "oos_n 9 < 10",
+                  "|oos_r_delta| 218.0% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr28_lb9_r30_rf0_af0",
+                "is_survivor": false,
+                "in_sample_n": 206,
+                "oos_n": 27,
+                "in_sample_mean_r": 0.396001618122977,
+                "oos_mean_r": 0.6603456790123455,
+                "oos_r_delta_pct": 66.75327796445451,
+                "in_sample_sharpe": 0.24941658864230667,
+                "mean_r_ci_lower": 0.18169057443365702,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 66.8% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr29_lb9_r39_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 123,
+                "oos_n": 23,
+                "in_sample_mean_r": 0.43860687305854584,
+                "oos_mean_r": 0.8697827965540263,
+                "oos_r_delta_pct": 98.30578360269483,
+                "in_sample_sharpe": 0.2725785591486388,
+                "mean_r_ci_lower": 0.10656978181031625,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 98.3% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr29_lb11_r44_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 116,
+                "oos_n": 21,
+                "in_sample_mean_r": 0.4242111225821183,
+                "oos_mean_r": 1.3209096887450613,
+                "oos_r_delta_pct": 211.38025818485255,
+                "in_sample_sharpe": 0.25254153999370754,
+                "mean_r_ci_lower": 0.1443580229038876,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 211.4% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr31_lb7_r30_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 148,
+                "oos_n": 14,
+                "in_sample_mean_r": 0.32476497867313114,
+                "oos_mean_r": 1.2272993185144307,
+                "oos_r_delta_pct": 277.90383788569784,
+                "in_sample_sharpe": 0.20355914229871222,
+                "mean_r_ci_lower": 0.05733334576414603,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 277.9% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr24_lb12_r80_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 130,
+                "oos_n": 40,
+                "in_sample_mean_r": 0.3140871015934935,
+                "oos_mean_r": 0.9330345116635692,
+                "oos_r_delta_pct": 197.06234574100623,
+                "in_sample_sharpe": 0.20073225125793318,
+                "mean_r_ci_lower": -0.0059282462408744435,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "mean_r_ci_lower -0.0059 ≤ 0",
+                  "|oos_r_delta| 197.1% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr24_lb10_r80_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 126,
+                "oos_n": 45,
+                "in_sample_mean_r": 0.3253146772660134,
+                "oos_mean_r": 0.6275970224510863,
+                "oos_r_delta_pct": 92.91998372944401,
+                "in_sample_sharpe": 0.2089236021258699,
+                "mean_r_ci_lower": 0.0058623023927288605,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 92.9% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr30_lb10_r35_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 123,
+                "oos_n": 11,
+                "in_sample_mean_r": 0.37023254728956906,
+                "oos_mean_r": 1.076849174199516,
+                "oos_r_delta_pct": 190.85751160534318,
+                "in_sample_sharpe": 0.22971593698815612,
+                "mean_r_ci_lower": 0.14472142181005263,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 190.9% > 50%"
+                ]
+              }
+            ]
+          },
+          {
+            "cut_date": "2025-03-01",
+            "survivor_passes_per_candidate": false,
+            "survivor_rank_by_sharpe": 4,
+            "survivor_in_top_k": false,
+            "top_k_variants": [
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr29_lb12_r44_rf1_af0",
+                "rank": 1,
+                "sharpe": 0.3133983303802666
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr45_lb8_r48_rf0_af0",
+                "rank": 2,
+                "sharpe": 0.3099601995276928
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr31_lb12_r46_rf1_af0",
+                "rank": 3,
+                "sharpe": 0.3074418321567723
+              }
+            ],
+            "variant_evaluations": [
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr36_lb7_r107_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 105,
+                "oos_n": 25,
+                "in_sample_mean_r": 0.5999883052463747,
+                "oos_mean_r": 1.294249561568551,
+                "oos_r_delta_pct": 115.71246476830746,
+                "in_sample_sharpe": 0.2475671088801812,
+                "mean_r_ci_lower": 0.09433762739404007,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 115.7% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr33_lb5_r86_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 131,
+                "oos_n": 22,
+                "in_sample_mean_r": 0.5443406353688127,
+                "oos_mean_r": 0.9509411234609201,
+                "oos_r_delta_pct": 74.69596456208329,
+                "in_sample_sharpe": 0.24844659785880377,
+                "mean_r_ci_lower": 0.07487734665398635,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 74.7% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr24_lb11_r97_rf0_af0",
+                "is_survivor": false,
+                "in_sample_n": 185,
+                "oos_n": 42,
+                "in_sample_mean_r": 0.41260220039459394,
+                "oos_mean_r": 0.5844632170707039,
+                "oos_r_delta_pct": 41.652956894497876,
+                "in_sample_sharpe": 0.22034632565653434,
+                "mean_r_ci_lower": 0.09705012351586817,
+                "per_candidate_passes": true,
+                "per_candidate_blockers": []
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr33_lb9_r85_rf0_af0",
+                "is_survivor": false,
+                "in_sample_n": 139,
+                "oos_n": 26,
+                "in_sample_mean_r": 0.44329738028613264,
+                "oos_mean_r": 0.8955372256442072,
+                "oos_r_delta_pct": 102.01726097866175,
+                "in_sample_sharpe": 0.21226618713860282,
+                "mean_r_ci_lower": 0.09498381244119514,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 102.0% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr44_lb3_r83_rf0_af0",
+                "is_survivor": false,
+                "in_sample_n": 148,
+                "oos_n": 23,
+                "in_sample_mean_r": 0.8139480102477772,
+                "oos_mean_r": 1.4744085810721967,
+                "oos_r_delta_pct": 81.14284481429792,
+                "in_sample_sharpe": 0.25576103314813536,
+                "mean_r_ci_lower": 0.215190458430822,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 81.1% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr17_lb4_r101_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 249,
+                "oos_n": 55,
+                "in_sample_mean_r": 0.19700834688186997,
+                "oos_mean_r": 0.5461423030407636,
+                "oos_r_delta_pct": 177.2178497433112,
+                "in_sample_sharpe": 0.14876981908856965,
+                "mean_r_ci_lower": 0.013990096494598639,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 177.2% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr21_lb11_r74_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 132,
+                "oos_n": 30,
+                "in_sample_mean_r": 0.31504097466868497,
+                "oos_mean_r": 0.8391861904579372,
+                "oos_r_delta_pct": 166.37366499404504,
+                "in_sample_sharpe": 0.225446176484662,
+                "mean_r_ci_lower": 0.022968546852262534,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 166.4% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr31_lb3_r35_rf1_af1",
+                "is_survivor": false,
+                "in_sample_n": 160,
+                "oos_n": 29,
+                "in_sample_mean_r": 0.20398352057710642,
+                "oos_mean_r": 0.5900501208665351,
+                "oos_r_delta_pct": 189.26362247164678,
+                "in_sample_sharpe": 0.129006167202627,
+                "mean_r_ci_lower": -0.06206178938664869,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "mean_r_ci_lower -0.0621 ≤ 0",
+                  "|oos_r_delta| 189.3% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr24_lb9_r49_rf0_af1",
+                "is_survivor": false,
+                "in_sample_n": 173,
+                "oos_n": 29,
+                "in_sample_mean_r": 0.28699095198172725,
+                "oos_mean_r": 0.5726194151590983,
+                "oos_r_delta_pct": 99.52525025790955,
+                "in_sample_sharpe": 0.19759360509077853,
+                "mean_r_ci_lower": 0.06952020894131562,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 99.5% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr45_lb8_r48_rf0_af0",
+                "is_survivor": false,
+                "in_sample_n": 111,
+                "oos_n": 35,
+                "in_sample_mean_r": 0.7729979388762742,
+                "oos_mean_r": -0.13374093983766694,
+                "oos_r_delta_pct": -117.30159074319,
+                "in_sample_sharpe": 0.3099601995276928,
+                "mean_r_ci_lower": 0.22832456718113156,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 117.3% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr31_lb12_r46_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 114,
+                "oos_n": 17,
+                "in_sample_mean_r": 0.5451778947681087,
+                "oos_mean_r": 1.0541070277235176,
+                "oos_r_delta_pct": 93.35102135274244,
+                "in_sample_sharpe": 0.3074418321567723,
+                "mean_r_ci_lower": 0.2154883542189735,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 93.4% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr48_lb12_r30_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 110,
+                "oos_n": 4,
+                "in_sample_mean_r": 0.33518787878787876,
+                "oos_mean_r": 2.943833333333333,
+                "oos_r_delta_pct": 778.2636603623477,
+                "in_sample_sharpe": 0.16352603181656752,
+                "mean_r_ci_lower": 0.003761742424242446,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "oos_n 4 < 10",
+                  "|oos_r_delta| 778.3% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr28_lb12_r95_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 121,
+                "oos_n": 31,
+                "in_sample_mean_r": 0.4095423515404295,
+                "oos_mean_r": 1.0920250501881315,
+                "oos_r_delta_pct": 166.6452067974533,
+                "in_sample_sharpe": 0.22693849159173624,
+                "mean_r_ci_lower": 0.09654601860723988,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 166.6% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr27_lb12_r30_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 148,
+                "oos_n": 4,
+                "in_sample_mean_r": 0.28049324324324326,
+                "oos_mean_r": 1.6244166666666668,
+                "oos_r_delta_pct": 479.1286263740676,
+                "in_sample_sharpe": 0.19006700480011116,
+                "mean_r_ci_lower": 0.06131278153153165,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "oos_n 4 < 10",
+                  "|oos_r_delta| 479.1% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr25_lb12_r46_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 138,
+                "oos_n": 16,
+                "in_sample_mean_r": 0.36220977984017305,
+                "oos_mean_r": 1.3543484117748292,
+                "oos_r_delta_pct": 273.91271223334786,
+                "in_sample_sharpe": 0.24794235871905146,
+                "mean_r_ci_lower": 0.08448164663108303,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 273.9% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr36_lb12_r47_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 113,
+                "oos_n": 13,
+                "in_sample_mean_r": 0.43782315491372636,
+                "oos_mean_r": 0.8592355673211707,
+                "oos_r_delta_pct": 96.2517417541528,
+                "in_sample_sharpe": 0.2317206592670905,
+                "mean_r_ci_lower": 0.12331652863493178,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 96.3% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr23_lb9_r46_rf1_af1",
+                "is_survivor": false,
+                "in_sample_n": 132,
+                "oos_n": 17,
+                "in_sample_mean_r": 0.22772885610850113,
+                "oos_mean_r": 0.49183659330549634,
+                "oos_r_delta_pct": 115.97464709134681,
+                "in_sample_sharpe": 0.16938542626529687,
+                "mean_r_ci_lower": -0.02429934117589621,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "mean_r_ci_lower -0.0243 ≤ 0",
+                  "|oos_r_delta| 116.0% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr24_lb12_r45_rf0_af0",
+                "is_survivor": false,
+                "in_sample_n": 181,
+                "oos_n": 32,
+                "in_sample_mean_r": 0.3480711104724709,
+                "oos_mean_r": 0.4085125275645174,
+                "oos_r_delta_pct": 17.364674997015246,
+                "in_sample_sharpe": 0.23945773831573328,
+                "mean_r_ci_lower": 0.10695924725618865,
+                "per_candidate_passes": true,
+                "per_candidate_blockers": []
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr30_lb12_r45_rf1_af0",
+                "is_survivor": true,
+                "in_sample_n": 115,
+                "oos_n": 14,
+                "in_sample_mean_r": 0.5334301694855114,
+                "oos_mean_r": 1.4669826690850576,
+                "oos_r_delta_pct": 175.00931762070175,
+                "in_sample_sharpe": 0.30680643350552217,
+                "mean_r_ci_lower": 0.20135918224063606,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 175.0% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr41_lb12_r44_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 118,
+                "oos_n": 16,
+                "in_sample_mean_r": 0.36264211660029916,
+                "oos_mean_r": 0.9603124426381051,
+                "oos_r_delta_pct": 164.80995964860662,
+                "in_sample_sharpe": 0.181492694508629,
+                "mean_r_ci_lower": 0.034025659493555405,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 164.8% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr29_lb12_r44_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 120,
+                "oos_n": 15,
+                "in_sample_mean_r": 0.532245286581782,
+                "oos_mean_r": 1.2628320680001257,
+                "oos_r_delta_pct": 137.2650542591673,
+                "in_sample_sharpe": 0.3133983303802666,
+                "mean_r_ci_lower": 0.22670330933279975,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 137.3% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr29_lb12_r45_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 115,
+                "oos_n": 14,
+                "in_sample_mean_r": 0.5018801395135626,
+                "oos_mean_r": 1.4309185411630716,
+                "oos_r_delta_pct": 185.11160902879345,
+                "in_sample_sharpe": 0.29603007510541396,
+                "mean_r_ci_lower": 0.17985530497565413,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 185.1% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr30_lb12_r44_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 118,
+                "oos_n": 14,
+                "in_sample_mean_r": 0.5279161804788757,
+                "oos_mean_r": 1.494701824898069,
+                "oos_r_delta_pct": 183.1324138506641,
+                "in_sample_sharpe": 0.3023468785310081,
+                "mean_r_ci_lower": 0.21621469717306674,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 183.1% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr17_lb11_r61_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 195,
+                "oos_n": 26,
+                "in_sample_mean_r": 0.16211900512101093,
+                "oos_mean_r": 0.5157946511195916,
+                "oos_r_delta_pct": 218.1580412084231,
+                "in_sample_sharpe": 0.1395297296582677,
+                "mean_r_ci_lower": 0.005748708607001593,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 218.2% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr29_lb9_r120_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 122,
+                "oos_n": 30,
+                "in_sample_mean_r": 0.525337431693989,
+                "oos_mean_r": 1.049636111111111,
+                "oos_r_delta_pct": 99.80226951018555,
+                "in_sample_sharpe": 0.24772955400014804,
+                "mean_r_ci_lower": 0.09466118510928964,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 99.8% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr29_lb11_r79_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 117,
+                "oos_n": 32,
+                "in_sample_mean_r": 0.4616732419238797,
+                "oos_mean_r": 0.968056975457647,
+                "oos_r_delta_pct": 109.68444509011839,
+                "in_sample_sharpe": 0.23933876920426314,
+                "mean_r_ci_lower": 0.12298005803791393,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 109.7% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr23_lb11_r80_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 129,
+                "oos_n": 33,
+                "in_sample_mean_r": 0.47432972334902307,
+                "oos_mean_r": 0.8328264073623038,
+                "oos_r_delta_pct": 75.57963719458719,
+                "in_sample_sharpe": 0.2931795885070434,
+                "mean_r_ci_lower": 0.1336565912388516,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 75.6% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr17_lb4_r83_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 259,
+                "oos_n": 61,
+                "in_sample_mean_r": 0.1413276857381009,
+                "oos_mean_r": 0.4898447587690313,
+                "oos_r_delta_pct": 246.60212272687966,
+                "in_sample_sharpe": 0.1191290883834039,
+                "mean_r_ci_lower": -0.01661653034144663,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "mean_r_ci_lower -0.0166 ≤ 0",
+                  "|oos_r_delta| 246.6% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr30_lb9_r30_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 149,
+                "oos_n": 7,
+                "in_sample_mean_r": 0.4561744966442952,
+                "oos_mean_r": 1.8573809523809526,
+                "oos_r_delta_pct": 307.1645754079182,
+                "in_sample_sharpe": 0.2768324219373742,
+                "mean_r_ci_lower": 0.19015911633109622,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "oos_n 7 < 10",
+                  "|oos_r_delta| 307.2% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr25_lb6_r74_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 158,
+                "oos_n": 44,
+                "in_sample_mean_r": 0.26033587046121115,
+                "oos_mean_r": 0.8314671867746731,
+                "oos_r_delta_pct": 219.38249051183206,
+                "in_sample_sharpe": 0.1714356690314529,
+                "mean_r_ci_lower": -0.01657830293254173,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "mean_r_ci_lower -0.0166 ≤ 0",
+                  "|oos_r_delta| 219.4% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr21_lb11_r83_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 127,
+                "oos_n": 32,
+                "in_sample_mean_r": 0.3840053950374647,
+                "oos_mean_r": 0.8596570575401602,
+                "oos_r_delta_pct": 123.86588018022233,
+                "in_sample_sharpe": 0.2499076718214739,
+                "mean_r_ci_lower": 0.07942216419682237,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 123.9% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr30_lb12_r30_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 146,
+                "oos_n": 4,
+                "in_sample_mean_r": 0.3110547945205479,
+                "oos_mean_r": 1.824416666666667,
+                "oos_r_delta_pct": 486.52581435974236,
+                "in_sample_sharpe": 0.1975721319471687,
+                "mean_r_ci_lower": 0.08460553652968038,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "oos_n 4 < 10",
+                  "|oos_r_delta| 486.5% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr38_lb9_r30_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 128,
+                "oos_n": 6,
+                "in_sample_mean_r": 0.4803628786831497,
+                "oos_mean_r": 2.0652038240671513,
+                "oos_r_delta_pct": 329.92577397500617,
+                "in_sample_sharpe": 0.24676940319805674,
+                "mean_r_ci_lower": 0.21053758212915824,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "oos_n 6 < 10",
+                  "|oos_r_delta| 329.9% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr28_lb9_r30_rf0_af0",
+                "is_survivor": false,
+                "in_sample_n": 213,
+                "oos_n": 20,
+                "in_sample_mean_r": 0.4128356807511734,
+                "oos_mean_r": 0.5735833333333334,
+                "oos_r_delta_pct": 38.93744171765201,
+                "in_sample_sharpe": 0.2589474881208761,
+                "mean_r_ci_lower": 0.18910113458528946,
+                "per_candidate_passes": true,
+                "per_candidate_blockers": []
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr29_lb9_r39_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 129,
+                "oos_n": 17,
+                "in_sample_mean_r": 0.4812208261792203,
+                "oos_mean_r": 0.6985978311661365,
+                "oos_r_delta_pct": 45.17198615713253,
+                "in_sample_sharpe": 0.2959937548099556,
+                "mean_r_ci_lower": 0.16031300395209155,
+                "per_candidate_passes": true,
+                "per_candidate_blockers": []
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr29_lb11_r44_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 122,
+                "oos_n": 15,
+                "in_sample_mean_r": 0.4776322817473371,
+                "oos_mean_r": 1.2450970206664589,
+                "oos_r_delta_pct": 160.68108631842924,
+                "in_sample_sharpe": 0.2812275830814572,
+                "mean_r_ci_lower": 0.19600344710898746,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 160.7% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr31_lb7_r30_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 155,
+                "oos_n": 7,
+                "in_sample_mean_r": 0.3584153099027915,
+                "oos_mean_r": 1.384719181127536,
+                "oos_r_delta_pct": 286.3448750286632,
+                "in_sample_sharpe": 0.22273813704477113,
+                "mean_r_ci_lower": 0.09516308949520853,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "oos_n 7 < 10",
+                  "|oos_r_delta| 286.3% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr24_lb12_r80_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 138,
+                "oos_n": 32,
+                "in_sample_mean_r": 0.3693638197546737,
+                "oos_mean_r": 0.8493905171109981,
+                "oos_r_delta_pct": 129.96039993173977,
+                "in_sample_sharpe": 0.23138213000741392,
+                "mean_r_ci_lower": 0.05731478438248228,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 130.0% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr24_lb10_r80_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 134,
+                "oos_n": 37,
+                "in_sample_mean_r": 0.3516611623751139,
+                "oos_mean_r": 0.5975383672311164,
+                "oos_r_delta_pct": 69.91878295440752,
+                "in_sample_sharpe": 0.22252101219920428,
+                "mean_r_ci_lower": 0.061080490223855415,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 69.9% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr30_lb10_r35_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 126,
+                "oos_n": 8,
+                "in_sample_mean_r": 0.371004187324576,
+                "oos_mean_r": 1.329677078739387,
+                "oos_r_delta_pct": 258.39948015899574,
+                "in_sample_sharpe": 0.2288306954883858,
+                "mean_r_ci_lower": 0.14868713051676885,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "oos_n 8 < 10",
+                  "|oos_r_delta| 258.4% > 50%"
+                ]
+              }
+            ]
+          },
+          {
+            "cut_date": "2025-06-01",
+            "survivor_passes_per_candidate": false,
+            "survivor_rank_by_sharpe": 3,
+            "survivor_in_top_k": true,
+            "top_k_variants": [
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr29_lb12_r44_rf1_af0",
+                "rank": 1,
+                "sharpe": 0.3188079199927682
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr31_lb12_r46_rf1_af0",
+                "rank": 2,
+                "sharpe": 0.3142067835015143
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr30_lb12_r45_rf1_af0",
+                "rank": 3,
+                "sharpe": 0.3131609092177856
+              }
+            ],
+            "variant_evaluations": [
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr36_lb7_r107_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 110,
+                "oos_n": 20,
+                "in_sample_mean_r": 0.6824149659096106,
+                "oos_mean_r": 1.0144682420012967,
+                "oos_r_delta_pct": 48.65855713599169,
+                "in_sample_sharpe": 0.27441802419958033,
+                "mean_r_ci_lower": 0.15849276370399654,
+                "per_candidate_passes": true,
+                "per_candidate_blockers": []
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr33_lb5_r86_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 135,
+                "oos_n": 18,
+                "in_sample_mean_r": 0.5749946447523262,
+                "oos_mean_r": 0.811391717105037,
+                "oos_r_delta_pct": 41.11291722630507,
+                "in_sample_sharpe": 0.25956791712058747,
+                "mean_r_ci_lower": 0.09446643717371807,
+                "per_candidate_passes": true,
+                "per_candidate_blockers": []
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr24_lb11_r97_rf0_af0",
+                "is_survivor": false,
+                "in_sample_n": 194,
+                "oos_n": 33,
+                "in_sample_mean_r": 0.45046229749337424,
+                "oos_mean_r": 0.4087629235228736,
+                "oos_r_delta_pct": -9.257017557859882,
+                "in_sample_sharpe": 0.23678014096028518,
+                "mean_r_ci_lower": 0.12205429759559422,
+                "per_candidate_passes": true,
+                "per_candidate_blockers": []
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr33_lb9_r85_rf0_af0",
+                "is_survivor": false,
+                "in_sample_n": 145,
+                "oos_n": 20,
+                "in_sample_mean_r": 0.4921702676515901,
+                "oos_mean_r": 0.6768807458520628,
+                "oos_r_delta_pct": 37.52979209447699,
+                "in_sample_sharpe": 0.22985614955334668,
+                "mean_r_ci_lower": 0.15313794447250684,
+                "per_candidate_passes": true,
+                "per_candidate_blockers": []
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr44_lb3_r83_rf0_af0",
+                "is_survivor": false,
+                "in_sample_n": 150,
+                "oos_n": 21,
+                "in_sample_mean_r": 0.8900309892838741,
+                "oos_mean_r": 0.9938597375595438,
+                "oos_r_delta_pct": 11.665745297162191,
+                "in_sample_sharpe": 0.27556984012285657,
+                "mean_r_ci_lower": 0.23436158600361853,
+                "per_candidate_passes": true,
+                "per_candidate_blockers": []
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr17_lb4_r101_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 262,
+                "oos_n": 42,
+                "in_sample_mean_r": 0.21573398597739116,
+                "oos_mean_r": 0.5373952551131225,
+                "oos_r_delta_pct": 149.10087888027124,
+                "in_sample_sharpe": 0.1599805241038009,
+                "mean_r_ci_lower": 0.043898571042694956,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 149.1% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr21_lb11_r74_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 142,
+                "oos_n": 20,
+                "in_sample_mean_r": 0.33380582000897235,
+                "oos_mean_r": 0.9680283964365224,
+                "oos_r_delta_pct": 189.99745912473986,
+                "in_sample_sharpe": 0.23740794363386952,
+                "mean_r_ci_lower": 0.07014403167808372,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 190.0% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr31_lb3_r35_rf1_af1",
+                "is_survivor": false,
+                "in_sample_n": 167,
+                "oos_n": 22,
+                "in_sample_mean_r": 0.2248378917692028,
+                "oos_mean_r": 0.554585857818622,
+                "oos_r_delta_pct": 146.6603175535497,
+                "in_sample_sharpe": 0.1406507953917092,
+                "mean_r_ci_lower": -0.026987948741210004,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "mean_r_ci_lower -0.0270 ≤ 0",
+                  "|oos_r_delta| 146.7% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr24_lb9_r49_rf0_af1",
+                "is_survivor": false,
+                "in_sample_n": 178,
+                "oos_n": 24,
+                "in_sample_mean_r": 0.3013813358902741,
+                "oos_mean_r": 0.525396664332661,
+                "oos_r_delta_pct": 74.32952932558027,
+                "in_sample_sharpe": 0.20711957195040664,
+                "mean_r_ci_lower": 0.0814383731306321,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 74.3% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr45_lb8_r48_rf0_af0",
+                "is_survivor": false,
+                "in_sample_n": 118,
+                "oos_n": 28,
+                "in_sample_mean_r": 0.7482948003145838,
+                "oos_mean_r": -0.2563195755775999,
+                "oos_r_delta_pct": -134.25382288769651,
+                "in_sample_sharpe": 0.3004761371759296,
+                "mean_r_ci_lower": 0.22677586282400763,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 134.3% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr31_lb12_r46_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 118,
+                "oos_n": 13,
+                "in_sample_mean_r": 0.5629848839253806,
+                "oos_mean_r": 1.0490679362822526,
+                "oos_r_delta_pct": 86.34033812199097,
+                "in_sample_sharpe": 0.3142067835015143,
+                "mean_r_ci_lower": 0.2240276577659563,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 86.3% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr48_lb12_r30_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 113,
+                "oos_n": 1,
+                "in_sample_mean_r": 0.3931474926253687,
+                "oos_mean_r": 4.2203333333333335,
+                "oos_r_delta_pct": 973.473292466067,
+                "in_sample_sharpe": 0.18792482541467737,
+                "mean_r_ci_lower": 0.053563790560471974,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "oos_n 1 < 10",
+                  "|oos_r_delta| 973.5% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr28_lb12_r95_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 131,
+                "oos_n": 21,
+                "in_sample_mean_r": 0.46559816204062493,
+                "oos_mean_r": 1.067335326900104,
+                "oos_r_delta_pct": 129.23959197394245,
+                "in_sample_sharpe": 0.24890302323643657,
+                "mean_r_ci_lower": 0.15542409732281545,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 129.2% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr27_lb12_r30_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 151,
+                "oos_n": 1,
+                "in_sample_mean_r": 0.30215894039735103,
+                "oos_mean_r": 2.384666666666667,
+                "oos_r_delta_pct": 689.2093689270737,
+                "in_sample_sharpe": 0.20314681522810957,
+                "mean_r_ci_lower": 0.07785275938189859,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "oos_n 1 < 10",
+                  "|oos_r_delta| 689.2% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr25_lb12_r46_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 142,
+                "oos_n": 12,
+                "in_sample_mean_r": 0.40236954237572026,
+                "oos_mean_r": 1.2098374324157393,
+                "oos_r_delta_pct": 200.67818385866553,
+                "in_sample_sharpe": 0.2707291317305874,
+                "mean_r_ci_lower": 0.11253582538269766,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 200.7% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr36_lb12_r47_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 115,
+                "oos_n": 11,
+                "in_sample_mean_r": 0.4579790530139693,
+                "oos_mean_r": 0.7251352530745293,
+                "oos_r_delta_pct": 58.333715986004094,
+                "in_sample_sharpe": 0.23928532977270026,
+                "mean_r_ci_lower": 0.11819458999048883,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 58.3% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr23_lb9_r46_rf1_af1",
+                "is_survivor": false,
+                "in_sample_n": 137,
+                "oos_n": 12,
+                "in_sample_mean_r": 0.251302905454749,
+                "oos_mean_r": 0.3327444204345811,
+                "oos_r_delta_pct": 32.40770926721216,
+                "in_sample_sharpe": 0.1855654560573343,
+                "mean_r_ci_lower": -0.004338659860451297,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "mean_r_ci_lower -0.0043 ≤ 0"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr24_lb12_r45_rf0_af0",
+                "is_survivor": false,
+                "in_sample_n": 185,
+                "oos_n": 28,
+                "in_sample_mean_r": 0.37819772751506725,
+                "oos_mean_r": 0.21809615311765515,
+                "oos_r_delta_pct": -42.33277006960168,
+                "in_sample_sharpe": 0.25686183613317004,
+                "mean_r_ci_lower": 0.12488746801709304,
+                "per_candidate_passes": true,
+                "per_candidate_blockers": []
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr30_lb12_r45_rf1_af0",
+                "is_survivor": true,
+                "in_sample_n": 119,
+                "oos_n": 10,
+                "in_sample_mean_r": 0.5508016344767988,
+                "oos_mean_r": 1.6336832355285544,
+                "oos_r_delta_pct": 196.60101446147206,
+                "in_sample_sharpe": 0.3131609092177856,
+                "mean_r_ci_lower": 0.23614060620322105,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 196.6% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr41_lb12_r44_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 123,
+                "oos_n": 11,
+                "in_sample_mean_r": 0.38852564650693383,
+                "oos_mean_r": 0.9425558473356473,
+                "oos_r_delta_pct": 142.59810280473363,
+                "in_sample_sharpe": 0.19195925191116447,
+                "mean_r_ci_lower": 0.0604423038176958,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 142.6% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr29_lb12_r44_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 124,
+                "oos_n": 11,
+                "in_sample_mean_r": 0.5481382765563143,
+                "oos_mean_r": 1.3493426469847962,
+                "oos_r_delta_pct": 146.16829451540195,
+                "in_sample_sharpe": 0.3188079199927682,
+                "mean_r_ci_lower": 0.24072888516292745,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 146.2% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr29_lb12_r45_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 119,
+                "oos_n": 10,
+                "in_sample_mean_r": 0.5191583387347393,
+                "oos_mean_r": 1.5969233310908726,
+                "oos_r_delta_pct": 207.59851319788024,
+                "in_sample_sharpe": 0.30251389578411275,
+                "mean_r_ci_lower": 0.21565227817391858,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 207.6% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr30_lb12_r44_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 122,
+                "oos_n": 10,
+                "in_sample_mean_r": 0.5454993976016326,
+                "oos_mean_r": 1.6669008337681128,
+                "oos_r_delta_pct": 205.57335921852248,
+                "in_sample_sharpe": 0.30861324473839163,
+                "mean_r_ci_lower": 0.23964323046771538,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 205.6% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr17_lb11_r61_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 204,
+                "oos_n": 17,
+                "in_sample_mean_r": 0.17902974842540245,
+                "oos_mean_r": 0.5001057793484947,
+                "oos_r_delta_pct": 179.34227900503203,
+                "in_sample_sharpe": 0.1523695384284445,
+                "mean_r_ci_lower": 0.029521164386681793,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 179.3% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr29_lb9_r120_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 131,
+                "oos_n": 21,
+                "in_sample_mean_r": 0.6184497455470738,
+                "oos_mean_r": 0.6934920634920636,
+                "oos_r_delta_pct": 12.133939497154815,
+                "in_sample_sharpe": 0.2784417050043497,
+                "mean_r_ci_lower": 0.1828129134860052,
+                "per_candidate_passes": true,
+                "per_candidate_blockers": []
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr29_lb11_r79_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 127,
+                "oos_n": 22,
+                "in_sample_mean_r": 0.5305211281738066,
+                "oos_mean_r": 0.8007913291665999,
+                "oos_r_delta_pct": 50.94428603119625,
+                "in_sample_sharpe": 0.26938020964688325,
+                "mean_r_ci_lower": 0.21442733156359267,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 50.9% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr23_lb11_r80_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 139,
+                "oos_n": 23,
+                "in_sample_mean_r": 0.5016907773130762,
+                "oos_mean_r": 0.823338596020105,
+                "oos_r_delta_pct": 64.11276293131993,
+                "in_sample_sharpe": 0.30543380562962247,
+                "mean_r_ci_lower": 0.17023017125075074,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 64.1% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr17_lb4_r83_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 275,
+                "oos_n": 45,
+                "in_sample_mean_r": 0.16971499769165924,
+                "oos_mean_r": 0.4402839227971722,
+                "oos_r_delta_pct": 159.42546550723037,
+                "in_sample_sharpe": 0.14020411663618215,
+                "mean_r_ci_lower": 0.013793609578462302,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 159.4% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr30_lb9_r30_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 153,
+                "oos_n": 3,
+                "in_sample_mean_r": 0.4961873638344225,
+                "oos_mean_r": 1.6850000000000003,
+                "oos_r_delta_pct": 239.58946212952813,
+                "in_sample_sharpe": 0.29717508494449907,
+                "mean_r_ci_lower": 0.2240366557734206,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "oos_n 3 < 10",
+                  "|oos_r_delta| 239.6% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr25_lb6_r74_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 170,
+                "oos_n": 32,
+                "in_sample_mean_r": 0.3016413583326777,
+                "oos_mean_r": 0.8262060260750553,
+                "oos_r_delta_pct": 173.9034297690172,
+                "in_sample_sharpe": 0.1947671362760023,
+                "mean_r_ci_lower": 0.025713417146881638,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 173.9% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr21_lb11_r83_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 137,
+                "oos_n": 22,
+                "in_sample_mean_r": 0.415895259791253,
+                "oos_mean_r": 0.8772754736200671,
+                "oos_r_delta_pct": 110.93663680138863,
+                "in_sample_sharpe": 0.26814075753957123,
+                "mean_r_ci_lower": 0.12261653837921246,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 110.9% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr30_lb12_r30_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 149,
+                "oos_n": 1,
+                "in_sample_mean_r": 0.3360313199105145,
+                "oos_mean_r": 2.6430000000000002,
+                "oos_r_delta_pct": 686.5338268777547,
+                "in_sample_sharpe": 0.21151914843320319,
+                "mean_r_ci_lower": 0.10853400447427296,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "oos_n 1 < 10",
+                  "|oos_r_delta| 686.5% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr38_lb9_r30_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 131,
+                "oos_n": 3,
+                "in_sample_mean_r": 0.5128816772686634,
+                "oos_mean_r": 2.2300572312170526,
+                "oos_r_delta_pct": 334.80930008908837,
+                "in_sample_sharpe": 0.2613937814396432,
+                "mean_r_ci_lower": 0.22520004536388644,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "oos_n 3 < 10",
+                  "|oos_r_delta| 334.8% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr28_lb9_r30_rf0_af0",
+                "is_survivor": false,
+                "in_sample_n": 217,
+                "oos_n": 16,
+                "in_sample_mean_r": 0.4480706605222731,
+                "oos_mean_r": 0.13589583333333333,
+                "oos_r_delta_pct": -69.67089227066718,
+                "in_sample_sharpe": 0.276565255275179,
+                "mean_r_ci_lower": 0.2065013824884793,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 69.7% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr29_lb9_r39_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 133,
+                "oos_n": 13,
+                "in_sample_mean_r": 0.4981023062012248,
+                "oos_mean_r": 0.5927725370908319,
+                "oos_r_delta_pct": 19.006182005381426,
+                "in_sample_sharpe": 0.3026964783974628,
+                "mean_r_ci_lower": 0.1838436053927121,
+                "per_candidate_passes": true,
+                "per_candidate_blockers": []
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr29_lb11_r44_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 125,
+                "oos_n": 12,
+                "in_sample_mean_r": 0.5119701030912862,
+                "oos_mean_r": 1.0792775663967682,
+                "oos_r_delta_pct": 110.808709313311,
+                "in_sample_sharpe": 0.29687460534258947,
+                "mean_r_ci_lower": 0.22222558893124383,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 110.8% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr31_lb7_r30_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 158,
+                "oos_n": 4,
+                "in_sample_mean_r": 0.3858888434215326,
+                "oos_mean_r": 1.0692425105558208,
+                "oos_r_delta_pct": 177.08562421117068,
+                "in_sample_sharpe": 0.23708720157143054,
+                "mean_r_ci_lower": 0.10581158248929727,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "oos_n 4 < 10",
+                  "|oos_r_delta| 177.1% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr24_lb12_r80_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 147,
+                "oos_n": 23,
+                "in_sample_mean_r": 0.41347152230610185,
+                "oos_mean_r": 0.7553212997695632,
+                "oos_r_delta_pct": 82.6779497549973,
+                "in_sample_sharpe": 0.25504586110555766,
+                "mean_r_ci_lower": 0.09540716426267265,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "|oos_r_delta| 82.7% > 50%"
+                ]
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr24_lb10_r80_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 144,
+                "oos_n": 27,
+                "in_sample_mean_r": 0.3932388449045831,
+                "oos_mean_r": 0.46685635850209684,
+                "oos_r_delta_pct": 18.72081422052202,
+                "in_sample_sharpe": 0.24414741244549856,
+                "mean_r_ci_lower": 0.08987998386888928,
+                "per_candidate_passes": true,
+                "per_candidate_blockers": []
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr30_lb10_r35_rf1_af0",
+                "is_survivor": false,
+                "in_sample_n": 130,
+                "oos_n": 4,
+                "in_sample_mean_r": 0.4160591616127986,
+                "oos_mean_r": 0.8240633057869652,
+                "oos_r_delta_pct": 98.06397306397297,
+                "in_sample_sharpe": 0.25374497381836203,
+                "mean_r_ci_lower": 0.18835618570108703,
+                "per_candidate_passes": false,
+                "per_candidate_blockers": [
+                  "oos_n 4 < 10",
+                  "|oos_r_delta| 98.1% > 50%"
+                ]
+              }
+            ]
+          }
+        ],
+        "generated_at": "2026-06-25T09:21:25.223Z"
+      }
+    },
+    {
+      "label": "F2.2 leave-n-out",
+      "path": "scripts/canonical/e2-results/arb-top/f2.2-leave-n-out.json",
+      "present": true,
+      "verdict": "FAIL",
+      "excerpt": {
+        "sub_gate": "F2.2 leave-n-out",
+        "verdict": "FAIL",
+        "pass_count": 0,
+        "gate_threshold": 3,
+        "survivor_cell": {
+          "ticker": "XAU/USD",
+          "timeframe": "4h",
+          "direction": "Long",
+          "pattern": "AsianRangeBreak"
+        },
+        "non_survivor_total": 16,
+        "non_survivor_passers": [],
+        "per_pattern": "<array length 17>",
+        "generated_at": "2026-06-24T19:12:08.551Z"
+      }
+    },
+    {
+      "label": "F2.3 bootstrap-bars",
+      "path": "scripts/canonical/e2-results/bo-arb-top/f2.3-bootstrap-bars-cluster.json",
+      "present": true,
+      "verdict": "FAIL",
+      "excerpt": {
+        "sub_gate": "F2.3 bootstrap-bars",
+        "verdict": "FAIL",
+        "in_top_k_count": 0,
+        "gate_threshold": 6,
+        "top_k": 3,
+        "n_resamples": 10,
+        "block_size": 24,
+        "base_seed": 42,
+        "point_stability": {
+          "verdict": "FAIL",
+          "in_top_k_count": 0,
+          "gate_threshold": 6
+        },
+        "cluster_stability": {
+          "verdict": "FAIL",
+          "in_top_k_count": 0,
+          "gate_threshold": 6,
+          "min_intersect": 1,
+          "original_top_k": [
+            "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr30_lb12_r45_rf1_af0",
+            "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr30_lb12_r44_rf1_af0",
+            "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr29_lb12_r44_rf1_af0"
+          ]
+        },
+        "composition_rule": "F2.3 PASS iff point-stability OR cluster-stability passes",
+        "pre_registration": {
+          "block_size_default": 24,
+          "base_seed_default": 42,
+          "n_resamples_default": 10,
+          "top_k_default": 3,
+          "gate_threshold_default": 6,
+          "min_intersect_default": 1,
+          "overrides_present": false
+        },
+        "family_pattern": "BO+: XAU/USD AsianRangeBreak-Long 4h | %",
+        "survivor_tag": "bo_rr30_lb12_r45_rf1_af0",
+        "ticker": "XAU/USD",
+        "timeframe": "4h",
+        "per_seed_results": "<array length 10>",
+        "generated_at": "2026-06-29T12:05:31.241Z"
+      }
+    },
+    {
+      "label": "F2.4 alt-objective",
+      "path": "scripts/canonical/e2-results/bo-arb-top/f2.4-alt-objective.json",
+      "present": true,
+      "verdict": "PASS",
+      "excerpt": {
+        "sub_gate": "F2.4 alt-objective",
+        "verdict": "PASS",
+        "pass_count": 3,
+        "gate_threshold": 2,
+        "top_k": 3,
+        "family_pattern": "BO+: XAU/USD AsianRangeBreak-Long 4h | %",
+        "survivor_tag": "bo_rr30_lb12_r45_rf1_af0",
+        "survivor_score": {
+          "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr30_lb12_r45_rf1_af0",
+          "is_survivor": true,
+          "total_r": 81.88222685802461,
+          "trade_count": 129,
+          "calmar": 12.23908805550967,
+          "trimmed_mean_r": 0.5223608628904802,
+          "recovery_factor": 0.3809198652852405
+        },
+        "ranks_by_objective": {
+          "calmar": {
+            "survivor_rank": 1,
+            "passes": true,
+            "top_3": [
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr30_lb12_r45_rf1_af0",
+                "rank": 1,
+                "score": 12.23908805550967
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr30_lb12_r44_rf1_af0",
+                "rank": 2,
+                "score": 12.088385924335038
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr29_lb12_r44_rf1_af0",
+                "rank": 3,
+                "score": 12.080290764909961
+              }
+            ]
+          },
+          "trimmed_mean_r": {
+            "survivor_rank": 1,
+            "passes": true,
+            "top_3": [
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr30_lb12_r45_rf1_af0",
+                "rank": 1,
+                "score": 0.5223608628904802
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr30_lb12_r44_rf1_af0",
+                "rank": 2,
+                "score": 0.5057578261113319
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr29_lb12_r44_rf1_af0",
+                "rank": 3,
+                "score": 0.4993880909167241
+              }
+            ]
+          },
+          "recovery_factor": {
+            "survivor_rank": 1,
+            "passes": true,
+            "top_3": [
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr30_lb12_r45_rf1_af0",
+                "rank": 1,
+                "score": 0.3809198652852405
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr30_lb12_r44_rf1_af0",
+                "rank": 2,
+                "score": 0.37147844063432245
+              },
+              {
+                "name": "BO+: XAU/USD AsianRangeBreak-Long 4h | bo_rr29_lb12_r44_rf1_af0",
+                "rank": 3,
+                "score": 0.37039100711990347
+              }
+            ]
+          }
+        },
+        "full_scores": "<array length 40>",
+        "generated_at": "2026-06-25T09:08:44.805Z"
+      }
+    }
+  ],
+  "informational": {
+    "wf_vs_kfold": {
+      "label": "F.6a wf-vs-kfold (info)",
+      "path": "scripts/canonical/wf-vs-kfold-equivalence-results.json",
+      "present": true,
+      "verdict": "PASS",
+      "excerpt": {
+        "sub_gate": "F.6a wf-vs-kfold",
+        "verdict": "PASS",
+        "sign_agreement_rate": 1,
+        "sign_agreement_gate": 0.8,
+        "sign_gate_passed": true,
+        "max_abs_delta_r": 0.13497359859859837,
+        "max_delta_gate": 0.3,
+        "delta_gate_passed": true,
+        "aggregate_delta": 0.006150506825506885,
+        "kfold_aggregate_mean_r": 0.5386974160974161,
+        "wf_aggregate_mean_r": 0.544847922922923,
+        "kfold_consistency_count": 5,
+        "wf_consistency_count": 5,
+        "k_folds": 5,
+        "embargo_fraction": 0.01,
+        "target_name": "LayerB: XAU/USD Engulfing-Long 4h | rr3_lb6_r06_rf0_af0",
+        "trade_count": 181,
+        "risk_dollars": 60,
+        "per_fold_comparison": [
+          {
+            "fold_index": 0,
+            "kfold_test_mean_r": 0.4450238095238096,
+            "kfold_test_n": 28,
+            "wf_test_mean_r": 0.47964351851851855,
+            "wf_test_n": 36,
+            "delta_r": 0.03461970899470895,
+            "sign_agrees": true
+          },
+          {
+            "fold_index": 1,
+            "kfold_test_mean_r": 0.3818385416666667,
+            "kfold_test_n": 32,
+            "wf_test_mean_r": 0.4628148148148148,
+            "wf_test_n": 36,
+            "delta_r": 0.08097627314814809,
+            "sign_agrees": true
+          },
+          {
+            "fold_index": 2,
+            "kfold_test_mean_r": 0.36841145833333333,
+            "kfold_test_n": 32,
+            "wf_test_mean_r": 0.4599305555555557,
+            "wf_test_n": 36,
+            "delta_r": 0.09151909722222235,
+            "sign_agrees": true
+          },
+          {
+            "fold_index": 3,
+            "kfold_test_mean_r": 1.0604504504504502,
+            "kfold_test_n": 37,
+            "wf_test_mean_r": 0.9254768518518518,
+            "wf_test_n": 36,
+            "delta_r": -0.13497359859859837,
+            "sign_agrees": true
+          },
+          {
+            "fold_index": 4,
+            "kfold_test_mean_r": 0.4377628205128205,
+            "kfold_test_n": 52,
+            "wf_test_mean_r": 0.3963738738738738,
+            "wf_test_n": 37,
+            "delta_r": -0.04138894663894671,
+            "sign_agrees": true
+          }
+        ],
+        "notes": [
+          "purgedKFoldEvaluate splits TIME AXIS into k equal-duration folds; chronologicalWalkForward splits TRADE COUNT into k equal bins.",
+          "Per-fold index comparison is approximate when trades clump temporally — use aggregate delta for primary signal.",
+          "Sign agreement = both folds positive or both folds negative (zero counts as agreement to avoid false-fail on empty folds)."
+        ],
+        "generated_at": "2026-06-24T10:46:45.466Z"
+      }
+    }
+  },
+  "next_action": "Operator decides: archive candidate (status='archived') then H.4a label re-engineering; OR keep-as-draft + re-run search after H.4a",
+  "generated_at": "2026-06-29T13:42:28.754Z"
+}

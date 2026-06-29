@@ -1,0 +1,367 @@
+{
+  "sub_gate": "F2.3 bootstrap-bars",
+  "verdict": "PASS",
+  "in_top_k_count": 0,
+  "gate_threshold": 6,
+  "top_k": 3,
+  "n_resamples": 10,
+  "block_size": 24,
+  "base_seed": 42,
+  "point_stability": {
+    "verdict": "FAIL",
+    "in_top_k_count": 0,
+    "gate_threshold": 6
+  },
+  "cluster_stability": {
+    "verdict": "PASS",
+    "in_top_k_count": 10,
+    "gate_threshold": 6,
+    "min_intersect": 1,
+    "original_top_k": [
+      "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr5_lb6_r06_rf0_af1",
+      "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr5_lb6_r1_rf0_af1",
+      "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr5_lb6_r06_rf1_af1"
+    ]
+  },
+  "composition_rule": "F2.3 PASS iff point-stability OR cluster-stability passes",
+  "pre_registration": {
+    "block_size_default": 24,
+    "base_seed_default": 42,
+    "n_resamples_default": 10,
+    "top_k_default": 3,
+    "gate_threshold_default": 6,
+    "min_intersect_default": 1,
+    "overrides_present": false
+  },
+  "family_pattern": "LayerB: XAU/USD AsianRangeBreak-Long 4h | %",
+  "survivor_tag": "rr5_lb6_r1_rf0_af1",
+  "ticker": "XAU/USD",
+  "timeframe": "4h",
+  "per_seed_results": [
+    {
+      "seed": 42,
+      "survivor_rank": 13,
+      "survivor_sharpe": 0.2673728753452805,
+      "survivor_trade_count": 303,
+      "survivor_in_top_k": false,
+      "top_k_variants": [
+        {
+          "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr5_lb6_r06_rf1_af1",
+          "rank": 1,
+          "sharpe": 0.3289086701583948,
+          "trade_count": 228
+        },
+        {
+          "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr5_lb4_r06_rf1_af1",
+          "rank": 2,
+          "sharpe": 0.31903091317860305,
+          "trade_count": 234
+        },
+        {
+          "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr5_lb6_r06_rf0_af1",
+          "rank": 3,
+          "sharpe": 0.3150050001705392,
+          "trade_count": 298
+        }
+      ],
+      "variant_count": 96,
+      "cluster_intersection": [
+        "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr5_lb6_r06_rf0_af1",
+        "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr5_lb6_r06_rf1_af1"
+      ],
+      "cluster_in_top_k": true
+    },
+    {
+      "seed": 43,
+      "survivor_rank": 16,
+      "survivor_sharpe": 0.2784034846287795,
+      "survivor_trade_count": 277,
+      "survivor_in_top_k": false,
+      "top_k_variants": [
+        {
+          "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr5_lb6_r06_rf1_af1",
+          "rank": 1,
+          "sharpe": 0.35927175834970143,
+          "trade_count": 244
+        },
+        {
+          "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr5_lb4_r06_rf1_af1",
+          "rank": 2,
+          "sharpe": 0.3389564111985605,
+          "trade_count": 258
+        },
+        {
+          "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr5_lb3_r06_rf1_af1",
+          "rank": 3,
+          "sharpe": 0.33459038671859465,
+          "trade_count": 261
+        }
+      ],
+      "variant_count": 96,
+      "cluster_intersection": [
+        "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr5_lb6_r06_rf1_af1"
+      ],
+      "cluster_in_top_k": true
+    },
+    {
+      "seed": 44,
+      "survivor_rank": 17,
+      "survivor_sharpe": 0.22788464650387696,
+      "survivor_trade_count": 350,
+      "survivor_in_top_k": false,
+      "top_k_variants": [
+        {
+          "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr5_lb6_r06_rf1_af1",
+          "rank": 1,
+          "sharpe": 0.2841469154877847,
+          "trade_count": 275
+        },
+        {
+          "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr5_lb6_r06_rf1_af0",
+          "rank": 2,
+          "sharpe": 0.27654504021009546,
+          "trade_count": 433
+        },
+        {
+          "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr5_lb6_r06_rf0_af0",
+          "rank": 3,
+          "sharpe": 0.2673143203629513,
+          "trade_count": 597
+        }
+      ],
+      "variant_count": 96,
+      "cluster_intersection": [
+        "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr5_lb6_r06_rf1_af1"
+      ],
+      "cluster_in_top_k": true
+    },
+    {
+      "seed": 45,
+      "survivor_rank": 20,
+      "survivor_sharpe": 0.2523860512094377,
+      "survivor_trade_count": 285,
+      "survivor_in_top_k": false,
+      "top_k_variants": [
+        {
+          "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr5_lb6_r06_rf1_af1",
+          "rank": 1,
+          "sharpe": 0.32312706817608255,
+          "trade_count": 237
+        },
+        {
+          "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr5_lb6_r06_rf0_af0",
+          "rank": 2,
+          "sharpe": 0.31946996494519353,
+          "trade_count": 413
+        },
+        {
+          "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr5_lb4_r06_rf1_af1",
+          "rank": 3,
+          "sharpe": 0.3132359718171531,
+          "trade_count": 239
+        }
+      ],
+      "variant_count": 96,
+      "cluster_intersection": [
+        "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr5_lb6_r06_rf1_af1"
+      ],
+      "cluster_in_top_k": true
+    },
+    {
+      "seed": 46,
+      "survivor_rank": 16,
+      "survivor_sharpe": 0.28593830718067187,
+      "survivor_trade_count": 318,
+      "survivor_in_top_k": false,
+      "top_k_variants": [
+        {
+          "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr5_lb6_r06_rf1_af1",
+          "rank": 1,
+          "sharpe": 0.37513827756366835,
+          "trade_count": 241
+        },
+        {
+          "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr5_lb6_r06_rf0_af1",
+          "rank": 2,
+          "sharpe": 0.36044188461307036,
+          "trade_count": 312
+        },
+        {
+          "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr5_lb4_r06_rf1_af1",
+          "rank": 3,
+          "sharpe": 0.35490942413162924,
+          "trade_count": 253
+        }
+      ],
+      "variant_count": 96,
+      "cluster_intersection": [
+        "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr5_lb6_r06_rf0_af1",
+        "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr5_lb6_r06_rf1_af1"
+      ],
+      "cluster_in_top_k": true
+    },
+    {
+      "seed": 47,
+      "survivor_rank": 10,
+      "survivor_sharpe": 0.2921605271170284,
+      "survivor_trade_count": 233,
+      "survivor_in_top_k": false,
+      "top_k_variants": [
+        {
+          "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr5_lb6_r06_rf1_af1",
+          "rank": 1,
+          "sharpe": 0.3513366563134352,
+          "trade_count": 274
+        },
+        {
+          "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr5_lb4_r06_rf1_af1",
+          "rank": 2,
+          "sharpe": 0.3420164028455624,
+          "trade_count": 291
+        },
+        {
+          "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr5_lb6_r06_rf0_af1",
+          "rank": 3,
+          "sharpe": 0.3282369158183611,
+          "trade_count": 304
+        }
+      ],
+      "variant_count": 96,
+      "cluster_intersection": [
+        "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr5_lb6_r06_rf0_af1",
+        "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr5_lb6_r06_rf1_af1"
+      ],
+      "cluster_in_top_k": true
+    },
+    {
+      "seed": 48,
+      "survivor_rank": 15,
+      "survivor_sharpe": 0.26795892905169383,
+      "survivor_trade_count": 295,
+      "survivor_in_top_k": false,
+      "top_k_variants": [
+        {
+          "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr5_lb6_r06_rf1_af1",
+          "rank": 1,
+          "sharpe": 0.3551303555372523,
+          "trade_count": 249
+        },
+        {
+          "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr5_lb4_r06_rf1_af1",
+          "rank": 2,
+          "sharpe": 0.33473148195192576,
+          "trade_count": 260
+        },
+        {
+          "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr5_lb6_r06_rf0_af1",
+          "rank": 3,
+          "sharpe": 0.3300547893726866,
+          "trade_count": 290
+        }
+      ],
+      "variant_count": 96,
+      "cluster_intersection": [
+        "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr5_lb6_r06_rf0_af1",
+        "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr5_lb6_r06_rf1_af1"
+      ],
+      "cluster_in_top_k": true
+    },
+    {
+      "seed": 49,
+      "survivor_rank": 18,
+      "survivor_sharpe": 0.2625073732545472,
+      "survivor_trade_count": 328,
+      "survivor_in_top_k": false,
+      "top_k_variants": [
+        {
+          "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr5_lb6_r06_rf0_af1",
+          "rank": 1,
+          "sharpe": 0.32416022464283245,
+          "trade_count": 306
+        },
+        {
+          "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr5_lb6_r06_rf1_af0",
+          "rank": 2,
+          "sharpe": 0.31631813585057933,
+          "trade_count": 432
+        },
+        {
+          "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr5_lb4_r06_rf1_af0",
+          "rank": 3,
+          "sharpe": 0.31171087351191235,
+          "trade_count": 448
+        }
+      ],
+      "variant_count": 96,
+      "cluster_intersection": [
+        "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr5_lb6_r06_rf0_af1"
+      ],
+      "cluster_in_top_k": true
+    },
+    {
+      "seed": 50,
+      "survivor_rank": 13,
+      "survivor_sharpe": 0.27682237647295166,
+      "survivor_trade_count": 304,
+      "survivor_in_top_k": false,
+      "top_k_variants": [
+        {
+          "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr5_lb6_r1_rf0_af0",
+          "rank": 1,
+          "sharpe": 0.2999635661314265,
+          "trade_count": 332
+        },
+        {
+          "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr5_lb6_r06_rf1_af1",
+          "rank": 2,
+          "sharpe": 0.2984638708948664,
+          "trade_count": 277
+        },
+        {
+          "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr5_lb4_r06_rf1_af1",
+          "rank": 3,
+          "sharpe": 0.29696446733196036,
+          "trade_count": 288
+        }
+      ],
+      "variant_count": 96,
+      "cluster_intersection": [
+        "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr5_lb6_r06_rf1_af1"
+      ],
+      "cluster_in_top_k": true
+    },
+    {
+      "seed": 51,
+      "survivor_rank": 14,
+      "survivor_sharpe": 0.264075761240861,
+      "survivor_trade_count": 293,
+      "survivor_in_top_k": false,
+      "top_k_variants": [
+        {
+          "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr5_lb3_r06_rf1_af1",
+          "rank": 1,
+          "sharpe": 0.3228352904691914,
+          "trade_count": 236
+        },
+        {
+          "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr5_lb4_r06_rf1_af1",
+          "rank": 2,
+          "sharpe": 0.3190388089971092,
+          "trade_count": 230
+        },
+        {
+          "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr5_lb6_r06_rf1_af1",
+          "rank": 3,
+          "sharpe": 0.31901802374640215,
+          "trade_count": 219
+        }
+      ],
+      "variant_count": 96,
+      "cluster_intersection": [
+        "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr5_lb6_r06_rf1_af1"
+      ],
+      "cluster_in_top_k": true
+    }
+  ],
+  "generated_at": "2026-06-29T13:40:52.008Z"
+}
