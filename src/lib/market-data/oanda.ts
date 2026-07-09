@@ -87,7 +87,13 @@ interface OandaCandlesResponse {
  */
 function oandaToBar(c: OandaCandle): PriceBar {
   return {
-    date: c.time,  // OANDA's native ISO 8601 + Z + ns precision
+    // DQ.2 (2026-07-09): canonicalise at the source. OANDA's native time
+    // carries nanosecond precision ("…T21:00:00.000000000Z"); emitting it
+    // raw relied on price-cache normalisation that (pre-fix) passed any
+    // T…Z string through untouched — cached rows accumulated one bar per
+    // provider format per instant. Fixed-width toISOString matches the
+    // cache-boundary canonical format exactly.
+    date: new Date(c.time).toISOString(),
     open: parseFloat(c.mid.o),
     high: parseFloat(c.mid.h),
     low: parseFloat(c.mid.l),

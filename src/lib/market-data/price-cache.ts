@@ -1,11 +1,12 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { toJson } from "@/lib/supabase/row-mappers";
-import type { BarInterval } from "./interval";
+import { intervalMinutes, type BarInterval } from "./interval";
 import type { PriceBar } from "./types";
 
-/** DQ.1 fix (2026-06-19 EVE): canonical bar.date format is ISO 8601
- *  with Z suffix: `YYYY-MM-DDTHH:MM:SS[.sss]Z`. Providers emit a mix of:
- *   - OANDA (after legacy normalize): `YYYY-MM-DD HH:MM:SS` (space, no TZ)
+/** DQ.1 fix (2026-06-19 EVE) + DQ.2 fix (2026-07-09): canonical bar.date
+ *  format is fixed-width ISO 8601 UTC — exactly `Date.prototype.toISOString`
+ *  output (`YYYY-MM-DDTHH:MM:SS.sssZ`). Providers emit a mix of:
+ *   - OANDA: `YYYY-MM-DDTHH:MM:SS.000000000Z` (nanosecond ISO + Z)
  *   - Twelve Data: `YYYY-MM-DD HH:MM:SS` (space, UTC implied)
  *   - Yahoo daily: `YYYY-MM-DD` (date-only)
  *   - Yahoo intraday: full ISO + Z
@@ -13,31 +14,58 @@ import type { PriceBar } from "./types";
  *
  *  Space-separated dates parse as LOCAL TIME in V8, causing cross-format
  *  subtraction to drift by the host UTC offset (caught by the
- *  `hasReEntryCooldownActive` throw 2026-06-19 EVE). Normalising at the
- *  cache boundary (write + read for legacy rows) means every downstream
- *  consumer sees one canonical format and Date arithmetic is well-defined. */
+ *  `hasReEntryCooldownActive` throw 2026-06-19 EVE).
+ *
+ *  DQ.2: the DQ.1 version passed ANY `T…Z` string through untouched, so
+ *  OANDA's nanosecond format and Twelve Data's normalised `…T21:00:00Z`
+ *  never collided in savePricesToCache's dedupe Map — the row accumulated
+ *  one bar per provider format per instant (2026-07-09 forensics: XAU/USD
+ *  4h full row held 11,169 bars across only 8,838 distinct instants, with
+ *  62 duplicates inside the live 200-bar evaluation window; the 1d row was
+ *  ~2.9× its true bar count). Every recognised format is now funnelled
+ *  through parse → re-emit so one instant maps to exactly one string. */
 export function normalizeBarDate(dateStr: string): string {
-  // Already ISO with Z or explicit offset → leave alone.
-  if (dateStr.includes("T") && (dateStr.endsWith("Z") || /[+-]\d{2}:?\d{2}$/.test(dateStr))) {
-    return dateStr;
+  let iso = dateStr;
+  if (!iso.includes("T")) {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) {
+      // Date-only (YYYY-MM-DD) — daily bars from Yahoo / Alpha Vantage.
+      iso = iso + "T00:00:00Z";
+    } else if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}/.test(iso)) {
+      // Space-separated → ISO + Z (Twelve Data, OANDA legacy). All providers
+      // that emit this format treat it as UTC (verified per source).
+      iso = iso.replace(" ", "T") + "Z";
+    } else {
+      // Unrecognised — return as-is. Downstream Date parsing will surface
+      // the issue rather than silently producing wrong arithmetic.
+      return dateStr;
+    }
+  } else if (!(iso.endsWith("Z") || /[+-]\d{2}:?\d{2}$/.test(iso))) {
+    // ISO but missing TZ marker → append Z (assume UTC, documented contract).
+    iso = iso + "Z";
   }
-  // ISO but missing TZ marker → append Z (assume UTC, the documented contract).
-  if (dateStr.includes("T")) {
-    return dateStr + "Z";
+  // Canonicalise: truncate sub-millisecond fractions (spec-shaped input for
+  // Date.parse), then re-emit fixed-width. Explicit-offset inputs collapse
+  // to their UTC instant, which also makes lexicographic sort == time sort.
+  const ms = Date.parse(iso.replace(/\.(\d{3})\d+(?=Z|[+-])/, ".$1"));
+  if (!Number.isFinite(ms)) return dateStr;
+  return new Date(ms).toISOString();
+}
+
+/** DQ.3 (2026-07-09): median spacing between consecutive bars, in minutes.
+ *  Median (not mean) is robust to weekend/session gaps: a legitimate 4h
+ *  series medians 240min even across weekend gaps; hourly pollution
+ *  medians 60min. Null when fewer than 3 bars (nothing to measure). */
+export function medianSpacingMinutes(bars: PriceBar[]): number | null {
+  if (bars.length < 3) return null;
+  const gaps: number[] = [];
+  for (let i = 1; i < bars.length; i++) {
+    const a = Date.parse(bars[i - 1].date);
+    const b = Date.parse(bars[i].date);
+    if (Number.isFinite(a) && Number.isFinite(b) && b > a) gaps.push((b - a) / 60_000);
   }
-  // Date-only (YYYY-MM-DD) — daily bars from Yahoo / Alpha Vantage. Pad to
-  // midnight UTC for consistency with intraday bars.
-  if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
-    return dateStr + "T00:00:00.000Z";
-  }
-  // Space-separated YYYY-MM-DD HH:MM:SS → ISO + Z (OANDA legacy, Twelve Data).
-  // All providers that emit this format treat it as UTC (verified per source).
-  if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}/.test(dateStr)) {
-    return dateStr.replace(" ", "T") + "Z";
-  }
-  // Unrecognised — return as-is. Downstream Date parsing will surface the
-  // issue rather than silently producing wrong arithmetic.
-  return dateStr;
+  if (gaps.length === 0) return null;
+  gaps.sort((x, y) => x - y);
+  return gaps[Math.floor(gaps.length / 2)];
 }
 
 function normalizeBars(bars: PriceBar[]): PriceBar[] {
@@ -164,6 +192,25 @@ export async function savePricesToCache(
   // grow unbounded as duplicates pile up).
   const existingNorm = normalizeBars(existingBars);
   const incomingNorm = normalizeBars(bars);
+
+  // DQ.3 (2026-07-09): reject cross-granularity pollution. The provider
+  // fallback chain can serve finer-grained bars under a coarser interval
+  // request (observed 2026-07-07/08: hourly bars merged into the XAU/USD
+  // 4h full row, plus a fetch-time partial bar at T14:31:23Z — live "4h"
+  // pattern evaluation ran over 1h candles for two days). A polluted merge
+  // is silent and self-compounding; a rejected write only costs one
+  // refresh cycle and the staleness gate handles the fallout downstream.
+  const medianMin = medianSpacingMinutes(incomingNorm);
+  const expectedMin = intervalMinutes(interval);
+  if (medianMin !== null && medianMin < 0.75 * expectedMin) {
+    console.warn(
+      `[price-cache] REJECTED ${tickerUpper} ${interval} cache write: incoming ` +
+        `median bar spacing ${medianMin}min < 0.75× expected ${expectedMin}min — ` +
+        `cross-granularity pollution (provider served finer bars than requested)`
+    );
+    return;
+  }
+
   const byDate = new Map<string, PriceBar>();
   for (const b of existingNorm) byDate.set(b.date, b);
   for (const b of incomingNorm) byDate.set(b.date, b);
