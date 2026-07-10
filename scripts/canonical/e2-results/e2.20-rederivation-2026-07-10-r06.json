@@ -1,0 +1,612 @@
+{
+  "computed_at": "2026-07-10T23:04:38.045Z",
+  "pinned_sha256": "6d10d04b18bc0699f96b2c250f28e0baa145d59b8c02632b64c3fc9d6942e450",
+  "pinned_bars": 17810,
+  "stage_a": [
+    {
+      "key": "02c1892f-a765-4ed8-8d5d-86329392d110",
+      "label": "Engulfing-Long",
+      "direction": "Long",
+      "trades": 194,
+      "wr": 38.659793814432994,
+      "static_dd_pct": 5.61958858555582,
+      "daily_dd_pct": 0.9590000000000001,
+      "total_pnl": 6709.660000000003,
+      "monthly_pct": 0.503482940241172,
+      "passes_operator_bar": true,
+      "excluded_by_spec": false
+    },
+    {
+      "key": "fb82095d-3e1a-4722-9fee-c216ea5a78b4",
+      "label": "OutsideBar-Long",
+      "direction": "Long",
+      "trades": 198,
+      "wr": 37.878787878787875,
+      "static_dd_pct": 4.066751496913828,
+      "daily_dd_pct": 0.9405,
+      "total_pnl": 6617.649999999998,
+      "monthly_pct": 0.4963288453601896,
+      "passes_operator_bar": true,
+      "excluded_by_spec": false
+    },
+    {
+      "key": "bd8927b0-9399-4b11-b6e7-8481ba5c711b",
+      "label": "Momentum-Long",
+      "direction": "Long",
+      "trades": 231,
+      "wr": 35.064935064935064,
+      "static_dd_pct": 7.726975170164353,
+      "daily_dd_pct": 0.9590000000000001,
+      "total_pnl": 5557.130000000002,
+      "monthly_pct": 0.40469475994338017,
+      "passes_operator_bar": false,
+      "excluded_by_spec": false
+    },
+    {
+      "key": "80a840b4-4cb1-4990-82f3-7951fd74bd93",
+      "label": "IFVG-Long",
+      "direction": "Long",
+      "trades": 264,
+      "wr": 33.33333333333333,
+      "static_dd_pct": 7.593682393645669,
+      "daily_dd_pct": 1.5415999999999999,
+      "total_pnl": 5036.669999999998,
+      "monthly_pct": 0.3665294984759437,
+      "passes_operator_bar": false,
+      "excluded_by_spec": false
+    },
+    {
+      "key": "a381223e-c805-4f75-a8a2-42f56c0ef374",
+      "label": "AsianRangeBreak-Long",
+      "direction": "Long",
+      "trades": 202,
+      "wr": 35.64356435643564,
+      "static_dd_pct": 6.707886751274325,
+      "daily_dd_pct": 0.818,
+      "total_pnl": 4556.220000000002,
+      "monthly_pct": 0.336418516221625,
+      "passes_operator_bar": false,
+      "excluded_by_spec": false
+    },
+    {
+      "key": "069813f1-2a80-48e7-a086-5bf22c05e300",
+      "label": "ARB rr3_lb3 (deployed)",
+      "direction": "Long",
+      "trades": 156,
+      "wr": 37.17948717948718,
+      "static_dd_pct": 5.165914438774955,
+      "daily_dd_pct": 0.8548999999999999,
+      "total_pnl": 4298.86,
+      "monthly_pct": 0.31974253849443096,
+      "passes_operator_bar": true,
+      "excluded_by_spec": false
+    },
+    {
+      "key": "cd2692b1-333b-49ce-94da-0dafb7ec81cb",
+      "label": "FVG-Long",
+      "direction": "Long",
+      "trades": 168,
+      "wr": 35.11904761904761,
+      "static_dd_pct": 6.88971906240871,
+      "daily_dd_pct": 0.8393000000000002,
+      "total_pnl": 4130.049999999997,
+      "monthly_pct": 0.3049636467282538,
+      "passes_operator_bar": false,
+      "excluded_by_spec": false
+    },
+    {
+      "key": "85d421e6-bcc9-40b5-9ee4-be1e7d6fea03",
+      "label": "ARB rr25_lb3 (deployed)",
+      "direction": "Long",
+      "trades": 167,
+      "wr": 40.119760479041915,
+      "static_dd_pct": 6.2836211861427484,
+      "daily_dd_pct": 0.8352,
+      "total_pnl": 3875.8300000000004,
+      "monthly_pct": 0.28827822329009795,
+      "passes_operator_bar": true,
+      "excluded_by_spec": false
+    },
+    {
+      "key": "4bf95df3-63fb-4893-89a9-53aecc6dbe1c",
+      "label": "BOS-Long",
+      "direction": "Long",
+      "trades": 155,
+      "wr": 36.774193548387096,
+      "static_dd_pct": 6.198688392393451,
+      "daily_dd_pct": 1.2101000000000002,
+      "total_pnl": 3733.51,
+      "monthly_pct": 0.2754130424193468,
+      "passes_operator_bar": false,
+      "excluded_by_spec": false
+    },
+    {
+      "key": "0aa46052-f6bc-4965-aae0-605badecf357",
+      "label": "Sweep-Long",
+      "direction": "Long",
+      "trades": 134,
+      "wr": 36.56716417910448,
+      "static_dd_pct": 8.50984224913335,
+      "daily_dd_pct": 1.3276,
+      "total_pnl": 3500.1,
+      "monthly_pct": 0.2582496471206092,
+      "passes_operator_bar": false,
+      "excluded_by_spec": false
+    },
+    {
+      "key": "b6c675b2-3ca9-4678-bd62-199a3c0372cc",
+      "label": "OrderBlock-Long",
+      "direction": "Long",
+      "trades": 222,
+      "wr": 32.432432432432435,
+      "static_dd_pct": 6.576676369818918,
+      "daily_dd_pct": 1.5856999999999999,
+      "total_pnl": 3468.609999999999,
+      "monthly_pct": 0.25575056232211696,
+      "passes_operator_bar": false,
+      "excluded_by_spec": false
+    },
+    {
+      "key": "daff0052-824a-4cd4-a43c-7fd177fe8513",
+      "label": "Engulfing rr3_lb6 (deployed)",
+      "direction": "Long",
+      "trades": 128,
+      "wr": 36.71875,
+      "static_dd_pct": 4.3000679437217295,
+      "daily_dd_pct": 0.7076000000000001,
+      "total_pnl": 3358.5199999999995,
+      "monthly_pct": 0.254338174686431,
+      "passes_operator_bar": false,
+      "excluded_by_spec": false
+    },
+    {
+      "key": "70d41a9e-d50b-42fd-b3b1-05cdc66e3e4f",
+      "label": "Sweep-Reclaim-Long",
+      "direction": "Long",
+      "trades": 117,
+      "wr": 36.75213675213676,
+      "static_dd_pct": 7.330415649104107,
+      "daily_dd_pct": 1.3296,
+      "total_pnl": 2924.0700000000006,
+      "monthly_pct": 0.21575685074234932,
+      "passes_operator_bar": false,
+      "excluded_by_spec": false
+    },
+    {
+      "key": "bde632cb-fe57-4a9f-a788-7c248f3cf9ef",
+      "label": "Momentum-Short",
+      "direction": "Short",
+      "trades": 188,
+      "wr": 31.382978723404253,
+      "static_dd_pct": 8.140345744738593,
+      "daily_dd_pct": 0.8256999999999999,
+      "total_pnl": 2951.8499999999995,
+      "monthly_pct": 0.21537897609012635,
+      "passes_operator_bar": false,
+      "excluded_by_spec": false
+    },
+    {
+      "key": "23aec620-11fe-4af1-9149-83e6ed83854a",
+      "label": "InsideBar-Long",
+      "direction": "Long",
+      "trades": 220,
+      "wr": 30.454545454545457,
+      "static_dd_pct": 6.363715833766224,
+      "daily_dd_pct": 1.1031000000000002,
+      "total_pnl": 2580.7999999999993,
+      "monthly_pct": 0.1879452588767718,
+      "passes_operator_bar": false,
+      "excluded_by_spec": false
+    },
+    {
+      "key": "42e05f20-3c4f-4fc6-ad0d-fb6453599519",
+      "label": "IFVG-Short",
+      "direction": "Short",
+      "trades": 267,
+      "wr": 29.213483146067414,
+      "static_dd_pct": 7.403777656765363,
+      "daily_dd_pct": 1.4895999999999998,
+      "total_pnl": 1980.560000000001,
+      "monthly_pct": 0.1445097091265007,
+      "passes_operator_bar": false,
+      "excluded_by_spec": false
+    },
+    {
+      "key": "f0af3595-9350-4d4c-b3d0-4de96b786424",
+      "label": "EqualLevels-Long",
+      "direction": "Long",
+      "trades": 99,
+      "wr": 34.34343434343434,
+      "static_dd_pct": 4.122480473727057,
+      "daily_dd_pct": 1.3166,
+      "total_pnl": 1956.530000000001,
+      "monthly_pct": 0.1423809698974002,
+      "passes_operator_bar": false,
+      "excluded_by_spec": false
+    },
+    {
+      "key": "122a7b74-af82-4793-bc3a-1d61a3342c15",
+      "label": "Sweep-Short",
+      "direction": "Short",
+      "trades": 84,
+      "wr": 34.523809523809526,
+      "static_dd_pct": 5.036349457167817,
+      "daily_dd_pct": 1.2365000000000002,
+      "total_pnl": 1566.26,
+      "monthly_pct": 0.11442240211195776,
+      "passes_operator_bar": false,
+      "excluded_by_spec": false
+    },
+    {
+      "key": "0024a463-cd5c-439d-bb17-b8c0076de17d",
+      "label": "OTE-Long",
+      "direction": "Long",
+      "trades": 133,
+      "wr": 30.82706766917293,
+      "static_dd_pct": 11.368425683552946,
+      "daily_dd_pct": 1.5128000000000001,
+      "total_pnl": 1481.5300000000004,
+      "monthly_pct": 0.10929040095320802,
+      "passes_operator_bar": false,
+      "excluded_by_spec": false
+    },
+    {
+      "key": "d833cb92-ad6b-45a4-b0ff-52e779411939",
+      "label": "Sweep-Reclaim-Short",
+      "direction": "Short",
+      "trades": 86,
+      "wr": 33.72093023255814,
+      "static_dd_pct": 3.637030510661236,
+      "daily_dd_pct": 0.6871999999999999,
+      "total_pnl": 1472.4600000000003,
+      "monthly_pct": 0.1075741892437849,
+      "passes_operator_bar": false,
+      "excluded_by_spec": false
+    },
+    {
+      "key": "8dadb03f-3ba2-4000-b796-a1854500bdff",
+      "label": "Engulfing-Short",
+      "direction": "Short",
+      "trades": 158,
+      "wr": 28.48101265822785,
+      "static_dd_pct": 8.508464112811504,
+      "daily_dd_pct": 0.719,
+      "total_pnl": 1286.7900000000002,
+      "monthly_pct": 0.09453143438650123,
+      "passes_operator_bar": false,
+      "excluded_by_spec": false
+    },
+    {
+      "key": "187693c2-8651-42ff-8f6a-010a33a01be5",
+      "label": "CHOCH-Long",
+      "direction": "Long",
+      "trades": 62,
+      "wr": 35.483870967741936,
+      "static_dd_pct": 5.103307551904389,
+      "daily_dd_pct": 1.3123,
+      "total_pnl": 1107.0899999999997,
+      "monthly_pct": 0.08488708638839618,
+      "passes_operator_bar": false,
+      "excluded_by_spec": false
+    },
+    {
+      "key": "9faf76cb-2854-4e7c-a395-efc15bdfd8c4",
+      "label": "MeanRev-Short",
+      "direction": "Short",
+      "trades": 121,
+      "wr": 29.75206611570248,
+      "static_dd_pct": 8.468134744673096,
+      "daily_dd_pct": 1.2531999999999999,
+      "total_pnl": 1090.86,
+      "monthly_pct": 0.08040302282128371,
+      "passes_operator_bar": false,
+      "excluded_by_spec": false
+    },
+    {
+      "key": "a303ea78-d0a3-4f49-871e-4e93051abe82",
+      "label": "OutsideBar-Short",
+      "direction": "Short",
+      "trades": 159,
+      "wr": 27.67295597484277,
+      "static_dd_pct": 6.50361483119635,
+      "daily_dd_pct": 0.6767000000000001,
+      "total_pnl": 1002.8900000000008,
+      "monthly_pct": 0.07355399241040061,
+      "passes_operator_bar": false,
+      "excluded_by_spec": false
+    },
+    {
+      "key": "39bdf91e-078f-4563-88f7-26ac296d4973",
+      "label": "InsideBar-Short",
+      "direction": "Short",
+      "trades": 163,
+      "wr": 25.766871165644172,
+      "static_dd_pct": 9.891178538986672,
+      "daily_dd_pct": 0.6801,
+      "total_pnl": 414.7599999999999,
+      "monthly_pct": 0.03031101230418341,
+      "passes_operator_bar": false,
+      "excluded_by_spec": false
+    },
+    {
+      "key": "9d5bbb17-24a7-42bb-9393-ebfa06e2b6f1",
+      "label": "CHOCH-Short",
+      "direction": "Short",
+      "trades": 45,
+      "wr": 26.666666666666668,
+      "static_dd_pct": 5.889698766085062,
+      "daily_dd_pct": 0.6456,
+      "total_pnl": 249.11999999999986,
+      "monthly_pct": 0.01848099140924876,
+      "passes_operator_bar": false,
+      "excluded_by_spec": false
+    },
+    {
+      "key": "658a8785-47f2-4840-8059-3634201b2a41",
+      "label": "EqualLevels-Short",
+      "direction": "Short",
+      "trades": 111,
+      "wr": 27.027027027027028,
+      "static_dd_pct": 9.700740996892375,
+      "daily_dd_pct": 1.3981999999999999,
+      "total_pnl": 213.95999999999975,
+      "monthly_pct": 0.01573586260494894,
+      "passes_operator_bar": false,
+      "excluded_by_spec": false
+    },
+    {
+      "key": "6c456290-9d29-46f0-85c1-6dfc9dbd4fe9",
+      "label": "Doji-Long",
+      "direction": "Long",
+      "trades": 0,
+      "wr": 0,
+      "static_dd_pct": 0,
+      "daily_dd_pct": 0,
+      "total_pnl": 0,
+      "monthly_pct": 0,
+      "passes_operator_bar": false,
+      "excluded_by_spec": true
+    },
+    {
+      "key": "79a3ff3e-4e4d-4dc0-bc84-4b8e56180f27",
+      "label": "FVG-Short",
+      "direction": "Short",
+      "trades": 131,
+      "wr": 23.66412213740458,
+      "static_dd_pct": 12.501787555769498,
+      "daily_dd_pct": 0.6736,
+      "total_pnl": -53.46999999999995,
+      "monthly_pct": -0.003915780508831369,
+      "passes_operator_bar": false,
+      "excluded_by_spec": false
+    },
+    {
+      "key": "705472ca-ffba-460a-8fe9-4396af1d3df2",
+      "label": "OrderBlock-Short",
+      "direction": "Short",
+      "trades": 171,
+      "wr": 25.146198830409354,
+      "static_dd_pct": 13.646818417209788,
+      "daily_dd_pct": 1.3323,
+      "total_pnl": -474.0700000000002,
+      "monthly_pct": -0.03466346850291253,
+      "passes_operator_bar": false,
+      "excluded_by_spec": false
+    },
+    {
+      "key": "4b9a16cd-0452-40b9-bbda-bbb893f13153",
+      "label": "AsianRangeBreak-Short",
+      "direction": "Short",
+      "trades": 152,
+      "wr": 23.026315789473685,
+      "static_dd_pct": 15.351998693676025,
+      "daily_dd_pct": 0.6565000000000001,
+      "total_pnl": -565.3200000000006,
+      "monthly_pct": -0.04360313553917951,
+      "passes_operator_bar": false,
+      "excluded_by_spec": false
+    },
+    {
+      "key": "134a173a-fe94-4086-8978-1fde96073b5f",
+      "label": "PinBar-Short",
+      "direction": "Short",
+      "trades": 182,
+      "wr": 23.076923076923077,
+      "static_dd_pct": 14.83825866140666,
+      "daily_dd_pct": 0.6720999999999999,
+      "total_pnl": -851.2700000000003,
+      "monthly_pct": -0.06221153304123404,
+      "passes_operator_bar": false,
+      "excluded_by_spec": false
+    },
+    {
+      "key": "386c4d44-e3af-475a-827e-599ed80417ee",
+      "label": "BOS-Short",
+      "direction": "Short",
+      "trades": 153,
+      "wr": 20.915032679738562,
+      "static_dd_pct": 12.442512454820855,
+      "daily_dd_pct": 1.2165000000000001,
+      "total_pnl": -1036.7400000000002,
+      "monthly_pct": -0.07603356700865344,
+      "passes_operator_bar": false,
+      "excluded_by_spec": false
+    },
+    {
+      "key": "4979e689-f690-4aa0-a851-d1df673f007a",
+      "label": "PinBar-Long",
+      "direction": "Long",
+      "trades": 80,
+      "wr": 18.75,
+      "static_dd_pct": 11.833491496088525,
+      "daily_dd_pct": 0.6165999999999999,
+      "total_pnl": -1034.4800000000002,
+      "monthly_pct": -0.28980355426029614,
+      "passes_operator_bar": false,
+      "excluded_by_spec": false
+    },
+    {
+      "key": "f89e7898-73b1-4207-a12a-b79078f291ff",
+      "label": "MeanRev-Long",
+      "direction": "Long",
+      "trades": 45,
+      "wr": 15.555555555555555,
+      "static_dd_pct": 10.251900000000024,
+      "daily_dd_pct": 0.6005,
+      "total_pnl": -1025.1899999999996,
+      "monthly_pct": -0.3134522501046287,
+      "passes_operator_bar": false,
+      "excluded_by_spec": false
+    }
+  ],
+  "stage_b": {
+    "stress3": {
+      "windows": 577,
+      "pass": 40,
+      "fail_ml": 0,
+      "fail_dl": 0,
+      "worst_ml": 6.3703000000000065,
+      "worst_dl": 2.0576,
+      "avg_return_pct": 1.8070405545927202
+    },
+    "stress4": {
+      "windows": 583,
+      "pass": 38,
+      "fail_ml": 0,
+      "fail_dl": 0,
+      "worst_ml": 6.417200000000012,
+      "worst_dl": 2.0576,
+      "avg_return_pct": 1.8063447684391079
+    },
+    "additions": [
+      {
+        "key": "02c1892f-a765-4ed8-8d5d-86329392d110",
+        "label": "Engulfing-Long",
+        "stress": {
+          "windows": 577,
+          "pass": 92,
+          "fail_ml": 0,
+          "fail_dl": 0,
+          "worst_ml": 8.097000000000007,
+          "worst_dl": 2.6996,
+          "avg_return_pct": 2.8646908145580596
+        },
+        "delta": 1.0576502599653395,
+        "maxCorr": 0.5730859753489097
+      },
+      {
+        "key": "fb82095d-3e1a-4722-9fee-c216ea5a78b4",
+        "label": "OutsideBar-Long",
+        "stress": {
+          "windows": 581,
+          "pass": 106,
+          "fail_ml": 0,
+          "fail_dl": 0,
+          "worst_ml": 7.792000000000007,
+          "worst_dl": 2.7013,
+          "avg_return_pct": 2.8277950086058525
+        },
+        "delta": 1.0207544540131324,
+        "maxCorr": 0.3278013679487242
+      }
+    ]
+  },
+  "stage_c": {
+    "aware3": {
+      "windows": 577,
+      "pass": 38,
+      "fail_ml": 0,
+      "fail_dl": 0,
+      "worst_ml": 6.434600000000009,
+      "worst_dl": 2.1574,
+      "avg_return_pct": 1.8162327556325837
+    },
+    "aware3_blocked": [
+      {
+        "label": "ARB rr3_lb3 (deployed)",
+        "solo": 156,
+        "aware": 151
+      },
+      {
+        "label": "Engulfing rr3_lb6 (deployed)",
+        "solo": 128,
+        "aware": 130
+      },
+      {
+        "label": "ARB rr25_lb3 (deployed)",
+        "solo": 167,
+        "aware": 163
+      }
+    ],
+    "aware4": {
+      "windows": 583,
+      "pass": 36,
+      "fail_ml": 0,
+      "fail_dl": 0,
+      "worst_ml": 6.417200000000012,
+      "worst_dl": 2.0576,
+      "avg_return_pct": 1.6070874785591767
+    },
+    "aware4_blocked": [
+      {
+        "label": "ARB rr3_lb3 (deployed)",
+        "solo": 156,
+        "aware": 146
+      },
+      {
+        "label": "Engulfing rr3_lb6 (deployed)",
+        "solo": 128,
+        "aware": 125
+      },
+      {
+        "label": "ARB rr25_lb3 (deployed)",
+        "solo": 167,
+        "aware": 152
+      },
+      {
+        "label": "CHOCH-Short",
+        "solo": 45,
+        "aware": 25
+      }
+    ],
+    "awareBestAdd": {
+      "label": "OutsideBar-Long",
+      "stress": {
+        "windows": 581,
+        "pass": 101,
+        "fail_ml": 0,
+        "fail_dl": 0,
+        "worst_ml": 7.709099999999998,
+        "worst_dl": 2.7013,
+        "avg_return_pct": 2.8193421686746984
+      }
+    }
+  },
+  "stage_d": [],
+  "verdicts": {
+    "r1Pass": true,
+    "r2": {
+      "r2a": false,
+      "r2b": false,
+      "r2c": true,
+      "r2Pass": false,
+      "chochCorr": 0.022437182218121583
+    },
+    "bestAdd": {
+      "key": "fb82095d-3e1a-4722-9fee-c216ea5a78b4",
+      "label": "OutsideBar-Long",
+      "stress": {
+        "windows": 581,
+        "pass": 106,
+        "fail_ml": 0,
+        "fail_dl": 0,
+        "worst_ml": 7.792000000000007,
+        "worst_dl": 2.7013,
+        "avg_return_pct": 2.8277950086058525
+      },
+      "delta": 1.0207544540131324,
+      "maxCorr": 0.3278013679487242
+    },
+    "recommendedRisk": 0.7459671152830002
+  }
+}

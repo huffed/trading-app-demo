@@ -69,7 +69,9 @@ function loadEnvLocal(): void {
 loadEnvLocal();
 
 const POOL_CAPITAL = 10_000;
-const RISK_PCT = 0.8;
+/** Default 0.8 (NIGHT+4/deploy continuity). Override via RISK_PCT env for
+ *  exact runs at a proposed uniform risk (R4 sizing verification). */
+const RISK_PCT = Number(process.env.RISK_PCT ?? "0.8");
 const RISK_DOLLARS = POOL_CAPITAL * (RISK_PCT / 100);
 const CHALLENGE_DAYS = 60;
 const STEP_DAYS = 7;
@@ -356,6 +358,19 @@ async function main(): Promise<void> {
   console.log(fmtStress("4-algo (+CHOCH) SIBLING-AWARE", aware4Stress));
   for (const b of aware4.blocked) console.log(`      ${b.label}: ${b.solo} solo → ${b.aware} aware (${b.solo - b.aware} gated)`);
 
+  // AWARE_EXTRA: comma-separated algo ids appended to the trio for one
+  // explicit sibling-aware run (exact verification of a proposed portfolio
+  // at the chosen RISK_PCT — e.g. 4-algo or 5-algo compositions).
+  const awareExtra = (process.env.AWARE_EXTRA ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+  if (awareExtra.length > 0) {
+    const members = [...TRIO.map((t) => t.id), ...awareExtra];
+    const labels = awareExtra.map((id) => solos.get(id)?.stats.label ?? id).join(" + ");
+    const awareX = await runSiblingAware(members);
+    const sX = stressTest(awareX.union);
+    console.log(fmtStress(`EXPLICIT trio + ${labels} SIBLING-AWARE`, sX));
+    for (const b of awareX.blocked) console.log(`      ${b.label}: ${b.solo} solo → ${b.aware} aware (${b.solo - b.aware} gated)`);
+  }
+
   let awareBestAdd: { label: string; stress: StressResult } | null = null;
   const bestAdd = additions.filter((a) => a.stress.fail_ml + a.stress.fail_dl === 0 && a.stress.worst_ml <= 10 && a.stress.worst_dl <= 5 && a.maxCorr < 0.4 && a.delta > 0).sort((a, b) => b.delta - a.delta)[0];
   if (bestAdd) {
@@ -408,7 +423,8 @@ async function main(): Promise<void> {
     stage_d: missed,
     verdicts: { r1Pass, r2: { r2a, r2b, r2c, r2Pass, chochCorr }, bestAdd: bestAdd ?? null, recommendedRisk },
   };
-  const outPath = resolve(process.cwd(), "scripts/canonical/e2-results/e2.20-rederivation-2026-07-10.json");
+  const riskTag = RISK_PCT === 0.8 ? "" : `-r${String(RISK_PCT).replace(".", "")}`;
+  const outPath = resolve(process.cwd(), `scripts/canonical/e2-results/e2.20-rederivation-2026-07-10${riskTag}.json`);
   writeFileSync(outPath, JSON.stringify(out, null, 2));
   console.log(`\nJSON → ${outPath}`);
 }
