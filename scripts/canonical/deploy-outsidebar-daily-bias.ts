@@ -93,9 +93,13 @@ async function main(): Promise<void> {
 
   // Gate 2: key-set parity with the healthy deployed row on the two blocks
   // whose hand-built shape caused the CHOCH-Short zombie.
+  const keysOf = (r: AlgorithmRules, block: string): string =>
+    Object.keys(((r as unknown as Record<string, unknown>)[block] as object | undefined) ?? {})
+      .sort()
+      .join(",");
   for (const block of ["news_veto", "prop_firm"] as const) {
-    const a = Object.keys((rules as Record<string, unknown>)[block] ?? {}).sort().join(",");
-    const b = Object.keys((healthyRules as Record<string, unknown>)[block] ?? {}).sort().join(",");
+    const a = keysOf(rules, block);
+    const b = keysOf(healthyRules, block);
     if (a !== b) {
       console.error(`ABORT — ${block} key-set mismatch vs healthy row:\n  new:     ${a}\n  healthy: ${b}`);
       process.exit(1);
