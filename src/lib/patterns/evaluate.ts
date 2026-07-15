@@ -15,7 +15,7 @@
  * scans — keeps the engine deterministic for backtest replay.
  */
 import type { EconomicEvent } from "@/lib/market-data/economic-calendar";
-import { alignBarIndex } from "@/lib/market-data/resample";
+import { alignCompletedDailyIndex } from "@/lib/market-data/resample";
 import type { PriceBar } from "@/lib/market-data/types";
 import type { PatternCondition } from "@/types/algorithm";
 import { detectAsianRangeBreak } from "./asian-range-break";
@@ -226,9 +226,12 @@ function evaluateCandlePattern(
   }
 }
 
-/** Daily-bias evaluator — aligns higherTfBars to the current primary
- *  bar's date so backtest doesn't get the look-ahead bias from the
- *  detector's default "last 20 bars" semantics. */
+/** Daily-bias evaluator — aligns higherTfBars to the last COMPLETED day
+ *  before the current primary bar. Two look-ahead modes are excluded:
+ *  the detector's default "last 20 bars of the whole series" (fixed
+ *  2026-06-17) and the same-day resampled bar whose close is the day's
+ *  EOD close (E2.24.a, fixed 2026-07-15). Completed-day alignment also
+ *  matches live, where the forming daily candle is dropped at fetch. */
 function evaluateDailyBiasPattern(
   cond: PatternCondition,
   bars: PriceBar[],
@@ -237,7 +240,7 @@ function evaluateDailyBiasPattern(
   effectiveDir: "bullish" | "bearish" | undefined
 ): boolean {
   if (!higherTfBars || higherTfBars.length === 0) return false;
-  const dIdx = alignBarIndex(higherTfBars, bars[idx].date);
+  const dIdx = alignCompletedDailyIndex(higherTfBars, bars[idx].date);
   if (dIdx < 0) return false;
   const alignedDaily = higherTfBars.slice(0, dIdx + 1);
   const r = detectDailyBias(alignedDaily, cond.ma_period ?? 20);

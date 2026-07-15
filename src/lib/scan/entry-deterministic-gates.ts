@@ -5,9 +5,14 @@
  * Extracted from `entry.ts` on 2026-06-22 (CB.H1 pass 16).
  *
  * Gate order (mirrors original inline sequence):
+ *  0. Bar staleness (E2.24.b — was LLM-path-only; a provider outage
+ *     otherwise lets the ladder evaluate a days-old bar at a live price)
  *  1. Intraday ATR liquidity
  *  2. News veto
  *  3. R-aware consecutive-loss halt
+ *  3b. Re-entry cooldown (E2.24.b — was LLM-path-only; without it an
+ *      intra-bar stop-out re-fires on the same closed bar every 15-min
+ *      scan until the consec-loss halt has TWO closed losses to count)
  *  4. Time-of-day filter (per-hour WR)
  *  5. FTMO consistency rule
  *  6. Market-state gate (regime-library dormancy)
@@ -20,7 +25,9 @@
  * pass-through so the caller can thread them into condition evaluation
  * + the openPosition call.
  */
+import { checkBarStaleness } from "@/lib/algorithm/bar-staleness-gate";
 import { checkAtrLiquidity, type AtrLiquidityResult } from "@/lib/algorithm/intraday-atr-gate";
+import { checkReEntryCooldown } from "@/lib/algorithm/re-entry-cooldown";
 import {
   checkMarketStateGateConfig,
   computePositionInRangePct,
@@ -57,6 +64,28 @@ export async function runDeterministicEntryGates(
   const { supabase, userId, algo, ticker, bars, closes, livePrice, dailyBars, dxyBars } = ctx;
   const rules = algo.rules;
   const currentPrice = livePrice ?? closes[closes.length - 1];
+
+  // Step 0: bar staleness — refuse to evaluate a bar that should have
+  // rolled over already (provider-outage stale-cache protection).
+  const staleness = checkBarStaleness({
+    timeframe: rules.timeframe,
+    lastBarDate: bars.length > 0 ? bars[bars.length - 1].date : null,
+  });
+  if (staleness.block) {
+    await logActivity(supabase, userId, {
+      algorithm_id: algo.id,
+      event_type: "signal_no_action",
+      ticker,
+      details: {
+        reason: staleness.reason ?? "Bar-staleness gate triggered",
+        source: "deterministic",
+        bar_age_minutes: staleness.bar_age_minutes,
+        threshold_minutes: staleness.threshold_minutes,
+        last_bar_date: staleness.last_bar_date,
+      },
+    });
+    return { blocked: true };
+  }
 
   // Step 1: ATR liquidity (also surfaces liquidity for the result payload)
   const liquidity = checkAtrLiquidity(bars, bars.length - 1);
@@ -224,6 +253,26 @@ async function runNewsAndConsecHalts(a: NewsConsecHaltsArgs): Promise<boolean> {
       });
       return true;
     }
+  }
+  // Step 3b: re-entry cooldown — one fresh bar of information after a
+  // loss exit before the same algo+ticker may re-enter.
+  const cooldown = await checkReEntryCooldown({
+    supabase,
+    algorithmId: algoId,
+    ticker,
+    timeframe: rules.timeframe,
+  });
+  if (cooldown.block) {
+    await logActivity(supabase, userId, {
+      algorithm_id: algoId,
+      event_type: "signal_no_action",
+      ticker,
+      details: {
+        reason: cooldown.reason ?? "Re-entry cooldown triggered",
+        source: "deterministic",
+      },
+    });
+    return true;
   }
   return false;
 }

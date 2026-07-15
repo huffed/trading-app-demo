@@ -78,7 +78,7 @@ import {
   type SimState,
 } from "./prop-firm-backtest";
 import { isRangingByAtr } from "./regime-filter";
-import { alignBarIndex, resampleTo, resampleToDaily } from "./resample";
+import { alignBarIndex, alignCompletedDailyIndex, resampleTo, resampleToDaily } from "./resample";
 import type {
   BacktestMetrics,
   BacktestTrade,
@@ -828,8 +828,9 @@ function tryOpenEntry(
   // percentile is stable regardless of primary timeframe (1h vs 15m
   // would otherwise give different verdicts on the same calendar day).
   if (rules.regime_filter?.enabled && state.higherTfBars.length > 0) {
-    // Align D1 index to the primary bar's date so we don't peek ahead.
-    const dIdx = alignBarIndex(state.higherTfBars, state.bars[i].date);
+    // Align to the last COMPLETED day — the same-day resampled bar holds
+    // the day's EOD values, which are future data intraday (E2.24.a).
+    const dIdx = alignCompletedDailyIndex(state.higherTfBars, state.bars[i].date);
     if (dIdx >= 0) {
       const regime = isRangingByAtr(state.higherTfBars, dIdx, rules.regime_filter);
       if (regime.skip) return;
@@ -837,7 +838,7 @@ function tryOpenEntry(
   }
   // ADX trend-strength gate — same D1 alignment as the regime filter.
   if (rules.adx_filter?.enabled && state.higherTfBars.length > 0) {
-    const dIdx = alignBarIndex(state.higherTfBars, state.bars[i].date);
+    const dIdx = alignCompletedDailyIndex(state.higherTfBars, state.bars[i].date);
     if (dIdx >= 0) {
       const adx = isWeakTrendByAdx(state.higherTfBars, dIdx, rules.adx_filter);
       if (adx.skip) return;

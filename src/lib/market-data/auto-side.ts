@@ -10,7 +10,7 @@
  * applies in replay and in production.
  */
 import { detectDailyBias } from "@/lib/patterns";
-import { lastIdxAtOrBefore } from "./market-state";
+import { alignCompletedDailyIndex } from "./resample";
 import type { PriceBar } from "./types";
 
 export interface ResolvedSide {
@@ -22,13 +22,11 @@ export interface ResolvedSide {
 
 /**
  * Live path passes `currentDate=undefined` (higherTfBars is already
- * "now"). Backtest replay MUST pass the primary bar's date so we slice
- * higherTfBars to bars dated ≤ currentDate before computing D1 bias —
- * otherwise detectDailyBias reads "today's bias" (look-ahead), the
- * same bug fixed at evaluate.ts:143 for the pattern-condition path.
- * Previously this was thought "acceptable for daily-bias" because D1
- * cardinality is small, but that's still N days of look-ahead for an
- * algo making decisions on historical bars — real bug.
+ * "now" and the forming daily candle is dropped at fetch). Backtest
+ * replay MUST pass the primary bar's date so we slice higherTfBars to
+ * COMPLETED days before computing D1 bias — otherwise detectDailyBias
+ * reads future closes (whole-series look-ahead fixed 2026-06-17;
+ * same-day EOD-close leak fixed 2026-07-15, E2.24.a).
  */
 export function resolveSide(
   configured: "long" | "short" | "auto",
@@ -41,7 +39,9 @@ export function resolveSide(
   if (!higherTfBars || higherTfBars.length === 0) return null;
   let alignedBars = higherTfBars;
   if (currentDate) {
-    const dIdx = lastIdxAtOrBefore(higherTfBars, currentDate);
+    // Completed days only — the same-day resampled bar carries the day's
+    // EOD close, i.e. future data for an intraday decision (E2.24.a).
+    const dIdx = alignCompletedDailyIndex(higherTfBars, currentDate);
     if (dIdx < 0) return null;
     alignedBars = higherTfBars.slice(0, dIdx + 1);
   }
