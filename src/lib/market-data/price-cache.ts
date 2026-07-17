@@ -55,6 +55,71 @@ export function normalizeBarDate(dateStr: string): string {
  *  Median (not mean) is robust to weekend/session gaps: a legitimate 4h
  *  series medians 240min even across weekend gaps; hourly pollution
  *  medians 60min. Null when fewer than 3 bars (nothing to measure). */
+/**
+ * DQ.4 (E2.25.a, 2026-07-17): bar-quality guards for cache WRITES.
+ *
+ * Incident: a transient OANDA 401 fired the Twelve Data fallback, whose
+ * payload passed DQ.3 (correct 4h spacing) and merged 5,000 zero-volume
+ * bars — including 310 Saturday bars, a still-forming tail bar, and a
+ * UTC-aligned phase grid — over ~3.5 months of real OANDA data in the
+ * live XAU/USD 4h row. Fallback data is still served to the CALLER
+ * in-memory (the chain's whole point); these guards only keep it from
+ * being PERSISTED over higher-quality history.
+ *
+ * Rules (each returns the subset of incoming bars that survive):
+ *  1. no forming bars — a bar whose interval-END is in the future
+ *  2. no weekend bars — Saturday, or Sunday before 20:00 UTC (no live
+ *     ticker in this system trades those hours; stocks are dormant)
+ *  3. no off-grid phases — when the existing row has ≥100 bars, incoming
+ *     bars must land on a start-minute-of-day phase the row has seen
+ *     (kills cross-provider alignment interleave: UTC-midnight dailies
+ *     vs OANDA NY-session dailies, UTC-aligned 4h vs NY-aligned 4h)
+ *  4. no zero-volume overwrite — an incoming volume=0 bar never replaces
+ *     an existing volume>0 bar at the same instant (applied in-merge)
+ */
+export function filterIncomingBars(
+  incoming: PriceBar[],
+  existing: PriceBar[],
+  interval: BarInterval,
+  nowMs: number = Date.now()
+): { kept: PriceBar[]; dropped: { forming: number; weekend: number; offGrid: number } } {
+  const expectedMin = intervalMinutes(interval);
+  const dropped = { forming: 0, weekend: 0, offGrid: 0 };
+
+  const phases = new Set<number>();
+  if (existing.length >= 100) {
+    for (const b of existing) {
+      const d = new Date(b.date);
+      phases.add((d.getUTCHours() * 60 + d.getUTCMinutes()) % (24 * 60));
+    }
+  }
+
+  const kept: PriceBar[] = [];
+  for (const b of incoming) {
+    const startMs = Date.parse(b.date);
+    if (Number.isNaN(startMs)) continue;
+    if (startMs + expectedMin * 60_000 > nowMs) {
+      dropped.forming++;
+      continue;
+    }
+    const d = new Date(startMs);
+    const dow = d.getUTCDay();
+    if (dow === 6 || (dow === 0 && d.getUTCHours() < 20)) {
+      dropped.weekend++;
+      continue;
+    }
+    if (phases.size > 0) {
+      const phase = (d.getUTCHours() * 60 + d.getUTCMinutes()) % (24 * 60);
+      if (!phases.has(phase)) {
+        dropped.offGrid++;
+        continue;
+      }
+    }
+    kept.push(b);
+  }
+  return { kept, dropped };
+}
+
 export function medianSpacingMinutes(bars: PriceBar[]): number | null {
   if (bars.length < 3) return null;
   const gaps: number[] = [];
@@ -212,8 +277,26 @@ export async function savePricesToCache(
   }
 
   const byDate = new Map<string, PriceBar>();
+  // DQ.4 (E2.25.a): quality-filter the incoming payload before merge.
+  const { kept, dropped } = filterIncomingBars(incomingNorm, existingNorm, interval);
+  const droppedTotal = dropped.forming + dropped.weekend + dropped.offGrid;
+  if (droppedTotal > 0) {
+    console.warn(
+      `[price-cache] DQ.4 dropped ${droppedTotal}/${incomingNorm.length} incoming ` +
+        `${tickerUpper} ${interval} bars (forming=${dropped.forming} weekend=${dropped.weekend} ` +
+        `off-grid=${dropped.offGrid}) before merge`
+    );
+  }
+  if (kept.length === 0 && incomingNorm.length > 0) return;
+
   for (const b of existingNorm) byDate.set(b.date, b);
-  for (const b of incomingNorm) byDate.set(b.date, b);
+  for (const b of kept) {
+    // DQ.4 rule 4: a zero-volume bar (volume-less fallback provider)
+    // never replaces a real-volume bar at the same instant.
+    const prev = byDate.get(b.date);
+    if (prev && (prev.volume ?? 0) > 0 && (b.volume ?? 0) === 0) continue;
+    byDate.set(b.date, b);
+  }
 
   const merged = Array.from(byDate.values()).sort((a, b) =>
     a.date.localeCompare(b.date)

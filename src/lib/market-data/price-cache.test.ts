@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { medianSpacingMinutes, normalizeBarDate } from "./price-cache";
+import { filterIncomingBars, medianSpacingMinutes, normalizeBarDate } from "./price-cache";
 import type { PriceBar } from "./types";
 
 /**
@@ -95,5 +95,94 @@ describe("medianSpacingMinutes", () => {
         mkBars(["2026-07-07T06:00:00.000Z", "2026-07-07T10:00:00.000Z"])
       )
     ).toBeNull();
+  });
+});
+
+/**
+ * DQ.4 (E2.25.a, 2026-07-17): write-side quality guards. The Twelve Data
+ * fallback incident passed DQ.3 (correct 4h spacing) and still poisoned
+ * the row — these rules are the ones that would have stopped it.
+ */
+describe("filterIncomingBars (DQ.4)", () => {
+  const bar = (date: string, volume = 100): PriceBar => ({
+    date,
+    open: 1,
+    high: 1,
+    low: 1,
+    close: 1,
+    volume,
+  });
+  // NY-aligned 4h grid (summer): starts 01/05/09/13/17/21 UTC.
+  const nyGrid = (n: number): PriceBar[] => {
+    const out: PriceBar[] = [];
+    let t = Date.parse("2026-06-01T01:00:00.000Z");
+    for (let i = 0; i < n; i++) {
+      const d = new Date(t);
+      if (d.getUTCDay() !== 6 && d.getUTCDay() !== 0) out.push(bar(d.toISOString()));
+      t += 4 * 3600_000;
+    }
+    return out;
+  };
+  const NOW = Date.parse("2026-07-17T14:45:00.000Z");
+
+  it("drops a still-forming tail bar (the 13:00Z bar written at 14:45Z)", () => {
+    const { kept, dropped } = filterIncomingBars(
+      [bar("2026-07-17T09:00:00.000Z"), bar("2026-07-17T13:00:00.000Z")],
+      nyGrid(200),
+      "4h",
+      NOW
+    );
+    expect(dropped.forming).toBe(1);
+    expect(kept.map((b) => b.date)).toEqual(["2026-07-17T09:00:00.000Z"]);
+  });
+
+  it("drops Saturday and early-Sunday bars (gold does not trade them)", () => {
+    const { kept, dropped } = filterIncomingBars(
+      [
+        bar("2026-07-11T01:00:00.000Z"), // Saturday
+        bar("2026-07-12T05:00:00.000Z"), // Sunday 05:00 — closed
+        bar("2026-07-12T21:00:00.000Z"), // Sunday 21:00 — legit open
+      ],
+      nyGrid(200),
+      "4h",
+      NOW
+    );
+    expect(dropped.weekend).toBe(2);
+    expect(kept.map((b) => b.date)).toEqual(["2026-07-12T21:00:00.000Z"]);
+  });
+
+  it("drops off-grid phases when the row has an established grid", () => {
+    // Existing row is NY-aligned (01/05/09/...); incoming UTC-aligned
+    // (00/04/08/...) — the phantom-instants class.
+    const { kept, dropped } = filterIncomingBars(
+      [bar("2026-07-14T00:00:00.000Z"), bar("2026-07-14T04:00:00.000Z"), bar("2026-07-14T05:00:00.000Z")],
+      nyGrid(200),
+      "4h",
+      NOW
+    );
+    expect(dropped.offGrid).toBe(2);
+    expect(kept.map((b) => b.date)).toEqual(["2026-07-14T05:00:00.000Z"]);
+  });
+
+  it("applies no phase filter on a thin existing row (<100 bars)", () => {
+    const { kept, dropped } = filterIncomingBars(
+      [bar("2026-07-14T00:00:00.000Z")],
+      nyGrid(20),
+      "4h",
+      NOW
+    );
+    expect(dropped.offGrid).toBe(0);
+    expect(kept).toHaveLength(1);
+  });
+
+  it("keeps everything on a clean same-grid weekday payload", () => {
+    const { kept, dropped } = filterIncomingBars(
+      [bar("2026-07-16T09:00:00.000Z"), bar("2026-07-16T13:00:00.000Z")],
+      nyGrid(200),
+      "4h",
+      NOW
+    );
+    expect(kept).toHaveLength(2);
+    expect(dropped).toEqual({ forming: 0, weekend: 0, offGrid: 0 });
   });
 });
