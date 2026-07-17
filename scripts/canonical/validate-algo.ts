@@ -129,7 +129,16 @@ const PORTFOLIO_DLL_PCT = Number(process.env.PORTFOLIO_DLL_PCT ?? 5);
  *  Documented default lives in the source tree; operator override is also
  *  resolved against cwd for explicit relative paths to work as expected. */
 const PREREG_PATH = resolvePath(process.env.PREREG_PATH ?? "scripts/canonical/preregistration.json");
-const BOOTSTRAP_ITERATIONS = Number(process.env.BOOTSTRAP_ITERATIONS ?? 2000);
+/** E2.25.g (2026-07-17): raised 2000 → 10000. The mid-rank bootstrap
+ *  p-value has a hard floor of 0.5/(B+1) — at B=2000 that is 2.499e-4,
+ *  which sits ABOVE the pre-registered Bonferroni bar α/N (α/308 =
+ *  1.62e-4). A bar below the p-floor is UNPASSABLE BY CONSTRUCTION: the
+ *  historical "0/308 strict survivors" was partially predetermined, not
+ *  purely empirical, and every persisted passing row sat exactly at the
+ *  floor. B=10000 → floor 5.0e-5 ≪ α/308, restoring real resolution.
+ *  `assertBonferroniResolvable` below fails loudly if a future N pushes
+ *  the bar back under the floor. */
+const BOOTSTRAP_ITERATIONS = Number(process.env.BOOTSTRAP_ITERATIONS ?? 10000);
 const BOOTSTRAP_SEED = Number(process.env.BOOTSTRAP_SEED ?? 42);
 const FAMILY_ALPHA = Number(process.env.FAMILY_ALPHA ?? 0.05);
 /** B.2.4 + B.2.19 + OD.2a (2026-06-22 rename): STATISTICAL-tests-per-algo
@@ -432,6 +441,18 @@ function analyzeStats(args: AnalyzeStatsArgs): GateResults {
   const { trades, capital, friction, fidelityGates, riskPct, algoName, nCandidates, preregs, now } = args;
   const computedAt = now.toISOString();
   const effectiveNTests = Math.max(1, nCandidates * BONFERRONI_TESTS_PER_ALGO);
+  // E2.25.g: a Bonferroni bar below the bootstrap p-floor is unpassable
+  // by construction — fail loudly rather than silently reject every
+  // candidate at the floor. Floor = 0.5/(B+1) (mid-rank estimator).
+  const pFloor = 0.5 / (BOOTSTRAP_ITERATIONS + 1);
+  const bonferroniBar = FAMILY_ALPHA / effectiveNTests;
+  if (bonferroniBar < pFloor) {
+    throw new Error(
+      `Bonferroni bar α/N = ${bonferroniBar.toExponential(3)} (α=${FAMILY_ALPHA}, N=${effectiveNTests}) ` +
+        `is below the bootstrap p-floor 0.5/(B+1) = ${pFloor.toExponential(3)} at B=${BOOTSTRAP_ITERATIONS}. ` +
+        `The gate would be unpassable by construction (E2.25.g). Raise BOOTSTRAP_ITERATIONS to ≥ ${Math.ceil(0.5 / bonferroniBar - 1)}.`
+    );
+  }
   const algoSeed = deriveAlgoSeed(BOOTSTRAP_SEED, algoName);
   const oosCutoffDisclosure = buildOosCutoffDisclosure(OOS_CUTOFF);
   // B.2.4/B.2.26 (extracted 2026-06-22 NIGHT LATE): family-rationale

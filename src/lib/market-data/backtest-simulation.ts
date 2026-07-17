@@ -39,7 +39,7 @@ import {
   type SimState,
 } from "./prop-firm-backtest";
 import { isRangingByAtr } from "./regime-filter";
-import { alignBarIndex, resampleTo, resampleToDaily } from "./resample";
+import { alignBarIndex, alignCompletedDailyIndex, resampleTo, resampleToDaily } from "./resample";
 import type { BacktestTrade, OpenPosition, PriceBar } from "./types";
 
 export function buildSimConfig(rules: AlgorithmRules): SimConfig {
@@ -363,7 +363,11 @@ function canOpenNewEntry(
   if (positionCount >= maxPos) return false;
   if (rules.regime_filter?.enabled && isRangingByAtr(prices, i, rules.regime_filter).skip) return false;
   if (rules.adx_filter?.enabled) {
-    const dIdx = alignBarIndex(higherTfBars, prices[i].date);
+    // E2.25.h: the E2.24.a same-day D1 leak — `higherTfBars` here is
+    // `resampleToDaily(prices)` (UTC-midnight-keyed, EOD close), and
+    // alignBarIndex admits today's completed bar. Align to the last
+    // COMPLETED day like the trusted engine (portfolio-backtest.ts).
+    const dIdx = alignCompletedDailyIndex(higherTfBars, prices[i].date);
     if (dIdx >= 0 && isWeakTrendByAdx(higherTfBars, dIdx, rules.adx_filter).skip) return false;
   }
   if (checkAtrLiquidity(prices, i).skip) return false;
