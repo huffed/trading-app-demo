@@ -71,6 +71,10 @@ const PATTERN_IDS: Record<string, string> = {
   "BOS-Long": "4bf95df3-63fb-4893-89a9-53aecc6dbe1c",
   "Engulfing-Long": "02c1892f-a765-4ed8-8d5d-86329392d110",
 };
+/** E2.23 extension: TF env (default 4h). Non-4h base rows are looked up by
+ *  name (`Search: XAU/USD <pattern> <tf>`); grid output files carry the TF. */
+const TF = process.env.TF ?? "4h";
+const GRAN_BY_TF: Record<string, string> = { "4h": "h4", "1h": "h1", "30m": "m30" };
 const TRIO_IDS = [
   "069813f1-2a80-48e7-a086-5bf22c05e300", // ARB rr3_lb3
   "daff0052-824a-4cd4-a43c-7fd177fe8513", // Engulfing rr3_lb6
@@ -79,9 +83,14 @@ const TRIO_IDS = [
 const DEPLOYED_OB_ID = "6cea13b6-86fb-41f6-9f2c-6bef47541a6a";
 const RESULTS_DIR = "scripts/canonical/e2-results";
 const gridPath = (pattern: string): string =>
-  resolve(process.cwd(), `${RESULTS_DIR}/e2.22-layerb-${pattern.toLowerCase()}-2026-07-11.json`);
+  resolve(
+    process.cwd(),
+    TF === "4h"
+      ? `${RESULTS_DIR}/e2.22-layerb-${pattern.toLowerCase()}-2026-07-11.json`
+      : `${RESULTS_DIR}/e2.23-layerb-${pattern.toLowerCase()}-${TF}-2026-07-11.json`
+  );
 
-function withDailyBias(base: AlgorithmRules): AlgorithmRules {
+function withDailyBias(base: AlgorithmRules, direction: "bullish" | "bearish" = "bullish"): AlgorithmRules {
   const hasBias = base.entry_conditions.some((c) => (c as { pattern?: string }).pattern === "daily_bias");
   return {
     ...base,
@@ -89,7 +98,7 @@ function withDailyBias(base: AlgorithmRules): AlgorithmRules {
       ? base.entry_conditions
       : [
           ...base.entry_conditions,
-          { type: "pattern", pattern: "daily_bias", direction: "bullish", ma_period: 20, timeframe: "1d" } as EntryCondition,
+          { type: "pattern", pattern: "daily_bias", direction, ma_period: 20, timeframe: "1d" } as EntryCondition,
         ],
     entry_logic: "all",
   };
@@ -107,17 +116,27 @@ async function fetchRules(sb: SupabaseClient<Database>, id: string): Promise<Alg
   return data.rules as unknown as AlgorithmRules;
 }
 
+async function fetchRulesByName(sb: SupabaseClient<Database>, name: string): Promise<AlgorithmRules> {
+  const { data } = await sb.from("algorithms").select("rules").eq("name", name).maybeSingle();
+  if (!data) throw new Error(`algo "${name}" not found`);
+  return data.rules as unknown as AlgorithmRules;
+}
+
 async function runGrid(sb: SupabaseClient<Database>, bars: PriceBar[], pattern: string): Promise<void> {
-  const baseId = PATTERN_IDS[pattern];
-  if (!baseId) throw new Error(`unknown pattern ${pattern}; expected one of ${Object.keys(PATTERN_IDS).join(", ")}`);
-  const base = withDailyBias(await fetchRules(sb, baseId));
+  const baseId = TF === "4h" ? PATTERN_IDS[pattern] : null;
+  if (TF === "4h" && !baseId) throw new Error(`unknown pattern ${pattern}; expected one of ${Object.keys(PATTERN_IDS).join(", ")}`);
+  const baseRaw = baseId
+    ? await fetchRules(sb, baseId)
+    : await fetchRulesByName(sb, `Search: XAU/USD ${pattern} ${TF}`);
+  const isShort = /-Short$/.test(pattern);
+  const base = withDailyBias(baseRaw, isShort ? "bearish" : "bullish");
   const variants: LayerBVariant[] = enumerateLayerBVariants({
-    name: `Search: XAU/USD ${pattern} 4h`,
+    name: `Search: XAU/USD ${pattern} ${TF}`,
     ticker: "XAU/USD",
     capital: POOL_CAPITAL,
     rules: base,
   });
-  console.log(`Grid: ${pattern} + daily_bias — ${variants.length} variants on pinned data`);
+  console.log(`Grid: ${pattern} ${TF} + daily_bias — ${variants.length} variants on pinned data`);
   const priceMap = new Map([["XAU/USD", bars]]);
   const rows: GridRow[] = [];
   for (const v of variants) {
@@ -283,8 +302,10 @@ async function runVerify(sb: SupabaseClient<Database>, bars: PriceBar[]): Promis
 }
 
 async function main(): Promise<void> {
-  const { bars, sha256 } = loadPinnedBars("XAU/USD", "h4");
-  console.log(`Pinned H4: ${bars.length} bars (sha256 ${sha256.slice(0, 16)}… VERIFIED)\n`);
+  const gran = GRAN_BY_TF[TF];
+  if (!gran) throw new Error(`TF must be one of ${Object.keys(GRAN_BY_TF).join(", ")}`);
+  const { bars, sha256 } = loadPinnedBars("XAU/USD", gran);
+  console.log(`Pinned ${gran.toUpperCase()}: ${bars.length} bars (sha256 ${sha256.slice(0, 16)}… VERIFIED)\n`);
   const sb = createClient<Database>(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
   const mode = process.env.MODE ?? "grid";
   if (mode === "grid") await runGrid(sb, bars, process.env.PATTERN ?? "OutsideBar-Long");

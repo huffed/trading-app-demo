@@ -1,0 +1,1536 @@
+{
+ "pattern": "BOS-Long",
+ "computed_at": "2026-07-16T01:41:46.283Z",
+ "rows": [
+  {
+   "tag": "rr2_lb3_r06_rf0_af0",
+   "risk": 0.6,
+   "stats": {
+    "trades": 1069,
+    "wr": 41.1599625818522,
+    "static_dd_pct": 8.465158165999796,
+    "daily_dd_pct": 3.9677,
+    "total_pnl": 23105.239999999983,
+    "monthly_pct": 1.683540284789578,
+    "passes_operator_bar": true
+   }
+  },
+  {
+   "tag": "rr2_lb3_r06_rf0_af1",
+   "risk": 0.6,
+   "stats": {
+    "trades": 733,
+    "wr": 40.10914051841746,
+    "static_dd_pct": 7.9326545832297795,
+    "daily_dd_pct": 2.1812,
+    "total_pnl": 9710.830000000005,
+    "monthly_pct": 0.7075699496626394,
+    "passes_operator_bar": true
+   }
+  },
+  {
+   "tag": "rr2_lb3_r06_rf1_af0",
+   "risk": 0.6,
+   "stats": {
+    "trades": 696,
+    "wr": 39.94252873563218,
+    "static_dd_pct": 8.387187761283197,
+    "daily_dd_pct": 2.1812,
+    "total_pnl": 8743.050000000007,
+    "monthly_pct": 0.6491742282615882,
+    "passes_operator_bar": true
+   }
+  },
+  {
+   "tag": "rr2_lb3_r06_rf1_af1",
+   "risk": 0.6,
+   "stats": {
+    "trades": 530,
+    "wr": 40.18867924528302,
+    "static_dd_pct": 8.767649940565887,
+    "daily_dd_pct": 2.0971,
+    "total_pnl": 6409.88,
+    "monthly_pct": 0.4759356176905526,
+    "passes_operator_bar": true
+   }
+  },
+  {
+   "tag": "rr2_lb3_r1_rf0_af0",
+   "risk": 1,
+   "stats": {
+    "trades": 1064,
+    "wr": 41.07142857142857,
+    "static_dd_pct": 14.398917327412766,
+    "daily_dd_pct": 8.894,
+    "total_pnl": 62945.989999999976,
+    "monthly_pct": 4.5864968263026915,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "tag": "rr2_lb3_r1_rf0_af1",
+   "risk": 1,
+   "stats": {
+    "trades": 728,
+    "wr": 40.38461538461539,
+    "static_dd_pct": 13.225964264668244,
+    "daily_dd_pct": 6.3983,
+    "total_pnl": 23092.26999999998,
+    "monthly_pct": 1.6825952386661132,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "tag": "rr2_lb3_r1_rf1_af0",
+   "risk": 1,
+   "stats": {
+    "trades": 691,
+    "wr": 40.2315484804631,
+    "static_dd_pct": 13.822128177510255,
+    "daily_dd_pct": 6.149000000000001,
+    "total_pnl": 21184.069999999978,
+    "monthly_pct": 1.5729238988327228,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "tag": "rr2_lb3_r1_rf1_af1",
+   "risk": 1,
+   "stats": {
+    "trades": 526,
+    "wr": 40.68441064638783,
+    "static_dd_pct": 14.746754513339532,
+    "daily_dd_pct": 4.861,
+    "total_pnl": 15113.260000000004,
+    "monthly_pct": 1.1221643359030002,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "tag": "rr2_lb4_r06_rf0_af0",
+   "risk": 0.6,
+   "stats": {
+    "trades": 1004,
+    "wr": 40.93625498007968,
+    "static_dd_pct": 9.0585391747432,
+    "daily_dd_pct": 1.9534,
+    "total_pnl": 21350.669999999995,
+    "monthly_pct": 1.5556952904297172,
+    "passes_operator_bar": true
+   }
+  },
+  {
+   "tag": "rr2_lb4_r06_rf0_af1",
+   "risk": 0.6,
+   "stats": {
+    "trades": 694,
+    "wr": 39.19308357348703,
+    "static_dd_pct": 8.09337235824399,
+    "daily_dd_pct": 2.1828,
+    "total_pnl": 7184.489999999999,
+    "monthly_pct": 0.5234907034364449,
+    "passes_operator_bar": true
+   }
+  },
+  {
+   "tag": "rr2_lb4_r06_rf1_af0",
+   "risk": 0.6,
+   "stats": {
+    "trades": 654,
+    "wr": 40.51987767584097,
+    "static_dd_pct": 9.00487864186301,
+    "daily_dd_pct": 1.7954,
+    "total_pnl": 9242.990000000009,
+    "monthly_pct": 0.6862949314117589,
+    "passes_operator_bar": true
+   }
+  },
+  {
+   "tag": "rr2_lb4_r06_rf1_af1",
+   "risk": 0.6,
+   "stats": {
+    "trades": 497,
+    "wr": 40.04024144869216,
+    "static_dd_pct": 7.498919838437273,
+    "daily_dd_pct": 1.8626,
+    "total_pnl": 6039.079999999999,
+    "monthly_pct": 0.44840360039231036,
+    "passes_operator_bar": true
+   }
+  },
+  {
+   "tag": "rr2_lb4_r1_rf0_af0",
+   "risk": 1,
+   "stats": {
+    "trades": 1000,
+    "wr": 41,
+    "static_dd_pct": 15.12652355335877,
+    "daily_dd_pct": 6.995599999999999,
+    "total_pnl": 57712.11999999998,
+    "monthly_pct": 4.205136105083105,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "tag": "rr2_lb4_r1_rf0_af1",
+   "risk": 1,
+   "stats": {
+    "trades": 690,
+    "wr": 39.42028985507247,
+    "static_dd_pct": 13.621164146420847,
+    "daily_dd_pct": 4.1324,
+    "total_pnl": 16181.150000000007,
+    "monthly_pct": 1.1790233678257795,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "tag": "rr2_lb4_r1_rf1_af0",
+   "risk": 1,
+   "stats": {
+    "trades": 648,
+    "wr": 40.586419753086425,
+    "static_dd_pct": 14.738663824910223,
+    "daily_dd_pct": 4.0376,
+    "total_pnl": 22202.83999999999,
+    "monthly_pct": 1.6485678936086954,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "tag": "rr2_lb4_r1_rf1_af1",
+   "risk": 1,
+   "stats": {
+    "trades": 494,
+    "wr": 40.2834008097166,
+    "static_dd_pct": 12.230157100047913,
+    "daily_dd_pct": 3.4099999999999997,
+    "total_pnl": 13252.359999999999,
+    "monthly_pct": 0.9839919222290544,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "tag": "rr2_lb6_r06_rf0_af0",
+   "risk": 0.6,
+   "stats": {
+    "trades": 928,
+    "wr": 40.625,
+    "static_dd_pct": 6.880176268715502,
+    "daily_dd_pct": 1.8242,
+    "total_pnl": 18050.77999999999,
+    "monthly_pct": 1.3149373388308607,
+    "passes_operator_bar": true
+   }
+  },
+  {
+   "tag": "rr2_lb6_r06_rf0_af1",
+   "risk": 0.6,
+   "stats": {
+    "trades": 621,
+    "wr": 40.41867954911433,
+    "static_dd_pct": 6.720583373315443,
+    "daily_dd_pct": 1.5165000000000002,
+    "total_pnl": 9777.670000000007,
+    "monthly_pct": 0.712269684177989,
+    "passes_operator_bar": true
+   }
+  },
+  {
+   "tag": "rr2_lb6_r06_rf1_af0",
+   "risk": 0.6,
+   "stats": {
+    "trades": 595,
+    "wr": 40.33613445378151,
+    "static_dd_pct": 7.676890218340741,
+    "daily_dd_pct": 1.5523000000000002,
+    "total_pnl": 8351.060000000001,
+    "monthly_pct": 0.620068846760137,
+    "passes_operator_bar": true
+   }
+  },
+  {
+   "tag": "rr2_lb6_r06_rf1_af1",
+   "risk": 0.6,
+   "stats": {
+    "trades": 444,
+    "wr": 41.44144144144144,
+    "static_dd_pct": 6.185821182923804,
+    "daily_dd_pct": 1.0159999999999998,
+    "total_pnl": 6847.950000000005,
+    "monthly_pct": 0.5084624537688727,
+    "passes_operator_bar": true
+   }
+  },
+  {
+   "tag": "rr2_lb6_r1_rf0_af0",
+   "risk": 1,
+   "stats": {
+    "trades": 924,
+    "wr": 40.692640692640694,
+    "static_dd_pct": 11.656758312017388,
+    "daily_dd_pct": 6.0760000000000005,
+    "total_pnl": 48627.69000000002,
+    "monthly_pct": 3.542360234964479,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "tag": "rr2_lb6_r1_rf0_af1",
+   "risk": 1,
+   "stats": {
+    "trades": 620,
+    "wr": 40.64516129032258,
+    "static_dd_pct": 11.871117426513772,
+    "daily_dd_pct": 5.1035,
+    "total_pnl": 21958.28000000001,
+    "monthly_pct": 1.599585295954133,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "tag": "rr2_lb6_r1_rf1_af0",
+   "risk": 1,
+   "stats": {
+    "trades": 592,
+    "wr": 40.54054054054054,
+    "static_dd_pct": 12.43873036241285,
+    "daily_dd_pct": 3.6349,
+    "total_pnl": 19869.54999999999,
+    "monthly_pct": 1.4753203729996995,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "tag": "rr2_lb6_r1_rf1_af1",
+   "risk": 1,
+   "stats": {
+    "trades": 443,
+    "wr": 41.760722347629795,
+    "static_dd_pct": 10.449102727845228,
+    "daily_dd_pct": 4.1324,
+    "total_pnl": 16072.570000000009,
+    "monthly_pct": 1.1933934068694967,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "tag": "rr25_lb3_r06_rf0_af0",
+   "risk": 0.6,
+   "stats": {
+    "trades": 935,
+    "wr": 37.54010695187166,
+    "static_dd_pct": 10.318094608349703,
+    "daily_dd_pct": 3.7112,
+    "total_pnl": 34182.14999999999,
+    "monthly_pct": 2.49005225018073,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "tag": "rr25_lb3_r06_rf0_af1",
+   "risk": 0.6,
+   "stats": {
+    "trades": 652,
+    "wr": 36.65644171779141,
+    "static_dd_pct": 8.363769470729778,
+    "daily_dd_pct": 2.415,
+    "total_pnl": 14531.969999999998,
+    "monthly_pct": 1.0586041134937056,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "tag": "rr25_lb3_r06_rf1_af0",
+   "risk": 0.6,
+   "stats": {
+    "trades": 588,
+    "wr": 36.564625850340136,
+    "static_dd_pct": 7.564759700656938,
+    "daily_dd_pct": 1.9709,
+    "total_pnl": 12600.689999999991,
+    "monthly_pct": 0.935605218580873,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "tag": "rr25_lb3_r06_rf1_af1",
+   "risk": 0.6,
+   "stats": {
+    "trades": 454,
+    "wr": 37.00440528634361,
+    "static_dd_pct": 8.735711310112968,
+    "daily_dd_pct": 1.767,
+    "total_pnl": 9037.22,
+    "monthly_pct": 0.6710164438188259,
+    "passes_operator_bar": true
+   }
+  },
+  {
+   "tag": "rr25_lb3_r1_rf0_af0",
+   "risk": 1,
+   "stats": {
+    "trades": 930,
+    "wr": 37.634408602150536,
+    "static_dd_pct": 17.02798516943636,
+    "daily_dd_pct": 12.8139,
+    "total_pnl": 111223.68,
+    "monthly_pct": 8.102263159496449,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "tag": "rr25_lb3_r1_rf0_af1",
+   "risk": 1,
+   "stats": {
+    "trades": 649,
+    "wr": 36.82588597842835,
+    "static_dd_pct": 13.905400763574892,
+    "daily_dd_pct": 7.4181,
+    "total_pnl": 36884.95999999999,
+    "monthly_pct": 2.686942677562009,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "tag": "rr25_lb3_r1_rf1_af0",
+   "risk": 1,
+   "stats": {
+    "trades": 584,
+    "wr": 36.986301369863014,
+    "static_dd_pct": 13.033942919064412,
+    "daily_dd_pct": 5.3008999999999995,
+    "total_pnl": 32726.719999999965,
+    "monthly_pct": 2.429969312715019,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "tag": "rr25_lb3_r1_rf1_af1",
+   "risk": 1,
+   "stats": {
+    "trades": 451,
+    "wr": 37.472283813747225,
+    "static_dd_pct": 14.9519923115844,
+    "daily_dd_pct": 5.2277,
+    "total_pnl": 22922.95999999999,
+    "monthly_pct": 1.702037031410233,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "tag": "rr25_lb4_r06_rf0_af0",
+   "risk": 0.6,
+   "stats": {
+    "trades": 875,
+    "wr": 37.371428571428574,
+    "static_dd_pct": 7.833212164860076,
+    "daily_dd_pct": 3.6471000000000005,
+    "total_pnl": 29606.660000000018,
+    "monthly_pct": 2.156743515353361,
+    "passes_operator_bar": true
+   }
+  },
+  {
+   "tag": "rr25_lb4_r06_rf0_af1",
+   "risk": 0.6,
+   "stats": {
+    "trades": 618,
+    "wr": 36.73139158576052,
+    "static_dd_pct": 8.315409825837236,
+    "daily_dd_pct": 2.3346,
+    "total_pnl": 14181.279999999995,
+    "monthly_pct": 1.0330575512202418,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "tag": "rr25_lb4_r06_rf1_af0",
+   "risk": 0.6,
+   "stats": {
+    "trades": 547,
+    "wr": 37.29433272394881,
+    "static_dd_pct": 8.453245035175332,
+    "daily_dd_pct": 2.0412,
+    "total_pnl": 13115.940000000004,
+    "monthly_pct": 0.9738626940741837,
+    "passes_operator_bar": true
+   }
+  },
+  {
+   "tag": "rr25_lb4_r06_rf1_af1",
+   "risk": 0.6,
+   "stats": {
+    "trades": 433,
+    "wr": 37.87528868360277,
+    "static_dd_pct": 6.376939219066161,
+    "daily_dd_pct": 1.8961000000000001,
+    "total_pnl": 10275.56,
+    "monthly_pct": 0.7629635805531982,
+    "passes_operator_bar": true
+   }
+  },
+  {
+   "tag": "rr25_lb4_r1_rf0_af0",
+   "risk": 1,
+   "stats": {
+    "trades": 874,
+    "wr": 37.29977116704806,
+    "static_dd_pct": 12.852329921818745,
+    "daily_dd_pct": 10.7171,
+    "total_pnl": 89613.50999999992,
+    "monthly_pct": 6.528036481675178,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "tag": "rr25_lb4_r1_rf0_af1",
+   "risk": 1,
+   "stats": {
+    "trades": 617,
+    "wr": 36.95299837925446,
+    "static_dd_pct": 14.19393945673742,
+    "daily_dd_pct": 7.293900000000001,
+    "total_pnl": 35922.75000000002,
+    "monthly_pct": 2.6168489831733788,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "tag": "rr25_lb4_r1_rf1_af0",
+   "risk": 1,
+   "stats": {
+    "trades": 544,
+    "wr": 37.5,
+    "static_dd_pct": 14.409458672717163,
+    "daily_dd_pct": 5.981800000000001,
+    "total_pnl": 33831.48,
+    "monthly_pct": 2.5119980921929237,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "tag": "rr25_lb4_r1_rf1_af1",
+   "risk": 1,
+   "stats": {
+    "trades": 431,
+    "wr": 38.05104408352668,
+    "static_dd_pct": 10.916693867963424,
+    "daily_dd_pct": 5.3980999999999995,
+    "total_pnl": 24072.86000000002,
+    "monthly_pct": 1.7874174701676484,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "tag": "rr25_lb6_r06_rf0_af0",
+   "risk": 0.6,
+   "stats": {
+    "trades": 765,
+    "wr": 39.21568627450981,
+    "static_dd_pct": 6.372276523582629,
+    "daily_dd_pct": 2.7958,
+    "total_pnl": 35753.260000000024,
+    "monthly_pct": 2.6045022186812936,
+    "passes_operator_bar": true
+   }
+  },
+  {
+   "tag": "rr25_lb6_r06_rf0_af1",
+   "risk": 0.6,
+   "stats": {
+    "trades": 540,
+    "wr": 38.148148148148145,
+    "static_dd_pct": 6.025393039456631,
+    "daily_dd_pct": 2.0269,
+    "total_pnl": 15498.819999999998,
+    "monthly_pct": 1.1290358159491463,
+    "passes_operator_bar": true
+   }
+  },
+  {
+   "tag": "rr25_lb6_r06_rf1_af0",
+   "risk": 0.6,
+   "stats": {
+    "trades": 500,
+    "wr": 38,
+    "static_dd_pct": 8.316240894566594,
+    "daily_dd_pct": 1.3979,
+    "total_pnl": 13384.59,
+    "monthly_pct": 0.9938100415584681,
+    "passes_operator_bar": true
+   }
+  },
+  {
+   "tag": "rr25_lb6_r06_rf1_af1",
+   "risk": 0.6,
+   "stats": {
+    "trades": 381,
+    "wr": 38.84514435695538,
+    "static_dd_pct": 6.118509418509471,
+    "daily_dd_pct": 1.3131,
+    "total_pnl": 10506.169999999998,
+    "monthly_pct": 0.780086446003974,
+    "passes_operator_bar": true
+   }
+  },
+  {
+   "tag": "rr25_lb6_r1_rf0_af0",
+   "risk": 1,
+   "stats": {
+    "trades": 765,
+    "wr": 39.08496732026144,
+    "static_dd_pct": 10.67717447521397,
+    "daily_dd_pct": 13.7458,
+    "total_pnl": 118029.74000000005,
+    "monthly_pct": 8.59806125931946,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "tag": "rr25_lb6_r1_rf0_af1",
+   "risk": 1,
+   "stats": {
+    "trades": 539,
+    "wr": 38.40445269016698,
+    "static_dd_pct": 10.380703762761566,
+    "daily_dd_pct": 8.2649,
+    "total_pnl": 40976.140000000036,
+    "monthly_pct": 2.9849710919506447,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "tag": "rr25_lb6_r1_rf1_af0",
+   "risk": 1,
+   "stats": {
+    "trades": 497,
+    "wr": 38.22937625754527,
+    "static_dd_pct": 14.193647106885104,
+    "daily_dd_pct": 4.6596,
+    "total_pnl": 34784.59000000002,
+    "monthly_pct": 2.5827668111981237,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "tag": "rr25_lb6_r1_rf1_af1",
+   "risk": 1,
+   "stats": {
+    "trades": 380,
+    "wr": 39.21052631578947,
+    "static_dd_pct": 10.475324507957897,
+    "daily_dd_pct": 5.352,
+    "total_pnl": 24667.959999999995,
+    "monthly_pct": 1.8316038334205698,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "tag": "rr3_lb3_r06_rf0_af0",
+   "risk": 0.6,
+   "stats": {
+    "trades": 861,
+    "wr": 33.44947735191638,
+    "static_dd_pct": 11.074597793149547,
+    "daily_dd_pct": 4.2566999999999995,
+    "total_pnl": 34312.18999999998,
+    "monthly_pct": 2.499525217639286,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "tag": "rr3_lb3_r06_rf0_af1",
+   "risk": 0.6,
+   "stats": {
+    "trades": 587,
+    "wr": 32.87904599659284,
+    "static_dd_pct": 10.399029045872028,
+    "daily_dd_pct": 2.0724,
+    "total_pnl": 14928.590000000015,
+    "monthly_pct": 1.0874965185491723,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "tag": "rr3_lb3_r06_rf1_af0",
+   "risk": 0.6,
+   "stats": {
+    "trades": 554,
+    "wr": 32.49097472924188,
+    "static_dd_pct": 9.207793956508931,
+    "daily_dd_pct": 2.2799,
+    "total_pnl": 12470.17,
+    "monthly_pct": 0.9259140672923984,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "tag": "rr3_lb3_r06_rf1_af1",
+   "risk": 0.6,
+   "stats": {
+    "trades": 419,
+    "wr": 33.17422434367542,
+    "static_dd_pct": 6.858869271009986,
+    "daily_dd_pct": 1.7823000000000002,
+    "total_pnl": 9194.389999999998,
+    "monthly_pct": 0.6826863660377166,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "tag": "rr3_lb3_r1_rf0_af0",
+   "risk": 1,
+   "stats": {
+    "trades": 859,
+    "wr": 33.29452852153667,
+    "static_dd_pct": 18.25707747468996,
+    "daily_dd_pct": 12.1149,
+    "total_pnl": 102790.35999999991,
+    "monthly_pct": 7.4879247564851,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "tag": "rr3_lb3_r1_rf0_af1",
+   "risk": 1,
+   "stats": {
+    "trades": 584,
+    "wr": 33.04794520547945,
+    "static_dd_pct": 16.48941108030499,
+    "daily_dd_pct": 7.542400000000001,
+    "total_pnl": 37743.500000000015,
+    "monthly_pct": 2.7494843684407346,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "tag": "rr3_lb3_r1_rf1_af0",
+   "risk": 1,
+   "stats": {
+    "trades": 549,
+    "wr": 32.78688524590164,
+    "static_dd_pct": 15.421695918609576,
+    "daily_dd_pct": 6.5714,
+    "total_pnl": 31930.73,
+    "monthly_pct": 2.370866803412897,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "tag": "rr3_lb3_r1_rf1_af1",
+   "risk": 1,
+   "stats": {
+    "trades": 417,
+    "wr": 33.573141486810556,
+    "static_dd_pct": 11.950123595969561,
+    "daily_dd_pct": 5.352,
+    "total_pnl": 23798.519999999982,
+    "monthly_pct": 1.767047638383396,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "tag": "rr3_lb4_r06_rf0_af0",
+   "risk": 0.6,
+   "stats": {
+    "trades": 794,
+    "wr": 32.99748110831234,
+    "static_dd_pct": 8.834165509498632,
+    "daily_dd_pct": 3.4099999999999997,
+    "total_pnl": 26888.929999999997,
+    "monthly_pct": 1.958766217205534,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "tag": "rr3_lb4_r06_rf0_af1",
+   "risk": 0.6,
+   "stats": {
+    "trades": 550,
+    "wr": 32.18181818181819,
+    "static_dd_pct": 7.384883443643106,
+    "daily_dd_pct": 1.699,
+    "total_pnl": 11159.810000000001,
+    "monthly_pct": 0.8129538370783997,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "tag": "rr3_lb4_r06_rf1_af0",
+   "risk": 0.6,
+   "stats": {
+    "trades": 534,
+    "wr": 32.39700374531835,
+    "static_dd_pct": 6.875029272633612,
+    "daily_dd_pct": 2.0663,
+    "total_pnl": 11760.779999999999,
+    "monthly_pct": 0.8732416353851706,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "tag": "rr3_lb4_r06_rf1_af1",
+   "risk": 0.6,
+   "stats": {
+    "trades": 407,
+    "wr": 32.923832923832926,
+    "static_dd_pct": 4.9669447135051765,
+    "daily_dd_pct": 1.4153,
+    "total_pnl": 9187.090000000006,
+    "monthly_pct": 0.6821443387284476,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "tag": "rr3_lb4_r1_rf0_af0",
+   "risk": 1,
+   "stats": {
+    "trades": 788,
+    "wr": 32.74111675126903,
+    "static_dd_pct": 14.58831216533043,
+    "daily_dd_pct": 13.4925,
+    "total_pnl": 71141.91999999998,
+    "monthly_pct": 5.182444579354355,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "tag": "rr3_lb4_r1_rf0_af1",
+   "risk": 1,
+   "stats": {
+    "trades": 548,
+    "wr": 32.299270072992705,
+    "static_dd_pct": 12.742240221264254,
+    "daily_dd_pct": 6.074400000000001,
+    "total_pnl": 27676.17000000001,
+    "monthly_pct": 2.0161139479197314,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "tag": "rr3_lb4_r1_rf1_af0",
+   "risk": 1,
+   "stats": {
+    "trades": 530,
+    "wr": 32.45283018867924,
+    "static_dd_pct": 11.641116135436182,
+    "daily_dd_pct": 6.1987,
+    "total_pnl": 28643.12999999998,
+    "monthly_pct": 2.126761463419095,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "tag": "rr3_lb4_r1_rf1_af1",
+   "risk": 1,
+   "stats": {
+    "trades": 406,
+    "wr": 33.251231527093594,
+    "static_dd_pct": 8.413563293292809,
+    "daily_dd_pct": 4.9792000000000005,
+    "total_pnl": 20942.069999999996,
+    "monthly_pct": 1.5549553222788552,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "tag": "rr3_lb6_r06_rf0_af0",
+   "risk": 0.6,
+   "stats": {
+    "trades": 681,
+    "wr": 33.77386196769457,
+    "static_dd_pct": 8.526888002838007,
+    "daily_dd_pct": 3.2857,
+    "total_pnl": 25316.649999999994,
+    "monthly_pct": 1.8442310182226098,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "tag": "rr3_lb6_r06_rf0_af1",
+   "risk": 0.6,
+   "stats": {
+    "trades": 471,
+    "wr": 33.12101910828025,
+    "static_dd_pct": 5.916919635724587,
+    "daily_dd_pct": 1.2933000000000001,
+    "total_pnl": 11708.390000000001,
+    "monthly_pct": 0.852916006321825,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "tag": "rr3_lb6_r06_rf1_af0",
+   "risk": 0.6,
+   "stats": {
+    "trades": 453,
+    "wr": 33.77483443708609,
+    "static_dd_pct": 7.529239066819611,
+    "daily_dd_pct": 2.0663,
+    "total_pnl": 12427.33,
+    "monthly_pct": 0.9227331837404656,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "tag": "rr3_lb6_r06_rf1_af1",
+   "risk": 0.6,
+   "stats": {
+    "trades": 346,
+    "wr": 34.104046242774565,
+    "static_dd_pct": 6.443664057541791,
+    "daily_dd_pct": 1.1679,
+    "total_pnl": 9321.63,
+    "monthly_pct": 0.6921339762886023,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "tag": "rr3_lb6_r1_rf0_af0",
+   "risk": 1,
+   "stats": {
+    "trades": 677,
+    "wr": 33.53028064992615,
+    "static_dd_pct": 14.487493688912881,
+    "daily_dd_pct": 12.521600000000003,
+    "total_pnl": 66665.29999999997,
+    "monthly_pct": 4.856338184519505,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "tag": "rr3_lb6_r1_rf0_af1",
+   "risk": 1,
+   "stats": {
+    "trades": 470,
+    "wr": 33.191489361702125,
+    "static_dd_pct": 12.184597803610524,
+    "daily_dd_pct": 6.074400000000001,
+    "total_pnl": 27192.30000000001,
+    "monthly_pct": 1.980865679970087,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "tag": "rr3_lb6_r1_rf1_af0",
+   "risk": 1,
+   "stats": {
+    "trades": 450,
+    "wr": 33.77777777777778,
+    "static_dd_pct": 12.359507060893632,
+    "daily_dd_pct": 6.3229,
+    "total_pnl": 30466.379999999994,
+    "monthly_pct": 2.2621383526829044,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "tag": "rr3_lb6_r1_rf1_af1",
+   "risk": 1,
+   "stats": {
+    "trades": 345,
+    "wr": 34.492753623188406,
+    "static_dd_pct": 10.89443929349764,
+    "daily_dd_pct": 4.9792000000000005,
+    "total_pnl": 21149.759999999987,
+    "monthly_pct": 1.5703763704791565,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "tag": "rr5_lb3_r06_rf0_af0",
+   "risk": 0.6,
+   "stats": {
+    "trades": 539,
+    "wr": 25.04638218923933,
+    "static_dd_pct": 9.298811827093926,
+    "daily_dd_pct": 4.0705,
+    "total_pnl": 30038.470000000012,
+    "monthly_pct": 2.188199391070673,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "tag": "rr5_lb3_r06_rf0_af1",
+   "risk": 0.6,
+   "stats": {
+    "trades": 390,
+    "wr": 22.82051282051282,
+    "static_dd_pct": 8.00164226903987,
+    "daily_dd_pct": 1.7317000000000002,
+    "total_pnl": 9256.369999999997,
+    "monthly_pct": 0.674294769258382,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "tag": "rr5_lb3_r06_rf1_af0",
+   "risk": 0.6,
+   "stats": {
+    "trades": 367,
+    "wr": 23.705722070844686,
+    "static_dd_pct": 12.091525696092747,
+    "daily_dd_pct": 1.5572,
+    "total_pnl": 11501.400000000003,
+    "monthly_pct": 0.8539825883333423,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "tag": "rr5_lb3_r06_rf1_af1",
+   "risk": 0.6,
+   "stats": {
+    "trades": 294,
+    "wr": 23.12925170068027,
+    "static_dd_pct": 10.579552519782318,
+    "daily_dd_pct": 1.4153,
+    "total_pnl": 7170.530000000001,
+    "monthly_pct": 0.5324141208132818,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "tag": "rr5_lb3_r1_rf0_af0",
+   "risk": 1,
+   "stats": {
+    "trades": 538,
+    "wr": 25.27881040892193,
+    "static_dd_pct": 15.61797083276125,
+    "daily_dd_pct": 12.1225,
+    "total_pnl": 102892.02999999994,
+    "monthly_pct": 7.495331066862766,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "tag": "rr5_lb3_r1_rf0_af1",
+   "risk": 1,
+   "stats": {
+    "trades": 386,
+    "wr": 23.05699481865285,
+    "static_dd_pct": 13.610145291349385,
+    "daily_dd_pct": 3.6965,
+    "total_pnl": 24150.76,
+    "monthly_pct": 1.7592999352461676,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "tag": "rr5_lb3_r1_rf1_af0",
+   "risk": 1,
+   "stats": {
+    "trades": 359,
+    "wr": 24.512534818941504,
+    "static_dd_pct": 19.906597869793753,
+    "daily_dd_pct": 4.4266,
+    "total_pnl": 32586.89,
+    "monthly_pct": 2.419586890981437,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "tag": "rr5_lb3_r1_rf1_af1",
+   "risk": 1,
+   "stats": {
+    "trades": 291,
+    "wr": 23.367697594501717,
+    "static_dd_pct": 17.691432559653506,
+    "daily_dd_pct": 2.8258999999999994,
+    "total_pnl": 16846.330000000005,
+    "monthly_pct": 1.2508453316394208,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "tag": "rr5_lb4_r06_rf0_af0",
+   "risk": 0.6,
+   "stats": {
+    "trades": 510,
+    "wr": 24.11764705882353,
+    "static_dd_pct": 9.666177769061735,
+    "daily_dd_pct": 2.3260000000000005,
+    "total_pnl": 22536.690000000013,
+    "monthly_pct": 1.6417204782649895,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "tag": "rr5_lb4_r06_rf0_af1",
+   "risk": 0.6,
+   "stats": {
+    "trades": 381,
+    "wr": 22.57217847769029,
+    "static_dd_pct": 11.063236035040925,
+    "daily_dd_pct": 1.2135,
+    "total_pnl": 9394.780000000002,
+    "monthly_pct": 0.6843774624753836,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "tag": "rr5_lb4_r06_rf1_af0",
+   "risk": 0.6,
+   "stats": {
+    "trades": 357,
+    "wr": 22.128851540616246,
+    "static_dd_pct": 11.132332314108737,
+    "daily_dd_pct": 1.5453,
+    "total_pnl": 7301.910000000002,
+    "monthly_pct": 0.542169127373808,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "tag": "rr5_lb4_r06_rf1_af1",
+   "risk": 0.6,
+   "stats": {
+    "trades": 277,
+    "wr": 22.743682310469314,
+    "static_dd_pct": 9.778015351302706,
+    "daily_dd_pct": 1.2336,
+    "total_pnl": 6119.649999999999,
+    "monthly_pct": 0.4543859483796872,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "tag": "rr5_lb4_r1_rf0_af0",
+   "risk": 1,
+   "stats": {
+    "trades": 512,
+    "wr": 24.0234375,
+    "static_dd_pct": 15.559724216024371,
+    "daily_dd_pct": 7.3325000000000005,
+    "total_pnl": 58921.359999999986,
+    "monthly_pct": 4.2922187472616224,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "tag": "rr5_lb4_r1_rf0_af1",
+   "risk": 1,
+   "stats": {
+    "trades": 28,
+    "wr": 10.714285714285714,
+    "static_dd_pct": 12.0394731031586,
+    "daily_dd_pct": 1.0482,
+    "total_pnl": -1036.6200000000001,
+    "monthly_pct": -0.9050649622945923,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "tag": "rr5_lb4_r1_rf1_af0",
+   "risk": 1,
+   "stats": {
+    "trades": 349,
+    "wr": 22.349570200573066,
+    "static_dd_pct": 18.46094952625669,
+    "daily_dd_pct": 3.4389999999999996,
+    "total_pnl": 16711.95,
+    "monthly_pct": 1.2408675741298791,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "tag": "rr5_lb4_r1_rf1_af1",
+   "risk": 1,
+   "stats": {
+    "trades": 91,
+    "wr": 15.384615384615385,
+    "static_dd_pct": 14.883793604789672,
+    "daily_dd_pct": 2.0370999999999997,
+    "total_pnl": -1066.22,
+    "monthly_pct": -0.2385318501324433,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "tag": "rr5_lb6_r06_rf0_af0",
+   "risk": 0.6,
+   "stats": {
+    "trades": 448,
+    "wr": 25.892857142857146,
+    "static_dd_pct": 9.094184966963729,
+    "daily_dd_pct": 2.3726000000000003,
+    "total_pnl": 27694.28,
+    "monthly_pct": 2.0174331992322077,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "tag": "rr5_lb6_r06_rf0_af1",
+   "risk": 0.6,
+   "stats": {
+    "trades": 328,
+    "wr": 24.695121951219512,
+    "static_dd_pct": 7.273181966998719,
+    "daily_dd_pct": 1.3547,
+    "total_pnl": 11442.36,
+    "monthly_pct": 0.8335366343362833,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "tag": "rr5_lb6_r06_rf1_af0",
+   "risk": 0.6,
+   "stats": {
+    "trades": 302,
+    "wr": 23.841059602649008,
+    "static_dd_pct": 11.054901899617194,
+    "daily_dd_pct": 1.2742,
+    "total_pnl": 8842.599999999999,
+    "monthly_pct": 0.6565658472530655,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "tag": "rr5_lb6_r06_rf1_af1",
+   "risk": 0.6,
+   "stats": {
+    "trades": 230,
+    "wr": 24.782608695652176,
+    "static_dd_pct": 8.922174873934784,
+    "daily_dd_pct": 1.2872,
+    "total_pnl": 6937.79,
+    "monthly_pct": 0.5151331021887054,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "tag": "rr5_lb6_r1_rf0_af0",
+   "risk": 1,
+   "stats": {
+    "trades": 447,
+    "wr": 25.727069351230426,
+    "static_dd_pct": 14.596410239611348,
+    "daily_dd_pct": 9.4902,
+    "total_pnl": 77845.89999999998,
+    "monthly_pct": 5.67080650170759,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "tag": "rr5_lb6_r1_rf0_af1",
+   "risk": 1,
+   "stats": {
+    "trades": 327,
+    "wr": 24.770642201834864,
+    "static_dd_pct": 12.716717308831635,
+    "daily_dd_pct": 4.0112000000000005,
+    "total_pnl": 28885.430000000015,
+    "monthly_pct": 2.1042043864689037,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "tag": "rr5_lb6_r1_rf1_af0",
+   "risk": 1,
+   "stats": {
+    "trades": 295,
+    "wr": 24.06779661016949,
+    "static_dd_pct": 18.690119618285355,
+    "daily_dd_pct": 3.0287,
+    "total_pnl": 20747.749999999993,
+    "monthly_pct": 1.5405270008079963,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "tag": "rr5_lb6_r1_rf1_af1",
+   "risk": 1,
+   "stats": {
+    "trades": 73,
+    "wr": 15.068493150684931,
+    "static_dd_pct": 15.721030887271322,
+    "daily_dd_pct": 2.0370999999999997,
+    "total_pnl": -1003.8100000000003,
+    "monthly_pct": -0.22276870353437941,
+    "passes_operator_bar": false
+   }
+  }
+ ],
+ "passers": [
+  {
+   "tag": "rr25_lb6_r06_rf0_af0",
+   "risk": 0.6,
+   "stats": {
+    "trades": 765,
+    "wr": 39.21568627450981,
+    "static_dd_pct": 6.372276523582629,
+    "daily_dd_pct": 2.7958,
+    "total_pnl": 35753.260000000024,
+    "monthly_pct": 2.6045022186812936,
+    "passes_operator_bar": true
+   },
+   "wr_delta": 0.13071895424836555
+  },
+  {
+   "tag": "rr25_lb4_r06_rf0_af0",
+   "risk": 0.6,
+   "stats": {
+    "trades": 875,
+    "wr": 37.371428571428574,
+    "static_dd_pct": 7.833212164860076,
+    "daily_dd_pct": 3.6471000000000005,
+    "total_pnl": 29606.660000000018,
+    "monthly_pct": 2.156743515353361,
+    "passes_operator_bar": true
+   },
+   "wr_delta": 0.07165740438051671
+  },
+  {
+   "tag": "rr2_lb3_r06_rf0_af0",
+   "risk": 0.6,
+   "stats": {
+    "trades": 1069,
+    "wr": 41.1599625818522,
+    "static_dd_pct": 8.465158165999796,
+    "daily_dd_pct": 3.9677,
+    "total_pnl": 23105.239999999983,
+    "monthly_pct": 1.683540284789578,
+    "passes_operator_bar": true
+   },
+   "wr_delta": 0.08853401042362918
+  },
+  {
+   "tag": "rr2_lb4_r06_rf0_af0",
+   "risk": 0.6,
+   "stats": {
+    "trades": 1004,
+    "wr": 40.93625498007968,
+    "static_dd_pct": 9.0585391747432,
+    "daily_dd_pct": 1.9534,
+    "total_pnl": 21350.669999999995,
+    "monthly_pct": 1.5556952904297172,
+    "passes_operator_bar": true
+   },
+   "wr_delta": 0.06374501992031867
+  },
+  {
+   "tag": "rr2_lb6_r06_rf0_af0",
+   "risk": 0.6,
+   "stats": {
+    "trades": 928,
+    "wr": 40.625,
+    "static_dd_pct": 6.880176268715502,
+    "daily_dd_pct": 1.8242,
+    "total_pnl": 18050.77999999999,
+    "monthly_pct": 1.3149373388308607,
+    "passes_operator_bar": true
+   },
+   "wr_delta": 0.06764069264069406
+  },
+  {
+   "tag": "rr25_lb6_r06_rf0_af1",
+   "risk": 0.6,
+   "stats": {
+    "trades": 540,
+    "wr": 38.148148148148145,
+    "static_dd_pct": 6.025393039456631,
+    "daily_dd_pct": 2.0269,
+    "total_pnl": 15498.819999999998,
+    "monthly_pct": 1.1290358159491463,
+    "passes_operator_bar": true
+   },
+   "wr_delta": 0.2563045420188317
+  },
+  {
+   "tag": "rr25_lb6_r06_rf1_af0",
+   "risk": 0.6,
+   "stats": {
+    "trades": 500,
+    "wr": 38,
+    "static_dd_pct": 8.316240894566594,
+    "daily_dd_pct": 1.3979,
+    "total_pnl": 13384.59,
+    "monthly_pct": 0.9938100415584681,
+    "passes_operator_bar": true
+   },
+   "wr_delta": 0.2293762575452689
+  },
+  {
+   "tag": "rr25_lb4_r06_rf1_af0",
+   "risk": 0.6,
+   "stats": {
+    "trades": 547,
+    "wr": 37.29433272394881,
+    "static_dd_pct": 8.453245035175332,
+    "daily_dd_pct": 2.0412,
+    "total_pnl": 13115.940000000004,
+    "monthly_pct": 0.9738626940741837,
+    "passes_operator_bar": true
+   },
+   "wr_delta": 0.2056672760511873
+  },
+  {
+   "tag": "rr25_lb6_r06_rf1_af1",
+   "risk": 0.6,
+   "stats": {
+    "trades": 381,
+    "wr": 38.84514435695538,
+    "static_dd_pct": 6.118509418509471,
+    "daily_dd_pct": 1.3131,
+    "total_pnl": 10506.169999999998,
+    "monthly_pct": 0.780086446003974,
+    "passes_operator_bar": true
+   },
+   "wr_delta": 0.3653819588340923
+  },
+  {
+   "tag": "rr25_lb4_r06_rf1_af1",
+   "risk": 0.6,
+   "stats": {
+    "trades": 433,
+    "wr": 37.87528868360277,
+    "static_dd_pct": 6.376939219066161,
+    "daily_dd_pct": 1.8961000000000001,
+    "total_pnl": 10275.56,
+    "monthly_pct": 0.7629635805531982,
+    "passes_operator_bar": true
+   },
+   "wr_delta": 0.17575539992391498
+  },
+  {
+   "tag": "rr2_lb6_r06_rf0_af1",
+   "risk": 0.6,
+   "stats": {
+    "trades": 621,
+    "wr": 40.41867954911433,
+    "static_dd_pct": 6.720583373315443,
+    "daily_dd_pct": 1.5165000000000002,
+    "total_pnl": 9777.670000000007,
+    "monthly_pct": 0.712269684177989,
+    "passes_operator_bar": true
+   },
+   "wr_delta": 0.2264817412082465
+  },
+  {
+   "tag": "rr2_lb3_r06_rf0_af1",
+   "risk": 0.6,
+   "stats": {
+    "trades": 733,
+    "wr": 40.10914051841746,
+    "static_dd_pct": 7.9326545832297795,
+    "daily_dd_pct": 2.1812,
+    "total_pnl": 9710.830000000005,
+    "monthly_pct": 0.7075699496626394,
+    "passes_operator_bar": true
+   },
+   "wr_delta": 0.27547486619792494
+  },
+  {
+   "tag": "rr2_lb4_r06_rf1_af0",
+   "risk": 0.6,
+   "stats": {
+    "trades": 654,
+    "wr": 40.51987767584097,
+    "static_dd_pct": 9.00487864186301,
+    "daily_dd_pct": 1.7954,
+    "total_pnl": 9242.990000000009,
+    "monthly_pct": 0.6862949314117589,
+    "passes_operator_bar": true
+   },
+   "wr_delta": 0.06654207724545103
+  },
+  {
+   "tag": "rr25_lb3_r06_rf1_af1",
+   "risk": 0.6,
+   "stats": {
+    "trades": 454,
+    "wr": 37.00440528634361,
+    "static_dd_pct": 8.735711310112968,
+    "daily_dd_pct": 1.767,
+    "total_pnl": 9037.22,
+    "monthly_pct": 0.6710164438188259,
+    "passes_operator_bar": true
+   },
+   "wr_delta": 0.467878527403613
+  },
+  {
+   "tag": "rr2_lb3_r06_rf1_af0",
+   "risk": 0.6,
+   "stats": {
+    "trades": 696,
+    "wr": 39.94252873563218,
+    "static_dd_pct": 8.387187761283197,
+    "daily_dd_pct": 2.1812,
+    "total_pnl": 8743.050000000007,
+    "monthly_pct": 0.6491742282615882,
+    "passes_operator_bar": true
+   },
+   "wr_delta": 0.28901974483091664
+  },
+  {
+   "tag": "rr2_lb6_r06_rf1_af0",
+   "risk": 0.6,
+   "stats": {
+    "trades": 595,
+    "wr": 40.33613445378151,
+    "static_dd_pct": 7.676890218340741,
+    "daily_dd_pct": 1.5523000000000002,
+    "total_pnl": 8351.060000000001,
+    "monthly_pct": 0.620068846760137,
+    "passes_operator_bar": true
+   },
+   "wr_delta": 0.20440608675902894
+  },
+  {
+   "tag": "rr2_lb4_r06_rf0_af1",
+   "risk": 0.6,
+   "stats": {
+    "trades": 694,
+    "wr": 39.19308357348703,
+    "static_dd_pct": 8.09337235824399,
+    "daily_dd_pct": 2.1828,
+    "total_pnl": 7184.489999999999,
+    "monthly_pct": 0.5234907034364449,
+    "passes_operator_bar": true
+   },
+   "wr_delta": 0.22720628158543832
+  },
+  {
+   "tag": "rr2_lb6_r06_rf1_af1",
+   "risk": 0.6,
+   "stats": {
+    "trades": 444,
+    "wr": 41.44144144144144,
+    "static_dd_pct": 6.185821182923804,
+    "daily_dd_pct": 1.0159999999999998,
+    "total_pnl": 6847.950000000005,
+    "monthly_pct": 0.5084624537688727,
+    "passes_operator_bar": true
+   },
+   "wr_delta": 0.3192809061883537
+  },
+  {
+   "tag": "rr2_lb3_r06_rf1_af1",
+   "risk": 0.6,
+   "stats": {
+    "trades": 530,
+    "wr": 40.18867924528302,
+    "static_dd_pct": 8.767649940565887,
+    "daily_dd_pct": 2.0971,
+    "total_pnl": 6409.88,
+    "monthly_pct": 0.4759356176905526,
+    "passes_operator_bar": true
+   },
+   "wr_delta": 0.4957314011048126
+  },
+  {
+   "tag": "rr2_lb4_r06_rf1_af1",
+   "risk": 0.6,
+   "stats": {
+    "trades": 497,
+    "wr": 40.04024144869216,
+    "static_dd_pct": 7.498919838437273,
+    "daily_dd_pct": 1.8626,
+    "total_pnl": 6039.079999999999,
+    "monthly_pct": 0.44840360039231036,
+    "passes_operator_bar": true
+   },
+   "wr_delta": 0.24315936102444624
+  }
+ ]
+}

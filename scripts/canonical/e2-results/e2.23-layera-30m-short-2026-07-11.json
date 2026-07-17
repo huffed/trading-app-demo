@@ -1,0 +1,205 @@
+{
+ "tf": "30m",
+ "direction": "Short",
+ "risk": 0.66,
+ "pinned_sha256": "d0dcb3ea0612afe98cb03c0ea113873faf5c3ca801b87f61e6cbac1ad6842adf",
+ "computed_at": "2026-07-11T13:16:59.478Z",
+ "results": [
+  {
+   "id": "79b02a40-f3ed-43ea-8a6a-f3fa8dd516e8",
+   "label": "BOS-Short 30m",
+   "excluded": false,
+   "stats": {
+    "trades": 467,
+    "wr": 33.40471092077088,
+    "static_dd_pct": 7.169729678302575,
+    "daily_dd_pct": 3.1254999999999997,
+    "total_pnl": 14053.889999999996,
+    "monthly_pct": 1.0237061731600434,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "id": "37c3a5a4-cbed-459d-91b3-08092b0bbb17",
+   "label": "CHOCH-Short 30m",
+   "excluded": false,
+   "stats": {
+    "trades": 293,
+    "wr": 35.49488054607509,
+    "static_dd_pct": 13.141281841952685,
+    "daily_dd_pct": 2.4681,
+    "total_pnl": 10503.429999999984,
+    "monthly_pct": 0.7714465348782253,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "id": "fea59714-a0b3-4b85-af95-8912cf8dfa16",
+   "label": "Engulfing-Short 30m",
+   "excluded": false,
+   "stats": {
+    "trades": 922,
+    "wr": 30.694143167028198,
+    "static_dd_pct": 13.834320960008878,
+    "daily_dd_pct": 3.1405000000000003,
+    "total_pnl": 17211.19,
+    "monthly_pct": 1.2537823413204106,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "id": "bf2b030c-0d83-485e-8b12-19f2f103d297",
+   "label": "EqualLevels-Short 30m",
+   "excluded": false,
+   "stats": {
+    "trades": 838,
+    "wr": 33.7708830548926,
+    "static_dd_pct": 11.938603370529556,
+    "daily_dd_pct": 6.087000000000001,
+    "total_pnl": 30250.24,
+    "monthly_pct": 2.204494387359349,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "id": "b56314d1-97cf-4324-944c-44db7daa50bd",
+   "label": "FVG-Short 30m",
+   "excluded": false,
+   "stats": {
+    "trades": 550,
+    "wr": 33.63636363636363,
+    "static_dd_pct": 13.789841444952735,
+    "daily_dd_pct": 3.4488,
+    "total_pnl": 18782.65,
+    "monthly_pct": 1.3681560588068142,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "id": "bd63851d-0ad8-414a-9fd3-18e82a55b6e1",
+   "label": "IFVG-Short 30m",
+   "excluded": false,
+   "stats": {
+    "trades": 1051,
+    "wr": 33.58705994291151,
+    "static_dd_pct": 16.629249177315067,
+    "daily_dd_pct": 7.897899999999999,
+    "total_pnl": 41965.31000000001,
+    "monthly_pct": 3.0575012838678806,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "id": "b869ab6f-eb7c-4a84-848c-5c6aca322bbd",
+   "label": "InsideBar-Short 30m",
+   "excluded": false,
+   "stats": {
+    "trades": 802,
+    "wr": 31.92019950124688,
+    "static_dd_pct": 12.965159788812276,
+    "daily_dd_pct": 4.1000000000000005,
+    "total_pnl": 20274.089999999997,
+    "monthly_pct": 1.4772366281585205,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "id": "8fe373e1-4d35-4e09-af93-f982df071b05",
+   "label": "MeanRev-Short 30m",
+   "excluded": false,
+   "stats": {
+    "trades": 931,
+    "wr": 27.926960257787325,
+    "static_dd_pct": 27.07558507933514,
+    "daily_dd_pct": 2.1287000000000003,
+    "total_pnl": 1521.460000000002,
+    "monthly_pct": 0.11096535995527529,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "id": "3f325d30-46cc-4cff-9daa-f106af25f161",
+   "label": "Momentum-Short 30m",
+   "excluded": false,
+   "stats": {
+    "trades": 759,
+    "wr": 33.59683794466403,
+    "static_dd_pct": 9.983233430791643,
+    "daily_dd_pct": 5.409400000000001,
+    "total_pnl": 32220.320000000018,
+    "monthly_pct": 2.347525902723621,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "id": "3c15d964-01e1-4f1f-92ad-a7f0f2dc6fee",
+   "label": "OrderBlock-Short 30m",
+   "excluded": false,
+   "stats": {
+    "trades": 939,
+    "wr": 27.689030883919063,
+    "static_dd_pct": 31.246399667407854,
+    "daily_dd_pct": 2.2538,
+    "total_pnl": -1036.599999999999,
+    "monthly_pct": -0.07677708909525927,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "id": "5c7ed30e-6b97-4165-a280-b65112a05f5f",
+   "label": "OutsideBar-Short 30m",
+   "excluded": false,
+   "stats": {
+    "trades": 909,
+    "wr": 30.693069306930692,
+    "static_dd_pct": 19.39475210622135,
+    "daily_dd_pct": 2.8886000000000003,
+    "total_pnl": 15031.820000000005,
+    "monthly_pct": 1.0949345848945615,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "id": "89da4385-ac4e-47c8-ab90-0b438fb59626",
+   "label": "PinBar-Short 30m",
+   "excluded": false,
+   "stats": {
+    "trades": 1065,
+    "wr": 29.014084507042252,
+    "static_dd_pct": 21.385591144099678,
+    "daily_dd_pct": 2.4719,
+    "total_pnl": 7225.370000000005,
+    "monthly_pct": 0.5264405057595073,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "id": "96057a7e-e1e3-4fb7-a271-5f701cff69df",
+   "label": "Sweep-Reclaim-Short 30m",
+   "excluded": false,
+   "stats": {
+    "trades": 608,
+    "wr": 29.111842105263158,
+    "static_dd_pct": 20.61389691316161,
+    "daily_dd_pct": 2.7102999999999997,
+    "total_pnl": 5006.070000000001,
+    "monthly_pct": 0.3651793327142558,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "id": "26aa2922-7111-42b1-9775-e3c977efc668",
+   "label": "Sweep-Short 30m",
+   "excluded": false,
+   "stats": {
+    "trades": 740,
+    "wr": 29.594594594594593,
+    "static_dd_pct": 21.788720610582818,
+    "daily_dd_pct": 2.3948,
+    "total_pnl": 5439.410000000002,
+    "monthly_pct": 0.3975504959207664,
+    "passes_operator_bar": false
+   }
+  }
+ ]
+}

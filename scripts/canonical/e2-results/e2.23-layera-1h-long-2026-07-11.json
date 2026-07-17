@@ -1,0 +1,233 @@
+{
+ "tf": "1h",
+ "direction": "Long",
+ "risk": 0.66,
+ "pinned_sha256": "bbfaac697469a264cdc29b9e55f138e0a37e4736fe5eb47c527d3c2e08713adc",
+ "computed_at": "2026-07-11T11:48:42.758Z",
+ "results": [
+  {
+   "id": "2bedc32d-6867-4791-b460-0f61f186d5d4",
+   "label": "BOS-Long 1h",
+   "excluded": false,
+   "stats": {
+    "trades": 430,
+    "wr": 35.348837209302324,
+    "static_dd_pct": 13.883581907426832,
+    "daily_dd_pct": 3.1675999999999997,
+    "total_pnl": 17096.04999999999,
+    "monthly_pct": 1.2454444210883193,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "id": "bab2128b-4f66-4f86-80c7-e3b7e4fbb909",
+   "label": "CHOCH-Long 1h",
+   "excluded": false,
+   "stats": {
+    "trades": 189,
+    "wr": 35.978835978835974,
+    "static_dd_pct": 6.76806625314749,
+    "daily_dd_pct": 1.0291,
+    "total_pnl": 6694.839999999999,
+    "monthly_pct": 0.49431323567638585,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "id": "ddd2835e-b43c-4c81-8caa-96b3d0df4a21",
+   "label": "Doji-Long 1h",
+   "excluded": true,
+   "stats": {
+    "trades": 0,
+    "wr": 0,
+    "static_dd_pct": 0,
+    "daily_dd_pct": 0,
+    "total_pnl": 0,
+    "monthly_pct": 0,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "id": "aec2d090-9273-42d5-a407-8f81eb75e7bf",
+   "label": "Engulfing-Long 1h",
+   "excluded": false,
+   "stats": {
+    "trades": 726,
+    "wr": 31.818181818181817,
+    "static_dd_pct": 12.982330090810548,
+    "daily_dd_pct": 3.5361999999999996,
+    "total_pnl": 17775.929999999993,
+    "monthly_pct": 1.293786642171855,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "id": "b5e85944-b082-41c2-a2c1-19e783a62d81",
+   "label": "EqualLevels-Long 1h",
+   "excluded": false,
+   "stats": {
+    "trades": 627,
+    "wr": 32.695374800637964,
+    "static_dd_pct": 12.127797827327084,
+    "daily_dd_pct": 3.7651999999999997,
+    "total_pnl": 15332.599999999988,
+    "monthly_pct": 1.136688611787627,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "id": "d5930deb-a85d-4151-828e-382eb1a28406",
+   "label": "FVG-Long 1h",
+   "excluded": false,
+   "stats": {
+    "trades": 515,
+    "wr": 37.66990291262136,
+    "static_dd_pct": 7.838809048320335,
+    "daily_dd_pct": 5.188899999999999,
+    "total_pnl": 37837.270000000026,
+    "monthly_pct": 2.755422245933016,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "id": "13dbef21-e487-431c-852a-2fa40cac61ad",
+   "label": "IFVG-Long 1h",
+   "excluded": false,
+   "stats": {
+    "trades": 894,
+    "wr": 34.00447427293065,
+    "static_dd_pct": 11.375103201541153,
+    "daily_dd_pct": 7.219400000000001,
+    "total_pnl": 41807.14999999996,
+    "monthly_pct": 3.040883264038229,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "id": "78908ae8-609f-459a-a37f-b73d21ed3671",
+   "label": "InsideBar-Long 1h",
+   "excluded": false,
+   "stats": {
+    "trades": 685,
+    "wr": 32.262773722627735,
+    "static_dd_pct": 13.124944607610034,
+    "daily_dd_pct": 2.9710000000000005,
+    "total_pnl": 18683.069999999992,
+    "monthly_pct": 1.3586334752642786,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "id": "579490c5-5555-4a15-bfb5-22a65d7f8f5e",
+   "label": "MeanRev-Long 1h",
+   "excluded": false,
+   "stats": {
+    "trades": 658,
+    "wr": 30.091185410334347,
+    "static_dd_pct": 21.19338433512259,
+    "daily_dd_pct": 2.4387,
+    "total_pnl": 8245.060000000007,
+    "monthly_pct": 0.6079564619390788,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "id": "56c0d4fa-969a-4335-8f6f-ddd3935dcbcd",
+   "label": "Momentum-Long 1h",
+   "excluded": false,
+   "stats": {
+    "trades": 668,
+    "wr": 36.52694610778443,
+    "static_dd_pct": 8.15976046175377,
+    "daily_dd_pct": 7.039400000000001,
+    "total_pnl": 48951.92999999999,
+    "monthly_pct": 3.5629069261761006,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "id": "2122ad88-fc36-4723-9ad0-40dd67d8cec2",
+   "label": "OrderBlock-Long 1h",
+   "excluded": false,
+   "stats": {
+    "trades": 703,
+    "wr": 33.001422475106686,
+    "static_dd_pct": 10.802979681018556,
+    "daily_dd_pct": 3.551799999999999,
+    "total_pnl": 20426.07999999999,
+    "monthly_pct": 1.5055872030994606,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "id": "fe01b14c-8e4e-4319-a7ea-c40c9394de17",
+   "label": "OTE-Long 1h",
+   "excluded": false,
+   "stats": {
+    "trades": 482,
+    "wr": 28.63070539419087,
+    "static_dd_pct": 27.08275766559703,
+    "daily_dd_pct": 2.2958000000000003,
+    "total_pnl": 1323.529999999997,
+    "monthly_pct": 0.09769908524891611,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "id": "463d27f8-b5b9-4530-aaf1-562e5fdd98c3",
+   "label": "OutsideBar-Long 1h",
+   "excluded": false,
+   "stats": {
+    "trades": 729,
+    "wr": 31.275720164609055,
+    "static_dd_pct": 13.474685946820934,
+    "daily_dd_pct": 3.0726,
+    "total_pnl": 15450.289999999994,
+    "monthly_pct": 1.1243178172183315,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "id": "f70018ca-0630-4233-b79c-1b1ebed0698c",
+   "label": "PinBar-Long 1h",
+   "excluded": false,
+   "stats": {
+    "trades": 835,
+    "wr": 31.8562874251497,
+    "static_dd_pct": 11.181902286444318,
+    "daily_dd_pct": 4.1586,
+    "total_pnl": 22224.22,
+    "monthly_pct": 1.6165161105944903,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "id": "3b20713b-d4d2-415a-aaae-ea9413b39baf",
+   "label": "Sweep-Long 1h",
+   "excluded": false,
+   "stats": {
+    "trades": 494,
+    "wr": 27.732793522267208,
+    "static_dd_pct": 21.176960421802658,
+    "daily_dd_pct": 2.1733,
+    "total_pnl": 1756.4800000000027,
+    "monthly_pct": 0.12948417073318422,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "id": "4a28498f-d001-4611-9c57-f61a5f9a580d",
+   "label": "Sweep-Reclaim-Long 1h",
+   "excluded": false,
+   "stats": {
+    "trades": 471,
+    "wr": 29.511677282377917,
+    "static_dd_pct": 12.464415073573338,
+    "daily_dd_pct": 2.0687,
+    "total_pnl": 5219.690000000006,
+    "monthly_pct": 0.3847928079112012,
+    "passes_operator_bar": false
+   }
+  }
+ ]
+}

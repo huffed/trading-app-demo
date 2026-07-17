@@ -39,7 +39,7 @@ function loadEnvLocal(): void {
 loadEnvLocal();
 
 const BASE_URL = "https://api-fxpractice.oanda.com";
-const MAX_PAGES = 30; // safety backstop (~150K bars)
+const MAX_PAGES = 80; // safety backstop (~400K bars; M30 2015→now needs ~32 pages)
 
 interface OandaCandle {
   time: string;
