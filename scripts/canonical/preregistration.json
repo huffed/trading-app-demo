@@ -1,1 +1,58 @@
-{}
+{
+  "Deploy: XAU/USD ARB+DailyBias 4h | r085 v1": {
+    "hypothesis": "ARB (outside-bar reclaim) + daily_bias-bullish, XAU/USD 4h, long-only. Deployed under Deploy-methodology-v4 (operator bar on pinned sha-verified data + sibling-aware dollar-pool FTMO-window stress). G.7 demo verifies live R tracks the fidelity-corrected backtest R (E2.24.d).",
+    "registered_at": "2026-07-17T00:00:00+00:00",
+    "expires_at": "2027-01-31T00:00:00+00:00",
+    "registration_type": "post-hoc-locked",
+    "min_total_return": 0,
+    "min_win_rate": 37,
+    "max_static_dd": 10,
+    "max_daily_dd": 5,
+    "min_held_out_trades": 0
+  },
+  "Deploy: XAU/USD ARB25+DailyBias 4h | r080 v1": {
+    "hypothesis": "ARB rr2.5 + daily_bias-bullish, XAU/USD 4h, long-only. Deployed under Deploy-methodology-v4. G.7 demo verifies live R tracks the fidelity-corrected backtest R (E2.24.d).",
+    "registered_at": "2026-07-17T00:00:00+00:00",
+    "expires_at": "2027-01-31T00:00:00+00:00",
+    "registration_type": "post-hoc-locked",
+    "min_total_return": 0,
+    "min_win_rate": 37,
+    "max_static_dd": 10,
+    "max_daily_dd": 5,
+    "min_held_out_trades": 0
+  },
+  "Deploy: XAU/USD Engulfing+DailyBias 4h | r080 v1": {
+    "hypothesis": "Engulfing + daily_bias-bullish, XAU/USD 4h, long-only. Deployed under Deploy-methodology-v4. G.7 demo verifies live R tracks the fidelity-corrected backtest R (E2.24.d).",
+    "registered_at": "2026-07-17T00:00:00+00:00",
+    "expires_at": "2027-01-31T00:00:00+00:00",
+    "registration_type": "post-hoc-locked",
+    "min_total_return": 0,
+    "min_win_rate": 37,
+    "max_static_dd": 10,
+    "max_daily_dd": 5,
+    "min_held_out_trades": 0
+  },
+  "Deploy: XAU/USD OutsideBar+DailyBias 4h | rr3_lb3 r066 v2": {
+    "hypothesis": "OutsideBar rr3 lb3 + daily_bias-bullish, XAU/USD 4h, long-only (E2.22 grid-winner geometry). Deployed under Deploy-methodology-v4. G.7 demo verifies live R tracks the fidelity-corrected backtest R (E2.24.d).",
+    "registered_at": "2026-07-17T00:00:00+00:00",
+    "expires_at": "2027-01-31T00:00:00+00:00",
+    "registration_type": "post-hoc-locked",
+    "min_total_return": 0,
+    "min_win_rate": 37,
+    "max_static_dd": 10,
+    "max_daily_dd": 5,
+    "min_held_out_trades": 0
+  },
+  "PORTFOLIO G.8 demo gate — XAU/USD 4-algo gold (FTMO demo 244ecbf5)": {
+    "hypothesis": "The deployed 4-algo gold portfolio's LIVE per-trade R, at 30 portfolio trades (~5-6 months), lands within +/-30% of the E2.24.d fidelity-corrected in-sample per-trade R (de-compounded, floating-inclusive-ML, session-day, gap-fill harness). Backtest expectation at ML<=8 sizing: ~0.38-0.55%/mo depending on final composition (4-algo 0.38%/mo @0.476% risk; 5-algo +Engulfing 0.55%/mo @0.417% — composition + final risk are the pending operator decision). PASS -> Stage 5.3 real challenge; FAIL -> retire/recompose (Phase H or E2.26 LLM trigger). Tolerance +/-30% locked (resolves the prior +-30 vs +-50 conflict in favour of the stricter packet value).",
+    "registered_at": "2026-07-17T00:00:00+00:00",
+    "expires_at": "2027-07-31T00:00:00+00:00",
+    "registration_type": "forward-pre-registered",
+    "min_total_return": 0,
+    "min_win_rate": 37,
+    "max_static_dd": 10,
+    "max_daily_dd": 5,
+    "min_held_out_trades": 30,
+    "max_oos_r_delta_pct": 30
+  }
+}
