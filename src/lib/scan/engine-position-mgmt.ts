@@ -84,8 +84,13 @@ export async function manageExistingPosition(
   );
 
   const stagnantResult = evaluateStagnantExit(position, algo.rules, ticker, bars);
+  // E2.25.f: canonical "stagnant_exit" — matches the ExitReason type
+  // union, the backtest writer, and the re-entry-cooldown loss set. The
+  // former "stagnant_no_excursion" string satisfied none of them (the
+  // cooldown only caught it via the realized_pnl<0 fallback, which
+  // breaks the moment min_pnl_r ≥ 0 is configured).
   const exitCheck = stagnantResult?.exit
-    ? "stagnant_no_excursion"
+    ? "stagnant_exit"
     : checkExitTrigger(position, currentPrice, algo.rules, bars, closes, dailyBars);
 
   if (exitCheck) {

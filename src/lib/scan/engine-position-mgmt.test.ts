@@ -18,7 +18,7 @@
  *     falls through to checkExitTrigger
  *   - Position has stop_loss_price → uses |entry - SL| as stopDistance
  *   - Position lacks stop_loss_price → falls back to priceDeltaForRule
- *   - Stagnant fires → exitCheck = "stagnant_no_excursion" (overrides exit-trigger)
+ *   - Stagnant fires → exitCheck = "stagnant_exit" (E2.25.f canonical; overrides exit-trigger)
  *
  *  No-exit update path (3):
  *   - No exit triggered → updates current_price + unrealized_pnl with
@@ -224,7 +224,7 @@ describe("manageExistingPosition — stagnant-exit gate", () => {
     expect(mockedCheckStagnant).toHaveBeenCalledWith(expect.objectContaining({ stopDistance: 20 }));
   });
 
-  it("stagnant fires → exitCheck='stagnant_no_excursion' (overrides exit-trigger)", async () => {
+  it("stagnant fires → exitCheck='stagnant_exit' (E2.25.f canonical; overrides exit-trigger)", async () => {
     const conf = makeSupabaseMock();
     const { supabase } = conf;
     mockedCheckStagnant.mockReturnValue({
@@ -240,7 +240,7 @@ describe("manageExistingPosition — stagnant-exit gate", () => {
     const a = { ...algo, rules };
     const r = await manageExistingPosition(supabase, "user-1", a, "XAU/USD", makePosition(), makeBars(50), [3055], 3055, null, null);
     expect(r.closed).toBe(1);
-    expect((conf.capturedUpdate?.payload as { exit_reason: string }).exit_reason).toBe("stagnant_no_excursion");
+    expect((conf.capturedUpdate?.payload as { exit_reason: string }).exit_reason).toBe("stagnant_exit");
   });
 });
 

@@ -86,6 +86,31 @@ export async function checkPortfolioHalt(
 }
 
 /**
+ * Has this portfolio already fired its halt today? E2.25.d — without
+ * this guard `applyPortfolioHalts` re-flattens (no-op), re-disables
+ * live trading, and writes N `portfolio_halt` rows on EVERY 15-min tick
+ * of a tripped day (~380 rows/day for a 4-algo portfolio), because the
+ * halt condition (realized loss ≥ threshold today) stays true until the
+ * UTC day rolls over. One halt per portfolio per day is sufficient —
+ * the flatten already closed everything and disabled the mirror.
+ */
+export async function portfolioHaltFiredToday(
+  supabase: SupabaseClient,
+  portfolioId: string
+): Promise<boolean> {
+  const startIso = getTodayAnchor().utcIso;
+  const { data } = await supabase
+    .from("activity_log")
+    .select("id")
+    .eq("event_type", "portfolio_halt")
+    .gte("created_at", startIso)
+    .filter("details->>portfolio_id", "eq", portfolioId)
+    .limit(1)
+    .maybeSingle();
+  return data != null;
+}
+
+/**
  * Halt the entire portfolio: flatten every algorithm's open positions
  * (broker + paper) and disable live trading on each. Logs one
  * activity_log entry per algorithm so the halt is visible from any

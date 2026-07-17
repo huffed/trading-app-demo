@@ -17,6 +17,7 @@ import { scanAlgorithm, type ScanResult } from "@/lib/scan/engine";
 import {
   checkPortfolioHalt,
   executePortfolioHalt,
+  portfolioHaltFiredToday,
 } from "@/lib/scan/portfolio-halt";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Tables } from "@/lib/supabase/database.types";
@@ -71,12 +72,16 @@ async function applyPortfolioHalts(
     const algoIds = portfolioAlgos.map((a) => a.id);
     const haltCheck = await checkPortfolioHalt(supabase, portfolio, algoIds);
     if (haltCheck?.tripped) {
+      for (const id of algoIds) halted.add(id);
+      // E2.25.d: fire the flatten/disable/log ONCE per portfolio per day.
+      // On subsequent ticks the algos stay in the halted set (so they're
+      // skipped) but we don't re-run the side effects.
+      if (await portfolioHaltFiredToday(supabase, portfolio.id)) continue;
       // user_id is consistent across a portfolio's algos (RLS on portfolios).
       const userId = portfolioAlgos[0]?.user_id;
       if (userId) {
         await executePortfolioHalt(supabase, userId, portfolio, algoIds, haltCheck);
       }
-      for (const id of algoIds) halted.add(id);
     }
   }
   return halted;
@@ -145,6 +150,21 @@ export async function GET(request: Request) {
   // Portfolio-level halts fire BEFORE individual scans so a losing day on
   // one algo flattens its portfolio peers before they take more positions.
   const haltedByPortfolio = await applyPortfolioHalts(supabase, algos);
+
+  // E2.25.d: when EVERY active algo is portfolio-halted the scan loop
+  // emits no scan_started/scan_completed, so last_scan_tick() would see
+  // silence and the GitHub dead-man would fire a false "scan cron dead"
+  // alert on the exact day a portfolio took a loss. Emit one
+  // heartbeat-countable cron_idle beat so the halt reads as healthy-idle.
+  if (haltedByPortfolio.size >= algos.length) {
+    const idle = await emitCronIdle(supabase, "scan");
+    return NextResponse.json({
+      scanned: 0,
+      halted: haltedByPortfolio.size,
+      results: [],
+      cron_idle_emitted: idle.emitted,
+    });
+  }
 
   const results: (ScanResult | { algorithm_id: string; error: string })[] = [];
   for (const algo of algos) {

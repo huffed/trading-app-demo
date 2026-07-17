@@ -105,6 +105,7 @@ export async function checkReEntryCooldown(args: {
   const isLoss =
     exitReason === "stop_loss" ||
     exitReason === "stagnant_exit" ||
+    exitReason === "stagnant_no_excursion" || // E2.25.f: legacy alias, pre-canonicalization
     (realizedPnl != null && realizedPnl < 0);
 
   if (!isLoss) {

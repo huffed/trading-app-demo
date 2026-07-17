@@ -29,6 +29,7 @@ import { logActivity } from "./helpers";
 import {
   checkPortfolioHalt,
   executePortfolioHalt,
+  portfolioHaltFiredToday,
   type PortfolioHaltResult,
 } from "./portfolio-halt";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -497,5 +498,58 @@ describe("executePortfolioHalt — side effects per algo", () => {
     expect(mockedFlatten).not.toHaveBeenCalled();
     expect(conf.capturedAlgoUpdates).toHaveLength(0);
     expect(mockedLogActivity).not.toHaveBeenCalled();
+  });
+});
+
+// ======================================================================
+// portfolioHaltFiredToday — E2.25.d idempotency guard
+// ======================================================================
+
+/** Minimal activity_log query stub: .select().eq().gte().filter().limit().maybeSingle() */
+function makeActivityLogMock(existingRow: { id: string } | null): {
+  supabase: SupabaseClient;
+  captured: { eq: Array<[string, unknown]>; gte?: [string, unknown]; filter?: [string, string, unknown] };
+} {
+  const captured: { eq: Array<[string, unknown]>; gte?: [string, unknown]; filter?: [string, string, unknown] } = {
+    eq: [],
+  };
+  const builder: Record<string, unknown> = {};
+  builder.select = vi.fn().mockReturnValue(builder);
+  builder.eq = vi.fn().mockImplementation((c: string, v: unknown) => {
+    captured.eq.push([c, v]);
+    return builder;
+  });
+  builder.gte = vi.fn().mockImplementation((c: string, v: unknown) => {
+    captured.gte = [c, v];
+    return builder;
+  });
+  builder.filter = vi.fn().mockImplementation((c: string, op: string, v: unknown) => {
+    captured.filter = [c, op, v];
+    return builder;
+  });
+  builder.limit = vi.fn().mockReturnValue(builder);
+  builder.maybeSingle = vi.fn().mockResolvedValue({ data: existingRow, error: null });
+  const stub = Object.create(null) as Record<string, unknown>;
+  stub.from = vi.fn().mockImplementation((table: string) => {
+    if (table !== "activity_log") throw new Error(`unexpected table ${table}`);
+    return builder;
+  });
+  return { supabase: stub as unknown as SupabaseClient, captured };
+}
+
+describe("portfolioHaltFiredToday", () => {
+  it("returns true when a portfolio_halt row exists today for the portfolio", async () => {
+    const { supabase, captured } = makeActivityLogMock({ id: "log-1" });
+    const fired = await portfolioHaltFiredToday(supabase, "portfolio-1");
+    expect(fired).toBe(true);
+    // Scoped to the right event type, portfolio, and today's anchor.
+    expect(captured.eq).toContainEqual(["event_type", "portfolio_halt"]);
+    expect(captured.filter).toEqual(["details->>portfolio_id", "eq", "portfolio-1"]);
+    expect(captured.gte).toEqual(["created_at", "2026-06-22T00:00:00.000Z"]);
+  });
+
+  it("returns false when no halt row exists today", async () => {
+    const { supabase } = makeActivityLogMock(null);
+    expect(await portfolioHaltFiredToday(supabase, "portfolio-1")).toBe(false);
   });
 });

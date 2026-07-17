@@ -79,9 +79,10 @@ export async function fetchDailyPrices(
  *
  * `liveCron` is the opt-in switch. When false (default) callers get the
  * old behaviour: cache TTL controls freshness, no force-refresh path.
- * Daily-interval reads always go through the regular cache path —
- * D1 bars don't churn fast enough to justify per-scan refreshes, and
- * the 7-day Supabase TTL on D1 is intentional.
+ * Daily-interval reads under liveCron refresh past a 26h age margin
+ * (E2.25.c) — the 7-day Supabase read TTL is kept for backtest loaders
+ * but must not gate the live daily_bias feed, which needs the previous
+ * completed session, not a week-old one.
  */
 export async function getFreshPricesForScan(
   ticker: string,
@@ -96,7 +97,7 @@ export async function getFreshPricesForScan(
     return prices;
   }
 
-  if (!liveCron || interval === "1day") return prices;
+  if (!liveCron) return prices;
 
   const latest = prices[prices.length - 1];
   if (!latest) return prices;
@@ -106,8 +107,19 @@ export async function getFreshPricesForScan(
   if (!Number.isFinite(latestMs)) return prices;
 
   const ageMs = Date.now() - latestMs;
-  const oneBarMs = intervalMinutes(interval) * 60_000;
-  if (ageMs <= oneBarMs) return prices;
+  // E2.25.c: D1 used to be exempted from the live fresh-tail refresh
+  // (7-day cache TTL), which let daily_bias — now a required entry
+  // condition on every live algo — run on a daily close up to ~7 days
+  // stale while the backtest sees a complete series. A NY-session daily
+  // bar legitimately ages to ~24-25h just before the next session
+  // closes, so refresh only past a 26h margin: this catches a genuinely
+  // missing completed session without churning a fetch every scan.
+  // Intraday intervals keep the 1-bar threshold. DQ.4's off-grid guard
+  // protects the row if a fallback provider serves a different D1
+  // boundary during the refresh.
+  const refreshAgeMs =
+    interval === "1day" ? 26 * 60 * 60_000 : intervalMinutes(interval) * 60_000;
+  if (ageMs <= refreshAgeMs) return prices;
 
   try {
     const fresh = await fetchDailyPrices(ticker, outputSize, interval, true);
