@@ -7,7 +7,7 @@ A **personal autonomous trading system** for a single operator (not a SaaS — n
 ## Product Vision (updated 2026-06-23 LATE)
 
 - **Active forward plan:** see `scripts/canonical/ROADMAP.md` (canonical, version-controlled). Phases F → G → H → I, single linear sequence, no parallel branches. Each phase has formal pass/fail gates.
-- **Where we are right now:** Phase F (overfit gating) — building deflated Sharpe + PBO + purged k-fold CV before any deploy. The current Stage 6.7 acceptance packet at `scripts/canonical/algo-search-acceptance.md` is DEFERRED until F.4–F.6 v3 re-evaluation. ~5 working days of math.
+- **Where we are right now (2026-07-17):** Phase G.7 demo is LIVE. Phase F overfit stats (deflated Sharpe + PBO + purged k-fold) are BUILT (`src/lib/stats/`). A 4-algo gold portfolio (trio + OutsideBar v2, XAU/USD 4h, daily_bias-bullish) runs on an FTMO demo $100k, deployed via the de-facto **Deploy methodology v4** (operator bar + sibling-aware dollar-pool ML stress on pinned sha-verified data — NOT the F.6/v3 packet, which was never stamped). Post-E2.24 audit (2026-07-15): a daily_bias look-ahead was fixed and corrected the portfolio to ~0.96%/mo, worst ML 9.03%; E2.23 closed the intraday gold frontier (0 passers). Interim risk 0.58%. The single final re-derivation (E2.24.d harness fidelity) + prereg + G.8 rewrite are the active work. Read `scripts/canonical/ROADMAP.md` E2.24/E2.25 + "Deploy methodology v4" for the authoritative state.
 - **Core division of labor:** the engine owns exits, risk, and execution (always). Algos under Phase E v2 are deterministic rules-based (no LLM in production scan path right now); LLM-trader path is Phase I.3 (paid, last). When restored, the LLM picks entries and the engine still owns exits — every dataset endorses that split (LLM mid-trade exits cost ~−24% R per the 2026-06-10 PR #178 replay).
 - **Current focus:** gold-only demo deployment per `[[feedback_gold_only_demo_stage]]`. The Phase E sweep produced 3 strong singleton candidates (BOS-Long / Engulfing-Long / Sweep-Long, all XAU/USD 4h) which Phase F re-evaluates under overfit-adjusted statistics before any operator stamp. Forex re-research deferred to Phase I.4 (after ≥1 stable gold demo player).
 - **Budget reality:** ≤£150/month total. Phase F + G build is $0 (no LLM calls). Phase H feature library + xgboost may require Python sidecar; still $0 inference. The harness enforces `LLM_MONTHLY_BUDGET_USD` (default $25) with a hard process-exit if/when LLM-trader is restored at I.3.
@@ -131,8 +131,8 @@ src/
 │   │                           #   ctrader-openapi + ctrader/* (dormant alternative)
 │   ├── cohort/                 # engine-activity.ts — shared by /reports + cohort-report CLI
 │   ├── constants/              # algorithm, markets, journal, prop-firm, nav
-│   ├── features/               # H.2 — 34 features across 7 categories (volatility,
-│   │                           #   momentum, trend, structure, time, volume, context)
+│   ├── features/               # H.2 — 8 category files (volatility, momentum,
+│   │                           #   trend, structure, time, volume, context, patterns)
 │   │                           #   pure (bars, idx, ctx?) → number | null; consumed by H.3
 │   │                           #   xgboost training + H.4 Layer B axis composition
 │   ├── market-data/            # prices (fallback chain), oanda, indicators, regime/adx
@@ -210,9 +210,9 @@ are in `scripts/archive/2026-06-18/`.
 **For current pre-deploy validation:**
 - Layer A enumeration + per-candidate v2 criteria → `scripts/canonical/algo-search.ts MODE=full` + `src/lib/algo-search/criteria.ts` + `src/lib/algo-search/state.ts`
 - Layer B geometry sweep on per-candidate passers → `scripts/canonical/algo-search.ts MODE=layer-b BASE_NAMES=...`
-- Phase F overfit gating (deflated Sharpe + PBO + purged k-fold CV) → BUILD PENDING per ROADMAP.md Phase F
-- Pre-registration in writing BEFORE any live trade → `scripts/canonical/preregistration.json` + `scripts/canonical/validate-preregistration.ts`
-- Operator-stamp acceptance packet → `scripts/canonical/algo-search-acceptance.md` (currently DEFERRED until F.6)
+- Phase F overfit gating (deflated Sharpe + PBO + purged k-fold CV) → **BUILT** in `src/lib/stats/` (deflated-sharpe / pbo / purged-kfold / bootstrap / multiple-comparisons). NOTE (E2.25.g): raise `BOOTSTRAP_ITERATIONS` ≥ 10k before re-arming any α/N Bonferroni gate — the old 2000 put the p-floor above α/308, making it unpassable-by-construction. Not currently in the deploy path (v4 gate displaced it; re-enters at any permanent-capital decision).
+- The ACTUAL deploy gate is **Deploy methodology v4** (operator bar + sibling-aware dollar-pool ML stress on pinned data) — see ROADMAP.md. The F.6/v3 acceptance packet was never stamped; its survivor is `status='draft'`.
+- Pre-registration in writing BEFORE any live trade → `scripts/canonical/preregistration.json` (currently `{}` — population + G.8 rewrite are the active E2.24.e work) + `scripts/canonical/validate-preregistration.ts`
 
 **KEPT from the 4-way era (don't lose):**
 - Per-instrument friction calibration (gold: slippage 0.5 bps + spread 0.4 bps; forex: catalog defaults pending B.1.8.a sampling). Realised in `prop_firm.slippage_bps` / `spread_bps` per-algo.
@@ -267,14 +267,19 @@ All imports use `@/*` → `./src/*`.
 
 ## Environment Variables
 
-Required in `.env.local`:
+Required in `.env.local` (see `.env.example` for the authoritative list):
 ```
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
+ANTHROPIC_API_KEY=             # server-only; LLM-trader path hard-throws without it
 GROQ_API_KEY=                  # server-only
+OANDA_API_KEY=                 # server-only; HEAD of the price fallback chain (practice token)
 ALPHA_VANTAGE_API_KEY=         # 25 req/day free
 FINNHUB_API_KEY=               # 60 req/min free
 TWELVE_DATA_API_KEY=           # 800 credits/day free
+SUPABASE_SERVICE_ROLE_KEY=     # server-only; admin client for cron (no session)
+CRON_SECRET=                   # server-only; Bearer for api/cron/* + api/admin/*
+HEARTBEAT_PING_URL=            # optional; external dead-man ping target
 ```
 
 `NEXT_PUBLIC_` = exposed to browser. Server-only secrets must NOT have this prefix.
@@ -289,7 +294,7 @@ Current tables:
 - `algorithms` — deployed trading strategies with `rules` (JSONB), `status`, `live_trading_enabled`, `broker_connection_id`, `strategy_id`. Algos are seeded via `scripts/deploy-*.ts`, not via UI generation.
 - `algorithm_watchlist` — tickers linked to algorithms.
 - `paper_positions` — every position the scan engine opens; broker mirror fields populated when live. `exit_reason` is the source of truth for SL hit / TP hit / signal exit / stagnant cut / manual close.
-- `activity_log` — every event the scan/manage cron emits. `event_type` is a SQL CHECK constraint; the newest migration replacing the CHECK is currently 00046 (which added `cron_idle` for the 0-active-algos heartbeat per SG.19). Read for "did the gate fire?" questions; powers `/reports` via `src/lib/cohort/engine-activity.ts`.
+- `activity_log` — every event the scan/manage cron emits. `event_type` is a SQL CHECK constraint; the newest migration replacing the CHECK is currently **00049** (`regime_route_switched`; 00047 `alpha_decay_pause`, 00048 `wfo_rules_updated`, 00046 `cron_idle` per SG.19 preceded it). Read for "did the gate fire?" questions; powers `/reports` via `src/lib/cohort/engine-activity.ts`.
 - `broker_connections` — operator's broker creds per provider (`metaapi` / `ctrader`). RLS-scoped.
 - `sentiment_cache` — NEWS_SENTIMENT cache per ticker/topics.
 - `price_cache` — OHLCV bars per ticker/interval (global since 00037).
@@ -309,7 +314,7 @@ Things easy to get wrong. Read before modifying.
 `lib/algorithm/rules-post-process.ts` `clampRules()` normalizes rules on update — relaxes RSI thresholds for long-term strategies, converts decimal percentages (0.05 → 5) for stop loss / take profit / position sizing. Called from `updateAlgorithm` in `app/(dashboard)/algorithms/actions.ts`.
 
 ### Price Provider Fallback Chain
-`lib/market-data/prices.ts` fetches via: Twelve Data → Yahoo Finance → Alpha Vantage. Each failure logs + falls through. Final provider throws. In-memory 1h TTL; persistent cache in `price_cache`.
+`lib/market-data/prices.ts` fetches via: **OANDA → Twelve Data → Yahoo Finance → Alpha Vantage** (OANDA promoted to head 2026-05-12). Each failure logs + falls through. Final provider throws. In-memory 1h TTL; persistent cache in `price_cache`. **DQ.4 (E2.25.a, 2026-07-17):** cache WRITES pass through `filterIncomingBars` — a fallback provider's payload (which still serves the caller in-memory) can no longer PERSIST forming / weekend / off-grid-phase / zero-volume-overwrite bars over higher-quality history. A transient OANDA 401 poisoned the live 4h row before this guard existed.
 
 ### Display Labels — Single Source of Truth
 **Never define label maps inline in components.** Import from:
@@ -399,7 +404,7 @@ See `project_roadmap_2026_06.md` Phase B.1 for the implementation history + the 
 
 Single source of truth: `src/lib/constants/nav.ts`. Sidebar (desktop) and MobileNav (mobile) both render from it.
 
-Current: Dashboard, Trades, Journal, Algorithms, Reports, Analytics, Settings.
+Current: Dashboard, Trades, Journal, Algorithms, Chart, Backtest, Performance, Reports, Analytics, Settings (10 items; `src/lib/constants/nav.ts` is the source of truth).
 
 ## Cron / live trading
 
