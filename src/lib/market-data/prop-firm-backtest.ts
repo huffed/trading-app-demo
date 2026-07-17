@@ -484,7 +484,7 @@ export function pickBacktestExitPrice(
     slDistance?: number;
     tpDistance?: number;
   },
-  bar: { high: number; low: number },
+  bar: { open: number; high: number; low: number },
   closePrice: number,
   cfg: SimConfig,
   signalExitFired: boolean,
@@ -498,6 +498,12 @@ export function pickBacktestExitPrice(
     const stopPrice = pos.trailingState?.currentSlPrice ?? baseStopPrice;
     const tpPrice = pos.entryPrice - tpDelta;
     // Stops win ties — checked before TP.
+    // E2.24.d.iv: a bar that OPENS beyond the stop (gap/news/weekend) fills
+    // at the OPEN, not the stop — the real loss when gold gaps through a
+    // stop. Filling at the stop truncated every gap loss to exactly 1R and
+    // biased worst-window ML optimistic. TP stays at its limit level
+    // (asymmetric-conservative: losses realistic-worse, gains not inflated).
+    if (bar.open >= stopPrice) return { price: applySlippage(bar.open, cfg.slippageBps, true), reason: "stop_loss_hit" };
     if (bar.high >= stopPrice) return { price: applySlippage(stopPrice, cfg.slippageBps, true), reason: "stop_loss_hit" };
     if (bar.low <= tpPrice) return { price: applySlippage(tpPrice, cfg.slippageBps, true), reason: "take_profit_hit" };
     if (signalExitFired) return { price: applySlippage(closePrice, cfg.slippageBps, true), reason: "signal_exit" };
@@ -506,6 +512,7 @@ export function pickBacktestExitPrice(
   const baseStopPrice = pos.entryPrice - slDelta;
   const stopPrice = pos.trailingState?.currentSlPrice ?? baseStopPrice;
   const tpPrice = pos.entryPrice + tpDelta;
+  if (bar.open <= stopPrice) return { price: applySlippage(bar.open, cfg.slippageBps, false), reason: "stop_loss_hit" };
   if (bar.low <= stopPrice) return { price: applySlippage(stopPrice, cfg.slippageBps, false), reason: "stop_loss_hit" };
   if (bar.high >= tpPrice) return { price: applySlippage(tpPrice, cfg.slippageBps, false), reason: "take_profit_hit" };
   if (signalExitFired) return { price: applySlippage(closePrice, cfg.slippageBps, false), reason: "signal_exit" };
