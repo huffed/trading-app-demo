@@ -48,6 +48,11 @@ export interface ConditionContext {
   /** Resampled D1 bars for daily_bias-style higher-timeframe filters.
    *  Independent of byTimeframe so back-compat callers still work. */
   higherTfBars?: PriceBar[];
+  /** E2.25.b — when true, `higherTfBars` are CLOSE-INSTANT-stamped session
+   *  dailies (not midnight-start UTC-day bars), so daily_bias must align by
+   *  instant (`alignBarIndex`, last close ≤ asOf) for exact live parity
+   *  rather than by day-prefix. Default false = legacy UTC-day alignment. */
+  higherTfCloseStamped?: boolean;
   directionOverride?: "bullish" | "bearish";
   /** Non-primary timeframes the algorithm hunts on. Map keys are
    *  normalized timeframe strings ("15m", "4h", "1d", etc.). */

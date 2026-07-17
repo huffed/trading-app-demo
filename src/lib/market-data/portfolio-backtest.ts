@@ -109,12 +109,27 @@ interface PortfolioPosition {
    *  `currentSlPrice` field overrides the rule-derived SL inside
    *  `pickBacktestExitPrice` via the `stopPriceOverride` arg. */
   trailingState?: TrailingState;
+  /** E2.24.d.ii — equity at the moment this position opened. Emitted on
+   *  the trade so `stressTest` can de-compound: a trade sized on
+   *  compounded equity is rescaled to window-start capital by
+   *  `window_start / equity_at_entry` (exact under risk_per_trade). */
+  equityAtEntry: number;
+  /** E2.24.d.i — worst adverse price seen while the position is open
+   *  (lowest low for a long, highest high for a short). Updated each
+   *  held bar; converted to `mae` dollars at close so `stressTest` can
+   *  reconstruct a floating-inclusive equity trough (FTMO judges
+   *  floating equity; realized-only ML is optimistic). */
+  worstAdversePrice: number;
 }
 
 export interface TickerState {
   bars: PriceBar[];
   /** Resampled D1 view of `bars`, used by daily_bias pattern conditions. */
   higherTfBars: PriceBar[];
+  /** E2.25.b — true when `higherTfBars` are close-instant-stamped session
+   *  dailies (dailyBarsOverride), so daily_bias / regime / ADX align by
+   *  instant for exact live parity rather than by UTC-day prefix. */
+  dailyCloseStamped: boolean;
   /** Per-non-primary-timeframe resampled bars + cache. Built once per
    *  ticker; bar index is realigned each iteration via alignBarIndex. */
   tfBars: Map<string, PriceBar[]>;
@@ -197,7 +212,8 @@ function initTickerStates(
   pricesByTicker: Map<string, PriceBar[]>,
   events: EconomicEvent[],
   proxyBars: PriceBar[] | null,
-  marketStateSeries: MarketStateSeries | null = null
+  marketStateSeries: MarketStateSeries | null = null,
+  dailyBarsOverride: PriceBar[] | null = null
 ): Map<string, TickerState> {
   // Pre-resolve unique non-primary timeframes from the rule's conditions
   // so each ticker resamples once and reuses across the simulation loop.
@@ -217,7 +233,11 @@ function initTickerStates(
     }
     out.set(ticker, {
       bars: prices,
-      higherTfBars: resampleToDaily(prices),
+      // E2.25.b: close-instant-stamped session dailies when provided
+      // (matches the live OANDA D1 boundary); else the legacy UTC-day
+      // resample. Alignment differs by stamp type (see dailyCloseStamped).
+      higherTfBars: dailyBarsOverride ?? resampleToDaily(prices),
+      dailyCloseStamped: dailyBarsOverride != null,
       tfBars,
       tfCaches,
       closes: prices.map((p) => p.close),
@@ -235,7 +255,7 @@ function initTickerStates(
         return {
           bars4h: fullBars4h,
           oneHour: marketStateSeries?.oneHour.get(ticker) ?? [],
-          daily: marketStateSeries?.daily?.get(ticker) ?? resampleToDaily(fullBars4h),
+          daily: marketStateSeries?.daily?.get(ticker) ?? dailyBarsOverride ?? resampleToDaily(fullBars4h),
           eurusd4h: marketStateSeries?.eurusd4h ?? [],
         };
       })(),
@@ -327,6 +347,7 @@ function runCloseLoop(
         closes: state.closes,
         bars: state.bars,
         higherTfBars: state.higherTfBars,
+        higherTfCloseStamped: state.dailyCloseStamped,
         i,
         byTimeframe: buildByTimeframe(state, state.bars[i].date),
         primaryTimeframe: rules.timeframe.toLowerCase(),
@@ -337,6 +358,12 @@ function runCloseLoop(
   const bar = state.bars[i];
   for (let p = state.positions.length - 1; p >= 0; p--) {
     const pos = state.positions[p];
+    // E2.24.d.i: track the worst adverse excursion (incl. this bar, so a
+    // gap-open exit's excursion counts) for the floating-equity trough.
+    pos.worstAdversePrice =
+      pos.side === "long"
+        ? Math.min(pos.worstAdversePrice, bar.low)
+        : Math.max(pos.worstAdversePrice, bar.high);
     // Update trailing-stop / breakeven state BEFORE checking SL/TP hits.
     // The position's `trailingState.currentSlPrice` is what
     // pickBacktestExitPrice will use for the SL check — see prop-firm-
@@ -827,10 +854,15 @@ function tryOpenEntry(
   // Volatility-regime gate. Use the resampled D1 series so the
   // percentile is stable regardless of primary timeframe (1h vs 15m
   // would otherwise give different verdicts on the same calendar day).
+  // E2.25.b: instant alignment for close-stamped session dailies (exact
+  // live parity); day-prefix for midnight-start UTC-day bars (E2.24.a
+  // leak-free). Shared by regime + ADX + the daily_bias condition path.
+  const dailyIdxAt = (asOf: string): number =>
+    state.dailyCloseStamped
+      ? alignBarIndex(state.higherTfBars, asOf)
+      : alignCompletedDailyIndex(state.higherTfBars, asOf);
   if (rules.regime_filter?.enabled && state.higherTfBars.length > 0) {
-    // Align to the last COMPLETED day — the same-day resampled bar holds
-    // the day's EOD values, which are future data intraday (E2.24.a).
-    const dIdx = alignCompletedDailyIndex(state.higherTfBars, state.bars[i].date);
+    const dIdx = dailyIdxAt(state.bars[i].date);
     if (dIdx >= 0) {
       const regime = isRangingByAtr(state.higherTfBars, dIdx, rules.regime_filter);
       if (regime.skip) return;
@@ -838,7 +870,7 @@ function tryOpenEntry(
   }
   // ADX trend-strength gate — same D1 alignment as the regime filter.
   if (rules.adx_filter?.enabled && state.higherTfBars.length > 0) {
-    const dIdx = alignCompletedDailyIndex(state.higherTfBars, state.bars[i].date);
+    const dIdx = dailyIdxAt(state.bars[i].date);
     if (dIdx >= 0) {
       const adx = isWeakTrendByAdx(state.higherTfBars, dIdx, rules.adx_filter);
       if (adx.skip) return;
@@ -919,6 +951,7 @@ function tryOpenEntry(
     closes: state.closes,
     bars: state.bars,
     higherTfBars: state.higherTfBars,
+    higherTfCloseStamped: state.dailyCloseStamped,
     i,
     directionOverride: resolved.directionOverride,
     news_events: state.newsEvents,
@@ -1009,6 +1042,8 @@ function tryOpenEntry(
     slDistance,
     tpDistance,
     trailingState: initialTrailingState,
+    equityAtEntry: s.equity,
+    worstAdversePrice: entryPrice,
   });
 }
 
@@ -1131,6 +1166,14 @@ export interface RunPortfolioBacktestOptions {
    *  Default null = no portfolio-halt simulation (per-algo DLL still
    *  applies via the existing prop_firm.daily_loss_limit). */
   portfolioHalt?: PortfolioHaltConfig | null;
+  /** E2.25.b — daily bars for daily_bias / regime / ADX, replacing the
+   *  internal `resampleToDaily(prices)` (which groups by UTC calendar day
+   *  and diverges from the live OANDA NY-17:00 session boundary on ~8% of
+   *  bars). MUST be CLOSE-INSTANT-stamped session bars (each bar's `date`
+   *  = its session CLOSE instant) so the standard `alignCompletedDailyIndex`
+   *  stays leak-free — a raw start-stamped session file would re-introduce
+   *  E2.24.a look-ahead. Build via `sessionDailyClose()` in pinned-eval. */
+  dailyBarsOverride?: PriceBar[] | null;
 }
 
 export function runPortfolioBacktest(
@@ -1149,6 +1192,7 @@ export function runPortfolioBacktest(
   const riskPoolSiblings = options.riskPoolSiblings; // undefined-preserving (B.1.20 semantic)
   const reEntryCooldown = options.reEntryCooldown ?? null;
   const portfolioHalt = options.portfolioHalt ?? null;
+  const dailyBarsOverride = options.dailyBarsOverride ?? null;
   // B.1.20 (Stage 3, 2026-06-19 EVE): explicit fallback semantics. When
   // `riskPoolSiblings` is undefined, callers historically inherited the
   // direction-conflict list — that was a "lazy default" not a clean
@@ -1191,7 +1235,7 @@ export function runPortfolioBacktest(
   }
 
   const cfg = buildSimConfig(rules);
-  const states = initTickerStates(rules, pricesByTicker, events, proxyBars, marketStateSeries);
+  const states = initTickerStates(rules, pricesByTicker, events, proxyBars, marketStateSeries, dailyBarsOverride);
   const timeline = buildTimeline(pricesByTicker);
   const s = initialSimState(capital);
   const trades: BacktestTrade[] = [];

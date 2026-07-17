@@ -48,7 +48,16 @@ import {
 import type { Database } from "../../src/lib/supabase/database.types";
 import type { BacktestTrade, PriceBar } from "../../src/lib/market-data/types";
 import type { AlgorithmRules, EntryCondition } from "../../src/types/algorithm";
-import { dailySeries, loadPinnedBars, pearson, POOL_CAPITAL, soloStats, stressTest, type SoloStats, type StressResult } from "./lib/pinned-eval";
+import { dailySeries, loadPinnedBars, pearson, POOL_CAPITAL, runUntilTarget, sessionDailyClose, soloStats, stressTest, type SoloStats, type StressResult } from "./lib/pinned-eval";
+
+/** E2.25.b — XAU/USD NY-session daily bars, close-instant-stamped so the
+ *  backtest daily_bias / regime / ADX boundary matches the live OANDA D1
+ *  feed (fixes the ~7% UTC-day divergence). Loaded once + memoised. */
+let _sessionDaily: import("../../src/lib/market-data/types").PriceBar[] | null = null;
+function sessionDaily(): import("../../src/lib/market-data/types").PriceBar[] {
+  if (!_sessionDaily) _sessionDaily = sessionDailyClose(loadPinnedBars("XAU/USD", "d").bars);
+  return _sessionDaily;
+}
 
 function loadEnvLocal(): void {
   try {
@@ -140,7 +149,7 @@ async function runGrid(sb: SupabaseClient<Database>, bars: PriceBar[], pattern: 
   const priceMap = new Map([["XAU/USD", bars]]);
   const rows: GridRow[] = [];
   for (const v of variants) {
-    const res = runPortfolioBacktest(v.rules, priceMap, POOL_CAPITAL);
+    const res = runPortfolioBacktest(v.rules, priceMap, POOL_CAPITAL, { dailyBarsOverride: sessionDaily() });
     rows.push({ tag: v.variant_tag, risk: v.geometry.risk_per_trade_pct, stats: soloStats(res.trades ?? []) });
   }
   // Fragility pairing: same geometry, r06 vs r10 leg.
@@ -185,7 +194,7 @@ async function runSiblingAware(members: Member[], bars: PriceBar[], uniformRisk:
   });
   const soloTrades = new Map<string, BacktestTrade[]>();
   for (const m of members) {
-    const res = runPortfolioBacktest(atRisk(m), priceMap, POOL_CAPITAL);
+    const res = runPortfolioBacktest(atRisk(m), priceMap, POOL_CAPITAL, { dailyBarsOverride: sessionDaily() });
     soloTrades.set(m.label, res.trades ?? []);
   }
   const spreadGate: SpreadGateConfig = { enabled: true, threshold_multiplier: 2.5, atr_lookback_bars: 200 };
@@ -212,6 +221,7 @@ async function runSiblingAware(members: Member[], bars: PriceBar[], uniformRisk:
       portfolioHalt,
       reEntryCooldown: { enabled: true },
       spreadGate,
+      dailyBarsOverride: sessionDaily(),
     };
     const res = runPortfolioBacktest(atRisk(m), priceMap, POOL_CAPITAL, opts);
     const trades = res.trades ?? [];
@@ -301,6 +311,59 @@ async function runVerify(sb: SupabaseClient<Database>, bars: PriceBar[]): Promis
   }
 }
 
+/**
+ * E2.24.d.vi — final re-derivation on the COMPLETE fidelity harness
+ * (floating-equity ML + de-compounding + gap-fills + session-day daily).
+ * 3-arm ML-equalized comparison: the deployed 4-algo vs +BOS rr25_lb3 vs
+ * +Engulfing rr25_lb4, each rescaled to worst-window ML = 8.0 so return
+ * is compared at EQUAL tail risk (the S3 "additions rejected" verdict was
+ * a fixed-0.60%-risk-cap artifact — E2.25.j). Plus run-until-target
+ * P(pass) + median months on the winning arm.
+ */
+async function runRederive(sb: SupabaseClient<Database>, bars: PriceBar[]): Promise<void> {
+  const ML_TARGET = 8.0;
+  const CH_PER_MONTH = 2; // 60-day challenge window ≈ 2 months
+  const trio: Member[] = [];
+  const labels = ["ARB rr3_lb3", "Engulfing rr3_lb6", "ARB rr25_lb3"];
+  for (let i = 0; i < TRIO_IDS.length; i++) trio.push({ label: labels[i], rules: withDailyBias(await fetchRules(sb, TRIO_IDS[i])) });
+  const deployedOb: Member = { label: "OutsideBar v2", rules: await fetchRules(sb, DEPLOYED_OB_ID) };
+  const fourAlgo = [...trio, deployedOb];
+
+  // Named addition candidates (E2.25.j), constructed directly.
+  async function addition(pattern: "BOS-Long" | "Engulfing-Long", tag: string): Promise<Member> {
+    const base = withDailyBias(await fetchRules(sb, PATTERN_IDS[pattern]));
+    const v = enumerateLayerBVariants({ name: `Search: XAU/USD ${pattern} 4h`, ticker: "XAU/USD", capital: POOL_CAPITAL, rules: base }).find((x) => x.variant_tag === tag);
+    if (!v) throw new Error(`${pattern} ${tag} not enumerated`);
+    return { label: `${pattern} ${tag}`, rules: v.rules };
+  }
+  const bosAdd = await addition("BOS-Long", "rr25_lb3_r06_rf0_af0");
+  const engAdd = await addition("Engulfing-Long", "rr25_lb4_r06_rf0_af0");
+
+  const arms: Array<{ name: string; members: Member[]; risk: number }> = [
+    { name: "4-algo (deployed)", members: fourAlgo, risk: 0.6 },
+    { name: "5-algo +BOS rr25_lb3", members: [...fourAlgo, bosAdd], risk: 0.6 },
+    { name: "5-algo +Engulfing rr25_lb4", members: [...fourAlgo, engAdd], risk: 0.6 },
+  ];
+
+  console.log("=== E2.24.d.vi — 3-arm ML-equalized (COMPLETE fidelity harness: floating ML + de-compound + gap + session-day) ===\n");
+  const results: Array<{ name: string; s: StressResult; riskML8: number; monthlyML8: number; ch: ReturnType<typeof runUntilTarget> }> = [];
+  for (const arm of arms) {
+    const run = await runSiblingAware(arm.members, bars, arm.risk);
+    const s = stressTest(run.union);
+    const ch = runUntilTarget(run.union);
+    // Linear ML-equalization to ML_TARGET (risk ∝ ML ∝ return under RPT).
+    const scale = s.worst_ml > 0 ? ML_TARGET / s.worst_ml : 0;
+    const riskML8 = arm.risk * scale;
+    const monthlyML8 = (s.avg_return_pct * scale) / CH_PER_MONTH;
+    results.push({ name: arm.name, s, riskML8, monthlyML8, ch });
+    console.log(fmt(arm.name + ` @${arm.risk.toFixed(2)}%`, s));
+    console.log(`  → at ML=${ML_TARGET}: risk≈${riskML8.toFixed(3)}%  return≈${monthlyML8.toFixed(2)}%/mo   | run-until-target: P(pass)=${ch.pass_rate_pct.toFixed(1)}% median=${ch.median_months.toFixed(1)}mo (resolved ${ch.resolved}/${ch.starts}, ML-fail ${ch.fails_ml}, DL-fail ${ch.fails_dl})\n`);
+  }
+  const winner = results.reduce((a, b) => (b.monthlyML8 > a.monthlyML8 ? b : a));
+  console.log(`ML-EQUALIZED WINNER: ${winner.name} — ${winner.monthlyML8.toFixed(2)}%/mo at risk ${winner.riskML8.toFixed(3)}% (worst ML ${winner.s.worst_ml.toFixed(2)}% pre-rescale)`);
+  console.log(`Deployed 4-algo final sizing to ML≤${ML_TARGET}: risk ${results[0].riskML8.toFixed(3)}% → ${results[0].monthlyML8.toFixed(2)}%/mo`);
+}
+
 async function main(): Promise<void> {
   const gran = GRAN_BY_TF[TF];
   if (!gran) throw new Error(`TF must be one of ${Object.keys(GRAN_BY_TF).join(", ")}`);
@@ -310,6 +373,7 @@ async function main(): Promise<void> {
   const mode = process.env.MODE ?? "grid";
   if (mode === "grid") await runGrid(sb, bars, process.env.PATTERN ?? "OutsideBar-Long");
   else if (mode === "verify") await runVerify(sb, bars);
+  else if (mode === "rederive") await runRederive(sb, bars);
   else throw new Error(`unknown MODE=${mode}`);
 }
 

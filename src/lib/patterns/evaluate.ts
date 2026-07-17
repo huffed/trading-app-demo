@@ -15,7 +15,7 @@
  * scans — keeps the engine deterministic for backtest replay.
  */
 import type { EconomicEvent } from "@/lib/market-data/economic-calendar";
-import { alignCompletedDailyIndex } from "@/lib/market-data/resample";
+import { alignBarIndex, alignCompletedDailyIndex } from "@/lib/market-data/resample";
 import type { PriceBar } from "@/lib/market-data/types";
 import type { PatternCondition } from "@/types/algorithm";
 import { detectAsianRangeBreak } from "./asian-range-break";
@@ -52,6 +52,9 @@ export interface PatternEvaluationContext {
    *  `post_news_window` so it only fires on news affecting the traded
    *  symbol. Typically populated via `getEventCurrencies(symbol)`. */
   relevant_currencies?: string[];
+  /** E2.25.b — `higherTfBars` are close-instant-stamped session dailies;
+   *  align daily_bias by instant (last close ≤ asOf) not day-prefix. */
+  higherTfCloseStamped?: boolean;
 }
 
 /**
@@ -82,7 +85,7 @@ export function evaluatePatternCondition(
   ) {
     return evaluateGoldOnlyPattern(cond, bars, idx, effectiveDir, context);
   }
-  return evaluateClassicPattern(cond, bars, idx, higherTfBars, effectiveDir);
+  return evaluateClassicPattern(cond, bars, idx, higherTfBars, effectiveDir, context?.higherTfCloseStamped);
 }
 
 /** Classic ICT/SMC pattern dispatch — the original nine patterns. Split
@@ -93,7 +96,8 @@ function evaluateClassicPattern(
   bars: PriceBar[],
   idx: number,
   higherTfBars: PriceBar[] | undefined,
-  effectiveDir: "bullish" | "bearish" | undefined
+  effectiveDir: "bullish" | "bearish" | undefined,
+  higherTfCloseStamped?: boolean
 ): boolean {
   // Try the SMC/ICT structural patterns first, then candle patterns,
   // then bias patterns. Each helper returns null for "not my pattern" so
@@ -103,7 +107,7 @@ function evaluateClassicPattern(
   const candle = evaluateCandlePattern(cond, bars, idx, effectiveDir);
   if (candle !== null) return candle;
   if (cond.pattern === "daily_bias") {
-    return evaluateDailyBiasPattern(cond, bars, idx, higherTfBars, effectiveDir);
+    return evaluateDailyBiasPattern(cond, bars, idx, higherTfBars, effectiveDir, higherTfCloseStamped);
   }
   return false;
 }
@@ -237,10 +241,16 @@ function evaluateDailyBiasPattern(
   bars: PriceBar[],
   idx: number,
   higherTfBars: PriceBar[] | undefined,
-  effectiveDir: "bullish" | "bearish" | undefined
+  effectiveDir: "bullish" | "bearish" | undefined,
+  higherTfCloseStamped?: boolean
 ): boolean {
   if (!higherTfBars || higherTfBars.length === 0) return false;
-  const dIdx = alignCompletedDailyIndex(higherTfBars, bars[idx].date);
+  // E2.25.b: close-instant-stamped session dailies align by instant (last
+  // close ≤ asOf) for exact live parity; midnight-start UTC-day bars align
+  // by day-prefix (alignCompletedDailyIndex) to stay leak-free.
+  const dIdx = higherTfCloseStamped
+    ? alignBarIndex(higherTfBars, bars[idx].date)
+    : alignCompletedDailyIndex(higherTfBars, bars[idx].date);
   if (dIdx < 0) return false;
   const alignedDaily = higherTfBars.slice(0, dIdx + 1);
   const r = detectDailyBias(alignedDaily, cond.ma_period ?? 20);

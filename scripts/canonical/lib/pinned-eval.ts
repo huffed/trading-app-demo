@@ -89,41 +89,206 @@ export interface StressResult {
   avg_return_pct: number;
 }
 
+/** E2.24.d — a trade prepared for the fidelity stressTest: entry/exit day
+ *  keys + pnl and MAE expressed as a RETURN on the equity they were sized
+ *  on (de-compounding, E2.24.d.ii), ready to rescale to window-start
+ *  capital. `maeRet` drives the floating-inclusive trough (E2.24.d.i). */
+interface StressTrade {
+  entryDayMs: number;
+  exitDayMs: number;
+  pnlRet: number;
+  maeRet: number;
+}
+
+function dayFloor(ms: number): number {
+  return Math.floor(ms / 86_400_000) * 86_400_000;
+}
+
+/**
+ * E2.24.d fidelity upgrade. Two corrections over the realized-only original:
+ *  - **De-compounding (d.ii):** trades were sized on compounding equity but
+ *    each window is a fresh challenge at `capital`. Expressing pnl/MAE as a
+ *    return on `equity_at_entry` and rescaling by `capital` removes the
+ *    ~1.8× late-window inflation (exact to first order under RPT sizing;
+ *    the compounding residual over a 60-day window is <0.1pp).
+ *  - **Floating-inclusive trough (d.i):** FTMO judges FLOATING equity. For
+ *    each day the conservative worst-case equity = realized-to-date −
+ *    Σ(MAE of positions open that day). Both the static ML floor and the
+ *    worst single-day drop are taken on this floating series, not the
+ *    realized-only one. Up to ~2.6pp of concurrent floating DD was
+ *    previously invisible.
+ *
+ * Auto-detects the fields: when trades carry `equity_at_entry` + `mae`
+ * (portfolio engine) it runs the full model; otherwise it falls back to
+ * the legacy realized-only behaviour (mae=0, pnl un-rescaled) so simple
+ * callers are unaffected.
+ */
 export function stressTest(allTrades: BacktestTrade[], capital = POOL_CAPITAL): StressResult {
   const r: StressResult = { windows: 0, pass: 0, fail_ml: 0, fail_dl: 0, worst_ml: 0, worst_dl: 0, avg_return_pct: 0 };
   if (allTrades.length === 0) return r;
-  const sorted = [...allTrades].sort((a, b) => a.exit_date.localeCompare(b.exit_date));
-  const firstMs = Date.parse(sorted[0].exit_date);
-  const lastMs = Date.parse(sorted[sorted.length - 1].exit_date);
+
+  // Prepare: return-on-entry-equity (de-compounded) + entry/exit day keys.
+  const prepared: StressTrade[] = allTrades.map((t) => {
+    const eqAtEntry = t.equity_at_entry != null && t.equity_at_entry > 0 ? t.equity_at_entry : capital;
+    return {
+      entryDayMs: dayFloor(Date.parse(t.entry_date)),
+      exitDayMs: dayFloor(Date.parse(t.exit_date)),
+      pnlRet: t.pnl / eqAtEntry,
+      maeRet: (t.mae ?? 0) / eqAtEntry,
+    };
+  });
+  prepared.sort((a, b) => a.exitDayMs - b.exitDayMs);
+  // Window origin = earliest ENTRY (a challenge holds positions opened
+  // within it); end = latest EXIT. Using earliest-exit would drop every
+  // position that opened before its own window start.
+  const firstMs = dayFloor(Math.min(...prepared.map((t) => t.entryDayMs)));
+  const lastMs = dayFloor(Math.max(...prepared.map((t) => t.exitDayMs)));
   const dayMs = 86_400_000;
+
   let sumReturn = 0;
   for (let startMs = firstMs; startMs + CHALLENGE_DAYS * dayMs <= lastMs; startMs += STEP_DAYS * dayMs) {
     const endMs = startMs + CHALLENGE_DAYS * dayMs;
-    let equity = capital, minEq = capital, profitHit = false, mlBreach = false;
-    const daily = new Map<string, number>();
-    for (const t of sorted) {
-      const e = Date.parse(t.exit_date);
-      if (e < startMs || e > endMs) continue;
-      daily.set(t.exit_date.slice(0, 10), (daily.get(t.exit_date.slice(0, 10)) ?? 0) + t.pnl);
-      equity += t.pnl;
-      if (equity < minEq) minEq = equity;
-      if (equity <= capital * 0.9) mlBreach = true;
-      if (equity >= capital * 1.1) profitHit = true;
+    // Trades whose EXIT lands in the window count toward realized pnl; a
+    // fresh challenge only holds positions opened within it, so entries
+    // before the window are ignored (their exit-in-window pnl is dropped
+    // too — matches "the challenge starts here").
+    const inWindow = prepared.filter((t) => t.exitDayMs >= startMs && t.exitDayMs <= endMs && t.entryDayMs >= startMs);
+    if (inWindow.length === 0) { r.windows++; continue; }
+
+    // Walk each day: floating equity = capital + realized(≤D) − Σ open MAE(D).
+    let realized = 0; // running realized RETURN (fraction of capital)
+    let minFloatEq = capital;
+    let prevFloatEq = capital;
+    let worstDayDrop = 0;
+    let profitHit = false;
+    const byExitDay = new Map<number, number>();
+    for (const t of inWindow) byExitDay.set(t.exitDayMs, (byExitDay.get(t.exitDayMs) ?? 0) + t.pnlRet);
+
+    for (let d = startMs; d <= endMs; d += dayMs) {
+      realized += byExitDay.get(d) ?? 0;
+      // Sum MAE of positions open at end of day d (entered ≤ d, exit > d).
+      let openMaeRet = 0;
+      for (const t of inWindow) {
+        if (t.entryDayMs <= d && t.exitDayMs > d) openMaeRet += t.maeRet;
+      }
+      const realizedEq = capital + realized * capital;
+      const floatEq = realizedEq - openMaeRet * capital; // conservative floating trough
+      if (floatEq < minFloatEq) minFloatEq = floatEq;
+      const drop = prevFloatEq - floatEq;
+      if (drop > worstDayDrop) worstDayDrop = drop;
+      prevFloatEq = floatEq;
+      if (realizedEq >= capital * 1.1) profitHit = true; // pass on realized +10%
     }
-    let worstDay = 0;
-    for (const p of daily.values()) if (p < 0 && Math.abs(p) > worstDay) worstDay = Math.abs(p);
-    const mlPct = Math.max(0, ((capital - minEq) / capital) * 100);
-    const dlPct = (worstDay / capital) * 100;
+
+    const mlPct = Math.max(0, ((capital - minFloatEq) / capital) * 100);
+    const dlPct = (worstDayDrop / capital) * 100;
     if (mlPct > r.worst_ml) r.worst_ml = mlPct;
     if (dlPct > r.worst_dl) r.worst_dl = dlPct;
     r.windows++;
-    if (mlBreach) r.fail_ml++;
-    else if (worstDay > capital * 0.05) r.fail_dl++;
+    if (mlPct >= 10) r.fail_ml++;
+    else if (dlPct > 5) r.fail_dl++;
     else if (profitHit) r.pass++;
-    sumReturn += ((equity - capital) / capital) * 100;
+    sumReturn += realized * 100; // realized return %, de-compounded
   }
   r.avg_return_pct = r.windows ? sumReturn / r.windows : 0;
   return r;
+}
+
+export interface ChallengeResult {
+  starts: number;
+  resolved: number;
+  passes: number;
+  fails_ml: number;
+  fails_dl: number;
+  unresolved: number;
+  /** P(pass) over RESOLVED challenges only — the honest FTMO number (no
+   *  time limit, so a challenge runs until it hits +10% or breaches). */
+  pass_rate_pct: number;
+  /** Median months to resolution over resolved challenges. */
+  median_months: number;
+}
+
+/**
+ * E2.24.d.v — run-until-target FTMO simulation. FTMO Phase 1 has NO time
+ * limit: a challenge runs until it hits the profit target (+`profitPct`),
+ * the static Max Loss floor (−`mlPct`), or a daily-loss breach (−`dlPct`).
+ * The fixed-60d-window pass rate (`stressTest`) is the WRONG metric —
+ * most 60d windows end unresolved. This walks each historical start point
+ * to resolution and reports P(pass) + median months, using the same
+ * de-compounded, floating-inclusive machinery as `stressTest`.
+ */
+export function runUntilTarget(
+  allTrades: BacktestTrade[],
+  capital = POOL_CAPITAL,
+  profitPct = 10,
+  mlPct = 10,
+  dlPct = 5
+): ChallengeResult {
+  const r: ChallengeResult = { starts: 0, resolved: 0, passes: 0, fails_ml: 0, fails_dl: 0, unresolved: 0, pass_rate_pct: 0, median_months: 0 };
+  if (allTrades.length === 0) return r;
+  const prepared: StressTrade[] = allTrades.map((t) => {
+    const eq = t.equity_at_entry != null && t.equity_at_entry > 0 ? t.equity_at_entry : capital;
+    return { entryDayMs: dayFloor(Date.parse(t.entry_date)), exitDayMs: dayFloor(Date.parse(t.exit_date)), pnlRet: t.pnl / eq, maeRet: (t.mae ?? 0) / eq };
+  });
+  const firstMs = dayFloor(Math.min(...prepared.map((t) => t.entryDayMs)));
+  const lastMs = dayFloor(Math.max(...prepared.map((t) => t.exitDayMs)));
+  const dayMs = 86_400_000;
+  const durationsDays: number[] = [];
+
+  for (let startMs = firstMs; startMs <= lastMs; startMs += STEP_DAYS * dayMs) {
+    r.starts++;
+    const active = prepared.filter((t) => t.entryDayMs >= startMs);
+    const byExitDay = new Map<number, number>();
+    for (const t of active) byExitDay.set(t.exitDayMs, (byExitDay.get(t.exitDayMs) ?? 0) + t.pnlRet);
+    let realized = 0, prevFloatEq = capital, resolvedDay = -1;
+    let outcome: "pass" | "ml" | "dl" | null = null;
+    for (let d = startMs; d <= lastMs; d += dayMs) {
+      realized += byExitDay.get(d) ?? 0;
+      let openMaeRet = 0;
+      for (const t of active) if (t.entryDayMs <= d && t.exitDayMs > d) openMaeRet += t.maeRet;
+      const realizedEq = capital + realized * capital;
+      const floatEq = realizedEq - openMaeRet * capital;
+      const drop = prevFloatEq - floatEq;
+      prevFloatEq = floatEq;
+      if (floatEq <= capital * (1 - mlPct / 100)) { outcome = "ml"; resolvedDay = d; break; }
+      if (drop > capital * (dlPct / 100)) { outcome = "dl"; resolvedDay = d; break; }
+      if (realizedEq >= capital * (1 + profitPct / 100)) { outcome = "pass"; resolvedDay = d; break; }
+    }
+    if (outcome === null) { r.unresolved++; continue; }
+    r.resolved++;
+    durationsDays.push((resolvedDay - startMs) / dayMs);
+    if (outcome === "pass") r.passes++;
+    else if (outcome === "ml") r.fails_ml++;
+    else r.fails_dl++;
+  }
+  r.pass_rate_pct = r.resolved ? (100 * r.passes) / r.resolved : 0;
+  if (durationsDays.length) {
+    const sorted = [...durationsDays].sort((a, b) => a - b);
+    r.median_months = sorted[Math.floor(sorted.length / 2)] / 30.44;
+  }
+  return r;
+}
+
+/**
+ * E2.25.b — convert start-stamped OANDA session daily bars (the pinned D
+ * file: each bar OPENS at its stamp = 17:00 NY, CLOSES ~24h later) into
+ * CLOSE-INSTANT-stamped bars so `alignCompletedDailyIndex` stays leak-free
+ * while matching the live NY-session boundary. A session's close instant =
+ * the next session's open stamp; the final bar closes ~24h after its open.
+ * Re-stamping to the close (not the open) is what prevents a same-session
+ * look-ahead — a bar keyed by its close day is complete only for intraday
+ * decisions dated after it.
+ */
+export function sessionDailyClose(startStamped: PriceBar[]): PriceBar[] {
+  const out: PriceBar[] = [];
+  for (let i = 0; i < startStamped.length; i++) {
+    const closeMs =
+      i + 1 < startStamped.length
+        ? Date.parse(startStamped[i + 1].date)
+        : Date.parse(startStamped[i].date) + 86_400_000;
+    out.push({ ...startStamped[i], date: new Date(closeMs).toISOString() });
+  }
+  return out;
 }
 
 export function dailySeries(trades: BacktestTrade[], firstMs: number, lastMs: number): number[] {

@@ -99,6 +99,11 @@ export function closeSimPosition(
      *  legacy "any loss counts" behaviour is preserved for backtest-engine
      *  callers using the simpler position type. */
     slDistance?: number;
+    /** E2.24.d — optional MAE tracking (worst adverse price while open)
+     *  + equity at entry, emitted onto the trade for floating-equity ML
+     *  + de-compounding in stressTest. Absent on legacy callers. */
+    worstAdversePrice?: number;
+    equityAtEntry?: number;
   },
   day: string,
   exitPrice: number,
@@ -143,6 +148,17 @@ export function closeSimPosition(
   if (pos.marginRequired) {
     s.marginUsed = Math.max(0, s.marginUsed - pos.marginRequired);
   }
+  // E2.24.d.i: gross MAE in dollars = notional × worst adverse %. For a
+  // long the worst is the lowest low below entry; for a short the highest
+  // high above entry. Zero when the position never went adverse.
+  let mae: number | undefined;
+  if (pos.worstAdversePrice != null && pos.entryPrice > 0) {
+    const adversePct =
+      side === "long"
+        ? Math.max(0, (pos.entryPrice - pos.worstAdversePrice) / pos.entryPrice)
+        : Math.max(0, (pos.worstAdversePrice - pos.entryPrice) / pos.entryPrice);
+    mae = Number((notional * adversePct).toFixed(2));
+  }
   trades.push({
     entry_date: pos.entryDate,
     exit_date: day,
@@ -151,6 +167,8 @@ export function closeSimPosition(
     side,
     pnl,
     ...(exitReason ? { exit_reason: exitReason } : {}),
+    ...(mae != null ? { mae } : {}),
+    ...(pos.equityAtEntry != null ? { equity_at_entry: pos.equityAtEntry } : {}),
   });
   s.equity += pnl;
   s.peakEquity = Math.max(s.peakEquity, s.equity);

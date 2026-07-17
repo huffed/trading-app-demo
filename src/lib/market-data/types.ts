@@ -43,6 +43,15 @@ export interface BacktestTrade {
    *  Populated by the prop-firm + portfolio backtest engines. Unlocks
    *  per-outcome MFE/MAE slicing (PR #233 follow-on to #226 MFE/MAE). */
   exit_reason?: BacktestExitReason;
+  /** E2.24.d.i — gross max-adverse-excursion in dollars (notional ×
+   *  worst adverse %), the position's deepest floating loss while open.
+   *  Populated by the portfolio engine; lets `stressTest` reconstruct a
+   *  floating-inclusive equity trough. Absent on legacy/simple callers. */
+  mae?: number;
+  /** E2.24.d.ii — portfolio equity at the instant this position opened.
+   *  Lets `stressTest` de-compound pnl to a fixed window-start capital
+   *  (exact under risk_per_trade sizing). Absent on legacy callers. */
+  equity_at_entry?: number;
 }
 
 export interface OpenPosition {
