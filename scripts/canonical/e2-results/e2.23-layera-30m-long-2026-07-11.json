@@ -1,0 +1,233 @@
+{
+ "tf": "30m",
+ "direction": "Long",
+ "risk": 0.66,
+ "pinned_sha256": "d0dcb3ea0612afe98cb03c0ea113873faf5c3ca801b87f61e6cbac1ad6842adf",
+ "computed_at": "2026-07-11T13:12:28.708Z",
+ "results": [
+  {
+   "id": "e67ada2c-6aa6-4cf0-a113-655d7672efea",
+   "label": "BOS-Long 30m",
+   "excluded": false,
+   "stats": {
+    "trades": 794,
+    "wr": 32.99748110831234,
+    "static_dd_pct": 9.732100647321538,
+    "daily_dd_pct": 4.3809000000000005,
+    "total_pnl": 32110.049999999985,
+    "monthly_pct": 2.3391068805185085,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "id": "91326822-f0a9-4791-ba89-99948de90182",
+   "label": "CHOCH-Long 30m",
+   "excluded": false,
+   "stats": {
+    "trades": 389,
+    "wr": 31.619537275064268,
+    "static_dd_pct": 11.347961687818835,
+    "daily_dd_pct": 1.4378,
+    "total_pnl": 7857.679999999993,
+    "monthly_pct": 0.5734227721445013,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "id": "fdacff42-7de8-427b-a89e-c182dd7399f5",
+   "label": "Doji-Long 30m",
+   "excluded": true,
+   "stats": {
+    "trades": 0,
+    "wr": 0,
+    "static_dd_pct": 0,
+    "daily_dd_pct": 0,
+    "total_pnl": 0,
+    "monthly_pct": 0,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "id": "4c0f5f76-d46c-469a-8197-06bb6a820892",
+   "label": "Engulfing-Long 30m",
+   "excluded": false,
+   "stats": {
+    "trades": 1251,
+    "wr": 31.81454836131095,
+    "static_dd_pct": 20.621218385644884,
+    "daily_dd_pct": 6.961100000000001,
+    "total_pnl": 47173.03999999999,
+    "monthly_pct": 3.4314497473315266,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "id": "083d685c-1758-4e7f-8c99-468cdc87bb61",
+   "label": "EqualLevels-Long 30m",
+   "excluded": false,
+   "stats": {
+    "trades": 1061,
+    "wr": 31.66823751178134,
+    "static_dd_pct": 16.799186640089008,
+    "daily_dd_pct": 3.8610000000000007,
+    "total_pnl": 23184.399999999976,
+    "monthly_pct": 1.7094350457697065,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "id": "6eda6f4e-a32a-421f-a10b-499eb38875b7",
+   "label": "FVG-Long 30m",
+   "excluded": false,
+   "stats": {
+    "trades": 803,
+    "wr": 35.74097135740971,
+    "static_dd_pct": 8.738880014176742,
+    "daily_dd_pct": 9.736600000000001,
+    "total_pnl": 66238.98000000004,
+    "monthly_pct": 4.821147935341502,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "id": "e5229bf0-44ab-4d26-b920-004e74d31cb6",
+   "label": "IFVG-Long 30m",
+   "excluded": false,
+   "stats": {
+    "trades": 1484,
+    "wr": 31.536388140161726,
+    "static_dd_pct": 22.12316351985836,
+    "daily_dd_pct": 6.865999999999999,
+    "total_pnl": 35573.270000000004,
+    "monthly_pct": 2.5868378853320597,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "id": "07a20456-4f76-4f00-8645-43674d4129d8",
+   "label": "InsideBar-Long 30m",
+   "excluded": false,
+   "stats": {
+    "trades": 1167,
+    "wr": 30.334190231362467,
+    "static_dd_pct": 24.206929547032903,
+    "daily_dd_pct": 3.9951,
+    "total_pnl": 19754.050000000032,
+    "monthly_pct": 1.4369299700297737,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "id": "801d996e-360c-41e5-8d83-83991483e531",
+   "label": "MeanRev-Long 30m",
+   "excluded": false,
+   "stats": {
+    "trades": 365,
+    "wr": 26.027397260273972,
+    "static_dd_pct": 22.895737883169804,
+    "daily_dd_pct": 1.6886999999999999,
+    "total_pnl": -1036.8299999999997,
+    "monthly_pct": -0.2243414657031157,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "id": "f3cb42ac-a363-403b-975f-e6fd78fc5c29",
+   "label": "Momentum-Long 30m",
+   "excluded": false,
+   "stats": {
+    "trades": 1136,
+    "wr": 33.36267605633803,
+    "static_dd_pct": 11.277962008309963,
+    "daily_dd_pct": 9.6977,
+    "total_pnl": 71683.96,
+    "monthly_pct": 5.212885913270259,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "id": "e582267e-90c7-42d0-982f-d052c94d5976",
+   "label": "OrderBlock-Long 30m",
+   "excluded": false,
+   "stats": {
+    "trades": 1252,
+    "wr": 30.591054313099043,
+    "static_dd_pct": 19.10571195041724,
+    "daily_dd_pct": 3.9399,
+    "total_pnl": 13619.010000000017,
+    "monthly_pct": 0.9905917906810049,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "id": "c791e4c9-1e47-4000-8bbf-14a8c439a6b9",
+   "label": "OTE-Long 30m",
+   "excluded": false,
+   "stats": {
+    "trades": 108,
+    "wr": 24.074074074074073,
+    "static_dd_pct": 15.941346537035814,
+    "daily_dd_pct": 1.6194999999999997,
+    "total_pnl": -1056.63,
+    "monthly_pct": -0.5791152052215013,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "id": "d529f546-67c7-4ddc-80dc-11daed2ac90a",
+   "label": "OutsideBar-Long 30m",
+   "excluded": false,
+   "stats": {
+    "trades": 1180,
+    "wr": 30.93220338983051,
+    "static_dd_pct": 16.385608597431943,
+    "daily_dd_pct": 5.3668000000000005,
+    "total_pnl": 27578.710000000014,
+    "monthly_pct": 2.005694413594351,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "id": "c5ec2cdc-0a24-4866-97f3-610d25f35e5e",
+   "label": "PinBar-Long 30m",
+   "excluded": false,
+   "stats": {
+    "trades": 1401,
+    "wr": 30.692362598144186,
+    "static_dd_pct": 15.240103590653591,
+    "daily_dd_pct": 5.784300000000001,
+    "total_pnl": 30063.44,
+    "monthly_pct": 2.1878259081165083,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "id": "9e22afc2-c0e9-4cfd-8ebf-719c01a4ad98",
+   "label": "Sweep-Long 30m",
+   "excluded": false,
+   "stats": {
+    "trades": 962,
+    "wr": 29.521829521829524,
+    "static_dd_pct": 20.078623941044764,
+    "daily_dd_pct": 2.7382999999999997,
+    "total_pnl": 7716.949999999989,
+    "monthly_pct": 0.5617024342419886,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "id": "9328efd8-95af-4cd8-a7f1-5076e6e2b13e",
+   "label": "Sweep-Reclaim-Long 30m",
+   "excluded": false,
+   "stats": {
+    "trades": 818,
+    "wr": 32.640586797066014,
+    "static_dd_pct": 15.48757306892467,
+    "daily_dd_pct": 4.7767,
+    "total_pnl": 26155.28999999999,
+    "monthly_pct": 1.9038138693395232,
+    "passes_operator_bar": false
+   }
+  }
+ ]
+}

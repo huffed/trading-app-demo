@@ -104,6 +104,26 @@ export function resampleTo(bars: PriceBar[], targetTimeframe: string): PriceBar[
  *
  * Returns -1 when no bar qualifies (asOf is before the first bar).
  */
+/**
+ * Find the index of the latest COMPLETED daily bar as of `asOf` — i.e. the
+ * last bar whose calendar day is strictly before asOf's day.
+ *
+ * `resampleToDaily` stamps bars at day START but fills them with the day's
+ * FINAL close, so a same-day bar contains data up to ~24h in the future
+ * relative to an intraday `asOf`. Aligning with `alignBarIndex` (date <=
+ * asOf) therefore leaks the rest of the current day into daily_bias /
+ * regime / ADX decisions (E2.24.a). Live scans never see this bar at all —
+ * the OANDA fetch drops the forming daily candle — so completed-day
+ * alignment is also what matches live behaviour.
+ */
+export function alignCompletedDailyIndex(bars: PriceBar[], asOf: string): number {
+  const day = asOf.split(/[ T]/)[0];
+  for (let i = bars.length - 1; i >= 0; i--) {
+    if (bars[i].date.split(/[ T]/)[0] < day) return i;
+  }
+  return -1;
+}
+
 export function alignBarIndex(bars: PriceBar[], asOf: string): number {
   const asOfMs = new Date(asOf).getTime();
   if (Number.isNaN(asOfMs)) return bars.length - 1;

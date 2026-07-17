@@ -1,0 +1,205 @@
+{
+ "tf": "1h",
+ "direction": "Short",
+ "risk": 0.66,
+ "pinned_sha256": "bbfaac697469a264cdc29b9e55f138e0a37e4736fe5eb47c527d3c2e08713adc",
+ "computed_at": "2026-07-11T11:58:56.957Z",
+ "results": [
+  {
+   "id": "7286ea31-30e3-433e-8800-925cb587b4e2",
+   "label": "BOS-Short 1h",
+   "excluded": false,
+   "stats": {
+    "trades": 290,
+    "wr": 29.310344827586203,
+    "static_dd_pct": 9.516539919478273,
+    "daily_dd_pct": 0.8801999999999999,
+    "total_pnl": 2623.7799999999984,
+    "monthly_pct": 0.19139386694091912,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "id": "54b90047-4218-44b5-9aad-6f0e903c43b4",
+   "label": "CHOCH-Short 1h",
+   "excluded": false,
+   "stats": {
+    "trades": 158,
+    "wr": 28.48101265822785,
+    "static_dd_pct": 6.3606794047057225,
+    "daily_dd_pct": 0.8079000000000001,
+    "total_pnl": 1078.71,
+    "monthly_pct": 0.07884723832392847,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "id": "f2888f96-75a5-4050-a2d7-263d771dcf89",
+   "label": "Engulfing-Short 1h",
+   "excluded": false,
+   "stats": {
+    "trades": 559,
+    "wr": 28.80143112701252,
+    "static_dd_pct": 11.89210167913322,
+    "daily_dd_pct": 1.8415000000000001,
+    "total_pnl": 4681.179999999999,
+    "monthly_pct": 0.34160227550867517,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "id": "c6842ae5-f368-47f5-b8fd-dabbb87a0423",
+   "label": "EqualLevels-Short 1h",
+   "excluded": false,
+   "stats": {
+    "trades": 460,
+    "wr": 29.130434782608695,
+    "static_dd_pct": 13.450245331233143,
+    "daily_dd_pct": 2.2175999999999996,
+    "total_pnl": 3122.860000000006,
+    "monthly_pct": 0.2290621995803175,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "id": "4f65e49c-27c8-4881-81f0-c033ff75cc2d",
+   "label": "FVG-Short 1h",
+   "excluded": false,
+   "stats": {
+    "trades": 333,
+    "wr": 31.83183183183183,
+    "static_dd_pct": 9.411315253178278,
+    "daily_dd_pct": 1.8374000000000001,
+    "total_pnl": 6230.140000000001,
+    "monthly_pct": 0.45462174661392807,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "id": "5832d1cf-883b-4e7b-aa1c-28aa631c5675",
+   "label": "IFVG-Short 1h",
+   "excluded": false,
+   "stats": {
+    "trades": 733,
+    "wr": 30.69577080491132,
+    "static_dd_pct": 19.304092787628377,
+    "daily_dd_pct": 2.793,
+    "total_pnl": 10825.710000000003,
+    "monthly_pct": 0.7898799222587316,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "id": "a5bcfa90-3d07-46b7-9a0e-52b0eb82ff4e",
+   "label": "InsideBar-Short 1h",
+   "excluded": false,
+   "stats": {
+    "trades": 418,
+    "wr": 28.708133971291865,
+    "static_dd_pct": 13.703244653511119,
+    "daily_dd_pct": 1.902,
+    "total_pnl": 2712.479999999999,
+    "monthly_pct": 0.19788194651594732,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "id": "c62d05c0-f11e-4e1b-9b26-dda453750c72",
+   "label": "MeanRev-Short 1h",
+   "excluded": false,
+   "stats": {
+    "trades": 535,
+    "wr": 31.588785046728972,
+    "static_dd_pct": 14.054877569707616,
+    "daily_dd_pct": 2.5115,
+    "total_pnl": 9377.629999999997,
+    "monthly_pct": 0.6850989882698826,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "id": "49a1ebd8-1cea-4b15-b6cf-cf806a555bb5",
+   "label": "Momentum-Short 1h",
+   "excluded": false,
+   "stats": {
+    "trades": 538,
+    "wr": 33.27137546468401,
+    "static_dd_pct": 11.479393373542166,
+    "daily_dd_pct": 2.9238,
+    "total_pnl": 17112.390000000007,
+    "monthly_pct": 1.2482778642649608,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "id": "3fc1b722-76cf-417f-bc84-8dd6b7c47af5",
+   "label": "OrderBlock-Short 1h",
+   "excluded": false,
+   "stats": {
+    "trades": 64,
+    "wr": 20.3125,
+    "static_dd_pct": 13.624588867226961,
+    "daily_dd_pct": 0.894,
+    "total_pnl": -1023.85,
+    "monthly_pct": -0.5379630724971232,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "id": "562112a8-4892-492f-8808-79e504945b22",
+   "label": "OutsideBar-Short 1h",
+   "excluded": false,
+   "stats": {
+    "trades": 522,
+    "wr": 29.88505747126437,
+    "static_dd_pct": 14.89139016465809,
+    "daily_dd_pct": 2.2198,
+    "total_pnl": 6353.620000000003,
+    "monthly_pct": 0.463581314450648,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "id": "9bb0661d-9c15-497e-868c-7eeac82cd5ec",
+   "label": "PinBar-Short 1h",
+   "excluded": false,
+   "stats": {
+    "trades": 676,
+    "wr": 28.994082840236686,
+    "static_dd_pct": 14.217309446486242,
+    "daily_dd_pct": 1.9926,
+    "total_pnl": 5902.869999999998,
+    "monthly_pct": 0.43012175415918596,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "id": "9a063a1a-30fa-4c50-a110-4039518b75b8",
+   "label": "Sweep-Reclaim-Short 1h",
+   "excluded": false,
+   "stats": {
+    "trades": 291,
+    "wr": 27.147766323024054,
+    "static_dd_pct": 14.498849263802107,
+    "daily_dd_pct": 1.5837999999999999,
+    "total_pnl": 380.9499999999983,
+    "monthly_pct": 0.027837921059475343,
+    "passes_operator_bar": false
+   }
+  },
+  {
+   "id": "6ce5ee43-28b0-4b30-8022-aeb95aecd289",
+   "label": "Sweep-Short 1h",
+   "excluded": false,
+   "stats": {
+    "trades": 370,
+    "wr": 28.64864864864865,
+    "static_dd_pct": 22.190945143943473,
+    "daily_dd_pct": 1.7841,
+    "total_pnl": 2043.8199999999974,
+    "monthly_pct": 0.14927897975465623,
+    "passes_operator_bar": false
+   }
+  }
+ ]
+}

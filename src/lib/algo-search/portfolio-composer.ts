@@ -285,7 +285,9 @@ export function composePortfolio(
     // Compute max correlation with already-selected
     const cMonthly = monthly.get(c.id) ?? [];
     let maxCorr = 0;
-    let maxCorrPair: { a: string; b: string; corr: number } | null = null;
+    // Written but never read — kept for debugger visibility of which pair
+    // tripped the ceiling. Underscore satisfies no-unused-vars (2026-07-09).
+    let _maxCorrPair: { a: string; b: string; corr: number } | null = null;
     for (const s of selected) {
       const sMonthly = monthly.get(s.id) ?? [];
       const { a_aligned, b_aligned } = alignMonthlySeries(cMonthly, sMonthly);
@@ -293,7 +295,7 @@ export function composePortfolio(
       allCorrelations.push({ a: c.id, b: s.id, corr });
       if (Math.abs(corr) > Math.abs(maxCorr)) {
         maxCorr = corr;
-        maxCorrPair = { a: c.id, b: s.id, corr };
+        _maxCorrPair = { a: c.id, b: s.id, corr };
       }
     }
 

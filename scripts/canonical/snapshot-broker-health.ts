@@ -69,11 +69,12 @@ interface ConnRow {
   api_token: string;
   account_id: string;
   region: string | null;
+  last_error: string | null;
 }
 
 interface ConnResult {
   conn: ConnRow;
-  status: "OK" | "ERROR" | "SKIP_MISSING_CREDS";
+  status: "OK" | "ERROR" | "SKIP_MISSING_CREDS" | "SKIP_DEAD";
   snapshot: { balance: number; equity: number; margin?: number; freeMargin?: number; broker?: string; server?: string; login?: number; type?: string; platform?: string } | null;
   error_message: string | null;
 }
@@ -85,6 +86,20 @@ async function probeConnection(conn: ConnRow): Promise<ConnResult> {
       status: "SKIP_MISSING_CREDS",
       snapshot: null,
       error_message: "missing api_token or account_id",
+    };
+  }
+  // 2026-07-11: skip connections whose last probe returned a MetaApi 404 —
+  // the account no longer exists at MetaApi (permanently dead). Re-probing
+  // them every 6h triggers 429 "too many unexisting accounts" rate limits
+  // that contaminate probes of the LIVE connection. Re-include explicitly
+  // with INCLUDE_DEAD=1 (e.g. after re-creating an account under the same
+  // connection row). Timeout/5xx errors are transient and stay probed.
+  if (process.env.INCLUDE_DEAD !== "1" && /404 Not Found/i.test(conn.last_error ?? "")) {
+    return {
+      conn,
+      status: "SKIP_DEAD",
+      snapshot: null,
+      error_message: "previous probe: MetaApi 404 (account deleted) — skipped; INCLUDE_DEAD=1 to re-probe",
     };
   }
   try {
@@ -131,6 +146,11 @@ function buildUpdate(result: ConnResult, syncedAt: string): {
     // so the operator's Brokers tab still has historical context
     return { last_synced_at: syncedAt, last_error: result.error_message };
   }
+  if (result.status === "SKIP_DEAD") {
+    // Deliberately untouched — last_error keeps its 404 marker (that's the
+    // skip signal) and last_synced_at stays honest (no probe happened).
+    return {};
+  }
   // SKIP_MISSING_CREDS — don't bump last_synced_at because we didn't
   // actually attempt; the broker_connections row is misconfigured and
   // needs operator action (re-enter creds). Surface via last_error.
@@ -144,6 +164,7 @@ async function writeResult(
   syncedAt: string
 ): Promise<void> {
   const update = buildUpdate(result, syncedAt);
+  if (Object.keys(update).length === 0) return; // SKIP_DEAD — nothing to write
   const { error } = await supabase
     .from("broker_connections")
     .update(update)
@@ -159,10 +180,11 @@ function printSummary(results: ConnResult[]): void {
   const ok = results.filter((r) => r.status === "OK").length;
   const err = results.filter((r) => r.status === "ERROR").length;
   const skip = results.filter((r) => r.status === "SKIP_MISSING_CREDS").length;
-  console.log(`\nSummary: ${ok} OK, ${err} ERROR, ${skip} SKIP_MISSING_CREDS (total ${results.length})`);
+  const dead = results.filter((r) => r.status === "SKIP_DEAD").length;
+  console.log(`\nSummary: ${ok} OK, ${err} ERROR, ${skip} SKIP_MISSING_CREDS, ${dead} SKIP_DEAD (total ${results.length})`);
 
   for (const r of results) {
-    const tag = r.status === "OK" ? "OK   " : r.status === "ERROR" ? "ERROR" : "SKIP ";
+    const tag = r.status === "OK" ? "OK   " : r.status === "ERROR" ? "ERROR" : r.status === "SKIP_DEAD" ? "DEAD " : "SKIP ";
     if (r.status === "OK" && r.snapshot) {
       console.log(
         `  ${tag} ${r.conn.label}: balance=$${r.snapshot.balance.toFixed(2)} equity=$${r.snapshot.equity.toFixed(2)}`
@@ -183,7 +205,7 @@ async function main(): Promise<void> {
 
   const { data: connections, error } = await supabase
     .from("broker_connections")
-    .select("id, label, provider, api_token, account_id, region")
+    .select("id, label, provider, api_token, account_id, region, last_error")
     .eq("provider", "metaapi");
   if (error || !connections) {
     throw new Error(

@@ -32,8 +32,10 @@
  *     - livePrice absent → uses closes[closes.length - 1]
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { checkBarStaleness } from "@/lib/algorithm/bar-staleness-gate";
 import { checkDxyDirection } from "@/lib/algorithm/dxy-filter";
 import { checkAtrLiquidity } from "@/lib/algorithm/intraday-atr-gate";
+import { checkReEntryCooldown } from "@/lib/algorithm/re-entry-cooldown";
 import { checkMarketStateGateConfig } from "@/lib/algorithm/market-state-gate";
 import { checkTimeOfDayFilter } from "@/lib/algorithm/time-of-day-filter";
 import { isWeakTrendByAdx } from "@/lib/market-data/adx-filter";
@@ -50,8 +52,10 @@ import { logActivity } from "./helpers";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 // ---- Mocks. -----------------------------------------------------------
+vi.mock("@/lib/algorithm/bar-staleness-gate", () => ({ checkBarStaleness: vi.fn() }));
 vi.mock("@/lib/algorithm/intraday-atr-gate", () => ({ checkAtrLiquidity: vi.fn() }));
 vi.mock("@/lib/algorithm/dxy-filter", () => ({ checkDxyDirection: vi.fn() }));
+vi.mock("@/lib/algorithm/re-entry-cooldown", () => ({ checkReEntryCooldown: vi.fn() }));
 vi.mock("@/lib/algorithm/market-state-gate", () => ({
   checkMarketStateGateConfig: vi.fn(),
   computePositionInRangePct: vi.fn().mockReturnValue(50),
@@ -75,7 +79,9 @@ vi.mock("./helpers", () => ({ logActivity: vi.fn() }));
 vi.mock("./per-hour-stats", () => ({ getPerHourStats: vi.fn().mockResolvedValue(new Map()) }));
 
 const mockedCheckAtrLiquidity = vi.mocked(checkAtrLiquidity);
+const mockedCheckBarStaleness = vi.mocked(checkBarStaleness);
 const mockedCheckDxyDirection = vi.mocked(checkDxyDirection);
+const mockedCheckReEntryCooldown = vi.mocked(checkReEntryCooldown);
 const mockedCheckMarketStateGateConfig = vi.mocked(checkMarketStateGateConfig);
 const mockedCheckTimeOfDayFilter = vi.mocked(checkTimeOfDayFilter);
 const mockedIsWeakTrendByAdx = vi.mocked(isWeakTrendByAdx);
@@ -135,7 +141,15 @@ function makeCtx(overrides: Partial<EntryContext> = {}): EntryContext {
 beforeEach(() => {
   vi.clearAllMocks();
   // Pass-through defaults — each test overrides the gate it's testing.
+  mockedCheckBarStaleness.mockReturnValue({
+    block: false,
+    status: "ok",
+    bar_age_minutes: 5,
+    threshold_minutes: 360,
+    last_bar_date: "2026-06-30T00:00:00Z",
+  });
   mockedCheckAtrLiquidity.mockReturnValue({ skip: false, atr_current: 1.5, atr_threshold: 1.0, status: "ok" });
+  mockedCheckReEntryCooldown.mockResolvedValue({ block: false, status: "no_recent_close", cooldown_minutes: 240 });
   mockedCheckNewsVeto.mockResolvedValue({ vetoed: false });
   mockedCheckConsecutiveLossHalt.mockResolvedValue({ tripped: false, streak: 0, threshold: 3 });
   mockedCheckTimeOfDayFilter.mockReturnValue({ block: false, hour: 12, hour_wr_pct: 50, hour_samples: 100 });
@@ -153,6 +167,57 @@ beforeEach(() => {
   mockedIsRangingByAtr.mockReturnValue({ skip: false });
   mockedIsWeakTrendByAdx.mockReturnValue({ skip: false });
   mockedLogActivity.mockResolvedValue(undefined);
+});
+
+// ======================================================================
+// Step 0: bar staleness (E2.24.b)
+// ======================================================================
+
+describe("runDeterministicEntryGates — step 0 (bar staleness)", () => {
+  it("stale bar → blocked before any other gate runs", async () => {
+    mockedCheckBarStaleness.mockReturnValue({
+      block: true,
+      status: "stale",
+      reason: "Last 4h bar closed 700 min ago (threshold 360)",
+      bar_age_minutes: 700,
+      threshold_minutes: 360,
+      last_bar_date: "2026-06-29T00:00:00Z",
+    });
+    const result = await runDeterministicEntryGates(makeCtx());
+    expect(result).toEqual({ blocked: true });
+    expect(mockedCheckAtrLiquidity).not.toHaveBeenCalled();
+    expect(mockedLogActivity.mock.calls[0][2]).toMatchObject({
+      event_type: "signal_no_action",
+      details: { source: "deterministic", bar_age_minutes: 700 },
+    });
+  });
+});
+
+// ======================================================================
+// Step 3b: re-entry cooldown (E2.24.b)
+// ======================================================================
+
+describe("runDeterministicEntryGates — step 3b (re-entry cooldown)", () => {
+  it("in cooldown → blocked + signal_no_action logged", async () => {
+    mockedCheckReEntryCooldown.mockResolvedValue({
+      block: true,
+      status: "in_cooldown",
+      reason: "Loss exit 12 min ago; 240 min cooldown",
+      cooldown_minutes: 240,
+      elapsed_minutes: 12,
+    });
+    const result = await runDeterministicEntryGates(makeCtx());
+    expect(result).toEqual({ blocked: true });
+    expect(mockedCheckReEntryCooldown).toHaveBeenCalledWith(
+      expect.objectContaining({ algorithmId: "algo-1", ticker: "XAU/USD", timeframe: "4h" })
+    );
+    expect(mockedLogActivity.mock.calls[0][2]).toMatchObject({
+      event_type: "signal_no_action",
+      details: { reason: "Loss exit 12 min ago; 240 min cooldown", source: "deterministic" },
+    });
+    // Cooldown runs pre-side: side resolution never reached.
+    expect(mockedResolveSide).not.toHaveBeenCalled();
+  });
 });
 
 // ======================================================================

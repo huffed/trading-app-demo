@@ -50,9 +50,13 @@ const FAIL_CI = {
 };
 
 describe("buildSearchState", () => {
-  it("empty DB → 308 enumerated + 0 per-candidate-pass + 0 ship-ready", async () => {
+  it("empty DB → 92 enumerated + 0 per-candidate-pass + 0 ship-ready", async () => {
     const s = await buildSearchState(fakeSupabase([]));
-    expect(s.enumerated_count).toBe(308);
+    // 92 = gold-only universe (enumerate.ts GOLD-ONLY DEFAULT per
+    // feedback_gold_only_demo_stage). The prior 308 expectation was the
+    // 4-instrument universe and went stale when the restriction landed —
+    // attributed via stash-test 2026-07-09/10 (E2.19.f).
+    expect(s.enumerated_count).toBe(92);
     expect(s.inserted_count).toBe(0);
     expect(s.evaluated_count).toBe(0);
     expect(s.per_candidate_pass_count).toBe(0);
