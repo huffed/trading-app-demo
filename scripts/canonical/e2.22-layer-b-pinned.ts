@@ -427,6 +427,57 @@ async function runRederive(sb: SupabaseClient<Database>, bars: PriceBar[]): Prom
   }
 }
 
+/**
+ * MODE=algo-stats — predicted per-algo + portfolio stats for the DEPLOYED
+ * 5-algo gold portfolio at the live 0.42% risk, on the complete-fidelity
+ * harness (session-day + floating ML + de-compound + gap). Per-algo rows
+ * are SOLO runs (each alone at 0.42%); the portfolio row is sibling-aware
+ * (direction-conflict/risk-pool/etc. applied), so per-algo returns do NOT
+ * simply sum to the portfolio (sibling gating drops some entries).
+ */
+async function runAlgoStats(sb: SupabaseClient<Database>, bars: PriceBar[]): Promise<void> {
+  const RISK = 0.42;
+  const CH_PER_MONTH = 2;
+  const trioLabels = ["ARB rr3_lb3", "Engulfing rr3_lb6", "ARB rr25_lb3"];
+  const members: Member[] = [];
+  for (let i = 0; i < TRIO_IDS.length; i++) members.push({ label: trioLabels[i], rules: withDailyBias(await fetchRules(sb, TRIO_IDS[i])) });
+  members.push({ label: "OutsideBar v2 rr3_lb3", rules: await fetchRules(sb, DEPLOYED_OB_ID) });
+  const engBase = withDailyBias(await fetchRules(sb, PATTERN_IDS["Engulfing-Long"]));
+  const engV = enumerateLayerBVariants({ name: "Search: XAU/USD Engulfing-Long 4h", ticker: "XAU/USD", capital: POOL_CAPITAL, rules: engBase }).find((v) => v.variant_tag === "rr25_lb4_r06_rf0_af0")!;
+  members.push({ label: "Engulfing25 rr25_lb4", rules: engV.rules });
+
+  const run = await runSiblingAware(members, bars, RISK);
+  console.log(`=== DEPLOYED 5-ALGO GOLD PORTFOLIO — predicted stats @ ${RISK}% (complete-fidelity harness, pinned H4 2015→2026) ===\n`);
+  const hdr = "algo".padEnd(24) + "n".padStart(5) + "WR%".padStart(7) + "statDD%".padStart(9) + "dayDD%".padStart(8) + "flML%".padStart(7) + "$pnl".padStart(9) + "%/mo".padStart(7) + "Ppass%".padStart(8) + "med.mo".padStart(8);
+  console.log(hdr);
+  console.log("-".repeat(hdr.length));
+  const line = (label: string, trades: BacktestTrade[]): void => {
+    const st = soloStats(trades);
+    const ss = stressTest(trades);
+    const ch = runUntilTarget(trades);
+    const monthly = ss.avg_return_pct / CH_PER_MONTH;
+    console.log(
+      label.padEnd(24) +
+      String(st.trades).padStart(5) +
+      st.wr.toFixed(1).padStart(7) +
+      st.static_dd_pct.toFixed(2).padStart(9) +
+      st.daily_dd_pct.toFixed(2).padStart(8) +
+      ss.worst_ml.toFixed(2).padStart(7) +
+      st.total_pnl.toFixed(0).padStart(9) +
+      monthly.toFixed(2).padStart(7) +
+      ch.pass_rate_pct.toFixed(0).padStart(8) +
+      ch.median_months.toFixed(1).padStart(8)
+    );
+  };
+  for (const m of members) line(m.label + " (solo)", run.soloTrades.get(m.label)!);
+  console.log("-".repeat(hdr.length));
+  line("PORTFOLIO (sibling-aware)", run.union);
+  console.log("\nNotes: per-algo rows are SOLO @0.42% (each alone); PORTFOLIO is sibling-aware (gating drops some");
+  console.log("entries → rows don't sum). flML = floating-inclusive worst-window Max Loss. Ppass/med.mo = run-until-");
+  console.log("target FTMO (+10/−10ML/−5DL, no time limit). daily_bias evidence form; live news_veto/time_filter");
+  console.log("overlays trim trade count slightly. Numbers are IN-SAMPLE on pinned data — the demo is the OOS test.");
+}
+
 async function main(): Promise<void> {
   const gran = GRAN_BY_TF[TF];
   if (!gran) throw new Error(`TF must be one of ${Object.keys(GRAN_BY_TF).join(", ")}`);
@@ -437,6 +488,7 @@ async function main(): Promise<void> {
   if (mode === "grid") await runGrid(sb, bars, process.env.PATTERN ?? "OutsideBar-Long");
   else if (mode === "verify") await runVerify(sb, bars);
   else if (mode === "rederive") await runRederive(sb, bars);
+  else if (mode === "algo-stats") await runAlgoStats(sb, bars);
   else throw new Error(`unknown MODE=${mode}`);
 }
 
