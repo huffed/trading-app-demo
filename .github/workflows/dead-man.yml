@@ -95,6 +95,47 @@ jobs:
           fi
           echo "Scan cron alive."
 
+  # Alpha-decay safety-net liveness (added 2026-07-20, E2.25.i). The G.4
+  # auto-pause cron runs daily 09:00 UTC and — before migration 00050 —
+  # logged nothing on a normal run, so a silently-dead decay cron had no
+  # heartbeat (it failed for days in the 2026-07-13→17 outage unnoticed).
+  # The route now emits `alpha_decay_tick` every successful run; this job
+  # asserts freshness via last_alpha_decay_tick(). Threshold 1560m = 26h
+  # (daily cadence + a full day of jitter/one-miss tolerance). A dead
+  # decay net means a decayed algo keeps trading live for days — worth a
+  # page, but a WARN-tier miss (one skipped daily run is not urgent), so
+  # the threshold is generous.
+  check-alpha-decay-tick:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify alpha_decay_tick freshness
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          MAX_AGE_MINUTES: "1560" # daily cron; 26h = 1 day + full jitter/one-miss tolerance
+        run: |
+          set -euo pipefail
+          ts=$(curl -fsS -X POST "$SUPABASE_URL/rest/v1/rpc/last_alpha_decay_tick" \
+            -H "apikey: $SUPABASE_ANON_KEY" \
+            -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
+            -H "Content-Type: application/json" -d '{}' | tr -d '"')
+          if [ -z "$ts" ] || [ "$ts" = "null" ]; then
+            # No tick ever — expected only in the window between deploying
+            # migration 00050 and the first daily run. Warn, don't fail
+            # (a hard fail here would false-alarm on first deploy).
+            echo "::warning::No alpha_decay_tick yet — expected until the first daily run after the 00050 deploy. Not failing."
+            exit 0
+          fi
+          now_epoch=$(date -u +%s)
+          tick_epoch=$(date -u -d "$ts" +%s)
+          age_min=$(( (now_epoch - tick_epoch) / 60 ))
+          echo "Last alpha_decay_tick: $ts (${age_min}m ago, threshold ${MAX_AGE_MINUTES}m)"
+          if [ "$age_min" -gt "$MAX_AGE_MINUTES" ]; then
+            echo "::error::Alpha-decay safety-net STALE: last tick ${age_min}m ago (> ${MAX_AGE_MINUTES}m). The G.4 auto-pause cron is dead — a decayed algo could keep trading live unpaused. Check the alpha-decay crontab entry + dev server."
+            exit 1
+          fi
+          echo "Alpha-decay safety net alive."
+
   # Broker-API availability (added 2026-06-11 after MetaApi's client-API
   # tier black-holed globally — every regional endpoint TCP-timeout while
   # our pipeline stayed green; nothing alerted because the dead-man only
@@ -143,12 +184,13 @@ jobs:
   # reaches operator's phone within 5 minutes" is validated this way
   # without breaking real monitoring.
   notify-failure:
-    needs: [check-heartbeat, check-scan-tick, check-broker-api]
+    needs: [check-heartbeat, check-scan-tick, check-broker-api, check-alpha-decay-tick]
     if: >-
       always() && (
         needs.check-heartbeat.result == 'failure' ||
         needs.check-scan-tick.result == 'failure' ||
         needs.check-broker-api.result == 'failure' ||
+        needs.check-alpha-decay-tick.result == 'failure' ||
         inputs.fire_test_alert == true
       )
     runs-on: ubuntu-latest
@@ -165,6 +207,7 @@ jobs:
           HEARTBEAT_RESULT: ${{ needs.check-heartbeat.result }}
           SCAN_TICK_RESULT: ${{ needs.check-scan-tick.result }}
           BROKER_API_RESULT: ${{ needs.check-broker-api.result }}
+          ALPHA_DECAY_RESULT: ${{ needs.check-alpha-decay-tick.result }}
           FIRE_TEST_ALERT: ${{ inputs.fire_test_alert }}
         run: |
           set -euo pipefail
@@ -172,6 +215,7 @@ jobs:
           [ "$HEARTBEAT_RESULT"  = "failure" ] && FAILED="$FAILED manage-cron"
           [ "$SCAN_TICK_RESULT"  = "failure" ] && FAILED="$FAILED scan-cron"
           [ "$BROKER_API_RESULT" = "failure" ] && FAILED="$FAILED broker-api"
+          [ "$ALPHA_DECAY_RESULT" = "failure" ] && FAILED="$FAILED alpha-decay"
           if [ "$FIRE_TEST_ALERT" = "true" ]; then
             FAILED="$FAILED [TEST ALERT — ignore]"
             PRIORITY="default"   # don't wake operator for a self-triggered test

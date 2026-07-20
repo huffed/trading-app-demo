@@ -50,7 +50,7 @@ describe("alpha-decay route", () => {
     expect(body).toEqual({
       evaluated: 0,
       paused: 0,
-      message: "no active algos — alpha-decay check skipped",
+      message: "no active algos — alpha-decay check skipped (heartbeat emitted)",
     });
   });
 
@@ -75,5 +75,50 @@ describe("alpha-decay route", () => {
     expect(res.status).toBe(500);
     const body = await res.json();
     expect(body).toEqual({ error: "DB down", code: "alpha_decay_tick_failed" });
+  });
+
+  it("emits an alpha_decay_tick liveness heartbeat on a successful run (E2.25.i)", async () => {
+    evaluateAndApplyMock.mockResolvedValue({
+      generated_at: "2026-06-23T09:00:00Z",
+      evaluated: 5,
+      per_algo: [],
+      paused: [],
+      counts: { none: 5, warn: 0, decay: 0, insufficient_data: 0, no_baseline: 0 },
+    });
+    // Minimal supabase stub covering pickHeartbeatUserId (algorithms →
+    // user_id) + logActivity (insert into activity_log).
+    const inserted: Array<Record<string, unknown>> = [];
+    createAdminClientMock.mockReturnValue({
+      from: (table: string) => {
+        if (table === "algorithms") {
+          return { select: () => ({ limit: () => ({ maybeSingle: async () => ({ data: { user_id: "u1" } }) }) }) };
+        }
+        if (table === "activity_log") {
+          return { insert: async (row: Record<string, unknown>) => { inserted.push(row); return { error: null }; } };
+        }
+        throw new Error(`unexpected table ${table}`);
+      },
+    });
+    await GET(makeRequest());
+    const tick = inserted.find((r) => r.event_type === "alpha_decay_tick");
+    expect(tick).toBeDefined();
+    expect(tick).toMatchObject({ event_type: "alpha_decay_tick", details: { evaluated: 5, paused: 0 } });
+  });
+
+  it("a broken heartbeat write never fails the tick (best-effort)", async () => {
+    evaluateAndApplyMock.mockResolvedValue({
+      generated_at: "2026-06-23T09:00:00Z",
+      evaluated: 2,
+      per_algo: [],
+      paused: [],
+      counts: { none: 2, warn: 0, decay: 0, insufficient_data: 0, no_baseline: 0 },
+    });
+    createAdminClientMock.mockReturnValue({
+      from: () => { throw new Error("heartbeat DB exploded"); },
+    });
+    const res = await GET(makeRequest());
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.evaluated).toBe(2); // tick succeeded despite the heartbeat throwing
   });
 });

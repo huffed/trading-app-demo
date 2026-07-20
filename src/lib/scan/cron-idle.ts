@@ -35,7 +35,7 @@ export interface EmitCronIdleResult {
  *  with 0 algos in the table we fall back to auth.users via the admin
  *  client. Returns null only when both queries come back empty (a
  *  fresh project with no user yet — cron has nothing to log anyway). */
-async function pickHeartbeatUserId(supabase: SupabaseClient): Promise<string | null> {
+export async function pickHeartbeatUserId(supabase: SupabaseClient): Promise<string | null> {
   const { data: algo } = await supabase
     .from("algorithms")
     .select("user_id")
