@@ -26,6 +26,7 @@
  * expected resolution). Algorithms can pin an explicit `max_bars` to
  * override if they need it.
  */
+import { parseBarDate } from "@/lib/market-data/parse-bar-date";
 import { computeAtr } from "@/lib/market-data/regime-filter";
 import type { PriceBar } from "@/lib/market-data/types";
 
@@ -227,11 +228,16 @@ export function resolveEntryBarIndex(
   openedAtIso: string
 ): number {
   if (bars.length === 0) return -1;
-  const opened = new Date(openedAtIso).getTime();
+  // E2.24.h.iv: bar dates are "YYYY-MM-DD HH:MM:SS" (no TZ marker) —
+  // bare `new Date()` parses them in the HOST timezone (the operator's
+  // Mac runs BST), skewing the comparison by the local offset and
+  // mis-counting the entry bar by 1-2 bars on 30m/1h TFs. parseBarDate
+  // pins UTC for both the space format and ISO-Z.
+  const opened = parseBarDate(openedAtIso).getTime();
   if (!Number.isFinite(opened)) return -1;
   let last = -1;
   for (let i = 0; i < bars.length; i++) {
-    const t = new Date(bars[i].date).getTime();
+    const t = parseBarDate(bars[i].date).getTime();
     if (Number.isFinite(t) && t <= opened) last = i;
     else break;
   }

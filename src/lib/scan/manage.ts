@@ -194,13 +194,19 @@ export async function manageActiveAlgorithms(
   supabase: SupabaseClient
 ): Promise<ManageResult[]> {
   // Pull all open positions + their parent algo metadata in one round-trip.
-  const { data, error } = await supabase
+  // E2.25.i F1: scope to OPERATOR_USER_ID when set (single-operator
+  // invariant — a stranger's positions must not be managed on the
+  // operator's broker keys). Unset = legacy behaviour for dev/CI.
+  const operatorId = process.env.OPERATOR_USER_ID;
+  let query = supabase
     .from("paper_positions")
     .select(
       "*, algorithms!inner(id, user_id, name, rules, status, live_trading_enabled, broker_connection_id)"
     )
     .eq("status", "open")
     .eq("algorithms.status", "active");
+  if (operatorId) query = query.eq("user_id", operatorId);
+  const { data, error } = await query;
 
   if (error) {
     logger.error("manage-positions", "Failed to load open positions", error);

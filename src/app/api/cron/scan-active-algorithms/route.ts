@@ -97,12 +97,23 @@ export async function GET(request: Request) {
   // gates broker mirroring inside the scan but doesn't gate the scan
   // itself. That way paper-only algos still run (and accumulate stats
   // for the drift detector / pair-pruner) when no broker is connected.
-  const { data, error } = await supabase
+  //
+  // E2.25.i F1: this is a SINGLE-OPERATOR app (CLAUDE.md: "not a SaaS —
+  // no users planned"), but Supabase self-signup is open and this query
+  // ran under the admin client with NO user filter — a stranger who
+  // signed up and created an `active` algo would have it executed on the
+  // operator's provider keys (+ Anthropic budget if llm_trader). Scope to
+  // OPERATOR_USER_ID when set (enforces the invariant); unset = legacy
+  // behaviour so dev/CI aren't broken.
+  const operatorId = process.env.OPERATOR_USER_ID;
+  let query = supabase
     .from("algorithms")
     .select(
       "id, user_id, name, description, rules, capital, status, live_trading_enabled, broker_connection_id, portfolio_id, algorithm_watchlist(ticker, name, auto_paused)"
     )
     .eq("status", "active");
+  if (operatorId) query = query.eq("user_id", operatorId);
+  const { data, error } = await query;
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });

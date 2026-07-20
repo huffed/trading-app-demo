@@ -11,6 +11,7 @@
  * can't reconcile later. Better to record both honestly.
  */
 import { notionalToLots } from "@/lib/brokers/sizing";
+import type { BrokerPosition } from "@/lib/brokers/types";
 import { notionalInUsd } from "@/lib/constants/markets";
 import { logger } from "@/lib/logger";
 // CB.H1 (2026-06-22): broker-context resolution extracted to its own
@@ -75,7 +76,7 @@ async function recordSuccessfulOrder(
   const brokerFillPrice = realFill?.openPrice ?? args.currentPrice;
   const brokerQuantity = lots * spec.contractSize;
   const brokerNotional = notionalInUsd(ticker, lots, args.currentPrice);
-  await supabase
+  const { error: updErr } = await supabase
     .from("paper_positions")
     .update({
       broker_order_id: placed.orderId,
@@ -86,6 +87,10 @@ async function recordSuccessfulOrder(
       broker_error: null,
     })
     .eq("id", paperPositionId);
+  // E2.24.c.i: surface a failed link write so the caller's POST-fill
+  // recovery branch runs (the broker holds a filled position; a silently
+  // dropped update here would orphan it). Throw AFTER the write attempt.
+  if (updErr) throw new Error(`fill recorded at broker (pos ${placed.positionId}) but paper link write failed: ${updErr.message}`);
   await logActivity(supabase, userId, {
     algorithm_id: algorithmId,
     position_id: paperPositionId,
@@ -98,6 +103,36 @@ async function recordSuccessfulOrder(
       side,
     },
   });
+}
+
+/** E2.24.c.i — after a placeMarketOrder throw (possibly a lost-response
+ *  timeout), query the broker for a position that matches this entry and
+ *  opened just now. Returns it for adoption, or null when the broker is
+ *  confirmed flat (safe to void). Single-operator account, so
+ *  symbol + side + recency (≤3 min) + approx volume is an unambiguous
+ *  match. Any adapter error → null (caller treats as "couldn't confirm",
+ *  which falls through to void — the pre-existing behaviour, no worse). */
+async function tryAdoptOrphanPosition(
+  args: EntryArgs,
+  lots: number
+): Promise<BrokerPosition | null> {
+  const { adapter, conn } = args.ctx;
+  const wantSide = args.side === "long" ? "buy" : "sell";
+  const positions = await adapter.fetchPositions(conn);
+  const nowMs = Date.now();
+  const match = positions.find((p) => {
+    if (p.side !== wantSide) return false;
+    const openMs = p.time ? Date.parse(p.time) : NaN;
+    const fresh = Number.isFinite(openMs) ? nowMs - openMs <= 3 * 60_000 : false;
+    if (!fresh) return false;
+    // Volume within 15% (broker floors to volumeStep; lots may be 0).
+    if (lots > 0 && p.volume > 0) {
+      const dv = Math.abs(p.volume - lots) / Math.max(p.volume, lots);
+      if (dv > 0.15) return false;
+    }
+    return true;
+  });
+  return match ?? null;
 }
 
 /** Derive the broker order volume in lots. Honour `args.lots` when
@@ -139,10 +174,17 @@ async function maybeHaltOnDivergence(
  */
 export async function executeLiveEntry(args: EntryArgs): Promise<void> {
   const { supabase, userId, algorithmId, paperPositionId, ticker, side, notionalUsd } = args;
+  // E2.24.c.i: hoisted so the catch can tell a PRE-fill throw (order not
+  // placed → safe to void) from a POST-fill throw (broker HAS exposure →
+  // voiding would orphan a live position). `placed` is set only after
+  // placeMarketOrder returns.
+  let placed: { orderId: string; positionId: string } | null = null;
+  let orderLots = 0;
   try {
     const { adapter, conn } = args.ctx;
     const spec = await adapter.fetchSymbolSpec(conn, ticker);
     const lots = computeOrderLots(args, spec);
+    orderLots = lots;
     if (lots <= 0) {
       throw new Error(
         `Computed lot size 0 for ${ticker} — minVolume=${spec.minVolume}, notional=${notionalUsd}.`
@@ -160,7 +202,7 @@ export async function executeLiveEntry(args: EntryArgs): Promise<void> {
     }
     // Intentionally omit clientId — MetaApi's regex rejects hex/UUID-shaped
     // ids and we already correlate via the orderId/positionId in the response.
-    const placed = await adapter.placeMarketOrder(conn, {
+    placed = await adapter.placeMarketOrder(conn, {
       appSymbol: ticker,
       side: side === "long" ? "buy" : "sell",
       volume: lots,
@@ -171,15 +213,47 @@ export async function executeLiveEntry(args: EntryArgs): Promise<void> {
     await recordSuccessfulOrder(args, placed, lots, spec);
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Live order failed";
-    // Roll back the paper position. Broker rejected the order, so there
-    // is no real exposure — leaving the row open with status='open' lets
-    // the manage cron treat it as a real position and eventually "trigger"
-    // paper SL/TP hits against zero actual exposure (bug surfaced
-    // 2026-05-18: Sat-00:00-UTC entry rejected MARKET_CLOSED, then
-    // "stopped out" 2 days later for -$441 paper-only loss). Close
-    // cleanly with zero P&L and the distinct broker_rejected exit reason
-    // so analytics can identify these voids vs real exits (constraint
-    // added in migration 00038).
+    // E2.24.c.i: POST-fill failure (placeMarketOrder returned, but the
+    // fill-recording DB write threw). The broker HOLDS a position — do NOT
+    // void. Best-effort re-link the row so the manage cron + halts see it.
+    if (placed) {
+      const { error: relinkErr } = await supabase
+        .from("paper_positions")
+        .update({ broker_order_id: placed.orderId, broker_position_id: placed.positionId, broker_error: `record-after-fill failed: ${msg}` })
+        .eq("id", paperPositionId);
+      await logActivity(supabase, userId, {
+        algorithm_id: algorithmId,
+        position_id: paperPositionId,
+        event_type: relinkErr ? "live_order_failed" : "live_order_placed",
+        ticker,
+        details: { error: msg, side, broker_position_id: placed.positionId, recovered_after_record_error: true, relink_ok: !relinkErr },
+      });
+      return;
+    }
+    // PRE-fill failure — BUT a network timeout may have placed the order
+    // even though placeMarketOrder threw (lost response). Query the broker
+    // for a matching just-opened position before voiding; adopt it if
+    // found (single-operator account → symbol+side+recency is a safe
+    // match). Only void when the broker confirms no exposure.
+    const adopted = await tryAdoptOrphanPosition(args, orderLots).catch(() => null);
+    if (adopted) {
+      await supabase
+        .from("paper_positions")
+        .update({ broker_position_id: adopted.id, broker_order_id: adopted.id, broker_fill_price: adopted.openPrice, broker_error: `adopted after placement error: ${msg}` })
+        .eq("id", paperPositionId);
+      await logActivity(supabase, userId, {
+        algorithm_id: algorithmId,
+        position_id: paperPositionId,
+        event_type: "live_order_placed",
+        ticker,
+        details: { error: msg, side, broker_position_id: adopted.id, adopted_after_timeout: true },
+      });
+      return;
+    }
+    // Confirmed no exposure — void cleanly. Leaving the row status='open'
+    // would let the manage cron "trigger" paper SL/TP against zero real
+    // exposure (2026-05-18: Sat-00:00-UTC MARKET_CLOSED reject → phantom
+    // −$441 paper loss 2 days later). broker_rejected is the audit marker.
     await supabase
       .from("paper_positions")
       .update({
@@ -195,7 +269,7 @@ export async function executeLiveEntry(args: EntryArgs): Promise<void> {
       position_id: paperPositionId,
       event_type: "live_order_failed",
       ticker,
-      details: { error: msg, side, voided: true },
+      details: { error: msg, side, voided: true, broker_confirmed_flat: true },
     });
     return;
   }
@@ -235,7 +309,17 @@ export async function executeLiveExit(args: ExitArgs): Promise<void> {
   if (!brokerPositionId) return; // Paper position never had a real counterpart.
   try {
     const { adapter, conn } = args.ctx;
-    const closed = await adapter.closePosition(conn, brokerPositionId);
+    // E2.24.c.ii: the paper row is already status='closed' by the time we
+    // get here, so a failed close leaves the broker position OPEN with no
+    // retry (only its broker-side SL/TP protect it). Retry the close once
+    // (most failures are transient network blips) before surfacing.
+    let closed: { orderId: string };
+    try {
+      closed = await adapter.closePosition(conn, brokerPositionId);
+    } catch (firstErr) {
+      logger.warn("live-execution", `close retry for ${ticker} pos ${brokerPositionId} after: ${firstErr instanceof Error ? firstErr.message : firstErr}`);
+      closed = await adapter.closePosition(conn, brokerPositionId);
+    }
 
     // Best-effort: fetch the broker's actual close fill + realised P&L
     // (profit + swap + commission) so the row reflects the broker's
@@ -281,6 +365,11 @@ export async function executeLiveExit(args: ExitArgs): Promise<void> {
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Live close failed";
+    // E2.24.c.ii: both close attempts failed — the broker position is
+    // still OPEN while our paper row reads closed. broker_error is set;
+    // the reconcile cron then surfaces the lingering broker position as
+    // `broker_only` drift (broker-side SL/TP still protect it). A full
+    // auto-re-close drainer is Stage-5.3 work (real money).
     await supabase
       .from("paper_positions")
       .update({ broker_error: msg })
@@ -290,7 +379,7 @@ export async function executeLiveExit(args: ExitArgs): Promise<void> {
       position_id: paperPositionId,
       event_type: "live_close_failed",
       ticker,
-      details: { error: msg, broker_position_id: brokerPositionId },
+      details: { error: msg, broker_position_id: brokerPositionId, close_pending: true, retried: true },
     });
   }
 }
