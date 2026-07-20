@@ -31,6 +31,12 @@
 #   0 */6 * * * /Users/jack.jones/Documents/trading-app/demo-1/scripts/broker-health-snapshot-cron.sh >> /tmp/quanttrader-broker-health.log 2>&1
 set -euo pipefail
 
+# E2.29 — cron runs with a minimal PATH that omits pnpm/node, so this
+# tsx-based cron failed silently with "pnpm: command not found" from
+# 2026-07-17 (rc=127) — which is why the dead FTMO account + stale broker
+# health went undetected. Restore pnpm + the latest nvm-installed node.
+export PATH="$HOME/Library/pnpm:$(ls -d "$HOME"/.nvm/versions/node/*/bin 2>/dev/null | sort -V | tail -1):$PATH"
+
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ENV_FILE="$REPO_DIR/.env.local"
 TIMESTAMP="[$(date -u +%FT%TZ)]"

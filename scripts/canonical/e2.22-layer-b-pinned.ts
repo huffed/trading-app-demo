@@ -186,11 +186,23 @@ interface Member {
 }
 
 async function runSiblingAware(members: Member[], bars: PriceBar[], uniformRisk: number): Promise<{ union: BacktestTrade[]; perMember: Array<{ label: string; solo: number; aware: number }>; soloTrades: Map<string, BacktestTrade[]> }> {
+  const risks = new Map(members.map((m) => [m.label, uniformRisk]));
+  return runSiblingAwareWeighted(members, bars, risks);
+}
+
+/** E2.28 — sibling-aware run with PER-MEMBER risk. Each sibling contributes
+ *  its OWN risk to the risk-pool blocking windows + daily-halt sum (the
+ *  uniform version is the special case risks = all-equal). */
+async function runSiblingAwareWeighted(
+  members: Member[],
+  bars: PriceBar[],
+  risks: Map<string, number>
+): Promise<{ union: BacktestTrade[]; perMember: Array<{ label: string; solo: number; aware: number }>; soloTrades: Map<string, BacktestTrade[]> }> {
   const priceMap = new Map([["XAU/USD", bars]]);
-  const riskDollars = POOL_CAPITAL * (uniformRisk / 100);
+  const riskOf = (label: string): number => risks.get(label) ?? 0;
   const atRisk = (m: Member): AlgorithmRules => ({
     ...m.rules,
-    position_sizing: { ...m.rules.position_sizing, type: "risk_per_trade", value: uniformRisk },
+    position_sizing: { ...m.rules.position_sizing, type: "risk_per_trade", value: riskOf(m.label) },
   });
   const soloTrades = new Map<string, BacktestTrade[]>();
   for (const m of members) {
@@ -206,7 +218,7 @@ async function runSiblingAware(members: Member[], bars: PriceBar[], uniformRisk:
     for (const other of members) {
       if (other.label === m.label) continue;
       const ot = soloTrades.get(other.label)!;
-      sibWindows = sibWindows.concat(tradesAsSiblingWindows(ot, riskDollars));
+      sibWindows = sibWindows.concat(tradesAsSiblingWindows(ot, POOL_CAPITAL * (riskOf(other.label) / 100)));
       for (const t of ot) {
         const day = t.exit_date.slice(0, 10);
         sibDaily[day] = (sibDaily[day] ?? 0) + t.pnl;
@@ -489,6 +501,86 @@ async function runAlgoStats(sb: SupabaseClient<Database>, bars: PriceBar[]): Pro
   console.log("overlays trim trade count slightly. Numbers are IN-SAMPLE on pinned data — the demo is the OOS test.");
 }
 
+/**
+ * MODE=weight-opt (E2.28) — is the deployed portfolio leaving return on
+ * the table with UNIFORM 0.42% sizing? Overfit-disciplined: a ONE-parameter
+ * tilt family wᵢ ∝ (soloMonthlyᵢ)^k (k=0 → uniform; higher k → more weight
+ * on the higher-return algos), each weight VECTOR scaled by a scalar s so
+ * the portfolio worst-window ML hits the 8.0 band exactly (binary search;
+ * ML ∝ s under RPT). Return is then compared at EQUAL tail risk across k.
+ * 1 dof + a monotone family + tiny grid = minimal RDOF. In-sample on
+ * pinned data; the demo is the OOS test.
+ */
+async function runWeightOpt(sb: SupabaseClient<Database>, bars: PriceBar[]): Promise<void> {
+  const ML_TARGET = 8.0;
+  const CH_PER_MONTH = 2;
+  const BASE = 0.42;
+  const trioLabels = ["ARB rr3_lb3", "Engulfing rr3_lb6", "ARB rr25_lb3"];
+  const members: Member[] = [];
+  for (let i = 0; i < TRIO_IDS.length; i++) members.push({ label: trioLabels[i], rules: withDailyBias(await fetchRules(sb, TRIO_IDS[i])) });
+  members.push({ label: "OutsideBar v2", rules: await fetchRules(sb, DEPLOYED_OB_ID) });
+  const engBase = withDailyBias(await fetchRules(sb, PATTERN_IDS["Engulfing-Long"]));
+  members.push({ label: "Engulfing25", rules: enumerateLayerBVariants({ name: "Search: XAU/USD Engulfing-Long 4h", ticker: "XAU/USD", capital: POOL_CAPITAL, rules: engBase }).find((v) => v.variant_tag === "rr25_lb4_r06_rf0_af0")!.rules });
+
+  // Per-member solo monthly return @BASE — the tilt basis.
+  const soloMonthly = new Map<string, number>();
+  for (const m of members) {
+    const res = runPortfolioBacktest({ ...m.rules, position_sizing: { ...m.rules.position_sizing, type: "risk_per_trade", value: BASE } }, new Map([["XAU/USD", bars]]), POOL_CAPITAL, { dailyBarsOverride: sessionDaily() });
+    soloMonthly.set(m.label, Math.max(0.001, stressTest(res.trades ?? []).avg_return_pct / CH_PER_MONTH));
+  }
+
+  const runAt = async (risks: Map<string, number>): Promise<{ s: StressResult; monthly: number }> => {
+    const run = await runSiblingAwareWeighted(members, bars, risks);
+    const s = stressTest(run.union);
+    return { s, monthly: s.avg_return_pct / CH_PER_MONTH };
+  };
+  // Scale a relative-weight vector so worst-window ML == ML_TARGET.
+  const scaleToML = async (relW: Map<string, number>): Promise<{ risks: Map<string, number>; res: { s: StressResult; monthly: number } }> => {
+    let lo = 0.05, hi = 1.5, mid = BASE, res = await runAt(new Map([...relW].map(([l, w]) => [l, w * BASE])));
+    for (let it = 0; it < 12; it++) {
+      mid = (lo + hi) / 2;
+      const risks = new Map([...relW].map(([l, w]) => [l, w * mid]));
+      res = await runAt(risks);
+      if (res.s.worst_ml > ML_TARGET) hi = mid; else lo = mid;
+    }
+    const risks = new Map([...relW].map(([l, w]) => [l, w * mid]));
+    return { risks, res: await runAt(risks) };
+  };
+
+  console.log(`=== E2.28 — risk-weighting tilt sweep (1-param family, each scaled to worst-window ML=${ML_TARGET}) ===`);
+  console.log(`Solo monthly @${BASE}%: ` + members.map((m) => `${m.label}=${soloMonthly.get(m.label)!.toFixed(3)}`).join("  "));
+  console.log("");
+  const meanMonthly = [...soloMonthly.values()].reduce((a, b) => a + b, 0) / members.length;
+  interface Row { k: number; monthly: number; ml: number; dl: number; breach: number; risks: Map<string, number> }
+  const rows: Row[] = [];
+  for (const k of [0, 0.5, 1, 1.5, 2]) {
+    // rel weight ∝ (soloMonthly / mean)^k, normalized to mean 1.
+    const raw = new Map(members.map((m) => [m.label, Math.pow(soloMonthly.get(m.label)! / meanMonthly, k)]));
+    const meanRaw = [...raw.values()].reduce((a, b) => a + b, 0) / members.length;
+    const relW = new Map([...raw].map(([l, w]) => [l, w / meanRaw]));
+    const { risks, res } = await scaleToML(relW);
+    rows.push({ k, monthly: res.monthly, ml: res.s.worst_ml, dl: res.s.worst_dl, breach: res.s.fail_ml + res.s.fail_dl, risks });
+    const wStr = members.map((m) => `${m.label.split(" ")[0].slice(0, 5)}=${risks.get(m.label)!.toFixed(3)}`).join(" ");
+    console.log(`k=${k.toFixed(1)}  → ${res.monthly.toFixed(3)}%/mo  ML=${res.s.worst_ml.toFixed(2)} DL=${res.s.worst_dl.toFixed(2)} breach=${res.s.fail_ml + res.s.fail_dl}  | risks: ${wStr}`);
+  }
+  const uniform = rows.find((r) => r.k === 0)!;
+  const valid = rows.filter((r) => r.breach === 0 && r.ml <= ML_TARGET + 0.05 && r.dl <= 5);
+  const best = valid.reduce((a, b) => (b.monthly > a.monthly ? b : a), valid[0]);
+  const lift = ((best.monthly - uniform.monthly) / uniform.monthly) * 100;
+  console.log("");
+  console.log(`UNIFORM (k=0): ${uniform.monthly.toFixed(3)}%/mo @ ML ${uniform.ml.toFixed(2)}`);
+  console.log(`BEST TILT (k=${best.k}): ${best.monthly.toFixed(3)}%/mo @ ML ${best.ml.toFixed(2)} → ${lift >= 0 ? "+" : ""}${lift.toFixed(1)}% vs uniform`);
+  if (best.k === 0 || lift < 5) {
+    console.log(`VERDICT: uniform is already ~optimal (lift <5%) — no meaningful return left on the table; KEEP uniform 0.42%.`);
+  } else {
+    console.log(`VERDICT: tilt k=${best.k} lifts return ${lift.toFixed(1)}% at the same tail risk. Deploy weights: ` + members.map((m) => `${m.label}=${best.risks.get(m.label)!.toFixed(3)}%`).join(", "));
+    // MC + run-until-target validation of the winner.
+    const run = await runSiblingAwareWeighted(members, bars, best.risks);
+    const ch = runUntilTarget(run.union);
+    console.log(`  MC/run-until-target @ winner: P(pass)=${ch.pass_rate_pct.toFixed(1)}% median=${ch.median_months.toFixed(1)}mo`);
+  }
+}
+
 async function main(): Promise<void> {
   const gran = GRAN_BY_TF[TF];
   if (!gran) throw new Error(`TF must be one of ${Object.keys(GRAN_BY_TF).join(", ")}`);
@@ -500,6 +592,7 @@ async function main(): Promise<void> {
   else if (mode === "verify") await runVerify(sb, bars);
   else if (mode === "rederive") await runRederive(sb, bars);
   else if (mode === "algo-stats") await runAlgoStats(sb, bars);
+  else if (mode === "weight-opt") await runWeightOpt(sb, bars);
   else throw new Error(`unknown MODE=${mode}`);
 }
 
