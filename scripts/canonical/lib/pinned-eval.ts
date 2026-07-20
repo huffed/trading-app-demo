@@ -194,6 +194,137 @@ export function stressTest(allTrades: BacktestTrade[], capital = POOL_CAPITAL): 
   return r;
 }
 
+/** E2.27 — one historical trading day, distilled for path resampling:
+ *  the day's realized return delta + the floating drawdown LEVEL open
+ *  positions carried that day (Σ MAE of positions open, conservative). */
+export interface DailyPathDay {
+  realizedRet: number;
+  openMaeRet: number;
+}
+
+/** E2.27 — build the historical daily path series (the resampling atoms)
+ *  from de-compounded trades. Same day-walk semantics as stressTest /
+ *  runUntilTarget: realized pnl books on exit day; MAE floats while open. */
+export function buildDailyPath(allTrades: BacktestTrade[], capital = POOL_CAPITAL): DailyPathDay[] {
+  if (allTrades.length === 0) return [];
+  const prepared = allTrades.map((t) => {
+    const eq = t.equity_at_entry != null && t.equity_at_entry > 0 ? t.equity_at_entry : capital;
+    return { entryDayMs: dayFloor(Date.parse(t.entry_date)), exitDayMs: dayFloor(Date.parse(t.exit_date)), pnlRet: t.pnl / eq, maeRet: (t.mae ?? 0) / eq };
+  });
+  const firstMs = Math.min(...prepared.map((t) => t.entryDayMs));
+  const lastMs = Math.max(...prepared.map((t) => t.exitDayMs));
+  const out: DailyPathDay[] = [];
+  for (let d = firstMs; d <= lastMs; d += 86_400_000) {
+    let realizedRet = 0, openMaeRet = 0;
+    for (const t of prepared) {
+      if (t.exitDayMs === d) realizedRet += t.pnlRet;
+      if (t.entryDayMs <= d && t.exitDayMs > d) openMaeRet += t.maeRet;
+    }
+    out.push({ realizedRet, openMaeRet });
+  }
+  return out;
+}
+
+export interface McChallengeResult {
+  n: number;
+  pass_rate_pct: number;
+  fail_ml_pct: number;
+  fail_dl_pct: number;
+  /** Distribution of the max-loss floor reached per synthetic challenge
+   *  (floating-inclusive, % of capital) — percentiles for sizing. */
+  ml_p50: number;
+  ml_p95: number;
+  ml_p99: number;
+  /** P(ML exceeds X%) evaluated on the synthetic distribution. */
+  p_ml_gt: (thresholdPct: number) => number;
+  months_p50: number;
+  months_p90: number;
+}
+
+/** Deterministic LCG so MC runs are reproducible (no Math.random). */
+function lcg(seed: number): () => number {
+  let s = seed >>> 0;
+  return () => {
+    s = (s * 1664525 + 1013904223) >>> 0;
+    return s / 4294967296;
+  };
+}
+
+/**
+ * E2.27 — Monte Carlo challenge-sequence simulator. Draws `blockDays`-long
+ * contiguous blocks (circular) from the historical daily path and walks
+ * synthetic run-until-target challenges (+profitPct / −mlPct floating /
+ * −dlPct day). BLOCK resampling preserves the loss-clustering + position
+ * concurrency INSIDE each block that iid shuffling destroys (iid would
+ * understate tails — the mean-R block-bootstrap lesson applied to paths).
+ * Trade-day density is preserved by resampling calendar days as-is.
+ *
+ * The full per-challenge worst-ML distribution enables the honest sizing
+ * rule: risk scales pnl/MAE linearly (RPT sizing), so P(ML_r > L) =
+ * P(ML_base > L·(base/r)) — one MC yields the entire sizing curve.
+ */
+export function mcChallenge(
+  days: DailyPathDay[],
+  n = 10_000,
+  blockDays = 21,
+  profitPct = 10,
+  mlPct = 10,
+  dlPct = 5,
+  seed = 42,
+  maxDays = 365 * 3
+): McChallengeResult {
+  const rand = lcg(seed);
+  const D = days.length;
+  const mls: number[] = [];
+  const monthsArr: number[] = [];
+  let passes = 0, mlFails = 0, dlFails = 0, resolved = 0;
+  for (let c = 0; c < n; c++) {
+    let realized = 0, minFloat = 0, prevFloat = 0, dayCount = 0;
+    let outcome: "pass" | "ml" | "dl" | null = null;
+    let worstMlThis = 0;
+    outer: while (dayCount < maxDays) {
+      const start = Math.floor(rand() * D);
+      for (let k = 0; k < blockDays; k++) {
+        const day = days[(start + k) % D];
+        realized += day.realizedRet;
+        const float = realized - day.openMaeRet; // return-space equity vs start
+        if (float < minFloat) minFloat = float;
+        const mlNow = -minFloat * 100;
+        if (mlNow > worstMlThis) worstMlThis = mlNow;
+        const drop = prevFloat - float;
+        prevFloat = float;
+        dayCount++;
+        if (mlNow >= mlPct) { outcome = "ml"; break outer; }
+        if (drop * 100 > dlPct) { outcome = "dl"; break outer; }
+        if (realized * 100 >= profitPct) { outcome = "pass"; break outer; }
+      }
+    }
+    mls.push(worstMlThis);
+    if (outcome !== null) {
+      resolved++;
+      monthsArr.push((dayCount * (7 / 5)) / 30.44); // trading→calendar days
+      if (outcome === "pass") passes++;
+      else if (outcome === "ml") mlFails++;
+      else dlFails++;
+    }
+  }
+  mls.sort((a, b) => a - b);
+  monthsArr.sort((a, b) => a - b);
+  const pct = (arr: number[], p: number): number => (arr.length ? arr[Math.min(arr.length - 1, Math.floor((p / 100) * arr.length))] : 0);
+  return {
+    n,
+    pass_rate_pct: resolved ? (100 * passes) / resolved : 0,
+    fail_ml_pct: resolved ? (100 * mlFails) / resolved : 0,
+    fail_dl_pct: resolved ? (100 * dlFails) / resolved : 0,
+    ml_p50: pct(mls, 50),
+    ml_p95: pct(mls, 95),
+    ml_p99: pct(mls, 99),
+    p_ml_gt: (t: number) => (100 * mls.filter((m) => m > t).length) / mls.length,
+    months_p50: pct(monthsArr, 50),
+    months_p90: pct(monthsArr, 90),
+  };
+}
+
 export interface ChallengeResult {
   starts: number;
   resolved: number;

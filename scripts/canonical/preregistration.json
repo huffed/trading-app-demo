@@ -43,9 +43,20 @@
     "max_daily_dd": 5,
     "min_held_out_trades": 0
   },
-  "PORTFOLIO G.8 demo gate — XAU/USD 4-algo gold (FTMO demo 244ecbf5)": {
-    "hypothesis": "The deployed 4-algo gold portfolio's LIVE per-trade R, at 30 portfolio trades (~5-6 months), lands within +/-30% of the E2.24.d fidelity-corrected in-sample per-trade R (de-compounded, floating-inclusive-ML, session-day, gap-fill harness). Backtest expectation at ML<=8 sizing: ~0.38-0.55%/mo depending on final composition (4-algo 0.38%/mo @0.476% risk; 5-algo +Engulfing 0.55%/mo @0.417% — composition + final risk are the pending operator decision). PASS -> Stage 5.3 real challenge; FAIL -> retire/recompose (Phase H or E2.26 LLM trigger). Tolerance +/-30% locked (resolves the prior +-30 vs +-50 conflict in favour of the stricter packet value).",
-    "registered_at": "2026-07-17T00:00:00+00:00",
+  "Deploy: XAU/USD Engulfing25+DailyBias 4h | r042 v1": {
+    "hypothesis": "Engulfing rr2.5 lb4 (Layer-B variant rr25_lb4_r06_rf0_af0) + daily_bias-bullish, XAU/USD 4h, long-only. Deployed 2026-07-20 as the 5th algo — the E2.24.d.vi ML-equalized winner (5-algo @0.42% ~= 0.55%/mo at worst-window ML 8.0; MtM-rho 0.375 < 0.40 gate, borderline — G.8 watch item; +BOS arm excluded on DL profile). G.8 demo verifies live R tracks the fidelity-corrected baseline.",
+    "registered_at": "2026-07-20T00:00:00+00:00",
+    "expires_at": "2027-01-31T00:00:00+00:00",
+    "registration_type": "forward-pre-registered",
+    "min_total_return": 0,
+    "min_win_rate": 37,
+    "max_static_dd": 10,
+    "max_daily_dd": 5,
+    "min_held_out_trades": 0
+  },
+  "PORTFOLIO G.8 demo gate — XAU/USD 5-algo gold (FTMO demo 244ecbf5)": {
+    "hypothesis": "COMPOSITION RESOLVED 2026-07-20 (E2.27 MC + E2.24.d.vi): 5-algo @0.42% uniform (worst-window ML 8.0 exact; the prior 4-algo entry re-baselines here per the evidence-clock rule — additions re-baseline the portfolio gate only; incumbents' per-algo clocks continue). GATE: at 30 portfolio trades (~4-5 months at 5-algo cadence, ~2026-12), LIVE per-trade R within +/-30% of the E2.24.d fidelity-corrected 5-algo baseline: ~1.106%/challenge ~= 0.55%/mo at 0.42%, worst ML 8.05%, worst DL ~3.3% (4.77 x 0.7). MC context (E2.27, 10k block-resampled challenges): P(ML>8) = 5% at the stricter r*=0.284 rule — that P-rule sizing is the REAL-challenge input (Stage 5.3), not the demo gate. PASS -> Stage 5.3; FAIL -> retire/recompose (Phase H or E2.26). Tolerance +/-30% locked.",
+    "registered_at": "2026-07-20T00:00:00+00:00",
     "expires_at": "2027-07-31T00:00:00+00:00",
     "registration_type": "forward-pre-registered",
     "min_total_return": 0,

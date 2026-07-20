@@ -48,7 +48,7 @@ import {
 import type { Database } from "../../src/lib/supabase/database.types";
 import type { BacktestTrade, PriceBar } from "../../src/lib/market-data/types";
 import type { AlgorithmRules, EntryCondition } from "../../src/types/algorithm";
-import { dailySeries, loadPinnedBars, pearson, POOL_CAPITAL, runUntilTarget, sessionDailyClose, soloStats, stressTest, type SoloStats, type StressResult } from "./lib/pinned-eval";
+import { buildDailyPath, dailySeries, loadPinnedBars, mcChallenge, pearson, POOL_CAPITAL, runUntilTarget, sessionDailyClose, soloStats, stressTest, type DailyPathDay, type SoloStats, type StressResult } from "./lib/pinned-eval";
 
 /** E2.25.b — XAU/USD NY-session daily bars, close-instant-stamped so the
  *  backtest daily_bias / regime / ADX boundary matches the live OANDA D1
@@ -362,6 +362,69 @@ async function runRederive(sb: SupabaseClient<Database>, bars: PriceBar[]): Prom
   const winner = results.reduce((a, b) => (b.monthlyML8 > a.monthlyML8 ? b : a));
   console.log(`ML-EQUALIZED WINNER: ${winner.name} — ${winner.monthlyML8.toFixed(2)}%/mo at risk ${winner.riskML8.toFixed(3)}% (worst ML ${winner.s.worst_ml.toFixed(2)}% pre-rescale)`);
   console.log(`Deployed 4-algo final sizing to ML≤${ML_TARGET}: risk ${results[0].riskML8.toFixed(3)}% → ${results[0].monthlyML8.toFixed(2)}%/mo`);
+
+  // ===== E2.27 — Monte Carlo sizing curve + probability-based decision =====
+  // Two MC runs per arm on the day-block-resampled path:
+  //   TAIL run (ML barrier 30, DL off) → UNCENSORED per-challenge worst-ML
+  //     distribution → sizing rule: r* = base·8 / ml_p95  ⇔  P(ML_r* > 8%) = 5%.
+  //   OUTCOME run at r* (real 10/5 barriers, day atoms scaled r*/base) →
+  //     P(pass), months at the deployed sizing.
+  console.log("\n=== E2.27 — MC challenge distributions (10k synthetic challenges, 21-day blocks, seed 42) ===\n");
+  const scaleDays = (days: DailyPathDay[], s: number): DailyPathDay[] =>
+    days.map((d) => ({ realizedRet: d.realizedRet * s, openMaeRet: d.openMaeRet * s }));
+  interface McArm { name: string; rStar: number; monthlyAtStar: number; pPass: number; monthsP50: number; monthsP90: number; mlP95AtStar: number; pMlGt8: number }
+  const mcArms: McArm[] = [];
+  for (let a = 0; a < arms.length; a++) {
+    const run = await runSiblingAware(arms[a].members, bars, arms[a].risk);
+    const days = buildDailyPath(run.union);
+    const tail = mcChallenge(days, 10_000, 21, 10, 30, Number.POSITIVE_INFINITY, 42);
+    const rStar = (arms[a].risk * ML_TARGET) / tail.ml_p95;
+    const s = rStar / arms[a].risk;
+    const outcome = mcChallenge(scaleDays(days, s), 10_000, 21, 10, 10, 5, 43);
+    const tailAtStar = mcChallenge(scaleDays(days, s), 10_000, 21, 10, 30, Number.POSITIVE_INFINITY, 44);
+    const monthly = (results[a].s.avg_return_pct * s) / CH_PER_MONTH;
+    mcArms.push({ name: arms[a].name, rStar, monthlyAtStar: monthly, pPass: outcome.pass_rate_pct, monthsP50: outcome.months_p50, monthsP90: outcome.months_p90, mlP95AtStar: tailAtStar.ml_p95, pMlGt8: tailAtStar.p_ml_gt(8) });
+    console.log(`${arms[a].name}`);
+    console.log(`  tail ML dist @${arms[a].risk}%: p50=${tail.ml_p50.toFixed(2)} p95=${tail.ml_p95.toFixed(2)} p99=${tail.ml_p99.toFixed(2)}  | P(ML>8)=${tail.p_ml_gt(8).toFixed(1)}% P(ML>10)=${tail.p_ml_gt(10).toFixed(1)}%`);
+    console.log(`  → r* (P(ML>8)≤5%): ${rStar.toFixed(3)}%  → ~${monthly.toFixed(2)}%/mo | outcome@r*: P(pass)=${outcome.pass_rate_pct.toFixed(1)}% (ml ${outcome.fail_ml_pct.toFixed(1)}% dl ${outcome.fail_dl_pct.toFixed(1)}%) months p50=${outcome.months_p50.toFixed(1)} p90=${outcome.months_p90.toFixed(1)} | check P(ML>8)@r*=${tailAtStar.p_ml_gt(8).toFixed(1)}%\n`);
+    // Block-length sensitivity on the base arm only (10/21/42 trading days).
+    if (a === 0) {
+      for (const b of [10, 42]) {
+        const t = mcChallenge(days, 10_000, b, 10, 30, Number.POSITIVE_INFINITY, 42);
+        console.log(`  [sensitivity] block=${b}d: ml_p95=${t.ml_p95.toFixed(2)} (vs 21d ${tail.ml_p95.toFixed(2)})`);
+      }
+      console.log("");
+    }
+  }
+  // MtM-ρ gate for the 5-algo arms: candidate's daily floating-equity delta
+  // vs each incumbent's (E2.24.f.v — exit-day Pearson understates; this is
+  // the mark-to-market upgrade). Gate < 0.40.
+  console.log("=== MtM-ρ gate (candidate vs incumbents, daily floating-equity deltas) ===");
+  const floatDelta = (trades: BacktestTrade[]): number[] => {
+    const days = buildDailyPath(trades);
+    const out: number[] = [];
+    let prev = 0, cum = 0;
+    for (const d of days) {
+      cum += d.realizedRet;
+      const f = cum - d.openMaeRet;
+      out.push(f - prev);
+      prev = f;
+    }
+    return out;
+  };
+  for (const arm of arms.slice(1)) {
+    const run = await runSiblingAware(arm.members, bars, 0.6);
+    const cand = arm.members[arm.members.length - 1];
+    const candSeries = floatDelta(run.soloTrades.get(cand.label)!);
+    let maxR = 0, vs = "";
+    for (const m of arm.members.slice(0, -1)) {
+      const inc = floatDelta(run.soloTrades.get(m.label)!);
+      const len = Math.min(candSeries.length, inc.length);
+      const r = Math.abs(pearson(candSeries.slice(0, len), inc.slice(0, len)));
+      if (r > maxR) { maxR = r; vs = m.label; }
+    }
+    console.log(`  ${arm.name}: |ρ|max(MtM) = ${maxR.toFixed(3)} (vs ${vs}) — ${maxR < 0.4 ? "PASSES <0.40 gate" : "FAILS ≥0.40 gate"}`);
+  }
 }
 
 async function main(): Promise<void> {
