@@ -154,6 +154,10 @@ jobs:
     runs-on: ubuntu-latest
     env:
       NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+      # Optional (2026-07-20): ntfy ACCESS TOKEN for authenticated publish
+      # to a RESERVED topic (operator created an ntfy.sh account). When
+      # unset, publishes anonymously — fine for a random unreserved topic.
+      NTFY_TOKEN: ${{ secrets.NTFY_TOKEN }}
     steps:
       - name: Push to ntfy.sh
         if: env.NTFY_TOPIC != ''
@@ -177,7 +181,10 @@ jobs:
           FAILED=$(echo "$FAILED" | xargs)
           TITLE="QuantTrader dead-man: $FAILED"
           BODY="Stale heartbeat OR test fire. Run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          AUTH_ARGS=()
+          [ -n "${NTFY_TOKEN:-}" ] && AUTH_ARGS=(-H "Authorization: Bearer $NTFY_TOKEN")
           curl -fsS -X POST "https://ntfy.sh/$NTFY_TOPIC" \
+            "${AUTH_ARGS[@]}" \
             -H "Title: $TITLE" \
             -H "Priority: $PRIORITY" \
             -H "Tags: warning,robot" \
