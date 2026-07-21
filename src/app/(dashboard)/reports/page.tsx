@@ -6,9 +6,10 @@ import { CohortTab } from "@/components/reports/cohort-tab";
 import { DriftTab } from "@/components/reports/drift-tab";
 import { EligibilityTab } from "@/components/reports/eligibility-tab";
 import { EngineActivityTab } from "@/components/reports/engine-activity-tab";
+import { M1Tab } from "@/components/reports/m1-tab";
 import { SearchTab } from "@/components/reports/search-tab";
 
-type Tab = "activity" | "eligibility" | "cohort" | "drift" | "brokers" | "search";
+type Tab = "activity" | "m1" | "eligibility" | "cohort" | "drift" | "brokers" | "search";
 
 export default function ReportsPage() {
   const [tab, setTab] = useState<Tab>("activity");
@@ -19,7 +20,9 @@ export default function ReportsPage() {
         <h1 className="text-2xl font-semibold tracking-tight">Reports</h1>
         <p className="text-sm text-muted-foreground">
           Operator review surfaces. Engine activity covers cron-tick decisions and gate refusals.
-          Promotion eligibility surfaces paper algos against the live-mirror milestone. Cohort
+          M1 evidence tracks the 30-trade G.8 gate — live paper R vs the pinned backtest
+          baseline (±30%). Promotion eligibility surfaces paper algos against the live-mirror
+          milestone. Cohort
           surfaces per-cohort expectancy + decay flags + shadow-gate candidates (SG.6). Drift
           surfaces per-algo performance decay vs backtest baseline + recent halt/warn events
           (SG.5). Brokers surfaces token expiry / stale sync / sibling risk divergence /
@@ -31,6 +34,9 @@ export default function ReportsPage() {
       <div className="flex items-center gap-2 border-b">
         <TabButton active={tab === "activity"} onClick={() => setTab("activity")}>
           Engine activity
+        </TabButton>
+        <TabButton active={tab === "m1"} onClick={() => setTab("m1")}>
+          M1 evidence
         </TabButton>
         <TabButton active={tab === "eligibility"} onClick={() => setTab("eligibility")}>
           Promotion eligibility
@@ -50,6 +56,7 @@ export default function ReportsPage() {
       </div>
 
       {tab === "activity" && <EngineActivityTab />}
+      {tab === "m1" && <M1Tab />}
       {tab === "eligibility" && <EligibilityTab />}
       {tab === "cohort" && <CohortTab />}
       {tab === "drift" && <DriftTab />}

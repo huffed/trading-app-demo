@@ -31,6 +31,7 @@ import {
   buildLiveMirrorEligibility,
   type AlgoEligibility,
 } from "@/lib/cohort/live-mirror-eligibility";
+import { buildM1Evidence, type M1Evidence } from "@/lib/cohort/m1-evidence";
 import { createClient } from "@/lib/supabase/server";
 import { type ActionResult } from "@/types/action-result";
 
@@ -227,6 +228,27 @@ export async function getRobustnessAuditsAction(): Promise<ActionResult<Robustne
     return { success: true, data };
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Robustness audit load failed";
+    return { success: false, error: msg };
+  }
+}
+
+/**
+ * M1 evidence tracker (G.8 gate comparator) for the /reports M1 tab —
+ * live paper-trade per-trade R vs the fidelity-corrected backtest
+ * baseline (30 trades, ±30% band). RLS-scoped via the user's client.
+ */
+export async function getM1EvidenceAction(): Promise<ActionResult<M1Evidence>> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { success: false, error: "Not authenticated" };
+
+  try {
+    const data = await buildM1Evidence(supabase);
+    return { success: true, data };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "M1 evidence query failed";
     return { success: false, error: msg };
   }
 }

@@ -5,8 +5,12 @@
  * Extracted from `entry.ts` on 2026-06-22 (CB.H1 pass 16).
  *
  * Gate order (mirrors original inline sequence):
- *  0. Bar staleness (E2.24.b — was LLM-path-only; a provider outage
- *     otherwise lets the ladder evaluate a days-old bar at a live price)
+ *  0a. Bar-grid granularity (E2.25.a.ii — a fallback provider can serve
+ *      a finer/coarser-granularity payload IN-MEMORY that DQ.4 only
+ *      blocks from persisting; finer bars look FRESHER to the staleness
+ *      gate, so this must run first)
+ *  0b. Bar staleness (E2.24.b — was LLM-path-only; a provider outage
+ *      otherwise lets the ladder evaluate a days-old bar at a live price)
  *  1. Intraday ATR liquidity
  *  2. News veto
  *  3. R-aware consecutive-loss halt
@@ -25,6 +29,7 @@
  * pass-through so the caller can thread them into condition evaluation
  * + the openPosition call.
  */
+import { checkBarGranularity } from "@/lib/algorithm/bar-granularity-gate";
 import { checkBarStaleness } from "@/lib/algorithm/bar-staleness-gate";
 import { checkAtrLiquidity, type AtrLiquidityResult } from "@/lib/algorithm/intraday-atr-gate";
 import { checkReEntryCooldown } from "@/lib/algorithm/re-entry-cooldown";
@@ -65,7 +70,27 @@ export async function runDeterministicEntryGates(
   const rules = algo.rules;
   const currentPrice = livePrice ?? closes[closes.length - 1];
 
-  // Step 0: bar staleness — refuse to evaluate a bar that should have
+  // Step 0a: bar-grid granularity — refuse to evaluate a series whose
+  // median bar spacing doesn't match the primary TF (fallback provider
+  // served a finer/coarser payload in-memory; observed live 2026-07-19/20,
+  // E2.25.a.ii). Runs before staleness: finer bars look fresher.
+  const granularity = checkBarGranularity({ timeframe: rules.timeframe, bars });
+  if (granularity.block) {
+    await logActivity(supabase, userId, {
+      algorithm_id: algo.id,
+      event_type: "signal_no_action",
+      ticker,
+      details: {
+        reason: granularity.reason ?? "Bar-granularity gate triggered",
+        source: "deterministic",
+        median_spacing_minutes: granularity.median_spacing_minutes,
+        expected_minutes: granularity.expected_minutes,
+      },
+    });
+    return { blocked: true };
+  }
+
+  // Step 0b: bar staleness — refuse to evaluate a bar that should have
   // rolled over already (provider-outage stale-cache protection).
   const staleness = checkBarStaleness({
     timeframe: rules.timeframe,
