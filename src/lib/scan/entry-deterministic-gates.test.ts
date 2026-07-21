@@ -32,6 +32,7 @@
  *     - livePrice absent → uses closes[closes.length - 1]
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { checkBarGranularity } from "@/lib/algorithm/bar-granularity-gate";
 import { checkBarStaleness } from "@/lib/algorithm/bar-staleness-gate";
 import { checkDxyDirection } from "@/lib/algorithm/dxy-filter";
 import { checkAtrLiquidity } from "@/lib/algorithm/intraday-atr-gate";
@@ -52,6 +53,10 @@ import { logActivity } from "./helpers";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 // ---- Mocks. -----------------------------------------------------------
+// NOTE: the granularity gate MUST be mocked here — makeBars() spaces
+// fixture bars 1 day apart while rules.timeframe is "4h", so the real
+// gate would (correctly) block every ladder test.
+vi.mock("@/lib/algorithm/bar-granularity-gate", () => ({ checkBarGranularity: vi.fn() }));
 vi.mock("@/lib/algorithm/bar-staleness-gate", () => ({ checkBarStaleness: vi.fn() }));
 vi.mock("@/lib/algorithm/intraday-atr-gate", () => ({ checkAtrLiquidity: vi.fn() }));
 vi.mock("@/lib/algorithm/dxy-filter", () => ({ checkDxyDirection: vi.fn() }));
@@ -79,6 +84,7 @@ vi.mock("./helpers", () => ({ logActivity: vi.fn() }));
 vi.mock("./per-hour-stats", () => ({ getPerHourStats: vi.fn().mockResolvedValue(new Map()) }));
 
 const mockedCheckAtrLiquidity = vi.mocked(checkAtrLiquidity);
+const mockedCheckBarGranularity = vi.mocked(checkBarGranularity);
 const mockedCheckBarStaleness = vi.mocked(checkBarStaleness);
 const mockedCheckDxyDirection = vi.mocked(checkDxyDirection);
 const mockedCheckReEntryCooldown = vi.mocked(checkReEntryCooldown);
@@ -141,6 +147,12 @@ function makeCtx(overrides: Partial<EntryContext> = {}): EntryContext {
 beforeEach(() => {
   vi.clearAllMocks();
   // Pass-through defaults — each test overrides the gate it's testing.
+  mockedCheckBarGranularity.mockReturnValue({
+    block: false,
+    status: "ok",
+    median_spacing_minutes: 240,
+    expected_minutes: 240,
+  });
   mockedCheckBarStaleness.mockReturnValue({
     block: false,
     status: "ok",
@@ -170,7 +182,43 @@ beforeEach(() => {
 });
 
 // ======================================================================
-// Step 0: bar staleness (E2.24.b)
+// Step 0a: bar-grid granularity (E2.25.a.ii)
+// ======================================================================
+
+describe("runDeterministicEntryGates — step 0a (bar granularity)", () => {
+  it("granularity mismatch → blocked before staleness/ATR run + signal_no_action logged", async () => {
+    mockedCheckBarGranularity.mockReturnValue({
+      block: true,
+      status: "granularity_mismatch",
+      median_spacing_minutes: 60,
+      expected_minutes: 240,
+      reason: "Bar-grid mismatch: served series has median spacing 60.0 min vs expected 240 min",
+    });
+    const result = await runDeterministicEntryGates(makeCtx());
+    expect(result).toEqual({ blocked: true });
+    // Runs FIRST: a finer-granularity payload looks fresher to the
+    // staleness gate, so neither staleness nor ATR may be consulted.
+    expect(mockedCheckBarStaleness).not.toHaveBeenCalled();
+    expect(mockedCheckAtrLiquidity).not.toHaveBeenCalled();
+    expect(mockedLogActivity.mock.calls[0][2]).toMatchObject({
+      event_type: "signal_no_action",
+      details: {
+        source: "deterministic",
+        median_spacing_minutes: 60,
+        expected_minutes: 240,
+      },
+    });
+  });
+
+  it("receives the full served series + the algo timeframe", async () => {
+    const ctx = makeCtx();
+    await runDeterministicEntryGates(ctx);
+    expect(mockedCheckBarGranularity).toHaveBeenCalledWith({ timeframe: "4h", bars: ctx.bars });
+  });
+});
+
+// ======================================================================
+// Step 0b: bar staleness (E2.24.b)
 // ======================================================================
 
 describe("runDeterministicEntryGates — step 0 (bar staleness)", () => {

@@ -499,6 +499,61 @@ async function runAlgoStats(sb: SupabaseClient<Database>, bars: PriceBar[]): Pro
   console.log("entries → rows don't sum). flML = floating-inclusive worst-window Max Loss. Ppass/med.mo = run-until-");
   console.log("target FTMO (+10/−10ML/−5DL, no time limit). daily_bias evidence form; live news_veto/time_filter");
   console.log("overlays trim trade count slightly. Numbers are IN-SAMPLE on pinned data — the demo is the OOS test.");
+
+  // G.8 baseline artifact (M1 evidence tracker input): per-trade mean R,
+  // risk-normalized via equity_at_entry so de-compounding cannot skew it.
+  // Written every run — deterministic on pinned data; regenerate on any
+  // re-derivation and re-transcribe into src/lib/cohort/m1-baseline.ts.
+  const meanR = (trades: BacktestTrade[]): number => {
+    if (trades.length === 0) return 0;
+    let sum = 0;
+    for (const t of trades) {
+      const riskDollars = ((t.equity_at_entry ?? POOL_CAPITAL) * RISK) / 100;
+      sum += riskDollars > 0 ? t.pnl / riskDollars : 0;
+    }
+    return sum / trades.length;
+  };
+  const LIVE_NAMES: Record<string, string> = {
+    "ARB rr3_lb3": "Deploy: XAU/USD ARB+DailyBias 4h | r085 v1",
+    "Engulfing rr3_lb6": "Deploy: XAU/USD Engulfing+DailyBias 4h | r080 v1",
+    "ARB rr25_lb3": "Deploy: XAU/USD ARB25+DailyBias 4h | r080 v1",
+    "OutsideBar v2 rr3_lb3": "Deploy: XAU/USD OutsideBar+DailyBias 4h | rr3_lb3 r066 v2",
+    "Engulfing25 rr25_lb4": "Deploy: XAU/USD Engulfing25+DailyBias 4h | r042 v1",
+  };
+  const unionStress = stressTest(run.union);
+  const unionSolo = soloStats(run.union);
+  const artifact = {
+    generated_at: new Date().toISOString(),
+    source: "e2.22-layer-b-pinned.ts MODE=algo-stats (complete-fidelity harness, pinned H4 2015→2026)",
+    risk_pct: RISK,
+    capital: POOL_CAPITAL,
+    per_algo: members.map((m) => {
+      const trades = run.soloTrades.get(m.label)!;
+      const st = soloStats(trades);
+      return {
+        label: m.label,
+        live_name: LIVE_NAMES[m.label] ?? null,
+        n: st.trades,
+        wr_pct: st.wr,
+        mean_r: meanR(trades),
+        monthly_pct: stressTest(trades).avg_return_pct / CH_PER_MONTH,
+        note: "SOLO run — sibling gating slightly changes live composition",
+      };
+    }),
+    portfolio: {
+      n: unionSolo.trades,
+      wr_pct: unionSolo.wr,
+      mean_r: meanR(run.union),
+      monthly_pct: unionStress.avg_return_pct / CH_PER_MONTH,
+      worst_ml_pct: unionStress.worst_ml,
+      worst_dl_pct: unionStress.worst_dl,
+    },
+    g8_gate: { min_trades: 30, tolerance_pct: 30 },
+  };
+  const g8Path = resolve(process.cwd(), `${RESULTS_DIR}/g8-baseline.json`);
+  writeFileSync(g8Path, JSON.stringify(artifact, null, 2) + "\n");
+  console.log(`\nG.8 baseline artifact written: ${g8Path}`);
+  console.log(`  portfolio mean R/trade = ${artifact.portfolio.mean_r.toFixed(4)} over n=${artifact.portfolio.n}; ±30% band = [${(artifact.portfolio.mean_r * 0.7).toFixed(4)}, ${(artifact.portfolio.mean_r * 1.3).toFixed(4)}]`);
 }
 
 /**

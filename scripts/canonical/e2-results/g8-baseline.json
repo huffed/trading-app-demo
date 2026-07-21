@@ -1,0 +1,65 @@
+{
+  "generated_at": "2026-07-21T16:47:45.767Z",
+  "source": "e2.22-layer-b-pinned.ts MODE=algo-stats (complete-fidelity harness, pinned H4 2015→2026)",
+  "risk_pct": 0.42,
+  "capital": 10000,
+  "per_algo": [
+    {
+      "label": "ARB rr3_lb3",
+      "live_name": "Deploy: XAU/USD ARB+DailyBias 4h | r085 v1",
+      "n": 155,
+      "wr_pct": 33.5483870967742,
+      "mean_r": 0.24749663416348605,
+      "monthly_pct": 0.07775570220862145,
+      "note": "SOLO run — sibling gating slightly changes live composition"
+    },
+    {
+      "label": "Engulfing rr3_lb6",
+      "live_name": "Deploy: XAU/USD Engulfing+DailyBias 4h | r080 v1",
+      "n": 118,
+      "wr_pct": 33.89830508474576,
+      "mean_r": 0.2879308197072845,
+      "monthly_pct": 0.06379624337972645,
+      "note": "SOLO run — sibling gating slightly changes live composition"
+    },
+    {
+      "label": "ARB rr25_lb3",
+      "live_name": "Deploy: XAU/USD ARB25+DailyBias 4h | r080 v1",
+      "n": 170,
+      "wr_pct": 34.11764705882353,
+      "mean_r": 0.14133981185179317,
+      "monthly_pct": 0.060925843895793114,
+      "note": "SOLO run — sibling gating slightly changes live composition"
+    },
+    {
+      "label": "OutsideBar v2 rr3_lb3",
+      "live_name": "Deploy: XAU/USD OutsideBar+DailyBias 4h | rr3_lb3 r066 v2",
+      "n": 211,
+      "wr_pct": 31.753554502369667,
+      "mean_r": 0.18314735577809596,
+      "monthly_pct": 0.06312547042648009,
+      "note": "SOLO run — sibling gating slightly changes live composition"
+    },
+    {
+      "label": "Engulfing25 rr25_lb4",
+      "live_name": "Deploy: XAU/USD Engulfing25+DailyBias 4h | r042 v1",
+      "n": 198,
+      "wr_pct": 41.91919191919192,
+      "mean_r": 0.3667774317463865,
+      "monthly_pct": 0.20008889460323476,
+      "note": "SOLO run — sibling gating slightly changes live composition"
+    }
+  ],
+  "portfolio": {
+    "n": 843,
+    "wr_pct": 35.587188612099645,
+    "mean_r": 0.2551416481692455,
+    "monthly_pct": 0.48450892677954926,
+    "worst_ml_pct": 7.818341424845858,
+    "worst_dl_pct": 2.7971873579030397
+  },
+  "g8_gate": {
+    "min_trades": 30,
+    "tolerance_pct": 30
+  }
+}
