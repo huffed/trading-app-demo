@@ -39,6 +39,7 @@ import {
   gateConfigModeLabel,
   type GateContext,
 } from "@/lib/algorithm/market-state-gate";
+import { checkSessionFilter } from "@/lib/algorithm/session-filter-gate";
 import { checkTimeOfDayFilter } from "@/lib/algorithm/time-of-day-filter";
 import type { PriceBar } from "@/lib/market-data/types";
 import { checkConsecutiveLossHalt } from "./consec-loss-halt";
@@ -185,6 +186,28 @@ async function runPreSideHalts(a: PreSideHaltsArgs): Promise<boolean> {
   const { supabase, userId, algo, ticker, rules, bars, dailyBars, dxyBars, currentPrice } = a;
   const vetoBlocked = await runNewsAndConsecHalts({ supabase, userId, algoId: algo.id, ticker, rules });
   if (vetoBlocked) return true;
+  // Static session window (2026-10 spec §7) — same signal-bar-open-hour
+  // semantics as the backtest wiring; inert unless the rule is present.
+  if (rules.session_filter) {
+    const sess = checkSessionFilter({
+      config: rules.session_filter,
+      barDate: bars.length > 0 ? bars[bars.length - 1].date : null,
+    });
+    if (sess.block) {
+      await logActivity(supabase, userId, {
+        algorithm_id: algo.id,
+        event_type: "signal_no_action",
+        ticker,
+        details: {
+          reason: sess.reason ?? "Session filter triggered",
+          source: "deterministic",
+          hour_utc: sess.hour_utc,
+          window: sess.window,
+        },
+      });
+      return true;
+    }
+  }
   if (rules.time_filter?.enabled) {
     const stats = await getPerHourStats(supabase, algo.id, {
       min_samples: rules.time_filter.min_samples,

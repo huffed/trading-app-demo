@@ -39,6 +39,11 @@ export interface CandidateInput {
   per_trade_pnl_dollars: readonly number[];
   /** Static DD from per-candidate backtest (used as a tiebreak + sanity log). */
   max_drawdown_pct: number;
+  /** Winning-trade count — REQUIRED when the blended-WR gate is armed
+   *  (min_blended_wr set); optional otherwise. 2026-10 spec §4. */
+  wins?: number;
+  /** Total trade count parallel to `wins`. */
+  trades?: number;
 }
 
 export interface PortfolioComposerConfig {
@@ -48,6 +53,14 @@ export interface PortfolioComposerConfig {
   max_portfolio_size: number; // default 5
   min_portfolio_size: number; // default 1 (fallback)
   pool_capital: number; // default 10000 — shared capital pool for dollar-pool DD sim
+  /** OPERATOR-LOCKED 2026-07-29 (`feedback_wr_floor_35`): pooled
+   *  wins/trades of the WHOLE account (baseline_pool incumbents +
+   *  selected + candidate) must stay ≥ this. null = gate off (legacy
+   *  rounds). Candidates missing wins/trades while armed → throw. */
+  min_blended_wr: number | null; // default null; 2026-10 driver sets 35
+  /** Incumbent totals the blend is pooled with (the live FTMO account's
+   *  existing algos). null = no baseline pool. */
+  baseline_pool: { wins: number; trades: number } | null;
 }
 
 export const DEFAULT_PORTFOLIO_COMPOSER_CONFIG: PortfolioComposerConfig = {
@@ -59,14 +72,42 @@ export const DEFAULT_PORTFOLIO_COMPOSER_CONFIG: PortfolioComposerConfig = {
   max_portfolio_size: 5,
   min_portfolio_size: 1,
   pool_capital: 10000,
+  min_blended_wr: null,
+  baseline_pool: null,
 };
+
+/** Pooled WR% over baseline incumbents + the given members. Throws when
+ *  the gate is armed and a member lacks wins/trades — a silent skip
+ *  would quietly un-arm an operator-locked constraint. */
+export function blendedWrPct(
+  members: readonly CandidateInput[],
+  baselinePool: { wins: number; trades: number } | null
+): number {
+  let wins = baselinePool?.wins ?? 0;
+  let trades = baselinePool?.trades ?? 0;
+  for (const m of members) {
+    if (m.wins == null || m.trades == null) {
+      throw new Error(
+        `blendedWrPct: candidate "${m.id}" lacks wins/trades — required while min_blended_wr is armed`
+      );
+    }
+    wins += m.wins;
+    trades += m.trades;
+  }
+  return trades === 0 ? 0 : (wins / trades) * 100;
+}
 
 export interface PortfolioComposerOutput {
   selected: readonly string[]; // candidate ids in selection order
   fallback_applied: boolean; // true iff greedy selected 0 + we returned top-1
   per_step_log: ReadonlyArray<{
     candidate_id: string;
-    action: "accepted" | "skipped_correlation" | "skipped_combined_dd" | "stopped_max_size";
+    action:
+      | "accepted"
+      | "skipped_correlation"
+      | "skipped_combined_dd"
+      | "skipped_blended_wr"
+      | "stopped_max_size";
     max_corr_with_selected: number | null;
     combined_dd_with_selected_pct: number | null;
     selected_size_after: number;
@@ -271,6 +312,19 @@ export function composePortfolio(
         });
         continue;
       }
+      if (
+        config.min_blended_wr !== null &&
+        blendedWrPct([c], config.baseline_pool) < config.min_blended_wr
+      ) {
+        log.push({
+          candidate_id: c.id,
+          action: "skipped_blended_wr",
+          max_corr_with_selected: null,
+          combined_dd_with_selected_pct: dd,
+          selected_size_after: 0,
+        });
+        continue;
+      }
       selected.push(c);
       log.push({
         candidate_id: c.id,
@@ -323,6 +377,22 @@ export function composePortfolio(
       continue;
     }
 
+    // Blended account WR ≥ floor with the proposed addition pooled in
+    // (OPERATOR-LOCKED 2026-07-29; incumbents via baseline_pool).
+    if (
+      config.min_blended_wr !== null &&
+      blendedWrPct([...selected, c], config.baseline_pool) < config.min_blended_wr
+    ) {
+      log.push({
+        candidate_id: c.id,
+        action: "skipped_blended_wr",
+        max_corr_with_selected: maxCorr,
+        combined_dd_with_selected_pct: combinedDd,
+        selected_size_after: selected.length,
+      });
+      continue;
+    }
+
     selected.push(c);
     log.push({
       candidate_id: c.id,
@@ -341,7 +411,10 @@ export function composePortfolio(
   if (selected.length < config.min_portfolio_size && rankedCandidates.length > 0) {
     for (const c of rankedCandidates) {
       const dd = combinedDrawdownPct([c], config.pool_capital);
-      if (dd <= config.combined_portfolio_dd_ceiling) {
+      const wrOk =
+        config.min_blended_wr === null ||
+        blendedWrPct([c], config.baseline_pool) >= config.min_blended_wr;
+      if (dd <= config.combined_portfolio_dd_ceiling && wrOk) {
         selected.length = 0;
         selected.push(c);
         fallback = true;

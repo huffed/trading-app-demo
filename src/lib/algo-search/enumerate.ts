@@ -175,15 +175,36 @@ function patternDisplay(p: SearchPattern): string {
   }
 }
 
+/** 2026-10 spec §2 axis — daily_bias as a SEARCH AXIS, not a fixture
+ *  (E2.31 finding 1). "aligned" = bullish for longs, bearish for shorts. */
+export type SearchBias = "none" | "aligned";
+/** 2026-10 spec §2 axis — static UTC session windows, 30m/1h cells only.
+ *  Values reuse the pre-existing constants in gold-session-window.ts. */
+export type SearchSession = "all" | "london" | "newyork";
+
+export const SESSION_AXIS_WINDOWS: Record<
+  Exclude<SearchSession, "all">,
+  { start_hour_utc: number; end_hour_utc: number }
+> = {
+  london: { start_hour_utc: 6, end_hour_utc: 10 }, // = SESSION_WINDOWS.london_open
+  newyork: { start_hour_utc: 11, end_hour_utc: 15 }, // = SESSION_WINDOWS.ny_killzone
+};
+
 export interface SearchCandidate {
   /** Human-readable + DB-unique name. Becomes algorithms.name on insert. */
   name: string;
-  /** Logical key for resumability + dedup. Stable across re-enumerations. */
+  /** Logical key for resumability + dedup. Stable across re-enumerations.
+   *  BACKWARD-COMPAT INVARIANT: default-state cells (bias none, session
+   *  all) keep the EXACT legacy key/name so prior-round persisted rows
+   *  still reconcile in state.ts; only non-default axis states append
+   *  suffixes. */
   cell_key: string;
   ticker: SearchInstrument;
   timeframe: SearchTimeframe;
   pattern: SearchPattern;
   side: SearchDirection;
+  bias: SearchBias;
+  session: SearchSession;
   capital: number;
   rules: AlgorithmRules;
 }
@@ -193,10 +214,25 @@ function buildRules(
   tf: SearchTimeframe,
   side: SearchDirection,
   patternMeta: SearchPatternMeta,
+  bias: SearchBias = "none",
+  session: SearchSession = "all",
 ): AlgorithmRules {
   const entry = buildEntryCondition(patternMeta, tf, side);
+  // Bias axis: identical condition shape to the historical out-of-band
+  // augment (e2.23 withDailyBias / augmented-variant-validate) so biased
+  // cells are comparable with prior-round biased rows.
+  const biasCondition: PatternCondition = {
+    type: "pattern",
+    pattern: "daily_bias",
+    direction: dirOf(side),
+    ma_period: 20,
+    timeframe: "1d",
+  };
+  const entryConditions: EntryCondition[] =
+    bias === "aligned" ? [entry, biasCondition] : [entry];
   return {
-    entry_conditions: [entry],
+    entry_conditions: entryConditions,
+    ...(session !== "all" ? { session_filter: SESSION_AXIS_WINDOWS[session] } : {}),
     entry_logic: "all",
     exit_conditions: [],
     stop_loss: {
@@ -257,8 +293,20 @@ function buildRules(
  *  The returned count is the Bonferroni denominator for the sweep.
  *  Verified by src/lib/algo-search/enumerate.test.ts.
  */
-export function enumerateLayerACandidates(): SearchCandidate[] {
-  const enableForex = process.env.ENABLE_FOREX_SEARCH === "1";
+export interface EnumerateOptions {
+  /** Override the ENABLE_FOREX_SEARCH env gate. */
+  forex?: boolean;
+  /** 2026-10 spec §2: enable the bias + session axes. OPT-IN — the
+   *  default enumeration stays byte-identical to the 2026-06 round (92
+   *  gold-only / 368 forex-on) so the closed round's /reports state,
+   *  Bonferroni bookkeeping, and tests are untouched. The 2026-10 driver
+   *  passes true (or sets ENABLE_AXES_2026_10=1). */
+  axes2026_10?: boolean;
+}
+
+export function enumerateLayerACandidates(opts: EnumerateOptions = {}): SearchCandidate[] {
+  const enableForex = opts.forex ?? process.env.ENABLE_FOREX_SEARCH === "1";
+  const axesOn = opts.axes2026_10 ?? process.env.ENABLE_AXES_2026_10 === "1";
   const instruments = enableForex
     ? SEARCH_INSTRUMENTS
     : SEARCH_INSTRUMENTS.filter((i) => i.asset_class === "commodity");
@@ -269,20 +317,37 @@ export function enumerateLayerACandidates(): SearchCandidate[] {
         const tfAllowed = patternMeta.allowedTimeframes ?? SEARCH_TIMEFRAMES;
         if (!tfAllowed.includes(tf)) continue;
         const sides: SearchDirection[] = patternMeta.supportsShort ? ["long", "short"] : ["long"];
+        const biases: SearchBias[] = axesOn ? ["none", "aligned"] : ["none"];
+        // Session axis applies to intraday cells only (spec §2): a 4h
+        // "session" is 1-2 bars — meaningless conditioning.
+        const sessions: SearchSession[] =
+          axesOn && tf !== "4h" ? ["all", "london", "newyork"] : ["all"];
         for (const side of sides) {
-          const sideTag = side === "long" ? "Long" : "Short";
-          const name = `${CANDIDATE_NAME_PREFIX} ${inst.ticker} ${patternDisplay(patternMeta.pattern)}-${sideTag} ${tf}`;
-          const cell_key = `${inst.ticker}|${tf}|${patternMeta.pattern}|${side}`;
-          out.push({
-            name,
-            cell_key,
-            ticker: inst.ticker,
-            timeframe: tf,
-            pattern: patternMeta.pattern,
-            side,
-            capital: inst.capital,
-            rules: buildRules(inst, tf, side, patternMeta),
-          });
+          for (const bias of biases) {
+            for (const session of sessions) {
+              const sideTag = side === "long" ? "Long" : "Short";
+              // Default-state cells keep the exact legacy name/key
+              // (backward-compat invariant on SearchCandidate.cell_key).
+              const biasName = bias === "aligned" ? " +Bias" : "";
+              const sessName = session !== "all" ? ` @${session}` : "";
+              const name = `${CANDIDATE_NAME_PREFIX} ${inst.ticker} ${patternDisplay(patternMeta.pattern)}-${sideTag} ${tf}${biasName}${sessName}`;
+              const biasKey = bias === "aligned" ? "|bias" : "";
+              const sessKey = session !== "all" ? `|${session}` : "";
+              const cell_key = `${inst.ticker}|${tf}|${patternMeta.pattern}|${side}${biasKey}${sessKey}`;
+              out.push({
+                name,
+                cell_key,
+                ticker: inst.ticker,
+                timeframe: tf,
+                pattern: patternMeta.pattern,
+                side,
+                bias,
+                session,
+                capital: inst.capital,
+                rules: buildRules(inst, tf, side, patternMeta, bias, session),
+              });
+            }
+          }
         }
       }
     }
@@ -292,7 +357,9 @@ export function enumerateLayerACandidates(): SearchCandidate[] {
 
 /** The Bonferroni denominator (= |Layer A enumeration|). Computed once
  *  at sweep start, used by validate-algo via `BONFERRONI_STATISTICAL_TESTS_PER_ALGO=1`
- *  default + nCandidates auto-derived from ALGOS_CSV cardinality. */
-export function layerACardinality(): number {
-  return enumerateLayerACandidates().length;
+ *  default + nCandidates auto-derived from ALGOS_CSV cardinality.
+ *  2026-10 spec: 92 (default gold-only) / 424 (axes-on gold-only) /
+ *  1,696 (axes + forex — the spec's stamped N). */
+export function layerACardinality(opts: EnumerateOptions = {}): number {
+  return enumerateLayerACandidates(opts).length;
 }
