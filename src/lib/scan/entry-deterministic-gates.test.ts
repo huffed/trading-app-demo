@@ -300,6 +300,60 @@ describe("runDeterministicEntryGates — step 1 (ATR liquidity)", () => {
 });
 
 // ======================================================================
+// Session filter (2026-10 spec §7) — REAL gate, not mocked: it only
+// runs when rules.session_filter is present, so existing fixtures
+// (field absent) never touch it.
+// ======================================================================
+
+describe("runDeterministicEntryGates — session filter", () => {
+  it("signal bar outside the window → blocked + signal_no_action with hour/window", async () => {
+    // Explicit VALID bar dates (makeBars fabricates 2026-06-31+ past day
+    // 30, which parse NaN and pass-through by design). Last bar opens
+    // 00:00 UTC → outside London 06–10.
+    const bars = [
+      { date: "2026-07-28T20:00:00Z", open: 1, high: 2, low: 0.5, close: 1.5, volume: 1 },
+      { date: "2026-07-29T00:00:00Z", open: 1, high: 2, low: 0.5, close: 1.5, volume: 1 },
+    ];
+    const ctx = makeCtx({
+      bars,
+      closes: bars.map((b) => b.close),
+      algo: {
+        id: "algo-1",
+        name: "T",
+        description: "",
+        rules: makeRules({
+          session_filter: { start_hour_utc: 6, end_hour_utc: 10 },
+        } as unknown as Partial<AlgorithmRules>),
+        capital: 100_000,
+      },
+    });
+    const result = await runDeterministicEntryGates(ctx);
+    expect(result).toEqual({ blocked: true });
+    expect(mockedLogActivity.mock.calls[0][2]).toMatchObject({
+      event_type: "signal_no_action",
+      details: { source: "deterministic", hour_utc: 0, window: "06:00–10:00 UTC" },
+    });
+    expect(mockedResolveSide).not.toHaveBeenCalled();
+  });
+
+  it("signal bar inside the window → passes through", async () => {
+    const ctx = makeCtx({
+      algo: {
+        id: "algo-1",
+        name: "T",
+        description: "",
+        rules: makeRules({
+          session_filter: { start_hour_utc: 0, end_hour_utc: 23 },
+        } as unknown as Partial<AlgorithmRules>),
+        capital: 100_000,
+      },
+    });
+    const result = await runDeterministicEntryGates(ctx);
+    expect(result.blocked).toBe(false);
+  });
+});
+
+// ======================================================================
 // Pre-side halts (steps 2-6)
 // ======================================================================
 

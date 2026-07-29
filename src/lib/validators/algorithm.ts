@@ -226,6 +226,15 @@ const regimeRoutingSchema = z
   })
   .strict();
 
+// 2026-10 spec §7 / E2.31: static UTC session entry window — a per-algo
+// rule populated by the search enumerator's pre-registered session axis.
+// Inclusive start, exclusive end; wrap-around (start > end) allowed;
+// start === end is degenerate and treated as disabled by the gate.
+const sessionFilterSchema = z.object({
+  start_hour_utc: z.number().int().min(0).max(23),
+  end_hour_utc: z.number().int().min(0).max(23),
+});
+
 const timeFilterSchema = z.object({
   enabled: z.boolean(),
   // 0-100 with sensible bounds. 45 = "above coin flip" default; tighten
@@ -489,6 +498,7 @@ export const algorithmRulesSchema = z.object({
   dxy_filter: dxyFilterSchema.optional(),
   llm_trader: llmTraderSchema.optional(),
   time_filter: timeFilterSchema.optional(),
+  session_filter: sessionFilterSchema.optional(),
   drift: driftSchema.optional(),
   market_state_gate: marketStateGateSchema.optional(),
 });

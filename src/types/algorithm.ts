@@ -506,6 +506,18 @@ export interface AlgorithmRules {
     window_days?: number;
   };
   /**
+   * Static UTC session entry window (2026-10 spec §7 / E2.31). Distinct
+   * from the adaptive `time_filter` (per-hour WR) AND from the deleted
+   * legacy clock filter (which hardcoded one global window): this is a
+   * per-algo rule set only by the search enumerator's pre-registered
+   * session axis. Inclusive start, exclusive end, wrap-around allowed.
+   * Absent = no session restriction.
+   */
+  session_filter?: {
+    start_hour_utc: number;
+    end_hour_utc: number;
+  };
+  /**
    * Stagnant-loser early exit. Closes a position open ≥ N bars that
    * never reached `min_excursion_r` favourable excursion AND is still
    * sitting at or below `min_pnl_r`. Encodes the friend's "cut what

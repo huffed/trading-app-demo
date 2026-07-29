@@ -13,6 +13,7 @@ import {
   computePositionInRangePct,
   type GateContext,
 } from "@/lib/algorithm/market-state-gate";
+import { checkSessionFilter } from "@/lib/algorithm/session-filter-gate";
 import { checkStagnantExit } from "@/lib/algorithm/stagnant-exit";
 import {
   computeSlDistance,
@@ -849,6 +850,15 @@ function tryOpenEntry(
   // lookback distribution. Adaptive replacement for the clock-time
   // session filter that was tied to one specific UTC window.
   if (checkAtrLiquidity(state.bars, i).skip) {
+    return;
+  }
+  // Static session window (2026-10 spec §7) — per-algo RULE from the
+  // search enumerator's session axis, not the deleted global constant.
+  // Absent field = inert; no deployed algo carries it.
+  if (
+    rules.session_filter &&
+    checkSessionFilter({ config: rules.session_filter, barDate: state.bars[i].date }).block
+  ) {
     return;
   }
   // Volatility-regime gate. Use the resampled D1 series so the
