@@ -14,6 +14,16 @@
  * Usage:
  *   pnpm dlx tsx scripts/canonical/rebuild-price-row-from-pinned.ts                # XAU/USD 4h + 1day
  *   TICKER="XAU/USD" INTERVALS="4h,1day" pnpm dlx tsx scripts/canonical/rebuild-price-row-from-pinned.ts
+ *
+ * KNOWN LIMIT (E2.19.d, 2026-07-29): 30min full-history payloads
+ * (~144k bars ≈ 15MB JSONB) exceed the PostgREST statement timeout —
+ * the UPDATE fails with Cloudflare 520 / "canceling statement due to
+ * statement timeout". Resolution used for the forex m30 rows: DELETE
+ * the polluted row and let the next live fetch repopulate it clean
+ * under the DQ.3/DQ.4 write guards (live rows only need operational
+ * depth; VERDICT depth lives in the pinned files, which verdict
+ * scripts read exclusively since the E2.19.e port). Don't attempt m30
+ * full-history restores through this script.
  */
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
@@ -36,7 +46,14 @@ function loadEnvLocal(): void {
 }
 loadEnvLocal();
 
-const GRAN_BY_INTERVAL: Record<string, string> = { "4h": "h4", "1day": "d" };
+// E2.19.d (2026-07-29): extended for the forex full-row rebuilds — h1 +
+// m30 pins now exist for EUR/USD, GBP/USD, USD/JPY alongside XAU/USD.
+const GRAN_BY_INTERVAL: Record<string, string> = {
+  "4h": "h4",
+  "1h": "h1",
+  "30min": "m30",
+  "1day": "d",
+};
 
 async function main(): Promise<void> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;

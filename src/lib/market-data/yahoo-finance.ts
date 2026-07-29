@@ -1,4 +1,5 @@
-import type { BarInterval } from "./interval";
+import { intervalMinutes, type BarInterval } from "./interval";
+import { parseBarDate } from "./parse-bar-date";
 import type { PriceBar } from "./types";
 
 interface YFChartResult {
@@ -29,7 +30,7 @@ function toDateStr(ts: number, interval: BarInterval): string {
 // Yahoo intraday lookback limits: 1h ≤ 730d, finer intervals ≤ 60d.
 const YAHOO_RANGE: Record<BarInterval, { compact: string; full: string; yahooInterval: string }> = {
   "1day": { compact: "6mo", full: "5y", yahooInterval: "1d" },
-  "4h": { compact: "60d", full: "60d", yahooInterval: "1h" }, // Yahoo has no 4h — caller resamples upstream if needed
+  "4h": { compact: "60d", full: "60d", yahooInterval: "1h" }, // UNREACHABLE — fetchDailyPrices throws on 4h (E2.25.a.ii); entry kept for the Record<BarInterval,…> type
   "1h": { compact: "60d", full: "730d", yahooInterval: "1h" },
   "30min": { compact: "30d", full: "60d", yahooInterval: "30m" },
   "15min": { compact: "30d", full: "60d", yahooInterval: "15m" },
@@ -61,6 +62,18 @@ export async function fetchDailyPrices(
   outputSize: "compact" | "full" = "compact",
   interval: BarInterval = "1day"
 ): Promise<PriceBar[]> {
+  // E2.19.c / E2.25.a.ii root cause: Yahoo has no 4h granularity — the old
+  // YAHOO_RANGE mapping served 1h bars AS the 4h series ("caller resamples
+  // upstream if needed" — no caller ever did). That wrong-granularity
+  // payload is exactly what the live scan evaluated in-memory 2026-07-19/20.
+  // Correct NY-anchored 1h→4h resampling would need OANDA's session grid;
+  // refusing is honest — the chain falls through to a provider with real
+  // 4h bars (Twelve Data) or fails loudly instead of serving wrong data.
+  if (interval === "4h") {
+    throw new Error(
+      "Yahoo Finance has no 4h granularity — refusing to serve 1h bars as 4h (E2.25.a.ii)"
+    );
+  }
   const cfg = YAHOO_RANGE[interval];
   const range = outputSize === "full" ? cfg.full : cfg.compact;
   const yahooSym = toYahooSymbol(symbol);
@@ -104,5 +117,30 @@ export async function fetchDailyPrices(
     });
   }
 
-  return prices.sort((a, b) => a.date.localeCompare(b.date));
+  return dropFormingTail(prices.sort((a, b) => a.date.localeCompare(b.date)), interval);
+}
+
+/**
+ * E2.19.c — drop bars whose close instant hasn't arrived yet. Yahoo's
+ * chart API includes the currently-forming candle with no completeness
+ * flag (OANDA filters on `complete`; Twelve Data only serves closed
+ * bars), so when Yahoo is the fallback source the last bar has unstable
+ * OHLC. A single odd tail bar also slips past the DQ.3 median-spacing
+ * write guard (the median ignores one outlier). Predicate mirrors
+ * DQ.4's forming check: bar open + interval duration > now → forming.
+ * Conservative by design — a just-closed daily bar may be withheld for
+ * up to a session; correct-but-stale beats forming-and-unstable for a
+ * fallback provider. Exported for tests; `nowMs` injectable.
+ */
+export function dropFormingTail(
+  bars: PriceBar[],
+  interval: BarInterval,
+  nowMs: number = Date.now()
+): PriceBar[] {
+  const durationMs = intervalMinutes(interval) * 60_000;
+  return bars.filter((b) => {
+    const startMs = parseBarDate(b.date).getTime();
+    if (Number.isNaN(startMs)) return false;
+    return startMs + durationMs <= nowMs;
+  });
 }

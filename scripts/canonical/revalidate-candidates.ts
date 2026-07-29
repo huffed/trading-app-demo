@@ -53,6 +53,7 @@ import {
 import type { Database } from "../../src/lib/supabase/database.types";
 import type { BacktestTrade, PriceBar } from "../../src/lib/market-data/types";
 import type { AlgorithmRules } from "../../src/types/algorithm";
+import { loadPinnedForInterval, pinnedSessionDaily } from "./lib/pinned-eval";
 
 // .env.local loader (mirrors validate-algo / algo-search drivers)
 {
@@ -109,24 +110,21 @@ function deriveFamilyPattern(name: string, indexOneBased: number): string {
   return `${base}${FAMILY_DELIM}%`;
 }
 
-async function loadBars(
-  supabase: SupabaseClient<Database>,
-  ticker: string,
-  timeframe: string,
-): Promise<PriceBar[]> {
+/** E2.19.e (2026-07-29): verdict-grade bar source = pinned sha-verified
+ *  datasets ONLY (`feedback_pinned_datasets_verdict_grade`). Previously
+ *  read live `price_cache` (mutable — polluted twice: E2.19 forensics,
+ *  E2.25.a). Hard-throws when the ticker×interval has no pinned file:
+ *  this script validates explicitly named candidates, so an unpinned
+ *  request is an error, not an excludable fleet member. */
+function loadBars(ticker: string, timeframe: string): PriceBar[] {
   const interval = timeframeToInterval(timeframe);
-  const { data, error } = await supabase
-    .from("price_cache")
-    .select("bars")
-    .eq("ticker", ticker.toUpperCase())
-    .eq("output_size", "full")
-    .eq("interval", interval)
-    .limit(1)
-    .single();
-  if (error || !data) {
-    throw new Error(`No cached bars for ${ticker} ${interval}: ${error?.message ?? "row missing"}`);
+  const pinned = loadPinnedForInterval(ticker, interval);
+  if (!pinned) {
+    throw new Error(
+      `No pinned dataset for ${ticker} ${interval} — UNVERIFIABLE. Run fetch-pinned-history.ts; verdict scripts never read live price_cache (E2.19.e).`
+    );
   }
-  return data.bars as unknown as PriceBar[];
+  return pinned.bars;
 }
 
 function sharpeFromTrades(trades: BacktestTrade[], riskDollars: number): number {
@@ -220,12 +218,16 @@ async function runFamilyBacktests(
     const timeframe = v.rules.timeframe;
     let bars = barsCache.get(`${ticker}|${timeframe}`);
     if (!bars) {
-      bars = await loadBars(supabase, ticker, timeframe);
+      bars = loadBars(ticker, timeframe);
       barsCache.set(`${ticker}|${timeframe}`, bars);
-      console.log(`  Loaded ${bars.length} ${ticker} ${timeframe} bars`);
+      console.log(`  Loaded ${bars.length} pinned ${ticker} ${timeframe} bars`);
     }
     const pricesByTicker = new Map([[ticker, bars]]);
-    const metrics = runPortfolioBacktest(v.rules, pricesByTicker, v.capital);
+    // dailyBarsOverride: pinned NY-session D1, close-instant-stamped —
+    // daily_bias/regime/ADX align with live exactly (E2.25.b / E2.19.b).
+    const metrics = runPortfolioBacktest(v.rules, pricesByTicker, v.capital, {
+      dailyBarsOverride: pinnedSessionDaily(ticker),
+    });
     // BacktestMetrics has trades: BacktestTrade[] at top level; per_ticker[].trades is a COUNT.
     const trades: BacktestTrade[] = metrics.trades ?? [];
     const riskDollars = riskDollarsFor(v.rules, v.capital);

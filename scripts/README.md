@@ -345,6 +345,36 @@ If the log is silent past the expected tick, check:
    battery; plug in.)
 3. Does the script run by hand? Run it directly to surface the error.
 
+## Dead-man alert response runbook (E2.24.g.viii, 2026-07-29)
+
+You got an ntfy push / GitHub failure email. The alert is CORRECT until
+proven otherwise — the 2026-07-22→28 outage paged for 6 days before
+anyone acted. Work the list top-down; total time ~2 minutes.
+
+**Since 2026-07-28 the app server is a launchd service** —
+`com.quanttrader.server` runs production `pnpm start` on port 3000
+(RunAtLoad + KeepAlive; logs at `~/Library/Logs/quanttrader-server.log`).
+Do NOT also run `pnpm dev` on port 3000; it will fight the service.
+
+1. **Is the server up?** `curl -s -o /dev/null -w "%{http_code}\n" http://localhost:3000/login`
+   - `200` → server fine, go to step 3.
+   - anything else → step 2.
+2. **Restart the service:** `launchctl kickstart -k gui/$(id -u)/com.quanttrader.server`
+   then `tail -20 ~/Library/Logs/quanttrader-server.log` (expect "✓ Ready").
+   If the log shows a build/module error (usually after a code merge):
+   `pnpm build && launchctl kickstart -k gui/$(id -u)/com.quanttrader.server`.
+3. **Are the crons installed + firing?** `crontab -l` (expect ~9 entries) and
+   `tail -4 /tmp/quanttrader-scan.log` (expect recent `http=200`).
+   Crontab empty → restore from the "Current schedule" section above.
+4. **Which tick is stale?** The failing GitHub job names it: scan (>35 min),
+   manage/heartbeat (>45 min), alpha-decay (>26 h — cron runs 6-hourly at :10).
+5. **Confirm recovery:** wait for the next scheduled dead-man run (≤30 min) or
+   force one: `gh workflow run dead-man.yml --ref dev`, then
+   `gh run list --workflow=dead-man.yml --limit 1` → conclusion `success`.
+
+After ANY code merge to `dev`, the running service keeps executing the OLD
+build until you: `pnpm build && launchctl kickstart -k gui/$(id -u)/com.quanttrader.server`.
+
 ## Adding a new cron entrypoint
 
 1. Add the route under `src/app/api/admin/` or `src/app/api/cron/`.
