@@ -35,6 +35,56 @@ export function loadPinnedBars(ticker: string, gran: string): { bars: PriceBar[]
   return { bars, sha256: sha };
 }
 
+/** App BarInterval → pinned-file granularity suffix. 15min has no pinned
+ *  corpus (not in the search universe); callers treat that as
+ *  unverifiable, not as license to fall back to live price_cache. */
+export const PINNED_GRAN_BY_INTERVAL: Record<string, string> = {
+  "4h": "h4",
+  "1h": "h1",
+  "30min": "m30",
+  "1day": "d",
+};
+
+/**
+ * E2.19.e — pinned loader for verdict scripts (validate-algo /
+ * revalidate-candidates). Returns null when the ticker×interval has no
+ * pinned dataset — per `feedback_pinned_datasets_verdict_grade`,
+ * unreproducible data makes an algo UNVERIFIABLE (excluded with an
+ * explicit reason), never silently validated on live price_cache.
+ * Memoized: fleet runs load the same 15MB files repeatedly otherwise.
+ */
+const pinnedMemo = new Map<string, { bars: PriceBar[]; sha256: string } | null>();
+export function loadPinnedForInterval(
+  ticker: string,
+  interval: string
+): { bars: PriceBar[]; sha256: string } | null {
+  const gran = PINNED_GRAN_BY_INTERVAL[interval];
+  if (!gran) return null;
+  const key = `${ticker}|${gran}`;
+  if (pinnedMemo.has(key)) return pinnedMemo.get(key) ?? null;
+  let out: { bars: PriceBar[]; sha256: string } | null;
+  try {
+    out = loadPinnedBars(ticker, gran);
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+      out = null; // no pinned file for this ticker×gran
+    } else {
+      throw err; // sha/integrity failures always refuse loudly
+    }
+  }
+  pinnedMemo.set(key, out);
+  return out;
+}
+
+/** Close-instant-stamped NY-session daily bars from the pinned D file —
+ *  the `dailyBarsOverride` input that makes backtest daily_bias/regime/ADX
+ *  match live OANDA D1 exactly (E2.25.b / E2.19.b). Null when the ticker
+ *  has no pinned D file. Memoized via loadPinnedForInterval. */
+export function pinnedSessionDaily(ticker: string): PriceBar[] | null {
+  const pinned = loadPinnedForInterval(ticker, "1day");
+  return pinned === null ? null : sessionDailyClose(pinned.bars);
+}
+
 export interface SoloStats {
   trades: number;
   wr: number;

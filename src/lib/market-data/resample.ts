@@ -12,6 +12,21 @@
  * For intraday targets ("4h", "1h", etc.) we bucket by floor(timestamp /
  * bucketSeconds). Source bars finer than the target are aggregated; source
  * bars coarser than or equal to the target pass through unchanged.
+ *
+ * D1 ANCHOR SEMANTICS (E2.19.b, resolved 2026-07-29). Two daily
+ * conventions exist and they diverge on ~8% of bars (measured E2.25.b,
+ * 6.2× concentrated at SMA crossings):
+ *   - LIVE reads provider D1 (OANDA NY-17:00 session days, 5/wk) —
+ *     single-source, unchanged.
+ *   - `resampleToDaily` groups by UTC calendar day (~6 "days"/wk).
+ * The decision: live stays on OANDA D1; every VERDICT-GRADE backtest
+ * path (validate-algo, revalidate-candidates, e2.22 harness) passes
+ * `dailyBarsOverride` built from the pinned session-D file via
+ * `sessionDailyClose()` (close-instant-stamped NY session days), so
+ * backtest daily_bias/regime/ADX match live exactly. This UTC resample
+ * remains ONLY for diagnostic callers (dashboard backtest actions,
+ * loser-analysis, walk-forward) where the ~8% boundary divergence is an
+ * accepted approximation — do NOT add new verdict paths on it.
  */
 import type { PriceBar } from "./types";
 

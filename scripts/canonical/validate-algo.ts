@@ -36,6 +36,7 @@ import { resolve as resolvePath } from "path";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { timeframeToInterval } from "../../src/lib/market-data/interval";
 import type { Database } from "../../src/lib/supabase/database.types";
+import { loadPinnedForInterval, pinnedSessionDaily } from "./lib/pinned-eval";
 import {
   runPortfolioBacktest,
   tradesAsSiblingWindows,
@@ -349,34 +350,19 @@ interface OosStats {
   reason: string;
 }
 
-async function getBarsNoTtl(
-  supabase: SupabaseClient<Database>,
-  ticker: string,
-  interval: string
-): Promise<PriceBar[] | null> {
-  const { data, error } = await supabase
-    .from("price_cache")
-    .select("bars")
-    .eq("ticker", ticker.toUpperCase())
-    .eq("output_size", "full")
-    .eq("interval", interval)
-    .limit(1)
-    .single();
-  // B.2.43 (Stage 3, 2026-06-19 EVE): distinguish "no row" (legitimate
-  // — algo's ticker not in cache yet) from "Supabase error" (transient
-  // outage or permission issue). Previously both returned null → entire
-  // fleet appeared as "no bars" → all EXCLUDED → silently wrong verdicts.
-  // PGRST116 = "no rows" for .single() → expected.
-  if (error && error.code !== "PGRST116") {
-    throw new Error(
-      `getBarsNoTtl: price_cache query failed for ${ticker} (${interval}) — message="${error.message}" code="${error.code ?? "n/a"}" details="${error.details ?? "n/a"}"`
-    );
-  }
-  // CB.C3 (2026-06-19 EVE): price_cache.bars is `Json` per DB schema;
-  // application contract is `PriceBar[]`. Runtime narrowing is the
-  // operator's responsibility (DB rows here are produced by our own
-  // writers in price-cache.ts, which always emit PriceBar[]).
-  return (data?.bars as PriceBar[] | null) ?? null;
+/** E2.19.e (2026-07-29): verdict-grade bar source = pinned sha-verified
+ *  datasets ONLY (`feedback_pinned_datasets_verdict_grade`). This script
+ *  previously read live `price_cache`, which live merges polluted twice
+ *  (E2.19 forensics 2026-07-09; E2.25.a fallback merge 2026-07-17) —
+ *  verdicts on mutable data are unreproducible. Returns null when no
+ *  pinned dataset exists for the ticker×interval → the algo is
+ *  UNVERIFIABLE (excluded with an explicit reason), never silently
+ *  validated on live data. sha-integrity failures throw (refuse loudly).
+ *  Pinned corpus refresh = re-run fetch-pinned-history.ts (intended
+ *  cadence: quarterly cycle H.5 — that's what makes "genuinely new OOS
+ *  bars" auditable). */
+function getBarsPinned(ticker: string, interval: string): PriceBar[] | null {
+  return loadPinnedForInterval(ticker, interval)?.bars ?? null;
 }
 
 function pnlOf(trades: BacktestTrade[]): number {
@@ -761,33 +747,84 @@ async function loadAlgos(
   only: string | null,
   algosCsv: string | null
 ): Promise<AlgoRow[]> {
-  let query = supabase.from("algorithms").select("id, name, capital, rules, status, broker_connection_id");
+  const baseSelect = "id, name, capital, rules, status, broker_connection_id";
   // Stage 4.3 (2026-06-20): precedence ALGO > ALGOS > canonical-set.
   // - ALGO=NAME            → exact match (legacy single-algo path)
   // - ALGOS=A,B,C          → CSV explicit set
   // - neither              → canonical set: `Library:%` + Gold Swing 4h
-  if (only) {
-    query = query.eq("name", only);
-  } else if (algosCsv) {
-    const names = algosCsv.split(",").map((n) => n.trim()).filter(Boolean);
-    if (names.length === 0) {
+  //
+  // E2.19.g (2026-07-29): explicit-name matching moved CLIENT-SIDE.
+  // PostgREST query-param encoding silently mis-matches names containing
+  // reserved characters — the `Deploy: … | r042 v1` pipe — observed
+  // 2026-07-09 as a zero-match that fell back to a 17-algo fleet run.
+  // We now fetch the whole (small) table and ===-match here; any
+  // requested name with zero matches REFUSES loudly instead of running
+  // a different set.
+  let raw: Array<{
+    id: string;
+    name: string;
+    capital: number;
+    rules: unknown;
+    status: string;
+    broker_connection_id: string | null;
+  }>;
+  if (only || algosCsv) {
+    const wanted = only
+      ? [only]
+      : (algosCsv as string).split(",").map((n) => n.trim()).filter(Boolean);
+    if (wanted.length === 0) {
       throw new Error(`loadAlgos: ALGOS="${algosCsv}" parsed to zero names. Use comma-separated exact names.`);
     }
-    query = query.in("name", names);
+    // Paginated fetch — the algorithms table exceeds PostgREST's silent
+    // 1000-row default page (1059 rows incl. 368 Search: sweep rows as of
+    // 2026-07-29); an unpaginated select dropped the Deploy: rows off the
+    // page and made every exact-name lookup a false "missing".
+    const PAGE = 1000;
+    let allRows: NonNullable<Awaited<ReturnType<typeof fetchPage>>> = [];
+    async function fetchPage(fromIdx: number) {
+      const res = await supabase
+        .from("algorithms")
+        .select(baseSelect)
+        .range(fromIdx, fromIdx + PAGE - 1);
+      if (res.error) {
+        throw new Error(
+          `loadAlgos: Supabase query failed — message="${res.error.message}" code="${res.error.code ?? "n/a"}" details="${res.error.details ?? "n/a"}" hint="${res.error.hint ?? "n/a"}"`
+        );
+      }
+      return res.data ?? [];
+    }
+    for (let fromIdx = 0; ; fromIdx += PAGE) {
+      const page = await fetchPage(fromIdx);
+      allRows = allRows.concat(page);
+      if (page.length < PAGE) break;
+    }
+    const byName = new Map(allRows.map((r) => [r.name, r]));
+    const missing = wanted.filter((w) => !byName.has(w));
+    if (missing.length > 0) {
+      throw new Error(
+        `loadAlgos: no algorithm named ${missing.map((m) => `"${m}"`).join(", ")}. ` +
+          `REFUSING to run a different set (E2.19.g). Available names:\n  ` +
+          [...byName.keys()].sort().join("\n  ")
+      );
+    }
+    raw = wanted.map((w) => byName.get(w)!);
   } else {
     // Canonical set rationale: `Library:%` covers every condition-based
     // strategy seeded via deploy-*.ts; `Gold Swing 4h` is the LLM-trader
     // baseline that isn't named with the Library: prefix. Extend the OR
     // clause when adding new non-Library algos that should be validated.
-    query = query.or("name.like.Library:%,name.eq.Gold Swing 4h");
+    const res = await supabase
+      .from("algorithms")
+      .select(baseSelect)
+      .or("name.like.Library:%,name.eq.Gold Swing 4h");
+    if (res.error) {
+      throw new Error(
+        `loadAlgos: Supabase query failed — message="${res.error.message}" code="${res.error.code ?? "n/a"}" details="${res.error.details ?? "n/a"}" hint="${res.error.hint ?? "n/a"}"`
+      );
+    }
+    raw = res.data ?? [];
   }
-  const res = await query;
-  if (res.error) {
-    throw new Error(
-      `loadAlgos: Supabase query failed — message="${res.error.message}" code="${res.error.code ?? "n/a"}" details="${res.error.details ?? "n/a"}" hint="${res.error.hint ?? "n/a"}"`
-    );
-  }
-  const rows = (res.data ?? []).map((r) => ({
+  const rows = raw.map((r) => ({
     id: r.id,
     name: r.name,
     capital: r.capital,
@@ -1034,9 +1071,13 @@ async function main(): Promise<void> {
   const baselineTradesByAlgo = new Map<string, BacktestTrade[]>();
   for (const algo of algos) {
     const interval = timeframeToInterval(algo.rules.timeframe);
-    const bars = await getBarsNoTtl(supabase, algo.ticker, interval);
+    const bars = getBarsPinned(algo.ticker, interval);
     if (!bars) continue;
-    const result = runPortfolioBacktest(algo.rules, new Map([[algo.ticker, bars]]), algo.capital);
+    // dailyBarsOverride: pinned NY-session D1, close-instant-stamped —
+    // daily_bias/regime/ADX align with live exactly (E2.25.b / E2.19.b).
+    const result = runPortfolioBacktest(algo.rules, new Map([[algo.ticker, bars]]), algo.capital, {
+      dailyBarsOverride: pinnedSessionDaily(algo.ticker),
+    });
     // B.1.5 fix: assertTradeSidePopulated throws if engine had a side bug.
     const tagged: (BacktestTrade & { ticker: string })[] = [];
     for (const t of result.trades) {
@@ -1053,7 +1094,7 @@ async function main(): Promise<void> {
   let bonfFail = 0, preregFail = 0, stepFail = 0;
   for (const algo of algos) {
     const interval = timeframeToInterval(algo.rules.timeframe);
-    const bars = await getBarsNoTtl(supabase, algo.ticker, interval);
+    const bars = getBarsPinned(algo.ticker, interval);
     const access = readAlgoRulesAccess(algo.rules);
     const friction = {
       slippage_bps: access.prop_firm.slippage_bps ?? 0,
@@ -1152,8 +1193,8 @@ async function main(): Promise<void> {
     let results: GateResults;
     if (!bars) {
       results = analyzeStats({ ...baseAnalyzeArgs, trades: [] });
-      results.step2.reason = "no bars in cache";
-      results.promotion_blockers = ["no bars in cache"];
+      results.step2.reason = `no pinned dataset for ${algo.ticker} ${interval} — UNVERIFIABLE (run fetch-pinned-history.ts; verdicts never read live price_cache)`;
+      results.promotion_blockers = ["no pinned dataset (unverifiable)"];
     } else {
       const result = runPortfolioBacktest(algo.rules, new Map([[algo.ticker, bars]]), algo.capital, {
         siblingBlockingTrades: directionConflictSiblings,
@@ -1163,6 +1204,7 @@ async function main(): Promise<void> {
         riskPoolSiblings,
         reEntryCooldown,
         portfolioHalt,
+        dailyBarsOverride: pinnedSessionDaily(algo.ticker),
       });
       results = analyzeStats({ ...baseAnalyzeArgs, trades: result.trades });
     }
