@@ -41,7 +41,7 @@ URL="${QUARTERLY_CYCLE_URL:-http://localhost:3000/api/cron/quarterly-cycle}"
 TIMESTAMP="[$(date -u +%FT%TZ)]"
 
 echo "$TIMESTAMP running quarterly research cycle..."
-RESPONSE=$(curl -sS -w "\n%{http_code}" -H "Authorization: Bearer $CRON_SECRET" "$URL" || echo -e "\n000")
+RESPONSE=$(printf 'Authorization: Bearer %s\n' "$CRON_SECRET" | curl -sS -w "\n%{http_code}" -H @- "$URL" || echo -e "\n000")
 HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
 BODY=$(echo "$RESPONSE" | sed '$d')
 

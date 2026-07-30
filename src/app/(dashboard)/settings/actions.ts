@@ -69,6 +69,13 @@ export async function updateProfile(values: {
 }
 
 export async function getExchangeRate(currency: string): Promise<ActionResult<number>> {
+  // E2.25.i F4 (2026-07-30): was the one unauthenticated server action —
+  // burned shared Twelve Data quota for anyone who could reach it.
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { success: false, error: "Not authenticated" };
   if (currency === "USD") {
     return { success: true, data: 1 };
   }

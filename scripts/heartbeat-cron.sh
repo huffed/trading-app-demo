@@ -43,7 +43,7 @@ HEARTBEAT_PING_URL=$(grep -E '^HEARTBEAT_PING_URL=' "$ENV_FILE" | head -1 | cut 
 URL="${HEARTBEAT_URL:-http://localhost:3000/api/cron/heartbeat}"
 TIMESTAMP="[$(date -u +%FT%TZ)]"
 
-RESPONSE=$(curl -sS -w "\n%{http_code}" -H "Authorization: Bearer $CRON_SECRET" "$URL" || echo -e "\n000")
+RESPONSE=$(printf 'Authorization: Bearer %s\n' "$CRON_SECRET" | curl -sS -w "\n%{http_code}" -H @- "$URL" || echo -e "\n000")
 HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
 BODY=$(echo "$RESPONSE" | sed '$d')
 

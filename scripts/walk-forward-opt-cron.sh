@@ -42,7 +42,7 @@ URL="${WFO_URL:-http://localhost:3000/api/cron/wfo}${DRY_RUN_QUERY}"
 TIMESTAMP="[$(date -u +%FT%TZ)]"
 
 echo "$TIMESTAMP running walk-forward-opt (${DRY_RUN_QUERY})..."
-RESPONSE=$(curl -sS -w "\n%{http_code}" -H "Authorization: Bearer $CRON_SECRET" "$URL" || echo -e "\n000")
+RESPONSE=$(printf 'Authorization: Bearer %s\n' "$CRON_SECRET" | curl -sS -w "\n%{http_code}" -H @- "$URL" || echo -e "\n000")
 HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
 BODY=$(echo "$RESPONSE" | sed '$d')
 
