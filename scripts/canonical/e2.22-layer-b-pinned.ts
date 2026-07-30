@@ -504,14 +504,24 @@ async function runAlgoStats(sb: SupabaseClient<Database>, bars: PriceBar[]): Pro
   // risk-normalized via equity_at_entry so de-compounding cannot skew it.
   // Written every run — deterministic on pinned data; regenerate on any
   // re-derivation and re-transcribe into src/lib/cohort/m1-baseline.ts.
-  const meanR = (trades: BacktestTrade[]): number => {
-    if (trades.length === 0) return 0;
-    let sum = 0;
-    for (const t of trades) {
+  const rSeries = (trades: BacktestTrade[]): number[] =>
+    trades.map((t) => {
       const riskDollars = ((t.equity_at_entry ?? POOL_CAPITAL) * RISK) / 100;
-      sum += riskDollars > 0 ? t.pnl / riskDollars : 0;
-    }
-    return sum / trades.length;
+      return riskDollars > 0 ? t.pnl / riskDollars : 0;
+    });
+  const meanR = (trades: BacktestTrade[]): number => {
+    const rs = rSeries(trades);
+    return rs.length === 0 ? 0 : rs.reduce((a, b) => a + b, 0) / rs.length;
+  };
+  // G.4.a: per-trade Sharpe with the EXACT alpha-decay convention
+  // (mean(R) / sample-std(R), no annualization — alpha-decay.ts:145).
+  const sharpeR = (trades: BacktestTrade[]): number | null => {
+    const rs = rSeries(trades);
+    if (rs.length < 2) return null;
+    const mean = rs.reduce((a, b) => a + b, 0) / rs.length;
+    const variance = rs.reduce((s, x) => s + (x - mean) * (x - mean), 0) / (rs.length - 1);
+    const sd = Math.sqrt(variance);
+    return sd > 0 ? mean / sd : null;
   };
   const LIVE_NAMES: Record<string, string> = {
     "ARB rr3_lb3": "Deploy: XAU/USD ARB+DailyBias 4h | r085 v1",
@@ -536,6 +546,7 @@ async function runAlgoStats(sb: SupabaseClient<Database>, bars: PriceBar[]): Pro
         n: st.trades,
         wr_pct: st.wr,
         mean_r: meanR(trades),
+        sharpe_r: sharpeR(trades),
         monthly_pct: stressTest(trades).avg_return_pct / CH_PER_MONTH,
         note: "SOLO run — sibling gating slightly changes live composition",
       };
@@ -554,6 +565,30 @@ async function runAlgoStats(sb: SupabaseClient<Database>, bars: PriceBar[]): Pro
   writeFileSync(g8Path, JSON.stringify(artifact, null, 2) + "\n");
   console.log(`\nG.8 baseline artifact written: ${g8Path}`);
   console.log(`  portfolio mean R/trade = ${artifact.portfolio.mean_r.toFixed(4)} over n=${artifact.portfolio.n}; ±30% band = [${(artifact.portfolio.mean_r * 0.7).toFixed(4)}, ${(artifact.portfolio.mean_r * 1.3).toFixed(4)}]`);
+
+  // G.4.a (WRITE_SHARPE=1): arm alpha-decay by MERGING sharpe_ratio into
+  // each live row's backtest_results — merge, never overwrite: the rows
+  // carry the v4 deploy-evidence blocks.
+  if (process.env.WRITE_SHARPE === "1") {
+    console.log("\nG.4.a: writing per-algo baseline sharpe_ratio to live rows…");
+    for (const m of members) {
+      const liveName = LIVE_NAMES[m.label];
+      const sharpe = sharpeR(run.soloTrades.get(m.label)!);
+      if (!liveName || sharpe === null) { console.log(`  ${m.label}: SKIP (no live name or n<2)`); continue; }
+      const { data: rows, error } = await sb.from("algorithms").select("id, name, backtest_results").eq("status", "active");
+      if (error) throw new Error(`G.4.a read failed: ${error.message}`);
+      const row = (rows ?? []).find((r) => r.name === liveName);
+      if (!row) { console.log(`  ${m.label}: SKIP (live row "${liveName}" not found)`); continue; }
+      const merged = {
+        ...((row.backtest_results as Record<string, unknown> | null) ?? {}),
+        sharpe_ratio: sharpe,
+        sharpe_provenance: `G.4.a 2026-07-30: per-trade mean(R)/std(R), alpha-decay convention, complete-fidelity harness on pinned H4 @${RISK}% (MODE=algo-stats WRITE_SHARPE=1)`,
+      };
+      const upd = await sb.from("algorithms").update({ backtest_results: merged as never }).eq("id", row.id);
+      if (upd.error) throw new Error(`G.4.a write failed for ${liveName}: ${upd.error.message}`);
+      console.log(`  ${m.label}: sharpe_ratio=${sharpe.toFixed(4)} → ${liveName}`);
+    }
+  }
 }
 
 /**

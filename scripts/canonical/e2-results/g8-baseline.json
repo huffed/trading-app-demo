@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-21T16:47:45.767Z",
+  "generated_at": "2026-07-30T12:08:29.586Z",
   "source": "e2.22-layer-b-pinned.ts MODE=algo-stats (complete-fidelity harness, pinned H4 2015→2026)",
   "risk_pct": 0.42,
   "capital": 10000,
@@ -10,6 +10,7 @@
       "n": 155,
       "wr_pct": 33.5483870967742,
       "mean_r": 0.24749663416348605,
+      "sharpe_r": 0.1613970322320664,
       "monthly_pct": 0.07775570220862145,
       "note": "SOLO run — sibling gating slightly changes live composition"
     },
@@ -19,6 +20,7 @@
       "n": 118,
       "wr_pct": 33.89830508474576,
       "mean_r": 0.2879308197072845,
+      "sharpe_r": 0.18046815157577115,
       "monthly_pct": 0.06379624337972645,
       "note": "SOLO run — sibling gating slightly changes live composition"
     },
@@ -28,6 +30,7 @@
       "n": 170,
       "wr_pct": 34.11764705882353,
       "mean_r": 0.14133981185179317,
+      "sharpe_r": 0.10358168304896385,
       "monthly_pct": 0.060925843895793114,
       "note": "SOLO run — sibling gating slightly changes live composition"
     },
@@ -37,6 +40,7 @@
       "n": 211,
       "wr_pct": 31.753554502369667,
       "mean_r": 0.18314735577809596,
+      "sharpe_r": 0.11515316719864817,
       "monthly_pct": 0.06312547042648009,
       "note": "SOLO run — sibling gating slightly changes live composition"
     },
@@ -46,6 +50,7 @@
       "n": 198,
       "wr_pct": 41.91919191919192,
       "mean_r": 0.3667774317463865,
+      "sharpe_r": 0.2505981101163938,
       "monthly_pct": 0.20008889460323476,
       "note": "SOLO run — sibling gating slightly changes live composition"
     }
