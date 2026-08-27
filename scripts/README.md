@@ -357,9 +357,12 @@ paper soak before the real challenge (Stage 5.3 prereq) started 2026-08-27.
   `systemctl status|restart quanttrader` · logs: `journalctl -u quanttrader -n 50`
 - **Crons:** same 9 entries, server crontab, **UTC**, logs in
   `/var/log/quanttrader/*.log` (not /tmp — no purge surprises).
-- **Firewall:** SSH only; port 3000 is NOT public. View the frontend from the
-  Mac via `ssh -i ~/.ssh/quanttrader_vps -L 3000:localhost:3000 root@2.28.76.85`
-  then open http://localhost:3000.
+- **Firewall:** SSH only publicly; port 3000 is NOT internet-facing.
+- **Frontend from any device (2026-08-27): Tailscale.** The VPS + operator
+  devices share a tailnet; browse `http://quanttrader-prod:3000` (or
+  `http://100.77.24.89:3000`) from any device signed into the Tailscale
+  account. ufw allows :3000 on the `tailscale0` interface only. SSH-tunnel
+  fallback still works: `qtui` alias / `ssh -L 3000:localhost:3000 qt`.
 - **Deploy after a merge to dev:**
   `ssh -i ~/.ssh/quanttrader_vps root@2.28.76.85 'cd /opt/quanttrader && git pull && . ~/.nvm/nvm.sh && pnpm install --frozen-lockfile && pnpm build && systemctl restart quanttrader'`
 - **Mac rollback (kept intact):** crontab backup at
