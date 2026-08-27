@@ -6,8 +6,7 @@
  * telemetry, not silent drop).
  */
 import { type BarInterval } from "@/lib/market-data/interval";
-import { getCachedPrices, savePricesToCache } from "@/lib/market-data/price-cache";
-import { fetchDailyPrices, getFreshPricesForScan } from "@/lib/market-data/prices";
+import { getFreshPricesForScan } from "@/lib/market-data/prices";
 import type { PriceBar } from "@/lib/market-data/types";
 import type { AlgorithmRules } from "@/types/algorithm";
 import type { PaperPosition } from "@/types/position";
@@ -123,23 +122,24 @@ export async function processTicker(
   }
 }
 
-/** Fetch the dedicated D1 series for higher-TF context. Cached read first;
- *  network fetch as fallback; null on both failure modes. */
+/** Fetch the dedicated D1 series for higher-TF context (daily_bias /
+ *  regime / ADX). E2.25.c-completion (2026-08-27): this loader previously
+ *  read `getCachedPrices` under the 7-DAY daily TTL, so live daily_bias
+ *  ran on a D1 series up to a week stale — the exact gap E2.25.c fixed in
+ *  `getFreshPricesForScan` (26h refresh margin) but this call site never
+ *  adopted. Observed live: the XAU D1 row sat 3 sessions stale (Aug 21 →
+ *  Aug 27) while scans kept hitting the TTL-valid cache. Now routed
+ *  through the liveCron fresh path; null on failure (downstream copes). */
 async function loadDailyBarsForScan(
   ticker: string,
   interval: BarInterval
 ): Promise<PriceBar[] | null> {
   if (interval === "1day") return null;
-  let dailyBars = await getCachedPrices(ticker, "full", "1day");
-  if (!dailyBars) {
-    try {
-      dailyBars = await fetchDailyPrices(ticker, "full", "1day");
-      savePricesToCache(ticker, "full", dailyBars, "1day").catch(() => {});
-    } catch {
-      dailyBars = null;
-    }
+  try {
+    return await getFreshPricesForScan(ticker, "full", "1day");
+  } catch {
+    return null;
   }
-  return dailyBars;
 }
 
 interface ManageExistingArgs {

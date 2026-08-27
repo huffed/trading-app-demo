@@ -192,27 +192,35 @@ describe("processTicker — price/data short-circuits", () => {
 // ======================================================================
 
 describe("processTicker — daily-bars fetch", () => {
-  it("interval='1day' → loadDailyBarsForScan returns null (NO cache + NO fetch)", async () => {
+  // E2.25.c-completion (2026-08-27): daily bars now come through the
+  // liveCron fresh path (26h margin), NOT the 7-day-TTL cached read that
+  // let daily_bias run on a week-old series (observed live Aug 21→27).
+
+  it("interval='1day' → no separate D1 load (primary fetch only)", async () => {
     await processTicker(supabaseStub, "user-1", makeAlgo(), "XAU/USD", [], makeResult(), new Map(), "1day", null, null, null, false);
-    expect(mockedGetCached).not.toHaveBeenCalled();
-    expect(mockedFetchDaily).not.toHaveBeenCalled();
-    // evaluateEntry called with dailyBars=null
+    expect(mockedFetchFresh).toHaveBeenCalledTimes(1); // primary bars only
     expect(mockedEntry).toHaveBeenCalledWith(expect.objectContaining({ dailyBars: null }));
   });
 
-  it("interval='4h' + cached D1 present → uses cached (NO network fetch)", async () => {
-    const cachedBars = makeBars(40, 2900);
-    mockedGetCached.mockResolvedValue(cachedBars);
+  it("interval='4h' → D1 loaded via the 26h fresh path, never the 7-day TTL read", async () => {
+    const dailyBars = makeBars(40, 2900);
+    const primaryBars = makeBars(30);
+    mockedFetchFresh.mockImplementation(async (_t, _o, iv) =>
+      iv === "1day" ? dailyBars : primaryBars
+    );
     await processTicker(supabaseStub, "user-1", makeAlgo(), "XAU/USD", [], makeResult(), new Map(), "4h", null, null, null, false);
-    expect(mockedGetCached).toHaveBeenCalledWith("XAU/USD", "full", "1day");
+    expect(mockedFetchFresh).toHaveBeenCalledWith("XAU/USD", "full", "1day");
+    expect(mockedGetCached).not.toHaveBeenCalled(); // stale-tolerant path retired
     expect(mockedFetchDaily).not.toHaveBeenCalled();
-    expect(mockedEntry).toHaveBeenCalledWith(expect.objectContaining({ dailyBars: cachedBars }));
+    expect(mockedEntry).toHaveBeenCalledWith(expect.objectContaining({ dailyBars }));
   });
 
-  it("interval='4h' + no cached + fetchDailyPrices throws → dailyBars=null (doesn't bubble)", async () => {
-    mockedGetCached.mockResolvedValue(null);
-    mockedFetchDaily.mockRejectedValue(new Error("network"));
-    // The throw is caught inside loadDailyBarsForScan, so processTicker proceeds
+  it("interval='4h' + fresh D1 load throws → dailyBars=null (doesn't bubble)", async () => {
+    const primaryBars = makeBars(30);
+    mockedFetchFresh.mockImplementation(async (_t, _o, iv) => {
+      if (iv === "1day") throw new Error("network");
+      return primaryBars;
+    });
     const result = makeResult();
     await processTicker(supabaseStub, "user-1", makeAlgo(), "XAU/USD", [], result, new Map(), "4h", null, null, null, false);
     expect(result.errors).toHaveLength(0); // doesn't pollute errors
