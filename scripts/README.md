@@ -345,6 +345,29 @@ If the log is silent past the expected tick, check:
    battery; plug in.)
 3. Does the script run by hand? Run it directly to surface the error.
 
+## PRODUCTION HOST: VPS (2026-08-27) — the Mac stack is DISABLED
+
+Production moved off the operator Mac to a Hetzner CX23 (`quanttrader-prod`,
+2.28.76.85, Nuremberg, Ubuntu 26.04, 2 vCPU/3.7GB + 2G swap). The ≥1-month
+paper soak before the real challenge (Stage 5.3 prereq) started 2026-08-27.
+
+- **SSH:** `ssh -i ~/.ssh/quanttrader_vps root@2.28.76.85`
+- **App:** `/opt/quanttrader` (read-only GitHub deploy key), Node via nvm,
+  systemd service `quanttrader` (auto-start + auto-restart).
+  `systemctl status|restart quanttrader` · logs: `journalctl -u quanttrader -n 50`
+- **Crons:** same 9 entries, server crontab, **UTC**, logs in
+  `/var/log/quanttrader/*.log` (not /tmp — no purge surprises).
+- **Firewall:** SSH only; port 3000 is NOT public. View the frontend from the
+  Mac via `ssh -i ~/.ssh/quanttrader_vps -L 3000:localhost:3000 root@2.28.76.85`
+  then open http://localhost:3000.
+- **Deploy after a merge to dev:**
+  `ssh -i ~/.ssh/quanttrader_vps root@2.28.76.85 'cd /opt/quanttrader && git pull && . ~/.nvm/nvm.sh && pnpm install --frozen-lockfile && pnpm build && systemctl restart quanttrader'`
+- **Mac rollback (kept intact):** crontab backup at
+  `~/quanttrader-crontab-backup-2026-08-27.txt`; launchd plist renamed
+  `com.quanttrader.server.plist.disabled`. To roll back: stop the VPS crontab
+  (`crontab -r` on the server) FIRST — never run both schedulers — then rename
+  the plist back + `launchctl load` + restore the Mac crontab.
+
 ## Dead-man alert response runbook (E2.24.g.viii, 2026-07-29)
 
 You got an ntfy push / GitHub failure email. The alert is CORRECT until
