@@ -93,7 +93,7 @@ function StatusPanel() {
             }
           />
           <DataRow
-            label="Realized · all-time"
+            label="Realized · M1 (since 20 Jul)"
             value={
               <span className={pnlColorClass(data?.total_realized_pnl ?? 0)}>
                 {formatPnl(data?.total_realized_pnl ?? 0)}

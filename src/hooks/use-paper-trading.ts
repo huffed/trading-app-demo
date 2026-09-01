@@ -43,19 +43,27 @@ export function useOpenPositions(algorithmId?: string) {
  * need the full series — pagination doesn't fit a cumulative-pnl curve.
  * Capped server-side at 1000 rows to keep payload bounded.
  */
-export function useClosedPositionsWindow(algorithmId: string | undefined, days = 30) {
+/** Closed positions for a rolling window. `days: null` = all time;
+ *  `since` (ISO) overrides the day-math — used for the M1-clock scope
+ *  (2026-09-01: dashboard ranges are FILTERS, never data deletion). */
+export function useClosedPositionsWindow(
+  algorithmId: string | undefined,
+  days: number | null = 30,
+  since?: string
+) {
   return useQuery({
-    queryKey: [...POSITIONS_KEY, "closed-window", algorithmId ?? "portfolio", days],
+    queryKey: [...POSITIONS_KEY, "closed-window", algorithmId ?? "portfolio", days, since ?? null],
     queryFn: async () => {
-      const since = new Date(Date.now() - days * 86_400_000).toISOString();
+      const sinceIso =
+        since ?? (days === null ? null : new Date(Date.now() - days * 86_400_000).toISOString());
       const supabase = createClient();
       let query = supabase
         .from("paper_positions")
         .select("*")
         .eq("status", "closed")
-        .gte("closed_at", since)
         .order("closed_at", { ascending: true })
         .limit(1000);
+      if (sinceIso) query = query.gte("closed_at", sinceIso);
       if (algorithmId) query = query.eq("algorithm_id", algorithmId);
       const { data, error } = await query;
       if (error) throw error;

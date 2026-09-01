@@ -1,5 +1,6 @@
 "use server";
 
+import { M1_BASELINE } from "@/lib/cohort/m1-baseline";
 import { pnlInUsd } from "@/lib/constants/markets";
 import { getCachedPrices } from "@/lib/market-data/price-cache";
 import { fetchDailyPrices } from "@/lib/market-data/prices";
@@ -385,7 +386,11 @@ export async function getPaperTradingStats(): Promise<
         .from("paper_positions")
         .select(POSITION_FIELDS)
         .eq("user_id", user.id)
-        .eq("status", "closed"),
+        .eq("status", "closed")
+        // Dashboard headline is scoped to the CURRENT portfolio's record
+        // (the M1 evidence clock). Pre-M1 trades from retired configs stay
+        // in the data — scope by filter, never deletion (2026-09-01).
+        .gte("closed_at", M1_BASELINE.clock_start),
     ]);
 
     const activeAlgos = algoRes.data ?? [];
