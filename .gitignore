@@ -99,3 +99,4 @@ scripts/inspect-blind-spot-trades-*.json
 # via `python3 -m venv scripts/python/.venv && scripts/python/.venv/bin/pip install
 # -r scripts/python/requirements.txt`)
 scripts/python/.venv/
+scripts/canonical/data/ticks/
