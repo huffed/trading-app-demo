@@ -109,11 +109,21 @@ export interface SearchInstrumentMeta {
   capital: number;
 }
 
+// Friction convention: spread_bps is PER-SIDE (harness charges ×2 per
+// round trip — prop-firm-backtest.ts SimConfig). E2.33 reconciliation
+// (2026-09-03, 79M-tick Dukascopy corpus, spread-model-2026-09.json):
+//  - XAU 0.4/side KEPT — validated from 37 real FTMO fills; Dukascopy
+//    raw is 0.74/side (FTMO's feed is ~45% tighter — normal variation).
+//  - Forex UPDATED: old catalog defaults were 6-8× the measured truth
+//    (EUR 1.0 vs 0.13/side real). New values use the FULL Dukascopy
+//    spread as the per-side number = deliberate 2× safety margin until
+//    Stage 5.3 real FTMO forex fills exist. Disclosed per spec §3
+//    (B.1.8.a clause); slippage_bps unchanged (no new slippage data).
 export const SEARCH_INSTRUMENTS: SearchInstrumentMeta[] = [
   { ticker: "XAU/USD", asset_class: "commodity", leverage: 50, friction: { slippage_bps: 0.5, spread_bps: 0.4 }, capital: 10000 },
-  { ticker: "EUR/USD", asset_class: "forex", leverage: 30, friction: { slippage_bps: 1.0, spread_bps: 1.0 }, capital: 10000 },
-  { ticker: "GBP/USD", asset_class: "forex", leverage: 30, friction: { slippage_bps: 1.0, spread_bps: 1.5 }, capital: 10000 },
-  { ticker: "USD/JPY", asset_class: "forex", leverage: 30, friction: { slippage_bps: 1.0, spread_bps: 1.2 }, capital: 10000 },
+  { ticker: "EUR/USD", asset_class: "forex", leverage: 30, friction: { slippage_bps: 1.0, spread_bps: 0.26 }, capital: 10000 },
+  { ticker: "GBP/USD", asset_class: "forex", leverage: 30, friction: { slippage_bps: 1.0, spread_bps: 0.52 }, capital: 10000 },
+  { ticker: "USD/JPY", asset_class: "forex", leverage: 30, friction: { slippage_bps: 1.0, spread_bps: 0.31 }, capital: 10000 },
 ];
 
 export const SEARCH_TIMEFRAMES: SearchTimeframe[] = ["30m", "1h", "4h"];
