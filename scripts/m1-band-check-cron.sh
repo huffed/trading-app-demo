@@ -29,6 +29,12 @@
 #   30 21 * * * /opt/quanttrader/scripts/m1-band-check-cron.sh >> /var/log/quanttrader/m1-band-check.log 2>&1
 set -euo pipefail
 
+# cron runs with a minimal PATH that omits pnpm/node (the E2.29 "silent
+# cron death" bug). Restore the latest nvm-installed node bin — which on
+# the VPS also contains pnpm — plus the macOS pnpm dir for local runs.
+# Identical to the other direct-tsx crons (cohort-report, broker-health).
+export PATH="$HOME/Library/pnpm:$(ls -d "$HOME"/.nvm/versions/node/*/bin 2>/dev/null | sort -V | tail -1):$PATH"
+
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ENV_FILE="$REPO_DIR/.env.local"
 STATE_FILE="${M1_BAND_STATE_FILE:-/tmp/quanttrader-m1-band.state}"
