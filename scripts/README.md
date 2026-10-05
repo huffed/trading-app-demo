@@ -134,6 +134,7 @@ operator), but the schedule should be kept in sync with this table.
 | Daily 09:00 UTC (`0 9 * * *`) | `alpha-decay-cron.sh` | `/api/cron/alpha-decay` | `/tmp/quanttrader-alpha-decay.log` |
 | Monthly 1st 06:00 UTC (`0 6 1 * *`) | `walk-forward-opt-cron.sh` | `/api/cron/wfo?dry_run=1` | `/tmp/quanttrader-wfo.log` |
 | Quarterly 1st 07:00 UTC (`0 7 1 1,4,7,10 *`) | `quarterly-research-cycle-cron.sh` | `/api/cron/quarterly-cycle` | `/tmp/quanttrader-quarterly-cycle.log` |
+| Daily 21:30 UTC (`30 21 * * *`) | `m1-band-check-cron.sh` | _(none — direct CLI `m1-progress.ts` via Supabase)_ | `/tmp/quanttrader-m1-band-check.log` |
 
 ### Planned crons (per `scripts/canonical/ROADMAP.md` Phase G)
 
