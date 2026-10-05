@@ -39,11 +39,18 @@ jobs:
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
           MAX_AGE_MINUTES: "45" # manage tick cadence is 5 min; 45 = ~9 missed ticks
         run: |
-          set -euo pipefail
-          ts=$(curl -fsS -X POST "$SUPABASE_URL/rest/v1/rpc/last_manage_tick" \
+          set -uo pipefail
+          # --retry absorbs transient Supabase 5xx/network blips (a single
+          # 500 is not an outage); a persistent failure after retries is a
+          # REAL DB-unreachable alert, reported distinctly from staleness.
+          ts=$(curl -fsS --retry 5 --retry-all-errors --retry-delay 5 --retry-connrefused \
+            -X POST "$SUPABASE_URL/rest/v1/rpc/last_manage_tick" \
             -H "apikey: $SUPABASE_ANON_KEY" \
             -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
-            -H "Content-Type: application/json" -d '{}' | tr -d '"')
+            -H "Content-Type: application/json" -d '{}' | tr -d '"') || {
+            echo "::error::manage_tick RPC unreachable after retries (Supabase 5xx/down/paused or RPC erroring). Distinct from a stale heartbeat — check the DB, not the cron."
+            exit 1
+          }
           if [ -z "$ts" ] || [ "$ts" = "null" ]; then
             echo "::error::No manage_tick found at all — pipeline has never ticked or DB is unreachable."
             exit 1
@@ -76,11 +83,18 @@ jobs:
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
           MAX_AGE_MINUTES: "35" # scan cadence is 15 min; 35 = 2 missed ticks + jitter
         run: |
-          set -euo pipefail
-          ts=$(curl -fsS -X POST "$SUPABASE_URL/rest/v1/rpc/last_scan_tick" \
+          set -uo pipefail
+          # --retry absorbs transient Supabase 5xx/network blips (a single
+          # 500 is not an outage); a persistent failure after retries is a
+          # REAL DB-unreachable alert, reported distinctly from staleness.
+          ts=$(curl -fsS --retry 5 --retry-all-errors --retry-delay 5 --retry-connrefused \
+            -X POST "$SUPABASE_URL/rest/v1/rpc/last_scan_tick" \
             -H "apikey: $SUPABASE_ANON_KEY" \
             -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
-            -H "Content-Type: application/json" -d '{}' | tr -d '"')
+            -H "Content-Type: application/json" -d '{}' | tr -d '"') || {
+            echo "::error::scan_tick RPC unreachable after retries (Supabase 5xx/down/paused or RPC erroring). Distinct from a stale scan — check the DB, not the cron."
+            exit 1
+          }
           if [ -z "$ts" ] || [ "$ts" = "null" ]; then
             echo "::error::No scan_completed found at all — scan cron has never ticked or DB is unreachable."
             exit 1
@@ -114,11 +128,18 @@ jobs:
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
           MAX_AGE_MINUTES: "1560" # daily cron; 26h = 1 day + full jitter/one-miss tolerance
         run: |
-          set -euo pipefail
-          ts=$(curl -fsS -X POST "$SUPABASE_URL/rest/v1/rpc/last_alpha_decay_tick" \
+          set -uo pipefail
+          # --retry absorbs transient Supabase 5xx/network blips (a single
+          # 500 is not an outage); a persistent failure after retries is a
+          # REAL DB-unreachable alert, reported distinctly from staleness.
+          ts=$(curl -fsS --retry 5 --retry-all-errors --retry-delay 5 --retry-connrefused \
+            -X POST "$SUPABASE_URL/rest/v1/rpc/last_alpha_decay_tick" \
             -H "apikey: $SUPABASE_ANON_KEY" \
             -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
-            -H "Content-Type: application/json" -d '{}' | tr -d '"')
+            -H "Content-Type: application/json" -d '{}' | tr -d '"') || {
+            echo "::error::alpha_decay_tick RPC unreachable after retries (Supabase 5xx/down/paused or RPC erroring). Distinct from a stale safety-net — check the DB, not the cron."
+            exit 1
+          }
           if [ -z "$ts" ] || [ "$ts" = "null" ]; then
             # No tick ever — expected only in the window between deploying
             # migration 00050 and the first daily run. Warn, don't fail
