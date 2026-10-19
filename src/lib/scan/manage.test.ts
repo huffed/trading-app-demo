@@ -51,14 +51,8 @@ import { fetchDailyPrices, getFreshPricesForScan } from "@/lib/market-data/price
 import { fetchBatchQuotes } from "@/lib/market-data/twelve-data";
 import type { PriceBar } from "@/lib/market-data/types";
 import type { PaperPosition } from "@/types/position";
-import {
-  reconcileMissingBrokerPosition,
-  syncBrokerUnrealizedPnl,
-} from "./broker-position-sync";
-import {
-  reconcileBrokerRealizedPnl,
-  reconcileOrphanBrokerRealized,
-} from "./broker-truth-sync";
+import { reconcileMissingBrokerPosition, syncBrokerUnrealizedPnl } from "./broker-position-sync";
+import { reconcileBrokerRealizedPnl, reconcileOrphanBrokerRealized } from "./broker-truth-sync";
 import { manageExistingPosition } from "./engine";
 import { resolveBrokerContext } from "./live-execution";
 import { backfillClosedTradeOutcomes } from "./llm-trader-audit";
@@ -112,10 +106,12 @@ interface SupabaseMockBag {
   fromMock: ReturnType<typeof vi.fn>;
 }
 
-function makeSupabaseMock(opts: {
-  positions?: Array<PaperPosition & { algorithms: unknown }>;
-  error?: { message: string } | null;
-} = {}): SupabaseMockBag {
+function makeSupabaseMock(
+  opts: {
+    positions?: Array<PaperPosition & { algorithms: unknown }>;
+    error?: { message: string } | null;
+  } = {}
+): SupabaseMockBag {
   const result = {
     data: opts.positions ?? [],
     error: opts.error ?? null,
@@ -197,7 +193,10 @@ function makeAlgo(overrides: Record<string, unknown> = {}) {
   };
 }
 
-function makeJoinedRow(positionOverrides: Partial<PaperPosition> = {}, algoOverrides: Record<string, unknown> = {}) {
+function makeJoinedRow(
+  positionOverrides: Partial<PaperPosition> = {},
+  algoOverrides: Record<string, unknown> = {}
+) {
   return {
     ...makePosition(positionOverrides),
     algorithms: makeAlgo(algoOverrides),
@@ -235,10 +234,13 @@ describe("manageActiveAlgorithms — top-level data load", () => {
     expect(mockedBackfillOutcomes).toHaveBeenCalledTimes(1);
   });
 
-  it("DB error → returns [], logger.error called, NO tail tasks", async () => {
+  it("DB error → THROWS (route answers 500, no manage_tick), logger.error called, NO tail tasks", async () => {
+    // E2.34: swallowing to [] made the 2026-10-13 egress lockout look like a
+    // healthy no-positions tick (http=200 algorithms:0) for six days.
     const { supabase } = makeSupabaseMock({ error: { message: "connection lost" } });
-    const r = await manageActiveAlgorithms(supabase);
-    expect(r).toEqual([]);
+    await expect(manageActiveAlgorithms(supabase)).rejects.toThrow(
+      "manage-positions: failed to load open positions: connection lost"
+    );
     expect(mockedLogger.error).toHaveBeenCalledWith(
       "manage-positions",
       "Failed to load open positions",
@@ -335,7 +337,9 @@ describe("manageActiveAlgorithms — per-algo manageAlgorithm internals", () => 
     expect(mockedReconcileRealized).not.toHaveBeenCalled();
 
     // brokerCtx populated path
-    mockedResolveBroker.mockResolvedValue({ adapter: {}, conn: {} } as unknown as Awaited<ReturnType<typeof resolveBrokerContext>>);
+    mockedResolveBroker.mockResolvedValue({ adapter: {}, conn: {} } as unknown as Awaited<
+      ReturnType<typeof resolveBrokerContext>
+    >);
     const { supabase: s2 } = makeSupabaseMock({ positions: [makeJoinedRow()] });
     await manageActiveAlgorithms(s2);
     expect(mockedReconcileRealized).toHaveBeenCalledTimes(1);

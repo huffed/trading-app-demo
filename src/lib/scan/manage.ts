@@ -31,14 +31,8 @@ import type { Tables } from "@/lib/supabase/database.types";
 import type { PaperPosition, PositionEvent } from "@/types/position";
 // CB.H1 (2026-06-22): extracted broker-position sync helpers so the sync
 // logic is unit-testable + manage.ts drops below the 300-LOC cap.
-import {
-  reconcileMissingBrokerPosition,
-  syncBrokerUnrealizedPnl,
-} from "./broker-position-sync";
-import {
-  reconcileBrokerRealizedPnl,
-  reconcileOrphanBrokerRealized,
-} from "./broker-truth-sync";
+import { reconcileMissingBrokerPosition, syncBrokerUnrealizedPnl } from "./broker-position-sync";
+import { reconcileBrokerRealizedPnl, reconcileOrphanBrokerRealized } from "./broker-truth-sync";
 import { manageExistingPosition, type AlgoForPositionMgmt } from "./engine";
 import { resolveBrokerContext } from "./live-execution";
 import { backfillClosedTradeOutcomes } from "./llm-trader-audit";
@@ -190,9 +184,7 @@ async function manageAlgorithm(
  * (algos with zero open positions are excluded entirely so the response
  * stays focused on what was actually inspected).
  */
-export async function manageActiveAlgorithms(
-  supabase: SupabaseClient
-): Promise<ManageResult[]> {
+export async function manageActiveAlgorithms(supabase: SupabaseClient): Promise<ManageResult[]> {
   // Pull all open positions + their parent algo metadata in one round-trip.
   // E2.25.i F1: scope to OPERATOR_USER_ID when set (single-operator
   // invariant — a stranger's positions must not be managed on the
@@ -210,7 +202,12 @@ export async function manageActiveAlgorithms(
 
   if (error) {
     logger.error("manage-positions", "Failed to load open positions", error);
-    return [];
+    // Surface, don't swallow. Returning [] here made the route answer
+    // http=200 `algorithms:0` for the whole 2026-10-13 Supabase egress
+    // lockout — byte-identical to a healthy no-positions tick — so the
+    // manage log never showed the outage (E2.34). A throw → route 500 →
+    // no manage_tick → dead-man alert within 45 min.
+    throw new Error(`manage-positions: failed to load open positions: ${error.message}`);
   }
 
   const rows = (data ?? []) as Array<

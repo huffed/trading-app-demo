@@ -60,10 +60,15 @@ function loadEnvLocal(): void {
       const eq = trimmed.indexOf("=");
       if (eq < 0) continue;
       const key = trimmed.slice(0, eq).trim();
-      const val = trimmed.slice(eq + 1).trim().replace(/^["']|["']$/g, "");
+      const val = trimmed
+        .slice(eq + 1)
+        .trim()
+        .replace(/^["']|["']$/g, "");
       if (!(key in process.env)) process.env[key] = val;
     }
-  } catch { /* operator exports envs themselves */ }
+  } catch {
+    /* operator exports envs themselves */
+  }
 }
 loadEnvLocal();
 
@@ -72,6 +77,22 @@ const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const CACHE_TICKER = process.env.CACHE_TICKER ?? "XAU/USD";
 const CACHE_INTERVAL = process.env.CACHE_INTERVAL ?? "4h";
+
+// Egress guard (E2.34, 2026-10-19): live price_cache rows are capped at the
+// operational depth (MAX_BARS_PER_ROW in src/lib/market-data/price-cache.ts)
+// — every scan tick reads a row in full, and a deep row is what caused the
+// 2026-10-13 Supabase egress lockout. The next live write trims whatever
+// this script prepends anyway. Deep history belongs in the pinned files
+// (scripts/canonical/fetch-pinned-history.ts). Refuse unless explicitly
+// overridden for a one-off research row.
+if (process.env.ALLOW_DEEP_ROW !== "1") {
+  console.error(
+    "extend-price-cache: REFUSED — live price_cache rows are capped at the operational depth " +
+      "(MAX_BARS_PER_ROW); use scripts/canonical/fetch-pinned-history.ts for deep history. " +
+      "Set ALLOW_DEEP_ROW=1 to override for a one-off research row (trimmed on the next live write)."
+  );
+  process.exit(2);
+}
 const OANDA_INSTRUMENT = process.env.OANDA_INSTRUMENT ?? "XAU_USD";
 const OANDA_GRANULARITY = process.env.OANDA_GRANULARITY ?? "H4";
 const TARGET_FROM_DATE = process.env.TARGET_FROM_DATE ?? "2016-01-01";
@@ -154,7 +175,9 @@ function isMonotonicAscending(bars: PriceBar[]): boolean {
   return findMonotonicViolation(bars) === null;
 }
 
-function findMonotonicViolation(bars: PriceBar[]): { idx: number; prev: PriceBar; cur: PriceBar } | null {
+function findMonotonicViolation(
+  bars: PriceBar[]
+): { idx: number; prev: PriceBar; cur: PriceBar } | null {
   for (let i = 1; i < bars.length; i++) {
     if (parseBarDateMs(bars[i].date) <= parseBarDateMs(bars[i - 1].date)) {
       return { idx: i, prev: bars[i - 1], cur: bars[i] };
@@ -201,7 +224,9 @@ async function main(): Promise<void> {
     existingBars.length > 0 ? parseBarDateMs(existingBars[0].date) : Number.POSITIVE_INFINITY;
   if (earliestExistingMs <= targetFromMs) {
     console.log("");
-    console.log(`Cache already covers target start date (earliest=${existingBars[0]?.date} ≤ ${TARGET_FROM_DATE}).`);
+    console.log(
+      `Cache already covers target start date (earliest=${existingBars[0]?.date} ≤ ${TARGET_FROM_DATE}).`
+    );
     console.log(`No extension needed.`);
     return;
   }
@@ -289,7 +314,9 @@ async function main(): Promise<void> {
     deduped.push(b);
   }
   if (duplicatesDropped > 0) {
-    console.log(`  normalised ${duplicatesDropped} duplicate rows (mixed-format date strings collapsed)`);
+    console.log(
+      `  normalised ${duplicatesDropped} duplicate rows (mixed-format date strings collapsed)`
+    );
   }
   // Re-sort to ensure ascending order (existing bars start where fetched ends)
   deduped.sort((a, b) => parseBarDateMs(a.date) - parseBarDateMs(b.date));
@@ -331,13 +358,15 @@ async function main(): Promise<void> {
       bar_count: deduped.length,
       fetched_at: new Date().toISOString(),
     },
-    { onConflict: "ticker,output_size,interval" },
+    { onConflict: "ticker,output_size,interval" }
   );
   if (writeErr) fail(`Supabase upsert failed: ${writeErr.message}`);
 
   console.log("");
   console.log(`✓ Wrote ${deduped.length} bars to price_cache (${CACHE_TICKER} ${CACHE_INTERVAL})`);
-  const spanYears = (parseBarDateMs(deduped[deduped.length - 1].date) - parseBarDateMs(deduped[0].date)) / (365 * 86_400_000);
+  const spanYears =
+    (parseBarDateMs(deduped[deduped.length - 1].date) - parseBarDateMs(deduped[0].date)) /
+    (365 * 86_400_000);
   console.log(`  span: ${spanYears.toFixed(2)} years`);
   // H.0 gates per ROADMAP: 4h ≥10yr; 1h ≥6yr; other intervals informational.
   if (CACHE_INTERVAL === "4h") {

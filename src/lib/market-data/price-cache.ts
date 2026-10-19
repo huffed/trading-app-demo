@@ -160,14 +160,57 @@ function normalizeBars(bars: PriceBar[]): PriceBar[] {
 const DAILY_TTL_HOURS = 24 * 7;
 const INTRADAY_TTL_HOURS = 1;
 
-/** Hard cap on bars kept per (ticker, output_size, interval) row. Live
- *  fetches are 5000 bars; OANDA backfills run to ~28K on 30m / multi-year.
- *  100K is generous headroom (~50yr of 4h, ~6yr of 30m, ~2yr of 15m) and
- *  keeps the JSONB row under ~10MB. On overflow, oldest bars are dropped
- *  — recent history is what live trading and recent-window backtests
- *  actually read; multi-year backtests can re-run the OANDA backfill if
- *  they need older bars. */
-const MAX_BARS_PER_ROW = 100_000;
+/** OPERATIONAL depth cap per (ticker, output_size, interval) row.
+ *
+ *  Egress guard (E2.34, 2026-10-19). The live table is read in full by
+ *  every scan/manage tick, so row size × tick rate IS the Supabase egress
+ *  bill. The 2026-09-05 fix trimmed rows to 2,000 bars by hand but left
+ *  this cap at 100K, so the next OANDA `full` refresh (5,000 bars) merged
+ *  straight back to ~5,200 bars (XAU/USD 4h 636KB + 1day 596KB on the
+ *  wire) and the project hit the free-tier egress lockout on 2026-10-13
+ *  (6 days dark). 2,000 bars is the depth the live path actually reads
+ *  (≤200-bar ATR percentile, pattern lookbacks, D1 SMA20) with ~10×
+ *  headroom, and the depth the September trim verified live. Oldest bars
+ *  drop on overflow. Verdict-grade depth lives in the pinned files
+ *  (`scripts/canonical/data/`), never here. */
+export const MAX_BARS_PER_ROW = 2_000;
+
+/** In-process copy of the last row read or written per cache key.
+ *
+ *  Second half of the egress guard: five sibling algos on one ticker each
+ *  called getCachedPrices → five full-row reads per scan tick, and
+ *  savePricesToCache re-read the row again before every upsert. The
+ *  server (one `pnpm start` node process) keeps the raw row here; reads
+ *  apply the same fetched_at TTL cutoff they would against the DB, writes
+ *  go through (merge + cap → memory, then DB). Cross-process writers
+ *  (research scripts) are not seen until READ_CACHE_TTL_MS elapses —
+ *  acceptable: the live refresh path re-fetches from the provider when the
+ *  TAIL is stale regardless of where the row came from. */
+const READ_CACHE_TTL_MS = 10 * 60_000;
+
+interface RowCopy {
+  bars: PriceBar[];
+  /** The row's `fetched_at` (epoch ms) — what getCachedPrices' TTL checks. */
+  fetchedAtMs: number;
+  /** When this process last read or wrote the row. */
+  copiedAtMs: number;
+}
+const rowCopies = new Map<string, RowCopy>();
+
+function copyKey(ticker: string, outputSize: string, interval: BarInterval): string {
+  return `${ticker.toUpperCase()}|${outputSize}|${interval}`;
+}
+
+function freshCopy(key: string): RowCopy | null {
+  const copy = rowCopies.get(key);
+  if (!copy) return null;
+  return Date.now() - copy.copiedAtMs < READ_CACHE_TTL_MS ? copy : null;
+}
+
+/** Test hook — the module-level copy would otherwise leak across tests. */
+export function _resetPriceCacheRowCopiesForTests(): void {
+  rowCopies.clear();
+}
 
 export async function getCachedPrices(
   ticker: string,
@@ -179,22 +222,39 @@ export async function getCachedPrices(
   // on every tick). The "read-for-authenticated" RLS policy is kept as
   // defense-in-depth for any future call site that opts back into the
   // user-scoped server client.
-  const supabase = createAdminClient();
   const ttlHours = interval === "1day" ? DAILY_TTL_HOURS : INTRADAY_TTL_HOURS;
-  const cutoff = new Date(Date.now() - ttlHours * 60 * 60 * 1000).toISOString();
+  const cutoffMs = Date.now() - ttlHours * 60 * 60 * 1000;
 
+  const key = copyKey(ticker, outputSize, interval);
+  const copy = freshCopy(key);
+  if (copy) {
+    // Same TTL rule the DB query applies (`fetched_at >= cutoff`): an
+    // expired row is null here too, never a stale hit.
+    return copy.fetchedAtMs >= cutoffMs ? normalizeBars(copy.bars) : null;
+  }
+
+  const supabase = createAdminClient();
+  // No fetched_at filter on the wire: the row copy must hold the raw row
+  // so savePricesToCache can merge against an "expired" one without a
+  // second read. The TTL is applied locally, exactly as before.
   const { data } = await supabase
     .from("price_cache")
-    .select("bars")
+    .select("bars, fetched_at")
     .eq("ticker", ticker.toUpperCase())
     .eq("output_size", outputSize)
     .eq("interval", interval)
-    .gte("fetched_at", cutoff)
     .limit(1)
-    .single();
+    .maybeSingle();
 
-  const row = data as { bars: PriceBar[] } | null;
+  const row = data as { bars: PriceBar[]; fetched_at: string | null } | null;
   if (!row) return null;
+  const fetchedAtMs = row.fetched_at ? Date.parse(row.fetched_at) : 0;
+  rowCopies.set(key, {
+    bars: row.bars,
+    fetchedAtMs: Number.isFinite(fetchedAtMs) ? fetchedAtMs : 0,
+    copiedAtMs: Date.now(),
+  });
+  if (fetchedAtMs < cutoffMs) return null;
   // DQ.1: normalise on read so legacy rows (stored in mixed formats
   // before the 2026-06-19 EVE fix) appear canonical to consumers.
   return normalizeBars(row.bars);
@@ -230,21 +290,27 @@ export async function savePricesToCache(
   // admin client directly.
   const supabase = createAdminClient();
   const tickerUpper = ticker.toUpperCase();
+  const key = copyKey(tickerUpper, outputSize, interval);
 
-  // Read the existing JSONB so we can merge against it. Skip the
-  // fetched_at filter — even an "expired" row's bars are valid data we
-  // want to retain. The TTL is for getCachedPrices' staleness check,
-  // not for write-side correctness.
-  const { data: existing } = await supabase
-    .from("price_cache")
-    .select("bars")
-    .eq("ticker", tickerUpper)
-    .eq("output_size", outputSize)
-    .eq("interval", interval)
-    .maybeSingle();
-
-  const existingRow = existing as { bars: PriceBar[] } | null;
-  const existingBars = existingRow?.bars ?? [];
+  // Merge base: the in-process row copy when this process read or wrote
+  // the row recently (the hot path — getFreshPricesForScan read it moments
+  // ago), else one DB read. Either way an "expired" row's bars are kept:
+  // the TTL is getCachedPrices' staleness check, not write-side truth.
+  let existingBars: PriceBar[];
+  const copy = freshCopy(key);
+  if (copy) {
+    existingBars = copy.bars;
+  } else {
+    const { data: existing } = await supabase
+      .from("price_cache")
+      .select("bars")
+      .eq("ticker", tickerUpper)
+      .eq("output_size", outputSize)
+      .eq("interval", interval)
+      .maybeSingle();
+    const existingRow = existing as { bars: PriceBar[] } | null;
+    existingBars = existingRow?.bars ?? [];
+  }
 
   // Dedupe by date string. Map insertion order is preserved, so we seed
   // with the existing bars (oldest → newest) and overlay the new ones —
@@ -298,19 +364,21 @@ export async function savePricesToCache(
     byDate.set(b.date, b);
   }
 
-  const merged = Array.from(byDate.values()).sort((a, b) =>
-    a.date.localeCompare(b.date)
-  );
+  const merged = Array.from(byDate.values()).sort((a, b) => a.date.localeCompare(b.date));
 
   // Cap. JSONB row stays bounded even on degenerate fetches (e.g. a
   // bug that calls saveToCache with a per-bar interval). Drop oldest
   // since callers + harness both read recent-tail-first.
   const capped =
-    merged.length > MAX_BARS_PER_ROW
-      ? merged.slice(merged.length - MAX_BARS_PER_ROW)
-      : merged;
+    merged.length > MAX_BARS_PER_ROW ? merged.slice(merged.length - MAX_BARS_PER_ROW) : merged;
 
-  await supabase.from("price_cache").upsert(
+  // Write-through BEFORE the upsert round-trip: callers fire this off the
+  // hot path without awaiting, and the sibling algos in the same scan tick
+  // read next — they must see the refreshed tail, not the stale copy.
+  const fetchedAt = new Date();
+  rowCopies.set(key, { bars: capped, fetchedAtMs: fetchedAt.getTime(), copiedAtMs: Date.now() });
+
+  const { error } = await supabase.from("price_cache").upsert(
     {
       ticker: tickerUpper,
       output_size: outputSize,
@@ -320,8 +388,15 @@ export async function savePricesToCache(
       // is centralised at row-mappers.ts. CB.H3.b 2026-06-20.
       bars: toJson(capped),
       bar_count: capped.length,
-      fetched_at: new Date().toISOString(),
+      fetched_at: fetchedAt.toISOString(),
     },
     { onConflict: "ticker,output_size,interval" }
   );
+  if (error) {
+    // The in-process copy keeps the provider's bars (valid data) — the DB
+    // row simply stays one refresh behind until the next successful write.
+    console.warn(
+      `[price-cache] upsert ${tickerUpper} ${interval} failed (row copy kept in-process): ${error.message}`
+    );
+  }
 }
