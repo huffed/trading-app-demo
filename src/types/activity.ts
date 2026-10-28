@@ -31,6 +31,7 @@ export const ACTIVITY_EVENT_TYPES = [
   "wfo_rules_updated",
   "regime_route_switched",
   "dll_warning",
+  "drift_warn",
 ] as const;
 export type ActivityEventType = (typeof ACTIVITY_EVENT_TYPES)[number];
 

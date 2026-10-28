@@ -131,4 +131,5 @@ export const ACTIVITY_TYPE_LABELS: Record<string, string> = {
   dll_warning: "Daily Loss Warning",
   broker_realized_synced: "Broker Realized P&L Synced",
   live_order_close_failed: "Live Order Close Failed",
+  drift_warn: "Drift Warning",
 };

@@ -64,6 +64,7 @@ const EVENT_ICONS: Record<ActivityEventType, React.ReactNode> = {
   dll_warning: <AlertTriangle className="h-3.5 w-3.5 text-yellow-500" />,
   broker_realized_synced: <GitCompareArrows className="h-3.5 w-3.5 text-muted-foreground" />,
   live_order_close_failed: <AlertCircle className="h-3.5 w-3.5 text-destructive" />,
+  drift_warn: <TrendingDown className="h-3.5 w-3.5 text-yellow-500" />,
 };
 
 export function AlgoActivityPanel({ algorithmId }: { algorithmId: string }) {

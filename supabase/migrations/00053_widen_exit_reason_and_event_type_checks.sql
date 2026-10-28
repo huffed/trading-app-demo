@@ -11,8 +11,9 @@
 -- would fail every tick (and, because the stagnant check short-circuits the
 -- SL/TP check, the position could never close), and a daily-loss or
 -- portfolio halt flatten would fail silently while a close event was logged.
--- Likewise activity_log rejects three event types the code emits
--- ('dll_warning', 'broker_realized_synced', 'live_order_close_failed'),
+-- Likewise activity_log rejects four event types the code emits
+-- ('dll_warning', 'broker_realized_synced', 'live_order_close_failed',
+-- 'drift_warn' — src/lib/scan/engine.ts drift detector),
 -- so those audit rows were being dropped.
 --
 -- Legacy value 'stagnant_no_excursion' is retained so historical rows and
@@ -74,5 +75,6 @@ alter table public.activity_log
     'alpha_decay_tick',
     'wfo_rules_updated',
     'regime_route_switched',
-    'dll_warning'
+    'dll_warning',
+    'drift_warn'
   ));
