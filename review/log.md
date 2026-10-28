@@ -38,3 +38,4 @@ Convention: UTC timestamps; `ran` = executed, `read` = inspected only. Branch: `
 - web: Haiku 4.5 reliable cutoff Feb 2025 / training data Jul 2025 (platform.claude.com docs); FTMO XAUUSD swap not found on official pages.
 - ran `pnpm dlx tsx review/scripts/window-stats.ts` → rolling 110-day trade-count/mean-R distributions for the locked-window pre-registration.
 - Wrote `review/01-audit.md`.
+- Wrote `review/locked-window.md` (pre-registration: 2026-07-10 → 2026-10-28; consistency = trade count in [7, 46] AND mean R > 0; window touched once by the Phase 1 parity replay, mechanics only).
