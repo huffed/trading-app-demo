@@ -1,0 +1,21 @@
+# review/log.md — commands run and what they showed
+
+Convention: UTC timestamps; `ran` = executed, `read` = inspected only. Branch: `review/skeptical-audit-2026-10` (off `dev`).
+
+## Phase 0 — Discovery (read-only)
+
+- 2026-10-28 — `git checkout -b review/skeptical-audit-2026-10` off `dev` (clean working tree). Created `review/`.
+- 2026-10-28 — `git log --oneline --since=2026-10-19` → see 00-project-map.md §3 for the list.
+- 2026-10-28 — Supabase read-only SQL (via the project's MCP connection; no credentials read by the reviewer): active algorithms + rules JSON; algorithms status counts (variant-count proxy); paper_positions totals; llm_decisions range; activity_log event-type census. Results summarised in 00-project-map.md §2/§6.
+- 2026-10-28 — `grep -rn time_filter src` + read `src/lib/algorithm/time-of-day-filter.ts`, `src/lib/scan/per-hour-stats.ts`, `src/lib/scan/entry-deterministic-gates.ts` (step markers). Showed: `time_filter` is a LIVE-ONLY, data-driven per-hour win-rate filter learned from the algo's own closed `paper_positions` (min 5 samples/hour, blocks hours with WR < 45%); no backtest counterpart found by grep (only `entry-deterministic-gates.ts:211`). All 5 active algos have it enabled.
+- 2026-10-28 — `head -12 docs/*.md` → the three `docs/` files are April-2026 proposals (status "planning"/"proposal"), pre-dating the current roadmap; treated as historical.
+- 2026-10-28 — `ls scripts/canonical/data` → 18 pinned OHLC files (XAU/EUR/GBP/JPY × D/H4/H1/M30, dated 2026-07-09/17/29) + `ticks/` + `ticks-manifest.json` (2026-09-03). Each pinned JSON embeds a manifest (`source: oanda-practice`, `price: "M"` = mid, `from: 2015-01-01`, `sha256`, `fetched_at`).
+- 2026-10-28 — WebSearch ×3 (FTMO rules; blog results conflicting) → WebFetch of ftmo.com/en/trading-objectives/ and the FAQ pages for news, weekend holding, consistency, instruments/strategies. Results in 00-project-map.md §4.
+- 2026-10-28 — Delegated four read-only Explore agents (code map; strategy spec + LLM contract; change history + spring report + variant count; roadmap/gates/logging/firm docs). Each returned file:line-cited reports; load-bearing claims re-verified first-hand below.
+- 2026-10-28 — SQL: `pg_get_constraintdef` for `paper_positions_exit_reason_check` + `activity_log_event_type_check` → exit CHECK allows {stop_loss,take_profit,exit_signal,manual,stagnant_no_excursion,broker_rejected}; code writes `stagnant_exit` (engine-position-mgmt.ts:92-94), `daily_loss_halt`, `portfolio_halt` (flatten.ts) → latent CHECK violations. VPS `journalctl -u quanttrader | grep -c "close update failed"` → 0 since 2026-08-27 (not yet triggered).
+- 2026-10-28 — SQL: 14 M1 trades with open/close timestamps, R, fill-past-level; per-hour WR (time_filter exposure: no hour informative yet, hour 21 at 4 samples/0 wins); per-algo WR.
+- 2026-10-28 — Read: pair-quality.ts:24-27 (minTrades 8, wrThreshold 0.3), engine.ts:218-246 (always-on post-close eval); e2.22-layer-b-pinned.ts:549,585 (`sharpe_r` = mean(R)/std(R)); pinned-eval.ts:258-290,355 (calendar-day path × 7/5); entry-llm-trader.ts:118-135 (LLM exit honoured); engine.ts/manage.ts/twelve-data.ts (live quotes = Twelve Data /price); markets.ts:410-425 (gross P&L); condition-evaluator.ts:125-145 + evaluate.ts:245-260 (higherTfCloseStamped dropped); pinned-eval.ts:15-24, prop-firm-backtest.ts:430-460, portfolio-backtest.ts:1015-1035 ($10k pool, 0.01-lot floor, 0 → skip); validate-algo.ts:805-818 (default set excludes Deploy:); llm-trader-providers.ts:54-71 (no temperature); .github/workflows (no CI on PR).
+- 2026-10-28 — `git log --first-parent dev --since=2026-06-19` → 108 non-PR commits vs 5 PR merges. `git log -- scripts/canonical/preregistration.json` → edits 07-20 (53df836) and 07-21 (3b3423c) after registered_at 2026-07-20T00:00.
+- 2026-10-28 — `grep -rin "iran|\bwar\b"` over ROADMAP/CLAUDE/docs/README/memory → no reference to a US/Iran war or 2026-02-28.
+- 2026-10-28 — Derived: sd(R) = mean_r/sharpe_r per algo = 1.36–1.60R → SE at n=30 ≈ 0.25–0.29R vs band half-width 0.0765R → P(in band | true mean = baseline) ≈ 21–24%.
+- 2026-10-28 — Wrote `review/00-project-map.md`. Committed on the review branch. CHECK-IN: waiting for operator reply before Phase 1.
