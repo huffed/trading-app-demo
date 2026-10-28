@@ -39,3 +39,11 @@ Convention: UTC timestamps; `ran` = executed, `read` = inspected only. Branch: `
 - ran `pnpm dlx tsx review/scripts/window-stats.ts` → rolling 110-day trade-count/mean-R distributions for the locked-window pre-registration.
 - Wrote `review/01-audit.md`.
 - Wrote `review/locked-window.md` (pre-registration: 2026-07-10 → 2026-10-28; consistency = trade count in [7, 46] AND mean R > 0; window touched once by the Phase 1 parity replay, mechanics only).
+
+## Phase 2 — Statistical validation (2026-10-28)
+
+- ran `pnpm dlx tsx review/scripts/window-stats.ts` → 569 rolling 110-day windows: trade count p5/p50/p95 = 7/22/46; mean R positive in 66%.
+- ran `pnpm dlx tsx review/scripts/phase2-stats.ts` → folds (10/12 years positive; 2018 −0.17, 2019 −0.03; 2025 = 39% of P&L), block-bootstrap CIs (mean R [0.180, 0.507], PF [1.29, 1.90], max DD [16%, 53%] on a fixed-$100K cumulative path), power (166 trades for 80% power; band power 25% at n=30; 2,334 trades for the band), deflated Sharpe grid (DSR 0.87–0.995 at σ_SR=0.044; 0.25–0.91 at 0.06; ≈0 at 0.10; observed cross-algo σ_SR 0.069), independence (ρ1=0.52, top-5% months 51% of P&L, max 25 consecutive losses), demo-vs-backtest noise test (P=19%).
+- launched `pnpm dlx tsx review/scripts/phase2-propfirm.ts` in the background (3 capitals × 6 risks; results → `review/results/phase2-propfirm.{json,log}`).
+- `review/scripts/phase2.sh` = one-command reproduction of every number in 02-validation.md.
+- fix branch: `9f72caf` adds `drift_warn` (4th rejected event type, found by the Phase 4 reviewer); tests 800/800 (scan), build + lint clean; pushed to PR #291.
