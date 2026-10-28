@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { asFixture } from "@/test-utils/fixture";
 import {
   aggregateMonthlyR,
   alignMonthlySeries,
@@ -153,26 +154,26 @@ describe("composePortfolio (E2.11 with realistic DD gate)", () => {
 
 describe("perTradeRFromTrades", () => {
   it("converts pnl to R via risk-dollars", () => {
-    const trades = [
+    const trades = asFixture<Parameters<typeof perTradeRFromTrades>[0]>([
       { pnl: 100, exit_date: "2024-01-01" },
       { pnl: -50, exit_date: "2024-02-01" },
-    ] as Parameters<typeof perTradeRFromTrades>[0];
+    ]);
     const result = perTradeRFromTrades(trades, 50);
     expect(result.r).toEqual([2, -1]);
     expect(result.exit_dates).toEqual(["2024-01-01", "2024-02-01"]);
   });
   it("returns empty on zero risk", () => {
-    const trades = [{ pnl: 100, exit_date: "2024-01-01" }] as Parameters<typeof perTradeRFromTrades>[0];
+    const trades = asFixture<Parameters<typeof perTradeRFromTrades>[0]>([{ pnl: 100, exit_date: "2024-01-01" }]);
     expect(perTradeRFromTrades(trades, 0)).toEqual({ r: [], exit_dates: [] });
   });
 });
 
 describe("perTradePnlDollarsFromTrades (E2.11)", () => {
   it("extracts pnl + exit_date in dollar units", () => {
-    const trades = [
+    const trades = asFixture<Parameters<typeof perTradePnlDollarsFromTrades>[0]>([
       { pnl: 100, exit_date: "2024-01-01" },
       { pnl: -50, exit_date: "2024-02-01" },
-    ] as Parameters<typeof perTradePnlDollarsFromTrades>[0];
+    ]);
     const result = perTradePnlDollarsFromTrades(trades);
     expect(result.pnl).toEqual([100, -50]);
     expect(result.exit_dates).toEqual(["2024-01-01", "2024-02-01"]);

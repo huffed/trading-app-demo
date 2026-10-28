@@ -51,7 +51,7 @@ import {
   type SiblingTradeWindow,
   type SpreadGateConfig,
 } from "./portfolio-backtest";
-import type { PriceBar } from "./types";
+import type { BacktestExitReason, PriceBar } from "./types";
 
 function bar(date: string, o: number, h: number, l: number, c: number): PriceBar {
   return { date, open: o, high: h, low: l, close: c, volume: 0 };
@@ -136,7 +136,7 @@ describe("SG.14 — FTMO termination dominance over other gates", () => {
     });
     // If termination fired, find the breach point and verify no later entries.
     const breachIdx = result.trades.findIndex(
-      (t) => t.exit_reason === "ftmo_termination" || t.exit_reason === "max_drawdown"
+      (t) => t.exit_reason === ("ftmo_termination" as BacktestExitReason) || t.exit_reason === ("max_drawdown" as BacktestExitReason)
     );
     if (breachIdx >= 0) {
       const breachDate = result.trades[breachIdx].entry_date;
@@ -161,7 +161,7 @@ describe("SG.14 — FTMO termination dominance over other gates", () => {
     });
     // Any termination event has the same dominance contract regardless of
     // the other gates' state.
-    const breached = result.trades.find((t) => t.exit_reason === "max_drawdown");
+    const breached = result.trades.find((t) => t.exit_reason === ("max_drawdown" as BacktestExitReason));
     if (breached) {
       const breachDate = breached.entry_date;
       expect(result.trades.every((t) => t.entry_date <= breachDate)).toBe(true);

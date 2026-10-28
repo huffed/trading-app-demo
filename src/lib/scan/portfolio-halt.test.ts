@@ -23,8 +23,9 @@
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getTodayAnchor } from "@/lib/utils/date";
+import { asFixture } from "@/test-utils/fixture";
 import type { Portfolio } from "@/types/portfolio";
-import { flattenAlgorithmPositions } from "./flatten";
+import { flattenAlgorithmPositions, type FlattenResult } from "./flatten";
 import { logActivity } from "./helpers";
 import {
   checkPortfolioHalt,
@@ -70,9 +71,9 @@ function makeSupabaseHaltMock(opts: {
   capturedAlgoUpdates: Array<{ payload: unknown; eq: [string, unknown] }>;
 } {
   const capturedSelects: string[] = [];
-  const capturedClosedFilters: typeof returned.capturedClosedFilters = {};
-  const capturedOpenFilters: typeof returned.capturedOpenFilters = {};
-  const capturedAlgoUpdates: typeof returned.capturedAlgoUpdates = [];
+  const capturedClosedFilters: ReturnType<typeof makeSupabaseHaltMock>["capturedClosedFilters"] = {};
+  const capturedOpenFilters: ReturnType<typeof makeSupabaseHaltMock>["capturedOpenFilters"] = {};
+  const capturedAlgoUpdates: ReturnType<typeof makeSupabaseHaltMock>["capturedAlgoUpdates"] = [];
 
   // Builder factory for the paper_positions queries — terminal-thenable
   // pattern. Dispatches captured-filter map by the select column.
@@ -452,10 +453,10 @@ describe("executePortfolioHalt — side effects per algo", () => {
   });
 
   it("logActivity per algo with portfolio_halt event + rounded payload (3dp pct, 2dp $)", async () => {
-    mockedFlatten.mockResolvedValue([
+    mockedFlatten.mockResolvedValue(asFixture<FlattenResult[]>([
       { id: "pos-1", ticker: "XAU/USD" },
       { id: "pos-2", ticker: "EUR/USD" },
-    ] as Array<{ id: string; ticker: string }>);
+    ]));
     const { supabase } = makeSupabaseHaltMock();
     await executePortfolioHalt(
       supabase,

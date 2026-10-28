@@ -7,6 +7,7 @@
  */
 import { describe, expect, it } from "vitest";
 import type { PriceBar } from "@/lib/market-data/types";
+import { asFixture } from "@/test-utils/fixture";
 import {
   computeAtr,
   summariseDailyBias,
@@ -149,13 +150,13 @@ describe("summarisePosition", () => {
   });
 
   it("long position → includes side + P&L + SL/TP + R-multiple", () => {
-    const pos = {
+    const pos = asFixture<LlmTraderContext["position"]>({
       side: "long" as const,
       entryPrice: 3000,
       stopPrice: 2980,
       targetPrice: 3060,
       initialStopPrice: 2980,
-    };
+    });
     const r = summarisePosition(pos, 3030);
     expect(r).toContain("LONG from 3000");
     expect(r).toContain("cur 3030");
@@ -166,26 +167,26 @@ describe("summarisePosition", () => {
   });
 
   it("short position → side='SHORT', P&L inverted", () => {
-    const pos = {
+    const pos = asFixture<LlmTraderContext["position"]>({
       side: "short" as const,
       entryPrice: 3000,
       stopPrice: 3020,
       targetPrice: 2940,
       initialStopPrice: 3020,
-    };
+    });
     const r = summarisePosition(pos, 2970);
     expect(r).toContain("SHORT from 3000");
     expect(r).toContain("P&L +1.00%"); // (3000-2970)/3000 = +1%
   });
 
   it("missing stopPrice → 'SL n/a'", () => {
-    const pos = {
+    const pos = asFixture<LlmTraderContext["position"]>({
       side: "long" as const,
       entryPrice: 3000,
       stopPrice: null,
       targetPrice: 3050,
       initialStopPrice: null,
-    };
+    });
     const r = summarisePosition(pos, 3030);
     expect(r).toContain("SL n/a");
   });

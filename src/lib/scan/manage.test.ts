@@ -50,6 +50,7 @@ import { getCachedPrices } from "@/lib/market-data/price-cache";
 import { fetchDailyPrices, getFreshPricesForScan } from "@/lib/market-data/prices";
 import { fetchBatchQuotes } from "@/lib/market-data/twelve-data";
 import type { PriceBar } from "@/lib/market-data/types";
+import { asFixture } from "@/test-utils/fixture";
 import type { PaperPosition } from "@/types/position";
 import { reconcileMissingBrokerPosition, syncBrokerUnrealizedPnl } from "./broker-position-sync";
 import { reconcileBrokerRealizedPnl, reconcileOrphanBrokerRealized } from "./broker-truth-sync";
@@ -213,7 +214,7 @@ beforeEach(() => {
   mockedSyncUnrealized.mockResolvedValue(undefined);
   mockedReconcileRealized.mockResolvedValue(undefined);
   mockedReconcileOrphan.mockResolvedValue(undefined);
-  mockedBackfillOutcomes.mockResolvedValue(undefined);
+  mockedBackfillOutcomes.mockResolvedValue(asFixture<Awaited<ReturnType<typeof backfillClosedTradeOutcomes>>>(undefined));
   mockedResolveBroker.mockResolvedValue(null);
   mockedManageExisting.mockResolvedValue({ closed: 0, updated: 1 });
 });
@@ -458,9 +459,9 @@ describe("manageActiveAlgorithms — tail best-effort tasks", () => {
     mockedReconcileOrphan.mockImplementation(async () => {
       callOrder.push("orphan");
     });
-    mockedBackfillOutcomes.mockImplementation(async () => {
+    mockedBackfillOutcomes.mockImplementation(asFixture<typeof backfillClosedTradeOutcomes>(async () => {
       callOrder.push("backfill");
-    });
+    }));
     const { supabase } = makeSupabaseMock({ positions: [makeJoinedRow()] });
     await manageActiveAlgorithms(supabase);
     expect(callOrder).toEqual(["orphan", "backfill"]);

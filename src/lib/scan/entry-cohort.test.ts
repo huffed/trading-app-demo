@@ -20,6 +20,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { PriceBar } from "@/lib/market-data/types";
 import type { SignalResult } from "@/lib/signals/evaluate-live";
 import { entryReasonSchema, type EntryCohort } from "@/lib/validators/position";
+import { asFixture } from "@/test-utils/fixture";
 import type { PatternCondition, TechnicalCondition } from "@/types/algorithm";
 import { buildEntryCohort, buildEntryReason } from "./entry-cohort";
 import { snapshotCondition } from "./entry-conviction";
@@ -61,10 +62,10 @@ describe("buildEntryCohort — base attribution", () => {
 
   it("caller-provided cohort fields merge in + are NOT overwritten by computation", () => {
     // Caller may pre-populate regime / market_state — those should pass through.
-    const cohort = buildEntryCohort(undefined, 100, {
+    const cohort = buildEntryCohort(undefined, 100, asFixture<Partial<EntryCohort>>({
       regime: "trend",
       market_state: { vol: "expansion", range: "discount", mtf: "trend", dxy: "n/a" },
-    } as Partial<EntryCohort>);
+    }));
     expect(cohort.regime).toBe("trend");
     expect(cohort.market_state).toMatchObject({ vol: "expansion" });
   });
@@ -171,7 +172,7 @@ describe("buildEntryReason — Zod-validated entry_reason composition", () => {
   });
 
   it("sentiment present → signal_result populated with signal/confidence/reasoning", () => {
-    const sentiment: SignalResult = { signal: "buy", confidence: 80, reasoning: "bullish news" };
+    const sentiment: SignalResult = asFixture<SignalResult>({ signal: "buy", confidence: 80, reasoning: "bullish news" });
     const cohort: Partial<EntryCohort> = { entry_hour_utc: 12 };
     const reason = buildEntryReason([], sentiment, cohort);
     expect(reason.signal_result).toEqual({ signal: "buy", confidence: 80, reasoning: "bullish news" });

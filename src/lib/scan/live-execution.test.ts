@@ -57,6 +57,7 @@ import { notionalToLots } from "@/lib/brokers/sizing";
 import type { BrokerAdapter, BrokerConnection } from "@/lib/brokers/types";
 import { notionalInUsd } from "@/lib/constants/markets";
 import { logger } from "@/lib/logger";
+import { asFixture } from "@/test-utils/fixture";
 import {
   checkDivergenceKill,
   haltAlgorithmForDivergence,
@@ -309,7 +310,7 @@ describe("resolveBrokerContext — gates + adapter routing", () => {
 
   it("conn status='disabled' → null (operator-paused broker)", async () => {
     const supabase = makeBrokerConnSelectMock({
-      data: makeConn({ status: "disabled" }),
+      data: makeConn(asFixture<Partial<BrokerConnection>>({ status: "disabled" })),
     });
     const r = await resolveBrokerContext(supabase, "user-1", "conn-1", true);
     expect(r).toBeNull();

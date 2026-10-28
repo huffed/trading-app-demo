@@ -60,6 +60,7 @@ import { getCachedPrices } from "@/lib/market-data/price-cache";
 import { fetchDailyPrices } from "@/lib/market-data/prices";
 import { fetchBatchQuotes } from "@/lib/market-data/twelve-data";
 import type { PriceBar } from "@/lib/market-data/types";
+import { asFixture } from "@/test-utils/fixture";
 import type { AlgorithmRules } from "@/types/algorithm";
 import { maybeHaltOnDailyLoss, maybeWarnOnDailyLoss } from "./daily-halt";
 import { detectDrift, executeDriftHalt } from "./drift-detector";
@@ -449,11 +450,11 @@ describe("scanAlgorithm — post-close analytics gating", () => {
       result.tickers_scanned++;
       result.positions_closed++;
     });
-    mockedEvalPrune.mockResolvedValue([
+    mockedEvalPrune.mockResolvedValue(asFixture<Awaited<ReturnType<typeof evaluateAndPrune>>>([
       { ticker: "XAU/USD", pruned: true, reason: "low_winrate", stats: { wr: 0.1 } },
       { ticker: "EUR/USD", pruned: true, reason: "already_paused", stats: {} }, // skipped
       { ticker: "GBP/USD", pruned: false, reason: "ok", stats: { wr: 0.6 } }, // not pruned
-    ] as Array<{ ticker: string; pruned: boolean; reason: string; stats: Record<string, unknown> }>);
+    ]));
     await scanAlgorithm(supabase, "user-1", makeAlgo());
     const autoPauseLogs = mockedLogActivity.mock.calls.filter(
       (c) => (c[2] as { event_type: string }).event_type === "pair_auto_paused"

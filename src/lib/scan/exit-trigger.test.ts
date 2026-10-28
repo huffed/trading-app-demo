@@ -44,6 +44,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { checkConditions, normalize } from "@/lib/conditions/evaluate";
 import { resampleToDaily } from "@/lib/market-data/resample";
 import type { PriceBar } from "@/lib/market-data/types";
+import { asFixture } from "@/test-utils/fixture";
 import type { AlgorithmRules } from "@/types/algorithm";
 import type { PaperPosition } from "@/types/position";
 import { checkExitTrigger } from "./exit-trigger";
@@ -111,7 +112,7 @@ function makeBar(date: string, opts: Partial<PriceBar> = {}): PriceBar {
 beforeEach(() => {
   vi.clearAllMocks();
   mockedCheckConditions.mockReturnValue(false);
-  mockedNormalize.mockImplementation((c) => (c as unknown[]) ?? []);
+  mockedNormalize.mockImplementation((c) => (c as ReturnType<typeof normalize>) ?? []);
   mockedResampleToDaily.mockReturnValue([]);
 });
 
@@ -263,9 +264,9 @@ describe("checkExitTrigger — exit-condition path", () => {
   it("Empty after type-filter (only sentiment conditions) → exit_signal not evaluated", () => {
     // normalize returns the raw list; type-filter excludes sentiment.
     // Use a sentiment-only fixture.
-    mockedNormalize.mockReturnValue([
+    mockedNormalize.mockReturnValue(asFixture<ReturnType<typeof normalize>>([
       { type: "sentiment", topics: ["gold"] } as unknown,
-    ] as unknown[]);
+    ]));
     mockedCheckConditions.mockReturnValue(true); // would trigger if called
     const position = makePosition({ stop_loss_price: null, take_profit_price: null });
     const r = checkExitTrigger(
@@ -285,7 +286,7 @@ describe("checkExitTrigger — exit-condition path", () => {
   });
 
   it("checkConditions returns true → 'exit_signal' returned", () => {
-    mockedNormalize.mockReturnValue([{ type: "technical" } as unknown] as unknown[]);
+    mockedNormalize.mockReturnValue(asFixture<ReturnType<typeof normalize>>([{ type: "technical" } as unknown]));
     mockedCheckConditions.mockReturnValue(true);
     const position = makePosition({ stop_loss_price: null, take_profit_price: null });
     const r = checkExitTrigger(
@@ -302,7 +303,7 @@ describe("checkExitTrigger — exit-condition path", () => {
   });
 
   it("checkConditions returns false → null returned", () => {
-    mockedNormalize.mockReturnValue([{ type: "technical" } as unknown] as unknown[]);
+    mockedNormalize.mockReturnValue(asFixture<ReturnType<typeof normalize>>([{ type: "technical" } as unknown]));
     mockedCheckConditions.mockReturnValue(false);
     const position = makePosition({ stop_loss_price: null, take_profit_price: null });
     const r = checkExitTrigger(
@@ -320,7 +321,7 @@ describe("checkExitTrigger — exit-condition path", () => {
 
   it("exit_logic OVERRIDE used when present (preferred over entry_logic)", () => {
     let capturedLogic: unknown = null;
-    mockedNormalize.mockReturnValue([{ type: "technical" } as unknown] as unknown[]);
+    mockedNormalize.mockReturnValue(asFixture<ReturnType<typeof normalize>>([{ type: "technical" } as unknown]));
     mockedCheckConditions.mockImplementation((_conds, _ctx, logic) => {
       capturedLogic = logic;
       return true;
@@ -343,7 +344,7 @@ describe("checkExitTrigger — exit-condition path", () => {
 
   it("Falls back to entry_logic when exit_logic absent", () => {
     let capturedLogic: unknown = null;
-    mockedNormalize.mockReturnValue([{ type: "technical" } as unknown] as unknown[]);
+    mockedNormalize.mockReturnValue(asFixture<ReturnType<typeof normalize>>([{ type: "technical" } as unknown]));
     mockedCheckConditions.mockImplementation((_conds, _ctx, logic) => {
       capturedLogic = logic;
       return true;
@@ -366,7 +367,7 @@ describe("checkExitTrigger — exit-condition path", () => {
 
   it("dailyBars provided → passed as higherTfBars; resampleToDaily NOT called", () => {
     let capturedHigherTf: unknown = null;
-    mockedNormalize.mockReturnValue([{ type: "technical" } as unknown] as unknown[]);
+    mockedNormalize.mockReturnValue(asFixture<ReturnType<typeof normalize>>([{ type: "technical" } as unknown]));
     mockedCheckConditions.mockImplementation((_conds, ctx) => {
       capturedHigherTf = (ctx as { higherTfBars: unknown }).higherTfBars;
       return false;
@@ -388,7 +389,7 @@ describe("checkExitTrigger — exit-condition path", () => {
   });
 
   it("dailyBars = null → resampleToDaily called as fallback", () => {
-    mockedNormalize.mockReturnValue([{ type: "technical" } as unknown] as unknown[]);
+    mockedNormalize.mockReturnValue(asFixture<ReturnType<typeof normalize>>([{ type: "technical" } as unknown]));
     mockedCheckConditions.mockReturnValue(false);
     const intradayBars = [makeBar("2026-06-22T08:00:00Z")];
     const position = makePosition({ stop_loss_price: null, take_profit_price: null });
@@ -423,7 +424,7 @@ describe("checkExitTrigger — null return when nothing triggers", () => {
 
   it("ctx.i = closes.length - 1 (current bar index passed to evaluator)", () => {
     let capturedI: unknown = null;
-    mockedNormalize.mockReturnValue([{ type: "technical" } as unknown] as unknown[]);
+    mockedNormalize.mockReturnValue(asFixture<ReturnType<typeof normalize>>([{ type: "technical" } as unknown]));
     mockedCheckConditions.mockImplementation((_conds, ctx) => {
       capturedI = (ctx as { i: number }).i;
       return false;

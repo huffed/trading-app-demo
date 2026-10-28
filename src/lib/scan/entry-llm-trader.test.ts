@@ -20,9 +20,10 @@
  * Plus: hadPosition derivation, decisionId threading, dailyBars→buildLlmTraderCtx.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { checkBarStaleness } from "@/lib/algorithm/bar-staleness-gate";
-import { checkAtrLiquidity } from "@/lib/algorithm/intraday-atr-gate";
+import { checkBarStaleness, type BarStalenessGateResult } from "@/lib/algorithm/bar-staleness-gate";
+import { checkAtrLiquidity, type AtrLiquidityResult } from "@/lib/algorithm/intraday-atr-gate";
 import type { PriceBar } from "@/lib/market-data/types";
+import { asFixture } from "@/test-utils/fixture";
 import type { AlgorithmRules } from "@/types/algorithm";
 import type { PaperPosition } from "@/types/position";
 import { computeLiveMarketState } from "./entry-gates";
@@ -134,16 +135,16 @@ function makePosition(): PaperPosition {
 beforeEach(() => {
   vi.clearAllMocks();
   mockedIsBarClose.mockReturnValue(true);
-  mockedStaleness.mockReturnValue({ block: false, last_bar_date: "" });
-  mockedAtrLiquidity.mockReturnValue({ skip: false, atr_current: 1.5, atr_threshold: 1.0, status: "ok" });
+  mockedStaleness.mockReturnValue(asFixture<BarStalenessGateResult>({ block: false, last_bar_date: "" }));
+  mockedAtrLiquidity.mockReturnValue({ skip: false, atr_current: 1.5, atr_threshold: 1.0, status: "ok" as AtrLiquidityResult["status"] });
   mockedDefensiveGates.mockResolvedValue({ blocked: false });
   mockedMarketState.mockResolvedValue(null);
   mockedMsGate.mockResolvedValue({ blocked: false });
   mockedBuildCtx.mockResolvedValue({ currentTimestamp: "2026-06-22T12:00:00Z" } as Awaited<ReturnType<typeof buildLlmTraderCtx>>);
-  mockedEvalLlm.mockResolvedValue({
+  mockedEvalLlm.mockResolvedValue(asFixture<Awaited<ReturnType<typeof evaluateLlmTrader>>>({
     decision: { decision: "hold", confidence: 70, reasoning: "wait" },
     regime: "trend",
-  } as Awaited<ReturnType<typeof evaluateLlmTrader>>);
+  }));
   mockedRecord.mockResolvedValue("decision-id-1");
   mockedEnter.mockResolvedValue({ opened: 1, openEvent: { ticker: "XAU/USD", reason: "llm_enter_long", pnl: 0, price: 3055 } });
   mockedExit.mockResolvedValue({ opened: 0 });
@@ -190,13 +191,13 @@ describe("evaluateLlmTraderEntry — bar-timing gates", () => {
   });
 
   it("bar-staleness block → signal_no_action logged + {opened:0}", async () => {
-    mockedStaleness.mockReturnValue({
+    mockedStaleness.mockReturnValue(asFixture<BarStalenessGateResult>({
       block: true,
       reason: "Bar stale 70min > 35min threshold",
       bar_age_minutes: 70,
       threshold_minutes: 35,
       last_bar_date: "2026-06-22T11:00:00Z",
-    });
+    }));
     const r = await evaluateLlmTraderEntry(makeCtx());
     expect(r).toEqual({ opened: 0 });
     expect(mockedLogActivity).toHaveBeenCalledWith(
@@ -256,10 +257,10 @@ describe("evaluateLlmTraderEntry — market-state gate", () => {
 
 describe("evaluateLlmTraderEntry — LLM call failure", () => {
   it("LLM returns null decision → signal_no_action + recordLlmDecision NOT called", async () => {
-    mockedEvalLlm.mockResolvedValue({
+    mockedEvalLlm.mockResolvedValue(asFixture<Awaited<ReturnType<typeof evaluateLlmTrader>>>({
       decision: null,
       regime: "trend",
-    } as Awaited<ReturnType<typeof evaluateLlmTrader>>);
+    }));
     const r = await evaluateLlmTraderEntry(makeCtx());
     expect(r).toEqual({ opened: 0 });
     expect(mockedRecord).not.toHaveBeenCalled();
@@ -283,10 +284,10 @@ describe("evaluateLlmTraderEntry — LLM call failure", () => {
 
 describe("evaluateLlmTraderEntry — decision dispatch", () => {
   it("decision 'hold' → logged with had_position context + {opened:0}", async () => {
-    mockedEvalLlm.mockResolvedValue({
+    mockedEvalLlm.mockResolvedValue(asFixture<Awaited<ReturnType<typeof evaluateLlmTrader>>>({
       decision: { decision: "hold", confidence: 65, reasoning: "wait for confirmation" },
       regime: "ranging",
-    } as Awaited<ReturnType<typeof evaluateLlmTrader>>);
+    }));
     const r = await evaluateLlmTraderEntry(makeCtx([makePosition()]));
     expect(r).toEqual({ opened: 0 });
     expect(mockedLogActivity).toHaveBeenCalledWith(
@@ -306,21 +307,21 @@ describe("evaluateLlmTraderEntry — decision dispatch", () => {
   });
 
   it("decision 'hold' when FLAT → had_position='flat', no position_id field", async () => {
-    mockedEvalLlm.mockResolvedValue({
+    mockedEvalLlm.mockResolvedValue(asFixture<Awaited<ReturnType<typeof evaluateLlmTrader>>>({
       decision: { decision: "hold", confidence: 70, reasoning: "" },
       regime: "trend",
-    } as Awaited<ReturnType<typeof evaluateLlmTrader>>);
+    }));
     await evaluateLlmTraderEntry(makeCtx([]));
     const logArgs = mockedLogActivity.mock.calls[0][2];
-    expect((logArgs as { details: { had_position: string } }).details.had_position).toBe("flat");
+    expect((logArgs as unknown as { details: { had_position: string } }).details.had_position).toBe("flat");
     expect("position_id" in logArgs).toBe(false);
   });
 
   it("decision 'move_be' → delegates to executeLlmMoveBe", async () => {
-    mockedEvalLlm.mockResolvedValue({
+    mockedEvalLlm.mockResolvedValue(asFixture<Awaited<ReturnType<typeof evaluateLlmTrader>>>({
       decision: { decision: "move_be", confidence: 75, reasoning: "" },
       regime: "trend",
-    } as Awaited<ReturnType<typeof evaluateLlmTrader>>);
+    }));
     await evaluateLlmTraderEntry(makeCtx([makePosition()]));
     expect(mockedMoveBe).toHaveBeenCalledTimes(1);
     expect(mockedEnter).not.toHaveBeenCalled();
@@ -328,10 +329,10 @@ describe("evaluateLlmTraderEntry — decision dispatch", () => {
   });
 
   it("decision 'exit' → delegates to executeLlmExit", async () => {
-    mockedEvalLlm.mockResolvedValue({
+    mockedEvalLlm.mockResolvedValue(asFixture<Awaited<ReturnType<typeof evaluateLlmTrader>>>({
       decision: { decision: "exit", confidence: 80, reasoning: "" },
       regime: "trend",
-    } as Awaited<ReturnType<typeof evaluateLlmTrader>>);
+    }));
     await evaluateLlmTraderEntry(makeCtx([makePosition()]));
     expect(mockedExit).toHaveBeenCalledTimes(1);
     expect(mockedEnter).not.toHaveBeenCalled();
@@ -339,10 +340,10 @@ describe("evaluateLlmTraderEntry — decision dispatch", () => {
   });
 
   it("decision 'enter_long' → delegates to executeLlmEnter + threads decisionId", async () => {
-    mockedEvalLlm.mockResolvedValue({
+    mockedEvalLlm.mockResolvedValue(asFixture<Awaited<ReturnType<typeof evaluateLlmTrader>>>({
       decision: { decision: "enter_long", confidence: 82, reasoning: "" },
       regime: "trend",
-    } as Awaited<ReturnType<typeof evaluateLlmTrader>>);
+    }));
     const r = await evaluateLlmTraderEntry(makeCtx([]));
     expect(mockedEnter).toHaveBeenCalledTimes(1);
     // decisionId threaded from recordLlmDecision return value
@@ -351,10 +352,10 @@ describe("evaluateLlmTraderEntry — decision dispatch", () => {
   });
 
   it("decision 'enter_short' → also delegates to executeLlmEnter", async () => {
-    mockedEvalLlm.mockResolvedValue({
+    mockedEvalLlm.mockResolvedValue(asFixture<Awaited<ReturnType<typeof evaluateLlmTrader>>>({
       decision: { decision: "enter_short", confidence: 78, reasoning: "" },
       regime: "trend",
-    } as Awaited<ReturnType<typeof evaluateLlmTrader>>);
+    }));
     await evaluateLlmTraderEntry(makeCtx([]));
     expect(mockedEnter).toHaveBeenCalledTimes(1);
   });

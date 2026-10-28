@@ -14,6 +14,7 @@ import {
   type WfoProposal,
 } from "./walk-forward-opt";
 import type { PriceBar } from "@/lib/market-data/types";
+import { asFixture } from "@/test-utils/fixture";
 import type { AlgorithmRules } from "@/types/algorithm";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -176,9 +177,9 @@ describe("computeWfoProposal", () => {
     const algo = {
       id: "a1", name: "LayerB: XAU/USD Engulfing-Long 4h | rr3_lb6_r06_rf0_af0",
       user_id: "u1", capital: 10000,
-      rules: makeRules({
+      rules: makeRules(asFixture<Partial<AlgorithmRules>>({
         entry_conditions: [{ type: "pattern", pattern: "engulfing", side: "long" }],
-      } as Partial<AlgorithmRules>),
+      })),
       watchlist_tickers: ["XAU/USD"],
     };
     const ctx = { barsByTicker: new Map([["XAU/USD", bars]]), now: NOW };
@@ -209,9 +210,9 @@ describe("computeWfoProposal", () => {
     const algo = {
       id: "a1", name: "Test",
       user_id: "u1", capital: 10000,
-      rules: makeRules({
+      rules: makeRules(asFixture<Partial<AlgorithmRules>>({
         entry_conditions: [{ type: "pattern", pattern: "engulfing", side: "long" }],
-      } as Partial<AlgorithmRules>),
+      })),
       watchlist_tickers: ["XAU/USD"],
     };
     const tightBuffer = { ...DEFAULT_WFO_CONFIG, dsr_improvement_buffer: 5.0 };
@@ -326,9 +327,9 @@ describe("evaluateAndApplyWfo", () => {
       algos: [{
         id: "a1", name: "LayerB: XAU/USD Engulfing-Long 4h | rr3_lb6_r06_rf0_af0",
         user_id: "u1", capital: 10000,
-        rules: makeRules({
+        rules: makeRules(asFixture<Partial<AlgorithmRules>>({
           entry_conditions: [{ type: "pattern", pattern: "engulfing", side: "long" }],
-        } as Partial<AlgorithmRules>),
+        })),
         algorithm_watchlist: [{ ticker: "XAU/USD" }],
       }],
       cachedBars: new Map([["XAU/USD", bars]]),
@@ -370,9 +371,9 @@ describe("evaluateAndApplyWfo", () => {
       algos: [{
         id: "a1", name: "LayerB: XAU/USD Engulfing-Long 4h | rr3_lb6_r06_rf0_af0",
         user_id: "u1", capital: 10000,
-        rules: makeRules({
+        rules: makeRules(asFixture<Partial<AlgorithmRules>>({
           entry_conditions: [{ type: "pattern", pattern: "engulfing", side: "long" }],
-        } as Partial<AlgorithmRules>),
+        })),
         algorithm_watchlist: [{ ticker: "XAU/USD" }],
       }],
       cachedBars: new Map([["XAU/USD", bars]]),
@@ -411,9 +412,9 @@ describe("evaluateAndApplyWfo", () => {
       algos: [{
         id: "a1", name: "LayerB: XAU/USD Engulfing-Long 4h | rr3_lb6_r06_rf0_af0",
         user_id: "u1", capital: 10000,
-        rules: makeRules({
+        rules: makeRules(asFixture<Partial<AlgorithmRules>>({
           entry_conditions: [{ type: "pattern", pattern: "engulfing", side: "long" }],
-        } as Partial<AlgorithmRules>),
+        })),
         algorithm_watchlist: [{ ticker: "XAU/USD" }],
       }],
       cachedBars: new Map([["XAU/USD", bars]]),

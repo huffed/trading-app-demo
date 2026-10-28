@@ -33,11 +33,13 @@ import {
   fetchEconomicCalendar,
   getEventCurrencies,
   isWithinVetoWindow,
+  type EconomicEvent,
 } from "@/lib/market-data/economic-calendar";
 import { computeMarketState4h } from "@/lib/market-data/market-state";
 import { getCachedPrices, savePricesToCache } from "@/lib/market-data/price-cache";
 import { fetchDailyPrices } from "@/lib/market-data/prices";
 import { resampleTo } from "@/lib/market-data/resample";
+import { asFixture } from "@/test-utils/fixture";
 import type { AlgorithmRules } from "@/types/algorithm";
 import {
   checkDirectionConflict,
@@ -258,11 +260,11 @@ describe("checkNewsVeto", () => {
 
   it("returns vetoed:true with formatted reason when isWithinVetoWindow returns hit", async () => {
     mockedGetEventCurrencies.mockReturnValue(["USD"]);
-    mockedIsWithinVetoWindow.mockReturnValue({
+    mockedIsWithinVetoWindow.mockReturnValue(asFixture<EconomicEvent>({
       currency: "USD",
       event: "FOMC Rate Decision",
       impact: "high",
-    });
+    }));
     const result = await checkNewsVeto(makeRulesWithVeto(), "XAU/USD");
     expect(result).toEqual({
       vetoed: true,

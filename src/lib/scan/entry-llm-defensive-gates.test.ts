@@ -11,8 +11,9 @@
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { checkAtrLiquidity } from "@/lib/algorithm/intraday-atr-gate";
-import { checkReEntryCooldown } from "@/lib/algorithm/re-entry-cooldown";
+import { checkReEntryCooldown, type ReEntryCooldownResult } from "@/lib/algorithm/re-entry-cooldown";
 import { parseBarDate } from "@/lib/market-data/parse-bar-date";
+import { asFixture } from "@/test-utils/fixture";
 import type { AlgorithmRules } from "@/types/algorithm";
 import type { PaperPosition } from "@/types/position";
 import { checkConsecutiveLossHalt } from "./consec-loss-halt";
@@ -56,9 +57,9 @@ const mockedLogActivity = vi.mocked(logActivity);
 // ---- Fixture builders. ------------------------------------------------
 
 function makeLiquidity(skip = false): ReturnType<typeof checkAtrLiquidity> {
-  return skip
+  return asFixture<ReturnType<typeof checkAtrLiquidity>>(skip
     ? { skip: true, reason: "ATR p20 floor", atr_current: 5, atr_threshold: 10 }
-    : { skip: false, reason: undefined, atr_current: 15, atr_threshold: 10 };
+    : { skip: false, reason: undefined, atr_current: 15, atr_threshold: 10 });
 }
 
 function makeRules(overrides: Partial<AlgorithmRules["prop_firm"]> = {}): AlgorithmRules {
@@ -122,7 +123,7 @@ beforeEach(() => {
     streak: 0,
     threshold: 3,
   });
-  mockedCheckReEntryCooldown.mockResolvedValue({ block: false });
+  mockedCheckReEntryCooldown.mockResolvedValue(asFixture<ReEntryCooldownResult>({ block: false }));
   mockedCheckConsistencyHalt.mockResolvedValue({
     tripped: false,
     today_net: 0,
@@ -213,11 +214,11 @@ describe("checkDefensiveLlmGates", () => {
       3
     );
     const logCall = mockedLogActivity.mock.calls[0];
-    expect(logCall[2].details.reason).toContain("Consecutive-loss halt: 3/3");
+    expect(logCall[2].details!.reason).toContain("Consecutive-loss halt: 3/3");
   });
 
   it("re-entry cooldown blocks when checkReEntryCooldown returns block", async () => {
-    mockedCheckReEntryCooldown.mockResolvedValue({
+    mockedCheckReEntryCooldown.mockResolvedValue(asFixture<ReEntryCooldownResult>({
       block: true,
       reason: "Cooldown active",
       cooldown_minutes: 240,
@@ -225,7 +226,7 @@ describe("checkDefensiveLlmGates", () => {
       last_close_id: "pos-9",
       last_exit_reason: "stop_loss_hit",
       last_realized_pnl: -50,
-    });
+    }));
     const result = await checkDefensiveLlmGates(makeCtx(), makeLiquidity(false));
     expect(result).toEqual({ blocked: true });
     expect(mockedCheckReEntryCooldown).toHaveBeenCalledWith({
@@ -284,31 +285,31 @@ describe("checkDefensiveLlmGates", () => {
     );
     expect(result).toEqual({ blocked: true });
     const logCall = mockedLogActivity.mock.calls[0];
-    expect(logCall[2].details.reason).toContain("Consistency halt");
+    expect(logCall[2].details!.reason).toContain("Consistency halt");
   });
 
   it("ATR liquidity gate falls back to default reason when liquidity.reason is undefined", async () => {
-    const liquidityUndefinedReason: ReturnType<typeof checkAtrLiquidity> = {
+    const liquidityUndefinedReason: ReturnType<typeof checkAtrLiquidity> = asFixture<ReturnType<typeof checkAtrLiquidity>>({
       skip: true,
       reason: undefined,
       atr_current: 5,
       atr_threshold: 10,
-    };
+    });
     const result = await checkDefensiveLlmGates(makeCtx(), liquidityUndefinedReason);
     expect(result).toEqual({ blocked: true });
     const logCall = mockedLogActivity.mock.calls[0];
-    expect(logCall[2].details.reason).toBe("ATR liquidity gate triggered");
+    expect(logCall[2].details!.reason).toBe("ATR liquidity gate triggered");
   });
 
   it("re-entry cooldown falls back to default reason when cooldown.reason is undefined", async () => {
-    mockedCheckReEntryCooldown.mockResolvedValue({
+    mockedCheckReEntryCooldown.mockResolvedValue(asFixture<ReEntryCooldownResult>({
       block: true,
       // intentionally no `reason` field — exercises the `?? "Re-entry cooldown triggered"` fallback
-    });
+    }));
     const result = await checkDefensiveLlmGates(makeCtx(), makeLiquidity(false));
     expect(result).toEqual({ blocked: true });
     const logCall = mockedLogActivity.mock.calls[0];
-    expect(logCall[2].details.reason).toBe("Re-entry cooldown triggered");
+    expect(logCall[2].details!.reason).toBe("Re-entry cooldown triggered");
   });
 
   it("news-veto template tolerates undefined reason (defensive against mock-leakage / API drift)", async () => {
@@ -320,7 +321,7 @@ describe("checkDefensiveLlmGates", () => {
     // string interpolation produces "undefined" literal. Documenting the
     // current behaviour; a future fix might add a ?? fallback like other
     // gates do.
-    expect(logCall[2].details.reason).toBe("News veto: undefined");
+    expect(logCall[2].details!.reason).toBe("News veto: undefined");
   });
 
   it("consistency halt SKIPPED when consistencyPct config is 0 (even with brokerCtx)", async () => {
@@ -351,7 +352,7 @@ describe("checkDefensiveLlmGates", () => {
     // Only the dead-hour log should fire; ATR log shouldn't.
     expect(mockedLogActivity).toHaveBeenCalledOnce();
     const logCall = mockedLogActivity.mock.calls[0];
-    expect(logCall[2].details.reason).toContain("Dead-hour gate");
+    expect(logCall[2].details!.reason).toContain("Dead-hour gate");
   });
 
   it("ATR gate fires BEFORE news veto (order check)", async () => {
@@ -359,7 +360,7 @@ describe("checkDefensiveLlmGates", () => {
     await checkDefensiveLlmGates(makeCtx(), makeLiquidity(true));
     expect(mockedLogActivity).toHaveBeenCalledOnce();
     const logCall = mockedLogActivity.mock.calls[0];
-    expect(logCall[2].details.reason).toBe("ATR p20 floor");
+    expect(logCall[2].details!.reason).toBe("ATR p20 floor");
     // News-veto check should never run after ATR blocks.
     expect(mockedCheckNewsVeto).not.toHaveBeenCalled();
   });

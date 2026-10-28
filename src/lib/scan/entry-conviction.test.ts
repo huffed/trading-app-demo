@@ -124,7 +124,7 @@ describe("snapshotCondition — type-discriminated serializer", () => {
   it("pattern condition with optional ma_period unset → ma_period undefined", () => {
     const c: PatternCondition = {
       type: "pattern",
-      pattern: "sweep_reclaim",
+      pattern: "sweep_reclaim" as PatternCondition["pattern"],
       direction: "bearish",
       lookback: 10,
       timeframe: "1h",
@@ -376,7 +376,7 @@ describe("checkEntryConditions — gate-fail paths log signal_no_action", () => 
     );
     expect(result.pass).toBe(false);
     expect(mockedLogActivity).toHaveBeenCalledOnce();
-    expect(mockedLogActivity.mock.calls[0][2].details.entry_logic).toBe("any");
+    expect(mockedLogActivity.mock.calls[0][2].details!.entry_logic).toBe("any");
   });
 
   it("n_of_m logic + met<n → pass:false + log fires with 'n_of_m(N)' label", async () => {
@@ -398,7 +398,7 @@ describe("checkEntryConditions — gate-fail paths log signal_no_action", () => 
     );
     expect(result.pass).toBe(false);
     const logCall = mockedLogActivity.mock.calls[0];
-    expect(logCall[2].details.entry_logic).toBe("n_of_m(2)");
+    expect(logCall[2].details!.entry_logic).toBe("n_of_m(2)");
   });
 
   it("log breakdown includes snapshotCondition fields + timeframe + met per condition", async () => {
@@ -419,7 +419,7 @@ describe("checkEntryConditions — gate-fail paths log signal_no_action", () => 
       "all"
     );
     const logCall = mockedLogActivity.mock.calls[0];
-    const breakdown = logCall[2].details.conditions_breakdown;
+    const breakdown = logCall[2].details!.conditions_breakdown;
     expect(breakdown).toEqual([
       {
         type: "technical",

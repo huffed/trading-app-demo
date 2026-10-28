@@ -27,6 +27,7 @@ import {
   takeProfitRuleForSide,
 } from "@/lib/algorithm/structural-sl";
 import { getContractSize, pnlInUsd } from "@/lib/constants/markets";
+import { asFixture } from "@/test-utils/fixture";
 import type { AlgorithmRules } from "@/types/algorithm";
 import type { PaperPosition } from "@/types/position";
 import { snapshotCondition } from "./entry-conviction";
@@ -195,7 +196,7 @@ beforeEach(() => {
   mockedTakeProfitRuleForSide.mockImplementation((rules) => rules.take_profit);
   mockedGetContractSize.mockReturnValue(100);
   mockedPnlInUsd.mockReturnValue(-150); // proposed-risk fallback
-  mockedSnapshotCondition.mockImplementation((c) => c);
+  mockedSnapshotCondition.mockImplementation((c) => asFixture<ReturnType<typeof snapshotCondition>>(c));
   mockedCalculatePositionSize.mockReturnValue({
     quantity: 0.1,
     notionalValue: 300,

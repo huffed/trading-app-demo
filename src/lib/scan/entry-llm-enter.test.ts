@@ -23,6 +23,7 @@ import type { AtrLiquidityResult } from "@/lib/algorithm/intraday-atr-gate";
 import { dailyAtrFromBars } from "@/lib/algorithm/structural-sl";
 import type { MarketState } from "@/lib/market-data/market-state";
 import type { PriceBar } from "@/lib/market-data/types";
+import { asFixture } from "@/test-utils/fixture";
 import type { AlgorithmRules } from "@/types/algorithm";
 import { executeLlmEnter } from "./entry-llm-enter";
 import { checkLlmEnterGates } from "./entry-llm-enter-gates";
@@ -117,7 +118,7 @@ const liquidity: AtrLiquidityResult = {
   skip: false,
   atr_current: 1.5,
   atr_threshold: 1.0,
-  status: "ok",
+  status: "ok" as AtrLiquidityResult["status"],
 };
 
 beforeEach(() => {
@@ -153,7 +154,7 @@ describe("executeLlmEnter — enter-gate-blocked short-circuit", () => {
 
 describe("executeLlmEnter — happy path log + openPosition", () => {
   it("signal_detected emitted with LLM context (regime, direction, confidence, reasoning, atr, market_state)", async () => {
-    const ms = { mtf: "trend", vol: "expansion", range: "discount", dxy: "n/a" } as MarketState;
+    const ms = asFixture<MarketState>({ mtf: "trend", vol: "expansion", range: "discount", dxy: "n/a" });
     await executeLlmEnter(makeCtx(), decisionLong, evaluation, null, ms, liquidity, null);
     expect(mockedLogActivity).toHaveBeenCalledTimes(1);
     expect(mockedLogActivity.mock.calls[0][2]).toMatchObject({
@@ -196,7 +197,7 @@ describe("executeLlmEnter — happy path log + openPosition", () => {
     await executeLlmEnter(makeCtx(), decisionLong, evaluation, null, null, liquidity, null);
     expect(mockedDailyAtr).not.toHaveBeenCalled();
     const openArgs = mockedOpenPosition.mock.calls[0][0];
-    expect(openArgs.adaptiveTpCtx.dailyAtr).toBe(0);
+    expect(openArgs.adaptiveTpCtx!.dailyAtr).toBe(0);
   });
 });
 
@@ -206,7 +207,7 @@ describe("executeLlmEnter — happy path log + openPosition", () => {
 
 describe("executeLlmEnter — cohort attribution", () => {
   it("regime present + marketState present → cohort populated with both", async () => {
-    const ms = { mtf: "trend", vol: "expansion", range: "discount", dxy: "n/a" } as MarketState;
+    const ms = asFixture<MarketState>({ mtf: "trend", vol: "expansion", range: "discount", dxy: "n/a" });
     await executeLlmEnter(makeCtx(), decisionLong, evaluation, null, ms, liquidity, null);
     const openArgs = mockedOpenPosition.mock.calls[0][0];
     expect(openArgs.cohortFromCaller).toEqual({ regime: "trend", market_state: ms });
@@ -216,13 +217,13 @@ describe("executeLlmEnter — cohort attribution", () => {
     const evalNa: LlmTraderEvaluation = { regime: "n/a" } as unknown as LlmTraderEvaluation;
     await executeLlmEnter(makeCtx(), decisionLong, evalNa, null, null, liquidity, null);
     const openArgs = mockedOpenPosition.mock.calls[0][0];
-    expect(openArgs.cohortFromCaller.regime).toBeUndefined();
+    expect(openArgs.cohortFromCaller!.regime).toBeUndefined();
   });
 
   it("marketState null → cohort.market_state field OMITTED (not set to null)", async () => {
     await executeLlmEnter(makeCtx(), decisionLong, evaluation, null, null, liquidity, null);
     const openArgs = mockedOpenPosition.mock.calls[0][0];
-    expect("market_state" in openArgs.cohortFromCaller).toBe(false);
+    expect("market_state" in openArgs.cohortFromCaller!).toBe(false);
   });
 });
 

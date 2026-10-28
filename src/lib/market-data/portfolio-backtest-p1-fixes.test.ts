@@ -27,7 +27,7 @@ import {
   type TickerState,
 } from "./portfolio-backtest";
 import { closeSimPosition, type SimState } from "./prop-firm-backtest";
-import type { BacktestTrade, PriceBar } from "./types";
+import type { BacktestExitReason, BacktestTrade, PriceBar } from "./types";
 
 function bar(date: string, o: number, h: number, l: number, c: number): PriceBar {
   return { date, open: o, high: h, low: l, close: c, volume: 0 };
@@ -271,7 +271,7 @@ describe("B.1.19 — R-aware consec-loss divide-by-zero on notionalValue = 0", (
       s,
       trades,
       "XAU/USD",
-      "stop_loss"
+      "stop_loss" as BacktestExitReason
     );
     return { s, trade: trades[0] };
   }

@@ -158,7 +158,7 @@ describe("executeLlmMoveBe — defensive sub-paths", () => {
     );
     expect(result).toEqual({ opened: 0 });
     expect(fromMock).not.toHaveBeenCalled();
-    expect(mockedLogActivity.mock.calls[0][2].details.reason).toContain(
+    expect(mockedLogActivity.mock.calls[0][2].details!.reason).toContain(
       "no stop_loss_price set"
     );
     // position_id IS included for this branch (vs no-position branch which omits it)
@@ -182,7 +182,7 @@ describe("executeLlmMoveBe — defensive sub-paths", () => {
     );
     expect(result).toEqual({ opened: 0 });
     expect(fromMock).not.toHaveBeenCalled();
-    expect(mockedLogActivity.mock.calls[0][2].details.reason).toContain(
+    expect(mockedLogActivity.mock.calls[0][2].details!.reason).toContain(
       "zero initial SL distance"
     );
   });
@@ -199,7 +199,7 @@ describe("executeLlmMoveBe — defensive sub-paths", () => {
     );
     expect(result).toEqual({ opened: 0 });
     expect(fromMock).not.toHaveBeenCalled();
-    expect(mockedLogActivity.mock.calls[0][2].details.reason).toContain(
+    expect(mockedLogActivity.mock.calls[0][2].details!.reason).toContain(
       "only +0.50R favorable"
     );
   });
@@ -215,7 +215,7 @@ describe("executeLlmMoveBe — defensive sub-paths", () => {
     });
     await executeLlmMoveBe(makeCtx({ supabase }), pos, 2995, SAMPLE_DECISION, SAMPLE_EVALUATION);
     expect(fromMock).not.toHaveBeenCalled();
-    expect(mockedLogActivity.mock.calls[0][2].details.reason).toContain(
+    expect(mockedLogActivity.mock.calls[0][2].details!.reason).toContain(
       "only +0.50R favorable"
     );
   });
@@ -253,7 +253,7 @@ describe("executeLlmMoveBe — success paths", () => {
     await executeLlmMoveBe(makeCtx({ supabase }), pos, 2980, SAMPLE_DECISION, SAMPLE_EVALUATION);
     expect(updateMock).toHaveBeenCalledWith({ stop_loss_price: 3000 });
     const lastLog = mockedLogActivity.mock.calls[mockedLogActivity.mock.calls.length - 1];
-    expect(lastLog[2].details.current_pnl_r).toBe(2);
+    expect(lastLog[2].details!.current_pnl_r).toBe(2);
   });
 
   it("uses initial_stop_loss_price for slDistance when both fields differ (second BE move)", async () => {
@@ -270,7 +270,7 @@ describe("executeLlmMoveBe — success paths", () => {
     expect(updateMock).toHaveBeenCalledWith({ stop_loss_price: 3000 });
     // old_stop_loss reports the CURRENT stop_loss_price (3000), not initial
     const lastLog = mockedLogActivity.mock.calls[mockedLogActivity.mock.calls.length - 1];
-    expect(lastLog[2].details.old_stop_loss).toBe(3000);
+    expect(lastLog[2].details!.old_stop_loss).toBe(3000);
   });
 
   it("falls back to stop_loss_price for slDistance when initial_stop_loss_price is null (pre-migration legacy row)", async () => {
