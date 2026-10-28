@@ -1,0 +1,74 @@
+{
+ "per_algo": {
+  "ARB rr3_lb3": {
+   "n": 161,
+   "slOrTp": 160,
+   "same4hBar": 0,
+   "h1Ambiguous": 0,
+   "disagree": 0,
+   "noGeom": 0,
+   "engineTp": 54,
+   "h1Tp": 54
+  },
+  "Engulfing rr3_lb6": {
+   "n": 120,
+   "slOrTp": 119,
+   "same4hBar": 0,
+   "h1Ambiguous": 0,
+   "disagree": 0,
+   "noGeom": 0,
+   "engineTp": 46,
+   "h1Tp": 46
+  },
+  "ARB rr25_lb3": {
+   "n": 169,
+   "slOrTp": 168,
+   "same4hBar": 0,
+   "h1Ambiguous": 0,
+   "disagree": 0,
+   "noGeom": 0,
+   "engineTp": 58,
+   "h1Tp": 58
+  },
+  "OutsideBar v2 rr3_lb3": {
+   "n": 213,
+   "slOrTp": 213,
+   "same4hBar": 0,
+   "h1Ambiguous": 0,
+   "disagree": 0,
+   "noGeom": 0,
+   "engineTp": 68,
+   "h1Tp": 68
+  },
+  "Engulfing25 rr25_lb4": {
+   "n": 205,
+   "slOrTp": 204,
+   "same4hBar": 0,
+   "h1Ambiguous": 0,
+   "disagree": 0,
+   "noGeom": 0,
+   "engineTp": 85,
+   "h1Tp": 85
+  }
+ },
+ "totals": {
+  "n": 868,
+  "slOrTp": 864,
+  "same4hBar": 0,
+  "h1Ambiguous": 0,
+  "disagree": 0,
+  "noGeom": 0
+ },
+ "mean_r": {
+  "engine": 0.33049838540434134,
+  "h1_pessimistic": 0.3570601851851852,
+  "h1_optimistic": 0.3570601851851852
+ },
+ "meta": {
+  "capital": 100000,
+  "risk": 0.42,
+  "h1_bars": 70035,
+  "h1_last": "2026-10-28T16:00:00.000Z",
+  "generated_at": "2026-10-28T17:59:57.002Z"
+ }
+}

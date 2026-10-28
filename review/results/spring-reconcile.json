@@ -1,0 +1,128 @@
+[
+ {
+  "n": 24,
+  "wins": 13,
+  "wr_pct": 54.166666666666664,
+  "pf": 2.9152323684126253,
+  "mean_r": 0.8778148355224563,
+  "sum_pnl": 15800.667039404158,
+  "full_tp_winners": 10,
+  "max_dd_usd": 2250.000000000009,
+  "risk_usd_per_trade": 749.9999999999986,
+  "max_dd_pct_of_100k": 2.250000000000009,
+  "max_dd_pct_if_1pct_risk": 3.0000000000000173,
+  "first_entry": "2025-09-22 12:00:00",
+  "last_exit": "2026-04-30 00:00:00",
+  "exit_reasons": {
+   "llm_exit": 3,
+   "stop_loss": 11,
+   "take_profit": 10
+  },
+  "file": "llm-trader-wf-trades-anthropic-4h-6x40d-2026-05-01T15-47-20.jsonl"
+ },
+ {
+  "n": 11,
+  "wins": 2,
+  "wr_pct": 18.181818181818183,
+  "pf": 0.3663382406488369,
+  "mean_r": -0.4851184298246814,
+  "sum_pnl": -4002.2270460536197,
+  "full_tp_winners": 1,
+  "max_dd_usd": 4002.2270460536206,
+  "risk_usd_per_trade": 749.9999999999977,
+  "max_dd_pct_of_100k": 4.002227046053621,
+  "max_dd_pct_if_1pct_risk": 5.336302728071511,
+  "first_entry": "2025-02-28 04:00:00",
+  "last_exit": "2025-09-30 08:00:00",
+  "exit_reasons": {
+   "llm_exit": 2,
+   "stop_loss": 8,
+   "take_profit": 1
+  },
+  "file": "llm-trader-wf-trades-anthropic-4h-6x40d-v1-2026-05-02T01-16-27.jsonl"
+ },
+ {
+  "n": 25,
+  "wins": 16,
+  "wr_pct": 64.0,
+  "pf": 6.254208586525408,
+  "mean_r": 1.35618643220619,
+  "sum_pnl": 25428.49560386604,
+  "full_tp_winners": 13,
+  "max_dd_usd": 1486.5836141522268,
+  "risk_usd_per_trade": 749.9999999999999,
+  "max_dd_pct_of_100k": 1.4865836141522268,
+  "max_dd_pct_if_1pct_risk": 1.982111485536303,
+  "first_entry": "2025-10-07 08:00:00",
+  "last_exit": "2026-04-30 00:00:00",
+  "exit_reasons": {
+   "llm_exit": 6,
+   "stop_loss": 6,
+   "take_profit": 13
+  },
+  "file": "llm-trader-wf-trades-anthropic-4h-6x40d-v2-2026-05-01T18-05-41.jsonl"
+ },
+ {
+  "n": 22,
+  "wins": 11,
+  "wr_pct": 50.0,
+  "pf": 3.3260141470815707,
+  "mean_r": 0.9936244803860611,
+  "sum_pnl": 16394.803926369997,
+  "full_tp_winners": 10,
+  "max_dd_usd": 2250.0000000000073,
+  "risk_usd_per_trade": 749.9999999999984,
+  "max_dd_pct_of_100k": 2.250000000000007,
+  "max_dd_pct_if_1pct_risk": 3.000000000000016,
+  "first_entry": "2025-10-02 16:00:00",
+  "last_exit": "2026-04-20 08:00:00",
+  "exit_reasons": {
+   "llm_exit": 3,
+   "stop_loss": 9,
+   "take_profit": 10
+  },
+  "file": "llm-trader-wf-trades-anthropic-4h-6x40d-v2-2026-05-01T20-54-10.jsonl"
+ },
+ {
+  "n": 25,
+  "wins": 14,
+  "wr_pct": 56.0,
+  "pf": 3.6440127320363787,
+  "mean_r": 1.0449163371487178,
+  "sum_pnl": 19592.181321538395,
+  "full_tp_winners": 11,
+  "max_dd_usd": 1500.0000000000055,
+  "risk_usd_per_trade": 749.9999999999985,
+  "max_dd_pct_of_100k": 1.5000000000000056,
+  "max_dd_pct_if_1pct_risk": 2.000000000000011,
+  "first_entry": "2025-09-22 12:00:00",
+  "last_exit": "2026-04-30 00:00:00",
+  "exit_reasons": {
+   "llm_exit": 5,
+   "stop_loss": 9,
+   "take_profit": 11
+  },
+  "file": "llm-trader-wf-trades-anthropic-4h-6x40d-v2-2026-05-02T00-11-05.jsonl"
+ },
+ {
+  "n": 14,
+  "wins": 5,
+  "wr_pct": 35.714285714285715,
+  "pf": 1.146542269569251,
+  "mean_r": 0.08814909095992003,
+  "sum_pnl": 925.5654550791857,
+  "full_tp_winners": 2,
+  "max_dd_usd": 4002.227046053616,
+  "risk_usd_per_trade": 749.9999999999989,
+  "max_dd_pct_of_100k": 4.0022270460536165,
+  "max_dd_pct_if_1pct_risk": 5.336302728071496,
+  "first_entry": "2025-04-01 00:00:00",
+  "last_exit": "2025-10-10 20:00:00",
+  "exit_reasons": {
+   "llm_exit": 4,
+   "stop_loss": 8,
+   "take_profit": 2
+  },
+  "file": "llm-trader-wf-trades-anthropic-4h-6x40d-v2-2026-05-02T07-55-03.jsonl"
+ }
+]

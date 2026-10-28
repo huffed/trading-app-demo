@@ -1,0 +1,81 @@
+{
+ "bars": 17610,
+ "live_vs_current_diff": 662,
+ "live_vs_intended_diff": 294,
+ "current_vs_intended_diff": 368,
+ "sig": 4737,
+ "sig_live_vs_current_diff": 249,
+ "sig_live_bull_current_bear": 227,
+ "sig_live_bear_current_bull": 22,
+ "byHour": {
+  "1": {
+   "bars": 1947,
+   "diff": 0
+  },
+  "2": {
+   "bars": 991,
+   "diff": 0
+  },
+  "5": {
+   "bars": 1947,
+   "diff": 0
+  },
+  "6": {
+   "bars": 991,
+   "diff": 0
+  },
+  "9": {
+   "bars": 1947,
+   "diff": 0
+  },
+  "10": {
+   "bars": 992,
+   "diff": 0
+  },
+  "13": {
+   "bars": 1947,
+   "diff": 0
+  },
+  "14": {
+   "bars": 993,
+   "diff": 0
+  },
+  "17": {
+   "bars": 1922,
+   "diff": 205
+  },
+  "18": {
+   "bars": 974,
+   "diff": 89
+  },
+  "21": {
+   "bars": 1965,
+   "diff": 257
+  },
+  "22": {
+   "bars": 994,
+   "diff": 111
+  }
+ },
+ "mini_sim": {
+  "live_only": {
+   "n": 315,
+   "mean_r": 0.20947811447483045,
+   "wr": 32.38095238095238
+  },
+  "backtest_only": {
+   "n": 28,
+   "mean_r": 0.08928571428571283,
+   "wr": 28.571428571428573
+  }
+ },
+ "examples": [
+  "2015-04-14T21:00:00.000Z live=bearish current=bullish intended=bearish",
+  "2015-04-15T17:00:00.000Z live=bullish current=bearish intended=bearish",
+  "2015-04-15T21:00:00.000Z live=bullish current=bearish intended=bullish",
+  "2015-04-21T17:00:00.000Z live=bullish current=bearish intended=bearish",
+  "2015-04-21T21:00:00.000Z live=bullish current=bearish intended=bullish",
+  "2015-04-27T17:00:00.000Z live=bullish current=bearish intended=bearish"
+ ],
+ "generated_at": "2026-10-28T18:00:11.001Z"
+}

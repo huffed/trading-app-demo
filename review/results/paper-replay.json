@@ -1,0 +1,1229 @@
+{
+ "clock_start": "2026-07-20T00:00:00.000Z",
+ "live": [
+  {
+   "live_id": "76841666-a2a9-45fe-8058-5e4332fa14ce",
+   "algo": "OutsideBar v2 rr3_lb3",
+   "opened_at": "2026-08-10T15:00:50.210734+00:00",
+   "signal_bar": "2026-08-10T09:00:00.000Z",
+   "entry_delay_min": 121,
+   "live_entry": 4344.80361,
+   "bar_close": 4332.625,
+   "entry_equals_a_bar_close": false,
+   "exit_equals_a_bar_close": false,
+   "live_exit": 4458.31476,
+   "live_exit_reason": "take_profit",
+   "live_gross_r": 3.416740919565778,
+   "bt_match": "±1 bar (2026-08-10T13:00:00.000Z)",
+   "bt_entry": 4357.06284225,
+   "bt_exit": 4498.739056796802,
+   "bt_exit_reason": "take_profit_hit",
+   "bt_gross_r": 2.995244263065332,
+   "bt_nominal_r": 2.7547914245055125
+  },
+  {
+   "live_id": "3540caba-1886-469b-9bee-f4d1f7201119",
+   "algo": "Engulfing25 rr25_lb4",
+   "opened_at": "2026-08-13T13:00:10.551718+00:00",
+   "signal_bar": "2026-08-13T09:00:00.000Z",
+   "entry_delay_min": 0,
+   "live_entry": 4400.24641,
+   "bar_close": 4401.82,
+   "entry_equals_a_bar_close": false,
+   "exit_equals_a_bar_close": false,
+   "live_exit": 4359.38794,
+   "live_exit_reason": "stop_loss",
+   "live_gross_r": -1.0262062910041467,
+   "bt_match": "exact",
+   "bt_entry": 4402.040091,
+   "bt_exit": 4360.21332360789,
+   "bt_exit_reason": "stop_loss_hit",
+   "bt_gross_r": -1.0052398014632924,
+   "bt_nominal_r": -0.9581346604583054
+  },
+  {
+   "live_id": "d24de0ad-05e5-498b-880b-9289e6afea0c",
+   "algo": "Engulfing rr3_lb6",
+   "opened_at": "2026-08-13T13:01:01.362869+00:00",
+   "signal_bar": "2026-08-13T09:00:00.000Z",
+   "entry_delay_min": 1,
+   "live_entry": 4399.8592,
+   "bar_close": 4401.82,
+   "entry_equals_a_bar_close": false,
+   "exit_equals_a_bar_close": false,
+   "live_exit": 4358.6279,
+   "live_exit_reason": "stop_loss",
+   "live_gross_r": -1.045740382862816,
+   "bt_match": "exact",
+   "bt_entry": 4402.040091,
+   "bt_exit": 4360.21332360789,
+   "bt_exit_reason": "stop_loss_hit",
+   "bt_gross_r": -1.0052398014632924,
+   "bt_nominal_r": -1.0069082873416455
+  },
+  {
+   "live_id": "ca77061a-37fc-45d0-ab7a-2cd8395d8431",
+   "algo": "Engulfing25 rr25_lb4",
+   "opened_at": "2026-08-14T08:00:34.857131+00:00",
+   "signal_bar": "2026-08-14T01:00:00.000Z",
+   "entry_delay_min": 181,
+   "live_entry": 4344.04865,
+   "bar_close": 4327.015,
+   "entry_equals_a_bar_close": false,
+   "exit_equals_a_bar_close": false,
+   "live_exit": 4438.72342,
+   "live_exit_reason": "take_profit",
+   "live_gross_r": 2.5770383947942648,
+   "bt_match": "none",
+   "bt_entry": null,
+   "bt_exit": null,
+   "bt_exit_reason": null,
+   "bt_gross_r": null,
+   "bt_nominal_r": null
+  },
+  {
+   "live_id": "4edb44c5-b5fc-49af-a65f-9db08823a37e",
+   "algo": "Engulfing rr3_lb6",
+   "opened_at": "2026-08-18T13:00:14.520617+00:00",
+   "signal_bar": "2026-08-18T09:00:00.000Z",
+   "entry_delay_min": 0,
+   "live_entry": 4394.44542,
+   "bar_close": 4394.225,
+   "entry_equals_a_bar_close": false,
+   "exit_equals_a_bar_close": false,
+   "live_exit": 4373.30534,
+   "live_exit_reason": "stop_loss",
+   "live_gross_r": -1.0430537786052423,
+   "bt_match": "none",
+   "bt_entry": null,
+   "bt_exit": null,
+   "bt_exit_reason": null,
+   "bt_gross_r": null,
+   "bt_nominal_r": null
+  },
+  {
+   "live_id": "1b9334b8-e65a-4ae8-8957-c721437ca780",
+   "algo": "Engulfing rr3_lb6",
+   "opened_at": "2026-08-19T08:30:14.31185+00:00",
+   "signal_bar": "2026-08-19T01:00:00.000Z",
+   "entry_delay_min": 210,
+   "live_entry": 4359.76806,
+   "bar_close": 4348.555,
+   "entry_equals_a_bar_close": false,
+   "exit_equals_a_bar_close": false,
+   "live_exit": 4475.27411,
+   "live_exit_reason": "take_profit",
+   "live_gross_r": 3.0073773910789687,
+   "bt_match": "none",
+   "bt_entry": null,
+   "bt_exit": null,
+   "bt_exit_reason": null,
+   "bt_gross_r": null,
+   "bt_nominal_r": null
+  },
+  {
+   "live_id": "897c9ff3-0e6e-45a0-97e6-52d8d4a950ae",
+   "algo": "Engulfing25 rr25_lb4",
+   "opened_at": "2026-08-21T01:30:15.684556+00:00",
+   "signal_bar": "2026-08-20T21:00:00.000Z",
+   "entry_delay_min": 30,
+   "live_entry": 4530.01133,
+   "bar_close": 4510.765,
+   "entry_equals_a_bar_close": false,
+   "exit_equals_a_bar_close": false,
+   "live_exit": 4445.43232,
+   "live_exit_reason": "stop_loss",
+   "live_gross_r": -1.0320203270186565,
+   "bt_match": "none",
+   "bt_entry": null,
+   "bt_exit": null,
+   "bt_exit_reason": null,
+   "bt_gross_r": null,
+   "bt_nominal_r": null
+  },
+  {
+   "live_id": "28a0b50c-50f4-4828-9fa8-440ef42b90cd",
+   "algo": "OutsideBar v2 rr3_lb3",
+   "opened_at": "2026-08-21T05:00:04.946616+00:00",
+   "signal_bar": "2026-08-21T01:00:00.000Z",
+   "entry_delay_min": 0,
+   "live_entry": 4541.11984,
+   "bar_close": 4540.7,
+   "entry_equals_a_bar_close": false,
+   "exit_equals_a_bar_close": true,
+   "live_exit": 4454.99,
+   "live_exit_reason": "stop_loss",
+   "live_gross_r": -1.1401389325939746,
+   "bt_match": "exact",
+   "bt_entry": 4540.927035,
+   "bt_exit": 4465.353276456887,
+   "bt_exit_reason": "stop_loss_hit",
+   "bt_gross_r": -1.0029632037992073,
+   "bt_nominal_r": -0.8779449694951789
+  },
+  {
+   "live_id": "7ad50aa4-ceca-41aa-a8e2-01f616dec234",
+   "algo": "Engulfing rr3_lb6",
+   "opened_at": "2026-08-21T05:00:13.799295+00:00",
+   "signal_bar": "2026-08-21T01:00:00.000Z",
+   "entry_delay_min": 0,
+   "live_entry": 4540.91363,
+   "bar_close": 4540.7,
+   "entry_equals_a_bar_close": false,
+   "exit_equals_a_bar_close": false,
+   "live_exit": 4442.86476,
+   "live_exit_reason": "stop_loss",
+   "live_gross_r": -1.0437162506480135,
+   "bt_match": "none",
+   "bt_entry": null,
+   "bt_exit": null,
+   "bt_exit_reason": null,
+   "bt_gross_r": null,
+   "bt_nominal_r": null
+  },
+  {
+   "live_id": "49c70524-29ca-489b-a522-bf0e62ce1940",
+   "algo": "Engulfing25 rr25_lb4",
+   "opened_at": "2026-08-31T21:00:09.580626+00:00",
+   "signal_bar": "2026-08-31T17:00:00.000Z",
+   "entry_delay_min": 0,
+   "live_entry": 4448.39858,
+   "bar_close": 4449.24,
+   "entry_equals_a_bar_close": false,
+   "exit_equals_a_bar_close": false,
+   "live_exit": 4387.31189,
+   "live_exit_reason": "stop_loss",
+   "live_gross_r": -1.0909408268504692,
+   "bt_match": "exact",
+   "bt_entry": 4449.4624619999995,
+   "bt_exit": 4392.184456247936,
+   "bt_exit_reason": "stop_loss_hit",
+   "bt_gross_r": -1.0038490434265115,
+   "bt_nominal_r": -0.9336968416639149
+  },
+  {
+   "live_id": "f672968a-0137-4c6d-a228-a1c0fe45ab0c",
+   "algo": "Engulfing rr3_lb6",
+   "opened_at": "2026-08-31T21:00:20.397089+00:00",
+   "signal_bar": "2026-08-31T17:00:00.000Z",
+   "entry_delay_min": 0,
+   "live_entry": 4448.39858,
+   "bar_close": 4449.24,
+   "entry_equals_a_bar_close": false,
+   "exit_equals_a_bar_close": false,
+   "live_exit": 4387.31189,
+   "live_exit_reason": "stop_loss",
+   "live_gross_r": -1.0909408268504692,
+   "bt_match": "exact",
+   "bt_entry": 4449.4624619999995,
+   "bt_exit": 4392.184456247936,
+   "bt_exit_reason": "stop_loss_hit",
+   "bt_gross_r": -1.0038490434265115,
+   "bt_nominal_r": -0.9462744891873631
+  },
+  {
+   "live_id": "eba6941b-df2f-458b-be02-b13083361931",
+   "algo": "ARB rr25_lb3",
+   "opened_at": "2026-09-03T21:00:11.077896+00:00",
+   "signal_bar": "2026-09-03T17:00:00.000Z",
+   "entry_delay_min": 0,
+   "live_entry": 4473.2722,
+   "bar_close": 4472.965,
+   "entry_equals_a_bar_close": false,
+   "exit_equals_a_bar_close": false,
+   "live_exit": 4407.61636,
+   "live_exit_reason": "stop_loss",
+   "live_gross_r": -1.0982324620342248,
+   "bt_match": "none",
+   "bt_entry": null,
+   "bt_exit": null,
+   "bt_exit_reason": null,
+   "bt_gross_r": null,
+   "bt_nominal_r": null
+  },
+  {
+   "live_id": "ff8c3f35-287a-457f-9fac-1df9afd02333",
+   "algo": "ARB rr3_lb3",
+   "opened_at": "2026-09-03T21:00:15.550476+00:00",
+   "signal_bar": "2026-09-03T17:00:00.000Z",
+   "entry_delay_min": 0,
+   "live_entry": 4472.87203,
+   "bar_close": 4472.965,
+   "entry_equals_a_bar_close": false,
+   "exit_equals_a_bar_close": false,
+   "live_exit": 4398.69799,
+   "live_exit_reason": "stop_loss",
+   "live_gross_r": -1.249078270758006,
+   "bt_match": "none",
+   "bt_entry": null,
+   "bt_exit": null,
+   "bt_exit_reason": null,
+   "bt_gross_r": null,
+   "bt_nominal_r": null
+  },
+  {
+   "live_id": "d11a067c-7e4a-456b-8533-140e082e6205",
+   "algo": "OutsideBar v2 rr3_lb3",
+   "opened_at": "2026-09-04T09:00:10.809219+00:00",
+   "signal_bar": "2026-09-04T05:00:00.000Z",
+   "entry_delay_min": 0,
+   "live_entry": 4478.0798,
+   "bar_close": 4477.97,
+   "entry_equals_a_bar_close": false,
+   "exit_equals_a_bar_close": false,
+   "live_exit": 4407.22785,
+   "live_exit_reason": "stop_loss",
+   "live_gross_r": -3.2710326310878206,
+   "bt_match": "exact",
+   "bt_entry": 4478.193898500001,
+   "bt_exit": 4456.196556164486,
+   "bt_exit_reason": "stop_loss_hit",
+   "bt_gross_r": -1.0102331052473799,
+   "bt_nominal_r": -0.994452533823976
+  }
+ ],
+ "live_only": 7,
+ "matched": 7,
+ "backtest_window": [
+  {
+   "entry_date": "2026-08-13T09:00:00.000Z",
+   "exit_date": "2026-08-13",
+   "entry_price": 4402.040091,
+   "exit_price": 4360.21332360789,
+   "side": "long",
+   "pnl": -548.33,
+   "exit_reason": "stop_loss_hit",
+   "mae": 658.91,
+   "equity_at_entry": 129659.04000000002,
+   "ticker": "XAU/USD",
+   "algo": "Engulfing rr3_lb6",
+   "gross_r": -1.0052398014632924,
+   "nominal_r": -1.0069082873416455
+  },
+  {
+   "entry_date": "2026-08-13T09:00:00.000Z",
+   "exit_date": "2026-08-13",
+   "entry_price": 4402.040091,
+   "exit_price": 4360.21332360789,
+   "side": "long",
+   "pnl": -590.51,
+   "exit_reason": "stop_loss_hit",
+   "mae": 709.59,
+   "equity_at_entry": 146740.98000000007,
+   "ticker": "XAU/USD",
+   "algo": "Engulfing25 rr25_lb4",
+   "gross_r": -1.0052398014632924,
+   "nominal_r": -0.9581346604583054
+  },
+  {
+   "entry_date": "2026-08-10T13:00:00.000Z",
+   "exit_date": "2026-08-19",
+   "entry_price": 4357.06284225,
+   "exit_price": 4498.739056796802,
+   "side": "long",
+   "pnl": 1413.28,
+   "exit_reason": "take_profit_hit",
+   "mae": 460.23,
+   "equity_at_entry": 122149.0800000001,
+   "ticker": "XAU/USD",
+   "algo": "OutsideBar v2 rr3_lb3",
+   "gross_r": 2.995244263065332,
+   "nominal_r": 2.7547914245055125
+  },
+  {
+   "entry_date": "2026-08-16T21:00:00.000Z",
+   "exit_date": "2026-08-23",
+   "entry_price": 4401.300054,
+   "exit_price": 4635.493905053412,
+   "side": "long",
+   "pnl": 1403.05,
+   "exit_reason": "take_profit_hit",
+   "mae": 459.72,
+   "equity_at_entry": 146150.47000000006,
+   "ticker": "XAU/USD",
+   "algo": "Engulfing25 rr25_lb4",
+   "gross_r": 2.497528147014994,
+   "nominal_r": 2.285723226271689
+  },
+  {
+   "entry_date": "2026-08-16T21:00:00.000Z",
+   "exit_date": "2026-08-24",
+   "entry_price": 4401.300054,
+   "exit_price": 4682.376688264634,
+   "side": "long",
+   "pnl": 1403.62,
+   "exit_reason": "take_profit_hit",
+   "mae": 383.1,
+   "equity_at_entry": 129110.71000000002,
+   "ticker": "XAU/USD",
+   "algo": "Engulfing rr3_lb6",
+   "gross_r": 2.997503147014991,
+   "nominal_r": 2.5884393176618574
+  },
+  {
+   "entry_date": "2026-08-24T09:00:00.000Z",
+   "exit_date": "2026-08-26",
+   "entry_price": 4663.083142500001,
+   "exit_price": 4590.300367607327,
+   "side": "long",
+   "pnl": -585.25,
+   "exit_reason": "stop_loss_hit",
+   "mae": 640.15,
+   "equity_at_entry": 147553.52000000005,
+   "ticker": "XAU/USD",
+   "algo": "Engulfing25 rr25_lb4",
+   "gross_r": -1.0031635591758274,
+   "nominal_r": -0.9443708160621181
+  },
+  {
+   "entry_date": "2026-08-21T01:00:00.000Z",
+   "exit_date": "2026-08-28",
+   "entry_price": 4540.927035,
+   "exit_price": 4465.353276456887,
+   "side": "long",
+   "pnl": -455.62,
+   "exit_reason": "stop_loss_hit",
+   "mae": 459.07,
+   "equity_at_entry": 123562.3600000001,
+   "ticker": "XAU/USD",
+   "algo": "OutsideBar v2 rr3_lb3",
+   "gross_r": -1.0029632037992073,
+   "nominal_r": -0.8779449694951789
+  },
+  {
+   "entry_date": "2026-08-31T17:00:00.000Z",
+   "exit_date": "2026-09-01",
+   "entry_price": 4449.4624619999995,
+   "exit_price": 4392.184456247936,
+   "side": "long",
+   "pnl": -518.71,
+   "exit_reason": "stop_loss_hit",
+   "mae": 720.88,
+   "equity_at_entry": 130514.33000000002,
+   "ticker": "XAU/USD",
+   "algo": "Engulfing rr3_lb6",
+   "gross_r": -1.0038490434265115,
+   "nominal_r": -0.9462744891873631
+  },
+  {
+   "entry_date": "2026-08-31T17:00:00.000Z",
+   "exit_date": "2026-09-01",
+   "entry_price": 4449.4624619999995,
+   "exit_price": 4392.184456247936,
+   "side": "long",
+   "pnl": -576.34,
+   "exit_reason": "stop_loss_hit",
+   "mae": 800.97,
+   "equity_at_entry": 146968.27000000005,
+   "ticker": "XAU/USD",
+   "algo": "Engulfing25 rr25_lb4",
+   "gross_r": -1.0038490434265115,
+   "nominal_r": -0.9336968416639149
+  },
+  {
+   "entry_date": "2026-09-04T05:00:00.000Z",
+   "exit_date": "2026-09-04",
+   "entry_price": 4478.193898500001,
+   "exit_price": 4456.196556164486,
+   "side": "long",
+   "pnl": -514.18,
+   "exit_reason": "stop_loss_hit",
+   "mae": 2346.32,
+   "equity_at_entry": 123106.7400000001,
+   "ticker": "XAU/USD",
+   "algo": "OutsideBar v2 rr3_lb3",
+   "gross_r": -1.0102331052473799,
+   "nominal_r": -0.994452533823976
+  }
+ ],
+ "backtest_only": [
+  {
+   "entry_date": "2026-08-16T21:00:00.000Z",
+   "exit_date": "2026-08-23",
+   "entry_price": 4401.300054,
+   "exit_price": 4635.493905053412,
+   "side": "long",
+   "pnl": 1403.05,
+   "exit_reason": "take_profit_hit",
+   "mae": 459.72,
+   "equity_at_entry": 146150.47000000006,
+   "ticker": "XAU/USD",
+   "algo": "Engulfing25 rr25_lb4",
+   "gross_r": 2.497528147014994
+  },
+  {
+   "entry_date": "2026-08-16T21:00:00.000Z",
+   "exit_date": "2026-08-24",
+   "entry_price": 4401.300054,
+   "exit_price": 4682.376688264634,
+   "side": "long",
+   "pnl": 1403.62,
+   "exit_reason": "take_profit_hit",
+   "mae": 383.1,
+   "equity_at_entry": 129110.71000000002,
+   "ticker": "XAU/USD",
+   "algo": "Engulfing rr3_lb6",
+   "gross_r": 2.997503147014991
+  },
+  {
+   "entry_date": "2026-08-24T09:00:00.000Z",
+   "exit_date": "2026-08-26",
+   "entry_price": 4663.083142500001,
+   "exit_price": 4590.300367607327,
+   "side": "long",
+   "pnl": -585.25,
+   "exit_reason": "stop_loss_hit",
+   "mae": 640.15,
+   "equity_at_entry": 147553.52000000005,
+   "ticker": "XAU/USD",
+   "algo": "Engulfing25 rr25_lb4",
+   "gross_r": -1.0031635591758274
+  }
+ ],
+ "backtest_since_lock": 10,
+ "fill_provenance": {
+  "entries_equal_bar_close": 0,
+  "exits_equal_bar_close": 1
+ },
+ "blocker_weeks": {
+  "2026-07-20": {
+   "ARB rr3_lb3": {
+    "bars": 30,
+    "fired": 3,
+    "bias": 2,
+    "atr": 0,
+    "filters": 0
+   },
+   "Engulfing rr3_lb6": {
+    "bars": 30,
+    "fired": 3,
+    "bias": 1,
+    "atr": 0,
+    "filters": 0
+   },
+   "ARB rr25_lb3": {
+    "bars": 30,
+    "fired": 3,
+    "bias": 2,
+    "atr": 0,
+    "filters": 0
+   },
+   "OutsideBar v2 rr3_lb3": {
+    "bars": 30,
+    "fired": 4,
+    "bias": 0,
+    "atr": 0,
+    "filters": 0
+   },
+   "Engulfing25 rr25_lb4": {
+    "bars": 30,
+    "fired": 3,
+    "bias": 1,
+    "atr": 0,
+    "filters": 0
+   }
+  },
+  "2026-07-27": {
+   "ARB rr3_lb3": {
+    "bars": 30,
+    "fired": 5,
+    "bias": 2,
+    "atr": 2,
+    "filters": 0
+   },
+   "Engulfing rr3_lb6": {
+    "bars": 30,
+    "fired": 1,
+    "bias": 0,
+    "atr": 0,
+    "filters": 0
+   },
+   "ARB rr25_lb3": {
+    "bars": 30,
+    "fired": 5,
+    "bias": 2,
+    "atr": 2,
+    "filters": 0
+   },
+   "OutsideBar v2 rr3_lb3": {
+    "bars": 30,
+    "fired": 2,
+    "bias": 1,
+    "atr": 0,
+    "filters": 0
+   },
+   "Engulfing25 rr25_lb4": {
+    "bars": 30,
+    "fired": 1,
+    "bias": 0,
+    "atr": 0,
+    "filters": 0
+   }
+  },
+  "2026-08-03": {
+   "ARB rr3_lb3": {
+    "bars": 30,
+    "fired": 10,
+    "bias": 9,
+    "atr": 7,
+    "filters": 0
+   },
+   "Engulfing rr3_lb6": {
+    "bars": 30,
+    "fired": 2,
+    "bias": 0,
+    "atr": 0,
+    "filters": 0
+   },
+   "ARB rr25_lb3": {
+    "bars": 30,
+    "fired": 10,
+    "bias": 9,
+    "atr": 7,
+    "filters": 0
+   },
+   "OutsideBar v2 rr3_lb3": {
+    "bars": 30,
+    "fired": 1,
+    "bias": 0,
+    "atr": 0,
+    "filters": 0
+   },
+   "Engulfing25 rr25_lb4": {
+    "bars": 30,
+    "fired": 2,
+    "bias": 0,
+    "atr": 0,
+    "filters": 0
+   }
+  },
+  "2026-08-10": {
+   "ARB rr3_lb3": {
+    "bars": 30,
+    "fired": 7,
+    "bias": 7,
+    "atr": 7,
+    "filters": 0
+   },
+   "Engulfing rr3_lb6": {
+    "bars": 30,
+    "fired": 2,
+    "bias": 2,
+    "atr": 2,
+    "filters": 2
+   },
+   "ARB rr25_lb3": {
+    "bars": 30,
+    "fired": 7,
+    "bias": 7,
+    "atr": 7,
+    "filters": 0
+   },
+   "OutsideBar v2 rr3_lb3": {
+    "bars": 30,
+    "fired": 4,
+    "bias": 4,
+    "atr": 4,
+    "filters": 4
+   },
+   "Engulfing25 rr25_lb4": {
+    "bars": 30,
+    "fired": 2,
+    "bias": 2,
+    "atr": 2,
+    "filters": 2
+   }
+  },
+  "2026-08-17": {
+   "ARB rr3_lb3": {
+    "bars": 30,
+    "fired": 11,
+    "bias": 11,
+    "atr": 11,
+    "filters": 0
+   },
+   "Engulfing rr3_lb6": {
+    "bars": 30,
+    "fired": 5,
+    "bias": 5,
+    "atr": 5,
+    "filters": 5
+   },
+   "ARB rr25_lb3": {
+    "bars": 30,
+    "fired": 11,
+    "bias": 11,
+    "atr": 11,
+    "filters": 0
+   },
+   "OutsideBar v2 rr3_lb3": {
+    "bars": 30,
+    "fired": 3,
+    "bias": 3,
+    "atr": 3,
+    "filters": 3
+   },
+   "Engulfing25 rr25_lb4": {
+    "bars": 30,
+    "fired": 5,
+    "bias": 5,
+    "atr": 5,
+    "filters": 5
+   }
+  },
+  "2026-08-24": {
+   "ARB rr3_lb3": {
+    "bars": 30,
+    "fired": 2,
+    "bias": 2,
+    "atr": 2,
+    "filters": 0
+   },
+   "Engulfing rr3_lb6": {
+    "bars": 30,
+    "fired": 1,
+    "bias": 1,
+    "atr": 1,
+    "filters": 1
+   },
+   "ARB rr25_lb3": {
+    "bars": 30,
+    "fired": 2,
+    "bias": 2,
+    "atr": 2,
+    "filters": 0
+   },
+   "OutsideBar v2 rr3_lb3": {
+    "bars": 30,
+    "fired": 3,
+    "bias": 3,
+    "atr": 3,
+    "filters": 3
+   },
+   "Engulfing25 rr25_lb4": {
+    "bars": 30,
+    "fired": 1,
+    "bias": 1,
+    "atr": 1,
+    "filters": 1
+   }
+  },
+  "2026-08-31": {
+   "ARB rr3_lb3": {
+    "bars": 30,
+    "fired": 7,
+    "bias": 2,
+    "atr": 2,
+    "filters": 2
+   },
+   "Engulfing rr3_lb6": {
+    "bars": 30,
+    "fired": 1,
+    "bias": 1,
+    "atr": 1,
+    "filters": 1
+   },
+   "ARB rr25_lb3": {
+    "bars": 30,
+    "fired": 7,
+    "bias": 2,
+    "atr": 2,
+    "filters": 2
+   },
+   "OutsideBar v2 rr3_lb3": {
+    "bars": 30,
+    "fired": 2,
+    "bias": 1,
+    "atr": 1,
+    "filters": 1
+   },
+   "Engulfing25 rr25_lb4": {
+    "bars": 30,
+    "fired": 1,
+    "bias": 1,
+    "atr": 1,
+    "filters": 1
+   }
+  },
+  "2026-09-07": {
+   "ARB rr3_lb3": {
+    "bars": 30,
+    "fired": 3,
+    "bias": 0,
+    "atr": 0,
+    "filters": 0
+   },
+   "Engulfing rr3_lb6": {
+    "bars": 30,
+    "fired": 4,
+    "bias": 0,
+    "atr": 0,
+    "filters": 0
+   },
+   "ARB rr25_lb3": {
+    "bars": 30,
+    "fired": 3,
+    "bias": 0,
+    "atr": 0,
+    "filters": 0
+   },
+   "OutsideBar v2 rr3_lb3": {
+    "bars": 30,
+    "fired": 3,
+    "bias": 0,
+    "atr": 0,
+    "filters": 0
+   },
+   "Engulfing25 rr25_lb4": {
+    "bars": 30,
+    "fired": 4,
+    "bias": 0,
+    "atr": 0,
+    "filters": 0
+   }
+  },
+  "2026-09-14": {
+   "ARB rr3_lb3": {
+    "bars": 30,
+    "fired": 6,
+    "bias": 0,
+    "atr": 0,
+    "filters": 0
+   },
+   "Engulfing rr3_lb6": {
+    "bars": 30,
+    "fired": 1,
+    "bias": 0,
+    "atr": 0,
+    "filters": 0
+   },
+   "ARB rr25_lb3": {
+    "bars": 30,
+    "fired": 6,
+    "bias": 0,
+    "atr": 0,
+    "filters": 0
+   },
+   "OutsideBar v2 rr3_lb3": {
+    "bars": 30,
+    "fired": 2,
+    "bias": 0,
+    "atr": 0,
+    "filters": 0
+   },
+   "Engulfing25 rr25_lb4": {
+    "bars": 30,
+    "fired": 1,
+    "bias": 0,
+    "atr": 0,
+    "filters": 0
+   }
+  },
+  "2026-09-21": {
+   "ARB rr3_lb3": {
+    "bars": 30,
+    "fired": 1,
+    "bias": 0,
+    "atr": 0,
+    "filters": 0
+   },
+   "Engulfing rr3_lb6": {
+    "bars": 30,
+    "fired": 2,
+    "bias": 0,
+    "atr": 0,
+    "filters": 0
+   },
+   "ARB rr25_lb3": {
+    "bars": 30,
+    "fired": 1,
+    "bias": 0,
+    "atr": 0,
+    "filters": 0
+   },
+   "OutsideBar v2 rr3_lb3": {
+    "bars": 30,
+    "fired": 2,
+    "bias": 0,
+    "atr": 0,
+    "filters": 0
+   },
+   "Engulfing25 rr25_lb4": {
+    "bars": 30,
+    "fired": 2,
+    "bias": 0,
+    "atr": 0,
+    "filters": 0
+   }
+  },
+  "2026-09-28": {
+   "ARB rr3_lb3": {
+    "bars": 30,
+    "fired": 5,
+    "bias": 0,
+    "atr": 0,
+    "filters": 0
+   },
+   "Engulfing rr3_lb6": {
+    "bars": 30,
+    "fired": 2,
+    "bias": 0,
+    "atr": 0,
+    "filters": 0
+   },
+   "ARB rr25_lb3": {
+    "bars": 30,
+    "fired": 5,
+    "bias": 0,
+    "atr": 0,
+    "filters": 0
+   },
+   "OutsideBar v2 rr3_lb3": {
+    "bars": 30,
+    "fired": 5,
+    "bias": 0,
+    "atr": 0,
+    "filters": 0
+   },
+   "Engulfing25 rr25_lb4": {
+    "bars": 30,
+    "fired": 2,
+    "bias": 0,
+    "atr": 0,
+    "filters": 0
+   }
+  },
+  "2026-10-05": {
+   "ARB rr3_lb3": {
+    "bars": 30,
+    "fired": 4,
+    "bias": 0,
+    "atr": 0,
+    "filters": 0
+   },
+   "Engulfing rr3_lb6": {
+    "bars": 30,
+    "fired": 3,
+    "bias": 0,
+    "atr": 0,
+    "filters": 0
+   },
+   "ARB rr25_lb3": {
+    "bars": 30,
+    "fired": 4,
+    "bias": 0,
+    "atr": 0,
+    "filters": 0
+   },
+   "OutsideBar v2 rr3_lb3": {
+    "bars": 30,
+    "fired": 2,
+    "bias": 0,
+    "atr": 0,
+    "filters": 0
+   },
+   "Engulfing25 rr25_lb4": {
+    "bars": 30,
+    "fired": 3,
+    "bias": 0,
+    "atr": 0,
+    "filters": 0
+   }
+  },
+  "2026-10-12": {
+   "ARB rr3_lb3": {
+    "bars": 30,
+    "fired": 1,
+    "bias": 0,
+    "atr": 0,
+    "filters": 0
+   },
+   "Engulfing rr3_lb6": {
+    "bars": 30,
+    "fired": 3,
+    "bias": 0,
+    "atr": 0,
+    "filters": 0
+   },
+   "ARB rr25_lb3": {
+    "bars": 30,
+    "fired": 1,
+    "bias": 0,
+    "atr": 0,
+    "filters": 0
+   },
+   "OutsideBar v2 rr3_lb3": {
+    "bars": 30,
+    "fired": 4,
+    "bias": 0,
+    "atr": 0,
+    "filters": 0
+   },
+   "Engulfing25 rr25_lb4": {
+    "bars": 30,
+    "fired": 3,
+    "bias": 0,
+    "atr": 0,
+    "filters": 0
+   }
+  },
+  "2026-10-19": {
+   "ARB rr3_lb3": {
+    "bars": 30,
+    "fired": 3,
+    "bias": 0,
+    "atr": 0,
+    "filters": 0
+   },
+   "Engulfing rr3_lb6": {
+    "bars": 30,
+    "fired": 3,
+    "bias": 0,
+    "atr": 0,
+    "filters": 0
+   },
+   "ARB rr25_lb3": {
+    "bars": 30,
+    "fired": 3,
+    "bias": 0,
+    "atr": 0,
+    "filters": 0
+   },
+   "OutsideBar v2 rr3_lb3": {
+    "bars": 30,
+    "fired": 2,
+    "bias": 0,
+    "atr": 0,
+    "filters": 0
+   },
+   "Engulfing25 rr25_lb4": {
+    "bars": 30,
+    "fired": 3,
+    "bias": 0,
+    "atr": 0,
+    "filters": 0
+   }
+  },
+  "2026-10-26": {
+   "ARB rr3_lb3": {
+    "bars": 16,
+    "fired": 3,
+    "bias": 0,
+    "atr": 0,
+    "filters": 0
+   },
+   "Engulfing rr3_lb6": {
+    "bars": 16,
+    "fired": 1,
+    "bias": 0,
+    "atr": 0,
+    "filters": 0
+   },
+   "ARB rr25_lb3": {
+    "bars": 16,
+    "fired": 3,
+    "bias": 0,
+    "atr": 0,
+    "filters": 0
+   },
+   "OutsideBar v2 rr3_lb3": {
+    "bars": 16,
+    "fired": 3,
+    "bias": 0,
+    "atr": 0,
+    "filters": 0
+   },
+   "Engulfing25 rr25_lb4": {
+    "bars": 16,
+    "fired": 1,
+    "bias": 0,
+    "atr": 0,
+    "filters": 0
+   }
+  }
+ },
+ "eligible_signals": [
+  {
+   "date": "2026-08-10T13:00:00.000Z",
+   "algo": "OutsideBar v2 rr3_lb3"
+  },
+  {
+   "date": "2026-08-12T09:00:00.000Z",
+   "algo": "OutsideBar v2 rr3_lb3"
+  },
+  {
+   "date": "2026-08-13T09:00:00.000Z",
+   "algo": "Engulfing rr3_lb6"
+  },
+  {
+   "date": "2026-08-13T09:00:00.000Z",
+   "algo": "Engulfing25 rr25_lb4"
+  },
+  {
+   "date": "2026-08-14T05:00:00.000Z",
+   "algo": "OutsideBar v2 rr3_lb3"
+  },
+  {
+   "date": "2026-08-16T21:00:00.000Z",
+   "algo": "Engulfing rr3_lb6"
+  },
+  {
+   "date": "2026-08-16T21:00:00.000Z",
+   "algo": "OutsideBar v2 rr3_lb3"
+  },
+  {
+   "date": "2026-08-16T21:00:00.000Z",
+   "algo": "Engulfing25 rr25_lb4"
+  },
+  {
+   "date": "2026-08-17T21:00:00.000Z",
+   "algo": "Engulfing rr3_lb6"
+  },
+  {
+   "date": "2026-08-17T21:00:00.000Z",
+   "algo": "Engulfing25 rr25_lb4"
+  },
+  {
+   "date": "2026-08-18T09:00:00.000Z",
+   "algo": "Engulfing rr3_lb6"
+  },
+  {
+   "date": "2026-08-18T09:00:00.000Z",
+   "algo": "Engulfing25 rr25_lb4"
+  },
+  {
+   "date": "2026-08-19T01:00:00.000Z",
+   "algo": "Engulfing rr3_lb6"
+  },
+  {
+   "date": "2026-08-19T01:00:00.000Z",
+   "algo": "OutsideBar v2 rr3_lb3"
+  },
+  {
+   "date": "2026-08-19T01:00:00.000Z",
+   "algo": "Engulfing25 rr25_lb4"
+  },
+  {
+   "date": "2026-08-21T01:00:00.000Z",
+   "algo": "Engulfing rr3_lb6"
+  },
+  {
+   "date": "2026-08-21T01:00:00.000Z",
+   "algo": "OutsideBar v2 rr3_lb3"
+  },
+  {
+   "date": "2026-08-21T01:00:00.000Z",
+   "algo": "Engulfing25 rr25_lb4"
+  },
+  {
+   "date": "2026-08-21T13:00:00.000Z",
+   "algo": "Engulfing rr3_lb6"
+  },
+  {
+   "date": "2026-08-21T13:00:00.000Z",
+   "algo": "Engulfing25 rr25_lb4"
+  },
+  {
+   "date": "2026-08-23T21:00:00.000Z",
+   "algo": "OutsideBar v2 rr3_lb3"
+  },
+  {
+   "date": "2026-08-24T09:00:00.000Z",
+   "algo": "Engulfing rr3_lb6"
+  },
+  {
+   "date": "2026-08-24T09:00:00.000Z",
+   "algo": "Engulfing25 rr25_lb4"
+  },
+  {
+   "date": "2026-08-25T13:00:00.000Z",
+   "algo": "OutsideBar v2 rr3_lb3"
+  },
+  {
+   "date": "2026-08-27T13:00:00.000Z",
+   "algo": "OutsideBar v2 rr3_lb3"
+  },
+  {
+   "date": "2026-08-28T05:00:00.000Z",
+   "algo": "OutsideBar v2 rr3_lb3"
+  },
+  {
+   "date": "2026-08-31T17:00:00.000Z",
+   "algo": "Engulfing rr3_lb6"
+  },
+  {
+   "date": "2026-08-31T17:00:00.000Z",
+   "algo": "Engulfing25 rr25_lb4"
+  },
+  {
+   "date": "2026-09-03T17:00:00.000Z",
+   "algo": "ARB rr3_lb3"
+  },
+  {
+   "date": "2026-09-03T17:00:00.000Z",
+   "algo": "ARB rr25_lb3"
+  },
+  {
+   "date": "2026-09-03T21:00:00.000Z",
+   "algo": "ARB rr3_lb3"
+  },
+  {
+   "date": "2026-09-03T21:00:00.000Z",
+   "algo": "ARB rr25_lb3"
+  },
+  {
+   "date": "2026-09-04T05:00:00.000Z",
+   "algo": "OutsideBar v2 rr3_lb3"
+  }
+ ],
+ "live_filters_sim": {
+  "ARB rr3_lb3": {
+   "taken": 10,
+   "blocked": 150,
+   "pausedAt": "2015-10-23",
+   "hourBlockedFirst": "2015-10-06T09:00:00.000Z"
+  },
+  "Engulfing rr3_lb6": {
+   "taken": 8,
+   "blocked": 116,
+   "pausedAt": "2016-01-28",
+   "hourBlockedFirst": null
+  },
+  "ARB rr25_lb3": {
+   "taken": 10,
+   "blocked": 158,
+   "pausedAt": "2015-10-29",
+   "hourBlockedFirst": "2015-10-06T09:00:00.000Z"
+  },
+  "OutsideBar v2 rr3_lb3": {
+   "taken": 10,
+   "blocked": 202,
+   "pausedAt": "2015-12-10",
+   "hourBlockedFirst": null
+  },
+  "Engulfing25 rr25_lb4": {
+   "taken": 8,
+   "blocked": 200,
+   "pausedAt": "2015-09-21",
+   "hourBlockedFirst": null
+  }
+ },
+ "live_filters_portfolio": {
+  "union_n": 872,
+  "union_mean_r": 0.3401746892897285,
+  "filtered_n": 46,
+  "filtered_mean_r": -0.02815092717161402
+ },
+ "cache_check": {
+  "available": true,
+  "cache_bars": 2000,
+  "cache_first": "2025-07-23T13:00:00.000Z",
+  "cache_last": "2026-10-28T13:00:00.000Z",
+  "fetched_at": "2026-10-28T18:00:19.937+00:00",
+  "common": 1961,
+  "ohlc_mismatches": 0,
+  "max_abs_diff": 0,
+  "bars_not_in_oanda": 39
+ },
+ "generated_at": "2026-10-28T18:03:22.471Z"
+}

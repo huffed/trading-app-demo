@@ -19,3 +19,22 @@ Convention: UTC timestamps; `ran` = executed, `read` = inspected only. Branch: `
 - 2026-10-28 — `grep -rin "iran|\bwar\b"` over ROADMAP/CLAUDE/docs/README/memory → no reference to a US/Iran war or 2026-02-28.
 - 2026-10-28 — Derived: sd(R) = mean_r/sharpe_r per algo = 1.36–1.60R → SE at n=30 ≈ 0.25–0.29R vs band half-width 0.0765R → P(in band | true mean = baseline) ≈ 21–24%.
 - 2026-10-28 — Wrote `review/00-project-map.md`. Committed on the review branch. CHECK-IN: waiting for operator reply before Phase 1.
+
+## Phase 1 — Correctness audit (2026-10-28)
+
+- Safety fix (operator instruction): branch `fix/exit-reason-check-constraint` → draft PR #291. Migration 00053 widens both CHECKs; runtime `EXIT_REASONS`/`ACTIVITY_EVENT_TYPES`; checked flatten write + `error` activity rows; `db-check-contract.test.ts`. `pnpm vitest run` 1,929 pass; `pnpm build` clean; `pnpm lint` 0 errors. Migration NOT applied. (`drift_warn` found afterwards by the Phase 4 reviewer — added in a follow-up commit.)
+- `review/inputs/spring-report-reconstructed.md` created from the operator's figures (the file was not in the repo).
+- ran `pnpm dlx tsx review/scripts/refresh-gold-pins.ts` (OANDA practice → `review/data/xau-usd-{h4,d,h1}-pinned-2026-10-28.json`, sha-stamped; canonical pins untouched). H4 645 bars to 2026-10-28T13Z, D 107 to 10-26T21Z, H1 2,468 to 10-28T16Z.
+- ran `python3 review/scripts/spring_reconcile.py` → exact match on all operator figures; held-out max DD $4,002 (4.0%); re-run spread PF 3.33–6.25.
+- ran `python3 review/scripts/data_quality.py` → all files sha OK, no dups/weekend/bad OHLC; overlap identical; 23 DST phase shifts.
+- ran `pnpm dlx tsx review/scripts/baseline-two-ways.ts` → reproduces g8-baseline exactly at $10K (843 / 0.2551); $100K: 862 / 0.3430 / sd 1.774; $1M: 862 / 0.3512; 101 signals skipped at $10K (2025: 49/123, 2026: 31/39); account for <5% skipped: $16.6K all-years, $45.6K since 2025-07.
+- ran `pnpm dlx tsx review/scripts/intrabar-h1.ts` (after fixing the date-only exit_date lookup) → 864 price exits, 0 same-bar SL+TP, 0 H1 disagreements.
+- ran `pnpm dlx tsx review/scripts/costs.ts` → table in 01-audit §6.
+- ran `pnpm dlx tsx review/scripts/param-sensitivity.ts` (background, ~5 min) → `review/results/param-sensitivity.{json,log}`.
+- ran `pnpm dlx tsx review/scripts/bias-alignment.ts` → 3.76% bars / 5.26% signals differ; mini-sim live-only +0.209 (n=315).
+- ran `pnpm dlx tsx review/scripts/paper-replay.ts` → 10 backtest trades in window; 7/14 matched; fill provenance 0/14 entries, 1/14 exits at a bar close; blocker table; live-filter simulation 872→46; live cache vs OANDA 1,961 common / 0 mismatches / 39 zero-volume Friday bars.
+- DB: `signal_no_action` reasons by week since 2026-09-04 (ATR gate dominant from 09-21); activity 2026-08-16 20:00 → 08-17 06:00 (scheduler stall 01:30Z; `scan_overdue` daily 08-10 → 08-27); zero-volume bars in the live 4h row (all Friday 21:00 UTC, non-flat OHLC).
+- git: `git log -S fetchBatchQuotes` → PR #16 `c172bff` 2026-04-27 (Twelve Data primary at the time), `487d58a` 2026-04-28 reused for the manage tick.
+- web: Haiku 4.5 reliable cutoff Feb 2025 / training data Jul 2025 (platform.claude.com docs); FTMO XAUUSD swap not found on official pages.
+- ran `pnpm dlx tsx review/scripts/window-stats.ts` → rolling 110-day trade-count/mean-R distributions for the locked-window pre-registration.
+- Wrote `review/01-audit.md`.
