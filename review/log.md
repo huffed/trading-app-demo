@@ -47,3 +47,5 @@ Convention: UTC timestamps; `ran` = executed, `read` = inspected only. Branch: `
 - launched `pnpm dlx tsx review/scripts/phase2-propfirm.ts` in the background (3 capitals × 6 risks; results → `review/results/phase2-propfirm.{json,log}`).
 - `review/scripts/phase2.sh` = one-command reproduction of every number in 02-validation.md.
 - fix branch: `9f72caf` adds `drift_warn` (4th rejected event type, found by the Phase 4 reviewer); tests 800/800 (scan), build + lint clean; pushed to PR #291.
+- prop-firm sweep completed (18 rows, ~15 min) → `review/results/phase2-propfirm.{json,log}`; §2.6 of 02-validation.md filled (MC P(ML>x) values ÷100 vs the first run's display; script fixed for future runs).
+- Wrote `review/02-validation.md`. CHECK-IN: Phase 2 go/no-go point — waiting for operator reply.
