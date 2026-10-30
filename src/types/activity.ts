@@ -1,29 +1,39 @@
-export type ActivityEventType =
-  | "scan_started"
-  | "scan_completed"
-  | "signal_detected"
-  | "signal_no_action"
-  | "position_opened"
-  | "position_closed"
-  | "stop_loss_hit"
-  | "take_profit_hit"
-  | "error"
-  | "pair_auto_paused"
-  | "daily_loss_halt"
-  | "portfolio_halt"
-  | "drift_halt"
-  | "divergence_halt"
-  | "live_order_placed"
-  | "live_order_failed"
-  | "live_order_closed"
-  | "live_close_failed"
-  | "scan_overdue"
-  | "broker_reconciliation_drift"
-  | "manage_tick"
-  | "cron_idle"
-  | "alpha_decay_pause"
-  | "wfo_rules_updated"
-  | "regime_route_switched";
+/** Every value the code may write to activity_log.event_type. Single source
+ *  of truth for the DB CHECK constraint (migration 00053) — pinned by
+ *  `src/lib/scan/db-check-contract.test.ts`. */
+export const ACTIVITY_EVENT_TYPES = [
+  "scan_started",
+  "scan_completed",
+  "signal_detected",
+  "signal_no_action",
+  "position_opened",
+  "position_closed",
+  "stop_loss_hit",
+  "take_profit_hit",
+  "error",
+  "pair_auto_paused",
+  "daily_loss_halt",
+  "portfolio_halt",
+  "drift_halt",
+  "divergence_halt",
+  "live_order_placed",
+  "live_order_failed",
+  "live_order_closed",
+  "live_close_failed",
+  "live_order_close_failed",
+  "scan_overdue",
+  "broker_reconciliation_drift",
+  "broker_realized_synced",
+  "manage_tick",
+  "cron_idle",
+  "alpha_decay_pause",
+  "alpha_decay_tick",
+  "wfo_rules_updated",
+  "regime_route_switched",
+  "dll_warning",
+  "drift_warn",
+] as const;
+export type ActivityEventType = (typeof ACTIVITY_EVENT_TYPES)[number];
 
 export interface ActivityLogEntry {
   id: string;

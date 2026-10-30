@@ -1,12 +1,22 @@
 import type { EntryReason } from "@/lib/validators/position";
 
 export type PositionStatus = "open" | "closed";
-export type ExitReason =
-  | "stop_loss"
-  | "take_profit"
-  | "exit_signal"
-  | "manual"
-  | "stagnant_no_excursion";
+/** Every value the live engine may write to paper_positions.exit_reason.
+ *  Single source of truth for the DB CHECK constraint (migration 00053) —
+ *  `src/lib/scan/db-check-contract.test.ts` fails if the two drift apart.
+ *  'stagnant_no_excursion' is the legacy spelling kept for historical rows. */
+export const EXIT_REASONS = [
+  "stop_loss",
+  "take_profit",
+  "exit_signal",
+  "manual",
+  "stagnant_no_excursion",
+  "stagnant_exit",
+  "daily_loss_halt",
+  "portfolio_halt",
+  "broker_rejected",
+] as const;
+export type ExitReason = (typeof EXIT_REASONS)[number];
 
 export type { EntryReason };
 

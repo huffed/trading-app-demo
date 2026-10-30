@@ -58,6 +58,11 @@ const EVENT_ICONS: Record<ActivityEventType, React.ReactNode> = {
   alpha_decay_pause: <PauseCircle className="h-3.5 w-3.5 text-[var(--loss)]" />,
   wfo_rules_updated: <GitCompareArrows className="h-3.5 w-3.5 text-muted-foreground" />,
   regime_route_switched: <Activity className="h-3.5 w-3.5 text-blue-500" />,
+  alpha_decay_tick: <Activity className="h-3.5 w-3.5 text-muted-foreground" />,
+  dll_warning: <AlertTriangle className="h-3.5 w-3.5 text-yellow-500" />,
+  broker_realized_synced: <GitCompareArrows className="h-3.5 w-3.5 text-muted-foreground" />,
+  live_order_close_failed: <AlertCircle className="h-3.5 w-3.5 text-destructive" />,
+  drift_warn: <TrendingDown className="h-3.5 w-3.5 text-yellow-500" />,
 };
 
 export function ActivityPanel() {
