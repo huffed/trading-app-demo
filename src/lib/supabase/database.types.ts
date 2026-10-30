@@ -1,20 +1,9 @@
 /**
- * Supabase database types — GENERATED from the live schema 2026-06-19 EVE
- * via the Supabase MCP (`generate_typescript_types`). Do not hand-edit;
- * regenerate after applying migrations. Single source of truth for row
- * shapes — local `interface XRow { ... }` duplicates and
- * `data as unknown as X` casts should derive from `Tables<"name">`
- * instead (audit 2026-06-11: ~18 files hand-cast rows).
- *
- * 2026-06-19 EVE regen surfaced staleness vs migrations 00044 + 00045:
- * algorithm_geometry_sweeps, algorithm_rule_changes,
- * broker_connections.account_capital, activity_log_archive,
- * llm_decisions_archive, paper_positions_archive, portfolios, and the
- * new last_scan_tick / last_manage_tick / prune_sentiment_cache RPCs
- * were all missing. Regen caught a CB.C3 typing attempt that crashed the
- * build because account_capital wasn't in the type even though the
- * column is live in production.
+ * GENERATED — do not edit. `make db-types` regenerates this file from the live
+ * project schema; `make db-types-check` (CI) fails when supabase/migrations/
+ * changed after it was generated. Manifest: supabase/types.manifest.json.
  */
+
 export type Json =
   | string
   | number
@@ -1189,6 +1178,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      last_alpha_decay_tick: { Args: never; Returns: string }
       last_manage_tick: { Args: never; Returns: string }
       last_scan_tick: { Args: never; Returns: string }
       prune_sentiment_cache: {
@@ -1213,12 +1203,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1242,11 +1232,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1267,11 +1257,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1292,11 +1282,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1309,11 +1299,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }

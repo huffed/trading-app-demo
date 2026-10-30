@@ -113,3 +113,19 @@ make secrets-scan-history    # gitleaks over the full history (~12 min: it re-re
 ```
 
 **What the baseline history scan found (2026-10-28):** no credential has ever been committed. gitleaks' `generic-api-key` rule fires on the string `key` next to long tokens: 375 hits are sha-256 digests and cluster labels inside research artifacts (`scripts/canonical/e2-results/*.json`, `scripts/archive/`), now allowlisted by path in `.gitleaks.toml`; the rest were the flag name `live_trading_enabled=TRUE` in a `ROADMAP.md` lineage row, the empty `NEXT_PUBLIC_SUPABASE_ANON_KEY=` line in an old `CLAUDE.md`, and three `key: "G6_…"` cluster labels in archived research scripts. None is a secret; all are allowlisted by regex in `.gitleaks.toml` so the history scan reports 0. The working-tree scan additionally flags `.env.local` (real secrets, gitignored) and `.next/` build manifests; both are excluded from the `dir` scan by the config so the signal stays clean.
+
+## 10. Database types — generated, and checked against the migrations
+
+**What:** `src/lib/supabase/database.types.ts` is generated from the live Supabase project (`make db-types`, Supabase CLI via `pnpm dlx`, needs `SUPABASE_ACCESS_TOKEN` exported for that shell — a personal token from the Supabase dashboard, never stored in the repo or `.env.local`). `supabase/types.manifest.json` records a sha-256 over `supabase/migrations/*.sql` at generation time; `make db-types-check` (CI) fails when a migration was added or edited after the types were generated.
+
+**Why:** migrations are applied by hand (Supabase MCP or SQL editor) and the types file had drifted nine migrations behind; the 2026-10-28 regeneration showed the only type-level gap was the `last_alpha_decay_tick` RPC. The check cannot see whether the live database has every migration applied — that stays a manual step — but it guarantees the TypeScript view is never older than the migrations folder. Contract defects that live inside `string` columns (the `exit_reason`/`event_type` CHECK lists, DEBT D-01) are invisible to generated types; they need the contract test (PR B9).
+
+**Commands:**
+
+```bash
+export SUPABASE_ACCESS_TOKEN=...   # this shell only
+make db-types                      # regenerate + stamp; commit both files
+make db-types-check                # what CI runs
+```
+
+Adding a migration = apply it to the project, `make db-types`, commit the migration, the types and the manifest together.
