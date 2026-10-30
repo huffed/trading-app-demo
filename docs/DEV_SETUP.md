@@ -190,3 +190,25 @@ gh api -X POST repos/huffed/trading-app-demo/rulesets --input - <<'JSON'
   ] }
 JSON
 ```
+
+## 13. Tests — layout, characterisation tests, contract tests, and `it.fails`
+
+**What:** three kinds of tests, one runner (`make test` = Vitest):
+
+| Kind | Where | Purpose |
+|---|---|---|
+| Unit | `src/**/<module>.test.ts`, beside the module | the module's own behaviour, mocks at its edges |
+| Characterisation | `tests/characterisation/*.test.ts` | pin what the engine does **today** across modules where the money is — sizing with and without the lot floor, fill simulation, the daily-bias alignment flag, the day-reset timezone, halt flattening — so a change to any of them fails loudly before it ships |
+| Contract | `tests/contracts/*.test.ts` | the code's literals vs the database CHECK lists parsed from `supabase/migrations/`, and (next PR) the golden trade list |
+
+A test that exposes a **known defect** is written for the intended behaviour and marked `it.fails(...)` with the audit finding or DEBT id in its name. Vitest counts it as "expected fail". When the defect is fixed, the test starts passing and Vitest reports "expected to fail but passed" — the marker must then come off in the same PR. Today: 11 such cases (the three rejected exit reasons and four rejected event types from audit A4 / draft PR #291, the dropped `higherTfCloseStamped` flag from audit A6, the IEEE-754 lot-floor case from DEBT D-08, and the FTMO day boundary from DEBT D-14).
+
+**Why:** the Phase A audit found no test that spans live and backtest, no test for sizing or fills, and a DB contract that the code violates in three places. Characterisation tests are what make the Phase E refactors safe: they describe current behaviour, including the wrong parts, so a refactor that changes behaviour by accident cannot pass.
+
+**Commands:**
+
+```bash
+make test                                   # everything
+pnpm exec vitest run tests                  # characterisation + contract tests only
+pnpm exec vitest run tests/contracts        # just the DB contract
+```
