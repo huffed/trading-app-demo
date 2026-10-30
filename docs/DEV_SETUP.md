@@ -11,13 +11,14 @@ One short section per thing that was set up: **what it is, why it exists, the on
 | lint / type-check / test | `make lint` · `make typecheck` · `make test` | B3 |
 | format what I changed | `make format` (then `make format-check`) | B3 |
 | hold a new file to the target rules | `make lint-strict FILES=path/to/new-file.ts` | B3 |
+| replay the golden trade list | `make backtest` (regenerate on purpose: `make backtest-update`) | B10 |
 | check env names + generated DB types | `make env-check` · `make db-types-check` | B6 / B7 |
 | see why CI is red | `gh pr checks <n>` then `gh run view <id> --log-failed` | B6 |
 | set up the Python sidecar | `make python-env` | B2/B3 |
 | rotate the cron secret | `docs/runbooks/rotate-cron-secret.md` (manual, ~5 min) | B1 |
 | harden the VPS (**Critical**: password auth is on) | `docs/runbooks/harden-vps-ssh.md` (manual, ~10 min today) | B1 |
 
-Stubs that exit 2 with a message until their PR lands: `make backtest` (golden file, B10), `make validate` / `make parity` (audit scripts, when they reach `dev`).
+Stubs that exit 2 with a message until the audit's scripts reach `dev`: `make validate` / `make parity`.
 
 ## 2. Secrets — where they live and the rules
 
@@ -212,3 +213,21 @@ make test                                   # everything
 pnpm exec vitest run tests                  # characterisation + contract tests only
 pnpm exec vitest run tests/contracts        # just the DB contract
 ```
+
+## 14. The golden file — a change that alters trades cannot merge unnoticed
+
+**What:** `tests/golden/xau-usd-h4-2026h1.golden.json` is the full trade list the backtest engine produces for the **five deployed algorithms** (rules snapshot in `tests/golden/deployed-rules-2026-10-28.json`, taken read-only from the `algorithms` table) on the **pinned** XAU/USD 4h and daily corpora, window 2026-01-01 → 2026-07-09 (the audit's locked window starts 2026-07-10), run twice: at the paper capital ($100K) and at the baseline harness's $10K pool where the 0.01-lot floor bites. Per trade: algorithm, entry/exit timestamps, prices, side, P&L, `r_nominal` (P&L over equity-at-entry × risk %, the baseline's statistic), exit reason, MAE, equity at entry. `make backtest` replays and compares (exit 1 on any difference); the vitest test `tests/golden/golden-trades.test.ts` does the same inside `make test`, so CI catches it too.
+
+On 2026-10-28 the two runs are 39 trades / +$7,264 at $100K and 17 trades / +$179 at $10K — the lot floor drops more than half the signals at the small pool, which is the audit's A2 finding, now pinned as a number that cannot drift silently.
+
+**Why:** this is the brief's hard rule — "a change that alters trades cannot merge unless the golden file is updated on purpose". It also freezes the engine's behaviour while the audit's verdict is pending and gives Phase E a before/after artefact for every refactor.
+
+**Commands:**
+
+```bash
+make backtest                 # replay + compare; prints trade counts and P&L per run
+make backtest-update          # regenerate on purpose; commit the file and say why in the PR
+pnpm exec vitest run tests/golden
+```
+
+**Rules:** never edit the golden file by hand. A PR that regenerates it must say which trades changed and why (`make backtest` prints the added/missing entries). The pinned data files are never modified (pin policy: a new pin is a new file with its own sha-256); the engine reads them through `scripts/canonical/lib/pinned-eval.ts`, which re-hashes them on every load. Known shape quirks are recorded, not fixed: `exit_date` is a day key because the engine stores exits by day (CODE_QUALITY §3.2), and warm-up trades from 2025-10-01 compound into the equity the window starts with (their count is in the file).
