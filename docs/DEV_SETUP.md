@@ -13,21 +13,22 @@ One short section per thing that was set up: **what it is, why it exists, the on
 | hold a new file to the target rules | `make lint-strict FILES=path/to/new-file.ts` | B3 |
 | lint the GitHub workflow files | `make lint-workflows` | B11 |
 | replay the golden trade list | `make backtest` (regenerate on purpose: `make backtest-update`) | B10 |
+| open a PR | against `dev`, one at a time, squash-merged; dependent work waits, then rebases (§15) | B13 |
 | check env names + generated DB types | `make env-check` · `make db-types-check` | B6 / B7 |
 | see why CI is red | `gh pr checks <n>` then `gh run view <id> --log-failed` | B6 |
 | set up the Python sidecar | `make python-env` | B2/B3 |
-| rotate the cron secret | `docs/runbooks/rotate-cron-secret.md` (manual, ~5 min) | B1 |
-| harden the VPS (**Critical**: password auth is on) | `docs/runbooks/harden-vps-ssh.md` (manual, ~10 min today) | B1 |
+| rotate the cron secret | `docs/runbooks/rotate-cron-secret.md` (manual, ~5 min; last done 2026-10-29) | B1 |
+| harden the VPS | `docs/runbooks/harden-vps-ssh.md` (Phase 1 done 2026-10-29; Hetzner firewall and Phase 2 remain) | B1 |
 
 Stubs that exit 2 with a message until the audit's scripts reach `dev`: `make validate` / `make parity`.
 
 ## 2. Secrets — where they live and the rules
 
 - **Local:** `.env.local` at the repo root (gitignored by `.env*`). Never committed, never read by tooling or by Claude Code sessions; only the cron wrappers grep single names out of it.
-- **VPS:** `/opt/quanttrader/.env.local` (0600, root). The app loads it at start; a restart is required after any change.
+- **VPS:** `/opt/quanttrader/.env.local` (0600, root). The app loads it at start; a restart is required after any change. Log in as `ops` (`ssh qt`) and use `sudo` for root-owned paths and the service; root SSH login is disabled since 2026-10-29.
 - **GitHub Actions:** repo secrets `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `NTFY_TOPIC`, `NTFY_TOKEN` (dead-man workflow only; CI needs none).
 - **`.env.example` is the index:** every variable the code reads appears there by name with a one-line purpose, values never. Adding a `process.env.X` read means adding `X` to `.env.example` in the same PR (a CI check for this arrives with the CI PR).
-- **Rotation:** `docs/runbooks/rotate-cron-secret.md`. Rotate `CRON_SECRET` now — the 2026-10-28 inventory found its value in a local Claude Code allow-rule (deleted the same day; it was never committed: `git log --all -- .claude/settings.local.json` is empty).
+- **Rotation:** `docs/runbooks/rotate-cron-secret.md`. `CRON_SECRET` was rotated on 2026-10-29: the 2026-10-28 inventory had found its value in a local Claude Code allow-rule (deleted the same day; it was never committed: `git log --all -- .claude/settings.local.json` is empty).
 - **Public repo = constraint.** Nothing host-identifying (IPs, user names, SSH lines) goes into the repo; use the `qt` SSH alias and a private ops note.
 
 ## 3. GitHub secret scanning and push protection (what to click)
@@ -55,13 +56,13 @@ Local equivalent (so a secret never reaches GitHub in the first place): `gitleak
 
 ## 4. Runbooks
 
-`docs/runbooks/` holds operator procedures with exact commands and a verification checklist each. Current: `rotate-cron-secret.md`, `harden-vps-ssh.md` (**Critical**). Phase D adds deploy, kill-switch, backup/restore.
+`docs/runbooks/` holds operator procedures with exact commands and a verification checklist each. Current: `rotate-cron-secret.md` (last run 2026-10-29), `harden-vps-ssh.md` (Phase 1 executed 2026-10-29; the Hetzner Cloud firewall and the Phase 2 process-user work remain). Phase D adds deploy, kill-switch, backup/restore.
 
 ## 5. Environments — Node, pnpm, Python
 
-**What:** `.nvmrc` pins Node `25.9.0` (what the VPS runs under systemd); `package.json` `engines` says `node >=25.9.0 <26`, `pnpm >=10`; `pnpm-lock.yaml` is committed and installs use `--frozen-lockfile` (local, CI, VPS). The Python research sidecar is pinned by `scripts/python/pyproject.toml` + `uv.lock` (`requires-python >=3.11,<3.14`; `requirements.txt` is exported from the lock for pip users).
+**What:** `.nvmrc` pins Node `25.9.0` (what the VPS runs under systemd); `package.json` `engines` says `node >=25.0.0 <26` (the major only; `.nvmrc` is the single source of truth for the exact version and CI reads it), `pnpm >=10`; `pnpm-lock.yaml` is committed and installs use `--frozen-lockfile` (local, CI, VPS). The Python research sidecar is pinned by `scripts/python/pyproject.toml` + `uv.lock` (`requires-python >=3.11,<3.14`; `requirements.txt` is exported from the lock for pip users).
 
-**Why:** three different Node versions were in play (local 25.3, VPS 25.9, `@types/node` 20) and the sidecar had loose `>=` pins with no lock, so "works on my machine" was the only guarantee. Node 25 is not an LTS line; moving production to the current LTS is a Phase D decision, not a tooling one.
+**Why:** three different Node versions were in play (local 25.3, VPS 25.9, `@types/node` 20) and the sidecar had loose `>=` pins with no lock, so "works on my machine" was the only guarantee. Node 25 is not an LTS line: it reached end of life on 2026-06-01 and 25.9.0 was its last release, so the VPS runs an unpatched runtime (DEBT D-21, **High**). Phase D moves the VPS and the pin to a supported LTS line (26 or 24), exact pin everywhere, verified by the full test suite and the golden file on the new runtime. Until then the pin is not changed.
 
 **Commands:**
 
@@ -83,7 +84,7 @@ make python-lock                         # after editing pyproject.toml: uv lock
 ## 7. Lint, types, format — the baseline and the target
 
 **What:**
-- **Baseline** (`eslint.config.mjs`, `tsconfig.json`): the rules the code passes today. `make lint` fails on any error and on more warnings than `.eslint-warning-budget` (174 on 2026-10-28: 117 in `src/`, 57 in live-path scripts). The budget is a ratchet: it may only go down, and a PR that lowers it edits the file.
+- **Baseline** (`eslint.config.mjs`, `tsconfig.json`): the rules the code passes today. `make lint` fails on any error and on more warnings than `.eslint-warning-budget` (174 at B3 on 2026-10-28, 171 since B12; the file is the source of truth). The budget is a ratchet: it may only go down, and a PR that lowers it edits the file.
 - **Target** (`eslint.config.strict.mjs`): `typescript-eslint` strict + stylistic type-checked rules, `complexity ≤ 10`, 80-line functions, 300-line files, `no-console` (scripts excepted), no `any`, no object-literal casts, explicit module boundary types, no floating promises, no empty catch, ordered acyclic imports. Every **new** file is held to it from its first PR (pre-commit and CI run it on added files); existing files migrate one PR at a time after the audit verdict and never go back. Settings are never loosened.
 - **Types:** `make typecheck` runs `tsc --noEmit` over `src/`, `tests/` and `scripts/` **including test files**. It goes green with PR B5 (155 type errors in test files, type-only fixes, assertions unchanged).
 - **Format:** Prettier on changed files only (`make format`, pre-commit). The whole-tree format is one dedicated PR after the audit verdict, with its hash in `.git-blame-ignore-revs`. `make format-all-check` shows the current whole-tree state (informational).
@@ -93,7 +94,7 @@ make python-lock                         # after editing pyproject.toml: uv lock
 
 ## 8. `scripts/` — what is checked and what is not
 
-**What:** `scripts/dev/checked-scripts.mjs` is the single list. Everything under `scripts/` is **live-path** and checked like `src/` (ESLint baseline, tsc, Prettier) **except** the 42 research one-offs it names (`e2.*`, `verify-*`, `robustness-*`, stress runs, feature/label experiments, search drivers), which ESLint skips. `scripts/archive/` and run caches are never checked. `node scripts/dev/checked-scripts.mjs` prints the live-path file list for tools that cannot import it.
+**What:** `scripts/dev/checked-scripts.mjs` is the single list. Everything under `scripts/` is **live-path** and checked like `src/` (ESLint baseline, tsc, Prettier) **except** the research one-offs it names (`robustness-*`, the June stress runs, feature/label experiments, old search drivers), which **ESLint and `make env-check` skip** — tsc still type-checks them and Prettier still formats them when they change. `scripts/archive/` and run caches are never checked. **Rule (operator 2026-10-29):** a script whose output feeds a decision — a baseline, a verdict, a roadmap gate — is live-path by definition and may not be on the list; the nine that were (verdict, baseline-check, data-pin and round-driver scripts) come off it in PR B14 (DEBT D-20 names them). Adding a script to the list needs a DEBT.md line. `node scripts/dev/checked-scripts.mjs` prints the live-path file list for tools that cannot import it.
 
 **Why:** 46k lines were excluded from every check, including the deploy scripts, the cron wrappers' TypeScript and the verdict/baseline scripts that produced the live rules. Research scripts are excluded by name, not by directory, so moving nothing (renames wait for the audit) still lets the live-path scripts be checked. Each research script has a target date in `docs/DEBT.md` D-20 (2027-01-31) to be brought under the checks or archived; adding a script to the research list needs a DEBT.md line.
 
@@ -167,7 +168,7 @@ make lint-workflows                     # actionlint over .github/workflows (bre
 
 ## 12. Branch protection on `dev` — what to click
 
-CI only matters if nothing can merge around it. Protect `dev` (the branch the VPS deploys; `main` is sorted out in Phase D). You do this once in the GitHub UI — I do not change repository settings.
+CI only matters if nothing can merge around it. Protect `dev` (the branch the VPS deploys; `main` is sorted out in Phase D). Created on 2026-10-30 with the CLI command at the end of this section, after the operator authorised it (ruleset id 26211551, enforcement active; the required checks are the three CI job names exactly as the first `dev` run reported them). The clicks below are the equivalent for a fresh repository.
 
 1. Repo → **Settings** → **Rules** → **Rulesets** → **New ruleset** → **New branch ruleset**.
 2. Name `protect-dev`; **Enforcement status: Active**; **Target branches** → Add target → *Include by pattern* → `dev`.
@@ -234,3 +235,21 @@ pnpm exec vitest run tests/golden
 ```
 
 **Rules:** never edit the golden file by hand. A PR that regenerates it must say which trades changed and why (`make backtest` prints the added/missing entries). The pinned data files are never modified (pin policy: a new pin is a new file with its own sha-256); the engine reads them through `scripts/canonical/lib/pinned-eval.ts`, which re-hashes them on every load. Known shape quirks are recorded, not fixed: `exit_date` is a day key because the engine stores exits by day (CODE_QUALITY §3.2), and warm-up trades from 2025-10-01 compound into the equity the window starts with (their count is in the file).
+
+## 15. One PR at a time against `dev` — no stacks
+
+**What:** every PR targets `dev` directly. Work that depends on an open PR waits for that PR to merge, then rebases onto `dev` and opens its own PR. Never stack PRs more than one deep (a PR whose base is another PR's branch). Merges are squash merges; the `protect-dev` ruleset requires linear history.
+
+**Why:** squash-merging the bottom of a stack creates a commit the next branch does not descend from. Git then sees the same files added on both sides and reports add/add conflicts in every following PR. That is exactly what happened at #293 on 2026-10-29 after #292 merged: the remaining twelve branches had to be rebuilt one by one as single commits on `dev` with `--force-with-lease` and merged in turn. One PR at a time costs nothing and cannot produce that state. Independent PRs in parallel are fine.
+
+**Commands:**
+
+```bash
+git checkout dev && git pull
+git checkout -b tooling/my-change          # one concern per branch
+# ... commit, push, open the PR against dev, CI green, squash-merge
+git checkout dev && git pull               # start the dependent change from here
+git rebase dev my-dependent-branch         # if it was started early, rebase before opening its PR
+```
+
+Decision log: `docs/decisions/0002-one-pr-at-a-time.md`.
