@@ -5,6 +5,9 @@
  * proposal → no flapping).
  */
 import { describe, expect, it, vi } from "vitest";
+import type { PriceBar } from "@/lib/market-data/types";
+import { asFixture } from "@/test-utils/fixture";
+import type { AlgorithmRules } from "@/types/algorithm";
 import {
   computeWfoProposal,
   DEFAULT_WFO_CONFIG,
@@ -13,8 +16,6 @@ import {
   sliceBarsToWindow,
   type WfoProposal,
 } from "./walk-forward-opt";
-import type { PriceBar } from "@/lib/market-data/types";
-import type { AlgorithmRules } from "@/types/algorithm";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 // ─── extractCurrentGeometry ───────────────────────────────────────────
@@ -57,26 +58,38 @@ describe("extractCurrentGeometry — Layer B template gate", () => {
   });
 
   it("returns null when stop_loss is not swing_anchor", () => {
-    const rules = makeRules({ stop_loss: { type: "percentage", value: 1 } } as Partial<AlgorithmRules>);
+    const rules = makeRules({
+      stop_loss: { type: "percentage", value: 1 },
+    } as Partial<AlgorithmRules>);
     expect(extractCurrentGeometry(rules)).toBeNull();
   });
 
   it("returns null when take_profit is not rr_multiple", () => {
-    const rules = makeRules({ take_profit: { type: "percentage", value: 3 } } as Partial<AlgorithmRules>);
+    const rules = makeRules({
+      take_profit: { type: "percentage", value: 3 },
+    } as Partial<AlgorithmRules>);
     expect(extractCurrentGeometry(rules)).toBeNull();
   });
 
   it("returns null when position_sizing is vol_target (G.3 algos out-of-scope for WFO)", () => {
-    const rules = makeRules({ position_sizing: { type: "vol_target", value: 5 } } as Partial<AlgorithmRules>);
+    const rules = makeRules({
+      position_sizing: { type: "vol_target", value: 5 },
+    } as Partial<AlgorithmRules>);
     expect(extractCurrentGeometry(rules)).toBeNull();
   });
 
   it("returns null when an axis value is off-grid (e.g. rr=4, risk=2)", () => {
-    const offRr = makeRules({ take_profit: { type: "rr_multiple", value: 4 } } as Partial<AlgorithmRules>);
+    const offRr = makeRules({
+      take_profit: { type: "rr_multiple", value: 4 },
+    } as Partial<AlgorithmRules>);
     expect(extractCurrentGeometry(offRr)).toBeNull();
-    const offRisk = makeRules({ position_sizing: { type: "risk_per_trade", value: 2 } } as Partial<AlgorithmRules>);
+    const offRisk = makeRules({
+      position_sizing: { type: "risk_per_trade", value: 2 },
+    } as Partial<AlgorithmRules>);
     expect(extractCurrentGeometry(offRisk)).toBeNull();
-    const offLb = makeRules({ stop_loss: { type: "swing_anchor", value: 0.1, lookback: 5 } } as Partial<AlgorithmRules>);
+    const offLb = makeRules({
+      stop_loss: { type: "swing_anchor", value: 0.1, lookback: 5 },
+    } as Partial<AlgorithmRules>);
     expect(extractCurrentGeometry(offLb)).toBeNull();
   });
 });
@@ -87,7 +100,11 @@ describe("sliceBarsToWindow", () => {
   const NOW = new Date("2026-06-23T00:00:00Z");
   const bar = (daysAgo: number): PriceBar => ({
     date: new Date(NOW.getTime() - daysAgo * 86_400_000).toISOString(),
-    open: 100, high: 101, low: 99, close: 100, volume: 0,
+    open: 100,
+    high: 101,
+    low: 99,
+    close: 100,
+    volume: 0,
   });
 
   it("keeps bars whose date is within [now - window_days, now]", () => {
@@ -126,7 +143,11 @@ describe("computeWfoProposal", () => {
       const low = Math.min(close, newClose) - Math.abs(noise) * 0.5 - 1;
       bars.push({
         date: new Date(NOW.getTime() - (2400 - i) * 4 * 3_600_000).toISOString(),
-        open: close, high, low, close: newClose, volume: 100,
+        open: close,
+        high,
+        low,
+        close: newClose,
+        volume: 100,
       });
       close = newClose;
     }
@@ -134,13 +155,19 @@ describe("computeWfoProposal", () => {
   }
 
   it("returns no_layer_b_geometry skip when algo uses vol_target sizing", () => {
-    const rules = makeRules({ position_sizing: { type: "vol_target", value: 5 } } as Partial<AlgorithmRules>);
+    const rules = makeRules({
+      position_sizing: { type: "vol_target", value: 5 },
+    } as Partial<AlgorithmRules>);
     const result = computeWfoProposal(
       {
-        id: "a1", name: "x", user_id: "u1", capital: 10000, rules,
+        id: "a1",
+        name: "x",
+        user_id: "u1",
+        capital: 10000,
+        rules,
         watchlist_tickers: ["XAU/USD"],
       },
-      { barsByTicker: new Map([["XAU/USD", syntheticBars()]]), now: NOW },
+      { barsByTicker: new Map([["XAU/USD", syntheticBars()]]), now: NOW }
     );
     expect("reason" in result && result.reason).toBe("no_layer_b_geometry");
   });
@@ -148,10 +175,14 @@ describe("computeWfoProposal", () => {
   it("returns no_bars_cached skip when ticker missing from cache", () => {
     const result = computeWfoProposal(
       {
-        id: "a1", name: "x", user_id: "u1", capital: 10000, rules: makeRules(),
+        id: "a1",
+        name: "x",
+        user_id: "u1",
+        capital: 10000,
+        rules: makeRules(),
         watchlist_tickers: ["XAU/USD"],
       },
-      { barsByTicker: new Map(), now: NOW },
+      { barsByTicker: new Map(), now: NOW }
     );
     expect("reason" in result && result.reason).toBe("no_bars_cached");
   });
@@ -159,10 +190,14 @@ describe("computeWfoProposal", () => {
   it("returns no_bars_cached skip when algo has no watchlist", () => {
     const result = computeWfoProposal(
       {
-        id: "a1", name: "x", user_id: "u1", capital: 10000, rules: makeRules(),
+        id: "a1",
+        name: "x",
+        user_id: "u1",
+        capital: 10000,
+        rules: makeRules(),
         watchlist_tickers: [],
       },
-      { barsByTicker: new Map([["XAU/USD", syntheticBars()]]), now: NOW },
+      { barsByTicker: new Map([["XAU/USD", syntheticBars()]]), now: NOW }
     );
     expect("reason" in result && result.reason).toBe("no_bars_cached");
   });
@@ -174,11 +209,15 @@ describe("computeWfoProposal", () => {
     // proposal — so we test it directly, with a generous timeout.
     const bars = syntheticBars();
     const algo = {
-      id: "a1", name: "LayerB: XAU/USD Engulfing-Long 4h | rr3_lb6_r06_rf0_af0",
-      user_id: "u1", capital: 10000,
-      rules: makeRules({
-        entry_conditions: [{ type: "pattern", pattern: "engulfing", side: "long" }],
-      } as Partial<AlgorithmRules>),
+      id: "a1",
+      name: "LayerB: XAU/USD Engulfing-Long 4h | rr3_lb6_r06_rf0_af0",
+      user_id: "u1",
+      capital: 10000,
+      rules: makeRules(
+        asFixture<Partial<AlgorithmRules>>({
+          entry_conditions: [{ type: "pattern", pattern: "engulfing", side: "long" }],
+        })
+      ),
       watchlist_tickers: ["XAU/USD"],
     };
     const ctx = { barsByTicker: new Map([["XAU/USD", bars]]), now: NOW };
@@ -207,15 +246,23 @@ describe("computeWfoProposal", () => {
     // exceed). This is a property test on the gating expression itself.
     const bars = syntheticBars();
     const algo = {
-      id: "a1", name: "Test",
-      user_id: "u1", capital: 10000,
-      rules: makeRules({
-        entry_conditions: [{ type: "pattern", pattern: "engulfing", side: "long" }],
-      } as Partial<AlgorithmRules>),
+      id: "a1",
+      name: "Test",
+      user_id: "u1",
+      capital: 10000,
+      rules: makeRules(
+        asFixture<Partial<AlgorithmRules>>({
+          entry_conditions: [{ type: "pattern", pattern: "engulfing", side: "long" }],
+        })
+      ),
       watchlist_tickers: ["XAU/USD"],
     };
     const tightBuffer = { ...DEFAULT_WFO_CONFIG, dsr_improvement_buffer: 5.0 };
-    const result = computeWfoProposal(algo, { barsByTicker: new Map([["XAU/USD", bars]]), now: NOW, config: tightBuffer });
+    const result = computeWfoProposal(algo, {
+      barsByTicker: new Map([["XAU/USD", bars]]),
+      now: NOW,
+      config: tightBuffer,
+    });
     if (!("reason" in result)) {
       expect(result.passes_buffer).toBe(false); // 5.0 buffer is impossible to exceed
     }
@@ -225,7 +272,14 @@ describe("computeWfoProposal", () => {
 // ─── evaluateAndApplyWfo — DRY_RUN vs live + audit ────────────────────
 
 interface FakeOpts {
-  algos: { id: string; name: string; user_id: string; capital: number; rules: AlgorithmRules; algorithm_watchlist: { ticker: string }[] }[];
+  algos: {
+    id: string;
+    name: string;
+    user_id: string;
+    capital: number;
+    rules: AlgorithmRules;
+    algorithm_watchlist: { ticker: string }[];
+  }[];
   cachedBars: Map<string, PriceBar[]>; // keyed by ticker (interval ignored for fake)
 }
 
@@ -256,7 +310,12 @@ function fakeSupabase(opts: FakeOpts) {
                   limit: () => ({
                     single: () => {
                       const bars = opts.cachedBars.get(ticker.toUpperCase());
-                      if (!bars) return Promise.resolve({ data: null, error: { code: "PGRST116", message: "no rows" } });
+                      if (!bars) {
+                        return Promise.resolve({
+                          data: null,
+                          error: { code: "PGRST116", message: "no rows" },
+                        });
+                      }
                       return Promise.resolve({ data: { bars }, error: null });
                     },
                   }),
@@ -296,11 +355,18 @@ describe("evaluateAndApplyWfo", () => {
 
   it("non-Layer-B algo → skipped, never tries to load bars or update", async () => {
     const { client, updates, inserts } = fakeSupabase({
-      algos: [{
-        id: "a1", name: "VolTargetAlgo", user_id: "u1", capital: 10000,
-        rules: makeRules({ position_sizing: { type: "vol_target", value: 5 } } as Partial<AlgorithmRules>),
-        algorithm_watchlist: [{ ticker: "XAU/USD" }],
-      }],
+      algos: [
+        {
+          id: "a1",
+          name: "VolTargetAlgo",
+          user_id: "u1",
+          capital: 10000,
+          rules: makeRules({
+            position_sizing: { type: "vol_target", value: 5 },
+          } as Partial<AlgorithmRules>),
+          algorithm_watchlist: [{ ticker: "XAU/USD" }],
+        },
+      ],
       cachedBars: new Map(),
     });
     const r = await evaluateAndApplyWfo(client, { dry_run: true }, NOW);
@@ -318,19 +384,29 @@ describe("evaluateAndApplyWfo", () => {
       const newClose = close + 0.05 + Math.sin(i * 0.7) * 8;
       bars.push({
         date: new Date(NOW.getTime() - (2400 - i) * 4 * 3_600_000).toISOString(),
-        open: close, high: Math.max(close, newClose) + 2, low: Math.min(close, newClose) - 2, close: newClose, volume: 100,
+        open: close,
+        high: Math.max(close, newClose) + 2,
+        low: Math.min(close, newClose) - 2,
+        close: newClose,
+        volume: 100,
       });
       close = newClose;
     }
     const { client, updates, inserts } = fakeSupabase({
-      algos: [{
-        id: "a1", name: "LayerB: XAU/USD Engulfing-Long 4h | rr3_lb6_r06_rf0_af0",
-        user_id: "u1", capital: 10000,
-        rules: makeRules({
-          entry_conditions: [{ type: "pattern", pattern: "engulfing", side: "long" }],
-        } as Partial<AlgorithmRules>),
-        algorithm_watchlist: [{ ticker: "XAU/USD" }],
-      }],
+      algos: [
+        {
+          id: "a1",
+          name: "LayerB: XAU/USD Engulfing-Long 4h | rr3_lb6_r06_rf0_af0",
+          user_id: "u1",
+          capital: 10000,
+          rules: makeRules(
+            asFixture<Partial<AlgorithmRules>>({
+              entry_conditions: [{ type: "pattern", pattern: "engulfing", side: "long" }],
+            })
+          ),
+          algorithm_watchlist: [{ ticker: "XAU/USD" }],
+        },
+      ],
       cachedBars: new Map([["XAU/USD", bars]]),
     });
     const r = await evaluateAndApplyWfo(client, { dry_run: true }, NOW);
@@ -362,19 +438,29 @@ describe("evaluateAndApplyWfo", () => {
       const newClose = close + 0.05 + Math.sin(i * 0.7) * 8;
       bars.push({
         date: new Date(NOW.getTime() - (2400 - i) * 4 * 3_600_000).toISOString(),
-        open: close, high: Math.max(close, newClose) + 2, low: Math.min(close, newClose) - 2, close: newClose, volume: 100,
+        open: close,
+        high: Math.max(close, newClose) + 2,
+        low: Math.min(close, newClose) - 2,
+        close: newClose,
+        volume: 100,
       });
       close = newClose;
     }
     const { client, updates, inserts } = fakeSupabase({
-      algos: [{
-        id: "a1", name: "LayerB: XAU/USD Engulfing-Long 4h | rr3_lb6_r06_rf0_af0",
-        user_id: "u1", capital: 10000,
-        rules: makeRules({
-          entry_conditions: [{ type: "pattern", pattern: "engulfing", side: "long" }],
-        } as Partial<AlgorithmRules>),
-        algorithm_watchlist: [{ ticker: "XAU/USD" }],
-      }],
+      algos: [
+        {
+          id: "a1",
+          name: "LayerB: XAU/USD Engulfing-Long 4h | rr3_lb6_r06_rf0_af0",
+          user_id: "u1",
+          capital: 10000,
+          rules: makeRules(
+            asFixture<Partial<AlgorithmRules>>({
+              entry_conditions: [{ type: "pattern", pattern: "engulfing", side: "long" }],
+            })
+          ),
+          algorithm_watchlist: [{ ticker: "XAU/USD" }],
+        },
+      ],
       cachedBars: new Map([["XAU/USD", bars]]),
     });
     const r = await evaluateAndApplyWfo(client, { dry_run: false }, NOW);
@@ -402,20 +488,30 @@ describe("evaluateAndApplyWfo", () => {
       const newClose = close + 0.05 + Math.sin(i * 0.7) * 8;
       bars.push({
         date: new Date(NOW.getTime() - (2400 - i) * 4 * 3_600_000).toISOString(),
-        open: close, high: Math.max(close, newClose) + 2, low: Math.min(close, newClose) - 2, close: newClose, volume: 100,
+        open: close,
+        high: Math.max(close, newClose) + 2,
+        low: Math.min(close, newClose) - 2,
+        close: newClose,
+        volume: 100,
       });
       close = newClose;
     }
     const tightBuffer = { ...DEFAULT_WFO_CONFIG, dsr_improvement_buffer: 10.0 }; // unreachable
     const { client, updates, inserts } = fakeSupabase({
-      algos: [{
-        id: "a1", name: "LayerB: XAU/USD Engulfing-Long 4h | rr3_lb6_r06_rf0_af0",
-        user_id: "u1", capital: 10000,
-        rules: makeRules({
-          entry_conditions: [{ type: "pattern", pattern: "engulfing", side: "long" }],
-        } as Partial<AlgorithmRules>),
-        algorithm_watchlist: [{ ticker: "XAU/USD" }],
-      }],
+      algos: [
+        {
+          id: "a1",
+          name: "LayerB: XAU/USD Engulfing-Long 4h | rr3_lb6_r06_rf0_af0",
+          user_id: "u1",
+          capital: 10000,
+          rules: makeRules(
+            asFixture<Partial<AlgorithmRules>>({
+              entry_conditions: [{ type: "pattern", pattern: "engulfing", side: "long" }],
+            })
+          ),
+          algorithm_watchlist: [{ ticker: "XAU/USD" }],
+        },
+      ],
       cachedBars: new Map([["XAU/USD", bars]]),
     });
     const r = await evaluateAndApplyWfo(client, { dry_run: false, config: tightBuffer }, NOW);

@@ -51,13 +51,11 @@
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { timeframeToInterval } from "@/lib/market-data/interval";
-import {
-  getCachedPrices,
-  savePricesToCache,
-} from "@/lib/market-data/price-cache";
+import { getCachedPrices, savePricesToCache } from "@/lib/market-data/price-cache";
 import { fetchDailyPrices } from "@/lib/market-data/prices";
-import { runWalkForward } from "@/lib/market-data/walk-forward";
-import { getAllPairStats } from "@/lib/scan/pair-quality";
+import { runWalkForward, type WalkForwardSummary } from "@/lib/market-data/walk-forward";
+import { getAllPairStats, type PairStats } from "@/lib/scan/pair-quality";
+import { asFixture } from "@/test-utils/fixture";
 import type { AlgorithmRules } from "@/types/algorithm";
 import { runReadinessCheck } from "./readiness-check";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -96,15 +94,6 @@ type AlgoRow = {
   llm_walk_forward_cache: unknown | null;
 };
 
-type WfSummary = {
-  total_windows: number;
-  mean_win_rate: number;
-  mean_return: number;
-  mean_drawdown: number;
-  win_rate_of_windows: number;
-  windows: Array<{ total_return: number; max_drawdown: number }>;
-};
-
 function makeRules(overrides: Partial<AlgorithmRules> = {}): AlgorithmRules {
   return {
     timeframe: "4h",
@@ -134,15 +123,15 @@ function makeAlgo(overrides: Partial<AlgoRow> = {}): AlgoRow {
 // "Clean" WF — 6 windows, 100% green, mean ret 12K (=12% on 100K cap,
 // above FTMO 10% target per 180d), mean DD 3%, worst DD 4% → all
 // under FTMO thresholds for the default 180d window.
-function cleanWf(): WfSummary {
-  return {
+function cleanWf(): WalkForwardSummary {
+  return asFixture<WalkForwardSummary>({
     total_windows: 6,
     mean_win_rate: 0.6,
     mean_return: 12_000,
     mean_drawdown: 3,
     win_rate_of_windows: 1.0,
     windows: Array.from({ length: 6 }, () => ({ total_return: 12_000, max_drawdown: 4 })),
-  };
+  });
 }
 
 // ---- Supabase mock. ---------------------------------------------------
@@ -156,9 +145,7 @@ interface SupabaseReadinessOpts {
   tickers?: Array<{ ticker: string }>;
 }
 
-function makeSupabaseReadinessMock(
-  opts: SupabaseReadinessOpts = {}
-): SupabaseClient {
+function makeSupabaseReadinessMock(opts: SupabaseReadinessOpts = {}): SupabaseClient {
   const fromMock = vi.fn((table: string) => {
     if (table === "algorithms") {
       const single = vi.fn().mockResolvedValue({
@@ -221,9 +208,11 @@ describe("runReadinessCheck — setup paths", () => {
   it("all clean → verdict='pass', 4 checks all pass", async () => {
     mockedRunWalkForward.mockReturnValue(cleanWf());
     mockedGetAllPairStats.mockResolvedValue(
-      new Map([
-        ["XAU/USD", { ticker: "XAU/USD", trades: 15, wins: 9, win_rate: 0.6, net_pnl: 1000 }],
-      ])
+      asFixture<Map<string, PairStats>>(
+        new Map([
+          ["XAU/USD", { ticker: "XAU/USD", trades: 15, wins: 9, win_rate: 0.6, net_pnl: 1000 }],
+        ])
+      )
     );
     const supabase = makeSupabaseReadinessMock({ algoData: makeAlgo() });
     const r = await runReadinessCheck(supabase, "algo-1");
@@ -242,15 +231,17 @@ describe("runReadinessCheck — setup paths", () => {
 describe("runReadinessCheck — verdict combiner", () => {
   it("ANY check fail → verdict='fail' (worst-severity dominates)", async () => {
     // Worst-DD fail in WF check → overall fail
-    mockedRunWalkForward.mockReturnValue({
-      ...cleanWf(),
-      windows: [
-        { total_return: 5_000, max_drawdown: 12 }, // breaches FTMO 10% → WF fails
-        { total_return: 5_000, max_drawdown: 3 },
-        { total_return: 5_000, max_drawdown: 4 },
-      ],
-      total_windows: 3,
-    });
+    mockedRunWalkForward.mockReturnValue(
+      asFixture<WalkForwardSummary>({
+        ...cleanWf(),
+        windows: [
+          { total_return: 5_000, max_drawdown: 12 }, // breaches FTMO 10% → WF fails
+          { total_return: 5_000, max_drawdown: 3 },
+          { total_return: 5_000, max_drawdown: 4 },
+        ],
+        total_windows: 3,
+      })
+    );
     const supabase = makeSupabaseReadinessMock({ algoData: makeAlgo() });
     const r = await runReadinessCheck(supabase, "algo-1");
     if (!r.ok) throw new Error("expected ok");
@@ -280,14 +271,16 @@ describe("runReadinessCheck — walk-forward check branches", () => {
   }
 
   it("total_windows < 3 → caution 'Only N window(s)'", async () => {
-    mockedRunWalkForward.mockReturnValue({
-      ...cleanWf(),
-      total_windows: 2,
-      windows: [
-        { total_return: 5_000, max_drawdown: 3 },
-        { total_return: 5_000, max_drawdown: 3 },
-      ],
-    });
+    mockedRunWalkForward.mockReturnValue(
+      asFixture<WalkForwardSummary>({
+        ...cleanWf(),
+        total_windows: 2,
+        windows: [
+          { total_return: 5_000, max_drawdown: 3 },
+          { total_return: 5_000, max_drawdown: 3 },
+        ],
+      })
+    );
     const supabase = makeSupabaseReadinessMock({ algoData: makeAlgo() });
     const r = await runReadinessCheck(supabase, "algo-1");
     if (!r.ok) throw new Error("expected ok");
@@ -337,15 +330,17 @@ describe("runReadinessCheck — walk-forward check branches", () => {
   });
 
   it("worst_dd ≥ FTMO 10% limit → FAIL (the only fail branch in WF check)", async () => {
-    mockedRunWalkForward.mockReturnValue({
-      ...cleanWf(),
-      windows: [
-        { total_return: 5_000, max_drawdown: 11 }, // breaches FTMO
-        { total_return: 5_000, max_drawdown: 4 },
-        { total_return: 5_000, max_drawdown: 3 },
-      ],
-      total_windows: 3,
-    });
+    mockedRunWalkForward.mockReturnValue(
+      asFixture<WalkForwardSummary>({
+        ...cleanWf(),
+        windows: [
+          { total_return: 5_000, max_drawdown: 11 }, // breaches FTMO
+          { total_return: 5_000, max_drawdown: 4 },
+          { total_return: 5_000, max_drawdown: 3 },
+        ],
+        total_windows: 3,
+      })
+    );
     const supabase = makeSupabaseReadinessMock({ algoData: makeAlgo() });
     const r = await runReadinessCheck(supabase, "algo-1");
     if (!r.ok) throw new Error("expected ok");
@@ -355,15 +350,17 @@ describe("runReadinessCheck — walk-forward check branches", () => {
   });
 
   it("worst_dd in [8, 10) → caution 'within 2pp of FTMO limit'", async () => {
-    mockedRunWalkForward.mockReturnValue({
-      ...cleanWf(),
-      windows: [
-        { total_return: 5_000, max_drawdown: 9 }, // within 2pp of 10% limit
-        { total_return: 5_000, max_drawdown: 4 },
-        { total_return: 5_000, max_drawdown: 3 },
-      ],
-      total_windows: 3,
-    });
+    mockedRunWalkForward.mockReturnValue(
+      asFixture<WalkForwardSummary>({
+        ...cleanWf(),
+        windows: [
+          { total_return: 5_000, max_drawdown: 9 }, // within 2pp of 10% limit
+          { total_return: 5_000, max_drawdown: 4 },
+          { total_return: 5_000, max_drawdown: 3 },
+        ],
+        total_windows: 3,
+      })
+    );
     const supabase = makeSupabaseReadinessMock({ algoData: makeAlgo() });
     const r = await runReadinessCheck(supabase, "algo-1");
     if (!r.ok) throw new Error("expected ok");
@@ -456,9 +453,11 @@ describe("runReadinessCheck — pair quality branches", () => {
 
   it("loser with ≥8 trades + ≤30% WR → FAIL listing the loser", async () => {
     mockedGetAllPairStats.mockResolvedValue(
-      new Map([
-        ["EUR/USD", { ticker: "EUR/USD", trades: 12, wins: 3, win_rate: 0.25, net_pnl: -500 }],
-      ])
+      asFixture<Map<string, PairStats>>(
+        new Map([
+          ["EUR/USD", { ticker: "EUR/USD", trades: 12, wins: 3, win_rate: 0.25, net_pnl: -500 }],
+        ])
+      )
     );
     const supabase = makeSupabaseReadinessMock({ algoData: makeAlgo() });
     const r = await runReadinessCheck(supabase, "algo-1");
@@ -480,9 +479,11 @@ describe("runReadinessCheck — pair quality branches", () => {
 
   it("only sub-8-trade pairs → caution (under MIN_PAIR_TRADES_FOR_PRUNE)", async () => {
     mockedGetAllPairStats.mockResolvedValue(
-      new Map([
-        ["XAU/USD", { ticker: "XAU/USD", trades: 5, wins: 1, win_rate: 0.2, net_pnl: -100 }],
-      ])
+      asFixture<Map<string, PairStats>>(
+        new Map([
+          ["XAU/USD", { ticker: "XAU/USD", trades: 5, wins: 1, win_rate: 0.2, net_pnl: -100 }],
+        ])
+      )
     );
     const supabase = makeSupabaseReadinessMock({ algoData: makeAlgo() });
     const r = await runReadinessCheck(supabase, "algo-1");
@@ -495,10 +496,12 @@ describe("runReadinessCheck — pair quality branches", () => {
 
   it("all pairs above 30% WR floor → pass", async () => {
     mockedGetAllPairStats.mockResolvedValue(
-      new Map([
-        ["XAU/USD", { ticker: "XAU/USD", trades: 20, wins: 12, win_rate: 0.6, net_pnl: 1500 }],
-        ["EUR/USD", { ticker: "EUR/USD", trades: 15, wins: 6, win_rate: 0.4, net_pnl: 500 }],
-      ])
+      asFixture<Map<string, PairStats>>(
+        new Map([
+          ["XAU/USD", { ticker: "XAU/USD", trades: 20, wins: 12, win_rate: 0.6, net_pnl: 1500 }],
+          ["EUR/USD", { ticker: "EUR/USD", trades: 15, wins: 6, win_rate: 0.4, net_pnl: 500 }],
+        ])
+      )
     );
     const supabase = makeSupabaseReadinessMock({ algoData: makeAlgo() });
     const r = await runReadinessCheck(supabase, "algo-1");
@@ -514,7 +517,10 @@ describe("runReadinessCheck — pair quality branches", () => {
 // ======================================================================
 
 describe("runReadinessCheck — side symmetry branches", () => {
-  function sideCheck(r: { ok: boolean; report?: { checks: { name: string; severity: string; reason: string }[] } }) {
+  function sideCheck(r: {
+    ok: boolean;
+    report?: { checks: { name: string; severity: string; reason: string }[] };
+  }) {
     if (!r.ok || !r.report) throw new Error("expected ok");
     const c = r.report.checks.find((x) => x.name === "side_symmetry");
     if (!c) throw new Error("side_symmetry check missing");
@@ -559,7 +565,10 @@ describe("runReadinessCheck — side symmetry branches", () => {
 // ======================================================================
 
 describe("runReadinessCheck — FTMO fit branches", () => {
-  function ftmoCheck(r: { ok: boolean; report?: { checks: { name: string; severity: string; reason: string }[] } }) {
+  function ftmoCheck(r: {
+    ok: boolean;
+    report?: { checks: { name: string; severity: string; reason: string }[] };
+  }) {
     if (!r.ok || !r.report) throw new Error("expected ok");
     const c = r.report.checks.find((x) => x.name === "ftmo_fit");
     if (!c) throw new Error("ftmo_fit check missing");
@@ -583,7 +592,9 @@ describe("runReadinessCheck — FTMO fit branches", () => {
   it("no consecutive_loss_daily_halt → caution mentioning DLL chain risk", async () => {
     const supabase = makeSupabaseReadinessMock({
       algoData: makeAlgo({
-        rules: makeRules({ prop_firm: { consecutive_loss_daily_halt: 0 } } as unknown as Partial<AlgorithmRules>),
+        rules: makeRules({
+          prop_firm: { consecutive_loss_daily_halt: 0 },
+        } as unknown as Partial<AlgorithmRules>),
       }),
     });
     const r = await runReadinessCheck(supabase, "algo-1");
@@ -632,14 +643,16 @@ describe("runReadinessCheck — FTMO fit branches", () => {
 
 describe("runReadinessCheck — output shape", () => {
   it("report carries algorithm_id, algorithm_name, verdict, 4 checks, walk_forward_summary (5 stats)", async () => {
-    mockedRunWalkForward.mockReturnValue({
-      total_windows: 5,
-      mean_win_rate: 0.55,
-      mean_return: 6_000,
-      mean_drawdown: 4,
-      win_rate_of_windows: 0.8,
-      windows: Array.from({ length: 5 }, () => ({ total_return: 6_000, max_drawdown: 4 })),
-    });
+    mockedRunWalkForward.mockReturnValue(
+      asFixture<WalkForwardSummary>({
+        total_windows: 5,
+        mean_win_rate: 0.55,
+        mean_return: 6_000,
+        mean_drawdown: 4,
+        win_rate_of_windows: 0.8,
+        windows: Array.from({ length: 5 }, () => ({ total_return: 6_000, max_drawdown: 4 })),
+      })
+    );
     const supabase = makeSupabaseReadinessMock({
       algoData: makeAlgo({ name: "Gold FVG-DailyBias-Long 4h" }),
     });
@@ -669,7 +682,7 @@ describe("runReadinessCheck — output shape", () => {
   });
 
   it("watchlist tickers UPPERCASED before being passed to runWalkForward", async () => {
-    let capturedPricesByTicker: Map<string, unknown> | null = null;
+    let capturedPricesByTicker = null as Map<string, unknown> | null;
     mockedRunWalkForward.mockImplementation((_rules, prices) => {
       capturedPricesByTicker = prices as Map<string, unknown>;
       return cleanWf();

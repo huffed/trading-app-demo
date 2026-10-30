@@ -11,12 +11,13 @@
  *   - dailyBars omitted → resampleToDaily called as fallback
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { checkDxyDirection } from "@/lib/algorithm/dxy-filter";
+import { checkDxyDirection, type DxyFilterResult } from "@/lib/algorithm/dxy-filter";
 import { isWeakTrendByAdx } from "@/lib/market-data/adx-filter";
 import { resolveSide } from "@/lib/market-data/auto-side";
 import { isRangingByAtr } from "@/lib/market-data/regime-filter";
 import { resampleToDaily } from "@/lib/market-data/resample";
 import type { PriceBar } from "@/lib/market-data/types";
+import { asFixture } from "@/test-utils/fixture";
 import type { AlgorithmRules } from "@/types/algorithm";
 import { checkDirectionConflict } from "./entry-gates";
 import { runSideAndDirectionGates } from "./entry-side-and-direction-gates";
@@ -78,7 +79,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockedResolve.mockReturnValue({ side: "long", directionOverride: "bullish" });
   mockedConflict.mockResolvedValue({ block: false });
-  mockedDxy.mockReturnValue({ block: false });
+  mockedDxy.mockReturnValue(asFixture<DxyFilterResult>({ block: false }));
   mockedRegime.mockReturnValue({ skip: false });
   mockedAdx.mockReturnValue({ skip: false });
   mockedResample.mockReturnValue(makeBars(30));
@@ -135,7 +136,7 @@ describe("runSideAndDirectionGates", () => {
     mockedDxy.mockReturnValue({
       block: true,
       reason: "DXY trending against long",
-      status: "trending_up",
+      status: "trending_up" as DxyFilterResult["status"],
       delta_pips: 15,
       threshold_pips: 10,
       lookback_hours: 24,
@@ -149,11 +150,11 @@ describe("runSideAndDirectionGates", () => {
     });
     const r = await runSideAndDirectionGates(args);
     expect(r).toEqual({ blocked: true });
-    expect(mockedLog.mock.calls[0][2].details.reason).toBe("DXY trending against long");
+    expect(mockedLog.mock.calls[0][2].details!.reason).toBe("DXY trending against long");
   });
 
   it("DXY filter skipped when dxyBars empty (graceful pass)", async () => {
-    mockedDxy.mockReturnValue({ block: true });
+    mockedDxy.mockReturnValue(asFixture<DxyFilterResult>({ block: true }));
     const args = makeArgs({
       dxyBars: [],
       rules: {
@@ -176,7 +177,7 @@ describe("runSideAndDirectionGates", () => {
     });
     const r = await runSideAndDirectionGates(args);
     expect(r).toEqual({ blocked: true });
-    expect(mockedLog.mock.calls[0][2].details.reason).toContain("Regime filter:");
+    expect(mockedLog.mock.calls[0][2].details!.reason).toContain("Regime filter:");
   });
 
   it("ADX filter blocked → blocked + reason includes 'ADX filter:'", async () => {
@@ -189,7 +190,7 @@ describe("runSideAndDirectionGates", () => {
     });
     const r = await runSideAndDirectionGates(args);
     expect(r).toEqual({ blocked: true });
-    expect(mockedLog.mock.calls[0][2].details.reason).toContain("ADX filter:");
+    expect(mockedLog.mock.calls[0][2].details!.reason).toContain("ADX filter:");
   });
 
   it("dailyBars undefined → resampleToDaily called as fallback", async () => {

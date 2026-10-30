@@ -27,15 +27,12 @@ import {
   takeProfitRuleForSide,
 } from "@/lib/algorithm/structural-sl";
 import { getContractSize, pnlInUsd } from "@/lib/constants/markets";
+import { asFixture } from "@/test-utils/fixture";
 import type { AlgorithmRules } from "@/types/algorithm";
 import type { PaperPosition } from "@/types/position";
 import { snapshotCondition } from "./entry-conviction";
 import { openPosition, type AlgoContext } from "./entry-open";
-import {
-  calculatePositionSize,
-  calculateRiskPrices,
-  logActivity,
-} from "./helpers";
+import { calculatePositionSize, calculateRiskPrices, logActivity } from "./helpers";
 import { executeLiveEntry, type BrokerExecutionContext } from "./live-execution";
 import { checkRiskPoolHalt } from "./risk-pool-halt";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -82,10 +79,12 @@ const mockedCheckRiskPoolHalt = vi.mocked(checkRiskPoolHalt);
 // ---- Supabase insert mock. --------------------------------------------
 // Chain: .from("paper_positions").insert(payload).select("id").single()
 // Terminal .single() awaits {data, error}.
-function makeSupabaseInsertMock(opts: {
-  insertedId?: string | null;
-  error?: { message: string } | null;
-} = {}): {
+function makeSupabaseInsertMock(
+  opts: {
+    insertedId?: string | null;
+    error?: { message: string } | null;
+  } = {}
+): {
   supabase: SupabaseClient;
   fromMock: ReturnType<typeof vi.fn>;
   capturedInsertPayload: unknown;
@@ -131,17 +130,18 @@ function makeSizing(fields: Record<string, unknown>): AlgorithmRules["position_s
   return stub as unknown as AlgorithmRules["position_sizing"];
 }
 
-function makeRules(opts: {
-  sizing?: AlgorithmRules["position_sizing"];
-  side?: "long" | "short" | "auto";
-  leverage?: number;
-  combinedRiskCapPct?: number;
-} = {}): AlgorithmRules {
+function makeRules(
+  opts: {
+    sizing?: AlgorithmRules["position_sizing"];
+    side?: "long" | "short" | "auto";
+    leverage?: number;
+    combinedRiskCapPct?: number;
+  } = {}
+): AlgorithmRules {
   return {
     timeframe: "4h",
     asset_class: "commodities",
-    position_sizing:
-      opts.sizing ?? makeSizing({ type: "percentage_of_capital", value: 5 }),
+    position_sizing: opts.sizing ?? makeSizing({ type: "percentage_of_capital", value: 5 }),
     side: opts.side,
     leverage: opts.leverage,
     prop_firm: opts.combinedRiskCapPct
@@ -156,8 +156,17 @@ function makeAlgo(rules: AlgorithmRules, capital = 10_000): AlgoContext {
   return { id: "algo-1", name: "T", description: "", rules, capital };
 }
 
-function makeBars(n: number): Array<{ date: string; open: number; high: number; low: number; close: number; volume: number }> {
-  const bars: Array<{ date: string; open: number; high: number; low: number; close: number; volume: number }> = [];
+function makeBars(
+  n: number
+): Array<{ date: string; open: number; high: number; low: number; close: number; volume: number }> {
+  const bars: Array<{
+    date: string;
+    open: number;
+    high: number;
+    low: number;
+    close: number;
+    volume: number;
+  }> = [];
   for (let i = 0; i < n; i++) {
     bars.push({
       date: `2026-06-${String(i + 1).padStart(2, "0")}T00:00:00Z`,
@@ -195,7 +204,9 @@ beforeEach(() => {
   mockedTakeProfitRuleForSide.mockImplementation((rules) => rules.take_profit);
   mockedGetContractSize.mockReturnValue(100);
   mockedPnlInUsd.mockReturnValue(-150); // proposed-risk fallback
-  mockedSnapshotCondition.mockImplementation((c) => c);
+  mockedSnapshotCondition.mockImplementation((c) =>
+    asFixture<ReturnType<typeof snapshotCondition>>(c)
+  );
   mockedCalculatePositionSize.mockReturnValue({
     quantity: 0.1,
     notionalValue: 300,
@@ -324,13 +335,11 @@ describe("openPosition — side resolution", () => {
 
 describe("openPosition — openValue computation", () => {
   it("leveraged sizing (lots/risk_per_trade/conviction_scaled) sums notional/leverage", async () => {
-    mockedCalculatePositionSize.mockImplementation(
-      (_rules, _capital, openValue) => {
-        // Capture the openValue passed in for assertion
-        capturedOpenValue = openValue;
-        return { quantity: 0.1, notionalValue: 300, marginRequired: 300 };
-      }
-    );
+    mockedCalculatePositionSize.mockImplementation((_rules, _capital, openValue) => {
+      // Capture the openValue passed in for assertion
+      capturedOpenValue = openValue;
+      return { quantity: 0.1, notionalValue: 300, marginRequired: 300 };
+    });
     let capturedOpenValue = 0;
     const { supabase } = makeSupabaseInsertMock();
     const open1 = makePosition({ notional_value: 30_000 });
@@ -553,9 +562,11 @@ describe("openPosition — cohort attribution", () => {
       brokerCtx: null,
       bars: makeBars(20),
     });
-    const cohort = (conf.capturedInsertPayload as {
-      entry_reason: { cohort?: { position_in_range_pct?: number; entry_zone?: string } };
-    }).entry_reason.cohort;
+    const cohort = (
+      conf.capturedInsertPayload as {
+        entry_reason: { cohort?: { position_in_range_pct?: number; entry_zone?: string } };
+      }
+    ).entry_reason.cohort;
     expect(cohort?.position_in_range_pct).toBe(75);
     expect(cohort?.entry_zone).toBe("premium");
   });
@@ -575,9 +586,11 @@ describe("openPosition — cohort attribution", () => {
       brokerCtx: null,
       bars: makeBars(20),
     });
-    const cohort = (conf.capturedInsertPayload as {
-      entry_reason: { cohort?: { position_in_range_pct?: number; entry_zone?: string } };
-    }).entry_reason.cohort;
+    const cohort = (
+      conf.capturedInsertPayload as {
+        entry_reason: { cohort?: { position_in_range_pct?: number; entry_zone?: string } };
+      }
+    ).entry_reason.cohort;
     expect(cohort?.position_in_range_pct).toBe(20);
     expect(cohort?.entry_zone).toBe("discount");
   });
@@ -597,9 +610,11 @@ describe("openPosition — cohort attribution", () => {
       brokerCtx: null,
       bars: makeBars(20),
     });
-    const cohort = (conf.capturedInsertPayload as {
-      entry_reason: { cohort?: { position_in_range_pct?: number; entry_zone?: string } };
-    }).entry_reason.cohort;
+    const cohort = (
+      conf.capturedInsertPayload as {
+        entry_reason: { cohort?: { position_in_range_pct?: number; entry_zone?: string } };
+      }
+    ).entry_reason.cohort;
     expect(cohort?.entry_zone).toBe("equilibrium");
   });
 
@@ -618,9 +633,11 @@ describe("openPosition — cohort attribution", () => {
       brokerCtx: null,
       bars: makeBars(20),
     });
-    const cohort = (conf.capturedInsertPayload as {
-      entry_reason: { cohort?: { position_in_range_pct?: number } };
-    }).entry_reason.cohort;
+    const cohort = (
+      conf.capturedInsertPayload as {
+        entry_reason: { cohort?: { position_in_range_pct?: number } };
+      }
+    ).entry_reason.cohort;
     expect(cohort?.position_in_range_pct).toBe(100); // clamped
   });
 
@@ -638,9 +655,11 @@ describe("openPosition — cohort attribution", () => {
       brokerCtx: null,
       bars: makeBars(15), // < 20 threshold
     });
-    const cohort = (conf.capturedInsertPayload as {
-      entry_reason: { cohort?: { position_in_range_pct?: number; entry_zone?: string } };
-    }).entry_reason.cohort;
+    const cohort = (
+      conf.capturedInsertPayload as {
+        entry_reason: { cohort?: { position_in_range_pct?: number; entry_zone?: string } };
+      }
+    ).entry_reason.cohort;
     expect(cohort?.position_in_range_pct).toBeUndefined();
     expect(cohort?.entry_zone).toBeUndefined();
     // entry_hour_utc still set
@@ -662,9 +681,13 @@ describe("openPosition — cohort attribution", () => {
       bars: makeBars(20),
       cohortFromCaller: { regime: "HH" },
     });
-    const cohort = (conf.capturedInsertPayload as {
-      entry_reason: { cohort?: { regime?: string; entry_hour_utc?: number; position_in_range_pct?: number } };
-    }).entry_reason.cohort;
+    const cohort = (
+      conf.capturedInsertPayload as {
+        entry_reason: {
+          cohort?: { regime?: string; entry_hour_utc?: number; position_in_range_pct?: number };
+        };
+      }
+    ).entry_reason.cohort;
     expect(cohort?.regime).toBe("HH"); // caller-provided
     expect(cohort?.entry_hour_utc).toEqual(expect.any(Number)); // locally computed
     expect(cohort?.position_in_range_pct).toBe(75); // locally computed

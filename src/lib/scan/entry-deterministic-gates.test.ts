@@ -34,15 +34,19 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { checkBarGranularity } from "@/lib/algorithm/bar-granularity-gate";
 import { checkBarStaleness } from "@/lib/algorithm/bar-staleness-gate";
-import { checkDxyDirection } from "@/lib/algorithm/dxy-filter";
-import { checkAtrLiquidity } from "@/lib/algorithm/intraday-atr-gate";
+import { checkDxyDirection, type DxyFilterResult } from "@/lib/algorithm/dxy-filter";
+import { checkAtrLiquidity, type AtrLiquidityResult } from "@/lib/algorithm/intraday-atr-gate";
 import { checkReEntryCooldown } from "@/lib/algorithm/re-entry-cooldown";
 import { checkMarketStateGateConfig } from "@/lib/algorithm/market-state-gate";
-import { checkTimeOfDayFilter } from "@/lib/algorithm/time-of-day-filter";
+import {
+  checkTimeOfDayFilter,
+  type TimeOfDayFilterResult,
+} from "@/lib/algorithm/time-of-day-filter";
 import { isWeakTrendByAdx } from "@/lib/market-data/adx-filter";
 import { resolveSide } from "@/lib/market-data/auto-side";
 import { isRangingByAtr } from "@/lib/market-data/regime-filter";
 import type { PriceBar } from "@/lib/market-data/types";
+import { asFixture } from "@/test-utils/fixture";
 import type { AlgorithmRules } from "@/types/algorithm";
 import { checkConsecutiveLossHalt } from "./consec-loss-halt";
 import { checkConsistencyHalt } from "./consistency-halt";
@@ -78,7 +82,9 @@ vi.mock("./consistency-halt", () => ({ checkConsistencyHalt: vi.fn() }));
 vi.mock("./entry-gates", () => ({
   checkDirectionConflict: vi.fn(),
   checkNewsVeto: vi.fn(),
-  computeLiveMarketState: vi.fn().mockResolvedValue({ mtf: "trend", vol: "n/a", range: "n/a", dxy: "n/a" }),
+  computeLiveMarketState: vi
+    .fn()
+    .mockResolvedValue({ mtf: "trend", vol: "n/a", range: "n/a", dxy: "n/a" }),
 }));
 vi.mock("./helpers", () => ({ logActivity: vi.fn() }));
 vi.mock("./per-hour-stats", () => ({ getPerHourStats: vi.fn().mockResolvedValue(new Map()) }));
@@ -160,11 +166,22 @@ beforeEach(() => {
     threshold_minutes: 360,
     last_bar_date: "2026-06-30T00:00:00Z",
   });
-  mockedCheckAtrLiquidity.mockReturnValue({ skip: false, atr_current: 1.5, atr_threshold: 1.0, status: "ok" });
-  mockedCheckReEntryCooldown.mockResolvedValue({ block: false, status: "no_recent_close", cooldown_minutes: 240 });
+  mockedCheckAtrLiquidity.mockReturnValue({
+    skip: false,
+    atr_current: 1.5,
+    atr_threshold: 1.0,
+    status: "ok" as AtrLiquidityResult["status"],
+  });
+  mockedCheckReEntryCooldown.mockResolvedValue({
+    block: false,
+    status: "no_recent_close",
+    cooldown_minutes: 240,
+  });
   mockedCheckNewsVeto.mockResolvedValue({ vetoed: false });
   mockedCheckConsecutiveLossHalt.mockResolvedValue({ tripped: false, streak: 0, threshold: 3 });
-  mockedCheckTimeOfDayFilter.mockReturnValue({ block: false, hour: 12, hour_wr_pct: 50, hour_samples: 100 });
+  mockedCheckTimeOfDayFilter.mockReturnValue(
+    asFixture<TimeOfDayFilterResult>({ block: false, hour: 12, hour_wr_pct: 50, hour_samples: 100 })
+  );
   mockedCheckConsistencyHalt.mockResolvedValue({
     tripped: false,
     today_net: 0,
@@ -172,10 +189,13 @@ beforeEach(() => {
     ratio: 0,
     threshold: 0,
   });
-  mockedCheckMarketStateGateConfig.mockReturnValue({ allowed: true, reason: "no states configured" });
+  mockedCheckMarketStateGateConfig.mockReturnValue({
+    allowed: true,
+    reason: "no states configured",
+  });
   mockedResolveSide.mockReturnValue({ side: "long", directionOverride: "bullish" });
   mockedCheckDirectionConflict.mockResolvedValue({ block: false });
-  mockedCheckDxyDirection.mockReturnValue({ block: false });
+  mockedCheckDxyDirection.mockReturnValue(asFixture<DxyFilterResult>({ block: false }));
   mockedIsRangingByAtr.mockReturnValue({ skip: false });
   mockedIsWeakTrendByAdx.mockReturnValue({ skip: false });
   mockedLogActivity.mockResolvedValue(undefined);
@@ -279,7 +299,7 @@ describe("runDeterministicEntryGates — step 1 (ATR liquidity)", () => {
       reason: "ATR below 20th percentile",
       atr_current: 0.5,
       atr_threshold: 1.0,
-      status: "below",
+      status: "below" as AtrLiquidityResult["status"],
     });
     const result = await runDeterministicEntryGates(makeCtx());
     expect(result).toEqual({ blocked: true });
@@ -374,23 +394,29 @@ describe("runDeterministicEntryGates — pre-side halts", () => {
         id: "algo-1",
         name: "T",
         description: "",
-        rules: makeRules({ prop_firm: { consecutive_loss_daily_halt: 3 } } as unknown as Partial<AlgorithmRules>),
+        rules: makeRules({
+          prop_firm: { consecutive_loss_daily_halt: 3 },
+        } as unknown as Partial<AlgorithmRules>),
         capital: 100_000,
       },
     });
     const result = await runDeterministicEntryGates(ctx);
     expect(result).toEqual({ blocked: true });
-    expect(mockedLogActivity.mock.calls[0][2].details.reason).toContain("Consecutive-loss halt: 3/3");
+    expect(mockedLogActivity.mock.calls[0][2].details!.reason).toContain(
+      "Consecutive-loss halt: 3/3"
+    );
   });
 
   it("step 4: time-of-day filter blocks", async () => {
-    mockedCheckTimeOfDayFilter.mockReturnValue({
-      block: true,
-      reason: "low-WR hour",
-      hour: 18,
-      hour_wr_pct: 20,
-      hour_samples: 50,
-    });
+    mockedCheckTimeOfDayFilter.mockReturnValue(
+      asFixture<TimeOfDayFilterResult>({
+        block: true,
+        reason: "low-WR hour",
+        hour: 18,
+        hour_wr_pct: 20,
+        hour_samples: 50,
+      })
+    );
     const ctx = makeCtx({
       algo: {
         id: "algo-1",
@@ -423,13 +449,17 @@ describe("runDeterministicEntryGates — pre-side halts", () => {
         id: "algo-1",
         name: "T",
         description: "",
-        rules: makeRules({ prop_firm: { consistency_rule: 40 } } as unknown as Partial<AlgorithmRules>),
+        rules: makeRules({
+          prop_firm: { consistency_rule: 40 },
+        } as unknown as Partial<AlgorithmRules>),
         capital: 100_000,
       },
     });
     const result = await runDeterministicEntryGates(ctx);
     expect(result).toEqual({ blocked: true });
-    expect(mockedLogActivity.mock.calls[0][2].details.reason).toContain("Consistency halt: today $800");
+    expect(mockedLogActivity.mock.calls[0][2].details!.reason).toContain(
+      "Consistency halt: today $800"
+    );
   });
 
   it("step 6: market-state gate blocks", async () => {
@@ -450,7 +480,7 @@ describe("runDeterministicEntryGates — pre-side halts", () => {
     });
     const result = await runDeterministicEntryGates(ctx);
     expect(result).toEqual({ blocked: true });
-    expect(mockedLogActivity.mock.calls[0][2].details.reason).toBe("market_state_gate");
+    expect(mockedLogActivity.mock.calls[0][2].details!.reason).toBe("market_state_gate");
   });
 
   it("step 6: market-state gate SHADOW mode logs but does NOT block", async () => {
@@ -474,7 +504,7 @@ describe("runDeterministicEntryGates — pre-side halts", () => {
     expect(result.blocked).toBe(false);
     // Shadow log fired but no blocking log → final outcome is pass-through
     const shadowLog = mockedLogActivity.mock.calls.find(
-      (c) => c[2].details.reason === "market_state_gate_shadow"
+      (c) => c[2].details!.reason === "market_state_gate_shadow"
     );
     expect(shadowLog).toBeDefined();
   });
@@ -491,7 +521,7 @@ describe("runDeterministicEntryGates — side-and-direction gates", () => {
     expect(result).toEqual({ blocked: true });
     // Auto-side log contains either "neutral" or "insufficient D1 history"
     const lastLog = mockedLogActivity.mock.calls[mockedLogActivity.mock.calls.length - 1][2];
-    expect(lastLog.details.reason).toMatch(/Auto-side/);
+    expect(lastLog.details!.reason).toMatch(/Auto-side/);
   });
 
   it("step 8: direction conflict blocks", async () => {
@@ -512,7 +542,7 @@ describe("runDeterministicEntryGates — side-and-direction gates", () => {
     mockedCheckDxyDirection.mockReturnValue({
       block: true,
       reason: "DXY trending against long",
-      status: "trending_up",
+      status: "trending_up" as DxyFilterResult["status"],
       delta_pips: 15,
       threshold_pips: 10,
       lookback_hours: 24,
@@ -531,7 +561,7 @@ describe("runDeterministicEntryGates — side-and-direction gates", () => {
     });
     const result = await runDeterministicEntryGates(ctx);
     expect(result).toEqual({ blocked: true });
-    expect(mockedLogActivity.mock.calls[0][2].details.reason).toBe("DXY trending against long");
+    expect(mockedLogActivity.mock.calls[0][2].details!.reason).toBe("DXY trending against long");
   });
 
   it("step 10: regime filter blocks", async () => {
@@ -549,7 +579,7 @@ describe("runDeterministicEntryGates — side-and-direction gates", () => {
     });
     const result = await runDeterministicEntryGates(ctx);
     expect(result).toEqual({ blocked: true });
-    expect(mockedLogActivity.mock.calls[0][2].details.reason).toContain("Regime filter:");
+    expect(mockedLogActivity.mock.calls[0][2].details!.reason).toContain("Regime filter:");
   });
 
   it("step 11: ADX filter blocks", async () => {
@@ -567,7 +597,7 @@ describe("runDeterministicEntryGates — side-and-direction gates", () => {
     });
     const result = await runDeterministicEntryGates(ctx);
     expect(result).toEqual({ blocked: true });
-    expect(mockedLogActivity.mock.calls[0][2].details.reason).toContain("ADX filter:");
+    expect(mockedLogActivity.mock.calls[0][2].details!.reason).toContain("ADX filter:");
   });
 });
 
@@ -611,7 +641,7 @@ describe("runDeterministicEntryGates — gate ordering", () => {
       reason: "ATR below",
       atr_current: 0.5,
       atr_threshold: 1.0,
-      status: "below",
+      status: "below" as AtrLiquidityResult["status"],
     });
     mockedCheckNewsVeto.mockResolvedValue({ vetoed: true, reason: "NFP" });
     await runDeterministicEntryGates(makeCtx());
