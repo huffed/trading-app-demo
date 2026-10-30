@@ -5,14 +5,18 @@
  * hook parses JSON the same way and fails the same way.
  *
  *   node hook-input.cjs field <name>      tool_input.<name>; for file_path falls back to notebook_path
- *   node hook-input.cjs relpath <root>    the edited path relative to the REAL project root: symlinks resolved,
- *                                         `..` collapsed, `.claude/worktrees/<x>/` stripped, lowercased on macOS
- *                                         (case-insensitive filesystem); prints OUTSIDE when the path leaves the root
+ *   node hook-input.cjs relpath <root>    the edited path relative to the REAL project root: symlinks resolved
+ *                                         (native realpath, so the on-disk case wins), `..` collapsed,
+ *                                         `.claude/worktrees/<x>/` stripped, lowercased on macOS (case-insensitive
+ *                                         filesystem); prints OUTSIDE when the path leaves the root
  *   node hook-input.cjs segments [--strict]
  *                                         quote-aware split of tool_input.command into simple commands, one per
- *                                         line. With --strict the first line is DENY:<reason> for constructs a
- *                                         read-only caller must refuse (command substitution, process substitution,
- *                                         heredocs, any `<`, any redirect other than >&1 >&2 >/dev/null 2>/dev/null)
+ *                                         line as `<sep>\t<command>` where sep is start|and|or|pipe|seq|bg|nl|subst.
+ *                                         Without --strict, the inside of every $(…) and `…` is split too and
+ *                                         appended as `subst` lines, so inner commands are inspected. With --strict
+ *                                         the only output is DENY:<reason> for constructs a read-only caller must
+ *                                         refuse (command or process substitution, heredocs, any `<`, any redirect
+ *                                         other than >&1 >&2 >/dev/null 2>/dev/null) — otherwise the same lines.
  *   node hook-input.cjs stop-active       1 when stop_hook_active is true, else 0
  *
  * Exit 3 on malformed input or an unknown mode. Callers treat anything but
@@ -21,12 +25,8 @@
 const fs = require("fs");
 const path = require("path");
 
-function readStdin() {
-  return fs.readFileSync(0, "utf8");
-}
-
 function payload() {
-  const raw = readStdin();
+  const raw = fs.readFileSync(0, "utf8");
   let json;
   try {
     json = JSON.parse(raw);
@@ -46,8 +46,10 @@ function toolInput(json) {
   return t && typeof t === "object" ? t : {};
 }
 
+const realpath = (p) => (fs.realpathSync.native ? fs.realpathSync.native(p) : fs.realpathSync(p));
+
 function nearestExistingRealpath(p) {
-  // realpath of the deepest existing ancestor, plus the untouched remainder
+  // native realpath of the deepest existing ancestor (on-disk case), plus the untouched remainder
   let cur = p;
   const rest = [];
   while (!fs.existsSync(cur)) {
@@ -56,44 +58,69 @@ function nearestExistingRealpath(p) {
     rest.unshift(path.basename(cur));
     cur = parent;
   }
-  return path.join(fs.realpathSync(cur), ...rest);
+  return path.join(realpath(cur), ...rest);
 }
 
 function relpath(root, filePath) {
-  const realRoot = fs.realpathSync(root);
+  const realRoot = realpath(root);
   const abs = path.isAbsolute(filePath) ? filePath : path.join(realRoot, filePath);
   const resolved = nearestExistingRealpath(path.normalize(abs));
   if (resolved === null) return "OUTSIDE";
-  let rel = path.relative(realRoot, resolved);
+  const fold = (s) => (process.platform === "darwin" ? s.toLowerCase() : s);
+  let rel = path.relative(fold(realRoot), fold(resolved));
   if (rel === "" || rel.startsWith("..") || path.isAbsolute(rel)) return "OUTSIDE";
   rel = rel.split(path.sep).join("/");
   rel = rel.replace(/^\.claude\/worktrees\/[^/]+\//, "");
-  if (process.platform === "darwin") rel = rel.toLowerCase();
   return rel;
 }
 
 /**
  * Split a shell command into simple commands, respecting single quotes,
- * double quotes, $'…' and backslash escapes. In strict mode, refuse
- * constructs a read-only caller cannot reason about.
+ * double quotes, $'…' and backslash escapes. Returns { deny } in strict mode
+ * for constructs a read-only caller cannot reason about; otherwise
+ * { segments: [{ sep, text }] } with the contents of $(…) and `…` appended
+ * as extra `subst` segments.
  */
 function segments(cmd, strict) {
   const out = [];
+  const inner = [];
   let cur = "";
+  let sep = "start";
   let quote = null; // "'" | '"' | "$'"
   const deny = (why) => ({ deny: why });
-  const push = () => {
-    if (cur.trim()) out.push(cur.trim());
+  const push = (nextSep) => {
+    if (cur.trim()) out.push({ sep, text: cur.trim() });
     cur = "";
+    sep = nextSep;
+  };
+  // find the matching close of a $( … ) or ` … ` starting at i (index of "(" or "`"); returns [innerText, endIndex]
+  const matchSubst = (i) => {
+    if (cmd[i] === "`") {
+      const j = cmd.indexOf("`", i + 1);
+      return j < 0 ? [cmd.slice(i + 1), cmd.length - 1] : [cmd.slice(i + 1, j), j];
+    }
+    let depth = 0;
+    for (let j = i; j < cmd.length; j++) {
+      if (cmd[j] === "(") depth++;
+      else if (cmd[j] === ")") {
+        depth--;
+        if (depth === 0) return [cmd.slice(i + 1, j), j];
+      }
+    }
+    return [cmd.slice(i + 1), cmd.length - 1];
   };
   for (let i = 0; i < cmd.length; i++) {
     const c = cmd[i];
     const n = cmd[i + 1];
     if (quote !== null) {
-      if (quote === '"' && c === "\\" && n !== undefined) { cur += c + n; i++; continue; }
-      if (quote === "$'" && c === "\\" && n !== undefined) { cur += c + n; i++; continue; }
-      if (strict && quote === '"' && (c === "`" || (c === "$" && n === "("))) {
-        return deny("command substitution inside double quotes");
+      if ((quote === '"' || quote === "$'") && c === "\\" && n !== undefined) { cur += c + n; i++; continue; }
+      if (quote === '"' && (c === "`" || (c === "$" && n === "("))) {
+        if (strict) return deny("command substitution inside double quotes");
+        const [text, end] = matchSubst(c === "`" ? i : i + 1);
+        inner.push(text);
+        cur += cmd.slice(i, end + 1);
+        i = end;
+        continue;
       }
       cur += c;
       if ((quote === '"' && c === '"') || ((quote === "'" || quote === "$'") && c === "'")) quote = null;
@@ -103,9 +130,23 @@ function segments(cmd, strict) {
     if (c === "'") { quote = "'"; cur += c; continue; }
     if (c === '"') { quote = '"'; cur += c; continue; }
     if (c === "$" && n === "'") { quote = "$'"; cur += c + n; i++; continue; }
+    if (c === "`" || (c === "$" && n === "(")) {
+      if (strict) return deny("command substitution");
+      const [text, end] = matchSubst(c === "`" ? i : i + 1);
+      inner.push(text);
+      cur += cmd.slice(i, end + 1);
+      i = end;
+      continue;
+    }
+    if ((c === "<" || c === ">") && n === "(") {
+      if (strict) return deny("process substitution");
+      const [text, end] = matchSubst(i + 1);
+      inner.push(text);
+      cur += cmd.slice(i, end + 1);
+      i = end;
+      continue;
+    }
     if (strict) {
-      if (c === "`" || (c === "$" && n === "(")) return deny("command substitution");
-      if ((c === "<" || c === ">") && n === "(") return deny("process substitution");
       if (c === "<") return deny("input redirection or heredoc");
       if (c === ">") {
         const m = cmd.slice(i).match(/^>&[12](?=\s|$|[;&|])|^>>?\s*\/dev\/null(?=\s|$|[;&|])/);
@@ -115,13 +156,21 @@ function segments(cmd, strict) {
         continue;
       }
     }
-    if ((c === "&" && n === "&") || (c === "|" && n === "|")) { push(); i++; continue; }
-    if (c === ">" && n === "&") { cur += c + n; i++; continue; } // 2>&1 outside strict mode
-    if (c === "|" || c === ";" || c === "\n" || c === "&") { push(); continue; }
+    if (c === ">" && (n === "&" || n === "|")) { cur += c + n; i++; continue; } // 2>&1 and >| are not separators
+    if (c === "&" && n === "&") { push("and"); i++; continue; }
+    if (c === "|" && n === "|") { push("or"); i++; continue; }
+    if (c === "|") { push("pipe"); continue; }
+    if (c === ";") { push("seq"); continue; }
+    if (c === "&") { push("bg"); continue; }
+    if (c === "\n") { push("nl"); continue; }
     cur += c;
   }
   if (strict && quote !== null) return deny("unterminated quote");
-  push();
+  push("nl");
+  for (const text of inner) {
+    const r = segments(text, false);
+    for (const s of r.segments) out.push({ sep: "subst", text: s.text });
+  }
   return { segments: out };
 }
 
@@ -151,7 +200,7 @@ switch (mode) {
     if (typeof cmd !== "string") process.exit(3);
     const r = segments(cmd, strict);
     if (r.deny) process.stdout.write(`DENY:${r.deny}`);
-    else process.stdout.write(r.segments.join("\n"));
+    else process.stdout.write(r.segments.map((s) => `${s.sep}\t${s.text}`).join("\n"));
     break;
   }
   case "stop-active":

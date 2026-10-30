@@ -44,7 +44,7 @@ if [ "$live" = "1" ]; then
   if [ "${QT_ALLOW_LIVE_EDITS:-0}" != "1" ]; then
     deny "live-runner path (.claude/hooks/live-paths.txt). Engine, broker, API-route, cron and deploy code change only in a PR about them, in a session the operator started with the override — not before the audit verdict. Stop and ask the operator (docs/decisions/0004)"
   fi
-  notice="guard-paths: FENCE DOWN (QT_ALLOW_LIVE_EDITS=1) — writing live-runner path ${rel}"
+  notice="guard-paths: FENCE DOWN (live-path override is set) — writing live-runner path ${rel}"
   printf '%s' "$notice" | node -e '
     let s = ""; process.stdin.on("data", (d) => (s += d)).on("end", () => {
       process.stdout.write(JSON.stringify({ systemMessage: s }));

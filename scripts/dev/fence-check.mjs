@@ -16,10 +16,11 @@ const NAMES = "(QT_ALLOW_LIVE_EDITS|QT_STOP_VALIDATE)";
 // messages and `${NAME:-0}` reads are not assignments and are not flagged.
 const ASSIGNMENT = new RegExp(
   [
-    `(^|[;&|])[\\t ]*(export[\\t ]+)?${NAMES}[\\t ]*=`, // NAME=1, export NAME=1, ; NAME=1
-    `(^|[;&|])[\\t ]*export[\\t ]+${NAMES}([\\t ]|$)`, // export NAME
-    `^[\\t ]*["']?${NAMES}["']?[\\t ]*:`, // "NAME": "1"  /  NAME: 1 (YAML env block)
-    `process\\.env(\\.|\\[["'])${NAMES}["'\\]]*[\\t ]*=`, // process.env.NAME = "1"
+    `(^|[^A-Za-z0-9_])${NAMES}[\\t ]*=(?!=)`, // NAME=1 anywhere: shell, env NAME=1, a script string "NAME=1 claude"
+    `(^|[^A-Za-z0-9_])export[\\t ]+${NAMES}([\\t ]|$)`, // export NAME
+    `["']${NAMES}["'][\\t ]*:`, // "NAME": "1" as a JSON key, anywhere on the line (one-line env blocks included)
+    `^[\\t ]*${NAMES}[\\t ]*:[\\t ]*[^-\\s]`, // NAME: 1 as a YAML key (not the ${NAME:-0} read)
+    `process\\.env(\\.|\\[["'])${NAMES}["'\\]]*[\\t ]*=(?!=)`, // process.env.NAME = "1"
   ].join("|")
 );
 const COMMENT = /^[\t ]*(#|\/\/|\*|<!--)/;

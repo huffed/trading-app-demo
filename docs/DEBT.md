@@ -71,6 +71,7 @@ Every suppression in the code must point here. Today's 19 `eslint-disable` + 1 `
 | `src/lib/utils/pnl.ts:148` | `no-require-imports` (lazy `require` of `markets`) | remove; a static import is fine | Phase E (touches a live-path file) |
 | `scripts/canonical/snapshot-broker-health.ts:161` | `supabase: any` | acceptable in a script until `scripts/` is linted | Phase B lint baseline |
 | `src/lib/market-data/assert-trade-side.test.ts:12` | `@ts-expect-error` for a negative test | justified | — |
+| `.claude/hooks/guard-paths.sh` (the `case "$rel" in $pattern)` line) | shellcheck `SC2254` (unquoted variable in a `case` pattern) | justified — the variable holds a glob from `live-paths.txt` and must stay unquoted to match as one; quoting it would compare literal text | — |
 | TODO/FIXME/HACK | none (the 3 `XXX` hits are "XXX/USD" placeholders in comments) | — | — |
 
 ## 4. Strictness today and the target (ratchet only goes up)
