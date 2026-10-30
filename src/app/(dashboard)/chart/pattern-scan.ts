@@ -10,6 +10,7 @@ import { detectDailyBias } from "@/lib/patterns/daily-bias";
 import { detectLiquiditySweep } from "@/lib/patterns/liquidity-sweep";
 import { detectOrderBlock } from "@/lib/patterns/order-block";
 import { detectSwingPoints } from "@/lib/patterns/swing-points";
+import { fmtPrice } from "./fmt-price";
 import { buildBosResult, buildChochResult, buildSweepResult } from "./pattern-builders";
 import { scanFvgsAndIfvgs } from "./pattern-scan-fvg";
 import type {
@@ -19,21 +20,7 @@ import type {
   PatternPoint,
   SwingMarker,
 } from "./actions";
-
-type PriceBarLike = {
-  date: string;
-  open: number;
-  high: number;
-  low: number;
-  close: number;
-  volume: number;
-};
-
-function fmtPrice(p: number): string {
-  if (Math.abs(p) >= 100) return p.toFixed(2);
-  if (Math.abs(p) >= 1) return p.toFixed(4);
-  return p.toFixed(5);
-}
+import type { PriceBarLike } from "./pattern-scan-fvg";
 
 /** Forward-extension cap for unfilled / unmitigated zones. */
 const OB_FORWARD_BARS = 30;
@@ -215,11 +202,7 @@ export function computePatterns(rawBars: PriceBarLike[], bars: ChartBar[]): Char
   const obResult = scanOrderBlocks(rawBars, bars);
   const daily_bias = computeDailyBias(rawBars);
   const swings = computeSwings(rawBars, bars);
-  const annotations = [
-    ...fvgResult.annotations,
-    ...bosResult.annotations,
-    ...obResult.annotations,
-  ];
+  const annotations = [...fvgResult.annotations, ...bosResult.annotations, ...obResult.annotations];
   return {
     fvg: fvgResult.fvg,
     ifvg: fvgResult.ifvg,

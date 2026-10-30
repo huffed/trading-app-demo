@@ -4,13 +4,10 @@
  * point + annotation arrays for both layers.
  */
 import { scanFvgs } from "@/lib/patterns/fvg";
-import type {
-  ChartBar,
-  PatternAnnotation,
-  PatternPoint,
-} from "./actions";
+import { fmtPrice } from "./fmt-price";
+import type { ChartBar, PatternAnnotation, PatternPoint } from "./actions";
 
-type PriceBarLike = {
+export type PriceBarLike = {
   date: string;
   open: number;
   high: number;
@@ -28,12 +25,6 @@ const IFVG_FORWARD_BARS = 40;
  *  gaps are noise — a 3-bar imbalance where the gap is a fraction of
  *  a typical bar's range isn't a meaningful zone. */
 const FVG_MIN_ATR_RATIO = 0.25;
-
-function fmtPrice(p: number): string {
-  if (Math.abs(p) >= 100) return p.toFixed(2);
-  if (Math.abs(p) >= 1) return p.toFixed(4);
-  return p.toFixed(5);
-}
 
 function atr14(bars: PriceBarLike[], idx: number): number {
   const period = 14;
