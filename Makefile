@@ -67,11 +67,11 @@ validate: ## Validation harness (wired to review/scripts when the audit lands th
 parity: ## Live-vs-backtest parity replay (wired to review/scripts/paper-replay.ts when it lands on dev)
 	@echo "make parity: not wired yet — review/scripts/paper-replay.ts is on the audit branch (docs/DEBT.md D-02)."; exit 2
 
-db-types: ## Regenerate src/lib/supabase/database.types.ts from the live schema and stamp the migrations manifest
-	@echo "make db-types: lands with PR tooling/b7-db-types."; exit 2
+db-types: ## Regenerate src/lib/supabase/database.types.ts from the live schema (needs SUPABASE_ACCESS_TOKEN in the shell) and stamp the manifest
+	node --env-file=.env.local scripts/dev/db-types.mjs generate
 
-db-types-check: ## Fail if migrations changed since database.types.ts was generated
-	@echo "make db-types-check: lands with PR tooling/b7-db-types."; exit 2
+db-types-check: ## Fail if supabase/migrations/ changed since database.types.ts was generated (CI)
+	node scripts/dev/db-types.mjs check
 
 secrets-scan: ## gitleaks over the working tree and staged changes (history: make secrets-scan-history)
 	gitleaks dir . --no-banner --redact=100

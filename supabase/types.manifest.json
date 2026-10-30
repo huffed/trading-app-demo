@@ -1,0 +1,7 @@
+{
+  "generated_at": "2026-10-28T20:32:03.331Z",
+  "generator": "supabase mcp generate_typescript_types (2026-10-28, live project schema)",
+  "migration_count": 52,
+  "latest_migration": "00052_activity_log_tick_rpc_index.sql",
+  "migrations_sha256": "db866dfa331176d86187dd3d9177f04ac138f533f4498273c12673e8d5505626"
+}

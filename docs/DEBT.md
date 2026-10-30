@@ -81,7 +81,7 @@ Every suppression in the code must point here. Today's 19 `eslint-disable` + 1 `
 | Tests | 1,918 unit tests, `src` only, no coverage | `scripts/` included; characterisation + golden tests; coverage reported (not gated) for `src/lib/{scan,market-data,algorithm,constants}` |
 | Shell | `shellcheck -S error` on `scripts/*.sh` (0 errors) — B3 | `-S warning` (6 × SC2155 today) |
 | Build | `next build` on every deploy, by hand | on every push and PR |
-| Schema | hand-applied migrations, stale generated types | CI check: generated types match migrations; a code-literal-vs-CHECK contract test |
+| Schema | hand-applied migrations; generated types regenerated 2026-10-28 (B7) and stamped against the migrations (`make db-types-check` in CI); the only type-level gap found was the `last_alpha_decay_tick` RPC | a code-literal-vs-CHECK contract test (B9) for the `string` columns the generator cannot type; migration apply still manual (Phase D) |
 
 ## 5. What was not measured
 
