@@ -92,3 +92,24 @@ make python-lock                         # after editing pyproject.toml: uv lock
 **What:** `scripts/dev/checked-scripts.mjs` is the single list. Everything under `scripts/` is **live-path** and checked like `src/` (ESLint baseline, tsc, Prettier) **except** the 42 research one-offs it names (`e2.*`, `verify-*`, `robustness-*`, stress runs, feature/label experiments, search drivers), which ESLint skips. `scripts/archive/` and run caches are never checked. `node scripts/dev/checked-scripts.mjs` prints the live-path file list for tools that cannot import it.
 
 **Why:** 46k lines were excluded from every check, including the deploy scripts, the cron wrappers' TypeScript and the verdict/baseline scripts that produced the live rules. Research scripts are excluded by name, not by directory, so moving nothing (renames wait for the audit) still lets the live-path scripts be checked. Each research script has a target date in `docs/DEBT.md` D-20 (2027-01-31) to be brought under the checks or archived; adding a script to the research list needs a DEBT.md line.
+
+## 9. Pre-commit — what runs before every commit
+
+**What:** `.husky/pre-commit` (installed by `pnpm install` through the `prepare` script, which sets `core.hooksPath=.husky`). On every `git commit` it runs, in order:
+
+1. **gitleaks** on the staged changes (`gitleaks git --pre-commit --staged`) — a secret-shaped string stops the commit. The hook refuses to run at all if gitleaks is missing (`brew install gitleaks`); it never silently skips.
+2. **lint-staged** (`.lintstagedrc.mjs`): Prettier writes every staged code file; ESLint baseline runs on staged TS/JS (errors fail); the **target** config runs on files that are new in the commit; shellcheck runs on staged cron wrappers.
+
+**Why:** the brief's rule is "a change that alters trades cannot merge unless the golden file is updated on purpose, and nothing fails silently". Pre-commit is the fast local half of that: it catches formatting, lint errors and secrets in seconds, before CI spends minutes. Holding new files to the target config from their first commit is how strictness ratchets up without a big-bang rewrite.
+
+**Commands:**
+
+```bash
+pnpm install                 # installs the hook (prepare → husky)
+git commit                   # the hook runs; fix what it reports and commit again
+git commit --no-verify       # one-off bypass; say why in the PR description
+make secrets-scan            # gitleaks over the working tree + staged changes, on demand
+make secrets-scan-history    # gitleaks over the full history (~12 min: it re-reads every blob)
+```
+
+**What the baseline history scan found (2026-10-28):** no credential has ever been committed. gitleaks' `generic-api-key` rule fires on the string `key` next to long tokens: 375 hits are sha-256 digests and cluster labels inside research artifacts (`scripts/canonical/e2-results/*.json`, `scripts/archive/`), now allowlisted by path in `.gitleaks.toml`; the rest were the flag name `live_trading_enabled=TRUE` in a `ROADMAP.md` lineage row, the empty `NEXT_PUBLIC_SUPABASE_ANON_KEY=` line in an old `CLAUDE.md`, and three `key: "G6_…"` cluster labels in archived research scripts. None is a secret; all are allowlisted by regex in `.gitleaks.toml` so the history scan reports 0. The working-tree scan additionally flags `.env.local` (real secrets, gitignored) and `.next/` build manifests; both are excluded from the `dir` scan by the config so the signal stays clean.

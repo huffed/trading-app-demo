@@ -7,7 +7,7 @@ BASE ?= origin/dev
 
 .PHONY: help install lint lint-strict lint-shell typecheck format format-check format-all-check \
         test test-watch build check backtest validate parity db-types db-types-check \
-        python-env python-lock
+        secrets-scan secrets-scan-history python-env python-lock
 
 help: ## List targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "} {printf "  %-18s %s\n", $$1, $$2}'
@@ -72,6 +72,13 @@ db-types: ## Regenerate src/lib/supabase/database.types.ts from the live schema 
 
 db-types-check: ## Fail if migrations changed since database.types.ts was generated
 	@echo "make db-types-check: lands with PR tooling/b7-db-types."; exit 2
+
+secrets-scan: ## gitleaks over the working tree and staged changes (history: make secrets-scan-history)
+	gitleaks dir . --no-banner --redact=100
+	gitleaks git --pre-commit --staged --no-banner --redact=100
+
+secrets-scan-history: ## gitleaks over the full git history (slow: minutes)
+	gitleaks git --no-banner --redact=100
 
 python-env: ## Create scripts/python/.venv from uv.lock
 	uv sync --project scripts/python

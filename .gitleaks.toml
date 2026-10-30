@@ -1,0 +1,32 @@
+# gitleaks configuration — extends the built-in rules. docs/DEV_SETUP.md §9.
+# Baseline 2026-10-28: full history 0 real secrets; every allowlist entry below
+# names a verified false positive. Do not add paths that can hold real secrets.
+title = "QuantTrader secrets scan"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Verified non-secrets and paths that cannot contain secrets"
+regexTarget = "line"
+paths = [
+  '''^\.env''',                            # local secrets, gitignored — never scanned as a file (the push/commit scans still see any copy that gets staged)
+  '''^\.next/''',                          # build output (prerender/middleware manifests carry random ids)
+  '''^\.claude/''',                        # Claude Code worktrees and local settings (gitignored)
+  '''^node_modules/''',
+  '''^coverage/''',
+  '''^scripts/canonical/data/''',          # pinned OHLC corpora (sha-stamped market data)
+  '''^scripts/canonical/e2-results/''',    # research run artifacts: sha-256 digests next to the word "key"
+  '''^scripts/canonical/bo-results/''',
+  '''^scripts/archive/''',                 # archived research scripts and run logs
+  '''^scripts/python/\.venv/''',
+  '''^pnpm-lock\.yaml$''',
+  '''^scripts/python/uv\.lock$''',
+  '''^src/lib/brokers/ctrader/proto/''',   # protobuf descriptors
+  '''^scripts/(regime-decomp-ote-long|replay-v12-shadow-historical)\.ts$''', # pre-archive paths of two research scripts whose `key: "…"` cluster labels trip generic-api-key
+]
+regexes = [
+  '''live_trading_enabled=''',                  # a flag name in a ROADMAP lineage row
+  '''NEXT_PUBLIC_SUPABASE_(ANON_KEY|URL)=''',      # the public (browser-shipped) Supabase vars; the secret is SUPABASE_SERVICE_ROLE_KEY
+  '''key: "G\d+_[a-z_]+"''',                     # regime-cluster labels in archived research scripts
+]

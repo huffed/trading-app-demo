@@ -18,7 +18,9 @@
     "test:watch": "vitest",
     "proto:gen": "cd src/lib/brokers/ctrader/proto && pbjs --target json --keep-case --out descriptor.json OpenApiCommonModelMessages.proto OpenApiCommonMessages.proto OpenApiModelMessages.proto OpenApiMessages.proto",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "lint:shell": "shellcheck -S error scripts/*.sh"
+    "lint:shell": "shellcheck -S error scripts/*.sh",
+    "prepare": "husky",
+    "secrets:scan": "gitleaks dir . --no-banner --redact=100 && gitleaks git --pre-commit --staged --no-banner --redact=100"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.92.0",
@@ -58,6 +60,8 @@
     "eslint-config-next": "16.2.4",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-import-x": "^4.16.2",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.4.0",
     "prettier": "^3.8.3",
     "protobufjs-cli": "^2.0.2",
     "tailwindcss": "^4",

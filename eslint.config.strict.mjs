@@ -62,8 +62,12 @@ export default defineConfig([
     rules: { "no-console": "off" },
   },
   {
-    // JS config/tooling files have no type information.
+    // JS config/tooling files have no type information and cannot declare boundary types.
     files: ["**/*.mjs", "**/*.js"],
     ...tseslint.configs.disableTypeChecked,
+    rules: {
+      ...tseslint.configs.disableTypeChecked.rules,
+      "@typescript-eslint/explicit-module-boundary-types": "off",
+    },
   },
 ]);
