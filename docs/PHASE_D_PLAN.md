@@ -1,0 +1,79 @@
+# Phase D — operations: plan from the read-only inventory of 2026-10-30
+
+Status: **plan, nothing executed.** Every step below changes the VPS only after the operator's check-in approval, gets a dated `docs/decisions/` entry saying what changed and when (so the audit can bracket paper-trading results), and is reversible by the step before it. Order is the operator's: reproducible deploy first, then the process user and the Node LTS move, then kill switch, alerts, nightly parity, backups. Hetzner firewall, the fate of `main` and the sudoers narrowing as they are reached.
+
+## D.0 Inventory (read-only, 2026-10-30, `ssh qt` as `ops`)
+
+| Item | Found | Consequence |
+|---|---|---|
+| Host | Hetzner Cloud `quanttrader-prod`, instance 163800159, eu-central / nbg1-dc3; Ubuntu 26.04 LTS, kernel 7.0.0-29; up 9 weeks | — |
+| **Pending reboot** | `/var/run/reboot-required` present; unattended-upgrades active, `Automatic-Reboot` not configured | kernel/security updates are installed but not running; a reboot needs a maintenance window (service down ~1 min, one cron tick lost) |
+| Resources | disk 22 % of 38 GB; RAM 829 MB of 3.8 GB used; swap 2 GB unused; app RSS 234 MB | ample |
+| Service unit | `/etc/systemd/system/quanttrader.service`: `ExecStart=/root/.nvm/versions/node/v25.9.0/bin/pnpm start`, `PATH` pinned to that Node, `Restart=always`, `RestartSec=5`, **no `User=` (root)**, no `EnvironmentFile`, no hardening directives; active since 2026-10-29 09:21 (the secret rotation), 0 restarts since | the unit is not in the repo; it is the first thing D.1 captures |
+| **Checkout lag** | `/opt/quanttrader` on `dev @ 3ee22e2` (2026-10-19), clean; last fetch 2026-10-19; `.next` built 2026-10-19 12:42; `node_modules` installed **2026-08-27** | production has none of Phases B/C (tooling only, golden MATCH, so no trade impact). The next deploy must run `pnpm install --frozen-lockfile` (lockfile changed: tsx, shadcn, removed deps) |
+| Runtime | only Node v25.9.0 under `/root/.nvm`; no `.nvmrc` on the host yet | Node 25 is end-of-life (DEBT D-21) → D.2 |
+| Secrets | `/opt/quanttrader/.env.local` 600 root 1,749 bytes (rotated 2026-10-29); `/root/.ssh/gh_deploy` read-only GitHub deploy key + `config` | D.2 moves the file and the key to `ops`; the deploy key stays read-only |
+| Crontab | root, 10 entries as documented in `scripts/README.md`, each `>> /var/log/quanttrader/<name>.log 2>&1` | D.2 moves it to `ops` |
+| **Logs** | `/var/log/quanttrader/*.log`: scan 8.1 MB, manage 4.7 MB, heartbeat 3.6 MB, oanda 3.6 MB …; **no logrotate rule** | unbounded growth; D.4 adds rotation |
+| Network | sshd on 22 (v4+v6), `next-server` on `*:3000` (ufw keeps it off the internet), tailscaled; Tailscale node `quanttrader-prod` | D.2 decides whether 3000 binds to the Tailscale address only |
+| Alerts today | GitHub Actions `dead-man.yml` every 30 min (heartbeat / scan tick / alpha-decay tick / broker API) → ntfy push (`NTFY_TOPIC`, `NTFY_TOKEN` secrets set) + email; `HEARTBEAT_PING_URL` **unset** on the VPS (no inverted uptime monitor) | D.4 |
+| Backups | none on the host; Supabase Pro holds the data (daily backups per plan, to be confirmed in the dashboard) | D.6 |
+| Kill switch | nothing named so; `/api/admin/flatten-algo` and the halts exist in the app | D.3 |
+
+## D.1 Reproducible deploy — first, because it makes every later change reversible
+
+**Deliverables**
+- `ops/` in the repo (infrastructure as code, no secrets): `ops/systemd/quanttrader.service` (captured from the host, then edited in D.2), `ops/crontab` (the 10 lines), `ops/sshd/10-hardening.conf`, `ops/ufw.sh`, `ops/logrotate/quanttrader` (D.4). The host is rebuilt from these, never by hand.
+- `scripts/ops/deploy.sh` — runs **on the VPS**, idempotent, verbose, fails loudly: `git fetch`, checkout the exact ref (`REF`, default `origin/dev`), refuse if the tree is dirty, refuse if `.nvmrc` does not match the runtime, `pnpm install --frozen-lockfile`, `pnpm build`, `systemctl restart quanttrader`, wait for `/login` → 200 and the heartbeat route → 200 (secret read on the host by the wrapper, never printed), append `date sha previous_sha` to `/var/log/quanttrader/deploys.log`, exit non-zero on any step. Rollback = `REF=<previous sha>` and the same script.
+- `make deploy [REF=…]`, `make status` (service state, deployed sha vs `origin/dev`, last tick per log, pending reboot), `make logs [LOG=scan]` — all over `ssh qt` with `sudo` where the step is root's.
+- A deploy ledger the audit can read: `docs/decisions/deploys.md`, one line per deploy (date, sha, reason), written by the operator or the session that deploys; infrastructure changes get full decision entries.
+
+**First execution (after approval):** deploy current `dev` (Phases B + C, golden MATCH) to replace `3ee22e2`. Entry: `0005-first-reproducible-deploy.md`. The pending **reboot** happens in the same window, before the deploy, so the kernel update and the code change are bracketed separately in the logs.
+
+## D.2 Process user and Node LTS
+
+- **Node:** install the chosen LTS line system-wide (NodeSource apt repository or `fnm`), exact version in `.nvmrc`, `engines` mirrors the major, CI reads `.nvmrc`, the unit's `PATH` points at it. Before touching the VPS: run `make check` and `make backtest` locally on that exact Node; the golden file must MATCH. Candidates: **Node 24** (Active LTS, maintenance to 2028-04) or **Node 26** (LTS from 2026-10, maintenance to 2029-04). Recommendation: 26 if the local run is clean, else 24. `@types/node` moves to the same major.
+- **Process user:** `chown -R ops:ops /opt/quanttrader /var/log/quanttrader`; move `.env.local` and the deploy key to `ops`; unit gets `User=ops`, `Group=ops`, `ProtectSystem=strict`, `ReadWritePaths=/opt/quanttrader /var/log/quanttrader`, `NoNewPrivileges=yes`; crontab moves to `ops` (`crontab -u ops`); root's crontab emptied; `deploy.sh` runs as `ops` with `sudo systemctl restart quanttrader` the only root step.
+- **Sudoers narrowing (reached here):** `/etc/sudoers.d/ops` shrinks from `NOPASSWD:ALL` to `systemctl restart|start|stop|status quanttrader`, `journalctl -u quanttrader`, and the deploy script.
+- **Port 3000:** decision for the operator — keep `*:3000` behind ufw (today) or bind to the Tailscale address only (`-H <tailscale-ip>`), which removes the dependency on ufw being right. Recommendation: bind to the Tailscale address; keep the `ssh -L` fallback documented.
+- Entry: `0006-process-user-and-node-lts.md`.
+
+## D.3 Kill switch (paper only, during a window the operator confirms)
+
+- `make kill-switch` → `scripts/ops/kill-switch.sh` on the VPS, in this order: (1) pause every active algorithm (admin route or SQL through the app's admin client — to be chosen after reading `src/app/api/admin/`), so no new entries; (2) flatten open **paper** positions through `/api/admin/flatten-algo`; (3) stop the service and the crontab (`systemctl stop quanttrader`; crontab disabled by renaming); (4) print what it did. `make resume` reverses (3) and un-pauses nothing — un-pausing is a deliberate operator act.
+- Test on paper only, in the confirmed window: run, verify in the database that positions are closed with the right `exit_reason` (D-01: the halt reasons are rejected by the CHECK today, so the test may surface that), verify the dead-man alert fires (it should: the stop is real), then `make resume`. Entry: `0007-kill-switch.md` with the test log.
+
+## D.4 Alerts and hygiene
+
+- `HEARTBEAT_PING_URL` → a free inverted uptime monitor (healthchecks.io), so a dead host alerts without GitHub Actions; keep the dead-man workflow as the second channel.
+- systemd `OnFailure=` → a one-shot unit that posts to ntfy; a daily `ops-health` cron (disk, memory, `reboot-required`, failed units, deploy sha vs `origin/dev`) → ntfy summary.
+- `deploy.sh` posts success/failure to ntfy.
+- logrotate for `/var/log/quanttrader/*.log` (weekly, 8 rotations, compressed); `Unattended-Upgrade::Automatic-Reboot` stays **off** (reboots are operator windows), but the daily summary says when one is pending.
+- Entry: `0008-alerts-and-rotation.md`.
+
+## D.5 Nightly parity job
+
+- Depends on the audit's `paper-replay.ts` landing on `dev` (then `make parity` stops being a stub, DEBT D-02). The job: nightly, on the VPS or as a scheduled GitHub Actions workflow, runs the parity replay over the paper positions of the last N days against the pinned bars, posts the summary to ntfy, exits non-zero on divergence above the agreed band.
+- Available now, independent of the audit: a **nightly scheduled CI run** of `make check` + `make backtest` on `dev` (catches dependency, provider and environment drift that PR runs cannot). Cheap; proposed for D.4's PR.
+
+## D.6 Backups with a tested restore
+
+- **Data:** Supabase Pro daily backups — confirm retention in the dashboard (operator). Add an independent nightly `pg_dump` of the operational tables (`algorithms`, `paper_positions`, `activity_log`, `llm_decisions`, `broker_connections` encrypted at rest with `age`) to a destination outside the VPS. Options: Hetzner Storage Box (~€3.5/month) or Hetzner Object Storage; budget within the £150 ceiling. `price_cache` is excluded (rebuildable from pins).
+- **Host:** everything that is not data lives in the repo after D.1/D.2 (`ops/`), except `.env.local`, which the operator holds; the deploy key is regenerable.
+- **Tested restore, twice a year and before any schema change:** (a) restore the latest dump into a Supabase branch or a local Postgres and run `tests/contracts/`; (b) provision a throwaway Hetzner VPS from `ops/`, `make deploy` against it, hit `/login`, destroy it (cost: cents). Entry: `0009-backups-and-restore-drill.md` with the first drill's log.
+
+## D.7 As reached
+
+- **Hetzner Cloud firewall** (console or `hcloud` with an API token the operator creates): inbound 22/tcp and Tailscale's 41641/udp only. Second layer under ufw.
+- **`main`:** today a 2026-04 scaffold, 780+ commits behind, unprotected. Recommendation: make `main` the production pointer — `deploy.sh` fast-forwards `main` to the deployed sha after a successful deploy, so `main` always answers "what runs". Alternative: delete it and rely on the deploy ledger. Operator's call.
+- **sudoers narrowing:** D.2.
+
+## Check-in questions before any VPS change
+
+1. D.1 as designed, including the first deploy of current `dev` and the pending reboot in the same window — which window?
+2. Node 24 or 26 (recommendation: 26 if the local run on it is clean).
+3. Port 3000: keep `*:3000` behind ufw, or bind to the Tailscale address only.
+4. Backups destination and budget (Storage Box vs Object Storage), and whether Supabase PITR is wanted.
+5. `main`: production pointer or delete.
+6. Kill-switch semantics as in D.3 (pause → flatten paper → stop service and crons), and the paper test window.
+7. Deploy ledger as `docs/decisions/deploys.md` (one line per deploy) plus full entries for infrastructure changes.
