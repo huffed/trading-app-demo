@@ -32,7 +32,12 @@ jobs:
           cache: pnpm
       - run: make install
       - run: sudo apt-get install -y shellcheck
+      - name: install actionlint 1.7.12 (pinned; the same version brew installs locally)
+        run: |
+          bash <(curl -sSL https://raw.githubusercontent.com/rhysd/actionlint/v1.7.12/scripts/download-actionlint.bash) 1.7.12 "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
       - run: make lint
+      - run: make lint-workflows
       - run: make lint-shell
       - run: make typecheck
       - run: make env-check

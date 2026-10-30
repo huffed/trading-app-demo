@@ -11,6 +11,7 @@ One short section per thing that was set up: **what it is, why it exists, the on
 | lint / type-check / test | `make lint` · `make typecheck` · `make test` | B3 |
 | format what I changed | `make format` (then `make format-check`) | B3 |
 | hold a new file to the target rules | `make lint-strict FILES=path/to/new-file.ts` | B3 |
+| lint the GitHub workflow files | `make lint-workflows` | B11 |
 | replay the golden trade list | `make backtest` (regenerate on purpose: `make backtest-update`) | B10 |
 | check env names + generated DB types | `make env-check` · `make db-types-check` | B6 / B7 |
 | see why CI is red | `gh pr checks <n>` then `gh run view <id> --log-failed` | B6 |
@@ -101,7 +102,7 @@ make python-lock                         # after editing pyproject.toml: uv lock
 **What:** `.husky/pre-commit` (installed by `pnpm install` through the `prepare` script, which sets `core.hooksPath=.husky`). On every `git commit` it runs, in order:
 
 1. **gitleaks** on the staged changes (`gitleaks git --pre-commit --staged`) — a secret-shaped string stops the commit. The hook refuses to run at all if gitleaks is missing (`brew install gitleaks`); it never silently skips.
-2. **lint-staged** (`.lintstagedrc.mjs`): Prettier writes every staged code file; ESLint baseline runs on staged TS/JS (errors fail); the **target** config runs on files that are new in the commit; shellcheck runs on staged cron wrappers.
+2. **lint-staged** (`.lintstagedrc.mjs`): Prettier writes every staged code file; ESLint baseline runs on staged TS/JS (errors fail); the **target** config runs on files that are new in the commit; shellcheck runs on staged cron wrappers; actionlint runs when a file under `.github/workflows/` is staged (`brew install actionlint`; the commit is refused if it is missing, same as gitleaks).
 
 **Why:** the brief's rule is "a change that alters trades cannot merge unless the golden file is updated on purpose, and nothing fails silently". Pre-commit is the fast local half of that: it catches formatting, lint errors and secrets in seconds, before CI spends minutes. Holding new files to the target config from their first commit is how strictness ratchets up without a big-bang rewrite.
 
@@ -139,7 +140,7 @@ Adding a migration = apply it to the project, `make db-types`, commit the migrat
 
 | Job | Runs | Fails when |
 |---|---|---|
-| `lint · typecheck · test · build` | `make install`, `make lint`, `make lint-shell`, `make typecheck`, `make env-check`, `make db-types-check`, `make test`, `make build` | any ESLint error or more warnings than the budget; any TypeScript error (tests included); a `process.env` name missing from `.env.example`; migrations newer than the generated types; any failing test; a broken production build |
+| `lint · typecheck · test · build` | `make install`, `make lint`, `make lint-workflows`, `make lint-shell`, `make typecheck`, `make env-check`, `make db-types-check`, `make test`, `make build` | any ESLint error or more warnings than the budget; a workflow file GitHub could not parse, a bad expression or a shellcheck error in a `run:` step; any TypeScript error (tests included); a `process.env` name missing from `.env.example`; migrations newer than the generated types; any failing test; a broken production build |
 | `target rules on files added in this PR` (PRs only) | `make lint-strict` on files added vs the base branch; `make format-check` on changed files | a **new** file breaks the target rule set; a changed file is not prettier-formatted |
 | `gitleaks` | the gitleaks action over the pushed history | a secret-shaped string was committed |
 
@@ -152,6 +153,7 @@ Every job is a Makefile target, so a red job reproduces locally with the same co
 2. The failing **step** is the Makefile target. Its last lines are the tool's own message: ESLint prints `file:line  error  rule-name`; `tsc` prints `file(line,col): error TS…`; vitest prints the failing test name and the `expected / received` diff; `env-check` and `db-types-check` print exactly what to add or run.
 3. Run the same target locally (`make lint`, `make typecheck`, …), fix, push. The run re-triggers.
 4. A red `gitleaks` job means a secret reached a commit: rotate it (do not just delete the line — history keeps it), then rewrite the branch.
+5. A run that fails within seconds with **no jobs and no log** (`gh run view <id>` says "likely failed because of a workflow file issue") means GitHub could not parse the workflow file itself. `make lint-workflows` (actionlint; also in pre-commit for `.github/workflows/*`) reproduces it locally. It happened on 2026-10-28: a botched edit left shell text on line 1 of `ci.yml`, four runs failed with no output, and nothing local had checked the file.
 
 **Commands:**
 
@@ -160,6 +162,7 @@ make check                              # the same gates, locally, before pushin
 gh pr checks <number>                   # job status for a PR
 gh run list --workflow=ci.yml --limit 5 # recent runs
 gh run view <run-id> --log-failed       # only the failing step's output
+make lint-workflows                     # actionlint over .github/workflows (brew install actionlint)
 ```
 
 ## 12. Branch protection on `dev` — what to click

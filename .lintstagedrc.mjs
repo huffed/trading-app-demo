@@ -7,6 +7,8 @@
  * - ESLint TARGET config (eslint.config.strict.mjs) on files that are NEW in
  *   this commit — new code is held to the target from its first commit.
  * - shellcheck on staged cron wrappers.
+ * - actionlint on staged GitHub workflow files (a workflow GitHub cannot parse
+ *   otherwise fails as a run with no jobs and no log).
  */
 import { execFileSync } from "node:child_process";
 
@@ -33,6 +35,7 @@ const config = {
     return commands;
   },
   "scripts/*.sh": (files) => [`shellcheck -S error ${quote(files)}`],
+  ".github/workflows/*.{yml,yaml}": () => ["make lint-workflows"],
 };
 
 export default config;
