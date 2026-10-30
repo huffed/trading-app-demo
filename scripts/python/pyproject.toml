@@ -1,0 +1,22 @@
+# Research sidecar (feature importance + Bayesian optimisation). Not on any
+# production path; spawned as a child process by scripts/canonical/
+# {feature-importance,bo-search,label-reengineering}.ts, which look for the
+# interpreter at scripts/python/.venv/bin/python3.
+#
+#   uv sync --project scripts/python     # creates scripts/python/.venv from uv.lock
+#   uv lock --project scripts/python     # re-resolve after editing dependencies
+[project]
+name = "quanttrader-research-sidecar"
+version = "0.0.0"
+description = "Python helpers for the QuantTrader research scripts (xgboost feature importance, scikit-optimize search)"
+requires-python = ">=3.11,<3.14"
+dependencies = [
+  "xgboost>=2.0",
+  "scikit-learn>=1.3",
+  "pandas>=2.0",
+  "numpy>=1.24",
+  "scikit-optimize>=0.10",
+]
+
+[tool.uv]
+package = false

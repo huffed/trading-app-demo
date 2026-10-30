@@ -46,3 +46,18 @@ Local equivalent (so a secret never reaches GitHub in the first place): `gitleak
 ## 4. Runbooks
 
 `docs/runbooks/` holds operator procedures with exact commands and a verification checklist each. Current: `rotate-cron-secret.md`, `harden-vps-ssh.md` (**Critical**). Phase D adds deploy, kill-switch, backup/restore.
+
+## 5. Environments — Node, pnpm, Python
+
+**What:** `.nvmrc` pins Node `25.9.0` (what the VPS runs under systemd); `package.json` `engines` says `node >=25.9.0 <26`, `pnpm >=10`; `pnpm-lock.yaml` is committed and installs use `--frozen-lockfile` (local, CI, VPS). The Python research sidecar is pinned by `scripts/python/pyproject.toml` + `uv.lock` (`requires-python >=3.11,<3.14`; `requirements.txt` is exported from the lock for pip users).
+
+**Why:** three different Node versions were in play (local 25.3, VPS 25.9, `@types/node` 20) and the sidecar had loose `>=` pins with no lock, so "works on my machine" was the only guarantee. Node 25 is not an LTS line; moving production to the current LTS is a Phase D decision, not a tooling one.
+
+**Commands:**
+
+```bash
+nvm use                                  # reads .nvmrc
+pnpm install --frozen-lockfile           # never `pnpm install` without the flag on the VPS or in CI
+uv sync --project scripts/python         # creates scripts/python/.venv (the TS drivers auto-detect it)
+make python-lock                         # after editing pyproject.toml: uv lock + requirements.txt export (target lands with the Makefile PR)
+```
