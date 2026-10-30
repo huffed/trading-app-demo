@@ -348,24 +348,35 @@ If the log is silent past the expected tick, check:
 
 ## PRODUCTION HOST: VPS (2026-08-27) — the Mac stack is DISABLED
 
-Production moved off the operator Mac to a Hetzner CX23 (`quanttrader-prod`,
-2.28.76.85, Nuremberg, Ubuntu 26.04, 2 vCPU/3.7GB + 2G swap). The ≥1-month
-paper soak before the real challenge (Stage 5.3 prereq) started 2026-08-27.
+Production runs on a small Hetzner Cloud VPS (`quanttrader-prod`, Ubuntu
+LTS). Host name, IP and SSH details live in the operator's private ops
+note and in `~/.ssh/config` as the `qt` alias — **never in this repository**
+(the repo is public). Verified read-only 2026-10-28; see `docs/STACK.md` §4.
 
-- **SSH:** `ssh -i ~/.ssh/quanttrader_vps root@2.28.76.85`
-- **App:** `/opt/quanttrader` (read-only GitHub deploy key), Node via nvm,
-  systemd service `quanttrader` (auto-start + auto-restart).
-  `systemctl status|restart quanttrader` · logs: `journalctl -u quanttrader -n 50`
-- **Crons:** same 9 entries, server crontab, **UTC**, logs in
-  `/var/log/quanttrader/*.log` (not /tmp — no purge surprises).
-- **Firewall:** SSH only publicly; port 3000 is NOT internet-facing.
-- **Frontend from any device (2026-08-27): Tailscale.** The VPS + operator
-  devices share a tailnet; browse `http://quanttrader-prod:3000` (or
-  `http://100.77.24.89:3000`) from any device signed into the Tailscale
-  account. ufw allows :3000 on the `tailscale0` interface only. SSH-tunnel
-  fallback still works: `qtui` alias / `ssh -L 3000:localhost:3000 qt`.
-- **Deploy after a merge to dev:**
-  `ssh -i ~/.ssh/quanttrader_vps root@2.28.76.85 'cd /opt/quanttrader && git pull && . ~/.nvm/nvm.sh && pnpm install --frozen-lockfile && pnpm build && systemctl restart quanttrader'`
+- **SSH:** `ssh qt` (Host alias; see `docs/runbooks/harden-vps-ssh.md` §0).
+- **App:** `/opt/quanttrader` (checkout of `dev`, read-only GitHub deploy
+  key), Node via nvm, systemd service `quanttrader` (auto-start +
+  auto-restart). `systemctl status|restart quanttrader` · logs:
+  `journalctl -u quanttrader -n 50`.
+- **Secrets:** `/opt/quanttrader/.env.local` (0600). The app reads it at
+  start; the cron wrappers grep `CRON_SECRET` from it on every run.
+  Rotation: `docs/runbooks/rotate-cron-secret.md`.
+- **Crons:** 10 entries in the server crontab, **UTC**, logs in
+  `/var/log/quanttrader/*.log`: scan `*/15`, manage `*/5`, heartbeat `*/5`,
+  oanda-positioning `*/20`, prune daily 04:00, cohort-report Sun 23:00,
+  alpha-decay `10 */6`, broker-health `0 */6`, reconcile `*/30`,
+  m1-band-check 21:30. **Not installed:** walk-forward-opt, quarterly
+  research cycle, validate-algo-monthly, prereg-expiration,
+  broker-spread-sampler (the table above still lists them).
+- **Firewall:** ufw default-deny; SSH only publicly; port 3000 reachable
+  only on the `tailscale0` interface. Hardening steps (password auth off,
+  fail2ban, rate-limit): `docs/runbooks/harden-vps-ssh.md` (**Critical**).
+- **Frontend from any device: Tailscale.** The VPS and operator devices
+  share a tailnet; browse `http://quanttrader-prod:3000` from a device
+  signed into the Tailscale account. SSH-tunnel fallback:
+  `ssh -L 3000:localhost:3000 qt`.
+- **Deploy after a merge to dev** (manual until Phase D ships `make deploy`):
+  `ssh qt 'cd /opt/quanttrader && git pull && . ~/.nvm/nvm.sh && pnpm install --frozen-lockfile && pnpm build && systemctl restart quanttrader'`
 - **Mac rollback (kept intact):** crontab backup at
   `~/quanttrader-crontab-backup-2026-08-27.txt`; launchd plist renamed
   `com.quanttrader.server.plist.disabled`. To roll back: stop the VPS crontab
@@ -378,20 +389,20 @@ You got an ntfy push / GitHub failure email. The alert is CORRECT until
 proven otherwise — the 2026-07-22→28 outage paged for 6 days before
 anyone acted. Work the list top-down; total time ~2 minutes.
 
-**Since 2026-07-28 the app server is a launchd service** —
-`com.quanttrader.server` runs production `pnpm start` on port 3000
-(RunAtLoad + KeepAlive; logs at `~/Library/Logs/quanttrader-server.log`).
-Do NOT also run `pnpm dev` on port 3000; it will fight the service.
+**Since 2026-08-27 the app server is the systemd service `quanttrader`
+on the VPS** (`pnpm start` on port 3000, `Restart=always`; logs via
+`journalctl -u quanttrader`). The Mac launchd service is disabled. Run the
+commands below on the VPS (`ssh qt`).
 
 1. **Is the server up?** `curl -s -o /dev/null -w "%{http_code}\n" http://localhost:3000/login`
    - `200` → server fine, go to step 3.
    - anything else → step 2.
-2. **Restart the service:** `launchctl kickstart -k gui/$(id -u)/com.quanttrader.server`
-   then `tail -20 ~/Library/Logs/quanttrader-server.log` (expect "✓ Ready").
+2. **Restart the service:** `systemctl restart quanttrader`
+   then `journalctl -u quanttrader -n 20` (expect "✓ Ready").
    If the log shows a build/module error (usually after a code merge):
-   `pnpm build && launchctl kickstart -k gui/$(id -u)/com.quanttrader.server`.
-3. **Are the crons installed + firing?** `crontab -l` (expect ~9 entries) and
-   `tail -4 /tmp/quanttrader-scan.log` (expect recent `http=200`).
+   `cd /opt/quanttrader && pnpm build && systemctl restart quanttrader`.
+3. **Are the crons installed + firing?** `crontab -l` (expect 10 entries) and
+   `tail -4 /var/log/quanttrader/scan.log` (expect recent `http=200`).
    Crontab empty → restore from the "Current schedule" section above.
 4. **Which tick is stale?** The failing GitHub job names it: scan (>35 min),
    manage/heartbeat (>45 min), alpha-decay (>26 h — cron runs 6-hourly at :10).
@@ -400,7 +411,7 @@ Do NOT also run `pnpm dev` on port 3000; it will fight the service.
    `gh run list --workflow=dead-man.yml --limit 1` → conclusion `success`.
 
 After ANY code merge to `dev`, the running service keeps executing the OLD
-build until you: `pnpm build && launchctl kickstart -k gui/$(id -u)/com.quanttrader.server`.
+build until you redeploy (see the VPS section above).
 
 ## Adding a new cron entrypoint
 
