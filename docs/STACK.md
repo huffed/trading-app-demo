@@ -38,18 +38,18 @@ cron (6-hourly)     ─curl─▶ GET /api/cron/alpha-decay, /api/cron/reconcile
 - Locally: `pnpm dev` (port 3000) then `./scripts/scan-cron.sh`. Research/ops scripts: `pnpm dlx tsx scripts/canonical/<name>.ts` with env-var knobs (161 distinct `process.env` names across non-archived scripts; `scripts/README.md` documents ~20 of them).
 - The full flows (actual order of operations, side effects, where prices come from) are drawn in `CODE_QUALITY.md` §3.
 
-## 4. Production host (from `scripts/README.md:349-373` and memory; VPS not inspected this session)
+## 4. Production host (verified read-only on the VPS, 2026-10-28)
 
 | Item | Fact |
 |---|---|
-| Host | Hetzner CX23 `quanttrader-prod`, Ubuntu, Nuremberg, since 2026-08-27 |
-| Process | `next start` on :3000 as **systemd service `quanttrader`** (auto-restart). The unit file is **not in the repo** |
-| Scheduler | server crontab (UTC); the audit read 10 installed entries on 2026-10-19 (scan, manage, heartbeat, oanda-positioning, prune, cohort-report, alpha-decay, broker-health, reconcile, m1-band-check). The crontab is **not in the repo**; `scripts/README.md`'s table lists three more that are **not installed** (quarterly-cycle, walk-forward-opt, validate-algo-monthly) |
-| Deploy | manual: `ssh root@<vps> 'cd /opt/quanttrader && git pull && pnpm install --frozen-lockfile && pnpm build && systemctl restart quanttrader'` — no smoke check, no rollback, runs as root |
-| Logs | `journalctl -u quanttrader`; cron logs `/var/log/quanttrader/*.log` |
-| UI access | Tailscale (`ufw` allows :3000 on `tailscale0` only) or SSH tunnel |
-| Secrets on host | `/opt/quanttrader/.env.local` (same shape as local); not managed by anything |
-| Mac stack | disabled 2026-08-27; `scripts/launchd/com.huffed.quanttrader.caffeinate.plist` is the only launchd file in the repo (the Mac server plist `com.quanttrader.server` was never committed) |
+| Host | Hetzner Cloud VPS `quanttrader-prod`, Ubuntu 26.04 LTS, up 62 days on 2026-10-28. IP/SSH details are in the operator's private ops note and `~/.ssh/config` (`Host qt`), not in the repo |
+| Process | `/etc/systemd/system/quanttrader.service`: `WorkingDirectory=/opt/quanttrader`, `ExecStart=…/node/v25.9.0/bin/pnpm start`, `Restart=always`, `RestartSec=5`, PATH pinned to nvm's `v25.9.0`; **runs as root**; no `EnvironmentFile` — Next.js loads `/opt/quanttrader/.env.local` (0600 root, 14 variable names) itself. Active since the 2026-10-19 redeploy. The unit is **not in the repo** (Phase D) |
+| Scheduler | root crontab, 10 entries, UTC: scan `*/15`, manage `*/5`, heartbeat `*/5`, oanda-positioning `*/20`, prune `0 4`, cohort-report `0 23 * * 0`, alpha-decay `10 */6`, broker-health `0 */6`, reconcile `*/30`, m1-band-check `30 21`. **Not installed:** walk-forward-opt, quarterly-research-cycle, validate-algo-monthly, prereg-expiration, broker-spread-sampler. Logs `/var/log/quanttrader/*.log`. The crontab is **not in the repo** |
+| Deploy | no deploy script on the host; the README one-liner (`ssh qt 'cd /opt/quanttrader && git pull && … && pnpm build && systemctl restart quanttrader'`) pulls **`dev`** over a read-only SSH deploy key. Checkout verified at `dev @ 3ee22e2`, clean |
+| Secrets | `/opt/quanttrader/.env.local` is the only holder of `CRON_SECRET` on the host; wrappers grep it per run. Rotation runbook: `docs/runbooks/rotate-cron-secret.md` |
+| Network | ufw active, default deny incoming; `22/tcp` from anywhere; anything on `tailscale0`. Next binds `*:3000` (all interfaces) — only ufw keeps it off the internet. sshd: `PermitRootLogin prohibit-password`, **`PasswordAuthentication yes`**, `MaxAuthTries 6`, `X11Forwarding yes`; one authorized key; no non-root users; fail2ban inactive; unattended-upgrades active. Hardening runbook (**Critical**): `docs/runbooks/harden-vps-ssh.md` |
+| UI access | Tailscale (`quanttrader-prod:3000`) or `ssh -L 3000:localhost:3000 qt` |
+| Mac stack | disabled 2026-08-27; `scripts/launchd/com.huffed.quanttrader.caffeinate.plist` is the only launchd file in the repo |
 
 ## 5. Data stores
 
@@ -125,7 +125,7 @@ cron (6-hourly)     ─curl─▶ GET /api/cron/alpha-decay, /api/cron/reconcile
 
 ## 11. What this inventory did not do
 
-- Did not SSH to the VPS (brief: only after you say so) — host facts are from `scripts/README.md`, the audit branch and memory. The systemd unit, crontab and Node version there are unverified this session.
+- The VPS was inspected read-only on 2026-10-28 (scope: host, unit, crontab, checkout, env var **names**, sshd, ufw); §4 reflects it. Not inspected: the Hetzner Cloud firewall, journald retention, the deploy key's GitHub permissions.
 - Did not run `gitleaks`/`trufflehog` (not installed); the secrets sweep is a regex over full history + tracked files, which misses unusual key formats.
 - Did not open `.env.local` or `.mcp.json` values; did not query Supabase or any provider.
 - Did not measure test coverage (no `@vitest/coverage-*` installed); "untested" means "no sibling test file".

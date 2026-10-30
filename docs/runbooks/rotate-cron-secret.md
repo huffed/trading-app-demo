@@ -1,0 +1,69 @@
+# Runbook — rotate `CRON_SECRET`
+
+**When:** now (2026-10-28: the value sat in plaintext in a local Claude Code allow-rule; the rule is deleted, the value must change), and after any suspected exposure.
+**Time:** ~5 minutes. **Risk:** one missed cron tick if the restart lands on a tick boundary — do it at minute 1–3 of a 5-minute window.
+**Who holds it today (verified read-only on the VPS, 2026-10-28):** `/opt/quanttrader/.env.local` on the VPS (the app reads it at start; every cron wrapper greps it on each run — `scripts/scan-cron.sh:22`), and your local `.env.local` (only used when you run the wrappers against `pnpm dev`). GitHub Actions does **not** use it (the dead-man workflow uses the Supabase anon key).
+
+## 1. Generate (on your Mac)
+
+```bash
+NEW_SECRET=$(openssl rand -hex 32)
+echo "$NEW_SECRET"        # keep this terminal open; you will paste it once on the VPS
+```
+
+## 2. Install on the VPS, restart, verify
+
+```bash
+ssh qt                    # the Host alias from ~/.ssh/config (see harden-vps-ssh.md §0)
+```
+
+On the VPS, as root (the app and crons run as root today):
+
+```bash
+cd /opt/quanttrader
+cp -p .env.local .env.local.rotating        # keeps 0600 root; holds the OLD value until step 3 passes
+read -rs -p "New CRON_SECRET: " NEW; echo    # paste the value from step 1; nothing is echoed or logged
+export NEW
+perl -pi -e 's/^CRON_SECRET=.*/CRON_SECRET=$ENV{NEW}/' .env.local   # reads NEW from the environment, not argv
+grep -c "^CRON_SECRET=${NEW}$" .env.local    # expect: 1
+
+# Restart between ticks: wait until `date +%M` ends in 1, 2 or 3.
+systemctl restart quanttrader && sleep 10 && systemctl is-active quanttrader   # expect: active
+
+# The route must accept the new value and reject the old one:
+curl -s -o /dev/null -w "%{http_code}\n" -H "Authorization: Bearer ${NEW}"  http://localhost:3000/api/cron/heartbeat   # expect: 200
+curl -s -o /dev/null -w "%{http_code}\n" -H "Authorization: Bearer stale"   http://localhost:3000/api/cron/heartbeat   # expect: 401
+```
+
+## 3. Confirm one real cron call, then clean up
+
+Wait for the next 5-minute tick, then:
+
+```bash
+tail -n 2 /var/log/quanttrader/manage.log     # expect: ... http=200 ...
+tail -n 2 /var/log/quanttrader/heartbeat.log  # expect: http=200 (a stale_count line is normal)
+rm /opt/quanttrader/.env.local.rotating       # it holds the OLD secret
+unset NEW; history -c
+exit
+```
+
+If `manage.log` shows `http=401`, the wrapper is reading a different file than the app: `grep -n "ENV_FILE=" /opt/quanttrader/scripts/manage-cron.sh` must point at `/opt/quanttrader/.env.local`.
+
+## 4. Local `.env.local` (Mac)
+
+```bash
+cd ~/Documents/trading-app/demo-1
+perl -pi -e 's/^CRON_SECRET=.*/CRON_SECRET=$ENV{NEW_SECRET}/' .env.local
+grep -c "^CRON_SECRET=${NEW_SECRET}$" .env.local   # expect: 1
+unset NEW_SECRET
+```
+
+Restart `pnpm dev` if it is running. Done — nothing else references the value.
+
+## Verification checklist
+
+- [ ] VPS `.env.local` has the new value (step 2 grep = 1)
+- [ ] service active; heartbeat route 200 with new, 401 with stale
+- [ ] one scheduled manage tick logged `http=200` after the restart
+- [ ] `.env.local.rotating` removed
+- [ ] local `.env.local` updated
