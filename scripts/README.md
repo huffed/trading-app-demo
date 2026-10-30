@@ -353,7 +353,9 @@ LTS). Host name, IP and SSH details live in the operator's private ops
 note and in `~/.ssh/config` as the `qt` alias — **never in this repository**
 (the repo is public). Verified read-only 2026-10-28; see `docs/STACK.md` §4.
 
-- **SSH:** `ssh qt` (Host alias; see `docs/runbooks/harden-vps-ssh.md` §0).
+- **SSH:** `ssh qt` logs in as `ops` (key only, sudo; root SSH login disabled
+  2026-10-29, see `docs/runbooks/harden-vps-ssh.md`). Commands below that touch
+  root-owned paths, root's crontab or systemd need `sudo`.
 - **App:** `/opt/quanttrader` (checkout of `dev`, read-only GitHub deploy
   key), Node via nvm, systemd service `quanttrader` (auto-start +
   auto-restart). `systemctl status|restart quanttrader` · logs:
@@ -369,14 +371,16 @@ note and in `~/.ssh/config` as the `qt` alias — **never in this repository**
   research cycle, validate-algo-monthly, prereg-expiration,
   broker-spread-sampler (the table above still lists them).
 - **Firewall:** ufw default-deny; SSH only publicly; port 3000 reachable
-  only on the `tailscale0` interface. Hardening steps (password auth off,
-  fail2ban, rate-limit): `docs/runbooks/harden-vps-ssh.md` (**Critical**).
+  only on the `tailscale0` interface. Hardened 2026-10-29 (password auth off, root
+  login off, fail2ban, `ufw limit 22/tcp`): `docs/runbooks/harden-vps-ssh.md`.
 - **Frontend from any device: Tailscale.** The VPS and operator devices
   share a tailnet; browse `http://quanttrader-prod:3000` from a device
   signed into the Tailscale account. SSH-tunnel fallback:
   `ssh -L 3000:localhost:3000 qt`.
 - **Deploy after a merge to dev** (manual until Phase D ships `make deploy`):
-  `ssh qt 'cd /opt/quanttrader && git pull && . ~/.nvm/nvm.sh && pnpm install --frozen-lockfile && pnpm build && systemctl restart quanttrader'`
+  `ssh qt 'sudo -i bash -c "cd /opt/quanttrader && git pull && . ~/.nvm/nvm.sh && pnpm install --frozen-lockfile && pnpm build && systemctl restart quanttrader"'`
+  (the checkout, nvm and the service are still root's, hence `sudo -i`; not yet
+  exercised as `ops` — the first deploy after 2026-10-29 verifies it)
 - **Mac rollback (kept intact):** crontab backup at
   `~/quanttrader-crontab-backup-2026-08-27.txt`; launchd plist renamed
   `com.quanttrader.server.plist.disabled`. To roll back: stop the VPS crontab
@@ -392,17 +396,17 @@ anyone acted. Work the list top-down; total time ~2 minutes.
 **Since 2026-08-27 the app server is the systemd service `quanttrader`
 on the VPS** (`pnpm start` on port 3000, `Restart=always`; logs via
 `journalctl -u quanttrader`). The Mac launchd service is disabled. Run the
-commands below on the VPS (`ssh qt`).
+commands below on the VPS (`ssh qt`, as `ops`; `sudo` where shown).
 
 1. **Is the server up?** `curl -s -o /dev/null -w "%{http_code}\n" http://localhost:3000/login`
    - `200` → server fine, go to step 3.
    - anything else → step 2.
-2. **Restart the service:** `systemctl restart quanttrader`
-   then `journalctl -u quanttrader -n 20` (expect "✓ Ready").
+2. **Restart the service:** `sudo systemctl restart quanttrader`
+   then `sudo journalctl -u quanttrader -n 20` (expect "✓ Ready").
    If the log shows a build/module error (usually after a code merge):
-   `cd /opt/quanttrader && pnpm build && systemctl restart quanttrader`.
-3. **Are the crons installed + firing?** `crontab -l` (expect 10 entries) and
-   `tail -4 /var/log/quanttrader/scan.log` (expect recent `http=200`).
+   `sudo -i`, then `cd /opt/quanttrader && . ~/.nvm/nvm.sh && pnpm build && systemctl restart quanttrader`.
+3. **Are the crons installed + firing?** `sudo crontab -l` (expect 10 entries) and
+   `sudo tail -4 /var/log/quanttrader/scan.log` (expect recent `http=200`).
    Crontab empty → restore from the "Current schedule" section above.
 4. **Which tick is stale?** The failing GitHub job names it: scan (>35 min),
    manage/heartbeat (>45 min), alpha-decay (>26 h — cron runs 6-hourly at :10).

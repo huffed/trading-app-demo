@@ -35,6 +35,7 @@ Add shadcn components: `pnpm dlx shadcn@latest add <name>`
 - **Integration branch:** `dev` — merge feature branches here via PR
 - Do not include `Co-Authored-By` lines in commit messages
 - Always run `pnpm build` and `pnpm lint` before committing
+- One PR at a time against `dev`; never stack PRs more than one deep. A dependent change waits for its base to merge, then rebases onto `dev`. Squash-merging a stack produces add/add conflicts in every following PR (#293, 2026-10-29). See `docs/DEV_SETUP.md` §15 and `docs/decisions/0002-one-pr-at-a-time.md`.
 
 All work happens on feature branches off `dev` (`feat/<short-description>`). Aim for PRs under ~500 lines; split larger work sequentially.
 

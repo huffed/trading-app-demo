@@ -13,7 +13,14 @@
 | unattended-upgrades | active | good |
 | Hetzner Cloud firewall | not checked (console) | a second layer that survives a ufw mistake |
 
-Do **Phase 1 today** (10 minutes, no service impact). **Phase 2** removes root entirely but changes how the app is deployed and run, so it belongs to Phase D with a maintenance window.
+**Executed 2026-10-29** (operator-approved; lock-out protocol: a multiplexed root session stayed open as the safety line until a brand-new `ops` login had been proven after every change, then it was closed last):
+
+- `ops` created (`useradd -m`, locked password, `sudo` group, `/etc/sudoers.d/ops` with `NOPASSWD:ALL`, root's `authorized_keys` copied as 0600 `ops:ops`). A fresh key login plus `sudo -n true` was verified **before** sshd was touched.
+- Drop-in `/etc/ssh/sshd_config.d/10-hardening.conf` installed with the §1.1 content **plus** `PermitRootLogin no` and `AllowUsers ops` (pulled forward from Phase 2 by operator decision). `sshd -t` → OK; `systemctl reload ssh`, then `systemctl restart ssh` (`KillMode=process`, existing sessions survive). Verified on new connections: `ops` login OK, root key login → `Permission denied (publickey)`, password auth not offered (`Authentications that can continue: publickey`).
+- §1.2 fail2ban installed with the jail below → active (two scanner IPs banned within seconds). §1.3 `ufw limit 22/tcp` replaced the plain allow; the Tailscale interface rule is unchanged. §1.4 Hetzner Cloud firewall **not done** (console only, operator). `~/.ssh/config` `Host qt` now has `User ops` and `IdentitiesOnly yes`.
+- Still root: the app (systemd unit), the crontab, `/opt/quanttrader` and the deploy one-liner (now run through `sudo -i`). That is the remaining Phase 2 work, Phase D.
+
+Phase 1 took 10 minutes with no service impact. **Phase 2** (process user) belongs to Phase D with a maintenance window.
 
 ## 0. Before you start — a Host alias so the IP never lives in the repo
 
@@ -22,7 +29,7 @@ Do **Phase 1 today** (10 minutes, no service impact). **Phase 2** removes root e
 ```
 Host qt
   HostName <vps-ip>
-  User root
+  User ops
   IdentityFile ~/.ssh/<your-vps-key>
   IdentitiesOnly yes
 ```
@@ -35,7 +42,10 @@ Keep **two** SSH sessions open for every step below: one to make the change, one
 
 ```bash
 ssh qt
+sudo -i                                 # lands as ops since 2026-10-29; the steps below are root's
 cat > /etc/ssh/sshd_config.d/10-hardening.conf <<'CONF'
+PermitRootLogin no
+AllowUsers ops
 PasswordAuthentication no
 KbdInteractiveAuthentication no
 PubkeyAuthentication yes
@@ -46,8 +56,8 @@ LoginGraceTime 30
 CONF
 sshd -t && echo "config OK"            # must print "config OK"; otherwise fix before reloading
 systemctl reload ssh
-sshd -T | grep -iE "^(passwordauthentication|kbdinteractiveauthentication|maxauthtries|x11forwarding) "
-# expect: passwordauthentication no / kbdinteractiveauthentication no / maxauthtries 3 / x11forwarding no
+sshd -T | grep -iE "^(permitrootlogin|allowusers|passwordauthentication|kbdinteractiveauthentication|maxauthtries|x11forwarding) "
+# expect: permitrootlogin no / allowusers ops / passwordauthentication no / kbdinteractiveauthentication no / maxauthtries 3 / x11forwarding no
 ```
 
 From the **second** terminal: `ssh qt 'echo still-in'` → `still-in`. Only then close the first.
@@ -84,21 +94,21 @@ Cloud Console → Firewalls → create `quanttrader-prod-fw`: inbound **22/tcp f
 ### 1.5 Verify
 
 ```bash
-ssh qt 'sshd -T | grep -iE "^(permitrootlogin|passwordauthentication) "; ufw status | head -8; fail2ban-client status sshd | tail -3; systemctl is-active quanttrader; tail -n1 /var/log/quanttrader/manage.log'
+ssh qt 'sudo sshd -T | grep -iE "^(permitrootlogin|passwordauthentication|allowusers) "; sudo ufw status | head -8; sudo fail2ban-client status sshd | tail -3; systemctl is-active quanttrader; sudo tail -n1 /var/log/quanttrader/manage.log'
 ```
 
-Expect: `permitrootlogin prohibit-password`, `passwordauthentication no`, the LIMIT rule, jail running, service `active`, a fresh `http=200`.
+Expect: `permitrootlogin no`, `passwordauthentication no`, `allowusers ops`, the LIMIT rule, jail running, service `active`, a fresh `http=200`.
 
 ## Phase 2 — remove root (Phase D, maintenance window, ~45 minutes)
 
 Not today: the deploy one-liner, the nvm install, the crontab and the systemd unit all assume root. The sequence, so it is on record:
 
-1. `adduser --disabled-password ops && usermod -aG sudo ops`; copy `/root/.ssh/authorized_keys` to `/home/ops/.ssh/` (0700/0600, owner `ops`); allow `ops` passwordless `sudo systemctl restart quanttrader` and `sudo journalctl -u quanttrader` via `/etc/sudoers.d/ops`.
+1. **Done 2026-10-29:** `ops` exists (`useradd -m`, key copied, `/etc/sudoers.d/ops` is `NOPASSWD:ALL`). Narrow the sudoers entry to the commands the deploy and the runbooks need once Phase D fixes the deploy path.
 2. Install nvm + the pinned Node for `ops` (`.nvmrc` arrives in Phase B); `chown -R ops:ops /opt/quanttrader`; move the deploy key to `/home/ops/.ssh/`.
 3. Systemd unit: `User=ops`, `Group=ops`, `ExecStart=/home/ops/.nvm/versions/node/<version>/bin/pnpm start -- -H 127.0.0.1` behind a Tailscale-bound reverse proxy **or** keep `-H 0.0.0.0` with the existing ufw rule (decide in Phase D); `ProtectSystem=strict`, `ReadWritePaths=/opt/quanttrader /var/log/quanttrader`.
 4. Move the crontab to `ops` (`crontab -u ops -`); `chown ops /var/log/quanttrader`.
-5. Prove a full deploy as `ops` (`make deploy` once Phase D lands), then add `PermitRootLogin no` and `AllowUsers ops` to the drop-in, `sshd -t`, reload, and verify from the second terminal.
+5. Prove a full deploy as `ops` (`make deploy` once Phase D lands). `PermitRootLogin no` and `AllowUsers ops` are **already in the drop-in since 2026-10-29**; root work goes through `sudo`.
 
 ## Rollback
 
-Any step: `rm /etc/ssh/sshd_config.d/10-hardening.conf && sshd -t && systemctl reload ssh` restores the distribution defaults (root key login, password auth on). `ufw allow 22/tcp` restores the plain allow. `systemctl disable --now fail2ban` stops the jail.
+Any step, as `ops`: `sudo rm /etc/ssh/sshd_config.d/10-hardening.conf && sudo sshd -t && sudo systemctl reload ssh` restores the distribution defaults (root key login, password auth on). If no login works at all: Hetzner Cloud console → server → Console, then the same command as root. `ufw allow 22/tcp` restores the plain allow. `systemctl disable --now fail2ban` stops the jail.
