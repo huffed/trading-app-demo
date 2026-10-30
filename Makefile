@@ -7,7 +7,7 @@ BASE ?= origin/dev
 
 .PHONY: help install lint lint-strict lint-shell typecheck format format-check format-all-check \
         test test-watch build check backtest validate parity db-types db-types-check \
-        secrets-scan secrets-scan-history env-check backtest-update lint-workflows python-env python-lock
+        secrets-scan secrets-scan-history env-check backtest-update lint-workflows python-env python-lock regime-report
 
 help: ## List targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "} {printf "  %-18s %s\n", $$1, $$2}'
@@ -72,6 +72,9 @@ backtest: ## Golden-file replay of the five deployed algorithms on the pinned XA
 
 backtest-update: ## Regenerate the golden file on purpose (commit it with an explanation)
 	$(PNPM) exec tsx scripts/golden-replay.ts --update
+
+regime-report: ## Vol-regime distribution + daily-bias flips from the pinned XAU/USD corpora (read-only; ARGS="<h4-bars> <days>")
+	$(PNPM) exec tsx scripts/regime-report.ts $(ARGS)
 
 validate: ## Validation harness (wired to review/scripts when the audit lands them on dev)
 	@echo "make validate: not wired yet — the audit's scripts live on review/skeptical-audit-2026-10 (docs/DEBT.md D-20)."; exit 2

@@ -1,0 +1,10 @@
+#!/usr/bin/env sh
+# commit-msg: reject attribution trailers. CLAUDE.md (Git Workflow) forbids
+# "Co-Authored-By" and "Generated with" lines; six commits carried them in
+# Phase B before this hook existed (operator decision 2026-10-29).
+msg_file="$1"
+if grep -iqE '^Co-Authored-By:|Generated with \[Claude Code\]|🤖 Generated with' "$msg_file"; then
+  echo "commit-msg: attribution trailers are not allowed in this repository (CLAUDE.md, Git Workflow)." >&2
+  echo "           Remove the Co-Authored-By / Generated-with line(s) from the message and commit again." >&2
+  exit 1
+fi

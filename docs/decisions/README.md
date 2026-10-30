@@ -8,3 +8,4 @@ Format: `NNNN-short-slug.md` with the fields **Date · Status (active / supersed
 |---|---|---|
 | [0001](0001-remove-dead-llm-strategy-selector.md) | Remove the dead LLM strategy-template selector and 21 other unreachable files | active |
 | [0002](0002-one-pr-at-a-time.md) | One PR at a time against `dev`; no stacked PRs | active |
+| [0003](0003-paper-fills-from-twelve-data.md) | Paper fills come from Twelve Data quotes, not the OANDA bar feed (`retro`, reason not recorded) | active, under audit review |
