@@ -6,10 +6,15 @@
  * under scripts/ that is not listed below. They are linted, type-checked and
  * formatted like src/.
  *
- * Research one-offs (experiments, verification harnesses, stress runs) are
- * excluded from ESLint by this list. docs/DEBT.md D-20 carries the target date
- * (2027-01-31) by which each is either brought under the same checks or moved
- * to scripts/archive/. Adding a script here needs a DEBT.md line.
+ * Research one-offs (superseded experiments and stress runs) are excluded from
+ * ESLint and from `make env-check` by this list; tsc still type-checks them and
+ * Prettier formats them when they change. docs/DEBT.md D-20 carries the target
+ * date (2027-01-31) by which each is either brought under the same checks or
+ * moved to scripts/archive/. Adding a script here needs a DEBT.md line.
+ *
+ * Rule (operator, 2026-10-29): a script whose output feeds a decision — a
+ * baseline, a verdict, a roadmap gate — is live-path by definition and must not
+ * be on this list. Nine such scripts were removed from it on 2026-10-30.
  *
  * `node scripts/dev/checked-scripts.mjs` prints the live-path TypeScript files
  * (one per line) for tools that cannot import this module (prettier, xargs).
@@ -26,11 +31,9 @@ export const SCRIPT_IGNORE_GLOBS = [
 ];
 
 export const RESEARCH_SCRIPTS = [
-  "scripts/canonical/algo-search-2026-10.ts",
   "scripts/canonical/algo-search.ts",
   "scripts/canonical/augmented-variant-validate.ts",
   "scripts/canonical/bo-search.ts",
-  "scripts/canonical/build-spread-model.ts",
   "scripts/canonical/clone-augmented-family.ts",
   "scripts/canonical/compose-portfolio.ts",
   "scripts/canonical/comprehensive-daily-bias-sweep.ts",
@@ -38,12 +41,9 @@ export const RESEARCH_SCRIPTS = [
   "scripts/canonical/e2-list-passers.ts",
   "scripts/canonical/e2.15-l2-session-filter-test.ts",
   "scripts/canonical/e2.15-l4-partial-exit-posthoc-sim.ts",
-  "scripts/canonical/e2.20-rederivation.ts",
-  "scripts/canonical/e2.23-intraday-layer-a.ts",
   "scripts/canonical/e27.5-cell-coverage-augmented.ts",
   "scripts/canonical/feature-importance.ts",
   "scripts/canonical/feature-veto-validate.ts",
-  "scripts/canonical/fetch-dukascopy-ticks.ts",
   "scripts/canonical/five-algo-expansion-stress.ts",
   "scripts/canonical/four-algo-with-short-stress.ts",
   "scripts/canonical/label-reengineering.ts",
@@ -51,7 +51,6 @@ export const RESEARCH_SCRIPTS = [
   "scripts/canonical/per-regime-sweep.ts",
   "scripts/canonical/persist-bo-family.ts",
   "scripts/canonical/portfolio-realistic-sim.ts",
-  "scripts/canonical/revalidate-candidates.ts",
   "scripts/canonical/robustness-aggregate.ts",
   "scripts/canonical/robustness-alt-objective.ts",
   "scripts/canonical/robustness-bootstrap-bars.ts",
@@ -61,11 +60,8 @@ export const RESEARCH_SCRIPTS = [
   "scripts/canonical/stress-test-ftmo-challenge-windows.ts",
   "scripts/canonical/verify-arb-daily-bias-ftmo.ts",
   "scripts/canonical/verify-ftmo-floor-not-peak-to-trough.ts",
-  "scripts/canonical/verify-mc-challenge.ts",
   "scripts/canonical/verify-portfolio-daily-bias-ftmo.ts",
-  "scripts/canonical/verify-session-boundary.ts",
   "scripts/canonical/verify-single-algo-dd.ts",
-  "scripts/canonical/verify-stress-test.ts",
   "scripts/canonical/vol-target-ab-validate.ts",
   "scripts/canonical/wf-vs-kfold-equivalence.ts",
 ];

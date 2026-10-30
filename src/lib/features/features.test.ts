@@ -4,6 +4,15 @@
  * coverage of the registry (≥30 features computable — the spec gate).
  */
 import { describe, expect, it } from "vitest";
+import type { PriceBar } from "@/lib/market-data/types";
+import { CONTEXT_FEATURES } from "./context";
+import { MOMENTUM_FEATURES } from "./momentum";
+import { PATTERN_FEATURES } from "./patterns";
+import { STRUCTURE_FEATURES } from "./structure";
+import { TIME_FEATURES } from "./time";
+import { TREND_FEATURES } from "./trend";
+import { VOLATILITY_FEATURES } from "./volatility";
+import { VOLUME_FEATURES } from "./volume";
 import {
   computeAllFeatures,
   FEATURES,
@@ -11,15 +20,6 @@ import {
   FEATURE_COUNT,
   type FeatureContext,
 } from "./index";
-import { VOLATILITY_FEATURES } from "./volatility";
-import { MOMENTUM_FEATURES } from "./momentum";
-import { TREND_FEATURES } from "./trend";
-import { STRUCTURE_FEATURES } from "./structure";
-import { TIME_FEATURES } from "./time";
-import { VOLUME_FEATURES } from "./volume";
-import { CONTEXT_FEATURES } from "./context";
-import { PATTERN_FEATURES } from "./patterns";
-import type { PriceBar } from "@/lib/market-data/types";
 
 /** Synthetic bar generator — deterministic, no Date.now / Math.random
  *  (per runtime constraints). Trending up with sinusoidal noise.
@@ -110,7 +110,14 @@ describe("feature library registry (H.2 gate)", () => {
     // Inject a deliberately throwing feature
     const throwing = [
       ...FEATURES,
-      { name: "always_throws", category: "context" as const, description: "throws", compute: () => { throw new Error("nope"); } },
+      {
+        name: "always_throws",
+        category: "context" as const,
+        description: "throws",
+        compute: () => {
+          throw new Error("nope");
+        },
+      },
     ];
     const row = computeAllFeatures(throwing, BARS, 100);
     expect(row.always_throws).toBeNull();
@@ -167,9 +174,23 @@ describe("volatility features", () => {
     // Build a fixture where the current bar has range 100, last 5 had range 10
     const bars: PriceBar[] = [];
     for (let i = 0; i < 6; i++) {
-      bars.push({ date: `2026-06-${i + 1}T00:00:00Z`, open: 100, high: 105, low: 95, close: 100, volume: 0 });
+      bars.push({
+        date: `2026-06-${i + 1}T00:00:00Z`,
+        open: 100,
+        high: 105,
+        low: 95,
+        close: 100,
+        volume: 0,
+      });
     }
-    bars.push({ date: `2026-06-07T00:00:00Z`, open: 100, high: 150, low: 50, close: 100, volume: 0 });
+    bars.push({
+      date: `2026-06-07T00:00:00Z`,
+      open: 100,
+      high: 150,
+      low: 50,
+      close: 100,
+      volume: 0,
+    });
     const f = VOLATILITY_FEATURES.find((x) => x.name === "range_expansion_5")!;
     const v = f.compute(bars, 6);
     expect(v).not.toBeNull();
@@ -178,7 +199,10 @@ describe("volatility features", () => {
 
   it("range_contraction_5 = 1 / range_expansion_5", () => {
     const exp = VOLATILITY_FEATURES.find((x) => x.name === "range_expansion_5")!.compute(BARS, 100);
-    const con = VOLATILITY_FEATURES.find((x) => x.name === "range_contraction_5")!.compute(BARS, 100);
+    const con = VOLATILITY_FEATURES.find((x) => x.name === "range_contraction_5")!.compute(
+      BARS,
+      100
+    );
     expect(exp).not.toBeNull();
     expect(con).not.toBeNull();
     expect(con! * exp!).toBeCloseTo(1, 5);
@@ -379,7 +403,11 @@ describe("volume features", () => {
   it("volume_ratio_20 returns null when all-zero volume", () => {
     const zero: PriceBar[] = Array.from({ length: 30 }, (_, i) => ({
       date: `2026-06-${(i % 28) + 1}T00:00:00Z`,
-      open: 100, high: 101, low: 99, close: 100, volume: 0,
+      open: 100,
+      high: 101,
+      low: 99,
+      close: 100,
+      volume: 0,
     }));
     const f = VOLUME_FEATURES.find((x) => x.name === "volume_ratio_20")!;
     expect(f.compute(zero, 25)).toBeNull();
@@ -388,7 +416,11 @@ describe("volume features", () => {
   it("volume_ratio_20 returns ~1 when volume stable", () => {
     const stable: PriceBar[] = Array.from({ length: 30 }, (_, i) => ({
       date: `2026-06-${(i % 28) + 1}T00:00:00Z`,
-      open: 100, high: 101, low: 99, close: 100, volume: 1000,
+      open: 100,
+      high: 101,
+      low: 99,
+      close: 100,
+      volume: 1000,
     }));
     const f = VOLUME_FEATURES.find((x) => x.name === "volume_ratio_20")!;
     expect(f.compute(stable, 25)).toBeCloseTo(1, 5);
@@ -396,7 +428,12 @@ describe("volume features", () => {
 
   it("volume_z_score_50 returns null when stddev is 0", () => {
     const stable: PriceBar[] = Array.from({ length: 60 }, () => ({
-      date: "2026-06-01T00:00:00Z", open: 100, high: 101, low: 99, close: 100, volume: 1000,
+      date: "2026-06-01T00:00:00Z",
+      open: 100,
+      high: 101,
+      low: 99,
+      close: 100,
+      volume: 1000,
     }));
     const f = VOLUME_FEATURES.find((x) => x.name === "volume_z_score_50")!;
     expect(f.compute(stable, 55)).toBeNull();
@@ -405,7 +442,10 @@ describe("volume features", () => {
   it("volume_z_score_50 positive when current spike", () => {
     const spike: PriceBar[] = Array.from({ length: 60 }, (_, i) => ({
       date: `2026-06-${(i % 28) + 1}T00:00:00Z`,
-      open: 100, high: 101, low: 99, close: 100,
+      open: 100,
+      high: 101,
+      low: 99,
+      close: 100,
       // baseline ~1000; spike at idx 55
       volume: i === 55 ? 5000 : 1000 + Math.sin(i) * 50,
     }));
@@ -476,8 +516,16 @@ describe("context features", () => {
   it("cross_asset_correlation_abs_20 = |cross_asset_correlation_20|", () => {
     const inverse = BARS.map((b) => ({ ...b, close: 4000 - b.close, open: 4000 - b.open }));
     const ctx: FeatureContext = { crossAssetBars: new Map([["DXY", inverse]]) };
-    const sgn = CONTEXT_FEATURES.find((x) => x.name === "cross_asset_correlation_20")!.compute(BARS, 100, ctx);
-    const abs = CONTEXT_FEATURES.find((x) => x.name === "cross_asset_correlation_abs_20")!.compute(BARS, 100, ctx);
+    const sgn = CONTEXT_FEATURES.find((x) => x.name === "cross_asset_correlation_20")!.compute(
+      BARS,
+      100,
+      ctx
+    );
+    const abs = CONTEXT_FEATURES.find((x) => x.name === "cross_asset_correlation_abs_20")!.compute(
+      BARS,
+      100,
+      ctx
+    );
     expect(abs).toBe(Math.abs(sgn!));
   });
 });

@@ -5,9 +5,13 @@
  *  (2) is exactly leak-free (every aligned session closes ≤ the decision).
  * Run: pnpm dlx tsx scripts/canonical/verify-session-boundary.ts
  */
-import { loadPinnedBars, sessionDailyClose } from "./lib/pinned-eval";
-import { alignBarIndex, alignCompletedDailyIndex, resampleToDaily } from "../../src/lib/market-data/resample";
+import {
+  alignBarIndex,
+  alignCompletedDailyIndex,
+  resampleToDaily,
+} from "../../src/lib/market-data/resample";
 import { detectDailyBias } from "../../src/lib/patterns/daily-bias";
+import { loadPinnedBars, sessionDailyClose } from "./lib/pinned-eval";
 import type { PriceBar } from "../../src/lib/market-data/types";
 
 function bias(daily: PriceBar[], dIdx: number): string {
@@ -18,12 +22,15 @@ function bias(daily: PriceBar[], dIdx: number): string {
 
 const { bars: h4 } = loadPinnedBars("XAU/USD", "h4");
 const { bars: dRaw } = loadPinnedBars("XAU/USD", "d");
-const utcDaily = resampleToDaily(h4);           // legacy UTC-day (leaky-boundary source)
-const sessClose = sessionDailyClose(dRaw);       // close-instant-stamped sessions (ENGINE input)
+const utcDaily = resampleToDaily(h4); // legacy UTC-day (leaky-boundary source)
+const sessClose = sessionDailyClose(dRaw); // close-instant-stamped sessions (ENGINE input)
 
-let leak = 0, total = 0, divUtcVsSession = 0;
+let leak = 0,
+  total = 0,
+  divUtcVsSession = 0;
 for (let i = 200; i < h4.length; i++) {
-  const asOf = h4[i].date, asOfMs = Date.parse(asOf);
+  const asOf = h4[i].date,
+    asOfMs = Date.parse(asOf);
   // ENGINE path for close-stamped bars = alignBarIndex (instant ≤).
   const engIdx = alignBarIndex(sessClose, asOf);
   // Legacy UTC-day path = alignCompletedDailyIndex.
@@ -33,11 +40,21 @@ for (let i = 200; i < h4.length; i++) {
   if (bias(utcDaily, legIdx) !== bias(sessClose, engIdx)) divUtcVsSession++;
 }
 let fail = 0;
-const div = 100 * divUtcVsSession / total;
+const div = (100 * divUtcVsSession) / total;
 console.log(`bars evaluated: ${total}`);
-console.log(`legacy UTC-day vs engine session-close divergence: ${div.toFixed(2)}%  (expect 5-9% — the boundary bug being fixed)`);
+console.log(
+  `legacy UTC-day vs engine session-close divergence: ${div.toFixed(2)}%  (expect 5-9% — the boundary bug being fixed)`
+);
 console.log(`LEAK (engine aligns to a session closing AFTER the decision): ${leak}  (MUST be 0)`);
-if (leak !== 0) { console.log("FAIL: leak detected"); fail++; }
-if (div < 3 || div > 12) { console.log("FAIL: divergence outside expected band"); fail++; }
-console.log(fail === 0 ? "\nSESSION-BOUNDARY VERIFIED (exact + leak-free)" : `\n${fail} FAILURE(S)`);
+if (leak !== 0) {
+  console.log("FAIL: leak detected");
+  fail++;
+}
+if (div < 3 || div > 12) {
+  console.log("FAIL: divergence outside expected band");
+  fail++;
+}
+console.log(
+  fail === 0 ? "\nSESSION-BOUNDARY VERIFIED (exact + leak-free)" : `\n${fail} FAILURE(S)`
+);
 process.exit(fail === 0 ? 0 : 1);

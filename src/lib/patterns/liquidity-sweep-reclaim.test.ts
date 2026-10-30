@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { detectLiquiditySweepReclaim } from "./liquidity-sweep-reclaim";
-import { detectLiquiditySweep } from "./liquidity-sweep";
 import type { PriceBar } from "@/lib/market-data/types";
+import { detectLiquiditySweep } from "./liquidity-sweep";
+import { detectLiquiditySweepReclaim } from "./liquidity-sweep-reclaim";
 
 function bar(date: string, o: number, h: number, l: number, c: number): PriceBar {
   return { date, open: o, high: h, low: l, close: c, volume: 0 };
