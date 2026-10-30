@@ -1,0 +1,86 @@
+# CI — runs on every push and pull request. Each job calls the same Makefile
+# target you run locally, so a red job reproduces with one command.
+# docs/DEV_SETUP.md §10 explains how to read a failed run.
+name: ci
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    name: lint · typecheck · test · build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # format-check and lint-strict diff against the base branch
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: make install
+      - run: sudo apt-get install -y shellcheck
+      - run: make lint
+      - run: make lint-shell
+      - run: make typecheck
+      - run: make env-check
+      - run: make db-types-check
+      - name: warm the pnpm dlx store (four cron-wrapper tests spawn `pnpm dlx tsx`; cold runners took >30 s)
+        run: pnpm dlx tsx --version
+      - run: make test
+      - run: make build
+        env:
+          # next build needs the public Supabase vars to exist; placeholders are fine (no network at build time)
+          NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder
+
+  new-files-strict:
+    name: target rules on files added in this PR
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: make install
+      - name: lint added files with eslint.config.strict.mjs
+        run: |
+          # one line: make expands FILES inline, so a newline-separated list splits the recipe
+          files=$(git diff --name-only --diff-filter=A "origin/${{ github.base_ref }}...HEAD" -- '*.ts' '*.tsx' '*.mjs' '*.js' | grep -vE '^(scripts/archive|scripts/ad-hoc)/' | tr '\n' ' ' || true)
+          if [ -z "$files" ]; then echo "no added code files"; exit 0; fi
+          make lint-strict FILES="$files"
+      - name: changed files are prettier-formatted
+        run: make format-check BASE="origin/${{ github.base_ref }}"
+
+  secrets:
+    name: gitleaks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_CONFIG: .gitleaks.toml

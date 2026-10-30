@@ -11,11 +11,13 @@ One short section per thing that was set up: **what it is, why it exists, the on
 | lint / type-check / test | `make lint` · `make typecheck` · `make test` | B3 |
 | format what I changed | `make format` (then `make format-check`) | B3 |
 | hold a new file to the target rules | `make lint-strict FILES=path/to/new-file.ts` | B3 |
+| check env names + generated DB types | `make env-check` · `make db-types-check` | B6 / B7 |
+| see why CI is red | `gh pr checks <n>` then `gh run view <id> --log-failed` | B6 |
 | set up the Python sidecar | `make python-env` | B2/B3 |
 | rotate the cron secret | `docs/runbooks/rotate-cron-secret.md` (manual, ~5 min) | B1 |
 | harden the VPS (**Critical**: password auth is on) | `docs/runbooks/harden-vps-ssh.md` (manual, ~10 min today) | B1 |
 
-Stubs that exit 2 with a message until their PR lands: `make backtest` (golden file, B10), `make validate` / `make parity` (audit scripts, when they reach `dev`), `make db-types` / `make db-types-check` (B7).
+Stubs that exit 2 with a message until their PR lands: `make backtest` (golden file, B10), `make validate` / `make parity` (audit scripts, when they reach `dev`).
 
 ## 2. Secrets — where they live and the rules
 
@@ -129,3 +131,62 @@ make db-types-check                # what CI runs
 ```
 
 Adding a migration = apply it to the project, `make db-types`, commit the migration, the types and the manifest together.
+
+## 11. CI — what it is and how to read a failed run
+
+**What:** `.github/workflows/ci.yml` runs on every push and pull request, on GitHub's machines, with a fresh clone. Three jobs:
+
+| Job | Runs | Fails when |
+|---|---|---|
+| `lint · typecheck · test · build` | `make install`, `make lint`, `make lint-shell`, `make typecheck`, `make env-check`, `make db-types-check`, `make test`, `make build` | any ESLint error or more warnings than the budget; any TypeScript error (tests included); a `process.env` name missing from `.env.example`; migrations newer than the generated types; any failing test; a broken production build |
+| `target rules on files added in this PR` (PRs only) | `make lint-strict` on files added vs the base branch; `make format-check` on changed files | a **new** file breaks the target rule set; a changed file is not prettier-formatted |
+| `gitleaks` | the gitleaks action over the pushed history | a secret-shaped string was committed |
+
+Every job is a Makefile target, so a red job reproduces locally with the same command. The stale one-shot `ftmo-gate-reminder.yml` (a 2026-07-11 reminder that told itself to be deleted) is removed; `dead-man.yml` (production monitoring) is untouched.
+
+**Why:** until now nothing ran tests, lint or build on a push; 109 direct commits landed on `dev` since June with no machine check. CI is the "checked by a machine" half of the mission; branch protection (§12) is what makes it binding.
+
+**Reading a failed run:**
+1. The PR page shows a red ✗ next to the job name; click **Details** (or `gh pr checks <number>`; `gh run view --log-failed` prints only the failing step's log).
+2. The failing **step** is the Makefile target. Its last lines are the tool's own message: ESLint prints `file:line  error  rule-name`; `tsc` prints `file(line,col): error TS…`; vitest prints the failing test name and the `expected / received` diff; `env-check` and `db-types-check` print exactly what to add or run.
+3. Run the same target locally (`make lint`, `make typecheck`, …), fix, push. The run re-triggers.
+4. A red `gitleaks` job means a secret reached a commit: rotate it (do not just delete the line — history keeps it), then rewrite the branch.
+
+**Commands:**
+
+```bash
+make check                              # the same gates, locally, before pushing
+gh pr checks <number>                   # job status for a PR
+gh run list --workflow=ci.yml --limit 5 # recent runs
+gh run view <run-id> --log-failed       # only the failing step's output
+```
+
+## 12. Branch protection on `dev` — what to click
+
+CI only matters if nothing can merge around it. Protect `dev` (the branch the VPS deploys; `main` is sorted out in Phase D). You do this once in the GitHub UI — I do not change repository settings.
+
+1. Repo → **Settings** → **Rules** → **Rulesets** → **New ruleset** → **New branch ruleset**.
+2. Name `protect-dev`; **Enforcement status: Active**; **Target branches** → Add target → *Include by pattern* → `dev`.
+3. Tick **Restrict deletions** and **Block force pushes**.
+4. Tick **Require a pull request before merging**; required approvals **0** (single operator — the "fresh context" review is the Phase C `skeptical-reviewer` agent plus CI, not a second human); tick **Dismiss stale pull request approvals** and **Require conversation resolution before merging**.
+5. Tick **Require status checks to pass**; tick **Require branches to be up to date before merging**; add the checks by name once the first CI run has reported them: `lint · typecheck · test · build`, `target rules on files added in this PR`, `gitleaks`.
+6. Tick **Require linear history** (squash or rebase merges only — this is what makes stacked PRs clean).
+7. Leave **Bypass list** empty. If you ever need to push directly, you edit the ruleset, which leaves an audit trail.
+8. **Create**.
+
+Verify: `gh api repos/huffed/trading-app-demo/rulesets --jq '.[].name'` lists `protect-dev`; a direct `git push origin dev` is now rejected with "Changes must be made through a pull request".
+
+Same thing via the CLI (one call, same effect; the required check names must match the job names above):
+
+```bash
+gh api -X POST repos/huffed/trading-app-demo/rulesets --input - <<'JSON'
+{ "name": "protect-dev", "target": "branch", "enforcement": "active",
+  "conditions": { "ref_name": { "include": ["refs/heads/dev"], "exclude": [] } },
+  "rules": [
+    { "type": "deletion" }, { "type": "non_fast_forward" }, { "type": "required_linear_history" },
+    { "type": "pull_request", "parameters": { "required_approving_review_count": 0, "dismiss_stale_reviews_on_push": true, "require_code_owner_review": false, "require_last_push_approval": false, "required_review_thread_resolution": true } },
+    { "type": "required_status_checks", "parameters": { "strict_required_status_checks_policy": true,
+      "required_status_checks": [ { "context": "lint · typecheck · test · build" }, { "context": "target rules on files added in this PR" }, { "context": "gitleaks" } ] } }
+  ] }
+JSON
+```
