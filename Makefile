@@ -7,7 +7,7 @@ BASE ?= origin/dev
 
 .PHONY: help install lint lint-strict lint-shell typecheck format format-check format-all-check \
         test test-watch build check backtest validate parity db-types db-types-check \
-        secrets-scan secrets-scan-history env-check backtest-update lint-workflows python-env python-lock
+        secrets-scan secrets-scan-history env-check backtest-update lint-workflows python-env python-lock regime-report fence-check
 
 help: ## List targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "} {printf "  %-18s %s\n", $$1, $$2}'
@@ -24,8 +24,9 @@ lint-strict: ## ESLint target rule set on FILES=... (new code is held to this; C
 	@test -n "$(FILES)" || { echo "usage: make lint-strict FILES='path/a.ts path/b.ts'"; exit 2; }
 	@printf '%s' "$(FILES)" | tr ' ' '\n' | grep -v '^$$' | tr '\n' '\0' | xargs -0 $(PNPM) exec eslint --config eslint.config.strict.mjs --no-ignore
 
-lint-shell: ## shellcheck on the cron wrappers (baseline: errors; target: warnings, see DEBT.md)
+lint-shell: ## shellcheck: cron wrappers at the baseline (-S error, see DEBT.md); the Claude hooks and the commit-msg hook are new code and meet the target (-S warning)
 	shellcheck -S error scripts/*.sh
+	shellcheck -S warning .claude/hooks/*.sh .husky/commit-msg
 
 lint-workflows: ## actionlint on .github/workflows (a workflow GitHub cannot parse fails here, not as a run with no jobs)
 	@command -v actionlint >/dev/null || { echo "actionlint is not installed (brew install actionlint)"; exit 2; }
@@ -65,13 +66,19 @@ build: ## Production build
 env-check: ## Every env var the app reads is documented by name in .env.example (secret-shaped names in scripts too)
 	node scripts/dev/env-names-check.mjs
 
-check: lint lint-shell lint-workflows typecheck env-check db-types-check test ## Everything CI runs, locally
+fence-check: ## The live-path override and the Stop-hook switch are never set in a committed file (docs/decisions/0004)
+	node scripts/dev/fence-check.mjs
+
+check: lint lint-shell lint-workflows typecheck env-check fence-check db-types-check test ## Everything CI runs, locally
 
 backtest: ## Golden-file replay of the five deployed algorithms on the pinned XAU/USD 4h slice (fails on any changed trade)
 	$(PNPM) exec tsx scripts/golden-replay.ts
 
 backtest-update: ## Regenerate the golden file on purpose (commit it with an explanation)
 	$(PNPM) exec tsx scripts/golden-replay.ts --update
+
+regime-report: ## Vol-regime distribution + daily-bias flips from the pinned XAU/USD corpora (read-only; ARGS="<h4-bars> <days>")
+	$(PNPM) exec tsx scripts/regime-report.ts $(ARGS)
 
 validate: ## Validation harness (wired to review/scripts when the audit lands them on dev)
 	@echo "make validate: not wired yet — the audit's scripts live on review/skeptical-audit-2026-10 (docs/DEBT.md D-20)."; exit 2

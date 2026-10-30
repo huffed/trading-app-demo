@@ -617,12 +617,12 @@ Interaction worth knowing: `getCachedPrices` applies the TTL against `rowCopies.
 
 | # | Document says | Code says |
 |---|---|---|
-| 1 | `CLAUDE.md:368` `scan/entry.ts:checkDirectionConflict` | defined in `src/lib/scan/entry-gates.ts:37` |
-| 2 | `CLAUDE.md:297` newest CHECK migration is 00049 | `00050_alpha_decay_tick_event.sql` replaces it (adds `alpha_decay_tick`); draft PR #291 carries 00053 |
-| 3 | `CLAUDE.md:152` hooks list includes `use-live-signal`; `:154` two stores | no such hook; 31 hooks exist, 23 unlisted; 6 stores |
-| 4 | `CLAUDE.md:317` puts `filterIncomingBars` and `MAX_BARS_PER_ROW` under `prices.ts` | both live in `price-cache.ts:80` and `:176` |
-| 5 | `CLAUDE.md:348` stagnant `max_bars` "clamped 6-48" | `clamp(round(expected_bars × 0.5), 2, 12)` (`stagnant-exit.ts:21`) |
-| 6 | `CLAUDE.md:378` "Six other `runPortfolioBacktest` callers" | also `algo-search/per-regime-sweep.ts`, `algo-search/walk-forward-opt.ts` (the live WFO cron) and 25 `scripts/canonical` files |
+| 1 | `docs/PROJECT_CONTEXT.md:372` (the former CLAUDE.md) `scan/entry.ts:checkDirectionConflict` | defined in `src/lib/scan/entry-gates.ts:37` |
+| 2 | `docs/PROJECT_CONTEXT.md:301` newest CHECK migration is 00049 | `00050_alpha_decay_tick_event.sql` replaces it (adds `alpha_decay_tick`); draft PR #291 carries 00053 |
+| 3 | `docs/PROJECT_CONTEXT.md:156` hooks list includes `use-live-signal`; `:158` two stores | no such hook; 31 hooks exist, 23 unlisted; 6 stores |
+| 4 | `docs/PROJECT_CONTEXT.md:321` puts `filterIncomingBars` and `MAX_BARS_PER_ROW` under `prices.ts` | both live in `price-cache.ts:80` and `:176` |
+| 5 | `docs/PROJECT_CONTEXT.md:352` stagnant `max_bars` "clamped 6-48" | `clamp(round(expected_bars × 0.5), 2, 12)` (`stagnant-exit.ts:21`) |
+| 6 | `docs/PROJECT_CONTEXT.md:382` "Six other `runPortfolioBacktest` callers" | also `algo-search/per-regime-sweep.ts`, `algo-search/walk-forward-opt.ts` (the live WFO cron) and 25 `scripts/canonical` files |
 | 7 | `CLAUDE.md` "Current tables" (13) | migrations also create `portfolios`, `backtest_trades`, `algorithm_geometry_sweeps`, `algorithm_rule_changes`, `llm_decisions_archive`, `activity_log_archive` |
 | 8 | `CLAUDE.md` cron list (8 wrappers); `scripts/README.md:124-137` table (14 rows) | 15 wrappers exist; `reconcile-broker-positions-cron.sh` is in neither; three listed crons are not installed on the VPS (audit) |
 | 9 | `CLAUDE.md` routes list | undocumented: `/api/cron/cleanup-caches`, `/api/cron/reconcile-broker-positions`, `/api/admin/{check-drift,ctrader-test,evaluate-pairs,flatten-algo,inspect-backtest,loser-analysis,readiness-check,walk-forward}` |
@@ -635,7 +635,7 @@ Interaction worth knowing: `getCachedPrices` applies the TTL against `rowCopies.
 | 16 | `CLAUDE.md` "`backtest-engine.ts` simpler positions … preserve legacy 'any loss counts'" (consec-loss section) | `backtest-engine.ts` is unreachable |
 | 17 | `CLAUDE.md` glossary: `symbol` only inside `lib/brokers/*`; `algo` never in a type | 265 `symbol` occurrences outside; 22 `Algo*` exported types + route, hooks, components, directory |
 | 18 | `CLAUDE.md` "`src/lib/validators/` (algorithm, trade, journal, position)" | also `trading-profile.ts`, zero importers |
-| 19 | `CLAUDE.md:192` `scripts/llm-trader-backtest.ts` + `scripts/llm-trader-walk-forward.ts` | live only under `scripts/archive/2026-06-18/` |
+| 19 | `docs/PROJECT_CONTEXT.md:196` `scripts/llm-trader-backtest.ts` + `scripts/llm-trader-walk-forward.ts` | live only under `scripts/archive/2026-06-18/` |
 | 20 | `CLAUDE.md` "`LLM_MONTHLY_BUDGET_USD` … hard process-exit" | implemented only in the archived harness; no enforcement in `src/` (audit F7) |
 | 21 | `CLAUDE.md` "Stagnant Exit … Runs FIRST in `manageExistingPosition` so it preempts SL hits" | true live only; the backtest lets SL/TP win over stagnant (`prop-firm-backtest.ts:524-537`) |
 | 22 | `CLAUDE.md` "the engine owns exits" | the LLM path honours `exit` and `move_be` (`entry-llm-trader.ts:124-129`) |

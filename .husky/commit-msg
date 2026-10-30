@@ -1,0 +1,12 @@
+#!/usr/bin/env sh
+# commit-msg: reject attribution lines. CLAUDE.md ("Git") forbids
+# "Co-Authored-By" and "Generated with" lines; six commits carried them in
+# Phase B before this hook existed (operator decision 2026-10-29). The
+# committed .claude/settings.json also stops Claude Code adding them; this is
+# the backstop for any other author of the message.
+msg_file="$1"
+if grep -iqE '^co-authored-by:|^(🤖 )?generated (with|by) \[?claude' "$msg_file"; then
+  echo "commit-msg: attribution lines are not allowed in this repository (CLAUDE.md, Git)." >&2
+  echo "           Remove the Co-Authored-By / Generated-with line(s) from the message and commit again." >&2
+  exit 1
+fi

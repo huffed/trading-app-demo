@@ -41,6 +41,7 @@ jobs:
       - run: make lint-shell
       - run: make typecheck
       - run: make env-check
+      - run: make fence-check
       - run: make db-types-check
       - name: warm the pnpm dlx store (four cron-wrapper tests spawn `pnpm dlx tsx`; cold runners took >30 s)
         run: pnpm dlx tsx --version
@@ -76,6 +77,12 @@ jobs:
           make lint-strict FILES="$files"
       - name: changed files are prettier-formatted
         run: make format-check BASE="origin/${{ github.base_ref }}"
+      - name: no attribution lines in the PR's commit messages
+        run: |
+          if git log --format=%B "origin/${{ github.base_ref }}..HEAD" | grep -niE '^co-authored-by:|^(🤖 )?generated (with|by) \[?claude'; then
+            echo "::error::an attribution line is in a commit message (CLAUDE.md, Git; .husky/commit-msg)"; exit 1
+          fi
+          echo "no attribution lines"
 
   secrets:
     name: gitleaks

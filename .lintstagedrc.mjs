@@ -35,6 +35,8 @@ const config = {
     return commands;
   },
   "scripts/*.sh": (files) => [`shellcheck -S error ${quote(files)}`],
+  ".claude/hooks/*.sh": (files) => [`shellcheck -S warning ${quote(files)}`],
+  ".husky/commit-msg": (files) => [`shellcheck -S warning ${quote(files)}`],
   ".github/workflows/*.{yml,yaml}": () => ["make lint-workflows"],
 };
 
