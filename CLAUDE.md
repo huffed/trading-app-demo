@@ -10,7 +10,7 @@ Where things stand, who decided what, and why: `scripts/canonical/ROADMAP.md` (r
 
 ```bash
 make help              # every target
-make check             # everything CI runs: lint, workflows, shell, typecheck, env, db-types, tests
+make check             # everything CI runs: lint, workflows, shell, typecheck, env, fence, db-types, tests
 make backtest          # golden trade list; fails on any changed trade (make backtest-update to regenerate on purpose)
 make lint-strict FILES=path/new.ts   # the target rule set; CI applies it to files added in a PR
 make format            # prettier on changed files only (whole tree waits for the audit verdict)
@@ -24,7 +24,7 @@ pnpm only. Node is pinned by `.nvmrc`. `pnpm build` and `make check` before ever
 
 - **Golden file.** `tests/golden/` pins every trade the engine produces for the five deployed algorithms on the pinned XAU/USD slice (39 at $100K, 17 at $10K). A change that alters a trade cannot merge unless the golden file is regenerated on purpose and the PR says which trades changed and why.
 - **Pinned data is immutable.** `scripts/canonical/data/*-pinned.json` carry a sha-256 that is re-hashed on load; a new pin is a new file. Verdicts read pinned files, never the live `price_cache`.
-- **Paper/live boundary.** `live_trading_enabled` gates only broker mirroring. `status='active'` scans and opens paper positions; zero activity needs `status='paused'`. Nothing under `src/lib/scan/`, `src/lib/brokers/`, the cron wrappers or the deploy scripts changes without a PR that says so in its title; Claude Code hooks block edits there and to `.env*` and pinned data by default.
+- **Paper/live boundary.** `live_trading_enabled` gates only broker mirroring. `status='active'` scans and opens paper positions; zero activity needs `status='paused'`. Nothing in the live-runner paths (`.claude/hooks/live-paths.txt`: the scan engine, the broker adapters, every API route, the cron wrappers, the scripts they run, the deploy scripts) changes without a PR that says so in its title. Claude Code hooks refuse edits and shell writes there, and to `.env*`, pinned data and the golden inputs, by default; only the operator lifts the live-path fence, per session, and not before the audit verdict (`docs/decisions/0004`).
 - **Secrets.** Never in the repo, never printed. `.env.local` holds them locally and on the VPS; `.env.example` lists every name. gitleaks runs pre-commit and in CI; GitHub secret scanning and push protection are on.
 - **Strictness ratchets up.** The ESLint warning budget (`.eslint-warning-budget`) only goes down; new files meet `eslint.config.strict.mjs` from their first commit; known defects are `it.fails` tests that point at the audit or a DEBT id, never skipped tests or suppressions.
 - **No attribution trailers.** Commit messages carry no `Co-Authored-By` or "Generated with" lines; a commit-msg hook rejects them.
@@ -38,7 +38,7 @@ pnpm only. Node is pinned by `.nvmrc`. `pnpm build` and `make check` before ever
 ## Working here as Claude
 
 - Read `docs/DEBT.md` D-01 to D-04 before touching the engine: three contracts exist in incompatible versions, errors are logged not raised, and the backtester and the live engine re-implement the same rules.
-- The vocabulary is fixed: Strategy ≠ Algorithm (`algo` only as a local variable), ticker ≠ symbol (symbol only inside `src/lib/brokers/`), position ≠ trade, order only in broker adapters. Full glossary and the architecture gotchas: `docs/CODE_QUALITY.md` §1.
+- The vocabulary is fixed: Strategy ≠ Algorithm (`algo` only as a local variable), ticker ≠ symbol (symbol only inside `src/lib/brokers/`), position ≠ trade, order only in broker adapters. Full glossary and the architecture gotchas: `docs/PROJECT_CONTEXT.md` (reference). Two that bite: server-side auth checks use `supabase.auth.getUser()`, never `getSession()`; a new protected route is added in three places (`middleware.ts`, `src/lib/supabase/middleware.ts`, the `(auth)/callback` whitelist).
 - shadcn/ui here is the **base-nova** style over `@base-ui/react`: composition is `render={<Link />}`, never Radix `asChild`.
 - Skills: `/validate` (run the validation harness), `/parity-check` (live-vs-backtest parity), `/regime-report`, `/ftmo-rules` (FTMO 2-Step Swing rules and R conventions). Agents: `skeptical-reviewer` (read-only review in a fresh context) and `backtest-runner`.
 - Nothing that connects to a broker or writes to the live tables runs from a Claude session; the VPS is inspected read-only and only when the operator asks.

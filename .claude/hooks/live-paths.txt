@@ -1,0 +1,18 @@
+# Live-runner paths: what the VPS runs (the scan/manage engine, broker adapters,
+# every API route the cron wrappers hit, the wrappers themselves, the scripts
+# they invoke, the deploy scripts and the baseline harness library). One glob
+# per line, lower-case, `**` and `*` as in a shell `case` pattern. Read by
+# guard-paths.sh (edits) and guard-bash.sh (shell writes); documented in
+# docs/DEV_SETUP.md §16 and docs/decisions/0004. Lines starting with # are ignored.
+src/lib/scan/**
+src/lib/brokers/**
+src/app/api/**
+scripts/*-cron.sh
+scripts/cohort-report.ts
+scripts/canonical/deploy-*.ts
+scripts/canonical/m1-progress.ts
+scripts/canonical/validate-algo.ts
+scripts/canonical/validate-preregistration.ts
+scripts/canonical/capture-broker-spread.ts
+scripts/canonical/snapshot-broker-health.ts
+scripts/canonical/lib/pinned-eval.ts

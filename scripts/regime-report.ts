@@ -10,10 +10,16 @@
  *     `src/lib/algorithm/regime-classifier.ts`), as a distribution;
  *   - the daily bias (D1 close vs SMA20, `src/lib/patterns/daily-bias.ts`) per
  *     session day, with every flip listed.
+ *
+ * The bias is computed on close-stamped session bars exactly as the engine's
+ * `dailyBarsOverride` does; flips are LABELLED with the stamp of the session
+ * that opened them (the raw pinned D1 bar), because the close stamp is the
+ * next session's open and would print a Sunday for a Friday close.
  */
-import { classifyAllBars, type Regime } from "@/lib/algorithm/regime-classifier";
+import { classifyAllBars, REGIMES, type Regime } from "@/lib/algorithm/regime-classifier";
 import type { PriceBar } from "@/lib/market-data/types";
 import { detectDailyBias } from "@/lib/patterns/daily-bias";
+import type { DailyBiasDetails } from "@/lib/patterns/types";
 import { loadPinnedBars, sessionDailyClose } from "./canonical/lib/pinned-eval";
 
 const TICKER = "XAU/USD";
@@ -25,7 +31,7 @@ interface Distribution {
 }
 
 function distribution(regimes: (Regime | null)[]): Distribution {
-  const counts: Record<Regime, number> = { low_vol: 0, medium_vol: 0, high_vol: 0 };
+  const counts = Object.fromEntries(REGIMES.map((r) => [r, 0])) as Record<Regime, number>;
   let classified = 0;
   for (const r of regimes) {
     if (r === null) continue;
@@ -41,37 +47,43 @@ function pct(n: number, of: number): string {
 
 function printDistribution(label: string, d: Distribution): void {
   console.log(`\n${label}: ${String(d.classified)} classified of ${String(d.total)} bars`);
-  for (const r of ["low_vol", "medium_vol", "high_vol"] as const) {
+  for (const r of REGIMES) {
     console.log(
       `  ${r.padEnd(11)} ${String(d.counts[r]).padStart(5)}  ${pct(d.counts[r], d.classified)}`
     );
   }
 }
 
-type Bias = "bullish" | "bearish" | "neutral";
+type Bias = DailyBiasDetails["bias"];
 
 function biasOn(daily: PriceBar[], endIdxInclusive: number): Bias {
   const result = detectDailyBias(daily.slice(0, endIdxInclusive + 1));
   return result.details?.bias ?? "neutral";
 }
 
-function printBias(daily: PriceBar[], days: number): void {
+/** "2026-07-09T22:00:00.000Z" → "2026-07-09 22:00Z" */
+function stamp(iso: string): string {
+  return `${iso.slice(0, 10)} ${iso.slice(11, 16)}Z`;
+}
+
+function printBias(daily: PriceBar[], opens: PriceBar[], days: number): void {
   const start = Math.max(20, daily.length - days);
+  const shown = daily.length - start;
   const flips: string[] = [];
   let prev = biasOn(daily, start - 1);
   for (let i = start; i < daily.length; i++) {
     const b = biasOn(daily, i);
     if (b !== prev) {
-      flips.push(`${daily[i].date.slice(0, 10)}: ${prev} → ${b}`);
+      flips.push(`session opened ${stamp(opens[i].date)}: ${prev} → ${b}`);
       prev = b;
     }
   }
-  const last = daily[daily.length - 1];
+  const lastOpen = opens[opens.length - 1];
   console.log(
-    `\nDaily bias (D1 close vs SMA20) on ${last.date.slice(0, 10)}: ${biasOn(daily, daily.length - 1)}`
+    `\nDaily bias (D1 close vs SMA20) after the session that opened ${stamp(lastOpen.date)}: ${biasOn(daily, daily.length - 1)}`
   );
   console.log(
-    `  flips in the last ${String(days)} session days: ${flips.length === 0 ? "none" : String(flips.length)}`
+    `  flips in the last ${String(shown)} session days: ${flips.length === 0 ? "none" : String(flips.length)}`
   );
   for (const f of flips) console.log(`    ${f}`);
 }
@@ -99,7 +111,7 @@ function main(): number {
   const current = regimes[regimes.length - 1];
   console.log(`  current regime on the last pinned bar: ${current ?? "unknown (lookback < 200)"}`);
 
-  printBias(daily, days);
+  printBias(daily, d1.bars, days);
   console.log(
     "\nThe pin ends where it ends: this is the corpus the verdicts were derived on, not live data."
   );

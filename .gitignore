@@ -44,10 +44,14 @@ next-env.d.ts
 
 # editor
 .idea/
-# Claude Code: shared config (settings.json, hooks/, agents/, skills/) is committed;
-# the personal settings file and agent worktrees are not.
-.claude/settings.local.json
-.claude/worktrees/
+# Claude Code: only the shared config is committed (settings.json, hooks/,
+# agents/, skills/); everything else under .claude/ (settings.local.json,
+# worktrees/, caches) stays local.
+.claude/*
+!.claude/settings.json
+!.claude/hooks/
+!.claude/agents/
+!.claude/skills/
 
 # local-only references (CSVs, docs not for the repo)
 /funded\ account\ references/

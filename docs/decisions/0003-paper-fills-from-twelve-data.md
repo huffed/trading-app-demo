@@ -22,4 +22,4 @@ Not recorded at the time. Options for Phase E (one engine, two adapters): price 
 
 ## Evidence
 
-`docs/STACK.md` §6 (Twelve Data row); `docs/CODE_QUALITY.md` §3.1 F1-7 and §3.2 (fill rules); `src/lib/market-data/twelve-data.ts:97-109`; audit `review/01-audit.md` finding F1.
+`docs/STACK.md` §6 (Twelve Data row); `docs/CODE_QUALITY.md` §3.1 F1-4 and §3.2 (fill rules); `src/lib/market-data/twelve-data.ts:97-109`; audit `review/01-audit.md` finding F1.

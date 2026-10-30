@@ -26,7 +26,7 @@ Use this when sizing, when reading a drawdown number, when judging whether a bac
 
 **Consistency:** FTMO 2-Step has **no** account-failing consistency rule. The only consistency check is the payout-timing "Best Day ≤ 50 % of positive days' profit" review on funded accounts. The engine's `consistency_rule: 40` halt is a self-imposed safety, not an FTMO requirement; do not describe it as one.
 
-**Swing leverage:** forex 1:30, indices 1:15, **metals 1:9**. On a $50K Swing account a 1 % risk gold trade with a ~100-pip stop needs ~0.05 lots and ~$2,500 margin (5 % of the account); keep concurrent gold positions to two. Standard-account leverage maths (1:30 gold) does **not** transfer.
+**Swing leverage:** forex 1:30, indices 1:15, **metals 1:9**. Worked example on a $50K Swing account: 1 % risk is $500; a stop $100 away in price (that is 10,000 pips at this codebase's XAU/USD `pipSize` of 0.01, `src/lib/constants/markets.ts`, so never say "100 pips" for a $100 move) loses $10,000 per standard lot of 100 oz, so the position is 0.05 lots; at ~$4,000/oz that is ~$20,000 notional and ~$2,200 margin at 1:9, about 4–5 % of the account. Keep concurrent gold positions to two. Standard-account leverage maths (1:30 gold) does **not** transfer.
 
 **Swing privileges:** positions may be held through news and over weekends; that is why the 4h algorithms, with mean holds above 13 hours, use this variant.
 

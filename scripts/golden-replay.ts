@@ -16,10 +16,17 @@ function main(): number {
       `${runKey}: ${String(run.trade_count)} trades in window (+${String(run.warmup_trade_count)} warm-up), total P&L ${run.total_pnl.toFixed(2)}`
     );
   }
-  if (update || !existsSync(GOLDEN_PATH)) {
+  if (update) {
     writeFileSync(GOLDEN_PATH, `${JSON.stringify(current, null, 2)}\n`);
     console.log(`wrote ${GOLDEN_PATH}`);
     return 0;
+  }
+  if (!existsSync(GOLDEN_PATH)) {
+    // A compare run never writes: a missing golden file is a failure, not a reason to create one.
+    console.error(
+      `golden: ${GOLDEN_PATH} is missing. Create it on purpose with \`make backtest-update\` and commit it with an explanation.`
+    );
+    return 1;
   }
   const golden = readGolden();
   const a = JSON.stringify(comparable(golden));

@@ -1,60 +1,56 @@
 #!/usr/bin/env bash
-# PreToolUse(Bash) hook registered in .claude/agents/skeptical-reviewer.md only.
-# The reviewer may run read-only commands so it can verify claims (git diff/log/
-# show/blame, make lint/test/typecheck/backtest, the test runner, viewers).
-# Everything that writes is refused with exit 2: git commit/push/checkout/reset/
-# stash/add, rm, mv, cp, redirects, in-place edits, package installs, make
-# targets that write, command substitution and heredocs.
-set -euo pipefail
+# PreToolUse(Bash) hook registered only in .claude/agents/skeptical-reviewer.md.
+# The reviewer's shell is an allow-list of read-only commands, matched EXACTLY
+# per simple command after a quote-aware split that refuses command and process
+# substitution, heredocs, any input redirection and any output redirect other
+# than >&1, >&2 and /dev/null. Flags that make an allowed command write (eslint
+# --fix, prettier --write, vitest -u/--outputFile, git --output/-O, make
+# variables) are not on the list, so they are refused. Fails CLOSED.
+set -uo pipefail
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+trap 'echo "reviewer-bash-allowlist: internal error while inspecting the command; refusing" >&2; exit 2' ERR
+command -v node >/dev/null || { echo "reviewer-bash-allowlist: node not found; refusing" >&2; exit 2; }
 input=$(cat)
-# Quote-aware split into simple commands; prints DENY:<reason> first when a
-# construct is refused outright, otherwise one command segment per line.
-segments=$(printf '%s' "$input" | node -e '
-  let s = ""; process.stdin.on("data", (d) => (s += d)).on("end", () => {
-    let cmd = "";
-    try { cmd = String((JSON.parse(s).tool_input || {}).command || ""); } catch { cmd = ""; }
-    const out = []; let cur = ""; let q = null;
-    const push = () => { if (cur.trim()) out.push(cur.trim()); cur = ""; };
-    for (let i = 0; i < cmd.length; i++) {
-      const c = cmd[i], n = cmd[i + 1];
-      if (q) { cur += c; if (c === q) q = null; continue; }
-      if (c === "\x27" || c === "\"") { q = c; cur += c; continue; }
-      if (c === "`" || (c === "$" && n === "(")) { out.unshift("DENY:command substitution is not allowed for the reviewer"); break; }
-      if (c === "<" && n === "<") { out.unshift("DENY:heredocs are not allowed for the reviewer"); break; }
-      if (c === ">") {
-        // only ">&1", ">&2", "> /dev/null" and ">> /dev/null" pass; consume them whole
-        const m = cmd.slice(i).match(/^>&[12](?![0-9])|^>>?\s*\/dev\/null/);
-        if (m) { cur += m[0]; i += m[0].length - 1; continue; }
-        out.unshift("DENY:redirects are not allowed for the reviewer"); break;
-      }
-      if ((c === "&" && n === "&") || (c === "|" && n === "|")) { push(); i++; continue; }
-      if (c === "|" || c === ";" || c === "\n" || c === "&") { push(); continue; }
-      cur += c;
-    }
-    push();
-    process.stdout.write(out.join("\n"));
-  });')
-case "$segments" in
-  DENY:*) printf 'reviewer-bash-allowlist: %s\n' "${segments#DENY:}" | head -1 >&2; exit 2;;
+segs=$(printf '%s' "$input" | node "$here/lib/hook-input.cjs" segments --strict) || { echo "reviewer-bash-allowlist: could not read the tool input; refusing" >&2; exit 2; }
+case "$segs" in
+  DENY:*) printf 'reviewer-bash-allowlist: refusing — %s is not allowed for the read-only reviewer\n' "${segs#DENY:}" >&2; exit 2;;
 esac
-[ -n "$segments" ] || exit 0
+[ -n "$segs" ] || { echo "reviewer-bash-allowlist: empty command; refusing" >&2; exit 2; }
 
-allowed='^(git (diff|log|show|blame|status|rev-parse|ls-files|grep)|gh (pr (diff|view|checks)|run (view|list))|make (lint|lint-strict|lint-shell|lint-workflows|typecheck|test|backtest|regime-report|check|env-check|db-types-check|fence-check|help)|pnpm (test|exec (vitest|eslint|tsc|prettier --check))|rg|grep|ls|cat|head|tail|wc|sort|uniq|cut|tr|find|diff|echo|printf|jq|sed|awk|true|cd|2>&1)([[:space:]]|$)'
+p='[A-Za-z0-9_./()@:,=+-]+'          # a path or ref token: no spaces, no shell metacharacters
+allowed=(
+  "^git (diff|show|blame|status|rev-parse|ls-files|grep)( ${p})*$"
+  "^git log( ${p})*$"
+  "^gh pr (diff|view|checks)( ${p})*$"
+  "^gh run (view|list)( ${p})*$"
+  "^make (lint|lint-shell|lint-workflows|typecheck|test|backtest|check|env-check|db-types-check|fence-check|help)$"
+  "^make regime-report( ARGS=\"[0-9]+ [0-9]+\")?$"
+  "^make lint-strict FILES=\"?[A-Za-z0-9_./()\\[\\] -]+\"?$"
+  "^pnpm test$"
+  "^pnpm exec vitest run( ${p})*$"
+  "^pnpm exec eslint( --no-ignore)?( --config eslint\\.config\\.(strict\\.)?mjs)?( ${p})+$"
+  "^pnpm exec tsc --noEmit( -p tsconfig\\.json)?$"
+  "^pnpm exec prettier --check( ${p})+$"
+  "^(cat|head|tail|wc|cut|tr|diff|ls|echo|printf|jq|true)( .*)?$"
+  "^grep( .*)?$"
+  "^cd( ${p})?$"
+)
+# arguments that make an otherwise allowed command write or execute something
+blacklist='(^|[[:space:]])(--output(=|$|[[:space:]])|-O|--ext-diff|--textconv|--exec|--open-files-in-pager|--fix|--fix-dry-run|--write|-w|-o|--output-file|-u|--update|--updateSnapshot|--outputFile|--reporter=json|--coverage|--pre|--config=|-c[[:space:]])'
+
 while IFS= read -r seg; do
   [ -n "$seg" ] || continue
-  seg_clean=$(printf '%s' "$seg" | sed -E 's/[[:space:]]*2>&1//g; s/[[:space:]]*2>\/dev\/null//g; s/[[:space:]]*>\/dev\/null//g')
-  if ! printf '%s' "$seg_clean" | grep -qE "$allowed"; then
-    printf 'reviewer-bash-allowlist: refusing "%s" — not on the read-only allowlist (git diff/log/show/blame, make lint/test/typecheck/backtest, the test runner, viewers)\n' "$seg" >&2
-    exit 2
+  s=$(printf '%s' "$seg" | sed -E 's/[[:space:]]*2>&1//g; s/[[:space:]]*>&[12]//g; s/[[:space:]]*2?>>?\/dev\/null//g')
+  ok=0
+  for re in "${allowed[@]}"; do
+    if grep -qE "$re" <<<"$s"; then ok=1; break; fi
+  done
+  [ "$ok" = "1" ] || { printf 'reviewer-bash-allowlist: refusing "%s" — not on the read-only allowlist (git diff/log/show/blame/status, gh pr diff/view/checks, make lint/typecheck/test/backtest/regime-report, the test runner, cat/head/tail/wc/cut/tr/diff/ls/echo/printf/jq/grep)\n' "$seg" >&2; exit 2; }
+  if grep -qE "$blacklist" <<<"$s"; then
+    printf 'reviewer-bash-allowlist: refusing "%s" — a flag that writes, executes or changes configuration\n' "$seg" >&2; exit 2
   fi
-  if printf '%s' "$seg_clean" | grep -qE '^(sed|perl)[[:space:]]+(.*[[:space:]])?(-[a-zA-Z]*i|--in-place)([[:space:]]|$|=)'; then
-    printf 'reviewer-bash-allowlist: refusing "%s" — in-place edit\n' "$seg" >&2; exit 2
+  if grep -qE '^grep( .*)?[[:space:]]-[a-zA-Z]*[rR]' <<<"$s"; then
+    printf 'reviewer-bash-allowlist: refusing "%s" — recursive grep can print secrets; use the Grep tool\n' "$seg" >&2; exit 2
   fi
-  if printf '%s' "$seg_clean" | grep -qE '^find[[:space:]].*(-delete|-exec|-ok)'; then
-    printf 'reviewer-bash-allowlist: refusing "%s" — find with -delete/-exec\n' "$seg" >&2; exit 2
-  fi
-  if printf '%s' "$seg_clean" | grep -qE '^(git|gh)[[:space:]].*[[:space:]]--(force|delete|hard)'; then
-    printf 'reviewer-bash-allowlist: refusing "%s" — destructive flag\n' "$seg" >&2; exit 2
-  fi
-done <<< "$segments"
+done <<<"$segs"
 exit 0
