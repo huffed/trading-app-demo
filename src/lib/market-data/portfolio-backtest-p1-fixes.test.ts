@@ -27,7 +27,7 @@ import {
   type TickerState,
 } from "./portfolio-backtest";
 import { closeSimPosition, type SimState } from "./prop-firm-backtest";
-import type { BacktestTrade, PriceBar } from "./types";
+import type { BacktestExitReason, BacktestTrade, PriceBar } from "./types";
 
 function bar(date: string, o: number, h: number, l: number, c: number): PriceBar {
   return { date, open: o, high: h, low: l, close: c, volume: 0 };
@@ -69,8 +69,12 @@ const minimalRules: AlgorithmRules = {
   asset_class: "commodity",
   side: "long",
   timeframe: "4h",
-  entry_conditions: [{ type: "technical", indicator: "rsi", operator: "less_than", value: 30, timeframe: "4h" }],
-  exit_conditions: [{ type: "technical", indicator: "rsi", operator: "greater_than", value: 70, timeframe: "4h" }],
+  entry_conditions: [
+    { type: "technical", indicator: "rsi", operator: "less_than", value: 30, timeframe: "4h" },
+  ],
+  exit_conditions: [
+    { type: "technical", indicator: "rsi", operator: "greater_than", value: 70, timeframe: "4h" },
+  ],
   entry_logic: "all",
   stop_loss: { type: "percentage", value: 1.5 },
   take_profit: { type: "percentage", value: 3 },
@@ -140,18 +144,28 @@ describe("B.1.16 — hasReEntryCooldownActive invalid-date handling", () => {
   }
 
   it("null lastLossExitDate returns false (no cooldown)", () => {
-    expect(hasReEntryCooldownActive(stateWithLastLoss(null), "2026-01-02T00:00:00Z", 240)).toBe(false);
+    expect(hasReEntryCooldownActive(stateWithLastLoss(null), "2026-01-02T00:00:00Z", 240)).toBe(
+      false
+    );
   });
 
   it("valid recent loss + within window → cooldown active (true)", () => {
     expect(
-      hasReEntryCooldownActive(stateWithLastLoss("2026-01-01T00:00:00Z"), "2026-01-01T01:00:00Z", 240)
+      hasReEntryCooldownActive(
+        stateWithLastLoss("2026-01-01T00:00:00Z"),
+        "2026-01-01T01:00:00Z",
+        240
+      )
     ).toBe(true);
   });
 
   it("valid loss outside cooldown window → not active (false)", () => {
     expect(
-      hasReEntryCooldownActive(stateWithLastLoss("2026-01-01T00:00:00Z"), "2026-01-02T00:00:00Z", 240)
+      hasReEntryCooldownActive(
+        stateWithLastLoss("2026-01-01T00:00:00Z"),
+        "2026-01-02T00:00:00Z",
+        240
+      )
     ).toBe(false);
   });
 
@@ -172,7 +186,11 @@ describe("B.1.16 — hasReEntryCooldownActive invalid-date handling", () => {
     // space-separated; the latter parses as LOCAL time). Negative
     // elapsed is treated as 0 (just-happened), keeping cooldown active.
     expect(
-      hasReEntryCooldownActive(stateWithLastLoss("2026-01-02T00:00:00Z"), "2026-01-01T00:00:00Z", 240)
+      hasReEntryCooldownActive(
+        stateWithLastLoss("2026-01-02T00:00:00Z"),
+        "2026-01-01T00:00:00Z",
+        240
+      )
     ).toBe(true);
   });
 });
@@ -271,7 +289,7 @@ describe("B.1.19 — R-aware consec-loss divide-by-zero on notionalValue = 0", (
       s,
       trades,
       "XAU/USD",
-      "stop_loss"
+      "stop_loss" as BacktestExitReason
     );
     return { s, trade: trades[0] };
   }

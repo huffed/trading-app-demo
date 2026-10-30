@@ -51,13 +51,16 @@
  *     threaded into checkEntryConditions; dailyBars → openPosition
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { checkBrokerSpread } from "@/lib/algorithm/spread-gate";
+import type { AtrLiquidityResult } from "@/lib/algorithm/intraday-atr-gate";
+import { checkBrokerSpread, type SpreadGateResult } from "@/lib/algorithm/spread-gate";
 import type { PriceBar } from "@/lib/market-data/types";
-import { evaluateLiveSignal } from "@/lib/signals/evaluate-live";
+import { evaluateLiveSignal, type SignalResult } from "@/lib/signals/evaluate-live";
+import { asFixture } from "@/test-utils/fixture";
 import type { AlgorithmRules } from "@/types/algorithm";
 import { evaluateEntry, type EntryContext } from "./entry";
 import {
   checkEntryConditions,
+  type EntryConditionResult,
   normalize,
   pickConvictionMultiplier,
 } from "./entry-conviction";
@@ -158,21 +161,30 @@ beforeEach(() => {
     side: "long",
     directionOverride: "bullish",
     higherTfBars: [],
-    liquidity: { skip: false, atr_current: 1.5, atr_threshold: 1.0, status: "ok" },
+    liquidity: {
+      skip: false,
+      atr_current: 1.5,
+      atr_threshold: 1.0,
+      status: "ok" as AtrLiquidityResult["status"],
+    },
     currentPrice: 3055,
   });
   mockedNormalize.mockReturnValue([]);
-  mockedCheckConds.mockResolvedValue({
-    pass: true,
-    met: 2,
-    total: 2,
-    fired: [],
-  });
+  mockedCheckConds.mockResolvedValue(
+    asFixture<EntryConditionResult>({
+      pass: true,
+      met: 2,
+      total: 2,
+      fired: [],
+    })
+  );
   mockedPickConv.mockReturnValue(1);
-  mockedEvalLive.mockResolvedValue({ signal: "buy", confidence: 80, reasoning: "ok" });
+  mockedEvalLive.mockResolvedValue(
+    asFixture<SignalResult>({ signal: "buy", confidence: 80, reasoning: "ok" })
+  );
   mockedCheckSpread.mockResolvedValue({
     block: false,
-    status: "ok",
+    status: "ok" as SpreadGateResult["status"],
     observed_spread_pips: 0.3,
     threshold_pips: 1.0,
     typical_pips: 0.4,
@@ -197,7 +209,9 @@ describe("evaluateEntry — LLM-trader dispatch", () => {
       opened: 1,
       openEvent: { ticker: "XAU/USD", reason: "llm_enter_long", pnl: 0, price: 3055 },
     });
-    const ctx = makeCtx({ algo: makeAlgo({ llm_trader: { enabled: true } } as unknown as Partial<AlgorithmRules>) });
+    const ctx = makeCtx({
+      algo: makeAlgo({ llm_trader: { enabled: true } } as unknown as Partial<AlgorithmRules>),
+    });
     const r = await evaluateEntry(ctx);
     expect(mockedLlmTrader).toHaveBeenCalledTimes(1);
     expect(mockedLlmTrader).toHaveBeenCalledWith(ctx); // FULL context passed unchanged
@@ -212,7 +226,9 @@ describe("evaluateEntry — LLM-trader dispatch", () => {
 
   it("LLM-trader returning {opened:0} threads through unchanged", async () => {
     mockedLlmTrader.mockResolvedValue({ opened: 0 });
-    const ctx = makeCtx({ algo: makeAlgo({ llm_trader: { enabled: true } } as unknown as Partial<AlgorithmRules>) });
+    const ctx = makeCtx({
+      algo: makeAlgo({ llm_trader: { enabled: true } } as unknown as Partial<AlgorithmRules>),
+    });
     const r = await evaluateEntry(ctx);
     expect(r).toEqual({ opened: 0 });
   });
@@ -234,7 +250,9 @@ describe("evaluateEntry — early-return short-circuits", () => {
   });
 
   it("checkEntryConditions {pass:false} → {opened:0}, NO sentiment/spread/open", async () => {
-    mockedCheckConds.mockResolvedValue({ pass: false, met: 1, total: 2, fired: [] });
+    mockedCheckConds.mockResolvedValue(
+      asFixture<EntryConditionResult>({ pass: false, met: 1, total: 2, fired: [] })
+    );
     const r = await evaluateEntry(makeCtx());
     expect(r).toEqual({ opened: 0 });
     expect(mockedPickConv).not.toHaveBeenCalled();
@@ -245,8 +263,12 @@ describe("evaluateEntry — early-return short-circuits", () => {
 
   it("sentiment configured + signal != buy → log signal_no_action + {opened:0}, NO spread/open", async () => {
     // normalize returns at least one sentiment condition
-    mockedNormalize.mockReturnValue([{ type: "sentiment", source: "newsapi" }] as unknown as ReturnType<typeof normalize>);
-    mockedEvalLive.mockResolvedValue({ signal: "sell", confidence: 70, reasoning: "bearish news" });
+    mockedNormalize.mockReturnValue([
+      { type: "sentiment", source: "newsapi" },
+    ] as unknown as ReturnType<typeof normalize>);
+    mockedEvalLive.mockResolvedValue(
+      asFixture<SignalResult>({ signal: "sell", confidence: 70, reasoning: "bearish news" })
+    );
     const r = await evaluateEntry(makeCtx());
     expect(r).toEqual({ opened: 0 });
     expect(mockedCheckSpread).not.toHaveBeenCalled();
@@ -294,7 +316,7 @@ describe("evaluateEntry — broker spread gate", () => {
     mockedCheckSpread.mockResolvedValue({
       block: true,
       reason: "spread 2.5pip > 1pip threshold",
-      status: "wide",
+      status: "wide" as SpreadGateResult["status"],
       observed_spread_pips: 2.5,
       threshold_pips: 1.0,
       typical_pips: 0.4,
@@ -366,7 +388,10 @@ describe("evaluateEntry — conditions filtering", () => {
     // The 5th positional arg to checkEntryConditions is the evaluable conditions array
     const evaluableArg = mockedCheckConds.mock.calls[0][4];
     expect(evaluableArg).toHaveLength(2); // tech + pattern only
-    expect(evaluableArg.map((c: { type: string }) => c.type).sort()).toEqual(["pattern", "technical"]);
+    expect(evaluableArg.map((c: { type: string }) => c.type).sort()).toEqual([
+      "pattern",
+      "technical",
+    ]);
   });
 });
 
@@ -410,7 +435,12 @@ describe("evaluateEntry — pass-through args from gate result", () => {
       side: "short",
       directionOverride: "bearish",
       higherTfBars,
-      liquidity: { skip: false, atr_current: 2.5, atr_threshold: 1.5, status: "ok" },
+      liquidity: {
+        skip: false,
+        atr_current: 2.5,
+        atr_threshold: 1.5,
+        status: "ok" as AtrLiquidityResult["status"],
+      },
       currentPrice: 3055,
     });
     await evaluateEntry(makeCtx({ dailyBars }));

@@ -25,8 +25,12 @@
  *  - Spread fallback: spread.reason undefined → "Live spread gate triggered"
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { checkLivePriceDrift } from "@/lib/algorithm/live-price-drift-gate";
-import { checkBrokerSpread } from "@/lib/algorithm/spread-gate";
+import {
+  checkLivePriceDrift,
+  type LivePriceDriftGateResult,
+} from "@/lib/algorithm/live-price-drift-gate";
+import { checkBrokerSpread, type SpreadGateResult } from "@/lib/algorithm/spread-gate";
+import { asFixture } from "@/test-utils/fixture";
 import type { AlgorithmRules } from "@/types/algorithm";
 import { checkLlmEnterGates } from "./entry-llm-enter-gates";
 import { logActivity } from "./helpers";
@@ -50,10 +54,12 @@ const mockedCheckBrokerSpread = vi.mocked(checkBrokerSpread);
 const mockedLogActivity = vi.mocked(logActivity);
 
 // ---- Fixture builders. ------------------------------------------------
-function makeRules(opts: {
-  promptVersion?: string;
-  dryRun?: boolean;
-} = {}): AlgorithmRules {
+function makeRules(
+  opts: {
+    promptVersion?: string;
+    dryRun?: boolean;
+  } = {}
+): AlgorithmRules {
   const llmTrader = Object.create(null) as Record<string, unknown>;
   llmTrader.enabled = true;
   if (opts.promptVersion !== undefined) llmTrader.prompt_version = opts.promptVersion;
@@ -64,13 +70,15 @@ function makeRules(opts: {
   } as unknown as AlgorithmRules;
 }
 
-function makeCtx(opts: {
-  rules?: AlgorithmRules;
-  brokerCtx?: EntryContext["brokerCtx"];
-  cappedReason?: string | null;
-  closes?: number[];
-  livePrice?: number | null;
-} = {}): EntryContext {
+function makeCtx(
+  opts: {
+    rules?: AlgorithmRules;
+    brokerCtx?: EntryContext["brokerCtx"];
+    cappedReason?: string | null;
+    closes?: number[];
+    livePrice?: number | null;
+  } = {}
+): EntryContext {
   return {
     supabase: Object.create(null) as SupabaseClient,
     userId: "user-1",
@@ -113,17 +121,19 @@ const RANGING_EVALUATION = { regime: "RANGING" } as unknown as LlmTraderEvaluati
 beforeEach(() => {
   vi.clearAllMocks();
   // Default mocks: no block from spread, no block from drift, no log calls.
-  mockedCheckLivePriceDrift.mockReturnValue({
-    block: false,
-    bar_close: 3010,
-    live_price: 3010,
-    drift_pct: 0,
-    drift_abs_pct: 0,
-    threshold_pct: 0.2,
-  });
+  mockedCheckLivePriceDrift.mockReturnValue(
+    asFixture<LivePriceDriftGateResult>({
+      block: false,
+      bar_close: 3010,
+      live_price: 3010,
+      drift_pct: 0,
+      drift_abs_pct: 0,
+      threshold_pct: 0.2,
+    })
+  );
   mockedCheckBrokerSpread.mockResolvedValue({
     block: false,
-    status: "ok",
+    status: "ok" as SpreadGateResult["status"],
   });
   mockedLogActivity.mockResolvedValue(undefined);
 });
@@ -134,12 +144,7 @@ beforeEach(() => {
 
 describe("checkLlmEnterGates — pass-through baseline", () => {
   it("returns { blocked: false } + zero logs when all gates inactive", async () => {
-    const result = await checkLlmEnterGates(
-      makeCtx(),
-      "long",
-      SAMPLE_DECISION,
-      SAMPLE_EVALUATION
-    );
+    const result = await checkLlmEnterGates(makeCtx(), "long", SAMPLE_DECISION, SAMPLE_EVALUATION);
     expect(result).toEqual({ blocked: false });
     expect(mockedLogActivity).not.toHaveBeenCalled();
   });
@@ -168,7 +173,7 @@ describe("checkLlmEnterGates — RANGING regime gate", () => {
     });
     // Verifies the v3 prompt name appears in the reason text (regression
     // detector for the template `${llmConfig?.prompt_version ?? "legacy"}`).
-    expect(logCall[2].details.reason).toContain("v3 prompt");
+    expect(logCall[2].details!.reason).toContain("v3 prompt");
   });
 
   it("falls through (no block) when regime=RANGING AND prompt is v5 (multi-TF override)", async () => {
@@ -185,14 +190,16 @@ describe("checkLlmEnterGates — RANGING regime gate", () => {
   it("falls through when regime is NOT RANGING (HH, LH, n/a) even with legacy prompt", async () => {
     for (const regime of ["HH", "LH", "n/a"]) {
       vi.clearAllMocks();
-      mockedCheckLivePriceDrift.mockReturnValue({
-        block: false,
-        bar_close: 3010,
-        live_price: 3010,
-        drift_pct: 0,
-        drift_abs_pct: 0,
-        threshold_pct: 0.2,
-      });
+      mockedCheckLivePriceDrift.mockReturnValue(
+        asFixture<LivePriceDriftGateResult>({
+          block: false,
+          bar_close: 3010,
+          live_price: 3010,
+          drift_pct: 0,
+          drift_abs_pct: 0,
+          threshold_pct: 0.2,
+        })
+      );
       const result = await checkLlmEnterGates(
         makeCtx({ rules: makeRules({ promptVersion: "v3" }) }),
         "long",
@@ -212,7 +219,7 @@ describe("checkLlmEnterGates — RANGING regime gate", () => {
     );
     expect(result).toEqual({ blocked: true });
     const logCall = mockedLogActivity.mock.calls[0];
-    expect(logCall[2].details.reason).toContain("legacy prompt");
+    expect(logCall[2].details!.reason).toContain("legacy prompt");
   });
 });
 
@@ -291,12 +298,7 @@ describe("checkLlmEnterGates — live spread gate", () => {
 
   it("calls checkBrokerSpread with (adapter, conn, ticker) when brokerCtx is set", async () => {
     const brokerCtx = makeBrokerCtx();
-    await checkLlmEnterGates(
-      makeCtx({ brokerCtx }),
-      "long",
-      SAMPLE_DECISION,
-      SAMPLE_EVALUATION
-    );
+    await checkLlmEnterGates(makeCtx({ brokerCtx }), "long", SAMPLE_DECISION, SAMPLE_EVALUATION);
     expect(mockedCheckBrokerSpread).toHaveBeenCalledOnce();
     const [adapterArg, connArg, tickerArg] = mockedCheckBrokerSpread.mock.calls[0];
     expect(adapterArg).toBe(brokerCtx?.adapter);
@@ -343,7 +345,7 @@ describe("checkLlmEnterGates — live spread gate", () => {
       SAMPLE_EVALUATION
     );
     const logCall = mockedLogActivity.mock.calls[0];
-    expect(logCall[2].details.reason).toBe("Live spread gate triggered");
+    expect(logCall[2].details!.reason).toBe("Live spread gate triggered");
   });
 });
 
@@ -353,21 +355,18 @@ describe("checkLlmEnterGates — live spread gate", () => {
 
 describe("checkLlmEnterGates — live-price drift gate", () => {
   it("blocks when drift.block=true with ALL 5 drift payload fields", async () => {
-    mockedCheckLivePriceDrift.mockReturnValue({
-      block: true,
-      reason: "drift 0.45% exceeds 0.20%",
-      bar_close: 3000,
-      live_price: 3013.5,
-      drift_pct: 0.45,
-      drift_abs_pct: 0.45,
-      threshold_pct: 0.2,
-    });
-    const result = await checkLlmEnterGates(
-      makeCtx(),
-      "long",
-      SAMPLE_DECISION,
-      SAMPLE_EVALUATION
+    mockedCheckLivePriceDrift.mockReturnValue(
+      asFixture<LivePriceDriftGateResult>({
+        block: true,
+        reason: "drift 0.45% exceeds 0.20%",
+        bar_close: 3000,
+        live_price: 3013.5,
+        drift_pct: 0.45,
+        drift_abs_pct: 0.45,
+        threshold_pct: 0.2,
+      })
     );
+    const result = await checkLlmEnterGates(makeCtx(), "long", SAMPLE_DECISION, SAMPLE_EVALUATION);
     expect(result).toEqual({ blocked: true });
     const logCall = mockedLogActivity.mock.calls[0];
     expect(logCall[2].details).toMatchObject({
@@ -398,17 +397,19 @@ describe("checkLlmEnterGates — live-price drift gate", () => {
   });
 
   it("falls back to default reason when drift.reason is undefined", async () => {
-    mockedCheckLivePriceDrift.mockReturnValue({
-      block: true,
-      bar_close: 3000,
-      live_price: 3013.5,
-      drift_pct: 0.45,
-      drift_abs_pct: 0.45,
-      threshold_pct: 0.2,
-    });
+    mockedCheckLivePriceDrift.mockReturnValue(
+      asFixture<LivePriceDriftGateResult>({
+        block: true,
+        bar_close: 3000,
+        live_price: 3013.5,
+        drift_pct: 0.45,
+        drift_abs_pct: 0.45,
+        threshold_pct: 0.2,
+      })
+    );
     await checkLlmEnterGates(makeCtx(), "long", SAMPLE_DECISION, SAMPLE_EVALUATION);
     const logCall = mockedLogActivity.mock.calls[0];
-    expect(logCall[2].details.reason).toBe("Live-price drift gate triggered");
+    expect(logCall[2].details!.reason).toBe("Live-price drift gate triggered");
   });
 });
 
@@ -431,7 +432,7 @@ describe("checkLlmEnterGates — gate ladder order", () => {
     expect(mockedLogActivity).toHaveBeenCalledOnce();
     const logCall = mockedLogActivity.mock.calls[0];
     // Should be RANGING, not capped
-    expect(logCall[2].details.reason).toContain("RANGING regime block");
+    expect(logCall[2].details!.reason).toContain("RANGING regime block");
   });
 
   it("capped fires BEFORE dry-run (when both would block)", async () => {
@@ -446,7 +447,7 @@ describe("checkLlmEnterGates — gate ladder order", () => {
     );
     expect(result).toEqual({ blocked: true });
     const logCall = mockedLogActivity.mock.calls[0];
-    expect(logCall[2].details.reason).toBe("Capped: 1/1 positions open");
+    expect(logCall[2].details!.reason).toBe("Capped: 1/1 positions open");
   });
 
   it("dry-run fires BEFORE spread (when both would block)", async () => {
@@ -467,7 +468,7 @@ describe("checkLlmEnterGates — gate ladder order", () => {
       SAMPLE_EVALUATION
     );
     const logCall = mockedLogActivity.mock.calls[0];
-    expect(logCall[2].details.reason).toBe("dry_run mode — would have entered");
+    expect(logCall[2].details!.reason).toBe("dry_run mode — would have entered");
     // Spread gate's check should NOT have run (would have logged otherwise).
     expect(mockedCheckBrokerSpread).not.toHaveBeenCalled();
   });
@@ -480,14 +481,16 @@ describe("checkLlmEnterGates — gate ladder order", () => {
       threshold_pips: 2,
       status: "blocked",
     });
-    mockedCheckLivePriceDrift.mockReturnValue({
-      block: true,
-      bar_close: 3000,
-      live_price: 3013.5,
-      drift_pct: 0.45,
-      drift_abs_pct: 0.45,
-      threshold_pct: 0.2,
-    });
+    mockedCheckLivePriceDrift.mockReturnValue(
+      asFixture<LivePriceDriftGateResult>({
+        block: true,
+        bar_close: 3000,
+        live_price: 3013.5,
+        drift_pct: 0.45,
+        drift_abs_pct: 0.45,
+        threshold_pct: 0.2,
+      })
+    );
     await checkLlmEnterGates(
       makeCtx({ brokerCtx: makeBrokerCtx() }),
       "long",
@@ -495,7 +498,7 @@ describe("checkLlmEnterGates — gate ladder order", () => {
       SAMPLE_EVALUATION
     );
     const logCall = mockedLogActivity.mock.calls[0];
-    expect(logCall[2].details.reason).toBe("spread too wide");
+    expect(logCall[2].details!.reason).toBe("spread too wide");
     // Drift gate's check is unconditional (line 145) but its log shouldn't fire.
     expect(mockedLogActivity).toHaveBeenCalledOnce();
   });

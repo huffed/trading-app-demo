@@ -20,6 +20,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { PriceBar } from "@/lib/market-data/types";
 import type { SignalResult } from "@/lib/signals/evaluate-live";
 import { entryReasonSchema, type EntryCohort } from "@/lib/validators/position";
+import { asFixture } from "@/test-utils/fixture";
 import type { PatternCondition, TechnicalCondition } from "@/types/algorithm";
 import { buildEntryCohort, buildEntryReason } from "./entry-cohort";
 import { snapshotCondition } from "./entry-conviction";
@@ -44,8 +45,9 @@ function makeBars(opens: Array<{ high: number; low: number; close: number }>): P
 beforeEach(() => {
   vi.clearAllMocks();
   // Default snapshot — identity-like for testing composition
-  mockedSnapshot.mockImplementation((c: TechnicalCondition | PatternCondition) =>
-    ({ ...c, __snapshot: true }) as unknown as ReturnType<typeof snapshotCondition>
+  mockedSnapshot.mockImplementation(
+    (c: TechnicalCondition | PatternCondition) =>
+      ({ ...c, __snapshot: true }) as unknown as ReturnType<typeof snapshotCondition>
   );
 });
 
@@ -61,10 +63,14 @@ describe("buildEntryCohort — base attribution", () => {
 
   it("caller-provided cohort fields merge in + are NOT overwritten by computation", () => {
     // Caller may pre-populate regime / market_state — those should pass through.
-    const cohort = buildEntryCohort(undefined, 100, {
-      regime: "trend",
-      market_state: { vol: "expansion", range: "discount", mtf: "trend", dxy: "n/a" },
-    } as Partial<EntryCohort>);
+    const cohort = buildEntryCohort(
+      undefined,
+      100,
+      asFixture<Partial<EntryCohort>>({
+        regime: "trend",
+        market_state: { vol: "expansion", range: "discount", mtf: "trend", dxy: "n/a" },
+      })
+    );
     expect(cohort.regime).toBe("trend");
     expect(cohort.market_state).toMatchObject({ vol: "expansion" });
   });
@@ -82,54 +88,42 @@ describe("buildEntryCohort — 20-bar locator + entry_zone", () => {
   });
 
   it("bars >= 20 + price at midpoint (50% of range) → equilibrium", () => {
-    const bars = makeBars(
-      Array.from({ length: 20 }, () => ({ high: 110, low: 90, close: 100 }))
-    );
+    const bars = makeBars(Array.from({ length: 20 }, () => ({ high: 110, low: 90, close: 100 })));
     const cohort = buildEntryCohort(bars, 100, undefined);
     expect(cohort.position_in_range_pct).toBe(50);
     expect(cohort.entry_zone).toBe("equilibrium");
   });
 
   it("price >= 60% of range → premium (boundary inclusive)", () => {
-    const bars = makeBars(
-      Array.from({ length: 20 }, () => ({ high: 100, low: 0, close: 50 }))
-    );
+    const bars = makeBars(Array.from({ length: 20 }, () => ({ high: 100, low: 0, close: 50 })));
     const cohort = buildEntryCohort(bars, 60, undefined);
     expect(cohort.position_in_range_pct).toBe(60);
     expect(cohort.entry_zone).toBe("premium");
   });
 
   it("price <= 40% of range → discount (boundary inclusive)", () => {
-    const bars = makeBars(
-      Array.from({ length: 20 }, () => ({ high: 100, low: 0, close: 50 }))
-    );
+    const bars = makeBars(Array.from({ length: 20 }, () => ({ high: 100, low: 0, close: 50 })));
     const cohort = buildEntryCohort(bars, 40, undefined);
     expect(cohort.position_in_range_pct).toBe(40);
     expect(cohort.entry_zone).toBe("discount");
   });
 
   it("price strictly between 40% and 60% → equilibrium", () => {
-    const bars = makeBars(
-      Array.from({ length: 20 }, () => ({ high: 100, low: 0, close: 50 }))
-    );
+    const bars = makeBars(Array.from({ length: 20 }, () => ({ high: 100, low: 0, close: 50 })));
     const cohort = buildEntryCohort(bars, 55, undefined);
     expect(cohort.position_in_range_pct).toBeCloseTo(55, 5);
     expect(cohort.entry_zone).toBe("equilibrium");
   });
 
   it("currentPrice ABOVE swing high → clamped to 100% + premium classification", () => {
-    const bars = makeBars(
-      Array.from({ length: 20 }, () => ({ high: 100, low: 0, close: 50 }))
-    );
+    const bars = makeBars(Array.from({ length: 20 }, () => ({ high: 100, low: 0, close: 50 })));
     const cohort = buildEntryCohort(bars, 110, undefined); // 10% above swing high
     expect(cohort.position_in_range_pct).toBe(100);
     expect(cohort.entry_zone).toBe("premium");
   });
 
   it("currentPrice BELOW swing low → clamped to 0% + discount classification", () => {
-    const bars = makeBars(
-      Array.from({ length: 20 }, () => ({ high: 100, low: 0, close: 50 }))
-    );
+    const bars = makeBars(Array.from({ length: 20 }, () => ({ high: 100, low: 0, close: 50 })));
     const cohort = buildEntryCohort(bars, -10, undefined); // below swing low
     expect(cohort.position_in_range_pct).toBe(0);
     expect(cohort.entry_zone).toBe("discount");
@@ -159,7 +153,13 @@ describe("buildEntryCohort — 20-bar locator + entry_zone", () => {
 
 describe("buildEntryReason — Zod-validated entry_reason composition", () => {
   const conditions: Array<TechnicalCondition | PatternCondition> = [
-    { type: "technical", indicator: "rsi", operator: "less_than", value: 50, timeframe: "4h" } as TechnicalCondition,
+    {
+      type: "technical",
+      indicator: "rsi",
+      operator: "less_than",
+      value: 50,
+      timeframe: "4h",
+    } as TechnicalCondition,
     { type: "pattern", pattern: "fvg", lookback: 5, direction: "bullish" } as PatternCondition,
   ];
 
@@ -171,10 +171,18 @@ describe("buildEntryReason — Zod-validated entry_reason composition", () => {
   });
 
   it("sentiment present → signal_result populated with signal/confidence/reasoning", () => {
-    const sentiment: SignalResult = { signal: "buy", confidence: 80, reasoning: "bullish news" };
+    const sentiment: SignalResult = asFixture<SignalResult>({
+      signal: "buy",
+      confidence: 80,
+      reasoning: "bullish news",
+    });
     const cohort: Partial<EntryCohort> = { entry_hour_utc: 12 };
     const reason = buildEntryReason([], sentiment, cohort);
-    expect(reason.signal_result).toEqual({ signal: "buy", confidence: 80, reasoning: "bullish news" });
+    expect(reason.signal_result).toEqual({
+      signal: "buy",
+      confidence: 80,
+      reasoning: "bullish news",
+    });
   });
 
   it("sentiment undefined → signal_result undefined (NOT explicit null)", () => {

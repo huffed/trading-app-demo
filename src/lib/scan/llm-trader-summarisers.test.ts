@@ -7,6 +7,7 @@
  */
 import { describe, expect, it } from "vitest";
 import type { PriceBar } from "@/lib/market-data/types";
+import { asFixture } from "@/test-utils/fixture";
 import {
   computeAtr,
   summariseDailyBias,
@@ -18,7 +19,13 @@ import {
 } from "./llm-trader-summarisers";
 import type { LlmTraderContext } from "./llm-trader";
 
-function bar(close: number, high?: number, low?: number, open?: number, date = "2026-06-22T00:00:00Z"): PriceBar {
+function bar(
+  close: number,
+  high?: number,
+  low?: number,
+  open?: number,
+  date = "2026-06-22T00:00:00Z"
+): PriceBar {
   return {
     date,
     open: open ?? close,
@@ -93,7 +100,15 @@ describe("summariseDxy", () => {
   it("sufficient history → returns DXY with 24h + 7d deltas", () => {
     const bars: PriceBar[] = [];
     for (let i = 0; i < 30; i++) {
-      bars.push(bar(1.05 + i * 0.001, undefined, undefined, undefined, `2026-06-${String(i + 1).padStart(2, "0")}T00:00:00Z`));
+      bars.push(
+        bar(
+          1.05 + i * 0.001,
+          undefined,
+          undefined,
+          undefined,
+          `2026-06-${String(i + 1).padStart(2, "0")}T00:00:00Z`
+        )
+      );
     }
     const r = summariseDxy(bars, "2026-06-30T00:00:00Z");
     expect(r).toContain("DXY:");
@@ -115,7 +130,15 @@ describe("summariseIntermarket", () => {
   it("with all 3 series populated → parts joined with ' | '", () => {
     const series: PriceBar[] = [];
     for (let i = 0; i < 30; i++) {
-      series.push(bar(30 + i * 0.1, undefined, undefined, undefined, `2026-06-${String(i + 1).padStart(2, "0")}T00:00:00Z`));
+      series.push(
+        bar(
+          30 + i * 0.1,
+          undefined,
+          undefined,
+          undefined,
+          `2026-06-${String(i + 1).padStart(2, "0")}T00:00:00Z`
+        )
+      );
     }
     const r = summariseIntermarket(
       { silver: series, yield10y: series, vix: series },
@@ -149,13 +172,13 @@ describe("summarisePosition", () => {
   });
 
   it("long position → includes side + P&L + SL/TP + R-multiple", () => {
-    const pos = {
+    const pos = asFixture<LlmTraderContext["position"]>({
       side: "long" as const,
       entryPrice: 3000,
       stopPrice: 2980,
       targetPrice: 3060,
       initialStopPrice: 2980,
-    };
+    });
     const r = summarisePosition(pos, 3030);
     expect(r).toContain("LONG from 3000");
     expect(r).toContain("cur 3030");
@@ -166,26 +189,26 @@ describe("summarisePosition", () => {
   });
 
   it("short position → side='SHORT', P&L inverted", () => {
-    const pos = {
+    const pos = asFixture<LlmTraderContext["position"]>({
       side: "short" as const,
       entryPrice: 3000,
       stopPrice: 3020,
       targetPrice: 2940,
       initialStopPrice: 3020,
-    };
+    });
     const r = summarisePosition(pos, 2970);
     expect(r).toContain("SHORT from 3000");
     expect(r).toContain("P&L +1.00%"); // (3000-2970)/3000 = +1%
   });
 
   it("missing stopPrice → 'SL n/a'", () => {
-    const pos = {
+    const pos = asFixture<LlmTraderContext["position"]>({
       side: "long" as const,
       entryPrice: 3000,
       stopPrice: null,
       targetPrice: 3050,
       initialStopPrice: null,
-    };
+    });
     const r = summarisePosition(pos, 3030);
     expect(r).toContain("SL n/a");
   });

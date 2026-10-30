@@ -74,10 +74,12 @@ function makeRules(): AlgorithmRules {
   return { timeframe: "4h" } as unknown as AlgorithmRules;
 }
 
-function makeCtx(opts: {
-  supabase?: SupabaseClient;
-  brokerCtx?: EntryContext["brokerCtx"];
-} = {}): EntryContext {
+function makeCtx(
+  opts: {
+    supabase?: SupabaseClient;
+    brokerCtx?: EntryContext["brokerCtx"];
+  } = {}
+): EntryContext {
   return {
     supabase: opts.supabase ?? (Object.create(null) as SupabaseClient),
     userId: "user-1",
@@ -158,9 +160,7 @@ describe("executeLlmMoveBe — defensive sub-paths", () => {
     );
     expect(result).toEqual({ opened: 0 });
     expect(fromMock).not.toHaveBeenCalled();
-    expect(mockedLogActivity.mock.calls[0][2].details.reason).toContain(
-      "no stop_loss_price set"
-    );
+    expect(mockedLogActivity.mock.calls[0][2].details!.reason).toContain("no stop_loss_price set");
     // position_id IS included for this branch (vs no-position branch which omits it)
     expect(mockedLogActivity.mock.calls[0][2].position_id).toBe("pos-1");
   });
@@ -182,7 +182,7 @@ describe("executeLlmMoveBe — defensive sub-paths", () => {
     );
     expect(result).toEqual({ opened: 0 });
     expect(fromMock).not.toHaveBeenCalled();
-    expect(mockedLogActivity.mock.calls[0][2].details.reason).toContain(
+    expect(mockedLogActivity.mock.calls[0][2].details!.reason).toContain(
       "zero initial SL distance"
     );
   });
@@ -199,9 +199,7 @@ describe("executeLlmMoveBe — defensive sub-paths", () => {
     );
     expect(result).toEqual({ opened: 0 });
     expect(fromMock).not.toHaveBeenCalled();
-    expect(mockedLogActivity.mock.calls[0][2].details.reason).toContain(
-      "only +0.50R favorable"
-    );
+    expect(mockedLogActivity.mock.calls[0][2].details!.reason).toContain("only +0.50R favorable");
   });
 
   it("no-op + log when sub-1R favorable (short)", async () => {
@@ -215,9 +213,7 @@ describe("executeLlmMoveBe — defensive sub-paths", () => {
     });
     await executeLlmMoveBe(makeCtx({ supabase }), pos, 2995, SAMPLE_DECISION, SAMPLE_EVALUATION);
     expect(fromMock).not.toHaveBeenCalled();
-    expect(mockedLogActivity.mock.calls[0][2].details.reason).toContain(
-      "only +0.50R favorable"
-    );
+    expect(mockedLogActivity.mock.calls[0][2].details!.reason).toContain("only +0.50R favorable");
   });
 });
 
@@ -225,7 +221,13 @@ describe("executeLlmMoveBe — success paths", () => {
   it("long: DB-update sets stop_loss_price=entryPrice + emits success log at exactly +1R", async () => {
     const { supabase, fromMock, updateMock, eqMock } = makeSupabaseMock();
     // entry=3000, SL=2990, slDist=10. currentPrice=3010 → +1.00R.
-    await executeLlmMoveBe(makeCtx({ supabase }), makePosition(), 3010, SAMPLE_DECISION, SAMPLE_EVALUATION);
+    await executeLlmMoveBe(
+      makeCtx({ supabase }),
+      makePosition(),
+      3010,
+      SAMPLE_DECISION,
+      SAMPLE_EVALUATION
+    );
     // DB write went to paper_positions with the entry price
     expect(fromMock).toHaveBeenCalledWith("paper_positions");
     expect(updateMock).toHaveBeenCalledWith({ stop_loss_price: 3000 });
@@ -253,7 +255,7 @@ describe("executeLlmMoveBe — success paths", () => {
     await executeLlmMoveBe(makeCtx({ supabase }), pos, 2980, SAMPLE_DECISION, SAMPLE_EVALUATION);
     expect(updateMock).toHaveBeenCalledWith({ stop_loss_price: 3000 });
     const lastLog = mockedLogActivity.mock.calls[mockedLogActivity.mock.calls.length - 1];
-    expect(lastLog[2].details.current_pnl_r).toBe(2);
+    expect(lastLog[2].details!.current_pnl_r).toBe(2);
   });
 
   it("uses initial_stop_loss_price for slDistance when both fields differ (second BE move)", async () => {
@@ -270,7 +272,7 @@ describe("executeLlmMoveBe — success paths", () => {
     expect(updateMock).toHaveBeenCalledWith({ stop_loss_price: 3000 });
     // old_stop_loss reports the CURRENT stop_loss_price (3000), not initial
     const lastLog = mockedLogActivity.mock.calls[mockedLogActivity.mock.calls.length - 1];
-    expect(lastLog[2].details.old_stop_loss).toBe(3000);
+    expect(lastLog[2].details!.old_stop_loss).toBe(3000);
   });
 
   it("falls back to stop_loss_price for slDistance when initial_stop_loss_price is null (pre-migration legacy row)", async () => {

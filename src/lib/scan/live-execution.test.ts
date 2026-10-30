@@ -57,16 +57,10 @@ import { notionalToLots } from "@/lib/brokers/sizing";
 import type { BrokerAdapter, BrokerConnection } from "@/lib/brokers/types";
 import { notionalInUsd } from "@/lib/constants/markets";
 import { logger } from "@/lib/logger";
-import {
-  checkDivergenceKill,
-  haltAlgorithmForDivergence,
-} from "./divergence";
+import { asFixture } from "@/test-utils/fixture";
+import { checkDivergenceKill, haltAlgorithmForDivergence } from "./divergence";
 import { logActivity } from "./helpers";
-import {
-  executeLiveEntry,
-  executeLiveExit,
-  resolveBrokerContext,
-} from "./live-execution";
+import { executeLiveEntry, executeLiveExit, resolveBrokerContext } from "./live-execution";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 // ---- Mocks. -----------------------------------------------------------
@@ -142,12 +136,9 @@ function makeAdapter(stubs: AdapterStubs = {}): BrokerAdapter {
       maxVolume: 100,
     });
   a.placeMarketOrder =
-    stubs.placeMarketOrder ??
-    vi.fn().mockResolvedValue({ orderId: "ord-1", positionId: "bpos-1" });
-  a.fetchPosition =
-    stubs.fetchPosition ?? vi.fn().mockResolvedValue({ openPrice: 3001.5 });
-  a.closePosition =
-    stubs.closePosition ?? vi.fn().mockResolvedValue({ orderId: "close-ord-1" });
+    stubs.placeMarketOrder ?? vi.fn().mockResolvedValue({ orderId: "ord-1", positionId: "bpos-1" });
+  a.fetchPosition = stubs.fetchPosition ?? vi.fn().mockResolvedValue({ openPrice: 3001.5 });
+  a.closePosition = stubs.closePosition ?? vi.fn().mockResolvedValue({ orderId: "close-ord-1" });
   // fetchClosedDealForPosition may be intentionally undefined (adapter
   // doesn't implement deferred deal reconciliation)
   if ("fetchClosedDealForPosition" in stubs) {
@@ -298,18 +289,13 @@ describe("resolveBrokerContext — gates + adapter routing", () => {
     stub.from = vi.fn(() => {
       throw new Error("supabase should not be queried");
     });
-    const r = await resolveBrokerContext(
-      stub as unknown as SupabaseClient,
-      "user-1",
-      null,
-      true
-    );
+    const r = await resolveBrokerContext(stub as unknown as SupabaseClient, "user-1", null, true);
     expect(r).toBeNull();
   });
 
   it("conn status='disabled' → null (operator-paused broker)", async () => {
     const supabase = makeBrokerConnSelectMock({
-      data: makeConn({ status: "disabled" }),
+      data: makeConn(asFixture<Partial<BrokerConnection>>({ status: "disabled" })),
     });
     const r = await resolveBrokerContext(supabase, "user-1", "conn-1", true);
     expect(r).toBeNull();
@@ -519,7 +505,9 @@ describe("executeLiveEntry — broker placement + paper update", () => {
         lots: 0.1,
       })
     );
-    expect((adapterLong.placeMarketOrder as ReturnType<typeof vi.fn>).mock.calls[0][1].side).toBe("buy");
+    expect((adapterLong.placeMarketOrder as ReturnType<typeof vi.fn>).mock.calls[0][1].side).toBe(
+      "buy"
+    );
 
     const adapterShort = makeAdapter();
     await executeLiveEntry(
@@ -801,14 +789,10 @@ describe("executeLiveExit", () => {
   it("closePosition success + dealResult → realized_pnl + broker_close_price from deal + synced_at", async () => {
     const adapter = makeAdapter({
       closePosition: vi.fn().mockResolvedValue({ orderId: "close-1" }),
-      fetchClosedDealForPosition: vi
-        .fn()
-        .mockResolvedValue({ price: 3015.75, realizedPnl: 175.5 }),
+      fetchClosedDealForPosition: vi.fn().mockResolvedValue({ price: 3015.75, realizedPnl: 175.5 }),
     });
     const { supabase, captures } = makePaperPositionsUpdateMock();
-    await executeLiveExit(
-      defaultExitArgs({ supabase, ctx: { adapter, conn: makeConn() } })
-    );
+    await executeLiveExit(defaultExitArgs({ supabase, ctx: { adapter, conn: makeConn() } }));
     expect(captures.payloads[0]).toMatchObject({
       broker_close_id: "close-1",
       broker_error: null,
@@ -856,9 +840,7 @@ describe("executeLiveExit", () => {
   it("logActivity 'live_order_closed' carries the 5 audit-detail fields", async () => {
     const adapter = makeAdapter({
       closePosition: vi.fn().mockResolvedValue({ orderId: "close-1" }),
-      fetchClosedDealForPosition: vi
-        .fn()
-        .mockResolvedValue({ price: 3015.75, realizedPnl: 175.5 }),
+      fetchClosedDealForPosition: vi.fn().mockResolvedValue({ price: 3015.75, realizedPnl: 175.5 }),
     });
     await executeLiveExit(
       defaultExitArgs({
@@ -883,9 +865,7 @@ describe("executeLiveExit", () => {
       closePosition: vi.fn().mockRejectedValue(new Error("position not found")),
     });
     const { supabase, captures } = makePaperPositionsUpdateMock();
-    await executeLiveExit(
-      defaultExitArgs({ supabase, ctx: { adapter, conn: makeConn() } })
-    );
+    await executeLiveExit(defaultExitArgs({ supabase, ctx: { adapter, conn: makeConn() } }));
     expect(captures.payloads[0]).toEqual({ broker_error: "position not found" });
     expect(mockedLogActivity.mock.calls[0][2]).toMatchObject({
       event_type: "live_close_failed",
@@ -898,9 +878,7 @@ describe("executeLiveExit", () => {
       closePosition: vi.fn().mockRejectedValue({ rawObject: true }),
     });
     const { supabase, captures } = makePaperPositionsUpdateMock();
-    await executeLiveExit(
-      defaultExitArgs({ supabase, ctx: { adapter, conn: makeConn() } })
-    );
+    await executeLiveExit(defaultExitArgs({ supabase, ctx: { adapter, conn: makeConn() } }));
     expect(captures.payloads[0].broker_error).toBe("Live close failed");
   });
 });
