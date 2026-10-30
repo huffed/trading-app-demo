@@ -31,7 +31,9 @@ done < "$here/live-paths.txt"
 
 envfile='\.env([._-][A-Za-z0-9_.-]*)?'                  # .env .env.local .env-local .envrc …
 pathprefix='([^[:space:];&|"'"'"']*/)?'
-readers='(cat|less|more|head|tail|grep|rg|ag|sed|awk|cut|sort|diff|cmp|cp|mv|rm|tee|source|\.|vi|vim|nano|open|scp|rsync|base64|xxd|od|strings|dotenv|env|export|set|perl|python3?|node|ruby|php|bash|sh|zsh|xargs|wc|file|stat)'
+readers='(cat|less|more|head|tail|grep|rg|ag|sed|awk|cut|sort|diff|cmp|cp|mv|rm|tee|source|\.|vi|vim|nano|open|scp|rsync|base64|xxd|od|strings|dotenv|env|export|set|perl|python3?|node|ruby|php|bash|sh|zsh|xargs)'
+# a simple command may start with shell keywords (do cat "$f"; then source x; if grep …): strip them before matching the head
+strip_kw() { sed -E 's/^(((do|then|else|elif|if|while|until|time|exec)[[:space:]]+)|[{(!][[:space:]]*)+//' <<<"$1"; }
 # verbs that write wherever the path appears vs verbs whose DESTINATION is the last token
 anywriters='(sed|perl|tee|rm|truncate|touch|chmod|chown|mkdir|rmdir|node|python3?|ruby|php|bash|sh|zsh)'
 destwriters='(cp|mv|install|ln|rsync|scp)'
@@ -53,7 +55,7 @@ writes_to() {
 
 while IFS= read -r seg; do
   [ -n "$seg" ] || continue
-  s=$(printf '%s' "$seg" | sed -E 's/\.env\.example//g')     # the example file is public
+  s=$(strip_kw "$(printf '%s' "$seg" | sed -E 's/\.env\.example//g')")     # the example file is public
   lower=$(printf '%s' "$s" | tr '[:upper:]' '[:lower:]')
 
   # 1. secrets: a reader/interpreter/redirect touching a .env file (case-insensitive: APFS)
