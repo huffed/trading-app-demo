@@ -185,9 +185,15 @@ while IFS=$'\t' read -r sep seg; do
     if grep -qE "(^|[[:space:]])(-f|--file|--makefile|-C|--directory|-e|--eval|-I|--include-dir)([[:space:]]|=|$)" <<<"$uq"; then
       deny "$orig" "make with an alternate makefile, directory, include dir or --eval runs code the Makefile does not define"
     fi
-    if grep -qE "[A-Za-z_][A-Za-z0-9_]*=.*([;&|<>\`]|\\\$\()" <<<"$s"; then
-      deny "$orig" "a make variable override containing shell metacharacters would run inside the recipe"
-    fi
+    # each NAME=value token's VALUE (quoted or bare) must be free of shell metacharacters; redirects after it are fine
+    while IFS= read -r assignment; do
+      [ -n "$assignment" ] || continue
+      value=${assignment#*=}
+      value=${value#[\"\']}; value=${value%[\"\']}
+      if grep -qE '[;&|<>`]|\$\(' <<<"$value"; then
+        deny "$orig" "a make variable override containing shell metacharacters would run inside the recipe"
+      fi
+    done < <(grep -oE "[A-Za-z_][A-Za-z0-9_]*=(\"[^\"]*\"|'[^']*'|[^[:space:]]*)" <<<"$s" || true)
   fi
   if grep -qE "^git[[:space:]]+(diff|log|show|blame|grep)([[:space:]]|$)" <<<"$s" && grep -qE "(^|[[:space:]])(--output(=|[[:space:]])|-O|--ext-diff)" <<<"$uq"; then
     deny "$orig" "git --output / -O / --ext-diff write a file or run a command from a read-only git command"
