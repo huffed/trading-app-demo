@@ -1,0 +1,300 @@
+{
+  "fetched_at": "2026-10-28T20:05:00Z",
+  "source": "public.algorithms where status='active' (read-only SELECT via Supabase MCP)",
+  "note": "capital/portfolio/broker ids retained for provenance; rules JSON verbatim",
+  "algorithms": [
+    {
+      "id": "1ebdce3d-4ab9-4e30-b5d3-075942b7cf69",
+      "name": "Deploy: XAU/USD ARB+DailyBias 4h | r085 v1",
+      "capital": 100000,
+      "portfolio_id": "244ecbf5-ed2a-48cb-bbbd-f4b043045ffd",
+      "broker_connection_id": "3bf6cf9f-2381-4424-9229-ffe67fb1b38c",
+      "live_trading_enabled": false,
+      "rules": {
+        "side": "long",
+        "leverage": 50,
+        "news_veto": {
+          "enabled": true,
+          "min_impact": "high",
+          "block_minutes_after": 30,
+          "block_minutes_before": 15
+        },
+        "prop_firm": {
+          "spread_bps": 0.4,
+          "max_drawdown": 10,
+          "slippage_bps": 0.5,
+          "profit_target": 10,
+          "commission_pct": 0,
+          "consistency_rule": 0,
+          "daily_loss_limit": 5,
+          "commission_per_lot": 0,
+          "daily_loss_halt_pct": 80,
+          "combined_risk_cap_pct": 4,
+          "max_consecutive_losses": 0,
+          "consecutive_loss_daily_halt": 2
+        },
+        "stop_loss": { "type": "swing_anchor", "value": 0.1, "lookback": 3 },
+        "timeframe": "4h",
+        "asset_class": "commodity",
+        "entry_logic": "all",
+        "take_profit": { "type": "rr_multiple", "value": 3 },
+        "time_filter": { "enabled": true, "min_wr_pct": 45, "min_samples": 5 },
+        "max_positions": 1,
+        "regime_filter": {
+          "enabled": true,
+          "atr_period": 20,
+          "lookback_days": 90,
+          "percentile_floor": 0.3
+        },
+        "stagnant_exit": { "enabled": true },
+        "max_per_ticker": 1,
+        "exit_conditions": [],
+        "position_sizing": { "type": "risk_per_trade", "value": 0.42 },
+        "entry_conditions": [
+          {
+            "type": "pattern",
+            "pattern": "asian_range_break",
+            "direction": "bullish",
+            "timeframe": "4h"
+          },
+          {
+            "type": "pattern",
+            "pattern": "daily_bias",
+            "direction": "bullish",
+            "ma_period": 20,
+            "timeframe": "1d"
+          }
+        ]
+      }
+    },
+    {
+      "id": "f4b56c3a-ff61-4233-a6da-224b39e1668a",
+      "name": "Deploy: XAU/USD ARB25+DailyBias 4h | r080 v1",
+      "capital": 100000,
+      "portfolio_id": "244ecbf5-ed2a-48cb-bbbd-f4b043045ffd",
+      "broker_connection_id": "3bf6cf9f-2381-4424-9229-ffe67fb1b38c",
+      "live_trading_enabled": false,
+      "rules": {
+        "side": "long",
+        "leverage": 50,
+        "news_veto": {
+          "enabled": true,
+          "min_impact": "high",
+          "block_minutes_after": 30,
+          "block_minutes_before": 15
+        },
+        "prop_firm": {
+          "spread_bps": 0.4,
+          "max_drawdown": 10,
+          "slippage_bps": 0.5,
+          "profit_target": 10,
+          "commission_pct": 0,
+          "consistency_rule": 0,
+          "daily_loss_limit": 5,
+          "commission_per_lot": 0,
+          "daily_loss_halt_pct": 80,
+          "combined_risk_cap_pct": 4,
+          "max_consecutive_losses": 0,
+          "consecutive_loss_daily_halt": 2
+        },
+        "stop_loss": { "type": "swing_anchor", "value": 0.1, "lookback": 3 },
+        "timeframe": "4h",
+        "asset_class": "commodity",
+        "entry_logic": "all",
+        "take_profit": { "type": "rr_multiple", "value": 2.5 },
+        "time_filter": { "enabled": true, "min_wr_pct": 45, "min_samples": 5 },
+        "max_positions": 1,
+        "regime_filter": {
+          "enabled": true,
+          "atr_period": 20,
+          "lookback_days": 90,
+          "percentile_floor": 0.3
+        },
+        "stagnant_exit": { "enabled": true },
+        "max_per_ticker": 1,
+        "exit_conditions": [],
+        "position_sizing": { "type": "risk_per_trade", "value": 0.42 },
+        "entry_conditions": [
+          {
+            "type": "pattern",
+            "pattern": "asian_range_break",
+            "direction": "bullish",
+            "timeframe": "4h"
+          },
+          {
+            "type": "pattern",
+            "pattern": "daily_bias",
+            "direction": "bullish",
+            "ma_period": 20,
+            "timeframe": "1d"
+          }
+        ]
+      }
+    },
+    {
+      "id": "824b6e40-042a-49fa-8d80-61e1e92f6d79",
+      "name": "Deploy: XAU/USD Engulfing+DailyBias 4h | r080 v1",
+      "capital": 100000,
+      "portfolio_id": "244ecbf5-ed2a-48cb-bbbd-f4b043045ffd",
+      "broker_connection_id": "3bf6cf9f-2381-4424-9229-ffe67fb1b38c",
+      "live_trading_enabled": false,
+      "rules": {
+        "side": "long",
+        "leverage": 50,
+        "news_veto": {
+          "enabled": true,
+          "min_impact": "high",
+          "block_minutes_after": 30,
+          "block_minutes_before": 15
+        },
+        "prop_firm": {
+          "spread_bps": 0.4,
+          "max_drawdown": 10,
+          "slippage_bps": 0.5,
+          "profit_target": 10,
+          "commission_pct": 0,
+          "consistency_rule": 0,
+          "daily_loss_limit": 5,
+          "commission_per_lot": 0,
+          "daily_loss_halt_pct": 80,
+          "combined_risk_cap_pct": 4,
+          "max_consecutive_losses": 0,
+          "consecutive_loss_daily_halt": 2
+        },
+        "stop_loss": { "type": "swing_anchor", "value": 0.1, "lookback": 6 },
+        "timeframe": "4h",
+        "adx_filter": { "enabled": true, "min_adx": 20, "adx_period": 14 },
+        "asset_class": "commodity",
+        "entry_logic": "all",
+        "take_profit": { "type": "rr_multiple", "value": 3 },
+        "time_filter": { "enabled": true, "min_wr_pct": 45, "min_samples": 5 },
+        "max_positions": 1,
+        "stagnant_exit": { "enabled": true },
+        "max_per_ticker": 1,
+        "exit_conditions": [],
+        "position_sizing": { "type": "risk_per_trade", "value": 0.42 },
+        "entry_conditions": [
+          { "type": "pattern", "pattern": "engulfing", "direction": "bullish", "timeframe": "4h" },
+          {
+            "type": "pattern",
+            "pattern": "daily_bias",
+            "direction": "bullish",
+            "ma_period": 20,
+            "timeframe": "1d"
+          }
+        ]
+      }
+    },
+    {
+      "id": "52e911a6-b4ed-4507-b0a3-5414e40ec16c",
+      "name": "Deploy: XAU/USD Engulfing25+DailyBias 4h | r042 v1",
+      "capital": 100000,
+      "portfolio_id": "244ecbf5-ed2a-48cb-bbbd-f4b043045ffd",
+      "broker_connection_id": "3bf6cf9f-2381-4424-9229-ffe67fb1b38c",
+      "live_trading_enabled": false,
+      "rules": {
+        "side": "long",
+        "leverage": 50,
+        "news_veto": {
+          "enabled": true,
+          "min_impact": "high",
+          "block_minutes_after": 30,
+          "block_minutes_before": 15
+        },
+        "prop_firm": {
+          "spread_bps": 0.4,
+          "max_drawdown": 10,
+          "slippage_bps": 0.5,
+          "profit_target": 10,
+          "commission_pct": 0,
+          "consistency_rule": 0,
+          "daily_loss_limit": 5,
+          "commission_per_lot": 0,
+          "daily_loss_halt_pct": 80,
+          "combined_risk_cap_pct": 4,
+          "max_consecutive_losses": 0,
+          "consecutive_loss_daily_halt": 2
+        },
+        "stop_loss": { "type": "swing_anchor", "value": 0.1, "lookback": 4 },
+        "timeframe": "4h",
+        "asset_class": "commodity",
+        "entry_logic": "all",
+        "take_profit": { "type": "rr_multiple", "value": 2.5 },
+        "time_filter": { "enabled": true, "min_wr_pct": 45, "min_samples": 5 },
+        "max_positions": 1,
+        "stagnant_exit": { "enabled": true },
+        "max_per_ticker": 1,
+        "exit_conditions": [],
+        "position_sizing": { "type": "risk_per_trade", "value": 0.42 },
+        "entry_conditions": [
+          { "type": "pattern", "pattern": "engulfing", "direction": "bullish", "timeframe": "4h" },
+          {
+            "type": "pattern",
+            "pattern": "daily_bias",
+            "direction": "bullish",
+            "ma_period": 20,
+            "timeframe": "1d"
+          }
+        ]
+      }
+    },
+    {
+      "id": "6cea13b6-86fb-41f6-9f2c-6bef47541a6a",
+      "name": "Deploy: XAU/USD OutsideBar+DailyBias 4h | rr3_lb3 r066 v2",
+      "capital": 100000,
+      "portfolio_id": "244ecbf5-ed2a-48cb-bbbd-f4b043045ffd",
+      "broker_connection_id": "3bf6cf9f-2381-4424-9229-ffe67fb1b38c",
+      "live_trading_enabled": false,
+      "rules": {
+        "side": "long",
+        "leverage": 50,
+        "news_veto": {
+          "enabled": true,
+          "min_impact": "high",
+          "block_minutes_after": 30,
+          "block_minutes_before": 15
+        },
+        "prop_firm": {
+          "spread_bps": 0.4,
+          "max_drawdown": 10,
+          "slippage_bps": 0.5,
+          "profit_target": 10,
+          "commission_pct": 0,
+          "consistency_rule": 0,
+          "daily_loss_limit": 5,
+          "commission_per_lot": 0,
+          "daily_loss_halt_pct": 80,
+          "combined_risk_cap_pct": 4,
+          "max_consecutive_losses": 0,
+          "consecutive_loss_daily_halt": 2
+        },
+        "stop_loss": { "type": "swing_anchor", "value": 0.1, "lookback": 3 },
+        "timeframe": "4h",
+        "asset_class": "commodity",
+        "entry_logic": "all",
+        "take_profit": { "type": "rr_multiple", "value": 3 },
+        "time_filter": { "enabled": true, "min_wr_pct": 45, "min_samples": 5 },
+        "max_positions": 1,
+        "stagnant_exit": { "enabled": true },
+        "max_per_ticker": 1,
+        "exit_conditions": [],
+        "position_sizing": { "type": "risk_per_trade", "value": 0.42 },
+        "entry_conditions": [
+          {
+            "type": "pattern",
+            "pattern": "outside_bar",
+            "direction": "bullish",
+            "timeframe": "4h"
+          },
+          {
+            "type": "pattern",
+            "pattern": "daily_bias",
+            "direction": "bullish",
+            "ma_period": 20,
+            "timeframe": "1d"
+          }
+        ]
+      }
+    }
+  ]
+}
