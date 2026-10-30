@@ -7,7 +7,7 @@ BASE ?= origin/dev
 
 .PHONY: help install lint lint-strict lint-shell typecheck format format-check format-all-check \
         test test-watch build check backtest validate parity db-types db-types-check \
-        secrets-scan secrets-scan-history env-check backtest-update python-env python-lock
+        secrets-scan secrets-scan-history env-check backtest-update lint-workflows python-env python-lock
 
 help: ## List targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "} {printf "  %-18s %s\n", $$1, $$2}'
@@ -24,6 +24,10 @@ lint-strict: ## ESLint target rule set on FILES=... (new code is held to this; C
 
 lint-shell: ## shellcheck on the cron wrappers (baseline: errors; target: warnings, see DEBT.md)
 	shellcheck -S error scripts/*.sh
+
+lint-workflows: ## actionlint on .github/workflows (a workflow GitHub cannot parse fails here, not as a run with no jobs)
+	@command -v actionlint >/dev/null || { echo "actionlint is not installed (brew install actionlint)"; exit 2; }
+	actionlint -no-color
 
 typecheck: ## tsc over src, tests and scripts (test files included)
 	$(PNPM) exec tsc --noEmit -p tsconfig.json
@@ -59,7 +63,7 @@ build: ## Production build
 env-check: ## Every env var the app reads is documented by name in .env.example (secret-shaped names in scripts too)
 	node scripts/dev/env-names-check.mjs
 
-check: lint lint-shell typecheck env-check db-types-check test ## Everything CI runs, locally
+check: lint lint-shell lint-workflows typecheck env-check db-types-check test ## Everything CI runs, locally
 
 backtest: ## Golden-file replay of the five deployed algorithms on the pinned XAU/USD 4h slice (fails on any changed trade)
 	$(PNPM) exec tsx scripts/golden-replay.ts
