@@ -2,6 +2,10 @@
   "name": "demo-1",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=25.9.0 <26",
+    "pnpm": ">=10"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
