@@ -18,7 +18,9 @@ The brief asked for "deny `.env*` and live paths". Claude Code evaluates deny ru
 
 ## Consequences
 
-- A session that needs to edit the engine starts with `QT_ALLOW_LIVE_EDITS=1`, and its PR title says it touches the engine, crons or deploy.
+- A session that needs to edit the engine starts with `QT_ALLOW_LIVE_EDITS=1`, and its PR title says it touches the engine, crons or deploy. **Not before the audit verdict** (operator, 2026-10-30): until then no session sets it.
+- The variable is never set in a committed file or a default shell profile. `make fence-check` (in `make check` and CI) fails if `QT_ALLOW_LIVE_EDITS` or `QT_STOP_VALIDATE` is assigned anywhere tracked outside the docs and the hooks that read them.
+- While the variable is set, `guard-paths` emits a one-line `FENCE DOWN` notice for every live-path edit, so a transcript shows when the fence was down.
 - `guard-bash` still blocks `.env*` reads, pinned-data writes and force-pushes to `dev`/`main` regardless of the variable.
 - `docs/DEV_SETUP.md` §16 documents both layers.
 

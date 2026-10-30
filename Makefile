@@ -7,7 +7,7 @@ BASE ?= origin/dev
 
 .PHONY: help install lint lint-strict lint-shell typecheck format format-check format-all-check \
         test test-watch build check backtest validate parity db-types db-types-check \
-        secrets-scan secrets-scan-history env-check backtest-update lint-workflows python-env python-lock regime-report
+        secrets-scan secrets-scan-history env-check backtest-update lint-workflows python-env python-lock regime-report fence-check
 
 help: ## List targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "} {printf "  %-18s %s\n", $$1, $$2}'
@@ -65,7 +65,11 @@ build: ## Production build
 env-check: ## Every env var the app reads is documented by name in .env.example (secret-shaped names in scripts too)
 	node scripts/dev/env-names-check.mjs
 
-check: lint lint-shell lint-workflows typecheck env-check db-types-check test ## Everything CI runs, locally
+fence-check: ## The live-path override and the Stop-hook switch are never set in a committed file (docs/decisions/0004)
+	@if git grep -nE 'export[[:space:]]+(QT_ALLOW_LIVE_EDITS|QT_STOP_VALIDATE)|(QT_ALLOW_LIVE_EDITS|QT_STOP_VALIDATE)"?[[:space:]]*[=:]' -- . ':!docs' ':!.claude/hooks' ':!CLAUDE.md'; then echo "fence-check: a session override is set in a committed file (docs/decisions/0004)"; exit 1; fi
+	@echo "fence-check: no committed file sets QT_ALLOW_LIVE_EDITS or QT_STOP_VALIDATE"
+
+check: lint lint-shell lint-workflows typecheck env-check fence-check db-types-check test ## Everything CI runs, locally
 
 backtest: ## Golden-file replay of the five deployed algorithms on the pinned XAU/USD 4h slice (fails on any changed trade)
 	$(PNPM) exec tsx scripts/golden-replay.ts

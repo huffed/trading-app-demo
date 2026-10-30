@@ -41,6 +41,7 @@ jobs:
       - run: make lint-shell
       - run: make typecheck
       - run: make env-check
+      - run: make fence-check
       - run: make db-types-check
       - name: warm the pnpm dlx store (four cron-wrapper tests spawn `pnpm dlx tsx`; cold runners took >30 s)
         run: pnpm dlx tsx --version
