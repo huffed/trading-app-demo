@@ -18,9 +18,11 @@ install: ## Install dependencies exactly as locked
 lint: ## ESLint, baseline rules; fails on any error or on more warnings than .eslint-warning-budget
 	$(PNPM) exec eslint . --max-warnings "$$(cat .eslint-warning-budget)"
 
+# lint-strict splits FILES on spaces and passes it NUL-separated: make expands the variable inline,
+# and a path with a Next.js route group such as src/app/(dashboard)/… is a bash syntax error unquoted.
 lint-strict: ## ESLint target rule set on FILES=... (new code is held to this; CI runs it on files added in a PR)
 	@test -n "$(FILES)" || { echo "usage: make lint-strict FILES='path/a.ts path/b.ts'"; exit 2; }
-	$(PNPM) exec eslint --config eslint.config.strict.mjs --no-ignore $(FILES)
+	@printf '%s' "$(FILES)" | tr ' ' '\n' | grep -v '^$$' | tr '\n' '\0' | xargs -0 $(PNPM) exec eslint --config eslint.config.strict.mjs --no-ignore
 
 lint-shell: ## shellcheck on the cron wrappers (baseline: errors; target: warnings, see DEBT.md)
 	shellcheck -S error scripts/*.sh

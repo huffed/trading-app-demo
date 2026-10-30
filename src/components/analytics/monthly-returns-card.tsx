@@ -13,14 +13,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { MonthlyReturn } from "@/lib/utils/analytics";
 import { formatCurrency } from "@/lib/utils/pnl";
-
-const TOOLTIP_STYLE = {
-  backgroundColor: "var(--color-popover)",
-  border: "1px solid var(--color-border)",
-  borderRadius: "8px",
-  fontSize: 12,
-  color: "var(--color-popover-foreground)",
-};
+import { TOOLTIP_STYLE } from "./tooltip-style";
 
 export function MonthlyReturnsCard({ data }: { data: MonthlyReturn[] }) {
   if (data.length === 0) {
