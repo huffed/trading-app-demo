@@ -76,9 +76,10 @@ Every suppression in the code must point here. Today's 19 `eslint-disable` + 1 `
 | Check | Today | Target (new code held to it from the first Phase B PR; dates set at the Phase B check-in) |
 |---|---|---|
 | TypeScript | `strict: true`; tests excluded from every check (155 errors) | `strict` + `noUncheckedIndexedAccess` + `exactOptionalPropertyTypes`; tests included; `scripts/` included |
-| ESLint | `eslint-config-next` + import-x; `scripts/**` ignored; 117 inherited warnings; `max-lines` 300 / `max-lines-per-function` 80 as warnings | `typescript-eslint` strict-type-checked; `no-console` error outside `logger.ts`; `complexity ≤ 10`, size limits as errors for new files; `scripts/` linted; zero warnings |
+| ESLint | **Baseline** `eslint.config.mjs`: `eslint-config-next` + import-x; live-path `scripts/` linted since B3 with three rules demoted to warn there; warning budget **174** (`.eslint-warning-budget`, ratchets down only: 117 `src` + 57 scripts) | **Target** `eslint.config.strict.mjs` (B3): `typescript-eslint` strict + stylistic type-checked, `no-console` error outside scripts/`logger.ts`, `complexity ≤ 10`, size limits, explicit boundary types, no floating promises, no empty catch — applied to every new file now; existing files migrate per PR after the audit verdict; budget → 0 |
 | Prettier | configured, unenforced, 52 % unformatted | enforced on changed files from day one (pre-commit), whole tree after the audit verdict |
 | Tests | 1,918 unit tests, `src` only, no coverage | `scripts/` included; characterisation + golden tests; coverage reported (not gated) for `src/lib/{scan,market-data,algorithm,constants}` |
+| Shell | `shellcheck -S error` on `scripts/*.sh` (0 errors) — B3 | `-S warning` (6 × SC2155 today) |
 | Build | `next build` on every deploy, by hand | on every push and PR |
 | Schema | hand-applied migrations, stale generated types | CI check: generated types match migrations; a code-literal-vs-CHECK contract test |
 

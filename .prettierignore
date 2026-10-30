@@ -1,0 +1,20 @@
+# Build and dependency output
+node_modules
+.next
+out
+build
+coverage
+pnpm-lock.yaml
+# Generated
+src/lib/supabase/database.types.ts
+next-env.d.ts
+# Research archive and run artifacts (not code under review)
+scripts/archive
+scripts/ad-hoc
+scripts/.llm-replay-cache
+scripts/canonical/data
+scripts/canonical/e2-results
+scripts/canonical/bo-results
+scripts/python/.venv
+# Prose is not prettier-formatted (tables)
+*.md
