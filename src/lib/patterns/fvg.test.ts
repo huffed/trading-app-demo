@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { detectFvg } from "./fvg";
-import { evaluatePatternCondition } from "./evaluate";
 import type { PriceBar } from "@/lib/market-data/types";
 import type { PatternCondition } from "@/types/algorithm";
+import { evaluatePatternCondition } from "./evaluate";
+import { detectFvg } from "./fvg";
 
 function bar(date: string, o: number, h: number, l: number, c: number): PriceBar {
   return { date, open: o, high: h, low: l, close: c, volume: 0 };
@@ -18,20 +18,20 @@ function bar(date: string, o: number, h: number, l: number, c: number): PriceBar
  */
 function makeBullishFvgFixture(): PriceBar[] {
   return [
-    bar("2026-01-01", 99, 100, 98, 99),     // bar 0: high=100
-    bar("2026-01-02", 100, 105, 102, 104),  // bar 1: middle (low=102 > 100)
-    bar("2026-01-03", 104, 106, 103, 105),  // bar 2: confirming (low=103 > 100)
-    bar("2026-01-04", 105, 107, 104, 106),  // bar 3: future (post-confirmation)
-    bar("2026-01-05", 106, 108, 105, 107),  // bar 4: future
+    bar("2026-01-01", 99, 100, 98, 99), // bar 0: high=100
+    bar("2026-01-02", 100, 105, 102, 104), // bar 1: middle (low=102 > 100)
+    bar("2026-01-03", 104, 106, 103, 105), // bar 2: confirming (low=103 > 100)
+    bar("2026-01-04", 105, 107, 104, 106), // bar 3: future (post-confirmation)
+    bar("2026-01-05", 106, 108, 105, 107), // bar 4: future
   ];
 }
 
 /** No FVG — bars 0 and 2 overlap. */
 function makeNoFvgFixture(): PriceBar[] {
   return [
-    bar("2026-01-01", 99, 102, 98, 100),    // high=102
-    bar("2026-01-02", 100, 105, 99, 104),   // middle, low=99 ≤ 102 (overlaps)
-    bar("2026-01-03", 104, 106, 101, 105),  // low=101 ≤ 102 (overlaps)
+    bar("2026-01-01", 99, 102, 98, 100), // high=102
+    bar("2026-01-02", 100, 105, 99, 104), // middle, low=99 ≤ 102 (overlaps)
+    bar("2026-01-03", 104, 106, 101, 105), // low=101 ≤ 102 (overlaps)
     bar("2026-01-04", 105, 107, 104, 106),
     bar("2026-01-05", 106, 108, 105, 107),
   ];
@@ -89,7 +89,12 @@ describe("evaluatePatternCondition for fvg (causal call-site)", () => {
 
   it("direction filter: bullish FVG does NOT fire on direction=bearish", () => {
     const bars = makeBullishFvgFixture();
-    const cond: PatternCondition = { type: "pattern", pattern: "fvg", direction: "bearish", timeframe: "4h" };
+    const cond: PatternCondition = {
+      type: "pattern",
+      pattern: "fvg",
+      direction: "bearish",
+      timeframe: "4h",
+    };
     expect(evaluatePatternCondition(cond, bars, 2)).toBe(false);
   });
 
@@ -116,7 +121,7 @@ describe("evaluatePatternCondition for fvg (causal call-site)", () => {
   it("post-fix: causal firing only on confirming bar, never on middle bar", () => {
     const bars = makeBullishFvgFixture();
     expect(evaluatePatternCondition(fvgCond, bars, 1)).toBe(false); // middle
-    expect(evaluatePatternCondition(fvgCond, bars, 2)).toBe(true);  // confirming
+    expect(evaluatePatternCondition(fvgCond, bars, 2)).toBe(true); // confirming
     expect(evaluatePatternCondition(fvgCond, bars, 3)).toBe(false); // bar after; no NEW gap created at idx-1=2 (no gap between bars[1] and bars[3])
   });
 });
