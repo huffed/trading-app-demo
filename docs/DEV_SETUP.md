@@ -14,6 +14,9 @@ One short section per thing that was set up: **what it is, why it exists, the on
 | lint the GitHub workflow files | `make lint-workflows` | B11 |
 | replay the golden trade list | `make backtest` (regenerate on purpose: `make backtest-update`) | B10 |
 | open a PR | against `dev`, one at a time, squash-merged; dependent work waits, then rebases (§15) | B13 |
+| review a change in a fresh context | ask for the `skeptical-reviewer` agent with the diff (§16) | C1 |
+| run the checks through Claude | `/parity-check` · `/regime-report` · `/validate` · `/ftmo-rules` (§16) | C1 |
+| edit engine, cron or deploy code in a session | `QT_ALLOW_LIVE_EDITS=1 claude` (§16, decision 0004) | C1 |
 | check env names + generated DB types | `make env-check` · `make db-types-check` | B6 / B7 |
 | see why CI is red | `gh pr checks <n>` then `gh run view <id> --log-failed` | B6 |
 | set up the Python sidecar | `make python-env` | B2/B3 |
@@ -103,7 +106,8 @@ make python-lock                         # after editing pyproject.toml: uv lock
 **What:** `.husky/pre-commit` (installed by `pnpm install` through the `prepare` script, which sets `core.hooksPath=.husky`). On every `git commit` it runs, in order:
 
 1. **gitleaks** on the staged changes (`gitleaks git --pre-commit --staged`) — a secret-shaped string stops the commit. The hook refuses to run at all if gitleaks is missing (`brew install gitleaks`); it never silently skips.
-2. **lint-staged** (`.lintstagedrc.mjs`): Prettier writes every staged code file; ESLint baseline runs on staged TS/JS (errors fail); the **target** config runs on files that are new in the commit; shellcheck runs on staged cron wrappers; actionlint runs when a file under `.github/workflows/` is staged (`brew install actionlint`; the commit is refused if it is missing, same as gitleaks).
+2. **lint-staged** (`.lintstagedrc.mjs`): Prettier writes every staged code file; ESLint baseline runs on staged TS/JS (errors fail); the **target** config runs on files that are new in the commit; shellcheck runs on staged cron wrappers; actionlint runs when a file under `.github/workflows/` is staged (`brew install actionlint`; the commit is refused if it is missing, same as gitleaks); shellcheck also covers `.claude/hooks/*.sh` and `.husky/commit-msg`.
+3. **commit-msg** (`.husky/commit-msg`): rejects a message containing `Co-Authored-By` or "Generated with" (operator decision 2026-10-29). The committed `.claude/settings.json` also sets `attribution.commit` and `attribution.pr` to empty strings so Claude Code never adds them; the hook catches anything else. `git commit --no-verify` bypasses every git hook and is not used here.
 
 **Why:** the brief's rule is "a change that alters trades cannot merge unless the golden file is updated on purpose, and nothing fails silently". Pre-commit is the fast local half of that: it catches formatting, lint errors and secrets in seconds, before CI spends minutes. Holding new files to the target config from their first commit is how strictness ratchets up without a big-bang rewrite.
 
@@ -253,3 +257,29 @@ git rebase dev my-dependent-branch         # if it was started early, rebase bef
 ```
 
 Decision log: `docs/decisions/0002-one-pr-at-a-time.md`.
+
+## 16. Claude Code in this repository — what is committed and what it does
+
+**What:** `.claude/` is committed except `settings.local.json` (personal; it once held `CRON_SECRET`) and `worktrees/`. Four pieces, all under `.claude/`:
+
+| Piece | Where | What it does |
+|---|---|---|
+| Shared settings | `settings.json` | `attribution.commit` and `attribution.pr` are empty strings, so Claude Code adds no `Co-Authored-By` trailer or "Generated with" footer (the `commit-msg` hook in §9 is the backstop). `permissions.allow` pre-approves `make …`, the test/lint/format/typecheck commands, read-only `git` and `gh` queries, `git add` and `git commit`. `permissions.deny` (first match wins over everything, cannot be lifted in a session): read or edit `.env*` except `.env.example`; edit pinned data (`scripts/canonical/data/**`) or the golden JSON; plain `git push --force` / `-f`. Path rules use `Edit(...)`, which covers every editing tool; `Read` denies also cover `cat`/`sed`/`tee` in Bash. |
+| Hooks | `hooks/*.sh` | **guard-paths** (before Edit/Write/MultiEdit/NotebookEdit): refuses `.env*`, pinned data, the golden JSON, and the live-runner paths (`src/lib/scan/`, `src/lib/brokers/`, `src/app/api/cron/`, `scripts/*-cron.sh`, the deploy scripts, `emergency-stop.sh`). `QT_ALLOW_LIVE_EDITS=1` in the session lifts only the live-runner part, for the PR that is about the engine (`docs/decisions/0004`). **guard-bash** (before Bash): refuses commands that touch `.env*` (except `.env.example`), write into pinned data, or force-push `dev`/`main` in any spelling. **post-edit-lint** (after Edit/Write): Prettier check + ESLint on the edited code file; problems are shown to Claude at once. **stop-validate** (when Claude stops): **off by default**; `QT_STOP_VALIDATE=1` makes it run `make validate` and refuse to stop on a red result (today the target is a stub, so leave it off until the harness lands). Hooks block with exit 2 and the reason on stderr. |
+| Agents | `agents/skeptical-reviewer.md`, `agents/backtest-runner.md` | `skeptical-reviewer` (Opus; Read, Grep, Glob only — no shell) is the "reviewed in a fresh context" half of the mission: give it the diff, it assumes the change is wrong and reports file:line findings. `backtest-runner` (Sonnet; Bash) runs `make backtest`, `make regime-report`, `make validate`, `make parity` and reports verbatim; it never regenerates the golden file. |
+| Skills | `skills/validate`, `skills/parity-check`, `skills/regime-report`, `skills/ftmo-rules` | `/validate` and `/parity-check` run the Makefile targets (both stubs until the audit's scripts reach `dev`) and explain what the output means; `/regime-report [h4-bars] [days]` runs the pinned-data regime report; `/ftmo-rules` is the FTMO 2-Step Swing rule set and the repo's R conventions. Each command skill pre-approves only its own `make` target. |
+
+Also from Phase C: `.husky/commit-msg` rejects attribution lines (§9); `CLAUDE.md` is short (44 lines) and the long-form notes it used to hold are `docs/PROJECT_CONTEXT.md`.
+
+**Why:** the brief's "Claude-shaped repo": a fresh session finds where behaviour lives from `CLAUDE.md` and the tree, cannot touch secrets or live paths by accident, gets lint feedback at edit time rather than at commit time, and has a reviewer that did not write the change. The deny list is the hard stop; the hooks are the explained stop; the ratchet, the golden file and CI remain the merge gate. Claude Code has no per-hook switch, so `QT_STOP_VALIDATE` is our own guard inside the script; `"disableAllHooks": true` in `settings.local.json` turns every hook off for one machine.
+
+**Commands:**
+
+```bash
+QT_ALLOW_LIVE_EDITS=1 claude          # a session whose PR is about the engine / crons / deploy
+QT_STOP_VALIDATE=1 claude             # make the Stop hook run `make validate` (off by default)
+printf '%s' '{"tool_input":{"file_path":"'"$PWD"'/src/lib/scan/x.ts"}}' | .claude/hooks/guard-paths.sh; echo $?   # 2 = blocked
+claude doctor                         # lists settings entries Claude Code rejected
+```
+
+**Rules:** a new hook, agent or skill is a PR with a row in this table. Hooks exit 2 to block or to feed output back, 0 to allow; never make one exit non-zero silently. Anything a skill or agent runs must be read-only against the database and the broker; the `scripts/canonical/` verdict scripts run only through Makefile targets. `git commit --no-verify` bypasses every git hook and is not used in this repository. `make lint-shell` covers the hook scripts and the commit-msg hook.

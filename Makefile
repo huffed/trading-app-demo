@@ -24,8 +24,8 @@ lint-strict: ## ESLint target rule set on FILES=... (new code is held to this; C
 	@test -n "$(FILES)" || { echo "usage: make lint-strict FILES='path/a.ts path/b.ts'"; exit 2; }
 	@printf '%s' "$(FILES)" | tr ' ' '\n' | grep -v '^$$' | tr '\n' '\0' | xargs -0 $(PNPM) exec eslint --config eslint.config.strict.mjs --no-ignore
 
-lint-shell: ## shellcheck on the cron wrappers (baseline: errors; target: warnings, see DEBT.md)
-	shellcheck -S error scripts/*.sh
+lint-shell: ## shellcheck on the cron wrappers, the Claude hooks and the commit-msg hook (baseline: errors; target: warnings, see DEBT.md)
+	shellcheck -S error scripts/*.sh .claude/hooks/*.sh .husky/commit-msg
 
 lint-workflows: ## actionlint on .github/workflows (a workflow GitHub cannot parse fails here, not as a run with no jobs)
 	@command -v actionlint >/dev/null || { echo "actionlint is not installed (brew install actionlint)"; exit 2; }
