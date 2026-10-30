@@ -7,7 +7,7 @@ BASE ?= origin/dev
 
 .PHONY: help install lint lint-strict lint-shell typecheck format format-check format-all-check \
         test test-watch build check backtest validate parity db-types db-types-check \
-        secrets-scan secrets-scan-history python-env python-lock
+        secrets-scan secrets-scan-history env-check python-env python-lock
 
 help: ## List targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "} {printf "  %-18s %s\n", $$1, $$2}'
@@ -56,7 +56,10 @@ test-watch: ## Vitest, watch mode
 build: ## Production build
 	$(PNPM) run build
 
-check: lint lint-shell typecheck test ## Everything CI runs, locally
+env-check: ## Every env var the app reads is documented by name in .env.example (secret-shaped names in scripts too)
+	node scripts/dev/env-names-check.mjs
+
+check: lint lint-shell typecheck env-check db-types-check test ## Everything CI runs, locally
 
 backtest: ## Golden-file replay of the five deployed algorithms on the pinned XAU/USD 4h slice
 	@echo "make backtest: the golden-file replay lands with PR tooling/b10-golden (docs/DEBT.md D-05)."; exit 2
