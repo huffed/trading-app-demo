@@ -6,10 +6,16 @@ One short section per thing that was set up: **what it is, why it exists, the on
 
 | I want to… | Command | Added in |
 |---|---|---|
-| rotate the cron secret | `docs/runbooks/rotate-cron-secret.md` (manual, ~5 min) | PR B1 |
-| harden the VPS (**Critical**: password auth is on) | `docs/runbooks/harden-vps-ssh.md` (manual, ~10 min today) | PR B1 |
+| see every check | `make help` | B3 |
+| run everything CI runs | `make check` (lint + lint-shell + typecheck + test) | B3 |
+| lint / type-check / test | `make lint` · `make typecheck` · `make test` | B3 |
+| format what I changed | `make format` (then `make format-check`) | B3 |
+| hold a new file to the target rules | `make lint-strict FILES=path/to/new-file.ts` | B3 |
+| set up the Python sidecar | `make python-env` | B2/B3 |
+| rotate the cron secret | `docs/runbooks/rotate-cron-secret.md` (manual, ~5 min) | B1 |
+| harden the VPS (**Critical**: password auth is on) | `docs/runbooks/harden-vps-ssh.md` (manual, ~10 min today) | B1 |
 
-(Make targets, pre-commit, CI, tests, golden file: added by the following PRs.)
+Stubs that exit 2 with a message until their PR lands: `make backtest` (golden file, B10), `make validate` / `make parity` (audit scripts, when they reach `dev`), `make db-types` / `make db-types-check` (B7).
 
 ## 2. Secrets — where they live and the rules
 
@@ -61,3 +67,28 @@ pnpm install --frozen-lockfile           # never `pnpm install` without the flag
 uv sync --project scripts/python         # creates scripts/python/.venv (the TS drivers auto-detect it)
 make python-lock                         # after editing pyproject.toml: uv lock + requirements.txt export (target lands with the Makefile PR)
 ```
+
+## 6. One entry point per check — the Makefile
+
+**What:** `Makefile` at the root; `make help` lists every target with a one-line description. Each target exits non-zero on failure, so the same command works in a terminal, in pre-commit and in CI. `make check` is the local equivalent of CI.
+
+**Why:** before this, "run the checks" meant remembering five pnpm scripts, and nothing ran `scripts/` at all. One name per check also lets CLAUDE.md and the hooks refer to checks without repeating their commands.
+
+**Commands:** see the cheat-sheet (§1). The targets wrap `pnpm exec …`; the pnpm scripts in `package.json` still work (`pnpm lint`, `pnpm typecheck`, `pnpm test`). `BASE=origin/dev` is the comparison point for `format`/`format-check`; override with `make format BASE=main`.
+
+## 7. Lint, types, format — the baseline and the target
+
+**What:**
+- **Baseline** (`eslint.config.mjs`, `tsconfig.json`): the rules the code passes today. `make lint` fails on any error and on more warnings than `.eslint-warning-budget` (174 on 2026-10-28: 117 in `src/`, 57 in live-path scripts). The budget is a ratchet: it may only go down, and a PR that lowers it edits the file.
+- **Target** (`eslint.config.strict.mjs`): `typescript-eslint` strict + stylistic type-checked rules, `complexity ≤ 10`, 80-line functions, 300-line files, `no-console` (scripts excepted), no `any`, no object-literal casts, explicit module boundary types, no floating promises, no empty catch, ordered acyclic imports. Every **new** file is held to it from its first PR (pre-commit and CI run it on added files); existing files migrate one PR at a time after the audit verdict and never go back. Settings are never loosened.
+- **Types:** `make typecheck` runs `tsc --noEmit` over `src/`, `tests/` and `scripts/` **including test files**. It goes green with PR B5 (155 type errors in test files, type-only fixes, assertions unchanged).
+- **Format:** Prettier on changed files only (`make format`, pre-commit). The whole-tree format is one dedicated PR after the audit verdict, with its hash in `.git-blame-ignore-revs`. `make format-all-check` shows the current whole-tree state (informational).
+- **Shell:** `make lint-shell` = `shellcheck -S error` on the cron wrappers (0 errors today); target is `-S warning` (6 `SC2155` "declare and assign separately" warnings, DEBT.md).
+
+**Why:** CI has to exist today, so it starts at the level the code passes; new code must not add to the debt, so it starts at the target. The two configs make that split explicit instead of a convention nobody checks.
+
+## 8. `scripts/` — what is checked and what is not
+
+**What:** `scripts/dev/checked-scripts.mjs` is the single list. Everything under `scripts/` is **live-path** and checked like `src/` (ESLint baseline, tsc, Prettier) **except** the 42 research one-offs it names (`e2.*`, `verify-*`, `robustness-*`, stress runs, feature/label experiments, search drivers), which ESLint skips. `scripts/archive/` and run caches are never checked. `node scripts/dev/checked-scripts.mjs` prints the live-path file list for tools that cannot import it.
+
+**Why:** 46k lines were excluded from every check, including the deploy scripts, the cron wrappers' TypeScript and the verdict/baseline scripts that produced the live rules. Research scripts are excluded by name, not by directory, so moving nothing (renames wait for the audit) still lets the live-path scripts be checked. Each research script has a target date in `docs/DEBT.md` D-20 (2027-01-31) to be brought under the checks or archived; adding a script to the research list needs a DEBT.md line.
