@@ -2,7 +2,7 @@
 
 Host procedure for `quanttrader-prod`, run from the workstation as `ops` with `sudo -n`, **outside market hours** (standing rule: Sunday 22:00 to Friday 22:00 UK is off limits, and nothing starts within the hour before the Sunday open), after D.1 is verified and the D.2 PR is merged. **Merging the D.2 PR opens the host window:** from the merge until step 2 below, `make deploy` fails fast (the host run cannot write the log as `ops`) and the D.1 rollback path no longer applies; do the steps in order and in one sitting (about 45 minutes), or roll back as described at the end. Every step prints what it did; stop at the first step that does not, and use the rollback. Each `ssh qt` prompts for approval in a Claude session — that is the intended control.
 
-Facts the procedure relies on (verified read-only 2026-10-31): x86_64; Node 26.13.0 is the "Lithium" LTS line since 2026-10-28; the host runs root's nvm Node 25.9.0 and pnpm 11.24.0; `/opt/quanttrader` and `/var/log/quanttrader` are root-owned; the git remote is `git@github.com:…` over root's read-only deploy key; `ops` has `NOPASSWD:ALL` sudo and a locked password; `tailscale serve` has no config; ports 80/443 are free; the tailnet DNS name is `quanttrader-prod.tail5612ed.ts.net`; cron's default PATH is `/usr/bin:/bin`.
+Facts the procedure relies on (verified read-only 2026-10-31): x86_64; Node 26.13.0 is the "Lithium" LTS line since 2026-10-28; the host runs root's nvm Node 25.9.0 and pnpm 11.24.0; `/opt/quanttrader` and `/var/log/quanttrader` are root-owned; the git remote is `git@github.com:…` over root's read-only deploy key; `ops` has `NOPASSWD:ALL` sudo and a locked password; Serve is not enabled on the tailnet (so `tailscale serve` is not used); the tailnet addresses are 100.77.24.89 and fd7a:115c:a1e0::ce01:18a8, the DNS name `quanttrader-prod.tail5612ed.ts.net`; systemd 259 with `/usr/lib/systemd/systemd-socket-proxyd`; cron's default PATH is `/usr/bin:/bin`.
 
 ## 0. Pre-flight (read-only)
 
@@ -84,7 +84,7 @@ ssh qt 'sudo -n systemd-run --quiet --unit=qt-tailnet-test --collect --socket-pr
 curl -s -o /dev/null -w "tailnet test port: %{http_code}\n" --max-time 20 http://quanttrader-prod.tail5612ed.ts.net:3001/login     # from the workstation (on the tailnet): 200
 ```
 
-Expected: two `ListenStream` lines, `active`, then `200`. Now the device check, on the test port while the old server is still reachable: open `http://quanttrader-prod:3001/login` in a browser on a tailnet device, **sign in** (client-side Supabase auth; cookies are not port-scoped), open an algorithm and press **Run** on its readiness card — that calls the Server Action `runAlgorithmReadinessCheck` (read-only), and Next compares the Origin with the Host, both `quanttrader-prod:3001` through the raw TCP proxy. Whoever runs this without the operator's credentials does the page-render check here and the operator completes the sign-in check afterwards on the real URL. Then stop the test unit:
+Expected: two `ListenStream` lines, `active`, then `200`. Now the device check, on the test port while the old server is still reachable: open `http://quanttrader-prod:3001/login` in a browser on a tailnet device, **sign in** (client-side Supabase auth; cookies are not port-scoped), open an algorithm and press **Run** on its readiness card — that calls the Server Action `runAlgorithmReadinessCheck` (read-only), and Next compares the Origin with the Host, both `quanttrader-prod:3001` through the raw TCP proxy. **Step 7 waits for this check.** Whoever runs the procedure without the operator's credentials does the page-render check, leaves the test unit up, and holds step 7 until the operator has signed in and pressed Run on `http://quanttrader-prod:3001` from one of their devices (the interim state — root's old server on nvm Node 25, the crontab already `ops`'s, the new unit installed but not started — is stable and verified by the ticks). Then stop the test unit:
 
 ```bash
 ssh qt 'sudo -n systemctl stop qt-tailnet-test.socket qt-tailnet-test.service; systemctl is-active qt-tailnet-test.socket || echo test-unit-stopped'
@@ -93,6 +93,8 @@ ssh qt 'sudo -n systemctl stop qt-tailnet-test.socket qt-tailnet-test.service; s
 If the proof fails, stop; nothing has changed for the running service, and the SSH tunnel (`ssh -L 3000:localhost:3000 qt`) keeps working as the fallback.
 
 ## 7. Deploy the D.2 commit as `ops`, and hand the port to the tailnet socket
+
+If `ops/systemd/quanttrader.service` changed in the repo since step 4 (comments count: the repo is the source of truth), repeat step 4's `install` + `daemon-reload` first — it does not restart anything.
 
 ```bash
 make deploy          # .nvmrc 26.13.0 must equal the host's and the unit's Node; the restart applies User=ops and -H 127.0.0.1
@@ -110,7 +112,7 @@ Expected: `active`, three `:3000` listeners (`127.0.0.1:3000` Next, the IPv4 and
 ## 8. Nothing on the public interface
 
 ```bash
-ssh qt 'ss -ltn | grep -E ":3000 "'     # 127.0.0.1:3000 (Next) and 100.77.24.89:3000 (the tailnet socket) only
+ssh qt 'ss -ltn | grep -E ":3000 "'     # exactly three: 127.0.0.1:3000 (Next), 100.77.24.89:3000 and [fd7a:115c:a1e0::ce01:18a8]:3000 (the tailnet socket)
 ssh qt 'sudo -n ufw status | head -5'  # unchanged: default deny, 22 limited, tailscale0 allowed — the second layer
 ```
 
