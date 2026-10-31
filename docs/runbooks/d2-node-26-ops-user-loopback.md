@@ -71,17 +71,31 @@ ssh qt 'crontab /tmp/qt-crontab && sudo -n crontab -u root -r && sudo -n rm -f /
 
 Expected: `/usr/local/bin/pnpm`, `/usr/local/bin/node`; then `ops: 10 entries; root: no crontab for root`. The next tick runs as `ops` from the `ops`-owned checkout against the still-root old server and logs into the `ops`-owned log files. The M1 band state file in `/tmp` was root-owned from the root crontab era; as `ops` the 21:30 wrapper could not rewrite it (it would fail under `set -e`), so it is removed here, after root's last possible run, and the next 21:30 run recreates it (one band-state notification may repeat).
 
-## 6. The Tailscale-address listener, confirmed from a device BEFORE the bind changes
+## 6. The Tailscale-address listener: proven on a test port BEFORE the bind changes, switched to :3000 right after it
 
-The operator's requirement is "loopback and the Tailscale address only". Next itself binds loopback; `quanttrader-tailnet.socket` listens on the host's tailnet address (100.77.24.89:3000) and `systemd-socket-proxyd` forwards each connection to `127.0.0.1:3000`, so the dashboard keeps its pre-D.2 URL `http://quanttrader-prod:3000` (plain HTTP inside WireGuard; ufw allows `tailscale0` only). `tailscale serve` was the first choice and is **not enabled on this tailnet** (2026-10-31: `tailscale serve` printed "Serve is not enabled on your tailnet" with an admin-console link and waited); once the operator enables it, `sudo tailscale serve --bg --https=443 http://127.0.0.1:3000` adds HTTPS on the MagicDNS name on top of this listener. The listener is set up and proven against the current `*:3000` server before the deploy rebinds Next.
+The operator's requirement is "loopback and the Tailscale address only". Next itself binds loopback; `quanttrader-tailnet.socket` listens on the host's tailnet address (100.77.24.89:3000) and `systemd-socket-proxyd` forwards each connection to `127.0.0.1:3000`, so the dashboard keeps its pre-D.2 URL `http://quanttrader-prod:3000` (plain HTTP inside WireGuard; ufw allows `tailscale0` only). `tailscale serve` was the first choice and is **not enabled on this tailnet** (2026-10-31: the CLI printed "Serve is not enabled on your tailnet" with an admin-console link and waited); once the operator enables it, `sudo tailscale serve --bg --https=443 http://127.0.0.1:3000` adds HTTPS on the MagicDNS name on top of this listener.
+
+The socket cannot take port 3000 while root's old server still holds `*:3000` (Linux refuses a specific-address bind against a listening wildcard socket), so the proof runs on a test port first, and the real socket is enabled the moment step 7's restart releases the port.
 
 ```bash
 scp ops/systemd/quanttrader-tailnet.socket ops/systemd/quanttrader-tailnet.service qt:/tmp/
-ssh qt 'sudo -n install -m 644 /tmp/quanttrader-tailnet.socket /tmp/quanttrader-tailnet.service /etc/systemd/system/ && sudo -n systemctl daemon-reload && sudo -n systemctl enable --now quanttrader-tailnet.socket && systemctl is-active quanttrader-tailnet.socket && ss -ltn | grep -E ":3000 "'
-curl -s -o /dev/null -w "tailnet login: %{http_code}\n" --max-time 20 http://quanttrader-prod.tail5612ed.ts.net:3000/login     # from the workstation (on the tailnet): 200
+ssh qt 'sudo -n install -m 644 /tmp/quanttrader-tailnet.socket /tmp/quanttrader-tailnet.service /etc/systemd/system/ && sudo -n systemctl daemon-reload && systemctl cat quanttrader-tailnet.socket | grep ListenStream'
+# proof of the proxy path on a test port, against the current server, from the workstation (on the tailnet):
+ssh qt 'sudo -n systemd-run --quiet --unit=qt-tailnet-test --collect -p DynamicUser=yes /usr/lib/systemd/systemd-socket-activate -l 100.77.24.89:3001 /usr/lib/systemd/systemd-socket-proxyd 127.0.0.1:3000'
+curl -s -o /dev/null -w "tailnet test port: %{http_code}\n" --max-time 20 http://quanttrader-prod.tail5612ed.ts.net:3001/login     # 200
+ssh qt 'sudo -n systemctl stop qt-tailnet-test'
 ```
 
-Expected: `active`, two `:3000` listeners (`*:3000` is root's old server until step 7; `100.77.24.89:3000` is the socket), then `200`. Then open `http://quanttrader-prod:3000/login` in a browser on a tailnet device, **sign in** (client-side Supabase auth), open an algorithm and press **Run** on its readiness card: that calls the Server Action `runAlgorithmReadinessCheck` (read-only), and Next checks a Server Action's Origin against the Host — through the proxy both are `quanttrader-prod:3000`, as before. If anything fails here, stop; nothing has changed for the running service, and the SSH tunnel (`ssh -L 3000:localhost:3000 qt`) keeps working as the fallback.
+Expected: `ListenStream=100.77.24.89:3000`, then `200` through the test proxy, then the test unit stopped; the device check happens on the real port right after step 7 (below). If the test fails, stop; nothing has changed for the running service, and the SSH tunnel (`ssh -L 3000:localhost:3000 qt`) keeps working as the fallback.
+
+**Right after step 7 reports OK** (Next now listens on loopback and `*:3000` is free):
+
+```bash
+ssh qt 'sudo -n systemctl enable --now quanttrader-tailnet.socket && systemctl is-active quanttrader-tailnet.socket && ss -ltn | grep -E ":3000 "'
+curl -s -o /dev/null -w "tailnet login: %{http_code}\n" --max-time 20 http://quanttrader-prod.tail5612ed.ts.net:3000/login     # 200
+```
+
+Expected: `active`, two `:3000` listeners (`127.0.0.1:3000` Next, `100.77.24.89:3000` the socket), `200`. Then open `http://quanttrader-prod:3000/login` in a browser on a tailnet device, **sign in** (client-side Supabase auth), open an algorithm and press **Run** on its readiness card: that calls the Server Action `runAlgorithmReadinessCheck` (read-only); the proxy is raw TCP, so Host and Origin are both `quanttrader-prod:3000`, exactly as before D.2. The dashboard is unreachable over the tailnet only between step 7's restart and this `enable --now` — seconds, with the SSH tunnel as the fallback throughout.
 
 ## 7. Deploy the D.2 commit as `ops`
 
