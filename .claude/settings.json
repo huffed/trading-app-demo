@@ -21,6 +21,8 @@
       "Bash(make format-check *)",
       "Bash(make regime-report *)",
       "Bash(make help)",
+      "Bash(make status)",
+      "Bash(make logs *)",
       "Bash(pnpm test)",
       "Bash(pnpm exec vitest run *)",
       "Bash(pnpm exec tsc --noEmit *)",
@@ -40,6 +42,7 @@
     ],
     "ask": [
       "Bash(make backtest-update *)",
+      "Bash(make deploy *)",
       "Bash(make format *)",
       "Bash(make format-all-check *)",
       "Bash(make db-types *)",

@@ -4,6 +4,8 @@
 # per line, lower-case, `**` and `*` as in a shell `case` pattern. Read by
 # guard-paths.sh (edits) and guard-bash.sh (shell writes); documented in
 # docs/DEV_SETUP.md §16 and docs/decisions/0004. Lines starting with # are ignored.
+ops/**
+scripts/ops/**
 src/lib/scan/**
 src/lib/brokers/**
 src/app/api/**

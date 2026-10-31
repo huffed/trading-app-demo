@@ -1,0 +1,18 @@
+# /etc/systemd/system/quanttrader.service — as captured from the host on 2026-10-31.
+# Runs as root under nvm's Node 25.9.0 and binds *:3000 (ufw keeps it off the
+# internet). D.2 changes User=, the Node path, the bind address and adds
+# hardening; the file in this directory is the source of truth from then on.
+[Unit]
+Description=QuantTrader production server (port 3000, localhost consumers only)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+WorkingDirectory=/opt/quanttrader
+Environment=PATH=/root/.nvm/versions/node/v25.9.0/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/root/.nvm/versions/node/v25.9.0/bin/pnpm start
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

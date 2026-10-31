@@ -4,10 +4,15 @@ SHELL := /bin/bash
 .DEFAULT_GOAL := help
 PNPM ?= pnpm
 BASE ?= origin/dev
+QT_HOST ?= qt
+REF ?= origin/dev
+LOG ?= scan
+N ?= 40
 
 .PHONY: help install lint lint-strict lint-shell typecheck format format-check format-all-check \
         test test-watch build check backtest validate parity db-types db-types-check \
-        secrets-scan secrets-scan-history env-check backtest-update lint-workflows python-env python-lock regime-report fence-check
+        secrets-scan secrets-scan-history env-check backtest-update lint-workflows python-env python-lock regime-report fence-check \
+        deploy status logs
 
 help: ## List targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "} {printf "  %-18s %s\n", $$1, $$2}'
@@ -24,9 +29,9 @@ lint-strict: ## ESLint target rule set on FILES=... (new code is held to this; C
 	@test -n "$(FILES)" || { echo "usage: make lint-strict FILES='path/a.ts path/b.ts'"; exit 2; }
 	@printf '%s' "$(FILES)" | tr ' ' '\n' | grep -v '^$$' | tr '\n' '\0' | xargs -0 $(PNPM) exec eslint --config eslint.config.strict.mjs --no-ignore
 
-lint-shell: ## shellcheck: cron wrappers at the baseline (-S error, see DEBT.md); the Claude hooks and the commit-msg hook are new code and meet the target (-S warning)
+lint-shell: ## shellcheck: cron wrappers at the baseline (-S error, see DEBT.md); the Claude hooks, the commit-msg hook and the ops scripts are new code and meet the target (-S warning)
 	shellcheck -S error scripts/*.sh
-	shellcheck -S warning .claude/hooks/*.sh .husky/commit-msg
+	shellcheck -S warning .claude/hooks/*.sh .husky/commit-msg scripts/ops/*.sh ops/*.sh
 
 lint-workflows: ## actionlint on .github/workflows (a workflow GitHub cannot parse fails here, not as a run with no jobs)
 	@command -v actionlint >/dev/null || { echo "actionlint is not installed (brew install actionlint)"; exit 2; }
@@ -105,3 +110,13 @@ python-env: ## Create scripts/python/.venv from uv.lock
 python-lock: ## Re-resolve the Python sidecar after editing scripts/python/pyproject.toml
 	uv lock --project scripts/python
 	cd scripts/python && uv export --format requirements-txt --no-hashes --no-emit-project -o requirements.txt
+
+deploy: ## VPS: deploy REF (default origin/dev) with verification, then move the production pointer main; REF=<previous sha> is the rollback (docs/DEV_SETUP.md §17)
+	QT_HOST=$(QT_HOST) scripts/ops/deploy-driver.sh "$(REF)"
+
+status: ## VPS: service state, deployed commit, last tick per log, pending reboot — read-only — and origin/dev for comparison
+	@scp -q -o BatchMode=yes scripts/ops/status.sh $(QT_HOST):/tmp/qt-status.sh && ssh -o BatchMode=yes $(QT_HOST) 'bash /tmp/qt-status.sh'
+	@git fetch --quiet origin && echo "origin/dev:  $$(git rev-parse --short=12 origin/dev)"
+
+logs: ## VPS: tail a cron log, read-only — make logs LOG=scan N=40 (scan | manage | heartbeat | oanda-positioning | reconcile | alpha-decay | broker-health | deploys …)
+	@ssh -o BatchMode=yes $(QT_HOST) "tail -n $(N) /var/log/quanttrader/$(LOG).log"

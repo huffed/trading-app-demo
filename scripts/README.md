@@ -377,10 +377,11 @@ note and in `~/.ssh/config` as the `qt` alias — **never in this repository**
   share a tailnet; browse `http://quanttrader-prod:3000` from a device
   signed into the Tailscale account. SSH-tunnel fallback:
   `ssh -L 3000:localhost:3000 qt`.
-- **Deploy after a merge to dev** (manual until Phase D ships `make deploy`):
-  `ssh qt 'sudo -i bash -c "cd /opt/quanttrader && git pull && . ~/.nvm/nvm.sh && pnpm install --frozen-lockfile && pnpm build && systemctl restart quanttrader"'`
-  (the checkout, nvm and the service are still root's, hence `sudo -i`; not yet
-  exercised as `ops` — the first deploy after 2026-10-29 verifies it)
+- **Deploy after a merge to dev:** `make deploy` (default `REF=origin/dev`; the
+  rollback is `make deploy REF=<previous sha>`). It runs `scripts/ops/deploy.sh`
+  on the host as root, verifies the service, moves the production pointer `main`
+  and appends a row to `docs/decisions/deploys.md`. `make status` and
+  `make logs LOG=scan` are the read-only views. Details: `docs/DEV_SETUP.md` §17.
 - **Mac rollback (kept intact):** crontab backup at
   `~/quanttrader-crontab-backup-2026-08-27.txt`; launchd plist renamed
   `com.quanttrader.server.plist.disabled`. To roll back: stop the VPS crontab
