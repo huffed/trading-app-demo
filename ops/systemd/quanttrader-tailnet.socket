@@ -1,0 +1,20 @@
+# /etc/systemd/system/quanttrader-tailnet.socket — D.2 (decision 0007, addendum): the
+# Tailscale-address listener. Next itself binds loopback only; this socket listens on the
+# host's tailnet address and systemd hands accepted connections to quanttrader-tailnet.service,
+# a systemd-socket-proxyd that forwards to 127.0.0.1:3000. The operator's devices keep the
+# pre-D.2 URL http://quanttrader-prod:3000 (plain HTTP inside WireGuard; ufw allows tailscale0
+# only). FreeBind lets the socket bind before tailscaled has brought the address up at boot.
+# `tailscale serve` (HTTPS on the MagicDNS name) can be layered on later once Serve is enabled
+# for the tailnet in the admin console; it would also proxy to 127.0.0.1:3000.
+[Unit]
+Description=QuantTrader dashboard listener on the Tailscale address (forwards to loopback :3000)
+After=tailscaled.service
+Wants=tailscaled.service
+
+[Socket]
+ListenStream=100.77.24.89:3000
+FreeBind=yes
+NoDelay=yes
+
+[Install]
+WantedBy=sockets.target

@@ -71,16 +71,17 @@ ssh qt 'crontab /tmp/qt-crontab && sudo -n crontab -u root -r && sudo -n rm -f /
 
 Expected: `/usr/local/bin/pnpm`, `/usr/local/bin/node`; then `ops: 10 entries; root: no crontab for root`. The next tick runs as `ops` from the `ops`-owned checkout against the still-root old server and logs into the `ops`-owned log files. The M1 band state file in `/tmp` was root-owned from the root crontab era; as `ops` the 21:30 wrapper could not rewrite it (it would fail under `set -e`), so it is removed here, after root's last possible run, and the next 21:30 run recreates it (one band-state notification may repeat).
 
-## 6. Tailscale access, confirmed from a device BEFORE the bind changes
+## 6. The Tailscale-address listener, confirmed from a device BEFORE the bind changes
 
-`tailscale serve` proxies the tailnet address to `127.0.0.1:3000`, which the current server already answers, so the new path is proven while the old `*:3000` access still works.
+The operator's requirement is "loopback and the Tailscale address only". Next itself binds loopback; `quanttrader-tailnet.socket` listens on the host's tailnet address (100.77.24.89:3000) and `systemd-socket-proxyd` forwards each connection to `127.0.0.1:3000`, so the dashboard keeps its pre-D.2 URL `http://quanttrader-prod:3000` (plain HTTP inside WireGuard; ufw allows `tailscale0` only). `tailscale serve` was the first choice and is **not enabled on this tailnet** (2026-10-31: `tailscale serve` printed "Serve is not enabled on your tailnet" with an admin-console link and waited); once the operator enables it, `sudo tailscale serve --bg --https=443 http://127.0.0.1:3000` adds HTTPS on the MagicDNS name on top of this listener. The listener is set up and proven against the current `*:3000` server before the deploy rebinds Next.
 
 ```bash
-ssh qt 'sudo -n tailscale serve --bg --https=443 http://127.0.0.1:3000 && tailscale serve status'
-curl -sI https://quanttrader-prod.tail5612ed.ts.net/login | head -1      # from the workstation: HTTP/2 200
+scp ops/systemd/quanttrader-tailnet.socket ops/systemd/quanttrader-tailnet.service qt:/tmp/
+ssh qt 'sudo -n install -m 644 /tmp/quanttrader-tailnet.socket /tmp/quanttrader-tailnet.service /etc/systemd/system/ && sudo -n systemctl daemon-reload && sudo -n systemctl enable --now quanttrader-tailnet.socket && systemctl is-active quanttrader-tailnet.socket && ss -ltn | grep -E ":3000 "'
+curl -s -o /dev/null -w "tailnet login: %{http_code}\n" --max-time 20 http://quanttrader-prod.tail5612ed.ts.net:3000/login     # from the workstation (on the tailnet): 200
 ```
 
-Then open `https://quanttrader-prod.tail5612ed.ts.net/login` in a browser on a tailnet device, **sign in** (client-side Supabase auth), open an algorithm and press **Run** on its readiness card: that calls the Server Action `runAlgorithmReadinessCheck` (read-only), and Next checks a Server Action's Origin against the proxied Host — if it is rejected behind the proxy, stop here, keep the SSH tunnel, and the fix is a config PR. If the tailnet does not issue HTTPS certificates (`tailscale serve` says so), use `--http=80` instead; the URL becomes `http://quanttrader-prod.tail5612ed.ts.net/` and traffic is still inside WireGuard. The SSH tunnel (`ssh -L 3000:localhost:3000 qt`) keeps working as the fallback.
+Expected: `active`, two `:3000` listeners (`*:3000` is root's old server until step 7; `100.77.24.89:3000` is the socket), then `200`. Then open `http://quanttrader-prod:3000/login` in a browser on a tailnet device, **sign in** (client-side Supabase auth), open an algorithm and press **Run** on its readiness card: that calls the Server Action `runAlgorithmReadinessCheck` (read-only), and Next checks a Server Action's Origin against the Host — through the proxy both are `quanttrader-prod:3000`, as before. If anything fails here, stop; nothing has changed for the running service, and the SSH tunnel (`ssh -L 3000:localhost:3000 qt`) keeps working as the fallback.
 
 ## 7. Deploy the D.2 commit as `ops`
 
@@ -88,18 +89,18 @@ Then open `https://quanttrader-prod.tail5612ed.ts.net/login` in a browser on a t
 make deploy          # .nvmrc 26.13.0 must equal the host's and the unit's Node; the restart applies User=ops and -H 127.0.0.1
 ```
 
-The first install as `ops` rebuilds `node_modules` from `ops`'s own pnpm store (two to three minutes; the old root process keeps serving from memory meanwhile, as every deploy's build does). The script then verifies the service's own Node is 26.13.0 and that the next manage, heartbeat and scan ticks log 200 under the new user. `make status` afterwards: `unit user ops`, `listening: 127.0.0.1:3000`, root crontab 0 entries.
+The first install as `ops` rebuilds `node_modules` from `ops`'s own pnpm store (two to three minutes; the old root process keeps serving from memory meanwhile, as every deploy's build does). The script then verifies the service's own Node is 26.13.0 and that the next manage, heartbeat and scan ticks log 200 under the new user. `make status` afterwards: `unit user ops`, `listening: 127.0.0.1:3000 100.77.24.89:3000` (Next on loopback, the tailnet socket beside it), root crontab 0 entries.
 
 ## 8. Nothing on the public interface
 
 ```bash
-ssh qt 'ss -ltn | grep -E ":3000 "'     # 127.0.0.1:3000 only
+ssh qt 'ss -ltn | grep -E ":3000 "'     # 127.0.0.1:3000 (Next) and 100.77.24.89:3000 (the tailnet socket) only
 ssh qt 'sudo -n ufw status | head -5'  # unchanged: default deny, 22 limited, tailscale0 allowed — the second layer
 ```
 
 ## 9. Record
 
-`make deploy` appended the deploy row; add one row for the host changes (steps 1–6) to `docs/decisions/deploys.md` pointing at decision 0007, flip the "planned" wording in `docs/DEBT.md` D-21/D-23, `docs/STACK.md` §4, `docs/PHASE_D_PLAN.md` D.2 and `scripts/README.md` to "done", and commit it all in the next PR.
+`make deploy` appended the deploy row; add one row for the host changes (steps 1–6, including the tailnet listener) to `docs/decisions/deploys.md` pointing at decision 0007, flip the "planned" wording in `docs/DEBT.md` D-21/D-23, `docs/STACK.md` §4, `docs/PHASE_D_PLAN.md` D.2 and `scripts/README.md` to "done", and commit it all in the next PR.
 
 ## Rollback
 
