@@ -50,6 +50,7 @@ cron (6-hourly)     ─curl─▶ GET /api/cron/alpha-decay, /api/cron/reconcile
 | Network | ufw active, default deny incoming; `22/tcp` rate-limited (`ufw limit`) from anywhere; anything on `tailscale0`. Next binds `*:3000` (all interfaces) — only ufw keeps it off the internet. sshd since 2026-10-29: `PermitRootLogin no`, `PasswordAuthentication no`, `AllowUsers ops`, `MaxAuthTries 3`, `X11Forwarding no`; one authorized key (the same key for `ops`); fail2ban active (sshd jail, 4 tries / 10 min → 1 h ban); unattended-upgrades active. Hetzner Cloud firewall: not configured (console only). Runbook: `docs/runbooks/harden-vps-ssh.md` |
 | UI access | Tailscale (`quanttrader-prod:3000`) or `ssh -L 3000:localhost:3000 qt` |
 | Mac stack | disabled 2026-08-27; `scripts/launchd/com.huffed.quanttrader.caffeinate.plist` is the only launchd file in the repo |
+| Inventory 2026-10-30 (read-only, Phase D step 0) | checkout still at `dev @ 3ee22e2` (2026-10-19), `node_modules` installed 2026-08-27, build from 2026-10-19; a reboot has been pending since unattended-upgrades last ran (`Automatic-Reboot` not configured); no logrotate rule for `/var/log/quanttrader` (scan.log 8 MB); no backups on the host; only Node v25.9.0 installed, for root; SSH now `ops`-only, root still runs the service, the crontab and the deploy. Full table and the plan: `docs/PHASE_D_PLAN.md` |
 
 ## 5. Data stores
 
