@@ -15,7 +15,7 @@ make backtest          # golden trade list; fails on any changed trade (make bac
 make lint-strict FILES=path/new.ts   # the target rule set; CI applies it to files added in a PR
 make format            # prettier on changed files only (whole tree waits for the audit verdict)
 make db-types          # regenerate Supabase types after a migration
-make status            # VPS, read-only: deployed commit, service, last cron ticks (make deploy is the operator's step; docs/DEV_SETUP.md §17)
+make status            # VPS read-only view; prompts, as make deploy does — both only when the operator has asked (docs/DEV_SETUP.md §17)
 pnpm dev               # http://localhost:3000 — scans and paper trading resume for every status='active' algo
 ```
 

@@ -18,7 +18,7 @@
 - `ops` created (`useradd -m`, locked password, `sudo` group, `/etc/sudoers.d/ops` with `NOPASSWD:ALL`, root's `authorized_keys` copied as 0600 `ops:ops`). A fresh key login plus `sudo -n true` was verified **before** sshd was touched.
 - Drop-in `/etc/ssh/sshd_config.d/10-hardening.conf` installed with the §1.1 content **plus** `PermitRootLogin no` and `AllowUsers ops` (pulled forward from Phase 2 by operator decision). `sshd -t` → OK; `systemctl reload ssh`, then `systemctl restart ssh` (`KillMode=process`, existing sessions survive). Verified on new connections: `ops` login OK, root key login → `Permission denied (publickey)`, password auth not offered (`Authentications that can continue: publickey`).
 - §1.2 fail2ban installed with the jail below → active (two scanner IPs banned within seconds). §1.3 `ufw limit 22/tcp` replaced the plain allow; the Tailscale interface rule is unchanged. §1.4 Hetzner Cloud firewall **not done** (console only, operator). `~/.ssh/config` `Host qt` now has `User ops` and `IdentitiesOnly yes`.
-- Still root: the app (systemd unit), the crontab, `/opt/quanttrader` and the deploy one-liner (now run through `sudo -i`). That is the remaining Phase 2 work, Phase D.
+- Still root: the app (systemd unit), the crontab, `/opt/quanttrader` and the deploy (`make deploy` runs `scripts/ops/deploy.sh` as root since D.1). That is the remaining Phase 2 work, Phase D.2.
 
 Phase 1 took 10 minutes with no service impact. **Phase 2** (process user) belongs to Phase D with a maintenance window.
 
@@ -101,7 +101,7 @@ Expect: `permitrootlogin no`, `passwordauthentication no`, `allowusers ops`, the
 
 ## Phase 2 — remove root (Phase D, maintenance window, ~45 minutes)
 
-Not today: the deploy one-liner, the nvm install, the crontab and the systemd unit all assume root. The sequence, so it is on record:
+Not today: the deploy script, the nvm install, the crontab and the systemd unit all assume root. The sequence, so it is on record:
 
 1. **Done 2026-10-29:** `ops` exists (`useradd -m`, key copied, `/etc/sudoers.d/ops` is `NOPASSWD:ALL`). Narrow the sudoers entry to the commands the deploy and the runbooks need once Phase D fixes the deploy path.
 2. Install nvm + the pinned Node for `ops` (`.nvmrc` arrives in Phase B); `chown -R ops:ops /opt/quanttrader`; move the deploy key to `/home/ops/.ssh/`.

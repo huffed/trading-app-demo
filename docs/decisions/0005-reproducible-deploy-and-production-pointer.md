@@ -4,7 +4,7 @@
 
 ## Decision
 
-Production is deployed only by `make deploy [REF=…]`. The workstation driver (`scripts/ops/deploy-driver.sh`) copies `scripts/ops/deploy.sh` to the VPS and runs it as root; the host script refuses a dirty tree, fetches, checks out the exact commit detached, requires the host's Node to match the commit's `.nvmrc`, reinstalls from the lockfile, builds, restarts the service between cron ticks, and passes only when `/login` answers 200, the heartbeat route answers 200 with the host's `CRON_SECRET` (read on the host, never printed) and the next scheduled manage and heartbeat ticks log `http=200`. Each run appends to `/var/log/quanttrader/deploys.log`. Only after that verification does the driver move the branch `main` to the deployed commit — fast-forward normally, a leased force-update when the deployed commit is an ancestor (a rollback), no move with a message when it is neither — and append a row to `docs/decisions/deploys.md`, which the next PR commits. The rollback is the same command with `REF=<previous sha>`. The host's unit, crontab, sshd drop-in and firewall are captured in `ops/` and change only through PRs; `ops/**` and `scripts/ops/**` are live-runner paths for the Claude Code hooks.
+Production is deployed only by `make deploy [REF=…]`. The workstation driver (`scripts/ops/deploy-driver.sh`) refuses unless `scripts/ops/` equals `origin/dev`, resolves `REF` to a commit on `origin/dev`, copies `scripts/ops/deploy.sh` to the VPS and starts it detached as root (as `ops` after D.2), following its run log. The host script takes a lock, refuses a dirty tree, fetches, checks out the exact commit detached, requires the host's Node to match the commit's `.nvmrc`, reinstalls from the lockfile and builds — restoring the running commit's tree and build if either step fails — waits for a gap between cron ticks with no wrapper running, restarts the service, and passes only when the service is active on the pinned Node, `/login` answers 200 and the next scheduled manage, heartbeat (`stale_count` 0) and scan ticks log `http=200`; it reads no secret. Each run appends `OK` or `FAIL` to `/var/log/quanttrader/deploys.log`, and a verified run records the commit in `/var/log/quanttrader/running.sha`. The driver appends a row to `docs/decisions/deploys.md` for every finished run, which the next PR commits, and only after a verified deploy moves the branch `main` to the deployed commit — fast-forward normally, a leased force-update when the deployed commit is an ancestor (a rollback), no move with a message when it is neither. The rollback is the same command with `REF=<previous sha>`. The host's unit, crontab, sshd drop-in and firewall are captured in `ops/` and change only through PRs; `ops/**` and `scripts/ops/**` are live-runner paths for the Claude Code hooks.
 
 ## Why
 
@@ -19,7 +19,9 @@ Until today the host was deployed by hand as root (`git pull && pnpm build && sy
 
 ## Consequences
 
-- The deploy runs as root from a copy in `/tmp` until D.2 moves the checkout, the deploy key and the service to `ops` (recorded as DEBT D-23). D.2 also makes `.nvmrc` the Node gate it is designed to be: a rollback to a commit pinning a Node the host no longer has refuses, by design.
+- The deploy runs as root from a per-run copy in `/tmp` until D.2 moves the checkout and the service to `ops` (recorded as DEBT D-23). A commit with `.nvmrc` refuses on a Node mismatch; a commit without one (such as `3ee22e2`) runs on the host's Node, and the ledger records which.
+- A rollback moves `main` backwards with a leased force-update; the approval said "fast-forwarded", so the operator confirms this reading or `main` stays ahead of production on a rollback (flagged at the D.1 report).
+- A deploy takes 10–25 minutes: it waits for the real manage, heartbeat and scan ticks after the restart rather than calling the routes itself.
 - `main` is unprotected on purpose and is never pushed by hand; the Claude Code Bash guard still refuses a typed force or `:ref` push to `main`, and the guard does not see inside the driver (DEBT D-22) — the driver's force-with-lease is confined to the rollback-to-ancestor case.
 - The host script copies the workstation's procedure, so deploying an old commit (which may predate `scripts/ops/`) still uses today's procedure.
 - Every host change that is not a deploy (reboot, package, config) gets its own ledger row and, when it changes behaviour, its own decision entry.
@@ -28,6 +30,7 @@ Until today the host was deployed by hand as root (`git pull && pnpm build && sy
 
 - Inventory 2026-10-30/31 (`docs/PHASE_D_PLAN.md` D.0): `dev @ 3ee22e2` since 2026-10-19, `node_modules` from 2026-08-27, reboot pending, root's unit and crontab, no `main` on the remote.
 - Local Node 26 validation 2026-10-31 (plan, Approval §2).
+- Fresh-context review of PR #309 (2026-10-31): 17 findings; the seven that affect correctness (an injectable pre-approved target, a restart that could kill an in-flight tick, a failed build leaving no build on disk and a wrong "previous" commit, failures exiting without a ledger line, an unverified heartbeat and scan path, the working-tree script running on the host, permissions contradicting `CLAUDE.md`) were closed before the first deploy; the rest were closed in the same PR or recorded in DEBT.
 - Execution record: `docs/decisions/deploys.md` rows of 2026-10-31 and the **Execution** section below.
 
 ## Execution

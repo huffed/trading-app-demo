@@ -190,8 +190,10 @@ while IFS=$'\t' read -r sep seg; do
       [ -n "$assignment" ] || continue
       value=${assignment#*=}
       value=${value#[\"\']}; value=${value%[\"\']}
-      if grep -qE '[;&|<>`]|\$\(' <<<"$value"; then
-        deny "$orig" "a make variable override containing shell metacharacters would run inside the recipe"
+      # metacharacters, quotes, backslashes and dollars can escape the recipe's quoting (bash decodes $'…' after
+      # this hook has looked); a leading dash turns a host or file argument into an option (ssh -oProxyCommand=…)
+      if grep -qE '[;&|<>`$\\"'"'"']' <<<"$value" || grep -qE '^-' <<<"$value"; then
+        deny "$orig" "a make variable override containing a shell metacharacter, a quote, a backslash, a dollar sign or a leading dash would run inside the recipe or change what ssh/make does"
       fi
     done < <(grep -oE "[A-Za-z_][A-Za-z0-9_]*=(\"[^\"]*\"|'[^']*'|[^[:space:]]*)" <<<"$s" || true)
   fi

@@ -4,10 +4,13 @@ SHELL := /bin/bash
 .DEFAULT_GOAL := help
 PNPM ?= pnpm
 BASE ?= origin/dev
+# VPS targets read these from the environment inside the recipe ($$VAR), never by make expansion,
+# so a value cannot inject into the local or the remote shell; each is validated first.
 QT_HOST ?= qt
 REF ?= origin/dev
 LOG ?= scan
 N ?= 40
+export QT_HOST REF LOG N
 
 .PHONY: help install lint lint-strict lint-shell typecheck format format-check format-all-check \
         test test-watch build check backtest validate parity db-types db-types-check \
@@ -112,11 +115,15 @@ python-lock: ## Re-resolve the Python sidecar after editing scripts/python/pypro
 	cd scripts/python && uv export --format requirements-txt --no-hashes --no-emit-project -o requirements.txt
 
 deploy: ## VPS: deploy REF (default origin/dev) with verification, then move the production pointer main; REF=<previous sha> is the rollback (docs/DEV_SETUP.md §17)
-	QT_HOST=$(QT_HOST) scripts/ops/deploy-driver.sh "$(REF)"
+	@scripts/ops/deploy-driver.sh "$$REF"
 
-status: ## VPS: service state, deployed commit, last tick per log, pending reboot — read-only — and origin/dev for comparison
-	@scp -q -o BatchMode=yes scripts/ops/status.sh $(QT_HOST):/tmp/qt-status.sh && ssh -o BatchMode=yes $(QT_HOST) 'bash /tmp/qt-status.sh'
-	@git fetch --quiet origin && echo "origin/dev:  $$(git rev-parse --short=12 origin/dev)"
+status: ## VPS: service, checkout vs verified running commit, last verified tick per log, pending reboot (read-only; the status script is streamed from origin/dev) plus origin/dev for comparison
+	@case "$$QT_HOST" in -*|*[!A-Za-z0-9._-]*|"") echo "make status: QT_HOST must be an ssh host alias"; exit 2;; esac; \
+	git fetch --quiet origin && git show origin/dev:scripts/ops/status.sh | ssh -o BatchMode=yes -- "$$QT_HOST" 'bash -s' && \
+	echo "origin/dev:  $$(git rev-parse --short=12 origin/dev)"
 
-logs: ## VPS: tail a cron log, read-only — make logs LOG=scan N=40 (scan | manage | heartbeat | oanda-positioning | reconcile | alpha-decay | broker-health | deploys …)
-	@ssh -o BatchMode=yes $(QT_HOST) "tail -n $(N) /var/log/quanttrader/$(LOG).log"
+logs: ## VPS: tail a log, read-only — make logs LOG=scan N=40 (scan manage heartbeat oanda-positioning reconcile alpha-decay broker-health m1-band-check prune cohort-report deploys deploy-<stamp>)
+	@case "$$QT_HOST" in -*|*[!A-Za-z0-9._-]*|"") echo "make logs: QT_HOST must be an ssh host alias"; exit 2;; esac; \
+	case "$$LOG" in *[!A-Za-z0-9-]*|"") echo "make logs: LOG must be a log name (letters, digits, -)"; exit 2;; esac; \
+	case "$$N" in *[!0-9]*|"") echo "make logs: N must be a number"; exit 2;; esac; \
+	ssh -o BatchMode=yes -- "$$QT_HOST" "tail -n $$N /var/log/quanttrader/$$LOG.log"
