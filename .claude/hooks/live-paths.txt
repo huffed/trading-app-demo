@@ -1,11 +1,29 @@
-# Live-runner paths: what the VPS runs (the scan/manage engine, broker adapters,
-# every API route the cron wrappers hit, the wrappers themselves, the scripts
-# they invoke, the deploy scripts and the baseline harness library). One glob
-# per line, lower-case, `**` and `*` as in a shell `case` pattern. Read by
-# guard-paths.sh (edits) and guard-bash.sh (shell writes); documented in
-# docs/DEV_SETUP.md §16 and docs/decisions/0004. Lines starting with # are ignored.
+# Live-path fence: the TRADING CODE, frozen until the audit verdict (decision 0006
+# amending 0004): engine and runner, strategies, risk and sizing, execution, the
+# migrations the engine depends on, the paper engine's price/fill config, the cron
+# wrappers and the scripts they invoke, the baseline harness library. Infrastructure
+# (ops/**, scripts/ops/**) is NOT fenced: it is covered by shellcheck, CI, a fresh-context
+# review on every PR and the operator's approval of every host command. One glob per
+# line, lower-case, `**` and `*` as in a shell `case` pattern. Read by guard-paths.sh
+# (edits) and guard-bash.sh (shell writes); documented in docs/DEV_SETUP.md §16.
 src/lib/scan/**
 src/lib/brokers/**
+src/lib/algorithm/**
+src/lib/patterns/**
+src/lib/conditions/**
+src/lib/signals/**
+src/lib/ai/**
+src/lib/market-data/**
+src/lib/utils/date.ts
+src/lib/validators/algorithm.ts
+src/lib/validators/position.ts
+src/lib/algo-search/walk-forward-opt.ts
+src/lib/constants/markets.ts
+src/lib/constants/prop-firm.ts
+src/lib/constants/defaults.ts
+src/lib/cohort/**
+src/lib/api/**
+supabase/migrations/**
 src/app/api/**
 scripts/*-cron.sh
 scripts/cohort-report.ts

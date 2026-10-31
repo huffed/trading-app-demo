@@ -356,7 +356,7 @@ note and in `~/.ssh/config` as the `qt` alias — **never in this repository**
 - **SSH:** `ssh qt` logs in as `ops` (key only, sudo; root SSH login disabled
   2026-10-29, see `docs/runbooks/harden-vps-ssh.md`). Commands below that touch
   root-owned paths, root's crontab or systemd need `sudo`.
-- **App:** `/opt/quanttrader` (checkout of `dev`, read-only GitHub deploy
+- **App:** `/opt/quanttrader` (detached checkout of the deployed commit, read-only GitHub deploy
   key), Node via nvm, systemd service `quanttrader` (auto-start +
   auto-restart). `systemctl status|restart quanttrader` · logs:
   `journalctl -u quanttrader -n 50`.
@@ -377,10 +377,10 @@ note and in `~/.ssh/config` as the `qt` alias — **never in this repository**
   share a tailnet; browse `http://quanttrader-prod:3000` from a device
   signed into the Tailscale account. SSH-tunnel fallback:
   `ssh -L 3000:localhost:3000 qt`.
-- **Deploy after a merge to dev** (manual until Phase D ships `make deploy`):
-  `ssh qt 'sudo -i bash -c "cd /opt/quanttrader && git pull && . ~/.nvm/nvm.sh && pnpm install --frozen-lockfile && pnpm build && systemctl restart quanttrader"'`
-  (the checkout, nvm and the service are still root's, hence `sudo -i`; not yet
-  exercised as `ops` — the first deploy after 2026-10-29 verifies it)
+- **Deploy after a merge to dev:** `make deploy` (rollback: `make deploy REF=<previous sha>`)
+  runs `scripts/ops/deploy.sh` on the host, verifies the service against the real cron
+  ticks, moves the production pointer `main` and appends a row to `docs/decisions/deploys.md`;
+  `make status` / `make logs LOG=scan` are the read-only views (`docs/DEV_SETUP.md` §17).
 - **Mac rollback (kept intact):** crontab backup at
   `~/quanttrader-crontab-backup-2026-08-27.txt`; launchd plist renamed
   `com.quanttrader.server.plist.disabled`. To roll back: stop the VPS crontab

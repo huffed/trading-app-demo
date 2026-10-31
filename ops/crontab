@@ -1,0 +1,13 @@
+# Production crontab — as captured from the host on 2026-10-31 (root's crontab; D.2 moves it to `ops`).
+# UTC. Each wrapper reads CRON_SECRET from /opt/quanttrader/.env.local on every run and
+# appends to /var/log/quanttrader/<name>.log. Apply with: crontab -u <user> ops/crontab
+*/15 * * * * /opt/quanttrader/scripts/scan-cron.sh >> /var/log/quanttrader/scan.log 2>&1
+*/5 * * * * /opt/quanttrader/scripts/manage-cron.sh >> /var/log/quanttrader/manage.log 2>&1
+*/5 * * * * /opt/quanttrader/scripts/heartbeat-cron.sh >> /var/log/quanttrader/heartbeat.log 2>&1
+*/20 * * * * /opt/quanttrader/scripts/oanda-positioning-cron.sh >> /var/log/quanttrader/oanda-positioning.log 2>&1
+0 4 * * * /opt/quanttrader/scripts/prune-sentiment-cache-cron.sh >> /var/log/quanttrader/prune.log 2>&1
+0 23 * * 0 /opt/quanttrader/scripts/cohort-report-cron.sh >> /var/log/quanttrader/cohort-report.log 2>&1
+10 */6 * * * /opt/quanttrader/scripts/alpha-decay-cron.sh >> /var/log/quanttrader/alpha-decay.log 2>&1
+0 */6 * * * /opt/quanttrader/scripts/broker-health-snapshot-cron.sh >> /var/log/quanttrader/broker-health.log 2>&1
+*/30 * * * * /opt/quanttrader/scripts/reconcile-broker-positions-cron.sh >> /var/log/quanttrader/reconcile.log 2>&1
+30 21 * * * /opt/quanttrader/scripts/m1-band-check-cron.sh >> /var/log/quanttrader/m1-band-check.log 2>&1

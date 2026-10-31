@@ -43,7 +43,7 @@ bnd='([[:space:]"'"'"'/]|$)'
 protected="(scripts/canonical/data|tests/golden/[^[:space:]\"']*\\.json)${bnd}"
 live="(${live_re})${bnd}"
 # directories above protected paths: a destructive verb on one of these takes the protected files with it
-ancestors="(src|src/lib|src/app|scripts|scripts/canonical|tests|tests/golden)${bnd}"
+ancestors="(src|src/lib|src/app|scripts|scripts/canonical|tests|tests/golden|supabase)${bnd}"
 
 envfile='\.env(rc|[._-][A-Za-z0-9_.-]*)?'
 tail_='([^A-Za-z0-9_]|$)'
@@ -136,10 +136,10 @@ while IFS=$'\t' read -r sep seg; do
   # 3. live-runner paths
   if [ -n "$live_re" ] && writes_to "$live" "$lower" "$uq_lower"; then
     if [ "$fence_down" != "1" ]; then
-      deny "$orig" "it writes a live-runner path (.claude/hooks/live-paths.txt); engine, broker, API-route, cron and deploy code change only in a PR about them, in a session the operator started with the override. Stop and ask the operator (docs/decisions/0004)"
+      deny "$orig" "it writes a fenced live path (.claude/hooks/live-paths.txt); trading code — engine, runner, strategies, risk, sizing, execution, the engine's migrations, the paper engine's price config — changes only in a PR about it, in a session the operator started with the override. Stop and ask the operator (docs/decisions/0004, 0006)"
     fi
     if [ "$notice_emitted" = "0" ]; then
-      notice="guard-bash: FENCE DOWN (live-path override is set) — shell write to a live-runner path: ${orig}"
+      notice="guard-bash: FENCE DOWN (live-path override is set) — shell write to a fenced live path: ${orig}"
       printf '%s' "$notice" | node -e '
         let s = ""; process.stdin.on("data", (d) => (s += d)).on("end", () => {
           process.stdout.write(JSON.stringify({ systemMessage: s }));
@@ -185,15 +185,25 @@ while IFS=$'\t' read -r sep seg; do
     if grep -qE "(^|[[:space:]])(-f|--file|--makefile|-C|--directory|-e|--eval|-I|--include-dir)([[:space:]]|=|$)" <<<"$uq"; then
       deny "$orig" "make with an alternate makefile, directory, include dir or --eval runs code the Makefile does not define"
     fi
+    # a $ or a backtick anywhere in a make command is either a make function such as $(shell …), which runs when
+    # make reads the override, or a shell expansion bash performs after this hook has looked
+    if grep -qE '[$`]' <<<"$s"; then
+      deny "$orig" "a make command containing \$ or a backtick: \$(shell …) runs when make reads the override, and bash expands \$'…' after the hook has looked"
+    fi
+    if grep -qE "[A-Za-z_][A-Za-z0-9_]*!=" <<<"$s"; then
+      deny "$orig" "make's != operator runs its whole value in a shell (GNU make ≥ 4.0)"
+    fi
     # each NAME=value token's VALUE (quoted or bare) must be free of shell metacharacters; redirects after it are fine
     while IFS= read -r assignment; do
       [ -n "$assignment" ] || continue
       value=${assignment#*=}
       value=${value#[\"\']}; value=${value%[\"\']}
-      if grep -qE '[;&|<>`]|\$\(' <<<"$value"; then
-        deny "$orig" "a make variable override containing shell metacharacters would run inside the recipe"
+      # metacharacters, quotes, backslashes and dollars can escape the recipe's quoting (bash decodes $'…' after
+      # this hook has looked); a leading dash turns a host or file argument into an option (ssh -oProxyCommand=…)
+      if grep -qE '[;&|<>`$\\"'"'"']' <<<"$value" || grep -qE '^-' <<<"$value"; then
+        deny "$orig" "a make variable override containing a shell metacharacter, a quote, a backslash, a dollar sign or a leading dash would run inside the recipe or change what ssh/make does"
       fi
-    done < <(grep -oE "[A-Za-z_][A-Za-z0-9_]*=(\"[^\"]*\"|'[^']*'|[^[:space:]]*)" <<<"$s" || true)
+    done < <(grep -oE "[A-Za-z_][A-Za-z0-9_]*(:{1,3}|[+?!])?=(\"[^\"]*\"|'[^']*'|[^[:space:]]*)" <<<"$s" || true)
   fi
   if grep -qE "^git[[:space:]]+(diff|log|show|blame|grep)([[:space:]]|$)" <<<"$s" && grep -qE "(^|[[:space:]])(--output(=|[[:space:]])|-O|--ext-diff)" <<<"$uq"; then
     deny "$orig" "git --output / -O / --ext-diff write a file or run a command from a read-only git command"

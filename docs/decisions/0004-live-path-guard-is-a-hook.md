@@ -1,6 +1,6 @@
 # 0004 — The live-runner paths are guarded by a hook with a session override, not by a permission deny rule
 
-**Date:** 2026-10-30 · **Status:** active · **Phase:** C.
+**Date:** 2026-10-30 · **Status:** active, amended by [0006](0006-fence-covers-trading-code-not-infrastructure.md) (the list is trading code; infrastructure is not fenced) · **Phase:** C.
 
 ## Decision
 

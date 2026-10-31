@@ -24,11 +24,13 @@ Status: **plan, nothing executed.** Every step below changes the VPS only after 
 
 **Deliverables**
 - `ops/` in the repo (infrastructure as code, no secrets): `ops/systemd/quanttrader.service` (captured from the host, then edited in D.2), `ops/crontab` (the 10 lines), `ops/sshd/10-hardening.conf`, `ops/ufw.sh`, `ops/logrotate/quanttrader` (D.4). The host is rebuilt from these, never by hand.
-- `scripts/ops/deploy.sh` — runs **on the VPS**, idempotent, verbose, fails loudly: `git fetch`, checkout the exact ref (`REF`, default `origin/dev`), refuse if the tree is dirty, refuse if `.nvmrc` does not match the runtime, `pnpm install --frozen-lockfile`, `pnpm build`, `systemctl restart quanttrader`, wait for `/login` → 200 and the heartbeat route → 200 (secret read on the host by the wrapper, never printed), append `date sha previous_sha` to `/var/log/quanttrader/deploys.log`, exit non-zero on any step. Rollback = `REF=<previous sha>` and the same script.
-- `make deploy [REF=…]`, `make status` (service state, deployed sha vs `origin/dev`, last tick per log, pending reboot), `make logs [LOG=scan]` — all over `ssh qt` with `sudo` where the step is root's.
-- A deploy ledger the audit can read: `docs/decisions/deploys.md`, one line per deploy (date, sha, reason), written by the operator or the session that deploys; infrastructure changes get full decision entries.
+- `scripts/ops/deploy.sh` — runs **on the VPS**, detached, one at a time, fails loudly: refuse a dirty tree, fetch, the commit's `.nvmrc` must equal the host's and the unit's Node, detached checkout, `pnpm install --frozen-lockfile`, `pnpm build` (the running commit's tree and build are restored if either fails), no restart in market hours, wait (≤ 20 min) for a tick gap with no cron wrapper running, `systemctl restart`, `live.sha`, service active on the pinned Node, `/login` 200, the next manage, heartbeat (`stale_count` 0) and scan ticks log `http=200` (≤ 25 min), `running.sha`, an `OK`/`FAIL` line in `/var/log/quanttrader/deploys.log`. Reads no secret. Rollback = `REF=<previous sha>` and the same script (as reviewed 2026-10-31).
+- `make deploy [REF=…]` (`scripts/ops/deploy-driver.sh` on the workstation: copies the host script over, runs it as root, and only after the host reports a verified deploy moves the production pointer `main` and appends the ledger row), `make status` (service state, deployed sha, last tick per log, pending reboot, `origin/dev` for comparison), `make logs [LOG=scan] [N=40]` — all over `ssh qt`, read-only except `deploy`.
+- A deploy ledger the audit can read: `docs/decisions/deploys.md`, one row per deploy appended by `make deploy` and committed in the next PR, plus one row per host change that is not a deploy (reboot, package, config), each pointing at its full `docs/decisions/` entry.
 
-**First execution (after approval):** deploy current `dev` (Phases B + C, golden MATCH) to replace `3ee22e2`. Entry: `0005-first-reproducible-deploy.md`. The pending **reboot** happens in the same window, before the deploy, so the kernel update and the code change are bracketed separately in the logs.
+**Rollback (one command, confirmed 2026-10-31):** `make deploy REF=3ee22e2` returns the host to the commit it ran from 2026-10-19 to 2026-10-31. It is the same script on the same path — fetch, detached checkout of `3ee22e2`, `pnpm install --frozen-lockfile` from that commit's lockfile, `pnpm build`, restart between ticks, the same `/login` + heartbeat + next-tick checks — and it moves `main` back with a leased force-update, so after every verified deploy `main` is what runs; between a failed post-restart verification and the rollback it tells you to run, `live.sha` on the host and the ledger row name the unverified live commit. `3ee22e2` has no `.nvmrc` (and no `engines`), so it runs on whatever Node the host has and the ledger records which — 25.9.0 today, 26 after D.2; a commit **with** `.nvmrc` refuses on a mismatch, which is the fail-closed behaviour D.2 relies on.
+
+**First execution (approved 2026-10-31, deadline 20:00 UK):** deploy current `dev` (Phases B + C + D.1, golden MATCH) to replace `3ee22e2`; the host reinstalls `node_modules` from the lockfile. Verify: service active, the next scheduled cron tick logs 200, heartbeat healthy — the script checks `systemctl is-active`, `/login`, and the next manage, heartbeat (`stale_count` 0) and scan ticks. Then take the pending **reboot**, verify again (`make status`: service active, ticks 200). Two ledger rows — deploy, then reboot — and entry `0005-reproducible-deploy-and-production-pointer.md`.
 
 ## D.2 Process user and Node LTS
 
@@ -65,7 +67,7 @@ Status: **plan, nothing executed.** Every step below changes the VPS only after 
 ## D.7 As reached
 
 - **Hetzner Cloud firewall** (console or `hcloud` with an API token the operator creates): inbound 22/tcp and Tailscale's 41641/udp only. Second layer under ufw.
-- **`main`:** today a 2026-04 scaffold, 780+ commits behind, unprotected. Recommendation: make `main` the production pointer — `deploy.sh` fast-forwards `main` to the deployed sha after a successful deploy, so `main` always answers "what runs". Alternative: delete it and rely on the deploy ledger. Operator's call.
+- **`main`:** absent on the remote (verified 2026-10-31; the local `main` is an old ancestor of `dev`). Approved (question 5): the first `make deploy` creates it as the production pointer and every verified deploy moves it (decision 0005).
 - **sudoers narrowing:** D.2.
 
 ## Check-in questions before any VPS change
@@ -77,3 +79,17 @@ Status: **plan, nothing executed.** Every step below changes the VPS only after 
 5. `main`: production pointer or delete.
 6. Kill-switch semantics as in D.3 (pause → flatten paper → stop service and crons), and the paper test window.
 7. Deploy ledger as `docs/decisions/deploys.md` (one line per deploy) plus full entries for infrastructure changes.
+
+## Approval (2026-10-31)
+
+Answers to the seven questions, verbatim in substance:
+
+1. **D.1** as designed, today, finished before 20:00 UK and well clear of the Sunday 22:00 open. Rollback written into the plan first (above). First deploy reinstalls `node_modules` from the lockfile; verify service active, next cron tick 200, heartbeat healthy; reboot after that verification, verify again; deploy and reboot are two ledger rows.
+2. **Node 26**, provided the full suite and the golden file are clean on 26 locally and Next.js and every native dependency support it; otherwise Node 24. Local result 2026-10-31 on Node 26.13.0 (`pnpm install --frozen-lockfile`, `make check`, `make backtest`, `make build`): 140 test files, 2176 passed + 11 expected failures, golden MATCH, build compiled; Next.js 16.2.4 declares `node >=20.9.0`.
+3. **Bind to loopback and the Tailscale address only**; nothing on the public interface. The crons call via loopback. Confirm the dashboard opens over Tailscale from the operator's devices before the public port closes; keep the ufw rule as a second layer.
+4. **Hetzner Storage Box** (~€3.50/month) for host config, the env files (encrypted at rest with age or gpg, key kept off the box), pins and logs, plus a nightly `pg_dump` of Supabase to the same box, 30-day retention, one tested restore. Supabase Pro: confirm the daily-backup retention in the dashboard and record it; no point-in-time recovery for now.
+5. **`main` is the production pointer**, fast-forwarded by the deploy script only after a successful, verified deploy. `dev` stays the integration branch and the protected one.
+6. **Kill switch** as in D.3, plus: one idempotent command; it still stops the service and the crons if the database is unreachable (fail closed); it sends an alert and writes a ledger row; the resume procedure is documented next to it. Paper test this weekend only if D.1 and D.2 are both clean, before Sunday 18:00; otherwise next weekend.
+7. **Ledger** as proposed.
+
+**Standing rules for D from here:** no VPS change during market hours (Sunday 22:00 to Friday 22:00 UK) except the kill switch; D.2 proceeds today only if D.1 is clean; anything not finished by Sunday 18:00 waits for next weekend.
