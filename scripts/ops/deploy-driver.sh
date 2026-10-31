@@ -7,7 +7,7 @@
 #    script from origin/dev itself: only the reviewed scripts run on the host;
 # 3. resolves REF to a commit on origin/dev here (names are looked up on origin first, so
 #    REF=dev means origin/dev), so the host never resolves a name;
-# 4. starts the host script detached, its output in /var/log/quanttrader/deploy-<stamp>.log,
+# 4. starts the host script detached as `ops` (no sudo), its output in /var/log/quanttrader/deploy-<stamp>.log,
 #    and follows that log — a dropped ssh or a Ctrl-C does not stop the run
 #    (the run's log so far: make logs LOG=deploy-<stamp> N=60);
 # 5. appends a row to docs/decisions/deploys.md for every finished or interrupted run — OK,
@@ -63,8 +63,11 @@ runlog=/var/log/quanttrader/deploy-$stamp.log
 row() { printf '| %s | %s | `%s` | %s%s |\n' "$(date -u +%FT%TZ)" "$1" "$sha" "$2" "$override_note" >> "$LEDGER"; }
 echo "deploy: $REF = ${sha:0:12} → $HOST (run log on the host: $runlog)"
 git show origin/dev:scripts/ops/deploy.sh | ssh -o BatchMode=yes -- "$HOST" "cat > $remote_script"
-pid=$(ssh -o BatchMode=yes -- "$HOST" "sudo -n -H bash -c 'setsid nohup bash $remote_script $sha $REF $MARKET_OK > $runlog 2>&1 < /dev/null & echo \$!'")
+pid=$(ssh -o BatchMode=yes -- "$HOST" "setsid nohup bash $remote_script $sha $REF $MARKET_OK > $runlog 2>&1 < /dev/null & echo \$!")
 [[ "$pid" =~ ^[0-9]+$ ]] || die "the host did not start the deploy (got: $pid)"
+sleep 5
+ssh -o BatchMode=yes -- "$HOST" "test -f $runlog" \
+  || die "the host run could not write $runlog (is /var/log/quanttrader owned by the deploy user? docs/runbooks/d2-node-26-ops-user-loopback.md step 2)"
 trap 'row "deploy INTERRUPTED on the workstation: $REF → \`${sha:0:7}\`" "the host run continues: make logs LOG=deploy-$stamp N=60; then make status"; echo "deploy: interrupted here; the host run continues (make logs LOG=deploy-$stamp N=60)" >&2; exit 130' INT TERM
 ssh -o BatchMode=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=3 -- "$HOST" "tail -n +1 -f --pid=$pid $runlog" \
   || echo "deploy: the follow connection ended; the host run continues (make logs LOG=deploy-$stamp N=60)"

@@ -12,4 +12,5 @@ Format: `NNNN-short-slug.md` with the fields **Date · Status (active / supersed
 | [0004](0004-live-path-guard-is-a-hook.md) | Live-runner paths are guarded by a hook with a session override; secrets, pinned data and the golden file by deny rules | active |
 | [0005](0005-reproducible-deploy-and-production-pointer.md) | Deploys run one reviewed script on the host from `make deploy`; `main` is the production pointer that script moves; `ops/` captures the host | active |
 | [0006](0006-fence-covers-trading-code-not-infrastructure.md) | The live-path fence covers trading code (exact list inside), not infrastructure; `ops/**` and `scripts/ops/**` are not fenced | active, amends 0004 |
+| [0007](0007-node-26-ops-user-loopback-tailscale.md) | Node 26 LTS system-wide, the `ops` process user, loopback + Tailscale, HTTPS git remote (revisit if the repo goes private) | active |
 | [deploys](deploys.md) | Ledger: one row per deploy and per host change | running |

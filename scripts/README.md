@@ -355,9 +355,9 @@ note and in `~/.ssh/config` as the `qt` alias — **never in this repository**
 
 - **SSH:** `ssh qt` logs in as `ops` (key only, sudo; root SSH login disabled
   2026-10-29, see `docs/runbooks/harden-vps-ssh.md`). Commands below that touch
-  root-owned paths, root's crontab or systemd need `sudo`.
-- **App:** `/opt/quanttrader` (detached checkout of the deployed commit, read-only GitHub deploy
-  key), Node via nvm, systemd service `quanttrader` (auto-start +
+  systemd need `sudo`; the checkout, the logs and the crontab are `ops`'s since D.2.
+- **App:** `/opt/quanttrader` (detached checkout of the deployed commit, owned by `ops`,
+  HTTPS remote), Node 26 system-wide at `/usr/local`, systemd service `quanttrader` (auto-start +
   auto-restart). `systemctl status|restart quanttrader` · logs:
   `journalctl -u quanttrader -n 50`.
 - **Secrets:** `/opt/quanttrader/.env.local` (0600). The app reads it at
@@ -370,12 +370,12 @@ note and in `~/.ssh/config` as the `qt` alias — **never in this repository**
   m1-band-check 21:30. **Not installed:** walk-forward-opt, quarterly
   research cycle, validate-algo-monthly, prereg-expiration,
   broker-spread-sampler (the table above still lists them).
-- **Firewall:** ufw default-deny; SSH only publicly; port 3000 reachable
-  only on the `tailscale0` interface. Hardened 2026-10-29 (password auth off, root
+- **Firewall:** ufw default-deny; SSH only publicly; from D.2 the app listens
+  on loopback (before: `*:3000`, kept off the internet by ufw alone). Hardened 2026-10-29 (password auth off, root
   login off, fail2ban, `ufw limit 22/tcp`): `docs/runbooks/harden-vps-ssh.md`.
 - **Frontend from any device: Tailscale.** The VPS and operator devices
-  share a tailnet; browse `http://quanttrader-prod:3000` from a device
-  signed into the Tailscale account. SSH-tunnel fallback:
+  share a tailnet; browse `https://quanttrader-prod.tail5612ed.ts.net`
+  (tailscale serve → loopback, from D.2; before: `http://quanttrader-prod:3000`). SSH-tunnel fallback:
   `ssh -L 3000:localhost:3000 qt`.
 - **Deploy after a merge to dev:** `make deploy` (rollback: `make deploy REF=<previous sha>`)
   runs `scripts/ops/deploy.sh` on the host, verifies the service against the real cron
@@ -394,7 +394,7 @@ proven otherwise — the 2026-07-22→28 outage paged for 6 days before
 anyone acted. Work the list top-down; total time ~2 minutes.
 
 **Since 2026-08-27 the app server is the systemd service `quanttrader`
-on the VPS** (`pnpm start` on port 3000, `Restart=always`; logs via
+on the VPS** (`next start` on loopback port 3000 from D.2, `Restart=always`; logs via
 `journalctl -u quanttrader`). The Mac launchd service is disabled. Run the
 commands below on the VPS (`ssh qt`, as `ops`; `sudo` where shown).
 
@@ -403,11 +403,13 @@ commands below on the VPS (`ssh qt`, as `ops`; `sudo` where shown).
    - anything else → step 2.
 2. **Restart the service:** `sudo systemctl restart quanttrader`
    then `sudo journalctl -u quanttrader -n 20` (expect "✓ Ready").
-   If the log shows a build/module error (usually after a code merge):
-   `sudo -i`, then `cd /opt/quanttrader && . ~/.nvm/nvm.sh && pnpm build && systemctl restart quanttrader`.
-3. **Are the crons installed + firing?** `sudo crontab -l` (expect 10 entries) and
-   `sudo tail -4 /var/log/quanttrader/scan.log` (expect recent `http=200`).
-   Crontab empty → restore from the "Current schedule" section above.
+   If the log shows a build/module error (usually after a code merge): from the
+   workstation, `make deploy REF=<the verified running sha from make status>` — never
+   `pnpm build` by hand on the host (it would leave a root-owned `.next` in the `ops` checkout).
+3. **Are the crons installed + firing?** `crontab -l` as `ops` (expect the PATH line + 10
+   entries; `sudo crontab -u root -l` must say "no crontab for root" — two schedulers
+   double every tick) and `tail -4 /var/log/quanttrader/scan.log` (expect recent `http=200`).
+   Crontab empty → `crontab ops/crontab` as `ops` from a checkout of `dev`.
 4. **Which tick is stale?** The failing GitHub job names it: scan (>35 min),
    manage/heartbeat (>45 min), alpha-decay (>26 h — cron runs 6-hourly at :10).
 5. **Confirm recovery:** wait for the next scheduled dead-man run (≤30 min) or

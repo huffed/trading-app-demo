@@ -1,6 +1,10 @@
-# Production crontab — as captured from the host on 2026-10-31 (root's crontab; D.2 moves it to `ops`).
-# UTC. Each wrapper reads CRON_SECRET from /opt/quanttrader/.env.local on every run and
-# appends to /var/log/quanttrader/<name>.log. Apply with: crontab -u <user> ops/crontab
+# Production crontab — the `ops` user's from D.2 on (decision 0007; root's is removed in the same
+# minute, see the runbook). UTC. PATH is set because cron's default (/usr/bin:/bin) has no pnpm or
+# node: three wrappers (broker-health, m1-band-check, cohort-report) run `pnpm dlx tsx …` and the
+# E2.29 incident was exactly this silent "command not found". Each wrapper reads CRON_SECRET from
+# /opt/quanttrader/.env.local on every run, calls the server on loopback and appends to
+# /var/log/quanttrader/<name>.log. Apply as ops: crontab ops/crontab
+PATH=/usr/local/bin:/usr/bin:/bin
 */15 * * * * /opt/quanttrader/scripts/scan-cron.sh >> /var/log/quanttrader/scan.log 2>&1
 */5 * * * * /opt/quanttrader/scripts/manage-cron.sh >> /var/log/quanttrader/manage.log 2>&1
 */5 * * * * /opt/quanttrader/scripts/heartbeat-cron.sh >> /var/log/quanttrader/heartbeat.log 2>&1
