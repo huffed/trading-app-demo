@@ -41,9 +41,11 @@
     "ask": [
       "Bash(make backtest-update *)",
       "Bash(make deploy *)",
+      "Bash(make deploy)",
       "Bash(make status *)",
       "Bash(make status)",
       "Bash(make logs *)",
+      "Bash(make logs)",
       "Bash(make format *)",
       "Bash(make format-all-check *)",
       "Bash(make db-types *)",

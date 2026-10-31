@@ -10,7 +10,11 @@ src/lib/scan/**
 src/lib/brokers/**
 src/lib/algorithm/**
 src/lib/patterns/**
+src/lib/conditions/**
+src/lib/signals/**
+src/lib/ai/**
 src/lib/market-data/**
+src/lib/utils/date.ts
 src/lib/validators/algorithm.ts
 src/lib/constants/markets.ts
 src/lib/constants/prop-firm.ts

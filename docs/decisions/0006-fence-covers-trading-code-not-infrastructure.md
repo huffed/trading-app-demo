@@ -12,7 +12,10 @@ The live-path fence (`.claude/hooks/live-paths.txt`, enforced by `guard-paths.sh
 | `src/lib/brokers/**` | execution: the broker adapters |
 | `src/lib/algorithm/**` | strategy rules, gates, structural SL, sizing, rules post-processing |
 | `src/lib/patterns/**` | strategy detectors (ICT/SMC, daily bias) |
-| `src/lib/market-data/**` | the paper engine's price and fill config (provider chain, caches, indicators, condition evaluation) and the backtesters the golden file pins |
+| `src/lib/conditions/**` | the entry/exit verdict (`checkConditions`) and the conviction multiplier shared by the live scan and the backtester |
+| `src/lib/signals/**`, `src/lib/ai/**` | the live signal evaluation the scan calls and the LLM-trader client and prompts (dormant path, validated-baseline material) |
+| `src/lib/market-data/**` | the paper engine's price and fill config (provider chain, caches), indicators, and the backtesters the golden file pins |
+| `src/lib/utils/date.ts` | the day boundary FTMO limits and the portfolio halt use (`getTodayAnchor`) |
 | `src/lib/validators/algorithm.ts` | the rules schema and its legacy normalisation |
 | `src/lib/constants/markets.ts`, `src/lib/constants/prop-firm.ts`, `src/lib/constants/defaults.ts` | sizing inputs (pip sizes, typical spreads, catalog), FTMO risk presets, and the engine defaults applied when rules omit a field |
 | `src/lib/cohort/**` | the auto-pause the engine applies |
@@ -24,7 +27,7 @@ The live-path fence (`.claude/hooks/live-paths.txt`, enforced by `guard-paths.sh
 
 **Not fenced:** `ops/**` and `scripts/ops/**`. They are infrastructure, not behaviour. Their protection is the one they already have: `shellcheck -S warning` in `make lint-shell`, lint-staged and CI; a fresh-context review on every PR that touches them; and the operator's approval of every command that runs on the host (`make deploy`, `make status` and `make logs` all prompt). This removal is permanent, not a Phase D exemption. `QT_ALLOW_LIVE_EDITS` stays unused until the audit verdict.
 
-Relative to 0004's list, this decision **adds** `src/lib/algorithm/**`, `src/lib/patterns/**`, `src/lib/market-data/**`, `src/lib/validators/algorithm.ts`, `src/lib/constants/markets.ts`, `src/lib/constants/prop-firm.ts`, `src/lib/constants/defaults.ts`, `src/lib/cohort/**`, `src/lib/api/**` and `supabase/migrations/**`: they implement the categories the operator named (strategies, risk, sizing, the engine's migrations, the paper engine's config). The operator strikes any of these at the next check-in if the mapping is too wide; the cost of a wrong inclusion is one stop-and-ask, the cost of a wrong exclusion is a silent behaviour change during the freeze.
+Relative to 0004's list, this decision **adds** `src/lib/algorithm/**`, `src/lib/patterns/**`, `src/lib/market-data/**`, `src/lib/conditions/**`, `src/lib/signals/**`, `src/lib/ai/**`, `src/lib/utils/date.ts`, `src/lib/validators/algorithm.ts`, `src/lib/constants/markets.ts`, `src/lib/constants/prop-firm.ts`, `src/lib/constants/defaults.ts`, `src/lib/cohort/**`, `src/lib/api/**` and `supabase/migrations/**`: they implement the categories the operator named (strategies, risk, sizing, the engine's migrations, the paper engine's config). The operator strikes any of these at the next check-in if the mapping is too wide; the cost of a wrong inclusion is one stop-and-ask, the cost of a wrong exclusion is a silent behaviour change during the freeze.
 
 ## Why
 

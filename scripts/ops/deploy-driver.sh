@@ -1,28 +1,48 @@
 #!/usr/bin/env bash
-# scripts/ops/deploy-driver.sh — runs on the workstation; `make deploy [REF=…]`.
-# 1. refuses unless scripts/ops/ in this checkout equals origin/dev: only the reviewed
-#    scripts run on the host, never a branch or a working-tree edit;
-# 2. resolves REF to a commit on origin/dev here (names are looked up on origin first,
-#    so REF=dev means origin/dev), so the host never resolves a name;
-# 3. copies deploy.sh to a per-run file on the host and starts it detached, its output in
-#    /var/log/quanttrader/deploy-<stamp>.log, then follows that log — a dropped ssh does
-#    not stop the run (re-attach: make logs LOG=deploy-<stamp> N=60);
-# 4. appends a row to docs/decisions/deploys.md for every finished run, OK or FAIL (the
-#    row is written before the pointer step and cannot be lost to it), then on OK moves
-#    the production pointer main: create, fast-forward, a leased force-update for a
-#    rollback to an ancestor, or left alone with a message when the histories diverge.
+# scripts/ops/deploy-driver.sh — runs on the workstation; `make deploy REF=…`.
+# 1. refuses in market hours (Sunday 22:00 to Friday 22:00 UK) unless QT_MARKET_HOURS_OK=1,
+#    the operator's explicit call, which the host records in its ledger line;
+# 2. refuses unless scripts/ops/ in this checkout equals origin/dev, and streams the host
+#    script from origin/dev itself: only the reviewed scripts run on the host;
+# 3. resolves REF to a commit on origin/dev here (names are looked up on origin first, so
+#    REF=dev means origin/dev), so the host never resolves a name;
+# 4. starts the host script detached, its output in /var/log/quanttrader/deploy-<stamp>.log,
+#    and follows that log — a dropped ssh or a Ctrl-C does not stop the run
+#    (the run's log so far: make logs LOG=deploy-<stamp> N=60);
+# 5. appends a row to docs/decisions/deploys.md for every finished or interrupted run — OK,
+#    FAIL (saying whether the failed commit went live), UNKNOWN or INTERRUPTED — then, on
+#    OK only, moves the production pointer main: create, fast-forward, a leased force-update
+#    for a rollback to an ancestor, or left alone with a message when the histories diverge.
+#    An EXIT trap writes the OK row, so the pointer step cannot lose it.
 set -euo pipefail
-REF=${1:-origin/dev}
+REF=${1:-}
 HOST=${QT_HOST:-qt}
+MARKET_OK=${QT_MARKET_HOURS_OK:-0}
 cd "$(git rev-parse --show-toplevel)"
 LEDGER=docs/decisions/deploys.md
 die() {
   echo "deploy: $*" >&2
   exit 1
 }
+in_market_hours() {
+  local u h
+  u=$(TZ=Europe/London date +%u)
+  h=$((10#$(TZ=Europe/London date +%H)))
+  case "$u" in
+    1 | 2 | 3 | 4) return 0 ;;
+    5) [ "$h" -lt 22 ] ;;
+    7) [ "$h" -ge 22 ] ;;
+    *) return 1 ;;
+  esac
+}
 
+[ -n "$REF" ] || die "REF is empty; make deploy REF=<commit|branch|tag> (the Makefile's default is origin/dev)"
 [[ "$HOST" =~ ^[A-Za-z0-9._-]+$ ]] || die "QT_HOST must be an ssh host alias (letters, digits, . _ -)"
 [[ "$REF" =~ ^[A-Za-z0-9_./-]+$ && "$REF" != -* && "$REF" != *..* ]] || die "REF must be a commit, tag or branch name"
+[[ "$MARKET_OK" =~ ^[01]$ ]] || die "QT_MARKET_HOURS_OK must be 0 or 1"
+if in_market_hours && [ "$MARKET_OK" != 1 ]; then
+  die "market hours (Sunday 22:00 to Friday 22:00 UK): no deploy; the kill switch is the only market-hours change. QT_MARKET_HOURS_OK=1 overrides — the operator's call, recorded on the host"
+fi
 git fetch --quiet --prune origin || die "git fetch origin failed"
 if ! git diff --quiet origin/dev -- scripts/ops/ || [ -n "$(git ls-files --others --exclude-standard scripts/ops/)" ]; then
   die "scripts/ops/ in this checkout differs from origin/dev; merge first — only the reviewed scripts run on the host (decision 0005)"
@@ -37,32 +57,41 @@ git merge-base --is-ancestor "$sha" origin/dev || die "${sha:0:12} is not on ori
 stamp=$(date -u +%Y%m%dT%H%M%SZ)
 remote_script=/tmp/qt-deploy-$stamp.sh
 runlog=/var/log/quanttrader/deploy-$stamp.log
+row() { printf '| %s | %s | `%s` | %s |\n' "$(date -u +%FT%TZ)" "$1" "$sha" "$2" >> "$LEDGER"; }
 echo "deploy: $REF = ${sha:0:12} → $HOST (run log on the host: $runlog)"
-scp -q -o BatchMode=yes scripts/ops/deploy.sh "$HOST:$remote_script"
-pid=$(ssh -o BatchMode=yes -- "$HOST" "sudo -n -H bash -c 'setsid nohup bash $remote_script $sha $REF > $runlog 2>&1 < /dev/null & echo \$!'")
+git show origin/dev:scripts/ops/deploy.sh | ssh -o BatchMode=yes -- "$HOST" "cat > $remote_script"
+pid=$(ssh -o BatchMode=yes -- "$HOST" "sudo -n -H bash -c 'setsid nohup bash $remote_script $sha $REF $MARKET_OK > $runlog 2>&1 < /dev/null & echo \$!'")
 [[ "$pid" =~ ^[0-9]+$ ]] || die "the host did not start the deploy (got: $pid)"
-ssh -o BatchMode=yes -- "$HOST" "tail -n +1 -f --pid=$pid $runlog" \
+trap 'row "deploy INTERRUPTED on the workstation: $REF → \`${sha:0:7}\`" "the host run continues: make logs LOG=deploy-$stamp N=60; then make status"; echo "deploy: interrupted here; the host run continues (make logs LOG=deploy-$stamp N=60)" >&2; exit 130' INT TERM
+ssh -o BatchMode=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=3 -- "$HOST" "tail -n +1 -f --pid=$pid $runlog" \
   || echo "deploy: the follow connection ended; the host run continues (make logs LOG=deploy-$stamp N=60)"
 
 result=""
 for _ in $(seq 1 160); do # up to 40 minutes
-  final=$(ssh -o BatchMode=yes -- "$HOST" "tail -n 5 $runlog" 2> /dev/null || true)
+  final=$(ssh -o BatchMode=yes -- "$HOST" "tail -n 6 $runlog" 2> /dev/null || true)
   result=$(sed -n 's/^DEPLOY_RESULT=//p' <<< "$final" | tail -n 1)
   [ -n "$result" ] && break
   sleep 15
 done
-now=$(date -u +%FT%TZ)
-if [ "$result" != OK ]; then
-  printf '| %s | deploy FAILED: %s → `%s` | `%s` | host ledger: `make logs LOG=deploys N=5`; run log: `make logs LOG=deploy-%s N=60` |\n' \
-    "$now" "$REF" "${sha:0:7}" "$sha" "$stamp" >> "$LEDGER"
-  die "the host reported '${result:-no result within 40 min}'; row appended to $LEDGER; main not moved"
-fi
+trap - INT TERM
+phase=$(sed -n 's/^DEPLOY_PHASE=//p' <<< "$final" | tail -n 1)
 prev=$(sed -n 's/^PREVIOUS_SHA=//p' <<< "$final" | tail -n 1)
+if [ -z "$result" ]; then
+  row "deploy RESULT UNKNOWN after 40 min: $REF → \`${sha:0:7}\`" "the host run may still finish: make logs LOG=deploy-$stamp N=60; make status; main not moved"
+  die "no result from the host within 40 min; row appended to $LEDGER; main not moved"
+fi
+if [ "$result" != OK ]; then
+  if [ "$phase" = restarted ]; then
+    row "deploy FAILED after the restart: \`${prev:0:7}\` → \`${sha:0:7}\` is LIVE, unverified" "roll back now: make deploy REF=${prev:0:12}; run log: make logs LOG=deploy-$stamp N=60"
+  else
+    row "deploy FAILED before the restart (phase ${phase:-?}): $REF → \`${sha:0:7}\`" "\`${prev:0:7}\` keeps running and was restored on disk; run log: make logs LOG=deploy-$stamp N=60"
+  fi
+  die "the host reported FAIL (phase ${phase:-?}); row appended to $LEDGER; main not moved"
+fi
 pointer="main not moved: the pointer step did not complete"
 write_row() {
-  printf '| %s | deploy `%s` → `%s` | `%s` | ref %s; verified: service active, /login 200, next manage + heartbeat (stale_count 0) + scan ticks 200; %s |\n' \
-    "$now" "${prev:0:7}" "${sha:0:7}" "$sha" "$REF" "$pointer" >> "$LEDGER"
-  echo "deploy: ${sha:0:12} is live on $HOST (was ${prev:0:12}); $pointer; row appended to $LEDGER — commit it in the next PR"
+  row "deploy \`${prev:0:7}\` → \`${sha:0:7}\`" "ref $REF; verified: service active on the pinned Node, /login 200, next manage + heartbeat (stale_count 0) + scan ticks 200; $pointer"
+  echo "deploy: ${sha:0:12} is live and verified on $HOST (was ${prev:0:12}); $pointer; row appended to $LEDGER — commit it in the next PR"
 }
 trap write_row EXIT
 

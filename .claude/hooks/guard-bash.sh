@@ -185,6 +185,11 @@ while IFS=$'\t' read -r sep seg; do
     if grep -qE "(^|[[:space:]])(-f|--file|--makefile|-C|--directory|-e|--eval|-I|--include-dir)([[:space:]]|=|$)" <<<"$uq"; then
       deny "$orig" "make with an alternate makefile, directory, include dir or --eval runs code the Makefile does not define"
     fi
+    # a $ or a backtick anywhere in a make command is either a make function such as $(shell …), which runs when
+    # make reads the override, or a shell expansion bash performs after this hook has looked
+    if grep -qE '[$`]' <<<"$s"; then
+      deny "$orig" "a make command containing \$ or a backtick: \$(shell …) runs when make reads the override, and bash expands \$'…' after the hook has looked"
+    fi
     # each NAME=value token's VALUE (quoted or bare) must be free of shell metacharacters; redirects after it are fine
     while IFS= read -r assignment; do
       [ -n "$assignment" ] || continue
@@ -195,7 +200,7 @@ while IFS=$'\t' read -r sep seg; do
       if grep -qE '[;&|<>`$\\"'"'"']' <<<"$value" || grep -qE '^-' <<<"$value"; then
         deny "$orig" "a make variable override containing a shell metacharacter, a quote, a backslash, a dollar sign or a leading dash would run inside the recipe or change what ssh/make does"
       fi
-    done < <(grep -oE "[A-Za-z_][A-Za-z0-9_]*=(\"[^\"]*\"|'[^']*'|[^[:space:]]*)" <<<"$s" || true)
+    done < <(grep -oE "[A-Za-z_][A-Za-z0-9_]*(::?|[+?!])?=(\"[^\"]*\"|'[^']*'|[^[:space:]]*)" <<<"$s" || true)
   fi
   if grep -qE "^git[[:space:]]+(diff|log|show|blame|grep)([[:space:]]|$)" <<<"$s" && grep -qE "(^|[[:space:]])(--output(=|[[:space:]])|-O|--ext-diff)" <<<"$uq"; then
     deny "$orig" "git --output / -O / --ext-diff write a file or run a command from a read-only git command"

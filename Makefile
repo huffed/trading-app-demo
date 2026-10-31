@@ -4,12 +4,17 @@ SHELL := /bin/bash
 .DEFAULT_GOAL := help
 PNPM ?= pnpm
 BASE ?= origin/dev
-# VPS targets read these from the environment inside the recipe ($$VAR), never by make expansion,
-# so a value cannot inject into the local or the remote shell; each is validated first.
+# VPS targets read these from the environment inside the recipe ($$VAR) and validate them there.
+# `override X := $(value X)` freezes each as the literal text it was given, so a value such as
+# `$(shell …)` is never expanded by make (not even when make exports it to the recipe's environment).
 QT_HOST ?= qt
 REF ?= origin/dev
 LOG ?= scan
 N ?= 40
+override QT_HOST := $(value QT_HOST)
+override REF := $(value REF)
+override LOG := $(value LOG)
+override N := $(value N)
 export QT_HOST REF LOG N
 
 .PHONY: help install lint lint-strict lint-shell typecheck format format-check format-all-check \
