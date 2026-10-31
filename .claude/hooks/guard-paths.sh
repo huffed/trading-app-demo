@@ -44,7 +44,7 @@ if [ "$live" = "1" ]; then
   if [ "${QT_ALLOW_LIVE_EDITS:-0}" != "1" ]; then
     deny "live-path fence (.claude/hooks/live-paths.txt). Trading code — engine, runner, strategies, risk, sizing, execution, the engine's migrations, the paper engine's price config — changes only in a PR about it, in a session the operator started with the override — not before the audit verdict. Stop and ask the operator (docs/decisions/0004, 0006)"
   fi
-  notice="guard-paths: FENCE DOWN (live-path override is set) — writing live-runner path ${rel}"
+  notice="guard-paths: FENCE DOWN (live-path override is set) — writing fenced live path ${rel}"
   printf '%s' "$notice" | node -e '
     let s = ""; process.stdin.on("data", (d) => (s += d)).on("end", () => {
       process.stdout.write(JSON.stringify({ systemMessage: s }));

@@ -5,17 +5,24 @@ SHELL := /bin/bash
 PNPM ?= pnpm
 BASE ?= origin/dev
 # VPS targets read these from the environment inside the recipe ($$VAR) and validate them there.
-# `override X := $(value X)` freezes each as the literal text it was given, so a value such as
-# `$(shell …)` is never expanded by make (not even when make exports it to the recipe's environment).
+# `override X := $(value X)` freezes each as the text it was given, so exporting it to the recipe's
+# environment expands nothing (a command-line `X:=$(shell …)` is expanded by make while it parses its
+# arguments, which the Claude Code Bash guard refuses by refusing `$` in make commands). REF must come
+# from the command line: a REF exported by the shell would turn a bare `make deploy` into a silent rollback.
+ifeq ($(origin REF),environment)
+$(error REF is set in the environment; unset it and pass it on the command line: make deploy REF=<commit|branch|tag>)
+endif
 QT_HOST ?= qt
 REF ?= origin/dev
 LOG ?= scan
 N ?= 40
+QT_MARKET_HOURS_OK ?= 0
 override QT_HOST := $(value QT_HOST)
 override REF := $(value REF)
 override LOG := $(value LOG)
 override N := $(value N)
-export QT_HOST REF LOG N
+override QT_MARKET_HOURS_OK := $(value QT_MARKET_HOURS_OK)
+export QT_HOST REF LOG N QT_MARKET_HOURS_OK
 
 .PHONY: help install lint lint-strict lint-shell typecheck format format-check format-all-check \
         test test-watch build check backtest validate parity db-types db-types-check \

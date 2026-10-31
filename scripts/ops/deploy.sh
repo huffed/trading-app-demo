@@ -12,9 +12,11 @@
 # the unit's Node → detached checkout → pnpm install --frozen-lockfile → pnpm build (if
 # either fails, the tree and the build of the running commit are restored: `next build`
 # empties .next first) → refuse to restart in market hours → wait (≤ 20 min) for a gap
-# between cron ticks with no wrapper running → systemctl restart → live.sha → service
-# active, its Node equals .nvmrc, /login 200 → the next manage, heartbeat (stale_count 0)
-# and scan ticks log http=200 (≤ 25 min) → running.sha → OK.
+# between cron ticks with no wrapper running → re-check market hours → systemctl restart →
+# live.sha → service active, its Node equals .nvmrc, /login 200 → the next manage,
+# heartbeat (stale_count 0) and scan ticks log http=200 (≤ 25 min) → running.sha → OK.
+# Prints DEPLOY_RESULT, DEPLOY_PHASE, DEPLOY_RESTORE (none|ok|failed), PREVIOUS_SHA and
+# on success DEPLOYED_SHA and DEPLOYED_RUNTIME for the driver's ledger row.
 # No secret is read or printed: the cron wrappers authenticate the routes themselves.
 # Root today (D.1); `ops` after D.2 with `sudo -n systemctl restart` as the privileged step.
 set -euo pipefail
@@ -28,7 +30,8 @@ SHA=${1:-}
 REF=${2:-${1:-}}
 MARKET_OK=${3:-0}
 PREV="?"
-PHASE=start # start | checked-out | restarted
+PHASE=start   # start | checked-out | restarted
+RESTORE=none  # none | ok | failed — what restore_previous did
 RESTART_AT=""
 
 log() { printf '[%s] deploy: %s\n' "$(date -u +%FT%TZ)" "$*"; }
@@ -37,28 +40,36 @@ fail() {
   trap - ERR
   set +e
   local step=$1 extra=""
-  [ -n "$RESTART_AT" ] && extra=" restart=$RESTART_AT live=$SHA"
-  ledger "FAIL ref=$REF sha=$SHA running=$PREV phase=$PHASE step=$step$extra"
+  [ "$PHASE" = restarted ] && extra=" restart=$RESTART_AT live=$SHA"
   log "FAILED ($PHASE): $step"
   case "$PHASE" in
     checked-out) restore_previous ;;
     restarted) log "${SHA:0:12} is LIVE since $RESTART_AT and failed verification; roll back now: make deploy REF=$PREV" ;;
   esac
+  ledger "FAIL ref=$REF sha=$SHA running=$PREV phase=$PHASE step=$step restore=$RESTORE market_ok=$MARKET_OK$extra"
   echo "PREVIOUS_SHA=$PREV"
   echo "DEPLOY_PHASE=$PHASE"
+  echo "DEPLOY_RESTORE=$RESTORE"
   echo "DEPLOY_RESULT=FAIL"
   exit 1
 }
-restore_previous() {
-  log "restoring the working tree and the build of ${PREV:0:12}, the commit the service is running (it was not restarted)"
+restore_previous() { # the service was not restarted by this run, or its restart failed: bring the running commit back
+  log "restoring the working tree and the build of ${PREV:0:12}, the commit the service is running"
   if git checkout --quiet --detach "$PREV" \
     && pnpm install --frozen-lockfile > "$LOGDIR/restore-install.log" 2>&1 \
     && pnpm build > "$LOGDIR/restore-build.log" 2>&1; then
-    log "restored ${PREV:0:12} on disk; the service keeps running it"
+    RESTORE=ok
+    log "restored ${PREV:0:12} on disk"
   else
+    RESTORE=failed
     log "RESTORE FAILED: the running process has no build on disk; run  make deploy REF=$PREV  now (logs: $LOGDIR/restore-*.log)"
   fi
+  if [ "$(systemctl is-active quanttrader || true)" != active ]; then
+    log "the service is not active; starting it"
+    restart_cmd start || { RESTORE=failed; log "START FAILED: systemctl start quanttrader did not succeed"; }
+  fi
 }
+restart_cmd() { if [ "$(id -u)" = 0 ]; then systemctl "$1" quanttrader; else sudo -n systemctl "$1" quanttrader; fi; }
 in_market_hours() { # the FTMO/forex week in UK time: Sunday 22:00 → Friday 22:00 (the standing rule: no VPS change then)
   local u h
   u=$(TZ=Europe/London date +%u)
@@ -195,13 +206,14 @@ main() {
     fail "market hours (Sunday 22:00 to Friday 22:00 UK): no restart; the kill switch is the only market-hours change (QT_MARKET_HOURS_OK=1 on the workstation overrides — the operator's call)"
   fi
   wait_for_gap
-  RESTART_AT=$(date -u +%FT%TZ)
-  log "restarting quanttrader (between ticks, no wrapper running)"
-  if [ "$(id -u)" = 0 ]; then
-    systemctl restart quanttrader || fail "systemctl restart quanttrader"
-  else
-    sudo -n systemctl restart quanttrader || fail "sudo -n systemctl restart quanttrader"
+  if in_market_hours && [ "$MARKET_OK" != 1 ]; then # the wait may have crossed the Sunday open
+    fail "the market opened while waiting for a tick gap; no restart (QT_MARKET_HOURS_OK=1 overrides)"
   fi
+  local restart_at
+  restart_at=$(date -u +%FT%TZ)
+  log "restarting quanttrader (between ticks, no wrapper running)"
+  restart_cmd restart || fail "systemctl restart quanttrader"
+  RESTART_AT=$restart_at
   PHASE=restarted
   printf '%s\n' "$SHA" > "$LIVE"
   sleep 3
@@ -222,11 +234,13 @@ main() {
   wait_for_ticks
 
   printf '%s\n' "$SHA" > "$RUNNING"
-  ledger "OK ref=$REF sha=$SHA prev=$PREV runtime=$runtime restart=$RESTART_AT"
+  ledger "OK ref=$REF sha=$SHA prev=$PREV runtime=$runtime restart=$RESTART_AT market_ok=$MARKET_OK"
   log "OK ${SHA:0:12} is live and verified (was ${PREV:0:12}); rollback: make deploy REF=$PREV"
   echo "DEPLOYED_SHA=$SHA"
+  echo "DEPLOYED_RUNTIME=$runtime"
   echo "PREVIOUS_SHA=$PREV"
   echo "DEPLOY_PHASE=verified"
+  echo "DEPLOY_RESTORE=$RESTORE"
   echo "DEPLOY_RESULT=OK"
 }
 main "$@"

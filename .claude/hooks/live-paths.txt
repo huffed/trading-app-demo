@@ -16,6 +16,8 @@ src/lib/ai/**
 src/lib/market-data/**
 src/lib/utils/date.ts
 src/lib/validators/algorithm.ts
+src/lib/validators/position.ts
+src/lib/algo-search/walk-forward-opt.ts
 src/lib/constants/markets.ts
 src/lib/constants/prop-firm.ts
 src/lib/constants/defaults.ts
