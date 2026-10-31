@@ -65,6 +65,9 @@ echo "deploy: $REF = ${sha:0:12} → $HOST (run log on the host: $runlog)"
 git show origin/dev:scripts/ops/deploy.sh | ssh -o BatchMode=yes -- "$HOST" "cat > $remote_script"
 pid=$(ssh -o BatchMode=yes -- "$HOST" "setsid nohup bash $remote_script $sha $REF $MARKET_OK > $runlog 2>&1 < /dev/null & echo \$!")
 [[ "$pid" =~ ^[0-9]+$ ]] || die "the host did not start the deploy (got: $pid)"
+sleep 5
+ssh -o BatchMode=yes -- "$HOST" "kill -0 $pid 2> /dev/null && test -f $runlog" \
+  || die "the host run died at once or could not write $runlog (is /var/log/quanttrader owned by the deploy user? docs/runbooks/d2-node-26-ops-user-loopback.md step 2)"
 trap 'row "deploy INTERRUPTED on the workstation: $REF → \`${sha:0:7}\`" "the host run continues: make logs LOG=deploy-$stamp N=60; then make status"; echo "deploy: interrupted here; the host run continues (make logs LOG=deploy-$stamp N=60)" >&2; exit 130' INT TERM
 ssh -o BatchMode=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=3 -- "$HOST" "tail -n +1 -f --pid=$pid $runlog" \
   || echo "deploy: the follow connection ended; the host run continues (make logs LOG=deploy-$stamp N=60)"

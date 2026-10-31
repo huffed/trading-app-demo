@@ -21,7 +21,7 @@ One short section per thing that was set up: **what it is, why it exists, the on
 | see why CI is red | `gh pr checks <n>` then `gh run view <id> --log-failed` | B6 |
 | set up the Python sidecar | `make python-env` | B2/B3 |
 | rotate the cron secret | `docs/runbooks/rotate-cron-secret.md` (manual, ~5 min; last done 2026-10-29) | B1 |
-| harden the VPS | `docs/runbooks/harden-vps-ssh.md` (Phase 1 done 2026-10-29; Phase 2 process user done 2026-10-31 via `d2-node-26-ops-user-loopback.md`; Hetzner firewall and sudoers narrowing remain, D.7) | B1 / D2 |
+| harden the VPS | `docs/runbooks/harden-vps-ssh.md` (Phase 1 done 2026-10-29; Phase 2 process user = D.2, `d2-node-26-ops-user-loopback.md`, decision 0007; Hetzner firewall and sudoers narrowing remain, D.7) | B1 / D2 |
 | see what production runs | `make status` · `make logs LOG=scan N=40` (read-only, over `ssh qt`) | D1 |
 | deploy, or roll back | `make deploy` (default `REF=origin/dev`) · `make deploy REF=<previous sha>` — outside market hours only (§17) | D1 |
 
@@ -65,9 +65,9 @@ Local equivalent (so a secret never reaches GitHub in the first place): `gitleak
 
 ## 5. Environments — Node, pnpm, Python
 
-**What:** `.nvmrc` pins Node `26.13.0` (the "Lithium" LTS line, what the VPS runs system-wide at `/usr/local` since D.2, decision 0007); `package.json` `engines` says `node >=26.0.0 <27` (the major only; `.nvmrc` is the single source of truth for the exact version, CI reads it, and `make deploy` refuses a host or a unit whose Node differs from it), `pnpm >=10`; `pnpm-lock.yaml` is committed and every install uses `--frozen-lockfile`. Python: `scripts/python/pyproject.toml` + `uv.lock` + an exported `requirements.txt` for the sidecar.
+**What:** `.nvmrc` pins Node `26.13.0` (the "Lithium" LTS line, what the VPS runs system-wide at `/usr/local` from D.2 on, decision 0007); `package.json` `engines` says `node >=26.0.0 <27` (the major only; `.nvmrc` is the single source of truth for the exact version, CI reads it, and `make deploy` refuses a host or a unit whose Node differs from it), `pnpm >=10`; `pnpm-lock.yaml` is committed and every install uses `--frozen-lockfile`. Python: `scripts/python/pyproject.toml` + `uv.lock` + an exported `requirements.txt` for the sidecar.
 
-**Why:** three different Node versions were in play (local 25.3, VPS 25.9, `@types/node` 20) and the sidecar had loose `>=` pins with no lock, so "works on my machine" was the only guarantee. Node 25 was not an LTS line and reached end of life on 2026-06-01 (DEBT D-21); the move to 26 happened in D.2 on 2026-10-31 after the full suite, the golden file and the production build were clean on 26.13.0 locally.
+**Why:** three different Node versions were in play (local 25.3, VPS 25.9, `@types/node` 20) and the sidecar had loose `>=` pins with no lock, so "works on my machine" was the only guarantee. Node 25 was not an LTS line and reached end of life on 2026-06-01 (DEBT D-21); the move to 26 is D.2 (decision 0007), made after the full suite, the golden file and the production build were clean on 26.13.0 locally (dev @ 396d710 on 2026-10-31: 2176 passed + 11 expected failures; this PR's commit: 2216 + 11).
 
 **Commands:**
 

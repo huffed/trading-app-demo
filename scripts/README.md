@@ -370,12 +370,12 @@ note and in `~/.ssh/config` as the `qt` alias — **never in this repository**
   m1-band-check 21:30. **Not installed:** walk-forward-opt, quarterly
   research cycle, validate-algo-monthly, prereg-expiration,
   broker-spread-sampler (the table above still lists them).
-- **Firewall:** ufw default-deny; SSH only publicly; port 3000 reachable
-  only on the `tailscale0` interface. Hardened 2026-10-29 (password auth off, root
+- **Firewall:** ufw default-deny; SSH only publicly; from D.2 the app listens
+  on loopback (before: `*:3000`, kept off the internet by ufw alone). Hardened 2026-10-29 (password auth off, root
   login off, fail2ban, `ufw limit 22/tcp`): `docs/runbooks/harden-vps-ssh.md`.
 - **Frontend from any device: Tailscale.** The VPS and operator devices
-  share a tailnet; browse `http://quanttrader-prod:3000` from a device
-  signed into the Tailscale account. SSH-tunnel fallback:
+  share a tailnet; browse `https://quanttrader-prod.tail5612ed.ts.net`
+  (tailscale serve → loopback, from D.2; before: `http://quanttrader-prod:3000`). SSH-tunnel fallback:
   `ssh -L 3000:localhost:3000 qt`.
 - **Deploy after a merge to dev:** `make deploy` (rollback: `make deploy REF=<previous sha>`)
   runs `scripts/ops/deploy.sh` on the host, verifies the service against the real cron
@@ -403,11 +403,13 @@ commands below on the VPS (`ssh qt`, as `ops`; `sudo` where shown).
    - anything else → step 2.
 2. **Restart the service:** `sudo systemctl restart quanttrader`
    then `sudo journalctl -u quanttrader -n 20` (expect "✓ Ready").
-   If the log shows a build/module error (usually after a code merge):
-   `sudo -i`, then `cd /opt/quanttrader && . ~/.nvm/nvm.sh && pnpm build && systemctl restart quanttrader`.
-3. **Are the crons installed + firing?** `sudo crontab -l` (expect 10 entries) and
-   `sudo tail -4 /var/log/quanttrader/scan.log` (expect recent `http=200`).
-   Crontab empty → restore from the "Current schedule" section above.
+   If the log shows a build/module error (usually after a code merge): from the
+   workstation, `make deploy REF=<the verified running sha from make status>` — never
+   `pnpm build` by hand on the host (it would leave a root-owned `.next` in the `ops` checkout).
+3. **Are the crons installed + firing?** `crontab -l` as `ops` (expect the PATH line + 10
+   entries; `sudo crontab -u root -l` must say "no crontab for root" — two schedulers
+   double every tick) and `tail -4 /var/log/quanttrader/scan.log` (expect recent `http=200`).
+   Crontab empty → `crontab ops/crontab` as `ops` from a checkout of `dev`.
 4. **Which tick is stale?** The failing GitHub job names it: scan (>35 min),
    manage/heartbeat (>45 min), alpha-decay (>26 h — cron runs 6-hourly at :10).
 5. **Confirm recovery:** wait for the next scheduled dead-man run (≤30 min) or

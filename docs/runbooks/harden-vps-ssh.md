@@ -99,9 +99,9 @@ ssh qt 'sudo sshd -T | grep -iE "^(permitrootlogin|passwordauthentication|allowu
 
 Expect: `permitrootlogin no`, `passwordauthentication no`, `allowusers ops`, the LIMIT rule, jail running, service `active`, a fresh `http=200`.
 
-## Phase 2 — remove root (executed 2026-10-31 as D.2: `docs/runbooks/d2-node-26-ops-user-loopback.md`, decision 0007; the sudoers narrowing below waits for D.7)
+## Phase 2 — remove root (D.2: `docs/runbooks/d2-node-26-ops-user-loopback.md`, decision 0007; the sudoers narrowing below waits for D.7)
 
-Not today: the deploy script, the nvm install, the crontab and the systemd unit all assume root. The sequence, so it is on record:
+The sequence as first drafted, kept for the record; the executed design is the D.2 runbook (system-wide Node at `/usr/local`, no nvm for `ops`, node runs Next directly, HTTPS remote instead of a deploy key):
 
 1. **Done 2026-10-29:** `ops` exists (`useradd -m`, key copied, `/etc/sudoers.d/ops` is `NOPASSWD:ALL`). Narrow the sudoers entry to the commands the deploy and the runbooks need once Phase D fixes the deploy path.
 2. Install nvm + the pinned Node for `ops` (`.nvmrc` arrives in Phase B); `chown -R ops:ops /opt/quanttrader`; move the deploy key to `/home/ops/.ssh/`.

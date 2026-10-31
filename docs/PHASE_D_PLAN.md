@@ -1,6 +1,6 @@
 # Phase D — operations: plan from the read-only inventory of 2026-10-30
 
-Status: **plan, nothing executed.** Every step below changes the VPS only after the operator's check-in approval, gets a dated `docs/decisions/` entry saying what changed and when (so the audit can bracket paper-trading results), and is reversible by the step before it. Order is the operator's: reproducible deploy first, then the process user and the Node LTS move, then kill switch, alerts, nightly parity, backups. Hetzner firewall, the fate of `main` and the sudoers narrowing as they are reached.
+Status: **D.1 executed 2026-10-31 (decision 0005, ledger rows in `docs/decisions/deploys.md`); D.2 designed (decision 0007), its host step recorded in the ledger when run; D.3–D.7 planned.** Every step below changes the VPS only after the operator's check-in approval, gets a dated `docs/decisions/` entry saying what changed and when (so the audit can bracket paper-trading results), and is reversible by the step before it. Order is the operator's: reproducible deploy first, then the process user and the Node LTS move, then kill switch, alerts, nightly parity, backups. Hetzner firewall, the fate of `main` and the sudoers narrowing as they are reached.
 
 ## D.0 Inventory (read-only, 2026-10-30, `ssh qt` as `ops`)
 
@@ -32,20 +32,20 @@ Status: **plan, nothing executed.** Every step below changes the VPS only after 
 
 **First execution (approved 2026-10-31, deadline 20:00 UK):** deploy current `dev` (Phases B + C + D.1, golden MATCH) to replace `3ee22e2`; the host reinstalls `node_modules` from the lockfile. Verify: service active, the next scheduled cron tick logs 200, heartbeat healthy — the script checks `systemctl is-active`, `/login`, and the next manage, heartbeat (`stale_count` 0) and scan ticks. Then take the pending **reboot**, verify again (`make status`: service active, ticks 200). Two ledger rows — deploy, then reboot — and entry `0005-reproducible-deploy-and-production-pointer.md`.
 
-## D.2 Process user and Node LTS — executed per decision 0007 (2026-10-31)
+## D.2 Process user and Node LTS — designed per decision 0007 (2026-10-31); execution recorded in the deploy ledger
 
 Approved 2026-10-31 (questions 2 and 3) and designed in `docs/decisions/0007-node-26-ops-user-loopback-tailscale.md`; the host procedure with its verification and rollback is `docs/runbooks/d2-node-26-ops-user-loopback.md`.
 
 - **Node 26.13.0** (LTS "Lithium"), system-wide at `/usr/local` from the checksum-verified official tarball; `.nvmrc` 26.13.0, `engines` `>=26.0.0 <27`, CI reads `.nvmrc`; the deploy refuses a mismatch of the host's or the unit's Node and checks the service's own Node after the restart. Local validation on 26.13.0 before any host change: `make check` (2176 passed + 11 expected failures), `make backtest` MATCH, `make build` clean.
-- **Process user:** `chown -R ops:ops /opt/quanttrader /var/log/quanttrader` (the env file chowned in place, never read or moved); unit `User=ops` with `NoNewPrivileges`, `PrivateTmp`, `ProtectSystem=full`, `ProtectHome`, `ReadWritePaths` = checkout + logs; crontab moves to `ops` and root's is removed in the same minute; `make deploy` runs as `ops` with `sudo -n systemctl restart quanttrader` as the only privileged step.
-- **Loopback + Tailscale:** `next start -H 127.0.0.1 -p 3000`; `tailscale serve --bg --https=443 http://127.0.0.1:3000`; the dashboard is confirmed from a tailnet device before anything else changes; ufw stays as the second layer; the SSH tunnel remains the fallback.
+- **Process user:** `chown -R ops:ops /opt/quanttrader /var/log/quanttrader` (the env file chowned in place, never read or moved); unit `User=ops` with `NoNewPrivileges`, `ProtectSystem=full`, `ProtectHome`, `HOME=/var/lib/quanttrader`, running Next's entry point with node directly (pnpm would read `~/.config/pnpm` under `ProtectHome`); the unit is tested in its sandbox with `systemd-run` before anything restarts; the crontab moves to `ops` with a `PATH` line (the three `pnpm dlx` wrappers) and root's is removed in the same minute; `make deploy` runs as `ops` with `sudo -n systemctl restart quanttrader` as the only privileged step.
+- **Loopback + Tailscale:** `tailscale serve --bg --https=443 http://127.0.0.1:3000` is set up and confirmed from a tailnet device (sign-in included) **before** the deploy rebinds Next to `127.0.0.1:3000`; ufw stays as the second layer; the SSH tunnel remains the fallback.
 - **HTTPS git remote:** the repository is public, so the host keeps no deploy key for `ops`; revisit if the repository ever goes private (the deploy fails loudly at `git fetch`).
 - **Sudoers narrowing:** moved to D.7, after the remaining root work (logrotate, backups, firewall) — `ops` keeps `NOPASSWD:ALL` until then (DEBT D-23).
 
 ## D.3 Kill switch (paper only, during a window the operator confirms)
 
 - `make kill-switch` → `scripts/ops/kill-switch.sh` on the VPS, in this order: (1) pause every active algorithm (admin route or SQL through the app's admin client — to be chosen after reading `src/app/api/admin/`), so no new entries; (2) flatten open **paper** positions through `/api/admin/flatten-algo`; (3) stop the service and the crontab (`systemctl stop quanttrader`; crontab disabled by renaming); (4) print what it did. `make resume` reverses (3) and un-pauses nothing — un-pausing is a deliberate operator act.
-- Test on paper only, in the confirmed window: run, verify in the database that positions are closed with the right `exit_reason` (D-01: the halt reasons are rejected by the CHECK today, so the test may surface that), verify the dead-man alert fires (it should: the stop is real), then `make resume`. Entry: `0007-kill-switch.md` with the test log.
+- Test on paper only, in the confirmed window: run, verify in the database that positions are closed with the right `exit_reason` (D-01: the halt reasons are rejected by the CHECK today, so the test may surface that), verify the dead-man alert fires (it should: the stop is real), then `make resume`. Entry: `0008-kill-switch.md` with the test log.
 
 ## D.4 Alerts and hygiene
 
