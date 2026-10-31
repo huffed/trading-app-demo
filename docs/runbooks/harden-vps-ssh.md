@@ -99,7 +99,7 @@ ssh qt 'sudo sshd -T | grep -iE "^(permitrootlogin|passwordauthentication|allowu
 
 Expect: `permitrootlogin no`, `passwordauthentication no`, `allowusers ops`, the LIMIT rule, jail running, service `active`, a fresh `http=200`.
 
-## Phase 2 — remove root (Phase D, maintenance window, ~45 minutes)
+## Phase 2 — remove root (executed 2026-10-31 as D.2: `docs/runbooks/d2-node-26-ops-user-loopback.md`, decision 0007; the sudoers narrowing below waits for D.7)
 
 Not today: the deploy script, the nvm install, the crontab and the systemd unit all assume root. The sequence, so it is on record:
 

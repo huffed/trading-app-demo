@@ -1,18 +1,27 @@
-# /etc/systemd/system/quanttrader.service — as captured from the host on 2026-10-31.
-# Runs as root under nvm's Node 25.9.0 and binds *:3000 (ufw keeps it off the
-# internet). D.2 changes User=, the Node path, the bind address and adds
-# hardening; the file in this directory is the source of truth from then on.
+# /etc/systemd/system/quanttrader.service — D.2 (decision 0007): runs as `ops` on the
+# system-wide Node (/usr/local, pinned by .nvmrc and checked by the deploy), listens on
+# loopback only; the dashboard is reached over Tailscale (tailscale serve → 127.0.0.1:3000)
+# and the cron wrappers call loopback. Apply: install -m 644 → systemctl daemon-reload →
+# the next `make deploy` restarts it (never restart by hand to "finish" a deploy).
 [Unit]
-Description=QuantTrader production server (port 3000, localhost consumers only)
+Description=QuantTrader production server (loopback :3000; Tailscale serve and the cron wrappers are its only clients)
 After=network-online.target
 Wants=network-online.target
 
 [Service]
+User=ops
+Group=ops
 WorkingDirectory=/opt/quanttrader
-Environment=PATH=/root/.nvm/versions/node/v25.9.0/bin:/usr/local/bin:/usr/bin:/bin
-ExecStart=/root/.nvm/versions/node/v25.9.0/bin/pnpm start
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+Environment=NODE_ENV=production
+ExecStart=/usr/local/bin/pnpm exec next start -H 127.0.0.1 -p 3000
 Restart=always
 RestartSec=5
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=full
+ProtectHome=yes
+ReadWritePaths=/opt/quanttrader /var/log/quanttrader
 
 [Install]
 WantedBy=multi-user.target

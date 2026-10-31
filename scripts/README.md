@@ -355,9 +355,9 @@ note and in `~/.ssh/config` as the `qt` alias — **never in this repository**
 
 - **SSH:** `ssh qt` logs in as `ops` (key only, sudo; root SSH login disabled
   2026-10-29, see `docs/runbooks/harden-vps-ssh.md`). Commands below that touch
-  root-owned paths, root's crontab or systemd need `sudo`.
-- **App:** `/opt/quanttrader` (detached checkout of the deployed commit, read-only GitHub deploy
-  key), Node via nvm, systemd service `quanttrader` (auto-start +
+  systemd need `sudo`; the checkout, the logs and the crontab are `ops`'s since D.2.
+- **App:** `/opt/quanttrader` (detached checkout of the deployed commit, owned by `ops`,
+  HTTPS remote), Node 26 system-wide at `/usr/local`, systemd service `quanttrader` (auto-start +
   auto-restart). `systemctl status|restart quanttrader` · logs:
   `journalctl -u quanttrader -n 50`.
 - **Secrets:** `/opt/quanttrader/.env.local` (0600). The app reads it at

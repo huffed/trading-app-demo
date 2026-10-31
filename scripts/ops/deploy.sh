@@ -18,7 +18,7 @@
 # Prints DEPLOY_RESULT, DEPLOY_PHASE, DEPLOY_RESTORE (none|ok|failed), PREVIOUS_SHA and
 # on success DEPLOYED_SHA and DEPLOYED_RUNTIME for the driver's ledger row.
 # No secret is read or printed: the cron wrappers authenticate the routes themselves.
-# Root today (D.1); `ops` after D.2 with `sudo -n systemctl restart` as the privileged step.
+# Runs as `ops` (D.2, decision 0007); `sudo -n systemctl restart quanttrader` is the only privileged step.
 set -euo pipefail
 
 APP=/opt/quanttrader
@@ -72,7 +72,7 @@ restore_previous() { # the service was not restarted by this run, or its restart
     restart_cmd start || { RESTORE=failed; log "START FAILED: systemctl start quanttrader did not succeed"; }
   fi
 }
-restart_cmd() { if [ "$(id -u)" = 0 ]; then systemctl "$1" quanttrader; else sudo -n systemctl "$1" quanttrader; fi; }
+restart_cmd() { sudo -n systemctl "$1" quanttrader; }
 in_market_hours() { # the FTMO/forex week in UK time: Sunday 22:00 → Friday 22:00 (the standing rule: no VPS change then)
   local u h
   u=$(TZ=Europe/London date +%u)
@@ -152,14 +152,6 @@ main() {
   }
   set -E
   trap 'fail "unexpected error at line $LINENO"' ERR
-  if [ "$(id -u)" = 0 ] && [ -s /root/.nvm/nvm.sh ]; then # root's toolchain today; gone after D.2
-    set +u
-    if ! . /root/.nvm/nvm.sh; then
-      set -u
-      fail "sourcing /root/.nvm/nvm.sh failed"
-    fi
-    set -u
-  fi
   export CI=1 # pnpm and next: non-interactive, no prompts
   exec 9> "$LOGDIR/.deploy.lock"
   flock -n 9 || fail "another deploy is running"

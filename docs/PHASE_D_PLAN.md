@@ -32,13 +32,15 @@ Status: **plan, nothing executed.** Every step below changes the VPS only after 
 
 **First execution (approved 2026-10-31, deadline 20:00 UK):** deploy current `dev` (Phases B + C + D.1, golden MATCH) to replace `3ee22e2`; the host reinstalls `node_modules` from the lockfile. Verify: service active, the next scheduled cron tick logs 200, heartbeat healthy — the script checks `systemctl is-active`, `/login`, and the next manage, heartbeat (`stale_count` 0) and scan ticks. Then take the pending **reboot**, verify again (`make status`: service active, ticks 200). Two ledger rows — deploy, then reboot — and entry `0005-reproducible-deploy-and-production-pointer.md`.
 
-## D.2 Process user and Node LTS
+## D.2 Process user and Node LTS — executed per decision 0007 (2026-10-31)
 
-- **Node:** install the chosen LTS line system-wide (NodeSource apt repository or `fnm`), exact version in `.nvmrc`, `engines` mirrors the major, CI reads `.nvmrc`, the unit's `PATH` points at it. Before touching the VPS: run `make check` and `make backtest` locally on that exact Node; the golden file must MATCH. Candidates: **Node 24** (Active LTS, maintenance to 2028-04) or **Node 26** (LTS from 2026-10, maintenance to 2029-04). Recommendation: 26 if the local run is clean, else 24. `@types/node` moves to the same major.
-- **Process user:** `chown -R ops:ops /opt/quanttrader /var/log/quanttrader`; move `.env.local` and the deploy key to `ops`; unit gets `User=ops`, `Group=ops`, `ProtectSystem=strict`, `ReadWritePaths=/opt/quanttrader /var/log/quanttrader`, `NoNewPrivileges=yes`; crontab moves to `ops` (`crontab -u ops`); root's crontab emptied; `deploy.sh` runs as `ops` with `sudo systemctl restart quanttrader` the only root step.
-- **Sudoers narrowing (reached here):** `/etc/sudoers.d/ops` shrinks from `NOPASSWD:ALL` to `systemctl restart|start|stop|status quanttrader`, `journalctl -u quanttrader`, and the deploy script.
-- **Port 3000:** decision for the operator — keep `*:3000` behind ufw (today) or bind to the Tailscale address only (`-H <tailscale-ip>`), which removes the dependency on ufw being right. Recommendation: bind to the Tailscale address; keep the `ssh -L` fallback documented.
-- Entry: `0006-process-user-and-node-lts.md`.
+Approved 2026-10-31 (questions 2 and 3) and designed in `docs/decisions/0007-node-26-ops-user-loopback-tailscale.md`; the host procedure with its verification and rollback is `docs/runbooks/d2-node-26-ops-user-loopback.md`.
+
+- **Node 26.13.0** (LTS "Lithium"), system-wide at `/usr/local` from the checksum-verified official tarball; `.nvmrc` 26.13.0, `engines` `>=26.0.0 <27`, CI reads `.nvmrc`; the deploy refuses a mismatch of the host's or the unit's Node and checks the service's own Node after the restart. Local validation on 26.13.0 before any host change: `make check` (2176 passed + 11 expected failures), `make backtest` MATCH, `make build` clean.
+- **Process user:** `chown -R ops:ops /opt/quanttrader /var/log/quanttrader` (the env file chowned in place, never read or moved); unit `User=ops` with `NoNewPrivileges`, `PrivateTmp`, `ProtectSystem=full`, `ProtectHome`, `ReadWritePaths` = checkout + logs; crontab moves to `ops` and root's is removed in the same minute; `make deploy` runs as `ops` with `sudo -n systemctl restart quanttrader` as the only privileged step.
+- **Loopback + Tailscale:** `next start -H 127.0.0.1 -p 3000`; `tailscale serve --bg --https=443 http://127.0.0.1:3000`; the dashboard is confirmed from a tailnet device before anything else changes; ufw stays as the second layer; the SSH tunnel remains the fallback.
+- **HTTPS git remote:** the repository is public, so the host keeps no deploy key for `ops`; revisit if the repository ever goes private (the deploy fails loudly at `git fetch`).
+- **Sudoers narrowing:** moved to D.7, after the remaining root work (logrotate, backups, firewall) — `ops` keeps `NOPASSWD:ALL` until then (DEBT D-23).
 
 ## D.3 Kill switch (paper only, during a window the operator confirms)
 
