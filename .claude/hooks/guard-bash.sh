@@ -43,7 +43,7 @@ bnd='([[:space:]"'"'"'/]|$)'
 protected="(scripts/canonical/data|tests/golden/[^[:space:]\"']*\\.json)${bnd}"
 live="(${live_re})${bnd}"
 # directories above protected paths: a destructive verb on one of these takes the protected files with it
-ancestors="(src|src/lib|src/app|scripts|scripts/canonical|tests|tests/golden)${bnd}"
+ancestors="(src|src/lib|src/app|scripts|scripts/canonical|tests|tests/golden|supabase)${bnd}"
 
 envfile='\.env(rc|[._-][A-Za-z0-9_.-]*)?'
 tail_='([^A-Za-z0-9_]|$)'
@@ -136,7 +136,7 @@ while IFS=$'\t' read -r sep seg; do
   # 3. live-runner paths
   if [ -n "$live_re" ] && writes_to "$live" "$lower" "$uq_lower"; then
     if [ "$fence_down" != "1" ]; then
-      deny "$orig" "it writes a live-runner path (.claude/hooks/live-paths.txt); engine, broker, API-route, cron and deploy code change only in a PR about them, in a session the operator started with the override. Stop and ask the operator (docs/decisions/0004)"
+      deny "$orig" "it writes a fenced live path (.claude/hooks/live-paths.txt); trading code — engine, runner, strategies, risk, sizing, execution, the engine's migrations, the paper engine's price config — changes only in a PR about it, in a session the operator started with the override. Stop and ask the operator (docs/decisions/0004, 0006)"
     fi
     if [ "$notice_emitted" = "0" ]; then
       notice="guard-bash: FENCE DOWN (live-path override is set) — shell write to a live-runner path: ${orig}"

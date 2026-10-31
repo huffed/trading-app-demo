@@ -11,4 +11,5 @@ Format: `NNNN-short-slug.md` with the fields **Date · Status (active / supersed
 | [0003](0003-paper-fills-from-twelve-data.md) | Paper fills come from Twelve Data quotes, not the OANDA bar feed (`retro`, reason not recorded) | active, under audit review |
 | [0004](0004-live-path-guard-is-a-hook.md) | Live-runner paths are guarded by a hook with a session override; secrets, pinned data and the golden file by deny rules | active |
 | [0005](0005-reproducible-deploy-and-production-pointer.md) | Deploys run one reviewed script on the host from `make deploy`; `main` is the production pointer that script moves; `ops/` captures the host | active |
+| [0006](0006-fence-covers-trading-code-not-infrastructure.md) | The live-path fence covers trading code (exact list inside), not infrastructure; `ops/**` and `scripts/ops/**` are not fenced | active, amends 0004 |
 | [deploys](deploys.md) | Ledger: one row per deploy and per host change | running |
