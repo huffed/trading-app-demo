@@ -37,4 +37,6 @@ Until today the host was deployed by hand as root (`git pull && pnpm build && sy
 
 ## Execution
 
-_Filled in after the first run._
+- **Deploy 2026-10-31 15:28:54Z → 15:45:12Z** (`make deploy`, host run log `deploy-20261031T152854Z.log`): `3ee22e2` → `499a8a0`; `node_modules` reinstalled from the lockfile; build 106 s; restart at 15:31:01Z between ticks with no wrapper running; `/login` 200 within 8 s; manage and heartbeat ticks at 15:35:01Z `http=200` with `stale_count` 0; scan tick at 15:45:01Z `http=200`; runtime v25.9.0; `running.sha` = `live.sha` = 499a8a0; host ledger `OK … market_ok=0`; `main` created at 499a8a0 (it did not exist on the remote before).
+- **Reboot 2026-10-31 15:47:55Z**, right after the 15:45 tick, for the kernel update pending since the inventory (linux-image 7.0.0-38, libc6): back at 15:48:20Z, service active (enabled), `reboot-required` cleared, 15:50:02Z manage and heartbeat ticks `http=200` and healthy.
+- Rollback available at any time: `make deploy REF=3ee22e253a20264f31b7a31ff3321fc5c2b850d3`.
