@@ -6,7 +6,8 @@ What runs on the VPS `quanttrader-prod`, captured from the host on 2026-10-31 (P
 |---|---|---|
 | `systemd/quanttrader.service` | `/etc/systemd/system/quanttrader.service` | `install -m 644`, `systemctl daemon-reload`; the next `make deploy` restarts it (runs as `ops`, loopback only — decision 0007) |
 | `crontab` | the `ops` user's crontab | as `ops`: `crontab ops/crontab` |
-| Tailscale serve (no file: `tailscaled` keeps the config) | `tailscale serve status` | `sudo tailscale serve --bg --https=443 http://127.0.0.1:3000` (runbook `docs/runbooks/d2-node-26-ops-user-loopback.md` §6) |
+| `systemd/quanttrader-tailnet.socket` + `.service` | `/etc/systemd/system/` | `install -m 644`, `systemctl daemon-reload`, `systemctl enable --now quanttrader-tailnet.socket` — the listener on the Tailscale addresses (IPv4 and IPv6) that forwards to loopback (runbook `docs/runbooks/d2-node-26-ops-user-loopback.md` §6) |
+| Tailscale serve (optional HTTPS layer; `tailscaled` keeps the config) | `tailscale serve status` | once Serve is enabled for the tailnet: `sudo tailscale serve --bg --https=443 http://127.0.0.1:3000` |
 | `sshd/10-hardening.conf` | `/etc/ssh/sshd_config.d/10-hardening.conf` | copy, `sshd -t`, `systemctl reload ssh` (installed 2026-10-29, `docs/runbooks/harden-vps-ssh.md`) |
 | `ufw.sh` | the firewall | run once as root; idempotent |
 

@@ -1,7 +1,7 @@
 # /etc/systemd/system/quanttrader.service — D.2 (decision 0007): runs as `ops` on the
 # system-wide Node at /usr/local (pinned by .nvmrc, checked by the deploy) and listens on
-# loopback only; the dashboard is reached over Tailscale (tailscale serve → 127.0.0.1:3000)
-# and the cron wrappers call loopback. ExecStart runs Next's own entry point with node,
+# loopback only; the dashboard is reached over the tailnet through quanttrader-tailnet.socket
+# (systemd-socket-proxyd → 127.0.0.1:3000) and the cron wrappers call loopback. ExecStart runs Next's own entry point with node,
 # not through pnpm: pnpm reads ~/.config/pnpm at start, which ProtectHome= makes EACCES,
 # and `pnpm exec` would run a dependency check on every restart. HOME points at an
 # ops-owned directory outside the checkout so nothing Node writes can dirty the tree.
@@ -10,7 +10,7 @@
 # /etc read-only; /tmp stays shared because the quarterly-cycle route writes
 # /tmp/quanttrader-cycles for the operator to collect.
 [Unit]
-Description=QuantTrader production server (loopback :3000; Tailscale serve and the cron wrappers are its only clients)
+Description=QuantTrader production server (loopback :3000; the tailnet socket proxy and the cron wrappers are its only clients)
 After=network-online.target
 Wants=network-online.target
 
