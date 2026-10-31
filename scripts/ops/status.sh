@@ -24,4 +24,4 @@ case "$root_out" in
 esac
 echo "crontab:     $(id -un) $(crontab -l 2> /dev/null | grep -c '^[0-9*]' || true) entries; root $root_ct entries (two schedulers = double ticks; after D.2 root must be 0)"
 echo "listening:   $(ss -ltn 2> /dev/null | awk '$4 ~ /:3000$/ {print $4}' | tr '\n' ' ')"
-echo "tailscale:   $(tailscale serve status 2> /dev/null | head -1 || echo 'no serve config')"
+echo "tailnet:     socket $(systemctl is-active quanttrader-tailnet.socket 2> /dev/null || echo inactive) on $(systemctl show quanttrader-tailnet.socket -p Listen --value 2> /dev/null | tr '\n' ' '); host addresses $(tailscale ip -4 2> /dev/null) $(tailscale ip -6 2> /dev/null) (must match); serve: $(tailscale serve status 2> /dev/null | head -1 || echo 'no serve config')"

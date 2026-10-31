@@ -374,9 +374,8 @@ note and in `~/.ssh/config` as the `qt` alias — **never in this repository**
   on loopback (before: `*:3000`, kept off the internet by ufw alone). Hardened 2026-10-29 (password auth off, root
   login off, fail2ban, `ufw limit 22/tcp`): `docs/runbooks/harden-vps-ssh.md`.
 - **Frontend from any device: Tailscale.** The VPS and operator devices
-  share a tailnet; browse `http://quanttrader-prod:3000` from a device signed
-  into the Tailscale account (from D.2 a systemd socket on the tailnet address
-  forwards to Next on loopback; HTTPS via `tailscale serve` once Serve is enabled). SSH-tunnel fallback:
+  share a tailnet; browse `http://quanttrader-prod:3000` from a device signed into the Tailscale account
+  (from D.2 a systemd socket on the tailnet addresses forwards to Next on loopback; HTTPS via `tailscale serve` once Serve is enabled). SSH-tunnel fallback:
   `ssh -L 3000:localhost:3000 qt`.
 - **Deploy after a merge to dev:** `make deploy` (rollback: `make deploy REF=<previous sha>`)
   runs `scripts/ops/deploy.sh` on the host, verifies the service against the real cron
