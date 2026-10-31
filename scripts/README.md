@@ -394,7 +394,7 @@ proven otherwise — the 2026-07-22→28 outage paged for 6 days before
 anyone acted. Work the list top-down; total time ~2 minutes.
 
 **Since 2026-08-27 the app server is the systemd service `quanttrader`
-on the VPS** (`pnpm start` on port 3000, `Restart=always`; logs via
+on the VPS** (`next start` on loopback port 3000 from D.2, `Restart=always`; logs via
 `journalctl -u quanttrader`). The Mac launchd service is disabled. Run the
 commands below on the VPS (`ssh qt`, as `ops`; `sudo` where shown).
 

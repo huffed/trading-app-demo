@@ -53,7 +53,7 @@ Approved 2026-10-31 (questions 2 and 3) and designed in `docs/decisions/0007-nod
 - systemd `OnFailure=` → a one-shot unit that posts to ntfy; a daily `ops-health` cron (disk, memory, `reboot-required`, failed units, deploy sha vs `origin/dev`) → ntfy summary.
 - `deploy.sh` posts success/failure to ntfy.
 - logrotate for `/var/log/quanttrader/*.log` (weekly, 8 rotations, compressed); `Unattended-Upgrade::Automatic-Reboot` stays **off** (reboots are operator windows), but the daily summary says when one is pending.
-- Entry: `0008-alerts-and-rotation.md`.
+- Entry: `0009-alerts-and-rotation.md`.
 
 ## D.5 Nightly parity job
 

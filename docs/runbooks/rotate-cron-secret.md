@@ -15,10 +15,10 @@ echo "$NEW_SECRET"        # keep this terminal open; you will paste it once on t
 
 ```bash
 ssh qt                    # the Host alias from ~/.ssh/config (see harden-vps-ssh.md §0); lands as ops
-sudo -i                   # the env file and the service are root's
+sudo -i                   # root can edit the env file whatever its owner (ops since D.2; root before)
 ```
 
-On the VPS, as root via `sudo -i` (the app and crons still run as root):
+On the VPS, as root via `sudo -i` (`perl -pi` and `cp -p` keep the file's owner, so this works before and after D.2):
 
 ```bash
 cd /opt/quanttrader

@@ -16,6 +16,12 @@ for name in scan manage heartbeat; do # the three ticks the deploy verifies; the
 done
 echo "reboot:      $([ -f /var/run/reboot-required ] && echo 'REQUIRED (pending kernel/package update)' || echo 'not required')"
 echo "disk:        $(df -h / | awk 'NR==2{print $5" used of "$2}')"
-echo "crontab:     $(id -un) $(crontab -l 2> /dev/null | grep -c '^[0-9*]' || true) entries; root $(sudo -n crontab -u root -l 2> /dev/null | grep -c '^[0-9*]' || true) entries (two schedulers = double ticks; after D.2 root must be 0)"
+root_out=$(sudo -n crontab -u root -l 2>&1 || true)
+case "$root_out" in
+  *"no crontab for root"*) root_ct=0 ;;
+  *sudo*|*password*) root_ct="? (sudo denied)" ;;
+  *) root_ct=$(grep -c '^[0-9*]' <<< "$root_out" || true) ;;
+esac
+echo "crontab:     $(id -un) $(crontab -l 2> /dev/null | grep -c '^[0-9*]' || true) entries; root $root_ct entries (two schedulers = double ticks; after D.2 root must be 0)"
 echo "listening:   $(ss -ltn 2> /dev/null | awk '$4 ~ /:3000$/ {print $4}' | tr '\n' ' ')"
 echo "tailscale:   $(tailscale serve status 2> /dev/null | head -1 || echo 'no serve config')"

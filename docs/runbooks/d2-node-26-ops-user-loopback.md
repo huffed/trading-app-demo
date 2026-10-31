@@ -8,10 +8,10 @@ Facts the procedure relies on (verified read-only 2026-10-31): x86_64; Node 26.1
 
 ```bash
 make status                                   # the D.1 commit verified running; ticks 200; reboot not required
-ssh qt 'uname -m; ls /usr/local/bin; grep -E "^#?KillUserProcesses" /etc/systemd/logind.conf; ls -la /tmp/quanttrader-m1-band.state 2>/dev/null'
+ssh qt 'uname -m; ls /usr/local/bin; busctl get-property org.freedesktop.login1 /org/freedesktop/login1 org.freedesktop.login1.Manager KillUserProcesses; ls -la /tmp/quanttrader-m1-band.state 2>/dev/null'
 ```
 
-Expected: `x86_64`; no `node`/`pnpm` in `/usr/local/bin`; `#KillUserProcesses=no` (the default — the detached deploy run as `ops` relies on it; `yes` would need `loginctl enable-linger ops` first); the M1 state file, if present, is root-owned (step 2 removes it).
+Expected: `x86_64`; no `node`/`pnpm` in `/usr/local/bin`; `b false` (the detached deploy run as `ops` relies on it; `b true` would need `loginctl enable-linger ops` first); the M1 state file, if present, is root-owned (step 5 removes it after the crontab swap).
 
 ## 1. Node 26.13.0 system-wide, from the official tarball, checksum-verified
 
@@ -33,10 +33,10 @@ Expected: `node-v26.13.0-linux-x64.tar.xz: OK`, three `root:root` lines, then `n
 
 ## 2. Ownership to `ops`, a HOME for the service, the stale state file
 
-The checkout, the build, the logs and the deploy state become `ops`'s. The env file is chowned **in place**; it is never read, copied or moved. `/var/lib/quanttrader` is the service's HOME (the unit sets it) so nothing Node writes lands in the checkout or in `/home`. The M1 band state file in `/tmp` is root-owned from the root crontab era; as `ops` the wrapper could not rewrite it (it would fail under `set -e`), so it is removed and the next 21:30 run recreates it (one band-state notification may repeat).
+The checkout, the build, the logs and the deploy state become `ops`'s. The env file is chowned **in place**; it is never read, copied or moved. `/var/lib/quanttrader` is the service's HOME (the unit sets it) so nothing Node writes lands in the checkout or in `/home`.
 
 ```bash
-ssh qt 'sudo -n chown -R ops:ops /opt/quanttrader /var/log/quanttrader && sudo -n install -d -o ops -g ops -m 750 /var/lib/quanttrader && sudo -n rm -f /tmp/quanttrader-m1-band.state && stat -c "%U:%G %a %n" /opt/quanttrader /opt/quanttrader/.env.local /var/log/quanttrader /var/lib/quanttrader'
+ssh qt 'sudo -n chown -R ops:ops /opt/quanttrader /var/log/quanttrader && sudo -n install -d -o ops -g ops -m 750 /var/lib/quanttrader && stat -c "%U:%G %a %n" /opt/quanttrader /opt/quanttrader/.env.local /var/log/quanttrader /var/lib/quanttrader'
 ```
 
 Expected: four lines owned `ops:ops`; `.env.local` stays mode `600`.
@@ -66,10 +66,10 @@ The new crontab's first line sets `PATH=/usr/local/bin:/usr/bin:/bin`; without i
 ```bash
 ssh qt 'env -i HOME=/home/ops PATH=/usr/local/bin:/usr/bin:/bin bash -c "command -v pnpm; command -v node"'
 scp ops/crontab qt:/tmp/qt-crontab
-ssh qt 'crontab /tmp/qt-crontab && sudo -n crontab -u root -r && echo "ops: $(crontab -l | grep -c "^[0-9*]") entries; root: $(sudo -n crontab -u root -l 2>&1 | head -1)"'
+ssh qt 'crontab /tmp/qt-crontab && sudo -n crontab -u root -r && sudo -n rm -f /tmp/quanttrader-m1-band.state && echo "ops: $(crontab -l | grep -c "^[0-9*]") entries; root: $(sudo -n crontab -u root -l 2>&1 | head -1)"'
 ```
 
-Expected: `/usr/local/bin/pnpm`, `/usr/local/bin/node`; then `ops: 10 entries; root: no crontab for root`. The next tick runs as `ops` from the `ops`-owned checkout against the still-root old server and logs into the `ops`-owned log files.
+Expected: `/usr/local/bin/pnpm`, `/usr/local/bin/node`; then `ops: 10 entries; root: no crontab for root`. The next tick runs as `ops` from the `ops`-owned checkout against the still-root old server and logs into the `ops`-owned log files. The M1 band state file in `/tmp` was root-owned from the root crontab era; as `ops` the 21:30 wrapper could not rewrite it (it would fail under `set -e`), so it is removed here, after root's last possible run, and the next 21:30 run recreates it (one band-state notification may repeat).
 
 ## 6. Tailscale access, confirmed from a device BEFORE the bind changes
 
@@ -80,7 +80,7 @@ ssh qt 'sudo -n tailscale serve --bg --https=443 http://127.0.0.1:3000 && tailsc
 curl -sI https://quanttrader-prod.tail5612ed.ts.net/login | head -1      # from the workstation: HTTP/2 200
 ```
 
-Then open `https://quanttrader-prod.tail5612ed.ts.net/login` in a browser on a tailnet device and **sign in** (the sign-in posts a Server Action, which checks the request's Origin against the proxied Host — if it is rejected behind the proxy, stop here, keep the SSH tunnel, and the fix is a config PR). If the tailnet does not issue HTTPS certificates (`tailscale serve` says so), use `--http=80` instead; the URL becomes `http://quanttrader-prod.tail5612ed.ts.net/` and traffic is still inside WireGuard. The SSH tunnel (`ssh -L 3000:localhost:3000 qt`) keeps working as the fallback.
+Then open `https://quanttrader-prod.tail5612ed.ts.net/login` in a browser on a tailnet device, **sign in** (client-side Supabase auth), open an algorithm and press **Run** on its readiness card: that calls the Server Action `runAlgorithmReadinessCheck` (read-only), and Next checks a Server Action's Origin against the proxied Host — if it is rejected behind the proxy, stop here, keep the SSH tunnel, and the fix is a config PR. If the tailnet does not issue HTTPS certificates (`tailscale serve` says so), use `--http=80` instead; the URL becomes `http://quanttrader-prod.tail5612ed.ts.net/` and traffic is still inside WireGuard. The SSH tunnel (`ssh -L 3000:localhost:3000 qt`) keeps working as the fallback.
 
 ## 7. Deploy the D.2 commit as `ops`
 
@@ -107,10 +107,10 @@ Keep `/root/.nvm` (Node 25.9.0) until D.2 is verified; it is what the rollback r
 
 - **Fast path — the new unit will not start after step 7** (`make deploy` reports a failure after the restart, or `systemctl status quanttrader` shows a restart loop): reinstall the D.1 unit and restart root's process, which runs the D.1 build still on disk if the deploy's build failed, or the D.2 build (Node-compatible) if it succeeded:
   ```bash
-  git show 499a8a0:ops/systemd/quanttrader.service > /tmp/d1-unit && scp /tmp/d1-unit qt:/tmp/d1-unit
+  git show 499a8a0:ops/systemd/quanttrader.service > /tmp/d1-unit && scp /tmp/d1-unit qt:/tmp/d1-unit   # the D.1 unit, from git, not from disk
   ssh qt 'sudo -n install -m 644 /tmp/d1-unit /etc/systemd/system/quanttrader.service && sudo -n systemctl daemon-reload && sudo -n systemctl restart quanttrader && sleep 5 && systemctl is-active quanttrader && curl -s -o /dev/null -w "%{http_code}\n" http://localhost:3000/login'
   ```
-- **Full return to the D.1 state**, in order: the fast path above; `sudo -n crontab -u root /tmp/qt-crontab` then `crontab -r` as `ops` in the same minute; `sudo -n chown -R root:root /opt/quanttrader /var/log/quanttrader`; `git -C /opt/quanttrader remote set-url origin git@github.com:huffed/trading-app-demo.git`; then redeploy the D.1 commit with the **D.1 host script**, which still has the nvm block — the current driver cannot do this because it streams the D.2 script from `origin/dev` and runs it as `ops`:
+- **Full return to the D.1 state**, in order: the fast path above; `git show 499a8a0:ops/crontab > /tmp/d1-crontab && scp /tmp/d1-crontab qt:/tmp/d1-crontab`, then on the host `sudo -n crontab -u root /tmp/d1-crontab` and `crontab -r` as `ops` in the same minute; `sudo -n chown -R root:root /opt/quanttrader /var/log/quanttrader`; `git -C /opt/quanttrader remote set-url origin git@github.com:huffed/trading-app-demo.git`; then redeploy the D.1 commit with the **D.1 host script**, which still has the nvm block — the current driver cannot do this because it streams the D.2 script from `origin/dev` and runs it as `ops`:
   ```bash
   git show 499a8a0:scripts/ops/deploy.sh | ssh qt 'cat > /tmp/qt-deploy-rollback.sh'
   ssh qt 'sudo -n -H bash -c "setsid nohup bash /tmp/qt-deploy-rollback.sh 499a8a02e39dfa87753eaca3059fd962fbd0ee98 d1-rollback 0 > /var/log/quanttrader/deploy-rollback.log 2>&1 < /dev/null &"'
