@@ -41,12 +41,15 @@ fail() {
   set +e
   local step=$1 extra=""
   [ "$PHASE" = restarted ] && extra=" restart=$RESTART_AT live=$SHA"
+  ledger "FAIL ref=$REF sha=$SHA running=$PREV phase=$PHASE step=$step market_ok=$MARKET_OK$extra" # before the restore, which takes minutes
   log "FAILED ($PHASE): $step"
   case "$PHASE" in
-    checked-out) restore_previous ;;
+    checked-out)
+      restore_previous
+      ledger "RESTORE $RESTORE ref=$REF sha=$SHA running=$PREV"
+      ;;
     restarted) log "${SHA:0:12} is LIVE since $RESTART_AT and failed verification; roll back now: make deploy REF=$PREV" ;;
   esac
-  ledger "FAIL ref=$REF sha=$SHA running=$PREV phase=$PHASE step=$step restore=$RESTORE market_ok=$MARKET_OK$extra"
   echo "PREVIOUS_SHA=$PREV"
   echo "DEPLOY_PHASE=$PHASE"
   echo "DEPLOY_RESTORE=$RESTORE"
