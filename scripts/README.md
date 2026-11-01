@@ -389,6 +389,8 @@ note and in `~/.ssh/config` as the `qt` alias — **never in this repository**
 
 ## Dead-man alert response runbook (E2.24.g.viii, 2026-07-29)
 
+To stop all trading activity at once: `make kill-switch REASON=<word>` (then `make resume`, `make unpause`; `docs/runbooks/kill-switch.md`).
+
 You got an ntfy push / GitHub failure email. The alert is CORRECT until
 proven otherwise — the 2026-07-22→28 outage paged for 6 days before
 anyone acted. Work the list top-down; total time ~2 minutes.

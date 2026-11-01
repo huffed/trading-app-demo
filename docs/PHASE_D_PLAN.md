@@ -42,10 +42,11 @@ Approved 2026-10-31 (questions 2 and 3) and designed in `docs/decisions/0007-nod
 - **HTTPS git remote:** the repository is public, so the host keeps no deploy key for `ops`; revisit if the repository ever goes private (the deploy fails loudly at `git fetch`).
 - **Sudoers narrowing:** moved to D.7, after the remaining root work (logrotate, backups, firewall) — `ops` keeps `NOPASSWD:ALL` until then (DEBT D-23).
 
-## D.3 Kill switch (paper only, during a window the operator confirms)
+## D.3 Kill switch — built per decision 0008 (2026-11-01); paper test in a window the operator confirms
 
-- `make kill-switch` → `scripts/ops/kill-switch.sh` on the VPS, in this order: (1) pause every active algorithm (admin route or SQL through the app's admin client — to be chosen after reading `src/app/api/admin/`), so no new entries; (2) flatten open **paper** positions through `/api/admin/flatten-algo`; (3) stop the service and the crontab (`systemctl stop quanttrader`; crontab disabled by renaming); (4) print what it did. `make resume` reverses (3) and un-pauses nothing — un-pausing is a deliberate operator act.
-- Test on paper only, in the confirmed window: run, verify in the database that positions are closed with the right `exit_reason` (D-01: the halt reasons are rejected by the CHECK today, so the test may surface that), verify the dead-man alert fires (it should: the stop is real), then `make resume`. Entry: `0008-kill-switch.md` with the test log.
+- `make kill-switch REASON=<word>` → `scripts/ops/kill-switch.sh` on the host as `ops`, streamed from the local `origin/dev` (no GitHub dependency): (1) pause every active algorithm through Supabase REST with the host's service role, saving the ids; (2) flatten their open paper positions through `/api/admin/flatten-algo` on loopback; (3) stop the service, save and remove the crontab; (4) urgent ntfy push + `KILL` ledger line. Every step is attempted; with the database or the app unreachable the stop still happens (fail closed). Idempotent. The only host change allowed in market hours.
+- `make resume` reverses the stop (service, crontab, tick verification, push, `RESUME` line) and un-pauses nothing; `make unpause` re-activates exactly the saved ids (`UNPAUSE` line) — the operator's deliberate act.
+- Paper test (checklist in `docs/runbooks/kill-switch.md`): expect no open positions; the sequence is the test. The dead-man alarm trips only if the switch stays engaged > 35–45 min. Rows go to `docs/decisions/deploys.md` and the test log to decision 0008.
 
 ## D.4 Alerts and hygiene
 
