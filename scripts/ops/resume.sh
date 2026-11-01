@@ -46,22 +46,22 @@ else
 fi
 unset SB_KEY
 crons_n=$(crontab -l 2> /dev/null | grep -c '^[0-9*]' || true)
-if [ "$active_n" = 0 ]; then
-  if [ "$crons_n" = 0 ]; then
-    if [ -s "$STATE/crontab.disabled" ]; then
-      if crontab "$STATE/crontab.disabled"; then crons_n=$(crontab -l | grep -c '^[0-9*]' || true); log "crontab restored ($crons_n entries)"; else errors+=("crontab"); log "crontab restore FAILED"; fi
-    else
-      errors+=("no-saved-crontab"); log "no saved crontab at $STATE/crontab.disabled — install ops/crontab from the repo as ops"
-    fi
+if [ "$crons_n" != 0 ]; then
+  log "crontab already installed ($crons_n entries); active algorithms: $active_n"
+elif [ "$active_n" = 0 ]; then
+  if [ -s "$STATE/crontab.disabled" ]; then
+    if crontab "$STATE/crontab.disabled"; then crons_n=$(crontab -l | grep -c '^[0-9*]' || true); log "crontab restored ($crons_n entries)"; else errors+=("crontab"); log "crontab restore FAILED"; fi
   else
-    log "crontab already installed ($crons_n entries)"
+    errors+=("no-saved-crontab"); log "no saved crontab at $STATE/crontab.disabled — install ops/crontab from the repo as ops"
   fi
+elif [ "$active_n" = "?" ]; then
+  log "the crontab stays off until the active-algorithm check can run: fix the database connection, then make resume again"
 else
   errors+=("algorithms-active:$active_n"); log "$active_n algorithm(s) are ACTIVE — the switch did not pause them; the crontab stays off: run make kill-switch again, then make resume"
 fi
 
 # the next manage, heartbeat and scan ticks after T0 must log http=200 — only if the service came up and the crons are back
-if [ "$code" = 200 ] && [ "$crons_n" != 0 ] && [ "$active_n" = 0 ]; then
+if [ "$code" = 200 ] && [ "$crons_n" != 0 ]; then
   deadline=$(($(date +%s) + 25 * 60))
   for name in manage heartbeat scan; do
     while :; do

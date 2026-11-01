@@ -66,18 +66,22 @@ fi
 SB_URL=$(envval NEXT_PUBLIC_SUPABASE_URL)
 SB_KEY=$(envval SUPABASE_SERVICE_ROLE_KEY)
 ids=""
-saved_ids=$(grep -E '^[0-9a-f-]{36}$' "$IDS_FILE" 2> /dev/null || true)
+# a previous run's saved ids count only while that engagement is still on (crontab already empty);
+# a fresh engagement replaces the list, so an un-pause never wakes algorithms paused on purpose in between
+saved_ids=""
+[ "$crons" = already-empty ] && saved_ids=$(grep -E '^[0-9a-f-]{36}$' "$IDS_FILE" 2> /dev/null || true)
 if [ -n "$SB_URL" ] && [ -n "$SB_KEY" ]; then
   if active=$(sb_get "algorithms?status=eq.active&select=id" | ids_from_json); then
     ids=$active
     if [ -n "$ids" ]; then
+      # save BEFORE the PATCH: a PATCH that commits but times out must still be un-pausable
+      printf '%s\n' "$ids" "$saved_ids" | grep -E '^[0-9a-f-]{36}$' | sort -u > "$IDS_FILE" 2> /dev/null || { errors+=("save-ids"); log "saving the ids FAILED"; }
       if printf 'apikey: %s\nAuthorization: Bearer %s\nContent-Type: application/json\nPrefer: return=minimal\n' "$SB_KEY" "$SB_KEY" \
         | curl -fsS --max-time 15 -H @- -X PATCH "$SB_URL/rest/v1/algorithms?status=eq.active" -d '{"status":"paused"}' > /dev/null; then
         paused=$(grep -c . <<< "$ids")
-        printf '%s\n' "$ids" "$saved_ids" | grep -E '^[0-9a-f-]{36}$' | sort -u > "$IDS_FILE" 2> /dev/null || { errors+=("save-ids"); log "saving the ids FAILED"; }
         log "paused $paused active algorithm(s); ids saved to $IDS_FILE"
       else
-        paused=FAILED; errors+=("pause"); log "pause FAILED (database unreachable?) — continuing"
+        paused=FAILED; errors+=("pause"); log "pause FAILED (database unreachable?) — continuing (ids saved)"
       fi
     else
       paused=0; log "no active algorithm to pause"
@@ -94,6 +98,8 @@ targets=$(printf '%s\n' "$ids" "$saved_ids" | grep -E '^[0-9a-f-]{36}$' | sort -
 CRON_SECRET=$(envval CRON_SECRET)
 if [ -z "$targets" ]; then
   flattened=SKIPPED; log "no algorithm ids to flatten (nothing active and nothing saved${errors:+; see errors})"
+elif [ "$(systemctl is-active quanttrader 2> /dev/null || true)" != active ]; then
+  flattened=SKIPPED; log "the service is not active (already stopped by an earlier run?); flatten skipped — open_after decides"
 elif [ -z "$CRON_SECRET" ]; then
   flattened=FAILED; errors+=("no-cron-secret"); log "CRON_SECRET not found in $ENV_FILE — cannot flatten"
 else

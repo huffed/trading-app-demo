@@ -12,7 +12,7 @@ Every step is attempted even after an earlier one failed, and the schedulers go 
 4. **Stop and disable the service** (`systemctl disable --now quanttrader`): a reboot does not bring trading back.
 5. **Count what is still open** for those algorithms (`open_after=`), send the urgent ntfy push (`NTFY_TOPIC` from `.env.local`) and write a `KILL …` ledger line with `crons=`, `paused=`, `flattened=`, `service=`, `open_after=`, `alert=` and `errors=` — each field says what actually happened (`FAILED`, `SKIPPED`, `N (M failed, rest skipped)`), never a literal success.
 
-If the database or the app is unreachable, steps 2, 3 and 5 report failures and steps 1 and 4 still run. The run ignores a dropped ssh session (HUP, INT, PIPE) and also logs to `/var/log/quanttrader/kill-switch.log`, so it finishes once started. Secrets go to curl through stdin headers and are never printed. The exit status is non-zero when any step failed (`KILL_RESULT=PARTIAL`). Running it twice is harmless: an already-empty crontab keeps the saved copy, a stopped service stays stopped, nothing active means nothing to pause, and the saved ids are flattened again (that is also the recovery for `open_after>0`: `make resume`, then run the switch again).
+If the database or the app is unreachable, steps 2, 3 and 5 report failures and steps 1 and 4 still run. The run ignores a dropped ssh session (HUP, INT, PIPE) and also logs to `/var/log/quanttrader/kill-switch.log`, so it finishes once started. Secrets go to curl through stdin headers and are never printed. The exit status is non-zero when any step failed (`KILL_RESULT=PARTIAL`). Running it twice is harmless: an already-empty crontab keeps the saved copy, a stopped service stays stopped, nothing active means nothing to pause, and the flatten is skipped (`flattened=SKIPPED`) while `open_after` still counts what is open. The recovery for `open_after>0` is `make resume`, then run the switch again: with the service back, the saved ids are flattened. The saved id list is kept across re-runs of one engagement and replaced at the next fresh engagement, so `make unpause` never wakes algorithms paused on purpose in between.
 
 ```bash
 make kill-switch REASON=<one-word-reason>      # e.g. REASON=broker-fills-wrong, REASON=paper-test
@@ -40,7 +40,7 @@ Expect no open positions; the point is the sequence.
 
 1. `git fetch origin` (the local `origin/dev` must hold the scripts); `make status` → service active, 10 cron entries, ticks 200.
 2. `make kill-switch REASON=paper-test` → output ends `KILL_RESULT=OK`, `KILL_ERRORS=none`; the line reads `crons=disabled paused=5 flattened=0 service=inactive open_after=0 alert=sent`; the phone receives the urgent push; `make status` → service inactive, crontab 0.
-3. `make kill-switch REASON=paper-test-again` → `KILL_RESULT=OK` with `crons=already-empty paused=0 flattened=0` (idempotency).
+3. `make kill-switch REASON=paper-test-again` → `KILL_RESULT=OK` with `crons=already-empty paused=0 flattened=SKIPPED open_after=0` (idempotency: the service is already stopped, so there is nothing to flatten through; `open_after` is the check that matters).
 4. In the database: the five algorithms are `paused`; no open paper position; any position closed by the flatten has `exit_reason='manual'`.
 5. `make resume` → service active, `active_algorithms=0`, crontab 10, the next manage, heartbeat and scan ticks 200, `RESUME_RESULT=OK`, normal-priority push received.
 6. `make unpause` → `UNPAUSE_RESULT=OK`, `algorithms=5 of 5 saved`; the next scan tick shows `"scanned":5`.
