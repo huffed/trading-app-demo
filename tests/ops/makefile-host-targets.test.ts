@@ -147,8 +147,29 @@ describe("the host targets prompt every time", () => {
 // make runs every goal on its command line, so a host goal behind a pre-approved goal would run without a
 // prompt; the Makefile refuses that while it reads the file (nothing runs). `-n` keeps every recipe dry.
 describe("make refuses a host goal beside another goal", () => {
+  // Under `make test` the parent make exports REF (which the Makefile refuses from the environment),
+  // MAKEFLAGS and MAKELEVEL; the dry run must look like a top-level make.
+  const INHERITED = new Set([
+    "MAKEFLAGS",
+    "MFLAGS",
+    "MAKELEVEL",
+    "MAKECMDGOALS",
+    "QT_HOST",
+    "REF",
+    "LOG",
+    "N",
+    "QT_MARKET_HOURS_OK",
+    "REASON",
+  ]);
+  const env = Object.fromEntries(
+    Object.entries(process.env).filter(([key]) => !INHERITED.has(key))
+  );
   const dryRun = (args: string[]): { status: number | null; output: string } => {
-    const result = spawnSync("make", ["-n", ...args], { cwd: process.cwd(), encoding: "utf8" });
+    const result = spawnSync("make", ["-n", ...args], {
+      cwd: process.cwd(),
+      encoding: "utf8",
+      env,
+    });
     return { status: result.status, output: `${result.stdout}${result.stderr}` };
   };
 
