@@ -43,7 +43,8 @@ bnd='([[:space:]"'"'"'/]|$)'
 protected="(scripts/canonical/data|tests/golden/[^[:space:]\"']*\\.json)${bnd}"
 live="(${live_re})${bnd}"
 # directories above protected paths: a destructive verb on one of these takes the protected files with it
-ancestors="(src|src/lib|src/app|scripts|scripts/canonical|tests|tests/golden|supabase)${bnd}"
+anc_dirs="(src|src/lib|src/app|scripts|scripts/canonical|tests|tests/golden|supabase)"
+ancestors="${anc_dirs}/?([[:space:]\"']|$)" # the directory itself (a trailing slash allowed), never a path beneath it
 
 envfile='\.env(rc|[._-][A-Za-z0-9_.-]*)?'
 tail_='([^A-Za-z0-9_]|$)'
@@ -152,7 +153,7 @@ while IFS=$'\t' read -r sep seg; do
   if { grep -qiE "^(${destructive}|git[[:space:]]+(rm|checkout|restore|clean)|find[[:space:]])" <<<"$lower" \
        || { grep -qiE "^(sed|perl)[[:space:]]" <<<"$lower" && grep -qiE "(^|[[:space:]])(-[a-zA-Z]*i|--in-place)" <<<"$uq_lower"; }; } \
      && { [ "$xargs_fed" = "1" ] || grep -q '\$' <<<"$s"; }; then destructive_elsewhere=$orig; fi
-  if grep -qiE "(^|[[:space:]/\"'])(${protected%"${bnd}"}|${live_re}|${ancestors%"${bnd}"})${bnd}" <<<"$lower"; then any_protected=1; fi
+  if grep -qiE "(^|[[:space:]/\"'])(${protected%"${bnd}"}|${live_re}|${anc_dirs})${bnd}" <<<"$lower"; then any_protected=1; fi
 
   # 4. protected branches
   if grep -qE "^git[[:space:]]+push([[:space:]]|$)" <<<"$s"; then

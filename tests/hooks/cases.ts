@@ -102,6 +102,8 @@ export const BASH_BLOCKED: string[] = [
   "mv src/lib/scan/engine.ts /tmp/",
   "ls src/lib/scan/*.ts | xargs sed -i '' 's/a/b/'",
   "rm -rf src/lib",
+  "rm -rf scripts/",
+  "git checkout other -- tests",
   "git checkout other -- src",
   "git checkout other -- src/lib/scan/",
   "pnpm exec eslint --fix src/lib/scan",
@@ -152,6 +154,8 @@ export const BASH_ALLOWED: string[] = [
   "ls -la",
   "make check",
   "cp x.sh scripts/ops/deploy.sh", // infrastructure is not fenced (decision 0006)
+  "git checkout fc21212 -- scripts/ops/deploy.sh", // a path under an ancestor directory is not the directory
+  "git checkout origin/dev -- docs/DEV_SETUP.md",
   "echo '* * * * * x' >> ops/crontab",
   "mkdir -p /tmp/ops",
   "make deploy REF=origin/dev",

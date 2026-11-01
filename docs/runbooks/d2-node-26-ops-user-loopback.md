@@ -122,7 +122,7 @@ ssh qt 'sudo -n ufw status | head -5'  # unchanged: default deny, 22 limited, ta
 
 ## Rollback
 
-Keep `/root/.nvm` (Node 25.9.0) until D.2 is verified; it is what the rollback runs on. **Every rollback starts by releasing the tailnet socket:** the D.1 unit binds `[::]:3000`, which fails with EADDRINUSE while `quanttrader-tailnet.socket` holds the tailnet addresses, and Next would then exit and restart-loop. The first command is a no-op if the socket was never enabled.
+Keep `/root/.nvm` (Node 25.9.0) until D.2 is verified; it is what the D.1 return path runs on. **Removed 2026-11-01 after verification** (ledger row): from then on the paths below that run the D.1 host script no longer apply, and a rollback targets a commit whose `.nvmrc` is 26.13.0 (`2635d1f` onward) with `make deploy REF=<sha>`. **Every rollback starts by releasing the tailnet socket:** the D.1 unit binds `[::]:3000`, which fails with EADDRINUSE while `quanttrader-tailnet.socket` holds the tailnet addresses, and Next would then exit and restart-loop. The first command is a no-op if the socket was never enabled.
 
 - **Fast path — the new unit will not start after step 7, or the device check failed** (`make deploy` reports a failure after the restart, or `systemctl status quanttrader` shows a restart loop): release the socket, reinstall the D.1 unit and restart root's process, which runs the D.1 build still on disk if the deploy's build failed, or the D.2 build (Node-compatible) if it succeeded:
   ```bash

@@ -1,5 +1,5 @@
-# Production crontab — the `ops` user's from D.2 on (decision 0007; root's is removed in the same
-# minute, see the runbook). UTC. PATH is set because cron's default (/usr/bin:/bin) has no pnpm or
+# Production crontab — the `ops` user's since D.2, 2026-10-31 16:45Z (decision 0007; root's was removed
+# in the same minute, see the runbook). UTC. PATH is set because cron's default (/usr/bin:/bin) has no pnpm or
 # node: three wrappers (broker-health, m1-band-check, cohort-report) run `pnpm dlx tsx …` and the
 # E2.29 incident was exactly this silent "command not found". Each wrapper reads CRON_SECRET from
 # /opt/quanttrader/.env.local on every run, calls the server on loopback and appends to

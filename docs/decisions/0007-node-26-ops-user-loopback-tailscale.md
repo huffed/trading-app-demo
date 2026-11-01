@@ -36,4 +36,4 @@ Node 25 reached end of life on 2026-06-01 (DEBT D-21, High). The service ran as 
 
 ## Evidence
 
-`docs/PHASE_D_PLAN.md` (Approval 2026-10-31, items 2 and 3); the runbook's recorded output and the `docs/decisions/deploys.md` rows of the execution (filled when run).
+`docs/PHASE_D_PLAN.md` (Approval 2026-10-31, items 2 and 3); the `docs/decisions/deploys.md` rows of 2026-10-31T17:28:10Z (host steps 1–5 and the proxy proof), 2026-11-01T13:30:15Z (the step 7 deploy: `2635d1f` live and verified on Node v26.13.0 as `ops`, 13:30 ticks 200) and 2026-11-01T13:35:04Z (device check by the operator, port handover 13:25:54Z, root's nvm removed). Execution notes: the deploy driver was cut off by ufw's SSH rate limit after starting the host run, which completed detached as designed; the driver now multiplexes one SSH connection and `make deploy-pointer` exists for the pointer step.
