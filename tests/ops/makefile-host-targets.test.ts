@@ -161,9 +161,10 @@ describe("make refuses a host goal beside another goal", () => {
     "QT_MARKET_HOURS_OK",
     "REASON",
   ]);
-  const env = Object.fromEntries(
-    Object.entries(process.env).filter(([key]) => !INHERITED.has(key))
-  );
+  const env: NodeJS.ProcessEnv = {
+    ...Object.fromEntries(Object.entries(process.env).filter(([key]) => !INHERITED.has(key))),
+    NODE_ENV: process.env.NODE_ENV,
+  };
   const dryRun = (args: string[]): { status: number | null; output: string } => {
     const result = spawnSync("make", ["-n", ...args], {
       cwd: process.cwd(),
