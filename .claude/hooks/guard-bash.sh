@@ -32,19 +32,39 @@ root="${CLAUDE_PROJECT_DIR:-$PWD}"
 
 deny() { printf 'guard-bash: refusing "%s" — %s\n' "$1" "$2" >&2; exit 2; }
 
-# live-path regex from live-paths.txt (glob → regex; `dir/**` also matches the bare directory)
+# live-path regex from live-paths.txt (glob → regex; `dir/**` also matches the bare directory), and the
+# list of every directory that holds a fenced or protected file (plus each parent): a destructive verb on
+# one of those takes the files with it, so `destroys` refuses the directory itself (any trailing /, // or
+# /.) and any globbed or brace-expanded path beneath it — never a plain path to one specific file.
 live_re=""
+anc_list=" scripts/canonical/data tests/golden"
+add_ancestors() {
+  local d=$1
+  while [ -n "$d" ] && [ "$d" != "." ] && [ "$d" != "/" ]; do
+    case "$anc_list" in *" $d "*|*" $d") ;; *) anc_list="$anc_list $d";; esac
+    d=${d%/*}
+    [ "$d" = "$1" ] && break
+    case "$d" in */*) ;; *) case "$anc_list" in *" $d "*|*" $d") ;; *) anc_list="$anc_list $d";; esac; break;; esac
+  done
+}
+add_ancestors scripts/canonical/data
+add_ancestors tests/golden
 while IFS= read -r pattern; do
   case "$pattern" in ''|'#'*) continue;; esac
   r=$(printf '%s' "$pattern" | sed -E 's/[.]/\\./g; s#/\*\*$#(/.*)?#; s/\*\*/@@/g; s#\*#[^[:space:]/]*#g; s/@@/.*/g')
   live_re="${live_re:+$live_re|}$r"
+  dir=${pattern%/\*\*}                      # dir/** → dir
+  last=${dir##*/}
+  case "$last" in *\**|*.*) dir=${dir%/*};; esac   # a globbed or file last component → its directory
+  [ "$dir" != "$pattern" ] || [ "${pattern%/\*\*}" != "$pattern" ] || true
+  add_ancestors "$dir"
 done < "$here/live-paths.txt"
 bnd='([[:space:]"'"'"'/]|$)'
 protected="(scripts/canonical/data|tests/golden/[^[:space:]\"']*\\.json)${bnd}"
 live="(${live_re})${bnd}"
 # directories above protected paths: a destructive verb on one of these takes the protected files with it
-anc_dirs="(src|src/lib|src/app|scripts|scripts/canonical|tests|tests/golden|supabase)"
-ancestors="${anc_dirs}/?([[:space:]\"']|$)" # the directory itself (a trailing slash allowed), never a path beneath it
+anc_dirs="($(printf '%s' "${anc_list# }" | sed 's/[.]/\\./g; s/ /|/g'))"
+ancestors="${anc_dirs}((/+\.?)*([[:space:]\"']|$)|/[^[:space:]\"']*[][*?{])" # the directory itself, or a glob/brace beneath it
 
 envfile='\.env(rc|[._-][A-Za-z0-9_.-]*)?'
 tail_='([^A-Za-z0-9_]|$)'

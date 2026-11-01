@@ -18,7 +18,7 @@
 #    for a rollback to an ancestor, or left alone with a message when the histories diverge.
 #    An EXIT trap writes the OK row, so the pointer step cannot lose it.
 # All ssh calls share one multiplexed connection (ControlMaster): the host's `ufw limit 22/tcp`
-# rejects a source that opens more than six connections in 30 s, which cut a driver run off
+# rejects a source that opens six or more connections in 30 s, which cut a driver run off
 # mid-flight on 2026-11-01 (the host run continued detached, as designed).
 set -euo pipefail
 POINTER_ONLY=0
@@ -30,7 +30,7 @@ REF=${1:-}
 HOST=${QT_HOST:-qt}
 MARKET_OK=${QT_MARKET_HOURS_OK:-0}
 cd "$(git rev-parse --show-toplevel)"
-SSH_OPTS=(-o BatchMode=yes -o ControlMaster=auto -o ControlPath="/tmp/qt-deploy-ssh-%C" -o ControlPersist=20m -o ServerAliveInterval=30 -o ServerAliveCountMax=3)
+SSH_OPTS=(-o BatchMode=yes -o ControlMaster=auto -o ControlPath=~/.ssh/qt-deploy-%C -o ControlPersist=20m -o ServerAliveInterval=30 -o ServerAliveCountMax=3)
 LEDGER=docs/decisions/deploys.md
 die() {
   echo "deploy: $*" >&2
@@ -69,15 +69,24 @@ in_market_hours_or_about_to_open() { # a run takes up to ~45 min, so the hour be
 
 [[ "$HOST" =~ ^[A-Za-z0-9._-]+$ ]] || die "QT_HOST must be an ssh host alias (letters, digits, . _ -)"
 
+git fetch --quiet --prune origin || die "git fetch origin failed"
+if ! git diff --quiet origin/dev -- scripts/ops/ || [ -n "$(git ls-files --others --exclude-standard scripts/ops/)" ]; then
+  die "scripts/ops/ in this checkout differs from origin/dev; merge first — only the reviewed scripts run (decision 0005)"
+fi
 if [ "$POINTER_ONLY" = 1 ]; then # move main to what the host has verified as running; touches nothing on the host
-  sha=$(ssh "${SSH_OPTS[@]}" -- "$HOST" "cat /var/log/quanttrader/running.sha" 2> /dev/null | tr -d '[:space:]')
-  [[ "$sha" =~ ^[0-9a-f]{40}$ ]] || die "the host has no verified running commit in /var/log/quanttrader/running.sha"
-  git fetch --quiet --prune origin || die "git fetch origin failed"
+  pair=$(ssh "${SSH_OPTS[@]}" -- "$HOST" "cat /var/log/quanttrader/running.sha /var/log/quanttrader/live.sha" 2> /dev/null | tr -d ' \r') \
+    || die "could not read running.sha and live.sha on $HOST (ssh failed, or the host has never completed a verified deploy)"
+  running=$(sed -n 1p <<< "$pair")
+  live=$(sed -n 2p <<< "$pair")
+  [[ "$running" =~ ^[0-9a-f]{40}$ ]] || die "the host has no verified running commit (running.sha)"
+  [[ "$live" =~ ^[0-9a-f]{40}$ ]] || die "the host has no live.sha"
+  [ "$running" = "$live" ] || die "the host's live commit ${live:0:12} is not its verified one ${running:0:12}: a deploy is in flight or failed after its restart — roll back or redeploy first; main stays where it is"
+  sha=$running
   git cat-file -e "${sha}^{commit}" 2> /dev/null || die "the host's running commit $sha is not in this clone"
   git merge-base --is-ancestor "$sha" origin/dev || die "${sha:0:12} is not on origin/dev; production runs commits that reached dev"
   pointer="main not moved: the pointer step did not complete"
-  move_main "$sha"
-  printf '| %s | main → `%s` (pointer-only) | `%s` | the host'"'"'s verified running commit, read from running.sha; %s |\n' "$(date -u +%FT%TZ)" "${sha:0:7}" "$sha" "$pointer" >> "$LEDGER"
+  move_main "$sha" || true
+  printf '| %s | main → `%s` (pointer-only) | `%s` | the host'"'"'s verified running commit (running.sha = live.sha); %s |\n' "$(date -u +%FT%TZ)" "${sha:0:7}" "$sha" "$pointer" >> "$LEDGER"
   echo "deploy-pointer: $pointer; row appended to $LEDGER — commit it in the next PR"
   case "$pointer" in "main fast-forwarded"*|"main created"*|"main already"*|"main rolled back"*) exit 0 ;; *) exit 1 ;; esac
 fi
@@ -89,10 +98,6 @@ if in_market_hours_or_about_to_open && [ "$MARKET_OK" != 1 ]; then
 fi
 override_note=""
 [ "$MARKET_OK" = 1 ] && override_note="; market-hours override used (QT_MARKET_HOURS_OK=1)"
-git fetch --quiet --prune origin || die "git fetch origin failed"
-if ! git diff --quiet origin/dev -- scripts/ops/ || [ -n "$(git ls-files --others --exclude-standard scripts/ops/)" ]; then
-  die "scripts/ops/ in this checkout differs from origin/dev; merge first — only the reviewed scripts run on the host (decision 0005)"
-fi
 if [[ "$REF" =~ ^[0-9a-f]{7,40}$ ]]; then
   sha=$(git rev-parse --verify --quiet "${REF}^{commit}") || die "unknown commit: $REF"
 else

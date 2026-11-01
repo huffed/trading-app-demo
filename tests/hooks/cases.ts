@@ -104,6 +104,17 @@ export const BASH_BLOCKED: string[] = [
   "rm -rf src/lib",
   "rm -rf scripts/",
   "git checkout other -- tests",
+  "rm -rf src/lib/constants", // holds fenced files though not itself listed
+  "git checkout other -- src/lib/validators",
+  "rm -rf src/lib/algo-search",
+  "rm -rf tests/golden/*",
+  "rm -rf scripts/canonical/*",
+  "rm -rf scripts/canonical/data*",
+  "rm -rf src/*",
+  "rm -rf scripts/{canonical,ops}",
+  'git checkout other -- "tests/golden/*"',
+  "rm -rf scripts//",
+  "git checkout other -- scripts/canonical/.",
   "git checkout other -- src",
   "git checkout other -- src/lib/scan/",
   "pnpm exec eslint --fix src/lib/scan",
@@ -156,6 +167,8 @@ export const BASH_ALLOWED: string[] = [
   "cp x.sh scripts/ops/deploy.sh", // infrastructure is not fenced (decision 0006)
   "git checkout fc21212 -- scripts/ops/deploy.sh", // a path under an ancestor directory is not the directory
   "git checkout origin/dev -- docs/DEV_SETUP.md",
+  "git checkout other -- src/lib/constants/labels.ts", // an unfenced file beside fenced ones
+  "rm -rf scripts/ops", // infrastructure directory, not an ancestor of fenced files
   "echo '* * * * * x' >> ops/crontab",
   "mkdir -p /tmp/ops",
   "make deploy REF=origin/dev",
