@@ -64,7 +64,7 @@ protected="(scripts/canonical/data|tests/golden/[^[:space:]\"']*\\.json)${bnd}"
 live="(${live_re})${bnd}"
 # directories above protected paths: a destructive verb on one of these takes the protected files with it
 anc_dirs="($(printf '%s' "${anc_list# }" | sed 's/[.]/\\./g; s/ /|/g'))"
-ancestors="${anc_dirs}((/+\.?)*([[:space:]\"']|$)|/[^[:space:]\"']*[][*?{])" # the directory itself, or a glob/brace beneath it
+ancestors="${anc_dirs}((/+\.?)*([[:space:]\"']|$)|(/[^[:space:]\"']*)?([][*?{]|//|/\.\.?(/|[[:space:]\"']|$)))" # the directory itself; a glob/brace beneath it; a //, /. or /.. segment anywhere beneath it
 
 envfile='\.env(rc|[._-][A-Za-z0-9_.-]*)?'
 tail_='([^A-Za-z0-9_]|$)'

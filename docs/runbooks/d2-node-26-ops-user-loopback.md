@@ -122,7 +122,7 @@ ssh qt 'sudo -n ufw status | head -5'  # unchanged: default deny, 22 limited, ta
 
 ## Rollback
 
-**Since 2026-11-01 13:35Z (root's nvm removed after D.2 was verified) there is one rollback path:** `make deploy REF=<sha>` to a commit whose `.nvmrc` is 26.13.0 (every commit from 77eeb01 on; first verified in production at 2635d1f), under the D.2 unit and with the tailnet socket **kept** — the deploy script restarts Next on loopback and the socket keeps forwarding. The "prev" of the last `OK` line in `make logs LOG=deploys N=3` is the usual target.
+**Since 2026-11-01 13:35Z (root's nvm removed after D.2 was verified) there is one rollback path:** `make deploy REF=<sha>` to a commit whose `.nvmrc` is 26.13.0 (every commit from 77eeb01 on; first verified in production at 2635d1f), under the D.2 unit and with the tailnet socket **kept** — the deploy script restarts Next on loopback and the socket keeps forwarding. The "prev" of the last `OK` line in `make logs LOG=deploys N=3` is the usual target — not yet: today that prev is 499a8a0 (`.nvmrc` 25.9.0), which the deploy refuses before touching anything, and the older Node-26 commits 77eeb01 and 688e35a never ran in production; a real rollback target appears once a second Node-26 deploy has been verified.
 
 The two paths below are **retired** and kept only as history: both reinstall the D.1 unit, whose `ExecStart` and `PATH` point into `/root/.nvm`, so on today's host that unit cannot start (systemd `203/EXEC`). Do not run them.
 

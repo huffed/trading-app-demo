@@ -297,7 +297,7 @@ claude doctor                         # lists settings entries Claude Code rejec
 ```bash
 make status                                  # what runs, verified running commit, last ticks, pending reboot (prompts in a Claude session)
 make deploy                                  # origin/dev → VPS, verified, then main moves (prompts; only when the operator asked for a deploy)
-make deploy REF=<previous sha>               # rollback: the prev= of the last OK line in `make logs LOG=deploys N=3`; its .nvmrc must match the host's Node
+make deploy REF=<previous sha>               # rollback: the prev= of the last OK line in `make logs LOG=deploys N=3`; its .nvmrc must match the host's Node (today that prev is 499a8a0 on Node 25 and is refused: a Node-26 rollback target exists once a second Node-26 deploy has been verified)
 make deploy-pointer                          # after a driver was cut off: move main to the host's verified running commit (running.sha = live.sha)
 make logs LOG=deploys N=10                   # the host's own deploy ledger
 make logs LOG=deploy-20261031T140000Z N=60   # one run's full log (the stamp is printed when the run starts)
