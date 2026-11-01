@@ -10,7 +10,8 @@
 # the notify hook after every stop; it pushes only when SERVICE_RESULT is not success, rate-limited,
 # so a crash loop under Restart=always (which never reaches `failed`, so OnFailure= would never
 # fire) still reaches the phone. The hook lives outside the checkout (D.4 runbook) so it exists
-# whatever commit is deployed.
+# whatever commit is deployed; the leading `-` keeps a missing hook from turning a clean stop into
+# `failed`.
 # Apply: install -m 644 → systemctl daemon-reload → the next `make deploy` restarts it
 # (never restart by hand to "finish" a deploy). ProtectSystem=full makes /usr, /boot and
 # /etc read-only; /tmp stays shared because the quarterly-cycle route writes
@@ -32,7 +33,7 @@ ExecStart=/usr/local/bin/node /opt/quanttrader/node_modules/next/dist/bin/next s
 Restart=always
 RestartSec=5
 SuccessExitStatus=143
-ExecStopPost=/usr/local/lib/quanttrader/notify-failure.sh quanttrader
+ExecStopPost=-/usr/local/lib/quanttrader/notify-failure.sh quanttrader
 NoNewPrivileges=yes
 ProtectSystem=full
 ProtectHome=yes

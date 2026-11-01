@@ -28,4 +28,4 @@ DEBT D-19: alerting covered liveness only, through GitHub Actions; a failed unit
 - `ops/crontab` gains an 11th line; `make status` keeps showing the crontab sizes.
 - The hook runs as the unit's user (`ops`) with systemd's `SERVICE_RESULT`/`EXIT_CODE`/`EXIT_STATUS`; it reads no journal, so it needs no journal group.
 - The kill switch's stop now ends the unit `inactive` and sends no failure push; its KILL line reads `service=inactive`.
-- Applying: `docs/runbooks/d4-alerts-and-rotation.md` (install the logrotate file, the failure unit, the app unit's `OnFailure=` with a `daemon-reload` and no restart, the crontab) — outside market hours, with a ledger row.
+- Applying: `docs/runbooks/d4-alerts-and-rotation.md` (install the two host scripts to `/usr/local/lib/quanttrader/`, the logrotate file, the app unit with `SuccessExitStatus=143` and the `ExecStopPost=` hook — `daemon-reload`, no restart — and the 11-line crontab) — outside market hours, with a ledger row.
