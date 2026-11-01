@@ -48,18 +48,17 @@ Approved 2026-10-31 (questions 2 and 3) and designed in `docs/decisions/0007-nod
 - `make resume` reverses the stop (service, crontab, tick verification, push, `RESUME` line) and un-pauses nothing; `make unpause` re-activates exactly the saved ids (`UNPAUSE` line) — the operator's deliberate act.
 - Paper test (checklist in `docs/runbooks/kill-switch.md`): expect no open positions; the sequence is the test. The dead-man alarm trips only if the switch stays engaged > 35–45 min. Rows go to `docs/decisions/deploys.md` and the test log to decision 0008.
 
-## D.4 Alerts and hygiene
+## D.4 Alerts and hygiene — built per decision 0009 (2026-11-01); applied per `docs/runbooks/d4-alerts-and-rotation.md`
 
-- `HEARTBEAT_PING_URL` → a free inverted uptime monitor (healthchecks.io), so a dead host alerts without GitHub Actions; keep the dead-man workflow as the second channel.
-- systemd `OnFailure=` → a one-shot unit that posts to ntfy; a daily `ops-health` cron (disk, memory, `reboot-required`, failed units, deploy sha vs `origin/dev`) → ntfy summary.
-- `deploy.sh` posts success/failure to ntfy.
-- logrotate for `/var/log/quanttrader/*.log` (weekly, 8 rotations, compressed); `Unattended-Upgrade::Automatic-Reboot` stays **off** (reboots are operator windows), but the daily summary says when one is pending.
-- Entry: `0009-alerts-and-rotation.md`.
+- The host alerts on its own through the existing ntfy topic: `OnFailure=quanttrader-failure.service` on the app unit (urgent push with the last journal lines), `deploy.sh` posts every run's result, `scripts/ops/ops-health.sh` posts a daily summary from the `ops` crontab (07:05 UTC) at high priority only when something needs a hand (disk, reboot pending, failed units, running ≠ dev, service down, kill switch engaged).
+- logrotate for `/var/log/quanttrader/*.log`: weekly, eight rotations, compressed, owned by `ops`.
+- `Unattended-Upgrade::Automatic-Reboot` stays **off**; the summary says when a reboot is pending.
+- `HEARTBEAT_PING_URL` → the operator creates the healthchecks.io check and sets the URL in the host's env file; the wrapper already pings it.
 
 ## D.5 Nightly parity job
 
 - Depends on the audit's `paper-replay.ts` landing on `dev` (then `make parity` stops being a stub, DEBT D-02). The job: nightly, on the VPS or as a scheduled GitHub Actions workflow, runs the parity replay over the paper positions of the last N days against the pinned bars, posts the summary to ntfy, exits non-zero on divergence above the agreed band.
-- Available now, independent of the audit: a **nightly scheduled CI run** of `make check` + `make backtest` on `dev` (catches dependency, provider and environment drift that PR runs cannot). Cheap; proposed for D.4's PR.
+- **Done (CI half, decision 0009):** `.github/workflows/nightly.yml` runs `make check` + `make backtest` on `dev` at 03:17 UTC and pushes to the phone on failure.
 
 ## D.6 Backups with a tested restore
 

@@ -13,6 +13,7 @@
 Description=QuantTrader production server (loopback :3000; the tailnet socket proxy and the cron wrappers are its only clients)
 After=network-online.target
 Wants=network-online.target
+OnFailure=quanttrader-failure.service
 
 [Service]
 User=ops

@@ -35,6 +35,15 @@ RESTORE=none  # none | ok | failed — what restore_previous did
 RESTART_AT=""
 
 log() { printf '[%s] deploy: %s\n' "$(date -u +%FT%TZ)" "$*"; }
+envval() { grep -E "^$1=" "$APP/.env.local" 2> /dev/null | head -n 1 | cut -d= -f2- | tr -d '"' | tr -d "'"; }
+notify() { # $1 priority, $2 title, $3 body — ntfy topic/token read on the host, never printed; failures only logged
+  local topic token
+  topic=$(envval NTFY_TOPIC)
+  token=$(envval NTFY_TOKEN)
+  [ -n "$topic" ] || return 0
+  { [ -n "$token" ] && printf 'Authorization: Bearer %s\n' "$token" || printf 'X-Unused: 1\n'; } \
+    | curl -fsS --max-time 15 -H @- -H "Title: $2" -H "Priority: $1" -d "$3" "https://ntfy.sh/$topic" > /dev/null || log "ntfy push failed"
+}
 ledger() { printf '%s %s\n' "$(date -u +%FT%TZ)" "$*" >> "$LEDGER" 2> /dev/null || true; }
 fail() {
   trap - ERR
@@ -43,6 +52,7 @@ fail() {
   [ "$PHASE" = restarted ] && extra=" restart=$RESTART_AT live=$SHA"
   ledger "FAIL ref=$REF sha=$SHA running=$PREV phase=$PHASE step=$step market_ok=$MARKET_OK$extra" # before the restore, which takes minutes
   log "FAILED ($PHASE): $step"
+  notify urgent "quanttrader-prod deploy FAILED ($PHASE)" "$(hostname) $(date -u +%FT%TZ): ${SHA:0:12} ($REF) failed at: $step. Running: ${PREV:0:12}. make status; make logs LOG=deploys N=3"
   case "$PHASE" in
     checked-out)
       restore_previous
@@ -238,6 +248,7 @@ main() {
   printf '%s\n' "$SHA" > "$RUNNING"
   ledger "OK ref=$REF sha=$SHA prev=$PREV runtime=$runtime restart=$RESTART_AT market_ok=$MARKET_OK"
   log "OK ${SHA:0:12} is live and verified (was ${PREV:0:12}); rollback: make deploy REF=$PREV"
+  notify default "quanttrader-prod deployed ${SHA:0:7}" "$(hostname) $(date -u +%FT%TZ): ${SHA:0:12} ($REF) live and verified on Node $runtime (was ${PREV:0:12})"
   echo "DEPLOYED_SHA=$SHA"
   echo "DEPLOYED_RUNTIME=$runtime"
   echo "PREVIOUS_SHA=$PREV"

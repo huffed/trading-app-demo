@@ -1,0 +1,14 @@
+# /etc/logrotate.d/quanttrader — D.4 (decision 0009). The cron wrappers and the deploy runs append to
+# /var/log/quanttrader/*.log as ops with no rotation until now (scan.log passed 8 MB in October).
+# Weekly, eight rotations kept compressed, rotated files owned by ops so the wrappers keep appending.
+# Applied by: install -m 644 ops/logrotate/quanttrader /etc/logrotate.d/quanttrader (logrotate runs daily from systemd).
+/var/log/quanttrader/*.log {
+    su ops ops
+    weekly
+    rotate 8
+    compress
+    delaycompress
+    missingok
+    notifempty
+    create 0644 ops ops
+}

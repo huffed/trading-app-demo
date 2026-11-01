@@ -10,5 +10,7 @@ What runs on the VPS `quanttrader-prod`, captured from the host on 2026-10-31 (P
 | Tailscale serve (optional HTTPS layer; `tailscaled` keeps the config) | `tailscale serve status` | once Serve is enabled for the tailnet: `sudo tailscale serve --bg --https=443 http://127.0.0.1:3000` |
 | `sshd/10-hardening.conf` | `/etc/ssh/sshd_config.d/10-hardening.conf` | copy, `sshd -t`, `systemctl reload ssh` (installed 2026-10-29, `docs/runbooks/harden-vps-ssh.md`) |
 | `ufw.sh` | the firewall | run once as root; idempotent |
+| `logrotate/quanttrader` | `/etc/logrotate.d/quanttrader` | `install -m 644`; logrotate runs daily from systemd (D.4, decision 0009) |
+| `systemd/quanttrader-failure.service` | `/etc/systemd/system/` | `install -m 644`, `systemctl daemon-reload`; fired by the app unit's `OnFailure=` (D.4) |
 
 The deploy itself is `scripts/ops/deploy.sh` (runs on the host) driven by `scripts/ops/deploy-driver.sh` (runs on the workstation) through `make deploy`; `make status` and `make logs` are read-only views. All of it is documented in `docs/DEV_SETUP.md` §17 and decided in `docs/decisions/0005`. `ops/**` and `scripts/ops/**` are infrastructure, not fenced by the Claude Code hooks (decision 0006): every change is a PR reviewed in a fresh context, shellchecked at `-S warning`, and every command that runs on the host prompts for the operator's approval.
