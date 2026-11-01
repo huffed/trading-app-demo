@@ -14,9 +14,13 @@ $(error REF is set in the environment; unset it and pass it on the command line:
 endif
 QT_HOST ?= qt
 REF ?= origin/dev
-# One multiplexed ssh connection for every host target (the host's `ufw limit 22/tcp` rejects a source
-# that opens six or more connections in 30 s; the deploy driver does the same for itself).
-SSH := ssh -o BatchMode=yes -o ConnectTimeout=20 -o ControlMaster=auto -o ControlPath=~/.ssh/qt-make-%C -o ControlPersist=10m -o ServerAliveInterval=30
+# status, logs, kill-switch, resume and unpause share one multiplexed ssh connection (the host's
+# `ufw limit 22/tcp` rejects a source that opens six or more connections in 30 s; the deploy driver keeps
+# its own). The master lives 60 s after the last command and declares a dead connection within 30 s
+# (15 s x 2), so a stale socket costs one re-run, never a hang. This is the only text make expands into
+# those recipes; `override` keeps a command line or MAKEFLAGS from replacing it (pinned by
+# tests/ops/makefile-host-targets.test.ts).
+override SSH := ssh -o BatchMode=yes -o ConnectTimeout=20 -o ControlMaster=auto -o ControlPath=~/.ssh/qt-make-%C -o ControlPersist=60 -o ServerAliveInterval=15 -o ServerAliveCountMax=2
 LOG ?= scan
 N ?= 40
 QT_MARKET_HOURS_OK ?= 0
@@ -142,7 +146,7 @@ status: ## VPS: service, checkout vs verified running commit, last verified tick
 	git fetch --quiet origin && git show origin/dev:scripts/ops/status.sh | $(SSH) -- "$$QT_HOST" 'bash -s' && \
 	echo "origin/dev:  $$(git rev-parse --short=12 origin/dev)"
 
-logs: ## VPS: tail a log, read-only — make logs LOG=scan N=40 (scan manage heartbeat oanda-positioning reconcile alpha-decay broker-health m1-band-check prune cohort-report deploys deploy-<stamp>)
+logs: ## VPS: tail a log, read-only — make logs LOG=scan N=40 (scan manage heartbeat oanda-positioning reconcile alpha-decay broker-health m1-band-check prune cohort-report ops-health kill-switch deploys deploy-<stamp>)
 	@case "$$QT_HOST" in -*|*[!A-Za-z0-9._-]*|"") echo "make logs: QT_HOST must be an ssh host alias"; exit 2;; esac; \
 	case "$$LOG" in *[!A-Za-z0-9-]*|"") echo "make logs: LOG must be a log name (letters, digits, -)"; exit 2;; esac; \
 	case "$$N" in *[!0-9]*|"") echo "make logs: N must be a number"; exit 2;; esac; \
