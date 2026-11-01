@@ -5,7 +5,7 @@
  * `SSH`, and it must be declared with `override` so that neither a command-line `SSH=…` nor
  * `MAKEFLAGS` can replace it (fresh-context review of PR #316, 2026-11-01).
  */
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -48,5 +48,51 @@ describe("Makefile host targets", () => {
     expect(makefile).toMatch(
       /^override SSH := ssh -o BatchMode=yes -o ConnectTimeout=\d+ -o ControlMaster=auto /m
     );
+  });
+});
+
+function stringList(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string")
+    : [];
+}
+
+function permissionRules(path: string): { allow: string[]; ask: string[] } {
+  const parsed: unknown = JSON.parse(readFileSync(path, "utf8"));
+  const permissions =
+    typeof parsed === "object" && parsed !== null && "permissions" in parsed
+      ? parsed.permissions
+      : undefined;
+  const rules = typeof permissions === "object" && permissions !== null ? permissions : {};
+  return {
+    allow: stringList("allow" in rules ? rules.allow : []),
+    ask: stringList("ask" in rules ? rules.ask : []),
+  };
+}
+
+// A blanket make rule, or a rule naming a host target (the three live-table writers, the deploy and the
+// read-only host views) must never be an allow rule: CLAUDE.md promises they prompt every time.
+const HOST_RULE =
+  /^Bash\(make(:\*| \*)?\)$|^Bash\(make (kill-switch|resume|unpause|deploy|deploy-pointer|status|logs)(\)| |:)/;
+const LIVE_TABLE_TARGETS = ["kill-switch", "resume", "unpause"];
+
+describe("the host targets prompt every time", () => {
+  const project = permissionRules(resolve(process.cwd(), ".claude/settings.json"));
+
+  it("are never pre-approved by the project settings", () => {
+    expect(project.allow.filter((rule) => HOST_RULE.test(rule))).toEqual([]);
+  });
+
+  it("are never pre-approved by the local settings, when that file exists", () => {
+    const local = resolve(process.cwd(), ".claude/settings.local.json");
+    if (!existsSync(local)) return;
+    expect(permissionRules(local).allow.filter((rule) => HOST_RULE.test(rule))).toEqual([]);
+  });
+
+  it("list both spellings of the three live-table writers as ask rules", () => {
+    for (const target of LIVE_TABLE_TARGETS) {
+      expect(project.ask).toContain(`Bash(make ${target})`);
+      expect(project.ask).toContain(`Bash(make ${target} *)`);
+    }
   });
 });

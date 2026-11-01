@@ -325,7 +325,7 @@ make unpause                             # trading restarts: exactly the algorit
 make logs LOG=deploys N=5                # KILL / RESUME / UNPAUSE lines
 ```
 
-**Rules:** the switch is the one exception to "no VPS change in market hours". The three targets write `algorithms.status` and can reach the broker through the flatten route; they prompt and run only when the operator asks for them, and whether `CLAUDE.md`'s "nothing that writes the live tables runs from a Claude session" is amended for them or they go to `deny` is the operator's call (decision 0008). Resume never un-pauses. The ledger lines are copied into `docs/decisions/deploys.md` in the next PR. `make deploy` refuses while the switch is engaged. The targets refuse when the local `origin/dev` does not hold the scripts: `git fetch origin` first.
+**Rules:** the switch is the one exception to "no VPS change in market hours". The three targets write `algorithms.status` and can reach the broker through the flatten route; they are the only way a Claude session writes to the live tables (`CLAUDE.md`, amended by the operator on 2026-11-01 rather than denying them): each prompts every time, is never pre-approved (`ask` rules in `.claude/settings.json`, both spellings, checked by `tests/ops/makefile-host-targets.test.ts`, which also fails if any allow rule names a host target), and writes a ledger row. Resume never un-pauses. The ledger lines are copied into `docs/decisions/deploys.md` in the next PR. `make deploy` refuses while the switch is engaged. The targets refuse when the local `origin/dev` does not hold the scripts: `git fetch origin` first.
 
 ## 19. Alerts from the host, log rotation, the nightly gate
 

@@ -154,8 +154,10 @@ logs: ## VPS: tail a log, read-only — make logs LOG=scan N=40 (scan manage hea
 
 # The kill switch and its reverse stream the reviewed script from the LOCAL copy of origin/dev (no fetch:
 # the switch must not depend on GitHub being reachable) over one ssh connection; the host reads its own
-# secrets. They are the only VPS change allowed in market hours.
-kill-switch: ## EMERGENCY: disable the crons, pause every active algorithm, flatten their positions, stop + disable the service, alert, ledger line — idempotent, fails closed, exits non-zero on any failed step (docs/runbooks/kill-switch.md). REASON=<word>
+# secrets. They are the only VPS change allowed in market hours and the only way a session writes to the
+# live tables (CLAUDE.md): each prompts every time (`ask` in .claude/settings.json, never in an allow list;
+# tests/ops/makefile-host-targets.test.ts checks) and writes a ledger row.
+kill-switch: ## EMERGENCY: disable the crons, pause every active algorithm, flatten their positions, stop + disable the service, alert, ledger row — idempotent, fails closed, exits non-zero on any failed step; prompts every time, never pre-approved (docs/runbooks/kill-switch.md). REASON=<word>
 	@set -o pipefail; \
 	case "$$QT_HOST" in -*|*[!A-Za-z0-9._-]*|"") echo "make kill-switch: QT_HOST must be an ssh host alias"; exit 2;; esac; \
 	case "$$REASON" in *[!A-Za-z0-9_.-]*|"") echo "make kill-switch: REASON must be one word (letters, digits, _ . -)"; exit 2;; esac; \
@@ -164,14 +166,14 @@ kill-switch: ## EMERGENCY: disable the crons, pause every active algorithm, flat
 	echo "kill-switch: streaming scripts/ops/kill-switch.sh from local origin/dev $$(git rev-parse --short=12 origin/dev) to $$QT_HOST"; \
 	git show origin/dev:scripts/ops/kill-switch.sh | $(SSH) -- "$$QT_HOST" "bash -s -- $$REASON"
 
-resume: ## Reverse the kill switch's stop: enable + start the service, refuse while any algorithm is active, restore the crontab, verify the next ticks, alert, ledger line — algorithms stay paused (make unpause is the operator's act)
+resume: ## Reverse the kill switch's stop: enable + start the service, refuse while any algorithm is active, restore the crontab, verify the next ticks, alert, ledger row — algorithms stay paused (make unpause is the operator's act); prompts every time, never pre-approved
 	@set -o pipefail; \
 	case "$$QT_HOST" in -*|*[!A-Za-z0-9._-]*|"") echo "make resume: QT_HOST must be an ssh host alias"; exit 2;; esac; \
 	git cat-file -e origin/dev:scripts/ops/resume.sh 2>/dev/null || { echo "make resume: scripts/ops/resume.sh is not in your local origin/dev — run: git fetch origin"; exit 2; }; \
 	echo "resume: streaming scripts/ops/resume.sh from local origin/dev $$(git rev-parse --short=12 origin/dev) to $$QT_HOST"; \
 	git show origin/dev:scripts/ops/resume.sh | $(SSH) -- "$$QT_HOST" 'bash -s'
 
-unpause: ## Re-activate exactly the algorithms the kill switch paused (its saved id list), ledger line — the operator's deliberate act after a resume
+unpause: ## Re-activate exactly the algorithms the kill switch paused (its saved id list), ledger row — the operator's deliberate act after a resume; prompts every time, never pre-approved
 	@set -o pipefail; \
 	case "$$QT_HOST" in -*|*[!A-Za-z0-9._-]*|"") echo "make unpause: QT_HOST must be an ssh host alias"; exit 2;; esac; \
 	git cat-file -e origin/dev:scripts/ops/unpause.sh 2>/dev/null || { echo "make unpause: scripts/ops/unpause.sh is not in your local origin/dev — run: git fetch origin"; exit 2; }; \

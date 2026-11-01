@@ -1,6 +1,6 @@
 # Kill switch — stop all trading activity on the VPS, and how to come back
 
-`make kill-switch` is the one host command allowed in market hours. It is idempotent and fails closed: whatever is unreachable, the service ends up stopped and the crons gone. Everything it does is one line in `/var/log/quanttrader/deploys.log` and an urgent ntfy push.
+`make kill-switch` is the one host command allowed in market hours. It is idempotent and fails closed: whatever is unreachable, the service ends up stopped and the crons gone. Everything it does is one line in `/var/log/quanttrader/deploys.log` and an urgent ntfy push. `make kill-switch`, `make resume` and `make unpause` are the only way a Claude session writes to the live tables (CLAUDE.md): each prompts every time, is never pre-approved (`ask` rules in `.claude/settings.json`, checked by `tests/ops/makefile-host-targets.test.ts`), and writes a ledger row.
 
 ## What it does, in order (`scripts/ops/kill-switch.sh`, run on the host as `ops`)
 
