@@ -39,7 +39,7 @@ A kill switch left engaged trips the GitHub dead-man workflow (manage stale afte
 Expect no open positions; the point is the sequence.
 
 1. `git fetch origin` (the local `origin/dev` must hold the scripts); `make status` → service active, 10 cron entries, ticks 200.
-2. `make kill-switch REASON=paper-test` → output ends `KILL_RESULT=OK`, `KILL_ERRORS=none`; the line reads `crons=disabled paused=5 flattened=0 service=inactive open_after=0 alert=sent` (`service=failed` until decision 0009's unit with `SuccessExitStatus=143` is installed: Next exits 143 on SIGTERM); the phone receives the urgent push; `make status` → service inactive, crontab 0.
+2. `make kill-switch REASON=paper-test` → output ends `KILL_RESULT=OK`, `KILL_ERRORS=none`; the line reads `crons=disabled paused=5 flattened=0 service=inactive open_after=0 alert=sent` (`service=failed` in the 2026-11-01 test runs, which predate the 16:07Z install of decision 0009's unit with `SuccessExitStatus=143`: Next exits 143 on SIGTERM; from the next stop the line reads `service=inactive`); the phone receives the urgent push; `make status` → service inactive, crontab 0.
 3. `make kill-switch REASON=paper-test-again` → `KILL_RESULT=OK` with `crons=already-empty paused=0 flattened=SKIPPED open_after=0` (idempotency: the service is already stopped, so there is nothing to flatten through; `open_after` is the check that matters).
 4. In the database: the five algorithms are `paused`; no open paper position; any position closed by the flatten has `exit_reason='manual'`.
 5. `make resume` → service active, `active_algorithms=0`, crontab 10, the next manage, heartbeat and scan ticks 200, `RESUME_RESULT=OK`, normal-priority push received.

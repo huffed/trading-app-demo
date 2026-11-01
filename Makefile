@@ -14,6 +14,9 @@ $(error REF is set in the environment; unset it and pass it on the command line:
 endif
 QT_HOST ?= qt
 REF ?= origin/dev
+# One multiplexed ssh connection for every host target (the host's `ufw limit 22/tcp` rejects a source
+# that opens six or more connections in 30 s; the deploy driver does the same for itself).
+SSH := ssh -o BatchMode=yes -o ConnectTimeout=20 -o ControlMaster=auto -o ControlPath=~/.ssh/qt-make-%C -o ControlPersist=10m -o ServerAliveInterval=30
 LOG ?= scan
 N ?= 40
 QT_MARKET_HOURS_OK ?= 0
@@ -136,14 +139,14 @@ deploy-pointer: ## Move main to the host's verified running commit (after a `mak
 
 status: ## VPS: service, checkout vs verified running commit, last verified tick per log, pending reboot (read-only; the status script is streamed from origin/dev) plus origin/dev for comparison
 	@case "$$QT_HOST" in -*|*[!A-Za-z0-9._-]*|"") echo "make status: QT_HOST must be an ssh host alias"; exit 2;; esac; \
-	git fetch --quiet origin && git show origin/dev:scripts/ops/status.sh | ssh -o BatchMode=yes -- "$$QT_HOST" 'bash -s' && \
+	git fetch --quiet origin && git show origin/dev:scripts/ops/status.sh | $(SSH) -- "$$QT_HOST" 'bash -s' && \
 	echo "origin/dev:  $$(git rev-parse --short=12 origin/dev)"
 
 logs: ## VPS: tail a log, read-only — make logs LOG=scan N=40 (scan manage heartbeat oanda-positioning reconcile alpha-decay broker-health m1-band-check prune cohort-report deploys deploy-<stamp>)
 	@case "$$QT_HOST" in -*|*[!A-Za-z0-9._-]*|"") echo "make logs: QT_HOST must be an ssh host alias"; exit 2;; esac; \
 	case "$$LOG" in *[!A-Za-z0-9-]*|"") echo "make logs: LOG must be a log name (letters, digits, -)"; exit 2;; esac; \
 	case "$$N" in *[!0-9]*|"") echo "make logs: N must be a number"; exit 2;; esac; \
-	ssh -o BatchMode=yes -- "$$QT_HOST" "tail -n $$N /var/log/quanttrader/$$LOG.log"
+	$(SSH) -- "$$QT_HOST" "tail -n $$N /var/log/quanttrader/$$LOG.log"
 
 # The kill switch and its reverse stream the reviewed script from the LOCAL copy of origin/dev (no fetch:
 # the switch must not depend on GitHub being reachable) over one ssh connection; the host reads its own
@@ -155,18 +158,18 @@ kill-switch: ## EMERGENCY: disable the crons, pause every active algorithm, flat
 	[ "$${#REASON}" -le 40 ] || { echo "make kill-switch: REASON must be at most 40 characters"; exit 2; }; \
 	git cat-file -e origin/dev:scripts/ops/kill-switch.sh 2>/dev/null || { echo "make kill-switch: scripts/ops/kill-switch.sh is not in your local origin/dev — run: git fetch origin"; exit 2; }; \
 	echo "kill-switch: streaming scripts/ops/kill-switch.sh from local origin/dev $$(git rev-parse --short=12 origin/dev) to $$QT_HOST"; \
-	git show origin/dev:scripts/ops/kill-switch.sh | ssh -o BatchMode=yes -o ConnectTimeout=20 -- "$$QT_HOST" "bash -s -- $$REASON"
+	git show origin/dev:scripts/ops/kill-switch.sh | $(SSH) -- "$$QT_HOST" "bash -s -- $$REASON"
 
 resume: ## Reverse the kill switch's stop: enable + start the service, refuse while any algorithm is active, restore the crontab, verify the next ticks, alert, ledger line — algorithms stay paused (make unpause is the operator's act)
 	@set -o pipefail; \
 	case "$$QT_HOST" in -*|*[!A-Za-z0-9._-]*|"") echo "make resume: QT_HOST must be an ssh host alias"; exit 2;; esac; \
 	git cat-file -e origin/dev:scripts/ops/resume.sh 2>/dev/null || { echo "make resume: scripts/ops/resume.sh is not in your local origin/dev — run: git fetch origin"; exit 2; }; \
 	echo "resume: streaming scripts/ops/resume.sh from local origin/dev $$(git rev-parse --short=12 origin/dev) to $$QT_HOST"; \
-	git show origin/dev:scripts/ops/resume.sh | ssh -o BatchMode=yes -o ConnectTimeout=20 -o ServerAliveInterval=30 -- "$$QT_HOST" 'bash -s'
+	git show origin/dev:scripts/ops/resume.sh | $(SSH) -- "$$QT_HOST" 'bash -s'
 
 unpause: ## Re-activate exactly the algorithms the kill switch paused (its saved id list), ledger line — the operator's deliberate act after a resume
 	@set -o pipefail; \
 	case "$$QT_HOST" in -*|*[!A-Za-z0-9._-]*|"") echo "make unpause: QT_HOST must be an ssh host alias"; exit 2;; esac; \
 	git cat-file -e origin/dev:scripts/ops/unpause.sh 2>/dev/null || { echo "make unpause: scripts/ops/unpause.sh is not in your local origin/dev — run: git fetch origin"; exit 2; }; \
 	echo "unpause: streaming scripts/ops/unpause.sh from local origin/dev $$(git rev-parse --short=12 origin/dev) to $$QT_HOST"; \
-	git show origin/dev:scripts/ops/unpause.sh | ssh -o BatchMode=yes -o ConnectTimeout=20 -- "$$QT_HOST" 'bash -s'
+	git show origin/dev:scripts/ops/unpause.sh | $(SSH) -- "$$QT_HOST" 'bash -s'
