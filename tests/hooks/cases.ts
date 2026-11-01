@@ -145,6 +145,12 @@ export const BASH_BLOCKED: string[] = [
   "make logs LOG=$'x\\x3b sudo -n cat /opt/quanttrader/.e\\x6ev.local\\x3b true'",
   "make deploy REF='$(git rev-parse HEAD)'",
   "make -C /tmp lint",
+  "make lint-strict FILES=x unpause", // a host goal behind a pre-approved goal (CLAUDE.md's live-table rule)
+  "make -s kill-switch REASON=x", // a flag form that no ask rule matches
+  "make REASON=x kill-switch", // an override before the target: no ask rule matches
+  "make help status",
+  "make status help",
+  "FOO=1 make -n unpause",
   "git commit -m x --no-veri",
   "HUSKY=0 git commit -m x",
   "pnpm exec vitest run -u",
@@ -180,6 +186,8 @@ export const BASH_ALLOWED: string[] = [
   "make deploy REF=3ee22e2",
   "make status",
   "make logs LOG=deploy-20261031T130000Z N=60",
+  "make logs LOG=deploys N=5 2>&1", // a redirect is not a goal
+  "make status QT_HOST=qt", // an override after the target
   "ls scripts/canonical/data/",
   "cp scripts/canonical/data/x.json /tmp/",
   "ls scripts/canonical/data/ && rm -rf .next",

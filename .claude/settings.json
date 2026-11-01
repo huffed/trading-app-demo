@@ -50,6 +50,7 @@
       "Bash(make resume *)",
       "Bash(make unpause)",
       "Bash(make unpause *)",
+      "Bash(make -*)",
       "Bash(make status *)",
       "Bash(make status)",
       "Bash(make logs *)",

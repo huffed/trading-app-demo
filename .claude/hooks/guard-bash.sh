@@ -206,6 +206,27 @@ while IFS=$'\t' read -r sep seg; do
     if grep -qE "(^|[[:space:]])(-f|--file|--makefile|-C|--directory|-e|--eval|-I|--include-dir)([[:space:]]|=|$)" <<<"$uq"; then
       deny "$orig" "make with an alternate makefile, directory, include dir or --eval runs code the Makefile does not define"
     fi
+    # the host targets run alone (CLAUDE.md's live-table rule, decision 0010): make runs every goal on its command
+    # line, so a host goal behind another goal (`make lint-strict FILES=x unpause` matches the pre-approved
+    # `make lint-strict *`), behind a flag (`make -s unpause` matches no ask rule) or behind an override
+    # (`make REASON=x kill-switch`) would run without the prompt the ask rules give `make <host-target> …`;
+    # the Makefile refuses the multi-goal shape too, while it reads the file
+    read -r -a mtoks <<<"$uq"
+    host_goal=""; goals=0; flags=0
+    if [ "${#mtoks[@]}" -gt 1 ]; then
+      for tok in "${mtoks[@]:1}"; do
+        case "$tok" in
+          *'>'*|*'<'*) ;;
+          -*) flags=$((flags + 1)) ;;
+          *=*) ;;
+          deploy|deploy-pointer|status|logs|kill-switch|resume|unpause) host_goal=$tok; goals=$((goals + 1)) ;;
+          *) goals=$((goals + 1)) ;;
+        esac
+      done
+    fi
+    if [ -n "$host_goal" ] && { [ "$goals" -ne 1 ] || [ "$flags" -ne 0 ] || [ "${mtoks[1]}" != "$host_goal" ]; }; then
+      deny "$orig" "the host targets run alone: make $host_goal [NAME=value …] with no flag, no other goal and no override before the target (CLAUDE.md's live-table rule)"
+    fi
     # a $ or a backtick anywhere in a make command is either a make function such as $(shell …), which runs when
     # make reads the override, or a shell expansion bash performs after this hook has looked
     if grep -qE '[$`]' <<<"$s"; then
