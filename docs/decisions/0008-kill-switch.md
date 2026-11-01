@@ -4,7 +4,7 @@
 
 ## Decision
 
-`make kill-switch REASON=<word>` streams `scripts/ops/kill-switch.sh` from the workstation's local copy of `origin/dev` to the host over one ssh connection and runs it as `ops`. In order, attempting every step even after a failure: pause every active algorithm (Supabase REST, service role read on the host; the paused ids are saved), flatten their open paper positions through the app's own `/api/admin/flatten-algo` route on loopback (`exit_reason` `manual`), stop the service, save and remove the crontab, send an urgent ntfy push, write a `KILL` ledger line that says exactly what succeeded. It is idempotent and the only host change permitted in market hours. `make resume` reverses only the stop (service, crontab, tick verification, push, `RESUME` line) and leaves the algorithms paused; `make unpause` re-activates exactly the saved ids and is the operator's deliberate act. Secrets are read on the host and passed to curl through stdin headers.
+`make kill-switch REASON=<word>` streams `scripts/ops/kill-switch.sh` from the workstation's local copy of `origin/dev` to the host over one ssh connection and runs it as `ops`. In order, attempting every step even after a failure: save and remove the crontab (no new ticks, and nothing waits on the database or the app first), pause every active algorithm (Supabase REST, service role read on the host; the paused ids are saved and merged with earlier runs'), flatten their open positions through the app's own `/api/admin/flatten-algo` route on loopback — the paper rows (`exit_reason` `manual`) and the broker side of any position carrying a `broker_position_id` — skipping the rest once the app stops answering, stop **and disable** the service, count what is still open, send an urgent ntfy push, write a `KILL` ledger line whose every field says what actually happened. The run ignores a dropped ssh session and logs to a file on the host; it exits non-zero when any step failed. It is idempotent and the only host change permitted in market hours. `make resume` reverses only the stop (enable + start the service, refuse to restore the crontab while any algorithm is still active, tick verification, push, `RESUME` line) and leaves the algorithms paused; `make unpause` re-activates exactly the saved ids and is the operator's deliberate act. Secrets are read on the host and passed to curl through stdin headers.
 
 ## Why
 
@@ -19,8 +19,9 @@ DEBT D-19: there was no single kill switch; `status='paused'` alone orphans open
 
 ## Consequences
 
-- `make deploy` must refuse while the switch is engaged (decision 0005 consequence); until that check exists, the operator runs `make resume` first.
+- `make deploy` refuses while the switch is engaged (saved crontab present, live crontab empty), at its start and before its restart (decision 0005 consequence, done here).
 - A switch left engaged trips the dead-man workflow by design (manage > 45 min, scan > 35 min).
+- The three targets write `algorithms.status` and the flatten route can reach the broker. `CLAUDE.md`'s sentence "nothing that connects to a broker or writes to the live tables runs from a Claude session" predates the switch; the targets prompt and run only when the operator asks for them, and the operator decides whether to amend that sentence or set the targets to `deny` (a Claude session must not change that rule itself).
 - The paused-ids file and the saved crontab live in `/var/lib/quanttrader`, owned by `ops`.
 - The paper test is recorded in `docs/decisions/deploys.md` (KILL, RESUME, UNPAUSE rows) and below.
 

@@ -155,6 +155,8 @@ main() {
   export CI=1 # pnpm and next: non-interactive, no prompts
   exec 9> "$LOGDIR/.deploy.lock"
   flock -n 9 || fail "another deploy is running"
+  switch_engaged() { [ -s /var/lib/quanttrader/crontab.disabled ] && [ -z "$(crontab -l 2> /dev/null)" ]; }
+  if switch_engaged; then fail "the kill switch is engaged (crontab saved and removed): make resume first"; fi
   cd "$APP" || fail "cd $APP"
   command -v node > /dev/null || fail "node is not on PATH"
   command -v pnpm > /dev/null || fail "pnpm is not on PATH"
@@ -201,6 +203,7 @@ main() {
     fail "market hours (Sunday 22:00 to Friday 22:00 UK): no restart; the kill switch is the only market-hours change (QT_MARKET_HOURS_OK=1 on the workstation overrides — the operator's call)"
   fi
   wait_for_gap
+  if switch_engaged; then fail "the kill switch was engaged during this run: no restart (make resume first)"; fi
   if in_market_hours && [ "$MARKET_OK" != 1 ]; then # the wait may have crossed the Sunday open
     fail "the market opened while waiting for a tick gap; no restart (QT_MARKET_HOURS_OK=1 overrides)"
   fi
