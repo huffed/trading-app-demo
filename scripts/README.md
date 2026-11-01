@@ -367,7 +367,7 @@ note and in `~/.ssh/config` as the `qt` alias — **never in this repository**
   `/var/log/quanttrader/*.log`: scan `*/15`, manage `*/5`, heartbeat `*/5`,
   oanda-positioning `*/20`, prune daily 04:00, cohort-report Sun 23:00,
   alpha-decay `10 */6`, broker-health `0 */6`, reconcile `*/30`,
-  m1-band-check 21:30. **Not installed:** walk-forward-opt, quarterly
+  m1-band-check 21:30, ops-health 07:05 (D.4). **Not installed:** walk-forward-opt, quarterly
   research cycle, validate-algo-monthly, prereg-expiration,
   broker-spread-sampler (the table above still lists them).
 - **Firewall:** ufw default-deny; SSH only publicly; from D.2 the app listens

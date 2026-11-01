@@ -17,7 +17,8 @@
 # heartbeat (stale_count 0) and scan ticks log http=200 (≤ 25 min) → running.sha → OK.
 # Prints DEPLOY_RESULT, DEPLOY_PHASE, DEPLOY_RESTORE (none|ok|failed), PREVIOUS_SHA and
 # on success DEPLOYED_SHA and DEPLOYED_RUNTIME for the driver's ledger row.
-# No secret is read or printed: the cron wrappers authenticate the routes themselves.
+# The only values read from the env file are the ntfy topic and token for the result push; they are
+# never printed. The cron wrappers authenticate the routes themselves.
 # Runs as `ops` (D.2, decision 0007); `sudo -n systemctl restart quanttrader` is the only privileged step.
 set -euo pipefail
 
@@ -35,6 +36,15 @@ RESTORE=none  # none | ok | failed — what restore_previous did
 RESTART_AT=""
 
 log() { printf '[%s] deploy: %s\n' "$(date -u +%FT%TZ)" "$*"; }
+envval() { grep -E "^$1=" "$APP/.env.local" 2> /dev/null | head -n 1 | cut -d= -f2- | tr -d '"' | tr -d "'" || true; } # a missing key is empty, never an error (this script runs under -e with an ERR trap)
+notify() { # $1 priority, $2 title, $3 body — ntfy topic/token read on the host, never printed; failures only logged
+  local topic token
+  topic=$(envval NTFY_TOPIC)
+  token=$(envval NTFY_TOKEN)
+  [ -n "$topic" ] || return 0
+  { [ -n "$token" ] && printf 'Authorization: Bearer %s\n' "$token" || printf 'X-Unused: 1\n'; } \
+    | curl -fsS --max-time 15 -H @- -H "Title: $2" -H "Priority: $1" -d "$3" "https://ntfy.sh/$topic" > /dev/null || log "ntfy push failed"
+}
 ledger() { printf '%s %s\n' "$(date -u +%FT%TZ)" "$*" >> "$LEDGER" 2> /dev/null || true; }
 fail() {
   trap - ERR
@@ -47,8 +57,13 @@ fail() {
     checked-out)
       restore_previous
       ledger "RESTORE $RESTORE ref=$REF sha=$SHA running=$PREV"
+      notify urgent "quanttrader-prod deploy FAILED before the restart" "$(hostname) $(date -u +%FT%TZ): ${SHA:0:12} ($REF) failed at: $step. Running: ${PREV:0:12}; restore of its tree and build: $RESTORE$([ "$RESTORE" = failed ] && echo " — run make deploy REF=$PREV now"). make status; make logs LOG=deploys N=3"
       ;;
-    restarted) log "${SHA:0:12} is LIVE since $RESTART_AT and failed verification; roll back now: make deploy REF=$PREV" ;;
+    restarted)
+      log "${SHA:0:12} is LIVE since $RESTART_AT and failed verification; roll back now: make deploy REF=$PREV"
+      notify urgent "quanttrader-prod deploy FAILED after the restart" "$(hostname) $(date -u +%FT%TZ): ${SHA:0:12} ($REF) is LIVE and unverified since $RESTART_AT (failed at: $step). Roll back now: make deploy REF=$PREV"
+      ;;
+    *) notify urgent "quanttrader-prod deploy FAILED" "$(hostname) $(date -u +%FT%TZ): ${SHA:0:12} ($REF) failed at: $step before anything changed. Running: ${PREV:0:12}" ;;
   esac
   echo "PREVIOUS_SHA=$PREV"
   echo "DEPLOY_PHASE=$PHASE"
@@ -238,6 +253,7 @@ main() {
   printf '%s\n' "$SHA" > "$RUNNING"
   ledger "OK ref=$REF sha=$SHA prev=$PREV runtime=$runtime restart=$RESTART_AT market_ok=$MARKET_OK"
   log "OK ${SHA:0:12} is live and verified (was ${PREV:0:12}); rollback: make deploy REF=$PREV"
+  notify default "quanttrader-prod deployed ${SHA:0:7}" "$(hostname) $(date -u +%FT%TZ): ${SHA:0:12} ($REF) live and verified on Node $runtime (was ${PREV:0:12})"
   echo "DEPLOYED_SHA=$SHA"
   echo "DEPLOYED_RUNTIME=$runtime"
   echo "PREVIOUS_SHA=$PREV"

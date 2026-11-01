@@ -25,6 +25,8 @@ One short section per thing that was set up: **what it is, why it exists, the on
 | see what production runs | `make status` · `make logs LOG=scan N=40` (read-only, over `ssh qt`) | D1 |
 | deploy, or roll back | `make deploy` (default `REF=origin/dev`) · `make deploy REF=<previous sha>` — outside market hours only (§17) | D1 |
 | stop all trading now | `make kill-switch REASON=<word>` — the one host command allowed in market hours; then `make resume`, then `make unpause` when trading should restart (§18) | D3 |
+| know when the host is unwell | ntfy pushes from the host: unit failure, deploy result, daily 07:05 UTC summary; `make logs LOG=ops-health N=2` (§19) | D4 |
+| catch drift nobody touched | the nightly workflow runs `make check` + `make backtest` on `dev` at 03:17 UTC and pushes on failure (§19) | D5 |
 
 Stubs that exit 2 with a message until the audit's scripts reach `dev`: `make validate` / `make parity`.
 
@@ -324,3 +326,19 @@ make logs LOG=deploys N=5                # KILL / RESUME / UNPAUSE lines
 ```
 
 **Rules:** the switch is the one exception to "no VPS change in market hours". The three targets write `algorithms.status` and can reach the broker through the flatten route; they prompt and run only when the operator asks for them, and whether `CLAUDE.md`'s "nothing that writes the live tables runs from a Claude session" is amended for them or they go to `deny` is the operator's call (decision 0008). Resume never un-pauses. The ledger lines are copied into `docs/decisions/deploys.md` in the next PR. `make deploy` refuses while the switch is engaged. The targets refuse when the local `origin/dev` does not hold the scripts: `git fetch origin` first.
+
+## 19. Alerts from the host, log rotation, the nightly gate
+
+**What:** three pushes from the host itself through the ntfy topic the dead-man workflow already uses (`NTFY_TOPIC` in the host's `.env.local`, read by the scripts, never printed): `quanttrader.service` has `SuccessExitStatus=143` (Next exits 143 on SIGTERM; without it every deliberate stop ended the unit `failed`) and `ExecStopPost=/usr/local/lib/quanttrader/notify-failure.sh`, a hook systemd runs after every stop that posts an urgent message only when the stop was not clean (`SERVICE_RESULT`), at most one per 10 minutes, so a crash loop under `Restart=always` reaches the phone while deploys and the kill switch stay silent; `scripts/ops/deploy.sh` posts the result of every run (default priority on OK, urgent on FAIL, after the restore); `/usr/local/lib/quanttrader/ops-health.sh` runs from the `ops` crontab at 07:05 UTC and posts one daily summary (service, crons, live vs verified commit and commits behind `origin/dev`, Node, disk, memory, pending reboot, failed units, algorithms held paused by the kill switch, last ledger line), at high priority only when something needs a hand; it also prunes per-run deploy logs older than 30 days. `ops/logrotate/quanttrader` rotates the twelve cron and ops logs weekly, eight rotations, owned by `ops`, and never touches `deploys.log`. `.github/workflows/nightly.yml` runs CI's exact gate plus `make backtest` on `dev` at 03:17 UTC and pushes on failure. The two host scripts are installed to `/usr/local/lib/quanttrader/` so a rollback cannot remove them; applying: `docs/runbooks/d4-alerts-and-rotation.md`; decision 0009.
+
+**Why:** alerting covered liveness only and only through GitHub Actions (DEBT D-19); a failed unit, a failed deploy or a full disk told nobody, and the logs had never been rotated.
+
+**Commands:**
+
+```bash
+make logs LOG=ops-health N=2                 # yesterday's summary as the host saw it
+make logs LOG=deploys N=3                    # the ledger lines the pushes summarise
+gh workflow run nightly.yml --ref dev        # run the nightly gate now
+```
+
+**Rules:** the ntfy topic is a secret (anyone holding it reads the pushes); it lives in the host's env file and the repo's GitHub secrets, never in the repo. A new push source is a PR with a row in this section. When `notify-failure.sh` or `ops-health.sh` change, the runbook's `install` line is repeated: the host runs the installed copies. `HEARTBEAT_PING_URL` is the operator's account and the third channel when they create it.

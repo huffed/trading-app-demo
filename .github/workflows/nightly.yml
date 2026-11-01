@@ -1,0 +1,62 @@
+# Nightly — runs the same gate as CI plus the golden replay on dev every night, so dependency,
+# provider and environment drift that no PR touched is caught within a day (Phase D.5, the
+# CI-side half; the host-side parity job waits for the audit's paper-replay.ts, DEBT D-02).
+# Failure pushes to the phone through the same ntfy channel as the dead-man workflow.
+name: nightly
+
+on:
+  schedule:
+    - cron: "17 3 * * *" # 03:17 UTC daily; off the hour to dodge GitHub's busiest minute
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  gate:
+    name: make check · make backtest on dev
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: make install
+      - run: sudo apt-get install -y shellcheck
+      - name: install actionlint 1.7.12 (pinned; the same version brew installs locally)
+        run: |
+          bash <(curl -sSL https://raw.githubusercontent.com/rhysd/actionlint/v1.7.12/scripts/download-actionlint.bash) 1.7.12 "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
+      - name: warm the pnpm dlx store (four cron-wrapper tests spawn `pnpm dlx tsx`; cold runners took >30 s)
+        run: pnpm dlx tsx --version
+      - run: make check
+      - run: make backtest
+
+  notify-failure:
+    needs: [gate]
+    if: always() && needs.gate.result != 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+      NTFY_TOKEN: ${{ secrets.NTFY_TOKEN }}
+    steps:
+      - name: push to the phone
+        if: env.NTFY_TOPIC != ''
+        run: |
+          set -euo pipefail
+          AUTH_ARGS=()
+          [ -n "${NTFY_TOKEN:-}" ] && AUTH_ARGS=(-H "Authorization: Bearer $NTFY_TOKEN")
+          curl -fsS -m 15 "${AUTH_ARGS[@]}" -H "Title: quanttrader nightly gate FAILED on dev" -H "Priority: high" -H "Tags: warning" \
+            -d "make check / make backtest failed on dev: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            "https://ntfy.sh/$NTFY_TOPIC"
+      - name: no ntfy topic configured
+        if: env.NTFY_TOPIC == ''
+        run: echo "::warning::NTFY_TOPIC secret is unset; only GitHub's failure email was sent"
