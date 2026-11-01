@@ -28,7 +28,7 @@ Node 25 reached end of life on 2026-06-01 (DEBT D-21, High). The service ran as 
 
 ## Consequences
 
-- A rollback to a commit whose `.nvmrc` pins 25.9.0 refuses by design on this host; the full return path is in `docs/runbooks/d2-node-26-ops-user-loopback.md`.
+- A rollback to a commit whose `.nvmrc` pins 25.9.0 refuses by design on this host; with root's nvm removed (2026-11-01) the D.1 return paths in the runbook are retired, and a rollback is `make deploy REF=<sha>` to a commit whose `.nvmrc` is 26.13.0 (77eeb01 onward; first verified in production at 2635d1f), with the tailnet socket kept.
 - D-21 closes; D-23 narrows to the sudoers entry (D.7).
 - `make status` reports the host Node, the unit's user, both crontab sizes, what listens on :3000 and the Tailscale serve state.
 - The dead-man incident runbook in `scripts/README.md` changes with it: crontab checks as `ops`, root's must be empty, rebuilds only through `make deploy`.
@@ -36,4 +36,4 @@ Node 25 reached end of life on 2026-06-01 (DEBT D-21, High). The service ran as 
 
 ## Evidence
 
-`docs/PHASE_D_PLAN.md` (Approval 2026-10-31, items 2 and 3); the runbook's recorded output and the `docs/decisions/deploys.md` rows of the execution (filled when run).
+`docs/PHASE_D_PLAN.md` (Approval 2026-10-31, items 2 and 3); the `docs/decisions/deploys.md` rows of 2026-10-31T17:28:10Z (host steps 1–5 and the proxy proof), 2026-11-01T13:30:15Z (the step 7 deploy: `2635d1f` live and verified on Node v26.13.0, 13:30 ticks 200; the unit runs it as `ops` on loopback) and 2026-11-01T13:35:04Z (device check by the operator, port handover 13:25:54Z, root's nvm removed). Execution notes: the deploy driver was cut off by ufw's SSH rate limit after starting the host run, which completed detached as designed; the driver now multiplexes one SSH connection and `make deploy-pointer` exists for the pointer step.

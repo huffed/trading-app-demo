@@ -27,7 +27,7 @@ export QT_HOST REF LOG N QT_MARKET_HOURS_OK
 .PHONY: help install lint lint-strict lint-shell typecheck format format-check format-all-check \
         test test-watch build check backtest validate parity db-types db-types-check \
         secrets-scan secrets-scan-history env-check backtest-update lint-workflows python-env python-lock regime-report fence-check \
-        deploy status logs
+        deploy deploy-pointer status logs
 
 help: ## List targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "} {printf "  %-18s %s\n", $$1, $$2}'
@@ -128,6 +128,9 @@ python-lock: ## Re-resolve the Python sidecar after editing scripts/python/pypro
 
 deploy: ## VPS: deploy REF (default origin/dev) with verification, then move the production pointer main; REF=<previous sha> is the rollback (docs/DEV_SETUP.md §17)
 	@scripts/ops/deploy-driver.sh "$$REF"
+
+deploy-pointer: ## Move main to the host's verified running commit (after a `make deploy` whose driver was cut off); reads one file on the host, pushes one ref
+	@scripts/ops/deploy-driver.sh --pointer-only
 
 status: ## VPS: service, checkout vs verified running commit, last verified tick per log, pending reboot (read-only; the status script is streamed from origin/dev) plus origin/dev for comparison
 	@case "$$QT_HOST" in -*|*[!A-Za-z0-9._-]*|"") echo "make status: QT_HOST must be an ssh host alias"; exit 2;; esac; \

@@ -32,18 +32,39 @@ root="${CLAUDE_PROJECT_DIR:-$PWD}"
 
 deny() { printf 'guard-bash: refusing "%s" — %s\n' "$1" "$2" >&2; exit 2; }
 
-# live-path regex from live-paths.txt (glob → regex; `dir/**` also matches the bare directory)
+# live-path regex from live-paths.txt (glob → regex; `dir/**` also matches the bare directory), and the
+# list of every directory that holds a fenced or protected file (plus each parent): a destructive verb on
+# one of those takes the files with it, so `destroys` refuses the directory itself (any trailing /, // or
+# /.) and any globbed or brace-expanded path beneath it — never a plain path to one specific file.
 live_re=""
+anc_list=" scripts/canonical/data tests/golden"
+add_ancestors() {
+  local d=$1
+  while [ -n "$d" ] && [ "$d" != "." ] && [ "$d" != "/" ]; do
+    case "$anc_list" in *" $d "*|*" $d") ;; *) anc_list="$anc_list $d";; esac
+    d=${d%/*}
+    [ "$d" = "$1" ] && break
+    case "$d" in */*) ;; *) case "$anc_list" in *" $d "*|*" $d") ;; *) anc_list="$anc_list $d";; esac; break;; esac
+  done
+}
+add_ancestors scripts/canonical/data
+add_ancestors tests/golden
 while IFS= read -r pattern; do
   case "$pattern" in ''|'#'*) continue;; esac
   r=$(printf '%s' "$pattern" | sed -E 's/[.]/\\./g; s#/\*\*$#(/.*)?#; s/\*\*/@@/g; s#\*#[^[:space:]/]*#g; s/@@/.*/g')
   live_re="${live_re:+$live_re|}$r"
+  dir=${pattern%/\*\*}                      # dir/** → dir
+  last=${dir##*/}
+  case "$last" in *\**|*.*) dir=${dir%/*};; esac   # a globbed or file last component → its directory
+  [ "$dir" != "$pattern" ] || [ "${pattern%/\*\*}" != "$pattern" ] || true
+  add_ancestors "$dir"
 done < "$here/live-paths.txt"
 bnd='([[:space:]"'"'"'/]|$)'
 protected="(scripts/canonical/data|tests/golden/[^[:space:]\"']*\\.json)${bnd}"
 live="(${live_re})${bnd}"
 # directories above protected paths: a destructive verb on one of these takes the protected files with it
-ancestors="(src|src/lib|src/app|scripts|scripts/canonical|tests|tests/golden|supabase)${bnd}"
+anc_dirs="($(printf '%s' "${anc_list# }" | sed 's/[.]/\\./g; s/ /|/g'))"
+ancestors="${anc_dirs}((/+\.?)*([[:space:]\"']|$)|(/[^[:space:]\"']*)?([][*?{]|//|/\.\.?(/|[[:space:]\"']|$)))" # the directory itself; a glob/brace beneath it; a //, /. or /.. segment anywhere beneath it
 
 envfile='\.env(rc|[._-][A-Za-z0-9_.-]*)?'
 tail_='([^A-Za-z0-9_]|$)'
@@ -152,7 +173,7 @@ while IFS=$'\t' read -r sep seg; do
   if { grep -qiE "^(${destructive}|git[[:space:]]+(rm|checkout|restore|clean)|find[[:space:]])" <<<"$lower" \
        || { grep -qiE "^(sed|perl)[[:space:]]" <<<"$lower" && grep -qiE "(^|[[:space:]])(-[a-zA-Z]*i|--in-place)" <<<"$uq_lower"; }; } \
      && { [ "$xargs_fed" = "1" ] || grep -q '\$' <<<"$s"; }; then destructive_elsewhere=$orig; fi
-  if grep -qiE "(^|[[:space:]/\"'])(${protected%"${bnd}"}|${live_re}|${ancestors%"${bnd}"})${bnd}" <<<"$lower"; then any_protected=1; fi
+  if grep -qiE "(^|[[:space:]/\"'])(${protected%"${bnd}"}|${live_re}|${anc_dirs})${bnd}" <<<"$lower"; then any_protected=1; fi
 
   # 4. protected branches
   if grep -qE "^git[[:space:]]+push([[:space:]]|$)" <<<"$s"; then

@@ -122,19 +122,9 @@ ssh qt 'sudo -n ufw status | head -5'  # unchanged: default deny, 22 limited, ta
 
 ## Rollback
 
-Keep `/root/.nvm` (Node 25.9.0) until D.2 is verified; it is what the rollback runs on. **Every rollback starts by releasing the tailnet socket:** the D.1 unit binds `[::]:3000`, which fails with EADDRINUSE while `quanttrader-tailnet.socket` holds the tailnet addresses, and Next would then exit and restart-loop. The first command is a no-op if the socket was never enabled.
+**Since 2026-11-01 13:35Z (root's nvm removed after D.2 was verified) there is one rollback path:** `make deploy REF=<sha>` to a commit whose `.nvmrc` is 26.13.0 (every commit from 77eeb01 on; first verified in production at 2635d1f), under the D.2 unit and with the tailnet socket **kept** — the deploy script restarts Next on loopback and the socket keeps forwarding. The "prev" of the last `OK` line in `make logs LOG=deploys N=3` is the usual target — not yet: today that prev is 499a8a0 (`.nvmrc` 25.9.0), which the deploy refuses before touching anything, and the older Node-26 commits 77eeb01 and 688e35a never ran in production; a real rollback target appears once a second Node-26 deploy has been verified.
 
-- **Fast path — the new unit will not start after step 7, or the device check failed** (`make deploy` reports a failure after the restart, or `systemctl status quanttrader` shows a restart loop): release the socket, reinstall the D.1 unit and restart root's process, which runs the D.1 build still on disk if the deploy's build failed, or the D.2 build (Node-compatible) if it succeeded:
-  ```bash
-  ssh qt 'sudo -n systemctl disable --now quanttrader-tailnet.socket; sudo -n systemctl stop quanttrader-tailnet.service; true'
-  git show 499a8a0:ops/systemd/quanttrader.service > /tmp/d1-unit && scp /tmp/d1-unit qt:/tmp/d1-unit   # the D.1 unit, from git, not from disk
-  ssh qt 'sudo -n install -m 644 /tmp/d1-unit /etc/systemd/system/quanttrader.service && sudo -n systemctl daemon-reload && sudo -n systemctl restart quanttrader && sleep 5 && systemctl is-active quanttrader && curl -s -o /dev/null -w "%{http_code}\n" http://localhost:3000/login'
-  ```
-- **Full return to the D.1 state**, in order: the fast path above (socket released first); `sudo -n rm -f /etc/systemd/system/quanttrader-tailnet.socket /etc/systemd/system/quanttrader-tailnet.service && sudo -n systemctl daemon-reload`; `git show 499a8a0:ops/crontab > /tmp/d1-crontab && scp /tmp/d1-crontab qt:/tmp/d1-crontab`, then on the host `sudo -n crontab -u root /tmp/d1-crontab` and `crontab -r` as `ops` in the same minute; `sudo -n chown -R root:root /opt/quanttrader /var/log/quanttrader`; `git -C /opt/quanttrader remote set-url origin git@github.com:huffed/trading-app-demo.git`; then redeploy the D.1 commit with the **D.1 host script**, which still has the nvm block — the current driver cannot do this because it streams the D.2 script from `origin/dev` and runs it as `ops`:
-  ```bash
-  git show 499a8a0:scripts/ops/deploy.sh | ssh qt 'cat > /tmp/qt-deploy-rollback.sh'
-  ssh qt 'sudo -n -H bash -c "setsid nohup bash /tmp/qt-deploy-rollback.sh 499a8a02e39dfa87753eaca3059fd962fbd0ee98 d1-rollback 0 > /var/log/quanttrader/deploy-rollback.log 2>&1 < /dev/null &"'
-  make logs LOG=deploy-rollback N=40      # until DEPLOY_RESULT=
-  ```
-  Then move `main` back by hand (this once; the ledger row says so): `git push --force-with-lease=refs/heads/main origin 499a8a02e39dfa87753eaca3059fd962fbd0ee98:refs/heads/main`.
-- `make deploy REF=499a8a0` from the workstation refuses after step 1 by design (`.nvmrc` 25.9.0 ≠ host Node 26.13.0): that refusal is the gate working, which is why the paths above exist.
+The two paths below are **retired** and kept only as history: both reinstall the D.1 unit, whose `ExecStart` and `PATH` point into `/root/.nvm`, so on today's host that unit cannot start (systemd `203/EXEC`). Do not run them.
+
+- _Retired fast path_ (needed the D.1 unit): release the tailnet socket (`systemctl disable --now quanttrader-tailnet.socket`, because the D.1 unit bound `[::]:3000`), reinstall `git show 499a8a0:ops/systemd/quanttrader.service`, `daemon-reload`, restart.
+- _Retired full return_ (needed root's nvm): the fast path, then root's crontab from `git show 499a8a0:ops/crontab`, `chown -R root:root` of the checkout and the logs, the SSH remote, and the D.1 host script streamed from `499a8a0` and run as root through nvm, then `main` moved back by hand.

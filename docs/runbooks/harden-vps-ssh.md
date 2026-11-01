@@ -99,7 +99,7 @@ ssh qt 'sudo sshd -T | grep -iE "^(permitrootlogin|passwordauthentication|allowu
 
 Expect: `permitrootlogin no`, `passwordauthentication no`, `allowusers ops`, the LIMIT rule, jail running, service `active`, a fresh `http=200`.
 
-## Phase 2 — remove root (D.2: `docs/runbooks/d2-node-26-ops-user-loopback.md`, decision 0007; the sudoers narrowing below waits for D.7)
+## Phase 2 — remove root (done 2026-10-31/11-01 as D.2: `docs/runbooks/d2-node-26-ops-user-loopback.md`, decision 0007; the sudoers narrowing below waits for D.7)
 
 The sequence as first drafted, kept for the record; the executed design is the D.2 runbook (system-wide Node at `/usr/local`, no nvm for `ops`, node runs Next directly, HTTPS remote instead of a deploy key):
 

@@ -42,6 +42,8 @@
       "Bash(make backtest-update *)",
       "Bash(make deploy *)",
       "Bash(make deploy)",
+      "Bash(make deploy-pointer)",
+      "Bash(make deploy-pointer *)",
       "Bash(make status *)",
       "Bash(make status)",
       "Bash(make logs *)",
