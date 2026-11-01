@@ -22,6 +22,8 @@ make status                                     # service inactive, crontab 0 en
 
 The script is streamed from the workstation's **local** copy of `origin/dev` over one ssh connection, so it works while GitHub is unreachable; `make kill-switch` refuses if that copy does not hold the script (`git fetch origin` after the PR that added it) and prints the commit it streams. If the workstation is gone too, on the host (once a deploy has put the script in the checkout): `sudo -u ops bash /opt/quanttrader/scripts/ops/kill-switch.sh <reason>` — the script refuses to run as any other user, because the crontab it must disable is `ops`'s.
 
+Transport: the target opens or reuses one multiplexed ssh connection (`~/.ssh/qt-make-%C`, shared with `make status`, `logs`, `resume` and `unpause`, kept 60 s after the last command; a dead connection is declared within 30 s). If it stalls or exits 255 with a `mux_client` error, the socket is stale (the workstation slept while the master was alive; detection takes about 30–45 s): `ssh -O exit -o ControlPath=~/.ssh/qt-make-%C qt` ends the stale master at once (or delete `~/.ssh/qt-make-*`), then run the switch again — it is idempotent. `Connection refused` from ssh is the host's `ufw limit 22/tcp` (six connections from one address in 30 s): wait 30 s and run it again.
+
 ## Resume (`make resume`)
 
 Reverses the stop only: enables and starts the service, waits for `/login` 200, then **checks that no algorithm is active** — if the switch failed to pause (database outage), the crontab stays off, the line says `algorithms-active:N`, and the answer is to run the switch again — restores the crontab from the saved copy, waits for the next manage, heartbeat and scan ticks to log `http=200` (up to 25 minutes; skipped when the service or the crons did not come back), pushes (high priority when anything failed) and writes a `RESUME …` ledger line. **Algorithms stay paused.** Nothing trades after a resume until the operator un-pauses. Exit status is non-zero when any step failed.
@@ -38,11 +40,11 @@ A kill switch left engaged trips the GitHub dead-man workflow (manage stale afte
 
 Expect no open positions; the point is the sequence.
 
-1. `git fetch origin` (the local `origin/dev` must hold the scripts); `make status` → service active, 10 cron entries, ticks 200.
-2. `make kill-switch REASON=paper-test` → output ends `KILL_RESULT=OK`, `KILL_ERRORS=none`; the line reads `crons=disabled paused=5 flattened=0 service=inactive open_after=0 alert=sent` (`service=failed` until decision 0009's unit with `SuccessExitStatus=143` is installed: Next exits 143 on SIGTERM); the phone receives the urgent push; `make status` → service inactive, crontab 0.
+1. `git fetch origin` (the local `origin/dev` must hold the scripts); `make status` → service active, 11 cron entries (10 in the 2026-11-01 test, before D.4's ops-health line), ticks 200.
+2. `make kill-switch REASON=paper-test` → output ends `KILL_RESULT=OK`, `KILL_ERRORS=none`; the line reads `crons=disabled paused=5 flattened=0 service=inactive open_after=0 alert=sent` (`service=failed` in the 2026-11-01 test runs, which predate the 16:07Z install of decision 0009's unit with `SuccessExitStatus=143`: Next exits 143 on SIGTERM; from the next stop the line reads `service=inactive`); the phone receives the urgent push; `make status` → service inactive, crontab 0.
 3. `make kill-switch REASON=paper-test-again` → `KILL_RESULT=OK` with `crons=already-empty paused=0 flattened=SKIPPED open_after=0` (idempotency: the service is already stopped, so there is nothing to flatten through; `open_after` is the check that matters).
 4. In the database: the five algorithms are `paused`; no open paper position; any position closed by the flatten has `exit_reason='manual'`.
-5. `make resume` → service active, `active_algorithms=0`, crontab 10, the next manage, heartbeat and scan ticks 200, `RESUME_RESULT=OK`, normal-priority push received.
+5. `make resume` → service active, `active_algorithms=0`, crontab 11 (10 in the 2026-11-01 test), the next manage, heartbeat and scan ticks 200, `RESUME_RESULT=OK`, normal-priority push received.
 6. `make unpause` → `UNPAUSE_RESULT=OK`, `algorithms=5 of 5 saved`; the next scan tick shows `"scanned":5`.
 7. Ledger rows KILL, KILL, RESUME and UNPAUSE on the host; copy them into `docs/decisions/deploys.md` with the test's decision entry (0008) in the next PR.
 
