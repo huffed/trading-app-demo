@@ -210,8 +210,10 @@ while IFS=$'\t' read -r sep seg; do
     # line, so a host goal behind another goal (`make lint-strict FILES=x unpause` matches the pre-approved
     # `make lint-strict *`), behind a flag (`make -s unpause` matches no ask rule) or behind an override
     # (`make REASON=x kill-switch`) would run without the prompt the ask rules give `make <host-target> …`;
-    # the Makefile refuses the multi-goal shape too, while it reads the file
-    read -r -a mtoks <<<"$uq"
+    # the Makefile refuses the multi-goal shape too, while it reads the file. Quoted spans collapse to one
+    # token first, so FILES="a b" is one override, not an override and a goal
+    mq=$(sed -E "s/\"[^\"]*\"/Q/g; s/'[^']*'/Q/g" <<<"$s")
+    read -r -a mtoks <<<"$mq"
     host_goal=""; goals=0; flags=0
     if [ "${#mtoks[@]}" -gt 1 ]; then
       for tok in "${mtoks[@]:1}"; do
