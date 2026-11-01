@@ -50,8 +50,8 @@ Approved 2026-10-31 (questions 2 and 3) and designed in `docs/decisions/0007-nod
 
 ## D.4 Alerts and hygiene — built per decision 0009 (2026-11-01); applied per `docs/runbooks/d4-alerts-and-rotation.md`
 
-- The host alerts on its own through the existing ntfy topic: `OnFailure=quanttrader-failure.service` on the app unit (urgent push with the last journal lines), `deploy.sh` posts every run's result, `scripts/ops/ops-health.sh` posts a daily summary from the `ops` crontab (07:05 UTC) at high priority only when something needs a hand (disk, reboot pending, failed units, running ≠ dev, service down, kill switch engaged).
-- logrotate for `/var/log/quanttrader/*.log`: weekly, eight rotations, compressed, owned by `ops`.
+- The host alerts on its own through the existing ntfy topic: `SuccessExitStatus=143` + an `ExecStopPost=` hook on the app unit (urgent push only on an unclean stop, rate-limited — `OnFailure=` would fire on every deliberate stop and never on a crash loop under `Restart=always`), `deploy.sh` posts every run's result, `ops-health.sh` posts a daily summary from the `ops` crontab (07:05 UTC) at high priority only when something needs a hand (disk, reboot pending, failed units, live ≠ verified or live not on dev, service down, algorithms held paused by the kill switch). The hook and the summary script are installed to `/usr/local/lib/quanttrader/`, outside the checkout.
+- logrotate for the twelve cron and ops logs by name: weekly, eight rotations, compressed, owned by `ops`; the ledger `deploys.log` is never rotated and per-run deploy logs are pruned by age.
 - `Unattended-Upgrade::Automatic-Reboot` stays **off**; the summary says when a reboot is pending.
 - `HEARTBEAT_PING_URL` → the operator creates the healthchecks.io check and sets the URL in the host's env file; the wrapper already pings it.
 

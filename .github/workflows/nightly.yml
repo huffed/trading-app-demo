@@ -29,16 +29,19 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: make install
-      - name: shellcheck + actionlint are preinstalled on ubuntu-latest except actionlint
+      - run: sudo apt-get install -y shellcheck
+      - name: install actionlint 1.7.12 (pinned; the same version brew installs locally)
         run: |
-          set -euo pipefail
-          bash <(curl -fsSL https://raw.githubusercontent.com/rhysd/actionlint/v1.7.12/scripts/download-actionlint.bash) 1.7.12 /usr/local/bin > /dev/null
+          bash <(curl -sSL https://raw.githubusercontent.com/rhysd/actionlint/v1.7.12/scripts/download-actionlint.bash) 1.7.12 "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
+      - name: warm the pnpm dlx store (four cron-wrapper tests spawn `pnpm dlx tsx`; cold runners took >30 s)
+        run: pnpm dlx tsx --version
       - run: make check
       - run: make backtest
 
   notify-failure:
     needs: [gate]
-    if: failure()
+    if: always() && needs.gate.result != 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     env:

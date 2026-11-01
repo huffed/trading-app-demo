@@ -1,8 +1,22 @@
-# /etc/logrotate.d/quanttrader — D.4 (decision 0009). The cron wrappers and the deploy runs append to
-# /var/log/quanttrader/*.log as ops with no rotation until now (scan.log passed 8 MB in October).
-# Weekly, eight rotations kept compressed, rotated files owned by ops so the wrappers keep appending.
-# Applied by: install -m 644 ops/logrotate/quanttrader /etc/logrotate.d/quanttrader (logrotate runs daily from systemd).
-/var/log/quanttrader/*.log {
+# /etc/logrotate.d/quanttrader — D.4 (decision 0009). The cron wrappers append to these as ops with
+# no rotation until now (scan.log passed 8 MB in October). Weekly, eight rotations kept (seven
+# compressed, the newest plain because of delaycompress), rotated files owned by ops so the
+# wrappers keep appending. Listed by name on purpose: /var/log/quanttrader/deploys.log is the
+# host's deploy ledger and is never rotated, and the per-run deploy-<stamp>.log files are pruned by
+# age by ops-health.sh instead. Applied by: install -m 644 ops/logrotate/quanttrader /etc/logrotate.d/quanttrader
+/var/log/quanttrader/scan.log
+/var/log/quanttrader/manage.log
+/var/log/quanttrader/heartbeat.log
+/var/log/quanttrader/oanda-positioning.log
+/var/log/quanttrader/prune.log
+/var/log/quanttrader/cohort-report.log
+/var/log/quanttrader/alpha-decay.log
+/var/log/quanttrader/broker-health.log
+/var/log/quanttrader/reconcile.log
+/var/log/quanttrader/m1-band-check.log
+/var/log/quanttrader/ops-health.log
+/var/log/quanttrader/kill-switch.log
+{
     su ops ops
     weekly
     rotate 8

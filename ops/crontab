@@ -15,4 +15,4 @@ PATH=/usr/local/bin:/usr/bin:/bin
 0 */6 * * * /opt/quanttrader/scripts/broker-health-snapshot-cron.sh >> /var/log/quanttrader/broker-health.log 2>&1
 */30 * * * * /opt/quanttrader/scripts/reconcile-broker-positions-cron.sh >> /var/log/quanttrader/reconcile.log 2>&1
 30 21 * * * /opt/quanttrader/scripts/m1-band-check-cron.sh >> /var/log/quanttrader/m1-band-check.log 2>&1
-5 7 * * * /opt/quanttrader/scripts/ops/ops-health.sh >> /var/log/quanttrader/ops-health.log 2>&1
+5 7 * * * /usr/local/lib/quanttrader/ops-health.sh >> /var/log/quanttrader/ops-health.log 2>&1
