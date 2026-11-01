@@ -36,12 +36,10 @@ function recipeOf(target: string): string {
 describe("Makefile host targets", () => {
   it("expand nothing from make into the shell except the fixed SSH option string", () => {
     for (const target of HOST_TARGETS) {
-      // `$$(…)` is shell command substitution escaped for make; `$(NAME)` is a make expansion.
-      const expanded = [...recipeOf(target).matchAll(/(?<!\$)\$\(([^)]+)\)/g)].map((m) => m[1]);
-      expect(
-        expanded.filter((name) => name !== "SSH"),
-        `${target} expands`
-      ).toEqual([]);
+      // `$$` reaches the shell as a literal `$`; any other `$` — `$(NAME)`, `${NAME}`, `$X` — is a
+      // make expansion. Only `$(SSH)` is allowed.
+      const rest = recipeOf(target).replaceAll("$$", "").replaceAll("$(SSH)", "");
+      expect(rest, `${target} expands`).not.toContain("$");
     }
   });
 
