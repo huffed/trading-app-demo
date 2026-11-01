@@ -57,7 +57,7 @@ ssh qt 'sudo -n install -m 644 /tmp/quanttrader.service /etc/systemd/system/quan
 ssh qt 'sudo -n systemd-run --quiet --wait --pipe --collect --uid=ops --gid=ops -p WorkingDirectory=/opt/quanttrader -p ProtectSystem=full -p ProtectHome=yes -p NoNewPrivileges=yes -E PATH=/usr/local/bin:/usr/bin:/bin -E HOME=/var/lib/quanttrader -E NEXT_TELEMETRY_DISABLED=1 /usr/local/bin/node /opt/quanttrader/node_modules/next/dist/bin/next --version'
 ```
 
-Expected: the four unit lines, then `Next.js 16.2.4` printed from inside the same sandbox the unit uses. The running process is still root's old one; step 7's deploy restarts it under the new unit. If the sandbox test fails, stop: fix the unit in a PR, nothing has changed for the running service.
+Expected: the four unit lines, then `Next.js v16.2.4` printed from inside the same sandbox the unit uses. The running process is still root's old one; step 7's deploy restarts it under the new unit. If the sandbox test fails, stop: fix the unit in a PR, nothing has changed for the running service.
 
 ## 5. Crontab to `ops`, root's removed, in the same minute — with the PATH check first
 
