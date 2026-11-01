@@ -24,6 +24,7 @@ One short section per thing that was set up: **what it is, why it exists, the on
 | harden the VPS | `docs/runbooks/harden-vps-ssh.md` (Phase 1 done 2026-10-29; Phase 2 process user done 2026-11-01 as D.2, `d2-node-26-ops-user-loopback.md`, decision 0007; Hetzner firewall and sudoers narrowing remain, D.7) | B1 / D2 |
 | see what production runs | `make status` · `make logs LOG=scan N=40` (read-only, over `ssh qt`) | D1 |
 | deploy, or roll back | `make deploy` (default `REF=origin/dev`) · `make deploy REF=<previous sha>` — outside market hours only (§17) | D1 |
+| stop all trading now | `make kill-switch REASON=<word>` — the one host command allowed in market hours; then `make resume`, then `make unpause` when trading should restart (§18) | D3 |
 
 Stubs that exit 2 with a message until the audit's scripts reach `dev`: `make validate` / `make parity`.
 
@@ -305,3 +306,21 @@ ssh qt 'sudo -n reboot'; sleep 60; make status   # a reboot: ledger row + decisi
 ```
 
 **Rules:** no VPS change during market hours (Sunday 22:00 to Friday 22:00 UK) except the kill switch (D.3). Every deploy attempt leaves its ledger row; every other host change (reboot, package, config) gets a ledger row and, when it changes behaviour, a `docs/decisions/` entry. `main` is never pushed by hand. A change to anything under `ops/` or `scripts/ops/` is a PR about the host, reviewed in a fresh context; they are not fenced (decision 0006), and the driver runs only what `origin/dev` has. After a failed deploy, read the row: a failure before the checkout changed nothing; a failure before the restart restored the running commit on disk (the row says "restored") unless it says `RESTORE FAILED`, in which case the running process has no build on disk and `make deploy REF=<PREVIOUS_SHA>` is the next command; a failure after the restart means the new build is live and broken — run `make deploy REF=<PREVIOUS_SHA>` first, then look for the cause. A run interrupted on the workstation that the host later verifies leaves `main` behind; `make deploy-pointer` moves it to the host's verified running commit. Never restart the service by hand to "finish" a deploy.
+
+## 18. Kill switch, resume, un-pause — one command each
+
+**What:** `make kill-switch REASON=<word>` runs `scripts/ops/kill-switch.sh` on the host as `ops`, streamed from the workstation's **local** copy of `origin/dev` over one ssh connection (no fetch, so it works while GitHub is unreachable). It saves and removes the crontab first (no new ticks), pauses every active algorithm (Supabase REST, service role read on the host; the ids are saved), flattens their open positions through the app's `/api/admin/flatten-algo` route on loopback (paper rows and the broker side of any position with a `broker_position_id`), stops and disables the service, counts what is still open, sends an urgent ntfy push and writes a `KILL …` ledger line whose fields say what actually happened. Every step is attempted even after a failure: with the database or the app unreachable the pause, flatten and count report failures and the crontab removal, the stop, the alert and the ledger line still happen; the run ignores a dropped ssh session; the exit status is non-zero on any failure. It is idempotent and the only host change allowed in market hours. `make resume` enables and starts the service, refuses to restore the crontab while any algorithm is still active, restores it otherwise, waits for the next manage, heartbeat and scan ticks to log 200, pushes and writes `RESUME …`; algorithms stay paused. `make unpause` re-activates exactly the algorithms the switch paused and writes `UNPAUSE …`; it is the operator's deliberate act. Full procedure, paper-test checklist and the dead-man interaction: `docs/runbooks/kill-switch.md`; decision 0008.
+
+**Why:** DEBT D-19 — there was no single stop; pausing orphaned open positions, stopping the service left the crons failing noisily, and nothing recorded what was done. The operator required fail-closed behaviour, an alert, a ledger row and a documented resume.
+
+**Commands:**
+
+```bash
+make kill-switch REASON=paper-test       # stop everything; KILL line + urgent push
+make status                              # service inactive, crontab 0 entries
+make resume                              # service + crons back, ticks verified; algorithms still paused
+make unpause                             # trading restarts: exactly the algorithms the switch paused
+make logs LOG=deploys N=5                # KILL / RESUME / UNPAUSE lines
+```
+
+**Rules:** the switch is the one exception to "no VPS change in market hours". The three targets write `algorithms.status` and can reach the broker through the flatten route; they prompt and run only when the operator asks for them, and whether `CLAUDE.md`'s "nothing that writes the live tables runs from a Claude session" is amended for them or they go to `deny` is the operator's call (decision 0008). Resume never un-pauses. The ledger lines are copied into `docs/decisions/deploys.md` in the next PR. `make deploy` refuses while the switch is engaged. The targets refuse when the local `origin/dev` does not hold the scripts: `git fetch origin` first.

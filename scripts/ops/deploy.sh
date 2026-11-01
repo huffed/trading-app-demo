@@ -68,11 +68,16 @@ restore_previous() { # the service was not restarted by this run, or its restart
     log "RESTORE FAILED: the running process has no build on disk; run  make deploy REF=$PREV  now (logs: $LOGDIR/restore-*.log)"
   fi
   if [ "$(systemctl is-active quanttrader || true)" != active ]; then
-    log "the service is not active; starting it"
-    restart_cmd start || { RESTORE=failed; log "START FAILED: systemctl start quanttrader did not succeed"; }
+    if switch_engaged; then
+      log "the kill switch is engaged: not starting the service (make resume is the operator's act)"
+    else
+      log "the service is not active; starting it"
+      restart_cmd start || { RESTORE=failed; log "START FAILED: systemctl start quanttrader did not succeed"; }
+    fi
   fi
 }
 restart_cmd() { sudo -n systemctl "$1" quanttrader; }
+switch_engaged() { [ -s /var/lib/quanttrader/crontab.disabled ] && [ -z "$(crontab -l 2> /dev/null || true)" ]; } # the kill switch saved and removed the crontab
 in_market_hours() { # the FTMO/forex week in UK time: Sunday 22:00 → Friday 22:00 (the standing rule: no VPS change then)
   local u h
   u=$(TZ=Europe/London date +%u)
@@ -155,6 +160,7 @@ main() {
   export CI=1 # pnpm and next: non-interactive, no prompts
   exec 9> "$LOGDIR/.deploy.lock"
   flock -n 9 || fail "another deploy is running"
+  if switch_engaged; then fail "the kill switch is engaged (crontab saved and removed): make resume first"; fi
   cd "$APP" || fail "cd $APP"
   command -v node > /dev/null || fail "node is not on PATH"
   command -v pnpm > /dev/null || fail "pnpm is not on PATH"
@@ -201,6 +207,7 @@ main() {
     fail "market hours (Sunday 22:00 to Friday 22:00 UK): no restart; the kill switch is the only market-hours change (QT_MARKET_HOURS_OK=1 on the workstation overrides — the operator's call)"
   fi
   wait_for_gap
+  if switch_engaged; then fail "the kill switch was engaged during this run: no restart (make resume first)"; fi
   if in_market_hours && [ "$MARKET_OK" != 1 ]; then # the wait may have crossed the Sunday open
     fail "the market opened while waiting for a tick gap; no restart (QT_MARKET_HOURS_OK=1 overrides)"
   fi
