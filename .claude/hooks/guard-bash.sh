@@ -211,9 +211,9 @@ while IFS=$'\t' read -r sep seg; do
     if grep -qE "(^|[[:space:]])(-f|--file|--makefile|-C|--directory|-e|--eval|-I|--include-dir)([[:space:]]|=|$)" <<<"$uqk"; then
       deny "$orig" "make with an alternate makefile, directory, include dir or --eval runs code the Makefile does not define"
     fi
-    # MAKEFILES=/MAKEFLAGS= as an override or as an env prefix (strip_kw removed a prefix from $s, so look at
-    # the original segment), or a makefile on stdin
-    if grep -qE "(^|[[:space:]])(MAKEFILES|MAKEFLAGS|GNUMAKEFLAGS)=" <<<"$orig" || grep -q '<' <<<"$s"; then
+    # MAKEFILES=/MAKEFLAGS= as an override (any assignment operator, quoted or not) or as an env prefix
+    # (strip_kw removed a prefix from $s, so the original segment is checked too), or a makefile on stdin
+    if grep -qE "(^|[[:space:]])(MAKEFILES|MAKEFLAGS|GNUMAKEFLAGS)(:{1,3}|[+?!])?=" <<<"$orig $uqk" || grep -q '<' <<<"$s"; then
       deny "$orig" "make reading a makefile or flags from MAKEFILES=/MAKEFLAGS= or stdin (<, <<, <<<) runs code the Makefile does not define"
     fi
     # the host targets run alone (CLAUDE.md's live-table rule, decision 0010): make runs every goal on its command

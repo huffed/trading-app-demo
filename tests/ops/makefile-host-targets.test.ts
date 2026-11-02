@@ -75,8 +75,9 @@ function permissionRules(path: string): { allow: string[]; ask: string[] } {
 // read-only host views): CLAUDE.md promises they prompt every time. Caught here: a blanket Bash or make
 // rule, a flag form (`make -…`), a host target anywhere after `make ` (behind a goal or an override), and
 // a trailing-wildcard make rule whose prefix could grow into a host target name (`Bash(make k*)`).
-// Not caught: user-level settings, `--allowedTools`, and a pre-approved program that runs make for you
-// (`pnpm dlx …`); those are the operator's to prune.
+// Not caught: user-level settings, `--allowedTools`, a pre-approved program that runs make for you
+// (`pnpm dlx …`) — those are the operator's to prune — and rules that spell make another way (gmake,
+// /usr/bin/make, env make) or a multi-line allowed-tools list, none of which exist today.
 const HOST_TARGET_WORD = new RegExp(`\\b(${HOST_TARGETS.join("|")})\\b`);
 
 function preApprovesHostTarget(rule: string): boolean {

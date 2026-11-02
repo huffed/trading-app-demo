@@ -1,7 +1,8 @@
 # QuantTrader — one entry point per check. Every target exits non-zero on failure.
 # `make help` lists them. Details and the baseline/target rules: docs/DEV_SETUP.md.
 SHELL := /bin/bash
-override .DEFAULT_GOAL := help # override: `make .DEFAULT_GOAL=unpause` would run a host target as the default goal
+# override: `make .DEFAULT_GOAL=unpause` would otherwise run a host target as the default goal
+override .DEFAULT_GOAL := help
 PNPM ?= pnpm
 BASE ?= origin/dev
 # VPS targets read these from the environment inside the recipe ($$VAR) and validate them there.
