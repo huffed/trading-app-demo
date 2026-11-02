@@ -6,7 +6,7 @@
  * `MAKEFLAGS` can replace it (fresh-context review of PR #316, 2026-11-01).
  */
 import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -133,6 +133,26 @@ describe("the host targets prompt every time", () => {
     const local = resolve(process.cwd(), ".claude/settings.local.json");
     if (!existsSync(local)) return;
     expect(permissionRules(local).allow.filter(preApprovesHostTarget)).toEqual([]);
+  });
+
+  // A make rule with arguments pre-approves whatever make accepts after the target: `make lint-strict FILES=x
+  // '--eval=lint-strict: unpause'` runs the un-pause as a prerequisite before any goal check. So every
+  // pre-approved make rule is exact — committed, in a skill's allowed-tools, or local.
+  const takesArguments = (rule: string): boolean =>
+    rule.startsWith("Bash(make") && rule.includes("*");
+
+  it("pre-approve no make rule that takes arguments: committed, in a skill, or local", () => {
+    expect(project.allow.filter(takesArguments)).toEqual([]);
+    const skills = resolve(process.cwd(), ".claude/skills");
+    for (const skill of readdirSync(skills)) {
+      const file = resolve(skills, skill, "SKILL.md");
+      if (!existsSync(file)) continue;
+      const allowed = /^allowed-tools:(.*)$/m.exec(readFileSync(file, "utf8"));
+      const rules = allowed === null ? [] : (allowed[1].match(/Bash\([^)]*\)/g) ?? []);
+      expect(rules.filter(takesArguments), skill).toEqual([]);
+    }
+    const local = resolve(process.cwd(), ".claude/settings.local.json");
+    if (existsSync(local)) expect(permissionRules(local).allow.filter(takesArguments)).toEqual([]);
   });
 
   it("list both spellings of the three live-table writers, and every flagged make, as ask rules", () => {

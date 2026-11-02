@@ -65,9 +65,13 @@ lint: ## ESLint, baseline rules; fails on any error or on more warnings than .es
 
 # lint-strict splits FILES on spaces and passes it NUL-separated: make expands the variable inline,
 # and a path with a Next.js route group such as src/app/(dashboard)/… is a bash syntax error unquoted.
-lint-strict: ## ESLint target rule set on FILES=... (new code is held to this; CI runs it on files added in a PR)
-	@test -n "$(FILES)" || { echo "usage: make lint-strict FILES='path/a.ts path/b.ts'"; exit 2; }
-	@printf '%s' "$(FILES)" | tr ' ' '\n' | grep -v '^$$' | tr '\n' '\0' | xargs -0 $(PNPM) exec eslint --config eslint.config.strict.mjs --no-ignore
+# Without FILES it lints the code files added vs $(BASE), committed or untracked, as CI checks a PR; that
+# bare form is the only pre-approved one (no pre-approved make rule takes arguments, decision 0010).
+lint-strict: ## ESLint target rule set on FILES=... (default: the code files added vs $(BASE), as CI checks a PR); new code is held to this
+	@files="$(FILES)"; \
+	if [ -z "$$files" ]; then files=$$({ git diff --name-only --diff-filter=A $(BASE)...HEAD -- '*.ts' '*.tsx' '*.mjs' '*.js'; git ls-files --others --exclude-standard -- '*.ts' '*.tsx' '*.mjs' '*.js'; } | grep -vE '^(scripts/archive|scripts/ad-hoc)/' | sort -u | tr '\n' ' '); fi; \
+	if [ -z "$$(printf '%s' "$$files" | tr -d ' ')" ]; then echo "lint-strict: no code files added vs $(BASE)"; exit 0; fi; \
+	printf '%s' "$$files" | tr ' ' '\n' | grep -v '^$$' | tr '\n' '\0' | xargs -0 $(PNPM) exec eslint --config eslint.config.strict.mjs --no-ignore
 
 lint-shell: ## shellcheck: cron wrappers at the baseline (-S error, see DEBT.md); the Claude hooks, the commit-msg hook and the ops scripts are new code and meet the target (-S warning)
 	shellcheck -S error scripts/*.sh

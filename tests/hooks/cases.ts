@@ -152,6 +152,10 @@ export const BASH_BLOCKED: string[] = [
   "make status help",
   "FOO=1 make -n unpause",
   'make lint-strict FILES="a b" unpause', // a quoted override does not hide the host goal behind it
+  "make lint-strict FILES=x '--eval=lint-strict: unpause'", // a quoted --eval injects a prerequisite
+  "make lint-strict FILES=x '-f' Makefile '-f' /dev/stdin <<<'lint-strict: unpause'",
+  "make lint-strict MAKEFILES=/dev/stdin <<<'lint-strict: unpause'",
+  "make lint-strict FILES=x 'unpause'", // quotes around a single word do not hide a host goal
   "git commit -m x --no-veri",
   "HUSKY=0 git commit -m x",
   "pnpm exec vitest run -u",
@@ -190,6 +194,8 @@ export const BASH_ALLOWED: string[] = [
   "make logs LOG=deploys N=5 2>&1", // a redirect is not a goal
   "make status QT_HOST=qt", // an override after the target
   'make logs LOG="deploys" N=5', // a quoted override is one token
+  "make status > /tmp/status.txt 2>&1", // a redirect target is not a goal
+  "make kill-switch REASON=x > /tmp/kill.txt",
   "ls scripts/canonical/data/",
   "cp scripts/canonical/data/x.json /tmp/",
   "ls scripts/canonical/data/ && rm -rf .next",
