@@ -13,7 +13,7 @@ Format: `NNNN-short-slug.md` with the fields **Date · Status (active / supersed
 | [0005](0005-reproducible-deploy-and-production-pointer.md) | Deploys run one reviewed script on the host from `make deploy`; `main` is the production pointer that script moves; `ops/` captures the host | active |
 | [0006](0006-fence-covers-trading-code-not-infrastructure.md) | The live-path fence covers trading code (exact list inside), not infrastructure; `ops/**` and `scripts/ops/**` are not fenced | active, amends 0004 |
 | [0007](0007-node-26-ops-user-loopback-tailscale.md) | Node 26 LTS system-wide, the `ops` process user, loopback + Tailscale, HTTPS git remote (revisit if the repo goes private) | active |
-| [0008](0008-kill-switch.md) | One kill switch: pause, flatten paper, stop the service and the crons, alert, record; resume never un-pauses | active, amended by 0010 |
+| [0008](0008-kill-switch.md) | One kill switch: pause, flatten (paper rows and the broker side of mirrored positions), stop the service and the crons, alert, record; resume never un-pauses | active, amended by 0010 |
 | [0009](0009-alerts-and-rotation.md) | The host alerts on its own (OnFailure, deploy result, daily summary via ntfy), weekly log rotation, nightly gate on dev | active |
 | [0010](0010-live-table-rule.md) | The live-table rule: `make kill-switch`, `make resume` and `make unpause` are the only session path that writes the live tables; they prompt every time, no committed make rule can pre-approve them, they write a ledger row; the kill switch is the one session path that may act on a broker account (it may flatten mirrored positions) | active, amends 0008 |
 | [deploys](deploys.md) | Ledger: one row per deploy and per host change | running |
