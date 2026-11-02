@@ -156,6 +156,9 @@ export const BASH_BLOCKED: string[] = [
   "make lint-strict FILES=x '-f' Makefile '-f' /dev/stdin <<<'lint-strict: unpause'",
   "make lint-strict MAKEFILES=/dev/stdin <<<'lint-strict: unpause'",
   "make lint-strict FILES=x 'unpause'", // quotes around a single word do not hide a host goal
+  'make lint-strict --e\\val "lint-strict: unpause"', // a backslash does not hide --eval
+  "MAKEFILES=/dev/stdin make lint-strict", // an env prefix is stripped from the head but still refused
+  "MAKEFLAGS=--eval=x make lint-strict",
   "git commit -m x --no-veri",
   "HUSKY=0 git commit -m x",
   "pnpm exec vitest run -u",

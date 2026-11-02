@@ -217,4 +217,10 @@ describe("make refuses a host goal beside another goal", () => {
     expect(dryRun([]).status).toBe(0);
     expect(dryRun(["help", "lint"]).status).toBe(0);
   });
+
+  it("keeps help as the default goal when .DEFAULT_GOAL is overridden from the command line", () => {
+    const result = dryRun([".DEFAULT_GOAL=unpause"]);
+    expect(result.status).toBe(0);
+    expect(result.output).not.toContain("scripts/ops/unpause.sh");
+  });
 });

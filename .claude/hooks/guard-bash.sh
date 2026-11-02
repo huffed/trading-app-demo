@@ -205,13 +205,16 @@ while IFS=$'\t' read -r sep seg; do
 
   # 7. pre-approved commands that can be turned into writes
   if grep -qiE "^make([[:space:]]|$)" <<<"$s"; then
-    # quotes removed but their content kept: a quoted '--eval=…' or '-f' is still an option to make
-    uqk=$(tr -d "\"'" <<<"$s")
+    # quotes and backslashes removed but their content kept: a quoted '--eval=…', an escaped --e\val or a
+    # quoted '-f' is still an option to make
+    uqk=$(tr -d "\"'\\\\" <<<"$s")
     if grep -qE "(^|[[:space:]])(-f|--file|--makefile|-C|--directory|-e|--eval|-I|--include-dir)([[:space:]]|=|$)" <<<"$uqk"; then
       deny "$orig" "make with an alternate makefile, directory, include dir or --eval runs code the Makefile does not define"
     fi
-    if grep -qE "(^|[[:space:]])MAKEFILES=" <<<"$uqk" || grep -q '<' <<<"$s"; then
-      deny "$orig" "make reading a makefile from MAKEFILES= or from stdin (<, <<, <<<) runs code the Makefile does not define"
+    # MAKEFILES=/MAKEFLAGS= as an override or as an env prefix (strip_kw removed a prefix from $s, so look at
+    # the original segment), or a makefile on stdin
+    if grep -qE "(^|[[:space:]])(MAKEFILES|MAKEFLAGS|GNUMAKEFLAGS)=" <<<"$orig" || grep -q '<' <<<"$s"; then
+      deny "$orig" "make reading a makefile or flags from MAKEFILES=/MAKEFLAGS= or stdin (<, <<, <<<) runs code the Makefile does not define"
     fi
     # the host targets run alone (CLAUDE.md's live-table rule, decision 0010): make runs every goal on its command
     # line, so a host goal behind another goal (`make lint-strict FILES=x unpause` matches the pre-approved

@@ -1,7 +1,7 @@
 # QuantTrader — one entry point per check. Every target exits non-zero on failure.
 # `make help` lists them. Details and the baseline/target rules: docs/DEV_SETUP.md.
 SHELL := /bin/bash
-.DEFAULT_GOAL := help
+override .DEFAULT_GOAL := help # override: `make .DEFAULT_GOAL=unpause` would run a host target as the default goal
 PNPM ?= pnpm
 BASE ?= origin/dev
 # VPS targets read these from the environment inside the recipe ($$VAR) and validate them there.
@@ -68,8 +68,12 @@ lint: ## ESLint, baseline rules; fails on any error or on more warnings than .es
 # Without FILES it lints the code files added vs $(BASE), committed or untracked, as CI checks a PR; that
 # bare form is the only pre-approved one (no pre-approved make rule takes arguments, decision 0010).
 lint-strict: ## ESLint target rule set on FILES=... (default: the code files added vs $(BASE), as CI checks a PR); new code is held to this
-	@files="$(FILES)"; \
-	if [ -z "$$files" ]; then files=$$({ git diff --name-only --diff-filter=A $(BASE)...HEAD -- '*.ts' '*.tsx' '*.mjs' '*.js'; git ls-files --others --exclude-standard -- '*.ts' '*.tsx' '*.mjs' '*.js'; } | grep -vE '^(scripts/archive|scripts/ad-hoc)/' | sort -u | tr '\n' ' '); fi; \
+	@set -o pipefail; files="$(FILES)"; \
+	if [ -z "$$files" ]; then \
+	  git rev-parse --verify --quiet '$(BASE)^{commit}' >/dev/null || { echo "lint-strict: $(BASE) not found — git fetch origin"; exit 2; }; \
+	  mb=$$(git merge-base $(BASE) HEAD) || { echo "lint-strict: no merge base between $(BASE) and HEAD"; exit 2; }; \
+	  files=$$({ git diff --name-only --diff-filter=A "$$mb" -- '*.ts' '*.tsx' '*.mjs' '*.js' && git ls-files --others --exclude-standard -- '*.ts' '*.tsx' '*.mjs' '*.js'; } | { grep -vE '^(scripts/archive|scripts/ad-hoc)/' || true; } | sort -u | tr '\n' ' ') || { echo "lint-strict: listing the files added vs $(BASE) failed"; exit 2; }; \
+	fi; \
 	if [ -z "$$(printf '%s' "$$files" | tr -d ' ')" ]; then echo "lint-strict: no code files added vs $(BASE)"; exit 0; fi; \
 	printf '%s' "$$files" | tr ' ' '\n' | grep -v '^$$' | tr '\n' '\0' | xargs -0 $(PNPM) exec eslint --config eslint.config.strict.mjs --no-ignore
 
