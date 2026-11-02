@@ -13,8 +13,19 @@ ssh qt 'bash /usr/local/lib/quanttrader/ops-health.sh'            # one summary 
 ssh qt 'SERVICE_RESULT=test EXIT_CODE=exited EXIT_STATUS=1 bash /usr/local/lib/quanttrader/notify-failure.sh quanttrader'   # one urgent test push ("result=test") — tell the operator first
 ```
 
-The nightly workflow needs nothing on the host; it runs on `dev` at 03:17 UTC from the next night (`gh workflow run nightly.yml --ref dev` runs it now). `HEARTBEAT_PING_URL` is the operator's step: create a check at healthchecks.io (or similar), put its URL in the host's `.env.local` under `HEARTBEAT_PING_URL`, and the next heartbeat tick pings it; the monitor then alerts when pings stop.
+The nightly workflow needs nothing on the host; it runs on `dev` at 03:17 UTC from the next night (`gh workflow run nightly.yml --ref dev` runs it now). `HEARTBEAT_PING_URL` is the operator's step and the one host edit allowed mid-week (operator decision 2026-11-02, a standing exception to "no host change in market hours": one line in the env file, read by `scripts/heartbeat-cron.sh` on the next tick, no restart, and its failure mode is a missing ping, not a trading change). Create a check at healthchecks.io (period 5 minutes, grace 15 minutes: the heartbeat ticks every 5 minutes and the dead-man workflow alarms after 35–45), copy its ping URL, then on the host as `ops`, pasting the URL yourself (never through chat):
+
+```bash
+ssh qt
+grep -c '^HEARTBEAT_PING_URL=' /opt/quanttrader/.env.local                       # 0: not set yet
+printf 'HEARTBEAT_PING_URL=%s\n' 'https://hc-ping.com/<uuid>' >> /opt/quanttrader/.env.local
+grep -c '^HEARTBEAT_PING_URL=' /opt/quanttrader/.env.local                       # 1
+exit
+make logs LOG=heartbeat N=1   # after the next tick (every 5 min): the line says the ping was sent, not "HEARTBEAT_PING_URL not set"
+```
+
+Then one ledger row (`HEARTBEAT_PING_URL set on the host`, the time, the heartbeat line as the read-only check); the healthchecks.io dashboard shows the first ping within five minutes. If the heartbeat line still says the variable is not set, the line went to the wrong file or has a typo: `grep -n '^HEARTBEAT' /opt/quanttrader/.env.local` on the host (the value is the only secret on that line; it does not go into chat).
 
 When `scripts/ops/notify-failure.sh` or `ops-health.sh` change in the repo, repeat the `install` line: the host runs the installed copies, not the checkout's.
 
-Verification: `make logs LOG=ops-health N=2` after 07:05 UTC the next day; `ls -la /var/log/quanttrader/` after the first weekly rotation (`.1` files owned by `ops`, `deploys.log` untouched); the two test pushes received on the phone; after the next `make deploy`, its restart ends the unit `inactive` (not `failed`) and sends no failure push.
+Verification: `make logs LOG=ops-health N=2` after 07:05 UTC the next day (done 2026-11-02: logged and pushed); the two test pushes received on the phone (done 2026-11-02 after a resend a minute apart — of the first pair, sent 2 s apart, only one arrived, unexplained); `ls -la /var/log/quanttrader/` after the first weekly rotation (`.1` files owned by `ops`, `deploys.log` untouched; ~2026-11-09); after the next `make deploy`, its restart ends the unit `inactive` (not `failed`) and sends no failure push.
