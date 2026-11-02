@@ -1,4 +1,4 @@
-# 0008 — One kill switch: pause, flatten paper, stop the service and the crons, alert, record; resume never un-pauses
+# 0008 — One kill switch: pause, flatten (paper rows and the broker side of mirrored positions), stop the service and the crons, alert, record; resume never un-pauses
 
 **Date:** 2026-11-01 · **Status:** active, amended by 0010 · **Phase:** D.3.
 
