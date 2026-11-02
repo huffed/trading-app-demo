@@ -14,8 +14,10 @@
 #   4  mirror pushes; force, delete or +refspec pushes that touch dev or main,
 #      including a bare `git push --force` while dev or main is checked out
 #   5  git commit --no-verify (any unambiguous prefix), -n, or HUSKY=0
-#   7  pre-approved commands turned into writes: make with an alternate makefile,
-#      -C or --eval, or a variable override containing shell metacharacters;
+#   7  pre-approved commands turned into writes: make with an alternate makefile
+#      (-f, -C, --eval, MAKEFILES=, a makefile on stdin — quoted or not), a host
+#      target beside another goal, behind a flag or behind an override, or a
+#      variable override containing shell metacharacters;
 #      git diff/log/show/blame/grep --output or -O; vitest -u/--outputFile;
 #      prettier --check combined with --write
 # Pattern-based and best-effort by nature (DEBT D-22); the permission deny rules
@@ -203,8 +205,43 @@ while IFS=$'\t' read -r sep seg; do
 
   # 7. pre-approved commands that can be turned into writes
   if grep -qiE "^make([[:space:]]|$)" <<<"$s"; then
-    if grep -qE "(^|[[:space:]])(-f|--file|--makefile|-C|--directory|-e|--eval|-I|--include-dir)([[:space:]]|=|$)" <<<"$uq"; then
+    # quotes and backslashes removed but their content kept: a quoted '--eval=…', an escaped --e\val or a
+    # quoted '-f' is still an option to make
+    uqk=$(tr -d "\"'\\\\" <<<"$s")
+    if grep -qE "(^|[[:space:]])(-f|--file|--makefile|-C|--directory|-e|--eval|-I|--include-dir)([[:space:]]|=|$)" <<<"$uqk"; then
       deny "$orig" "make with an alternate makefile, directory, include dir or --eval runs code the Makefile does not define"
+    fi
+    # MAKEFILES=/MAKEFLAGS= as an override (any assignment operator, quoted or not) or as an env prefix
+    # (strip_kw removed a prefix from $s, so the original segment is checked too), or a makefile on stdin
+    if grep -qE "(^|[[:space:]])(MAKEFILES|MAKEFLAGS|GNUMAKEFLAGS)(:{1,3}|[+?!])?=" <<<"$orig $uqk" || grep -q '<' <<<"$s"; then
+      deny "$orig" "make reading a makefile or flags from MAKEFILES=/MAKEFLAGS= or stdin (<, <<, <<<) runs code the Makefile does not define"
+    fi
+    # the host targets run alone (CLAUDE.md's live-table rule, decision 0010): make runs every goal on its command
+    # line, so a host goal behind another goal (`make lint-strict FILES=x unpause` matches the pre-approved
+    # `make lint-strict *`), behind a flag (`make -s unpause` matches no ask rule) or behind an override
+    # (`make REASON=x kill-switch`) would run without the prompt the ask rules give `make <host-target> …`;
+    # the Makefile refuses the multi-goal shape too, while it reads the file. A quoted span with whitespace
+    # collapses to one token (FILES="a b" is one override, not an override and a goal); the quotes around a
+    # single word are dropped, so 'unpause' is still the host goal it is. The target of a bare redirect
+    # operator (> file) is not a goal
+    mq=$(sed -E "s/\"[^\"]*[[:space:]][^\"]*\"/Q/g; s/'[^']*[[:space:]][^']*'/Q/g; s/[\"']//g" <<<"$s")
+    read -r -a mtoks <<<"$mq"
+    host_goal=""; goals=0; flags=0; redirect_target=0
+    if [ "${#mtoks[@]}" -gt 1 ]; then
+      for tok in "${mtoks[@]:1}"; do
+        if [ "$redirect_target" -eq 1 ]; then redirect_target=0; continue; fi
+        case "$tok" in
+          [0-9]\>|[0-9]\>\>|\>|\>\>|\&\>|\&\>\>) redirect_target=1 ;;
+          *'>'*|*'<'*) ;;
+          -*) flags=$((flags + 1)) ;;
+          *=*) ;;
+          deploy|deploy-pointer|status|logs|kill-switch|resume|unpause) host_goal=$tok; goals=$((goals + 1)) ;;
+          *) goals=$((goals + 1)) ;;
+        esac
+      done
+    fi
+    if [ -n "$host_goal" ] && { [ "$goals" -ne 1 ] || [ "$flags" -ne 0 ] || [ "${mtoks[1]}" != "$host_goal" ]; }; then
+      deny "$orig" "the host targets run alone: make $host_goal [NAME=value …] with no flag, no other goal and no override before the target (CLAUDE.md's live-table rule)"
     fi
     # a $ or a backtick anywhere in a make command is either a make function such as $(shell …), which runs when
     # make reads the override, or a shell expansion bash performs after this hook has looked

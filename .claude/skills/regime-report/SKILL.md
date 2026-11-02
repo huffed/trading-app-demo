@@ -2,14 +2,16 @@
 name: regime-report
 description: Produce the vol-regime distribution and the daily-bias flips from the pinned XAU/USD corpora (`make regime-report`). Use when asked what regime the market is in, how often the bias flipped, or whether a period was low/medium/high volatility. Read-only, pinned data only.
 argument-hint: "[h4-bars] [session-days]"
-allowed-tools: Bash(make regime-report *)
+allowed-tools: Bash(make regime-report)
 ---
 
-Run:
+Run, without arguments:
 
 ```bash
-make regime-report ARGS="$ARGUMENTS"
+make regime-report                     # pre-approved: the last 90 H4 bars and the last 60 session days
 ```
+
+With arguments (`make regime-report ARGS="$ARGUMENTS"`) the command prompts: no pre-approved make rule takes arguments (decision 0010).
 
 Defaults when no arguments are given: the last 90 H4 bars and the last 60 session days. The report prints the pinned corpus range and sha prefixes, the vol-regime distribution over the whole pin and over the last N bars (`low_vol` / `medium_vol` / `high_vol` = ATR(14) terciles over 200 bars, the engine's own `src/lib/algorithm/regime-classifier.ts`), the current regime on the last pinned bar, and the daily bias (D1 close vs SMA20, `src/lib/patterns/daily-bias.ts`) with every flip in the window.
 

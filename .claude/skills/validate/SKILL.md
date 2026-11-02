@@ -1,7 +1,7 @@
 ---
 name: validate
 description: Run the validation harness (`make validate`) and report the result. Use when asked to validate, re-validate or "run the validator" on the deployed algorithms. Currently a stub until the audit's scripts reach dev.
-allowed-tools: Bash(make validate *)
+allowed-tools: Bash(make validate)
 ---
 
 Run exactly:

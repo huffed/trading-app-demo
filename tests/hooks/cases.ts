@@ -145,6 +145,22 @@ export const BASH_BLOCKED: string[] = [
   "make logs LOG=$'x\\x3b sudo -n cat /opt/quanttrader/.e\\x6ev.local\\x3b true'",
   "make deploy REF='$(git rev-parse HEAD)'",
   "make -C /tmp lint",
+  "make lint-strict FILES=x unpause", // a host goal behind a pre-approved goal (CLAUDE.md's live-table rule)
+  "make -s kill-switch REASON=x", // a flag form that no ask rule matches
+  "make REASON=x kill-switch", // an override before the target: no ask rule matches
+  "make help status",
+  "make status help",
+  "FOO=1 make -n unpause",
+  'make lint-strict FILES="a b" unpause', // a quoted override does not hide the host goal behind it
+  "make lint-strict FILES=x '--eval=lint-strict: unpause'", // a quoted --eval injects a prerequisite
+  "make lint-strict FILES=x '-f' Makefile '-f' /dev/stdin <<<'lint-strict: unpause'",
+  "make lint-strict MAKEFILES=/dev/stdin <<<'lint-strict: unpause'",
+  "make lint-strict FILES=x 'unpause'", // quotes around a single word do not hide a host goal
+  'make lint-strict --e\\val "lint-strict: unpause"', // a backslash does not hide --eval
+  "MAKEFILES=/dev/stdin make lint-strict", // an env prefix is stripped from the head but still refused
+  "MAKEFLAGS=--eval=x make lint-strict",
+  "make lint-strict 'MAKEFILES=/dev/stdin'", // a quoted MAKEFILES override
+  "make lint-strict MAKEFILES+=/dev/stdin",
   "git commit -m x --no-veri",
   "HUSKY=0 git commit -m x",
   "pnpm exec vitest run -u",
@@ -180,6 +196,11 @@ export const BASH_ALLOWED: string[] = [
   "make deploy REF=3ee22e2",
   "make status",
   "make logs LOG=deploy-20261031T130000Z N=60",
+  "make logs LOG=deploys N=5 2>&1", // a redirect is not a goal
+  "make status QT_HOST=qt", // an override after the target
+  'make logs LOG="deploys" N=5', // a quoted override is one token
+  "make status > /tmp/status.txt 2>&1", // a redirect target is not a goal
+  "make kill-switch REASON=x > /tmp/kill.txt",
   "ls scripts/canonical/data/",
   "cp scripts/canonical/data/x.json /tmp/",
   "ls scripts/canonical/data/ && rm -rf .next",

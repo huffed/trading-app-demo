@@ -1,7 +1,8 @@
 # QuantTrader — one entry point per check. Every target exits non-zero on failure.
 # `make help` lists them. Details and the baseline/target rules: docs/DEV_SETUP.md.
 SHELL := /bin/bash
-.DEFAULT_GOAL := help
+# override: `make .DEFAULT_GOAL=unpause` would otherwise run a host target as the default goal
+override .DEFAULT_GOAL := help
 PNPM ?= pnpm
 BASE ?= origin/dev
 # VPS targets read these from the environment inside the recipe ($$VAR) and validate them there.
@@ -32,6 +33,22 @@ override LOG := $(value LOG)
 override N := $(value N)
 override QT_MARKET_HOURS_OK := $(value QT_MARKET_HOURS_OK)
 export QT_HOST REF LOG N QT_MARKET_HOURS_OK REASON
+# The host targets run alone. make runs every goal on its command line, so `make lint-strict FILES=x unpause`
+# would match the pre-approved `make lint-strict *` rule and run the un-pause with no prompt (CLAUDE.md's
+# live-table rule, decision 0010). A host goal beside any other goal, or a MAKECMDGOALS that make did not set
+# itself, is refused while make reads this file, before any recipe runs. .claude/hooks/guard-bash.sh refuses
+# the same shapes, plus flags and overrides before the target, before the command reaches make.
+HOST_GOALS := deploy deploy-pointer status logs kill-switch resume unpause
+# checked before the goal filter: a MAKECMDGOALS supplied from outside names goals make will not run
+# (make leaves it undefined when no goal is given, and defines it itself otherwise)
+ifeq ($(filter default undefined,$(origin MAKECMDGOALS)),)
+$(error MAKECMDGOALS came from the $(origin MAKECMDGOALS), not from make — unset it; the host targets run alone: make <target> [NAME=value])
+endif
+ifneq ($(filter $(HOST_GOALS),$(MAKECMDGOALS)),)
+ifneq ($(words $(MAKECMDGOALS)),1)
+$(error the host targets run alone: make $(firstword $(filter $(HOST_GOALS),$(MAKECMDGOALS))) [NAME=value], with no other goal)
+endif
+endif
 
 .PHONY: help install lint lint-strict lint-shell typecheck format format-check format-all-check \
         test test-watch build check backtest validate parity db-types db-types-check \
@@ -49,9 +66,17 @@ lint: ## ESLint, baseline rules; fails on any error or on more warnings than .es
 
 # lint-strict splits FILES on spaces and passes it NUL-separated: make expands the variable inline,
 # and a path with a Next.js route group such as src/app/(dashboard)/… is a bash syntax error unquoted.
-lint-strict: ## ESLint target rule set on FILES=... (new code is held to this; CI runs it on files added in a PR)
-	@test -n "$(FILES)" || { echo "usage: make lint-strict FILES='path/a.ts path/b.ts'"; exit 2; }
-	@printf '%s' "$(FILES)" | tr ' ' '\n' | grep -v '^$$' | tr '\n' '\0' | xargs -0 $(PNPM) exec eslint --config eslint.config.strict.mjs --no-ignore
+# Without FILES it lints the code files added vs $(BASE), committed or untracked, as CI checks a PR; that
+# bare form is the only pre-approved one (no pre-approved make rule takes arguments, decision 0010).
+lint-strict: ## ESLint target rule set on FILES=... (default: the code files added vs $(BASE), as CI checks a PR); new code is held to this
+	@set -o pipefail; files="$(FILES)"; \
+	if [ -z "$$files" ]; then \
+	  git rev-parse --verify --quiet '$(BASE)^{commit}' >/dev/null || { echo "lint-strict: $(BASE) not found — git fetch origin"; exit 2; }; \
+	  mb=$$(git merge-base $(BASE) HEAD) || { echo "lint-strict: no merge base between $(BASE) and HEAD"; exit 2; }; \
+	  files=$$({ git diff --name-only --diff-filter=A "$$mb" -- '*.ts' '*.tsx' '*.mjs' '*.js' && git ls-files --others --exclude-standard -- '*.ts' '*.tsx' '*.mjs' '*.js'; } | { grep -vE '^(scripts/archive|scripts/ad-hoc)/' || true; } | sort -u | tr '\n' ' ') || { echo "lint-strict: listing the files added vs $(BASE) failed"; exit 2; }; \
+	fi; \
+	if [ -z "$$(printf '%s' "$$files" | tr -d ' ')" ]; then echo "lint-strict: no code files added vs $(BASE)"; exit 0; fi; \
+	printf '%s' "$$files" | tr ' ' '\n' | grep -v '^$$' | tr '\n' '\0' | xargs -0 $(PNPM) exec eslint --config eslint.config.strict.mjs --no-ignore
 
 lint-shell: ## shellcheck: cron wrappers at the baseline (-S error, see DEBT.md); the Claude hooks, the commit-msg hook and the ops scripts are new code and meet the target (-S warning)
 	shellcheck -S error scripts/*.sh
@@ -154,8 +179,13 @@ logs: ## VPS: tail a log, read-only — make logs LOG=scan N=40 (scan manage hea
 
 # The kill switch and its reverse stream the reviewed script from the LOCAL copy of origin/dev (no fetch:
 # the switch must not depend on GitHub being reachable) over one ssh connection; the host reads its own
-# secrets. They are the only VPS change allowed in market hours.
-kill-switch: ## EMERGENCY: disable the crons, pause every active algorithm, flatten their positions, stop + disable the service, alert, ledger line — idempotent, fails closed, exits non-zero on any failed step (docs/runbooks/kill-switch.md). REASON=<word>
+# secrets. They are the only VPS change allowed in market hours and the only way a session writes to the
+# live tables (CLAUDE.md, decision 0010): each prompts every time (`ask` in .claude/settings.json, never in an
+# allow list; the single-goal check above and guard-bash keep a pre-approved goal from carrying them;
+# tests/ops/makefile-host-targets.test.ts checks all of it), runs only when the operator asks for it, and
+# writes its ledger line (the row in docs/decisions/deploys.md is copied from it; DEBT D-24 lists the two
+# paths that still miss the line).
+kill-switch: ## EMERGENCY: disable the crons, pause every active algorithm, flatten their positions, stop + disable the service, alert, ledger line — idempotent, fails closed, exits non-zero on any failed step; prompts every time, never pre-approved (docs/runbooks/kill-switch.md). REASON=<word>
 	@set -o pipefail; \
 	case "$$QT_HOST" in -*|*[!A-Za-z0-9._-]*|"") echo "make kill-switch: QT_HOST must be an ssh host alias"; exit 2;; esac; \
 	case "$$REASON" in *[!A-Za-z0-9_.-]*|"") echo "make kill-switch: REASON must be one word (letters, digits, _ . -)"; exit 2;; esac; \
@@ -164,14 +194,14 @@ kill-switch: ## EMERGENCY: disable the crons, pause every active algorithm, flat
 	echo "kill-switch: streaming scripts/ops/kill-switch.sh from local origin/dev $$(git rev-parse --short=12 origin/dev) to $$QT_HOST"; \
 	git show origin/dev:scripts/ops/kill-switch.sh | $(SSH) -- "$$QT_HOST" "bash -s -- $$REASON"
 
-resume: ## Reverse the kill switch's stop: enable + start the service, refuse while any algorithm is active, restore the crontab, verify the next ticks, alert, ledger line — algorithms stay paused (make unpause is the operator's act)
+resume: ## Reverse the kill switch's stop: enable + start the service, refuse while any algorithm is active, restore the crontab, verify the next ticks, alert, ledger line — algorithms stay paused (make unpause is the operator's act); prompts every time, never pre-approved
 	@set -o pipefail; \
 	case "$$QT_HOST" in -*|*[!A-Za-z0-9._-]*|"") echo "make resume: QT_HOST must be an ssh host alias"; exit 2;; esac; \
 	git cat-file -e origin/dev:scripts/ops/resume.sh 2>/dev/null || { echo "make resume: scripts/ops/resume.sh is not in your local origin/dev — run: git fetch origin"; exit 2; }; \
 	echo "resume: streaming scripts/ops/resume.sh from local origin/dev $$(git rev-parse --short=12 origin/dev) to $$QT_HOST"; \
 	git show origin/dev:scripts/ops/resume.sh | $(SSH) -- "$$QT_HOST" 'bash -s'
 
-unpause: ## Re-activate exactly the algorithms the kill switch paused (its saved id list), ledger line — the operator's deliberate act after a resume
+unpause: ## Re-activate exactly the algorithms the kill switch paused (its saved id list), ledger line — the operator's deliberate act after a resume; prompts every time, never pre-approved
 	@set -o pipefail; \
 	case "$$QT_HOST" in -*|*[!A-Za-z0-9._-]*|"") echo "make unpause: QT_HOST must be an ssh host alias"; exit 2;; esac; \
 	git cat-file -e origin/dev:scripts/ops/unpause.sh 2>/dev/null || { echo "make unpause: scripts/ops/unpause.sh is not in your local origin/dev — run: git fetch origin"; exit 2; }; \

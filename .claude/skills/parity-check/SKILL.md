@@ -1,7 +1,7 @@
 ---
 name: parity-check
 description: Run the live-vs-backtest parity replay (`make parity`) and the golden-file comparison (`make backtest`), and report both. Use when asked whether live paper trades match what the backtester would have done, or whether the engine's trades changed.
-allowed-tools: Bash(make backtest *) Bash(make parity *) Bash(pnpm exec vitest run tests/golden *)
+allowed-tools: Bash(make backtest) Bash(make parity) Bash(pnpm exec vitest run tests/golden)
 ---
 
 Run, in this order, and report each result verbatim with its exit code:
