@@ -179,8 +179,9 @@ logs: ## VPS: tail a log, read-only — make logs LOG=scan N=40 (scan manage hea
 
 # The kill switch and its reverse stream the reviewed script from the LOCAL copy of origin/dev (no fetch:
 # the switch must not depend on GitHub being reachable) over one ssh connection; the host reads its own
-# secrets. They are the only VPS change allowed in market hours and the only way a session writes to the
-# live tables (CLAUDE.md, decision 0010): each prompts every time (`ask` in .claude/settings.json, never in an
+# secrets. The kill switch is the only host command allowed in market hours (the one other exception: appending
+# the HEARTBEAT_PING_URL line, docs/runbooks/d4-alerts-and-rotation.md); the three are the only way a session
+# writes to the live tables (CLAUDE.md, decision 0010): each prompts every time (`ask` in .claude/settings.json, never in an
 # allow list; the single-goal check above and guard-bash keep a pre-approved goal from carrying them;
 # tests/ops/makefile-host-targets.test.ts checks all of it), runs only when the operator asks for it, and
 # writes its ledger line (the row in docs/decisions/deploys.md is copied from it; DEBT D-24 lists the two
