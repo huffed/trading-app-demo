@@ -8,14 +8,18 @@
 
 - One concern, under about 500 lines, squash-merged, one at a time against `dev` (`docs/decisions/0002`). A pure move never carries a behaviour change, and a behaviour change never carries a move.
 - **Proof of no behaviour change:** `make check` is green, `pnpm build` passes, `make backtest` prints `golden: MATCH`, and the PR says so. A PR that cannot show that is not structure and belongs in Part 2.
-- **What golden does not prove.** The replay runs `runPortfolioBacktest` and no code under `src/lib/scan/`. A change to live sizing, halts or exits still prints MATCH. So any PR touching `src/lib/scan/**` also needs E2's live-path test green, and no such PR starts until that test exists. `make parity` would add to this, but it is not wired yet.
+- **What golden does not prove.** The replay runs `runPortfolioBacktest` and no code under `src/lib/scan/`, and some live gates are never reached from the backtester. A change to live sizing, halts or exits still prints MATCH. So E0's live-path test comes first, and on any PR touching a fenced path or `src/app/api/cron/**` it is part of the standard proof. `make parity` would add to this, but it is not wired yet.
 - Strictness only ratchets up. Each PR lowers `.eslint-warning-budget` if it can and never raises it. A touched file that crosses to the target rule set stays there.
 - The fence lifts per session and only by the operator (`docs/decisions/0004`, `0006`). Most of Part 1 touches fenced paths, so it needs that for the session, stated in the PR title.
 - Paths below are today's. E4 moves many of them, so an item after E4 finds the new path in `CODE_QUALITY.md` §1.2. Counts come from `DEBT.md` or Phase A unless they carry a date, and each item's first PR measures again.
 
 ## Part 1. Structure-only work
 
-In this order. Formatting goes first so later diffs are readable, characterisation tests go before anything that moves money-path code, and names go before structure.
+In this order. The live-path test goes first because every later item proves itself with it, formatting next so later diffs are readable, the other characterisation tests before anything moves money-path code, and names before structure.
+
+### E0. The live-path test (D-05)
+
+Tests only, in `tests/characterisation/`, no production change. The rules above rest on this test, because the golden replay cannot see the live engine. Entry points: `scan/engine.ts` `scanAlgorithm`, `scan/manage.ts` `manageActiveAlgorithms`, and `api/cron/scan-active-algorithms/route.ts`, where `applyPortfolioHalts` runs the portfolio halt. One scenario per path with the database, price feed and broker stubbed: an entry, a stop, a target, a stagnant exit, each halt and a flatten, pinning the size, the rows written and the activity events. The database stub rejects the values `tests/contracts/db-check-constraints.test.ts` lists as not accepted. A stub that accepts everything would pin `daily_loss_halt` as closing a row, which production refuses. Proof: tests pass against unchanged code.
 
 ### E1. Whole-tree Prettier, with a blame-ignore file
 
@@ -32,7 +36,6 @@ Tests only, no production change, so that E4 onward can show behaviour held. `te
 
 | Module | What to pin |
 |---|---|
-| `scan/engine.ts` `scanAlgorithm`, `scan/manage.ts` `manageActiveAlgorithms` | **The live-path test the rules above depend on.** One bar through each with the database, price feed and broker stubbed: what opens, at what size, which exits and halts fire, which activity rows are written |
 | `patterns/evaluate.ts` (304 lines, complexity 39) | one fixture per pattern family, from the pinned slice |
 | `algorithm/structural-sl.ts`, `algorithm/stagnant-exit.ts` | the exit reasons and the levels they set |
 | `constants/markets.ts` | `riskToLots`, `pnlInUsd`, `clampLotsToConstraints` |
@@ -45,7 +48,7 @@ Also: `vitest` coverage reported, not gated, for `src/lib/{scan,market-data,algo
 
 ### E2b. Log what the money path discards (D-04, additive half)
 
-`DEBT.md` wants this as the first Phase E PR that touches `src`: `logger.error` on the discarded errors and a `price_source` value on the fallback path, in log lines only. Nothing is raised and no branch changes; a new column would be a migration and is not this PR. It waits for E1 and the live-path test so its diff is readable and proved. Proof: the standard one, with the live-path test.
+`DEBT.md` wants this as the first Phase E PR. It runs after E1 and E2 instead, so its diff is readable and proved: `logger.error` on the discarded errors and a `price_source` value on the fallback path, in log lines only. Nothing is raised and no branch changes; a new column would be a migration and is not this PR. Never log a URL or a raw response: `twelve-data.ts:21,95` carry `apikey=` in the URL, so a logged URL would put the key in the journal. Proof: the standard one.
 
 ### E3. Dead code remainder (D-10)
 
@@ -53,12 +56,12 @@ The 22 dead files went in B8. Left because they sit inside audit-cited files: 89
 
 ### E4. Rename map (D-12), names first
 
-`CODE_QUALITY.md` §1.2 and §1.3 are the map. **Only rows tagged `safe-rename` or `safe-move` are E4**, about 80 of them. The 32 `restructure` rows are not renames, and each goes to the item that owns the decision. Order, so each PR is one idea:
+`CODE_QUALITY.md` §1.2 and §1.3 are the map. **Only rows tagged `safe-rename` or `safe-move` are E4**, about 80 of them. The 32 `restructure` rows are not renames: those a later item names go there, and the rest, such as `GateVerdict` and `setActiveCurrency`, get their own plan when reached. Order, so each PR is one idea:
 
 1. `CONVENTIONS.md`: the naming rules and the target layout, which `CODE_QUALITY.md` already refers to and every later step reads. The first PR also strikes the map rows for files B8 deleted (`backtest-engine.ts`, `dual-run-validator.ts`, `strategies/`, `trading-profile.ts`).
 2. Exported types and functions whose names lie about what they do: verbs that hide I/O (`checkNewsVeto` fetches, `evaluateAndPrune` writes, `computeLiveMarketState` persists), then `check*` returning objects.
 3. The glossary: `symbol` outside `src/lib/brokers/` to `ticker` (265 sites), the 22 `Algo*` types, one spelling of British or American.
-4. Files, directory by directory, with no content change: `scan/` to the engine's real shape, `algorithm/` to gates, the four backtesters out of `market-data/`, the auto-pause out of `cohort/`. `CODE_QUALITY.md` §2.1 has the target tree.
+4. Files, directory by directory, editing import lines and nothing else: `scan/` to the engine's real shape, `algorithm/` to gates, the four backtesters out of `market-data/`, the auto-pause out of `cohort/`. `CODE_QUALITY.md` §2.1 has the target tree.
 5. The 18 type-only import cycles go with the moves that dissolve them (§2.4).
 
 **Excluded, whatever the row says:**
@@ -68,9 +71,9 @@ The 22 dead files went in B8. Left because they sit inside audit-cited files: 89
 - `symbol` as data. `trades.symbol` is a database column (`00002_create_trades.sql:7`, `types/trade.ts:8`) and `symbol` is Twelve Data's request field. Both keep the name; changing the column is a migration, not a rename.
 - A name something outside the app calls. `scripts/ops/kill-switch.sh:110` POSTs to `/api/admin/flatten-algo`, and that script streams from the local `origin/dev` to a host running the last deployed commit, which can be a week behind. Renaming the route in one PR would give the switch a 404 and leave positions open, with `make check` and golden green. Such a rename is four steps: add the new name as an alias, deploy, change the caller, then remove the alias after the next deploy. The cron wrappers' URLs get the same treatment.
 
-CI holds added files to the strict rule set. A pure `git mv` counts as a rename and passes through (tested 2026-11-06), but a move that also rewrites a file can stop being detected as one. So move and edit in separate PRs.
+CI holds added files to the strict rule set. A move counts as a rename and passes through (tested 2026-11-06), but a stub left at the old path, a split, or a small file falling under 50% similar makes the new file an added one. So a move PR edits import lines only, leaves no stub, and shows no `A` rows in `git diff --name-status`.
 
-Each PR updates `.claude/hooks/live-paths.txt` and decision 0006's list in the same commit, or the fence silently stops covering the moved file; `make fence-check` gains a test that every glob matches at least one file. Proof: the standard one, with the live-path test for anything under `scan/`. `docs/CODE_QUALITY.md` and `docs/DEBT.md` line citations go stale here by design, and the PR updates the ones it touches.
+Each PR updates `.claude/hooks/live-paths.txt` and decision 0006's list in the same commit, or the fence silently stops covering the moved file; `make fence-check` gains a test that every glob matches at least one file. Proof: the standard one. `docs/CODE_QUALITY.md` and `docs/DEBT.md` line citations go stale here by design, and the PR updates the ones it touches.
 
 ### E5. Duplication clusters (D-11)
 
@@ -78,7 +81,7 @@ After E4, so shared code lands in its final directory. The byte-identical groups
 
 ### E6. Type escapes (D-15)
 
-The 13 ad-hoc `AlgoRow` projections into one row type, and the three private `SupabaseClient<any,any,any>` aliases removed, along with the different alias at `chart/chart-markers.ts:9`. 22 `as unknown as`, 7 `as never` and 13 `any` come down through those. **Not here:** the `event_type`, `exit_reason` and `reason` unions and `checkExitTrigger(): string | null` (P1), a real parse in `rulesFromRow` (P16), and stricter compiler flags (P17). Proof: the standard one, with the live-path test where `scan/` is touched.
+The 13 ad-hoc `AlgoRow` projections into one row type, and the three private `SupabaseClient<any,any,any>` aliases removed, along with the different alias at `chart/chart-markers.ts:9`. 22 `as unknown as`, 7 `as never` and 13 `any` come down through those. **Not here:** the `event_type`, `exit_reason` and `reason` unions and `checkExitTrigger(): string | null` (P1), a real parse in `rulesFromRow` (P16), and stricter compiler flags (P17). Proof: the standard one.
 
 ### E7. Config consolidation (D-09)
 
@@ -87,25 +90,25 @@ The 13 ad-hoc `AlgoRow` projections into one row type, and the three private `Su
 - One module reads the 19 env names at 40 sites, **each keeping today's behaviour on a missing value**, and leaf modules take values as arguments. D-09's `OPERATOR_USER_ID` case and any key that becomes required are P14.
 - Literals get a name with their value unchanged: leverage `?? 30` at four sites plus the ternary at `helpers.ts:108`, the two premium-zone thresholds, the timeframe maps. Nothing merges. Those values differ, some on purpose, so choosing between them is P15.
 
-The first PR has to meet three constraints. Next inlines only literal `process.env.NEXT_PUBLIC_X` references, so a schema over `process.env` sees nothing in the browser. CI's `make build` sets two public variables, so a parse at module load fails the build. There is no `instrumentation.ts`, so nothing runs "at startup" until one exists. Proof: the standard one with the live-path test, and a test for each changed read with its key unset.
+The first PR has to meet three constraints. Next inlines only literal `process.env.NEXT_PUBLIC_X` references, so a schema over `process.env` sees nothing in the browser. CI's `make build` sets two public variables, so a parse at module load fails the build. There is no `instrumentation.ts`, so nothing runs "at startup" until one exists. Proof: the standard one, and a test for each changed read with its key unset.
 
 ### E8. Complexity hotspots (D-13)
 
-182 functions over cyclomatic 10, 39 at 20 or more. `CODE_QUALITY.md` §2.2 has a split proposal for each file over 400 lines. In order: `scan/helpers.ts calculatePositionSize` (30), `prop-firm-backtest.ts closeSimPosition` (29), `market-state.ts computeMarketState4h` (39), `patterns/evaluate.ts evaluateIctSmcPattern` (39), then `portfolio-backtest.ts`'s `tryOpenEntry` (59) and `runPortfolioBacktest` (50). Each extraction sits behind E2's tests. CI holds new files to the strict rules (complexity 10, 80 lines per function), so a function at 59 cannot land in a new file as it is. Split inside the existing file first, and move a piece out only once it meets those rules. Proof: the standard one, with the live-path test for `scan/`, and the ESLint warning budget falling by what the split removed.
+182 functions over cyclomatic 10, 39 at 20 or more. `CODE_QUALITY.md` §2.2 has a split proposal for each file over 400 lines. In order: `scan/helpers.ts calculatePositionSize` (30), `prop-firm-backtest.ts closeSimPosition` (29), `market-state.ts computeMarketState4h` (39), `patterns/evaluate.ts evaluateIctSmcPattern` (39), then `portfolio-backtest.ts`'s `tryOpenEntry` (59) and `runPortfolioBacktest` (50). Each extraction sits behind E2's tests. CI holds new files to the strict rules (complexity 10, 80 lines per function), so a function at 59 cannot land in a new file as it is. Split inside the existing file first, and move a piece out only once it meets those rules. Proof: the standard one, and the ESLint warning budget falling by what the split removed.
 
 ### E9. Datetimes (D-14), the mechanical half
 
-Injectable clocks in the halts, defaulting to the system clock, so day-boundary tests stop needing fake timers. `parseBarDate` (`market-data/parse-bar-date.ts`) at the bare `new Date()` calls on bar strings: `inspect-backtest/route.ts:109,111,120,121`, `loser-analysis/route.ts:52,227,229,245,246`, `walk-forward.ts:101,114,115`, `position-chart-actions.ts:87,91`. `parseBarDate` has no test of its own and its comment does not cover date-only daily bars, so the first PR pins that input before using it on daily bars.
+Injectable clocks in the halts, defaulting to the system clock, so day-boundary tests stop needing fake timers. `parseBarDate` (`market-data/parse-bar-date.ts`) at the bare `new Date()` calls on bar strings: `inspect-backtest/route.ts:109,111,120,121`, `loser-analysis/route.ts:49,52,227,229,245,246`, `walk-forward.ts:101,114,115`, `position-chart-actions.ts:87,91`. Sites that compare with each other change together: `loser-analysis:49` and `:52` agree today only because both are local. `parseBarDate` has no test of its own and its comment does not cover date-only daily bars, so the first PR pins that input before using it on daily bars.
 
-**Not here:** which instant a trading day starts at. Every boundary is UTC midnight while FTMO uses 00:00 CE(S)T, and moving it changes halts. Nor `analytics.ts:242,287`, which bucket by local month and weekday in the browser: making them UTC changes what the operator sees and picks a reporting day. Both are P6. Proof: the standard one with the live-path test for the halts, and a test run under a non-UTC `TZ`, because on CI's UTC the old and new parsing agree.
+**Not here:** which instant a trading day starts at. Every boundary is UTC midnight while FTMO uses 00:00 CE(S)T, and moving it changes halts. Nor `analytics.ts:242,287`, which bucket by local month and weekday in the browser: making them UTC changes what the operator sees and picks a reporting day. Both are P6. Proof: the standard one, and a test run under a non-UTC `TZ`, because on CI's UTC the old and new parsing agree. For the same reason the swap preserves behaviour only on a UTC host, so the first PR confirms the VPS timezone, read-only and with the operator's approval.
 
 ### E10. Research folder (D-20)
 
-`scripts/canonical` is 62 flat scripts. Target from `CODE_QUALITY.md` §1.2: `scripts/{ops,feed,research,reporting}/`, with one change. **Broker and deploy scripts do not go to `scripts/ops/`.** That directory is permanently unfenced (decision 0006), and `deploy-*` scripts can insert algorithms with mirroring on (D-33). They go first, to a new `scripts/deploy/` added to `.claude/hooks/live-paths.txt` and decision 0006 in the same PR, because they touch production.
+`scripts/canonical` is 62 flat scripts. Target from `CODE_QUALITY.md` §1.2 with one change: `scripts/{deploy,feed,research,reporting}/`. **The 13 scripts that row sends to `ops/` go to a new `scripts/deploy/` instead**, and they go first because they touch production: `deploy-*`, `enable-broker-mirror`, `sync-account-capital`, `metaapi-connection-doctor`, `broker-mirror-readiness-check`, `snapshot-broker-health`, `capture-broker-spread`, `sample-forex-spreads`, `build-spread-model`. `scripts/ops/` is permanently unfenced (decision 0006), and `deploy-*` scripts can insert algorithms with mirroring on (D-33). `scripts/deploy/` joins `.claude/hooks/live-paths.txt` and decision 0006 in the same PR, and `tests/hooks/cases.ts:17` changes with it.
 
 Helper copies move to `scripts/canonical/lib/` only where they are byte-identical. `loadBars` must not merge: `revalidate-candidates.ts:119-128` reads pinned data and refuses otherwise, while `feature-veto-validate.ts:209-223` reads `price_cache`, so one copy would break the pinned-data rule or change a script.
 
-Nine decision-feeding scripts are already under ESLint; the 33 that remain come under it or go to `scripts/archive/` by 2027-01-31. `verify-stress-test`, `verify-session-boundary` and `verify-mc-challenge` become vitest tests. **Which scripts are superseded is P7.** Proof: `make typecheck` covers `scripts/`, and every moved script gets one run of a dry or `--help` path, or a test, because golden and `make regime-report` import only `canonical/lib/pinned-eval`, which stays where it is. Every cron wrapper's path changes in the same PR, with the fence.
+Nine decision-feeding scripts are already under ESLint; the 33 that remain come under it or go to `scripts/archive/` by 2027-01-31. `verify-stress-test`, `verify-session-boundary` and `verify-mc-challenge` become vitest tests. **Which scripts are superseded is P7.** Proof: `make typecheck`, which covers `scripts/`, and a diff showing only import lines changed. **Never run or import a script as proof.** 58 of the 62 call `main()` at module level with no guard and none reads `process.argv`, so `--help` is ignored and an import runs the script: `enable-broker-mirror.ts` would set `live_trading_enabled: true` on production. A dry-run guard is an edit to a fenced script, so it is its own PR. Every cron wrapper's path changes in the same PR, with the fence.
 
 ### E11. Repository hygiene (D-17)
 
@@ -170,4 +173,5 @@ Not Phase E work as such, but a gate it must not pass over. Each of these is mir
 - **P19:** D-26, D-29 and D-33.
 - **D-25, both halves, and D-27:** a failed broker close must be seen, and a re-run of the switch must flatten. The script fixes are on #324; the engine half of D-25 is P11.
 - **D-28:** `resume.sh` reports OK while algorithms are active.
+- **D-19, before real capital:** 16 raw `fetch()` calls have no outbound timeout.
 - **P6, a decision either way:** FTMO's day is CE(S)T and every boundary here is UTC, so the operator either moves it or accepts the gap in writing.
