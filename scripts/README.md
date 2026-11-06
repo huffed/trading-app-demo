@@ -181,8 +181,7 @@ monitor:
    paused/erroring Supabase, and silently-stale scans.
 
 **Active alert channel: GitHub Actions** (`.github/workflows/dead-man.yml`,
-2026-06-10). Scheduled every 30 min, though GitHub starts it only 2 to 5
-times a day (docs/DEBT.md D-30). On each run GitHub — independent infrastructure, no extra
+2026-06-10). Scheduled every 30 min, though GitHub starts it only 2 to 5 times a day (docs/DEBT.md D-30). On each run GitHub — independent infrastructure, no extra
 account — runs FOUR parallel jobs: (1) `check-heartbeat` calls the
 anon-executable `public.last_manage_tick()` RPC and FAILS when the
 latest manage_tick is older than 45 min; (2) `check-scan-tick`

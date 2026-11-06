@@ -1,6 +1,6 @@
 # OANDA and Finnhub failures on the VPS: read-only trace, 2026-11-06
 
-Measured for the audit's fill findings. Nothing was changed. Sources: `journalctl -u quanttrader` (the journal starts 2026-08-27 17:01Z), `/var/log/quanttrader/oanda-positioning.log`, the `scan` cron log, the code on `dev`, and two read-only queries on the database. The app writes everything to the journal at info priority, so `journalctl -p err` returns nothing and proves nothing; these counts come from the message text.
+Measured for the audit's fill findings. Nothing was changed. Sources: `journalctl -u quanttrader` (the journal starts 2026-08-27 17:01Z), `/var/log/quanttrader/oanda-positioning.log`, the `scan` cron log, the code on `dev`, and read-only queries on the database. The app writes everything to the journal at info priority, so `journalctl -p err` returns nothing and proves nothing; these counts come from the message text.
 
 ## 1. Two OANDA calls fail with the same 401
 
@@ -47,11 +47,11 @@ From reading the code, except the counts:
 
 1. `fetchWithFallback` logs `[prices] OANDA failed` and asks Twelve Data, which returned 5,000 bars for the 4h request. Since 2 Nov Twelve Data itself failed 22 times with 429, and on 7 of those Yahoo then refused the 4h request. When the chain is exhausted the caller keeps the bars it had and the staleness gate decides (`prices.ts:124-133`).
 2. `savePricesToCache` filters that payload before merging. Since 2 Nov there are 181 `DQ.4` lines for 4h bars, every one with `incoming=5000` and 1,965 or 1,966 `off-grid` bars dropped; a sampled line also shows `forming=1 weekend=658`, and the forming and weekend counts were not tallied. 173 of the 181 sit within six journal lines of an OANDA failure.
-3. The refresh path hands the caller the unfiltered list: `const fresh = await fetchDailyPrices(…); savePricesToCache(…); return fresh;` (`prices.ts:124-127`). The filter protects the cache, not that tick's evaluation.
+3. The refresh path hands the caller the unfiltered list: `const fresh = await fetchDailyPrices(…); savePricesToCache(…); return fresh;` (`prices.ts:124-127`). The filter protects the cache, not that tick's evaluation. On the one sampled line above that list held 2,624 rejected bars of 5,000 (52%), including the forming bar, so a partial bar can reach that evaluation. One line is a sample, not a rate.
 
 So when an algorithm's OANDA call fails, that algorithm's evaluation appears to run on Twelve Data 4h bars, about 40% of which by count, across the whole payload rather than the evaluated tail, the cache would reject as off-grid. The refresh is per algorithm: `prices.ts:109-122` measures age from the bar open, so the last closed 4h bar is always past the threshold, each algorithm refreshes on every scan, and siblings in one tick can see different series. Exits see the same bars (`manage.ts:67`). This is read from the code, not observed: which bars a given scan used is not logged. From that reading there are about 5 × 436 = 2,180 scan-path 4h calls from 2 November to 6 November 13:00Z, so the 181 lines mean at most about 8% of evaluations. The cron layer shows nothing: all 532 scan ticks since 1 Nov answered 200 with no `"error"` in the body, and the failures appear only as journal warnings.
 
-## 3. Finnhub: every economic-calendar call fails
+## 3. Finnhub: the calendar calls and the veto's record
 
 `[economic-calendar] Finnhub returned 403`, per period (`other` is any other non-OK status):
 
@@ -67,7 +67,7 @@ So when an algorithm's OANDA call fails, that algorithm's evaluation appears to 
 
 The first 403 is 2026-08-27 17:15Z, 14 minutes into the journal. Successes log nothing, so these counts alone cannot prove every call failed. Two things can be said:
 
-- **From 30 October to 6 November none succeeded.** 480 lines a day is 20 an hour, or 5 algorithms × 4 scans, one call per evaluation (read from the code: the veto runs before any condition check, `entry-deterministic-gates.ts:280`). A success is cached for an hour (`economic-calendar.ts:120-126,145`) and a failure is not, so a full rate means no success.
+- **From 30 October to 6 November none succeeded.** 480 lines a day is 20 an hour, or 5 algorithms × 4 scans, one call per evaluation (read from the code: the veto runs before any condition check, `entry-deterministic-gates.ts:280`). A success is cached for an hour (`economic-calendar.ts:120-126,145`) and a failure is not, so a full rate means no success. November to the 6th has 102 hours at that rate and 6 partial.
 - **Earlier periods run below that rate, unexplained.** Hours at the full rate: 56 in August, 354 in September, 138 in October, and 2 to 118 partial hours in each; from 22 September to 9 October and 20 to 28 October many days show 17 to 60 lines. A halt or an earlier gate would also cut the count, and so would a working calendar.
 
 What settles it is the veto's own record. When it fires it writes `signal_no_action` with `reason: "News veto: …"` (`entry-deterministic-gates.ts:282-287`). In the database on 2026-11-06:
@@ -77,4 +77,4 @@ What settles it is the veto's own record. When it fires it writes `signal_no_act
 | `activity_log`, 2026-06-11 to 2026-11-06 | 155,419 | 42,245 | **0** |
 | `activity_log_archive`, 2026-04-28 to 2026-06-11 | 17,164 | not counted | 16 |
 
-All five deployed algorithms have `rules.news_veto.enabled = true`, which is the key the gate reads (`entry-gates.ts:69`), with `min_impact` high, 15 minutes before, 30 after. On failure `fetchEconomicCalendar` returns `[]` (`economic-calendar.ts:138-139`), the veto finds no event and passes. So the veto worked in the spring and has not fired once since 11 June. Inferred: the Finnhub plan in use does not include `/calendar/economic`; the 403 body is not logged. Backtests pass no events to the veto (`options.events ?? []`, `portfolio-backtest.ts:1195`), so paper and backtest agree, but only because neither applies it.
+All five deployed algorithms have `rules.news_veto.enabled = true`, which is the key the gate reads (`entry-gates.ts:69`), with `min_impact` high, 15 minutes before, 30 after. On failure `fetchEconomicCalendar` returns `[]` (`economic-calendar.ts:138-139`), the veto finds no event and passes. The 16 archive rows are real firings on named events (for example `USD Non Farm Payrolls` on 2026-05-08), 13 of them from the LLM trader, and the last is 2026-06-10 12:30Z, so the endpoint returned events until at least that date. Nothing has fired since. The audit dates the veto's activation on the deployed algorithms to 2026-06-29 (`review/04-operations.md:118` on the audit branch), so it has never fired on them. Cause unknown: the endpoint returned events in the spring and answers 403 on the VPS, so the key, the plan or Finnhub's terms changed; the 403 body is not logged, and no log covers 11 June to 27 August. Backtests pass no events to the veto (`options.events ?? []`, `portfolio-backtest.ts:1195`), so paper and backtest agree, but only because neither applies it.
