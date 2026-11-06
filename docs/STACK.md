@@ -79,6 +79,7 @@ cron (6-hourly)     ─curl─▶ GET /api/cron/alpha-decay, /api/cron/reconcile
 | cTrader Open API | dormant by design | `CTRADER_CLIENT_ID/SECRET` (undocumented) | `src/lib/brokers/ctrader*` |
 | Anthropic (Haiku 4.5) | dormant LLM-trader path | `ANTHROPIC_API_KEY` | no spend cap on the live path (audit F7) |
 | Groq (Llama 3.3) | LLM fallback; journal analysis; sentiment | `GROQ_API_KEY` | |
+| healthchecks.io | heartbeat-ping monitor (D.4, ledger `2026-11-06T12:30Z`); ntfy integration on as the operator reported 2026-11-02, not exercised by a down event yet | operator's account; ping URL in `.env.local` on the VPS as `HEARTBEAT_PING_URL` | period 5 min, grace 15 min as the runbook specifies; set in that account, not in the repo |
 | ntfy.sh | phone push from dead-man + M1 band check | GitHub secrets `NTFY_TOPIC`/`NTFY_TOKEN`; `.env.local` on VPS | delivery never confirmed end-to-end (audit F6) |
 | GitHub Actions | dead-man monitor only (see §9) | repo secrets `SUPABASE_URL`, `SUPABASE_ANON_KEY` | |
 | Tailscale | operator access to the VPS UI | — | |
