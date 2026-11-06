@@ -11,114 +11,165 @@
 | Database | PostgreSQL 17.6, 335 MB on 2026-11-06, of which `oanda_positioning_cache` 197 MB and `activity_log` 95 MB |
 | Retention on the box | 30 nights, plus the box's own daily snapshots |
 
-From memory, proved by step 3 below: a sub-account has its own hostname `u708205-sub1.your-storagebox.de`, port 23 serves rsync and a restricted shell, and external reachability off means only hosts inside Hetzner's network connect. That last point is why the drill fetches dumps through the VPS.
+From Hetzner's docs, read 2026-11-06: a sub-account has its own hostname `u708205-sub1.your-storagebox.de` and its own `authorized_keys`; port 23 serves rsync and a restricted shell that lists `rm`; `install-ssh-key` works in sub-accounts; without external reachability only hosts inside Hetzner's network connect. That last point is why the key install and the drill go through the VPS. The docs do not show `rm -r`, which the prune uses, so window step 5 proves it.
 
 ## Operator, before Sunday
 
-**1. The read-only role, in the Supabase SQL editor.** Generate the password on your own machine (`openssl rand -hex 32`, so nothing needs URL-encoding), keep it in your password manager, paste it in place of the marker, and do not save this as a snippet. Any time; this touches the database, not the host.
+**1. The read-only role, in the Supabase SQL editor, on production.** No password here: the role cannot log in until step 2. Any time; this touches the database, not the host.
 
 ```sql
-create role backup_ro with login bypassrls noinherit connection limit 3 password '<paste the generated password>';
+create role backup_ro with login bypassrls noinherit connection limit 3;
 alter role backup_ro set default_transaction_read_only = on;
+grant pg_read_all_data to backup_ro with inherit true, set false;
 
-grant usage on schema public to backup_ro;
-grant select on all tables in schema public to backup_ro;
-grant select on all sequences in schema public to backup_ro;
-alter default privileges for role postgres in schema public grant select on tables to backup_ro;
-alter default privileges for role postgres in schema public grant select on sequences to backup_ro;
-
-grant usage on schema auth to backup_ro;
-grant select on auth.users, auth.identities to backup_ro;
-
--- check: one row, bypassrls true, read-only on
-select rolname, rolbypassrls, rolconfig from pg_roles where rolname = 'backup_ro';
+-- check: one row, every column true
+select rolbypassrls,
+       has_schema_privilege('backup_ro', 'auth', 'usage') as auth_schema,
+       has_table_privilege('backup_ro', 'auth.users', 'select') as auth_users,
+       has_table_privilege('backup_ro', 'auth.identities', 'select') as auth_identities,
+       has_table_privilege('backup_ro', 'public.paper_positions', 'select') as reads_public,
+       not has_table_privilege('backup_ro', 'public.paper_positions', 'insert') as cannot_write
+from pg_roles where rolname = 'backup_ro';
 ```
 
-`bypassrls` is there because `pg_dump` refuses to run where row-level security would hide rows, and every public table has it on; `postgres` holds that attribute here, so it can grant it. The role can read and cannot write. It does not go in `supabase/migrations`: it holds a credential and is not schema the engine depends on.
+`pg_read_all_data` is Postgres's built-in read-only role, and it covers tables added later. It is needed because `postgres` here cannot grant usage on schema `auth` (read 2026-11-06), so a plain `grant usage on schema auth` would succeed with a warning and do nothing. `postgres` holds that role with admin rights, so it can grant it. `bypassrls` is there because `pg_dump` refuses to run where row-level security would hide rows, and every public table has it on. The role reads everything in the database, including `broker_connections` tokens and password hashes, and cannot write. It does not go in `supabase/migrations`: it is not schema the engine depends on.
 
-**2. The connection line, on the host, after 22:00 UK on Friday.** This is a host change and the mid-week exception covers only the ping line, so it waits for the market to close. In the Supabase dashboard open Connect, choose **Session pooler**, copy the URI and change its user from `postgres.<ref>` to `backup_ro.<ref>` and its password to the generated one. Paste it only at the `read` prompt: nothing is echoed and nothing lands in the shell history.
+**2. Its password, from your own terminal.** Do not set it in the SQL editor: `log_statement` is `ddl` here (read 2026-11-06), so a `create role … password` statement reaches the database log in the clear, and the editor can keep it. `\password` hashes it on your machine first. Generate it, keep it in your password manager, and paste it at the two prompts. In the dashboard open Connect, choose **Session pooler**, copy the URI and delete `:[YOUR-PASSWORD]` from it, so `psql` asks for the `postgres` password and it stays out of your shell history.
+
+```bash
+openssl rand -hex 32     # no URL-encoding needed; into the password manager, not a file
+brew install libpq       # also used by the drill
+"$(brew --prefix libpq)/bin/psql" "<session pooler URI, without the password>"
+```
+
+```text
+\password backup_ro
+\q
+```
+
+**3. The connection line, on the host, after 22:00 UK on Friday.** This is a host change and the mid-week exception covers only the ping line, so it waits for the market to close. Take the same URI, change its user from `postgres.<ref>` to `backup_ro.<ref>`, and put the generated password in its place. Paste it only at the `read` prompt: nothing is echoed and nothing lands in the shell history.
 
 ```bash
 ssh -t qt bash                                                 # bash explicitly, as in the ping block
 grep -c '^BACKUP_DATABASE_URL=' /opt/quanttrader/.env.local   # 0 — if 1 or more: stop, the name exists; replacing it is not this append
 read -rs -p 'BACKUP_DATABASE_URL: ' URL; echo                  # paste the URI
-case "$URL" in postgresql://backup_ro.*) printf '\nBACKUP_DATABASE_URL=%s\n' "$URL" >> /opt/quanttrader/.env.local ;; *) echo 'no backup_ro URI read; nothing written' ;; esac; unset URL
+case "$URL" in *'['*) echo 'placeholder left in the URI; nothing written' ;; postgresql://backup_ro.*:5432/*) printf '\nBACKUP_DATABASE_URL=%s\n' "$URL" >> /opt/quanttrader/.env.local ;; *) echo 'no backup_ro URI on port 5432 read; nothing written' ;; esac; unset URL
 # the guard writes nothing on an empty or wrong paste; the leading newline keeps the line whole
 grep -c '^BACKUP_DATABASE_URL=postgresql://backup_ro' /opt/quanttrader/.env.local   # 1
 exit
 ```
 
-No restart: the app does not read this name. Tell the session the time; the ledger row goes in with step 8's.
+No restart: the app does not read this name. Tell the session the time; the ledger row goes in with the window's.
 
 ## Window steps, as `ops`, market closed
 
-Step 8 of the window plan, after the deploy, the reboot and the paper re-test. Open one control master first (`Host qt` does this) and go on only if the previous step printed what it says.
+Window plan step 8 (`docs/PHASE_D_PLAN.md`). **First merge this PR and run `git fetch origin`, then run these from a workstation checkout of `origin/dev`** (`git switch --detach origin/dev`). As in D.4, nothing here depends on the commit the host's checkout holds, so no extra deploy is needed. The crontab and installed copies are ahead of the host's checkout until the next deploy, which is harmless.
+
+`Host qt` in `~/.ssh/config` holds one control master (`ControlMaster auto`, added 2026-11-01), so these connections count as one against `ufw limit`. Go on only if the previous step printed what it says.
 
 ```bash
-# 1. Tools: neither is installed yet. pg_dump must be 17 or newer, because the server is 17.6.
-ssh qt 'sudo -n apt-get install -y postgresql-client age && pg_dump --version && age --version'
+# 1. Tools: postgresql-client and age are not installed yet. pg_dump must be 17 or newer: the server is 17.6.
+ssh qt 'sudo -n apt-get update -qq && sudo -n apt-get install -y postgresql-client age && pg_dump --version && age --version && rsync --version | head -n 1'
 
-# 2. The job's key, on the host only. The public line goes to the operator, who adds it to u708205-sub1.
+# 2. The job's key, on the host only.
 ssh qt 'ssh-keygen -q -t ed25519 -N "" -C quanttrader-prod-backup -f ~/.ssh/quanttrader_backup && cat ~/.ssh/quanttrader_backup.pub'
 
-# 3. Pin the box's host key, compare it with the fingerprints Hetzner publishes, then prove the login.
+# 3. Pin the box's host key, and compare it with the fingerprints Hetzner publishes.
 ssh qt 'ssh-keyscan -p 23 u708205-sub1.your-storagebox.de > ~/.ssh/known_hosts_storagebox && ssh-keygen -lf ~/.ssh/known_hosts_storagebox'
-ssh qt 'ssh -p 23 -i ~/.ssh/quanttrader_backup -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=~/.ssh/known_hosts_storagebox u708205-sub1@u708205-sub1.your-storagebox.de mkdir nightly pins'
+```
 
-# 4. Install, from the merged dev, which the deploy has put in the checkout. Root-owned, as D.4's scripts are.
-ssh qt 'cd /opt/quanttrader && sudo -n install -m 755 scripts/ops/backup.sh scripts/ops/ops-health.sh /usr/local/lib/quanttrader/ && sudo -n install -m 644 ops/backup/age-recipient.txt /usr/local/lib/quanttrader/backup-age-recipient.txt && sudo -n install -m 644 ops/logrotate/quanttrader /etc/logrotate.d/quanttrader'
+**4. The operator installs that key on the sub-account,** from the VPS, because the box accepts only Hetzner hosts. The sub-account's password goes in at the prompt and nowhere else.
 
-# 5. The crontab, 12 entries, right after a tick.
-ssh qt 'crontab /opt/quanttrader/ops/crontab && crontab -l | grep -c "^[0-9*]"'
+```bash
+ssh -t qt bash
+ssh -p 23 -o PubkeyAuthentication=no -o StrictHostKeyChecking=yes -o UserKnownHostsFile=~/.ssh/known_hosts_storagebox u708205-sub1@u708205-sub1.your-storagebox.de install-ssh-key < ~/.ssh/quanttrader_backup.pub
+exit
+```
 
-# 6. The first run, by hand. Expect one "OK nightly/<date>" line and no push.
+If `install-ssh-key` is refused, stop and tell the session; Hetzner's key page has a manual route.
+
+```bash
+# 5. Prove the key, and the recursive delete the prune needs. Stop if rm -r is refused: the prune would fail from night 31.
+ssh qt 'B="ssh -p 23 -i ~/.ssh/quanttrader_backup -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=~/.ssh/known_hosts_storagebox u708205-sub1@u708205-sub1.your-storagebox.de"; $B mkdir nightly pins probe && $B mkdir probe/inner && $B rm -r probe && $B ls'   # nightly pins
+
+# 6. Install, root-owned, as D.4's scripts are. Dry run parses: 13, one per log.
+scp scripts/ops/backup.sh scripts/ops/ops-health.sh ops/backup/age-recipient.txt ops/logrotate/quanttrader ops/crontab qt:/tmp/
+ssh qt 'sudo -n install -m 755 /tmp/backup.sh /tmp/ops-health.sh /usr/local/lib/quanttrader/ && sudo -n install -m 644 /tmp/age-recipient.txt /usr/local/lib/quanttrader/backup-age-recipient.txt && sudo -n install -m 644 /tmp/quanttrader /etc/logrotate.d/quanttrader && sudo -n logrotate -d /etc/logrotate.d/quanttrader 2>&1 | grep -c "considering log"'
+
+# 7. The crontab, 12 entries, right after a tick.
+ssh qt 'crontab /tmp/crontab && crontab -l | grep -c "^[0-9*]"'
+
+# 8. The first run, by hand. Expect one "OK nightly/<date>" line and no push; the listing shows six files, OK among them.
 ssh qt 'bash /usr/local/lib/quanttrader/backup.sh | tee -a /var/log/quanttrader/backup.log'
 ssh qt 'ssh -p 23 -i ~/.ssh/quanttrader_backup -o IdentitiesOnly=yes -o UserKnownHostsFile=~/.ssh/known_hosts_storagebox u708205-sub1@u708205-sub1.your-storagebox.de ls -la nightly/$(date -u +%F)'
 ```
 
 Then the restore drill below, then one ledger row for all of it. The nightly run is at 02:22 UTC, a minute no tick uses. The next daily summary shows `backup=<time>` and turns high priority if the last good night is older than 26 hours.
 
-**Rollback**, in reverse: `crontab` from the previous `ops/crontab`; remove `backup.sh`, `backup-age-recipient.txt` and `~/.ssh/quanttrader_backup*`; remove the `BACKUP_DATABASE_URL` line by hand; `drop role backup_ro` after `revoke`; `apt-get remove postgresql-client age`. Nothing on the trading path reads any of this.
+**Rollback**, in reverse: `crontab` from the previous `ops/crontab`; remove `backup.sh`, `backup-age-recipient.txt` and `~/.ssh/quanttrader_backup*`; remove the `BACKUP_DATABASE_URL` line by hand; `apt-get remove postgresql-client age`; and in the SQL editor:
+
+```sql
+revoke pg_read_all_data from backup_ro;
+drop role backup_ro;
+```
+
+Nothing on the trading path reads any of this.
 
 ## Restore drill
 
-Twice a year and before any schema change; the first one is step 8 of the window. It proves that the newest dump can be decrypted and restored, not just that a file exists. `tests/contracts/` does not help here: it reads migrations, not a database, so the proof is row counts.
+Twice a year and before any schema change; the first one is step 8 of the window. It proves that the newest whole night can be decrypted and restored, not just that a file exists. `tests/contracts/` does not help here: it reads migrations, not a database, so the proof is row counts.
+
+**It does not rely on the branch's schema.** A branch is built by replaying production's recorded migrations, not `supabase/migrations`, and Supabase's troubleshooting page says a failed replay leaves it "either empty or partly complete". Production records 55 migrations against 52 files, and recorded `00051` revokes on `public.rls_auto_enable()`, which belongs to the dashboard's `ensure_rls` event trigger and is in no migration, so the replay may stop there (DEBT D-34). So step 5 clears `public` on the branch and loads schema and data from the dump, which is what a real restore into a new project does.
 
 **Cost, quoted 2026-11-06:** a Micro preview branch is $0.01344 per started hour; Compute Credits do not cover it and the Spend Cap does not apply. Three hours is about $0.04, and egress on a 335 MB database stays within the plan. Delete the branch when done.
 
-**The operator runs steps 2 to 5 in their own terminal.** A decrypted dump holds broker tokens and password hashes, and it does not enter a session. `broker_connections` data is left out of the restore so that the branch never holds a token.
+**The operator runs steps 3 to 6 in their own terminal.** A decrypted dump holds broker tokens and password hashes, and it does not enter a session. `broker_connections` data is left out of the restore so that the branch never holds a token, and with it the two foreign keys that point at that table.
+
+**1. Create the branch in the dashboard:** user menu, enable **Branching via dashboard**, then **Create branch** in the branch selector. Do not connect GitHub: changes pushed to a connected branch deploy to the project, and draft PR #291's migration is unapplied. A `MIGRATIONS_FAILED` status is expected and is not a drill failure. Supabase's page does not say whether such a branch accepts connections, so if it refuses them at step 5, stop and tell the session rather than retrying. Copy the branch's direct connection string.
 
 ```bash
-# 1. Fetch through the VPS, because the box accepts only Hetzner hosts. The files are still encrypted.
+# 2. Fetch through the VPS, because the box accepts only Hetzner hosts. The files are still encrypted.
+# The night must have an OK file, or it was not whole: use the newest night that has one.
 NIGHT=$(date -u +%F)
-ssh qt "mkdir -p /tmp/qt-drill && rsync -a -e 'ssh -p 23 -i ~/.ssh/quanttrader_backup -o IdentitiesOnly=yes -o UserKnownHostsFile=~/.ssh/known_hosts_storagebox' u708205-sub1@u708205-sub1.your-storagebox.de:nightly/$NIGHT/ /tmp/qt-drill/"
-mkdir -p ~/qt-drill && scp 'qt:/tmp/qt-drill/db-*.age' ~/qt-drill/ && ssh qt 'rm -rf /tmp/qt-drill'
+BOX='ssh -p 23 -i ~/.ssh/quanttrader_backup -o IdentitiesOnly=yes -o UserKnownHostsFile=~/.ssh/known_hosts_storagebox'
+ssh qt "$BOX u708205-sub1@u708205-sub1.your-storagebox.de ls nightly/$NIGHT/OK"
+ssh qt "mkdir -p /tmp/qt-drill && rsync -a -e '$BOX' u708205-sub1@u708205-sub1.your-storagebox.de:nightly/$NIGHT/ /tmp/qt-drill/"
+mkdir -p ~/qt-drill && scp 'qt:/tmp/qt-drill/*.age' ~/qt-drill/ && ssh qt 'rm -rf /tmp/qt-drill'
 
-# 2. Decrypt, off the box, with the private key. libpq gives a pg_restore as new as the host's pg_dump.
-brew install libpq; PGBIN=$(brew --prefix libpq)/bin; cd ~/qt-drill
+# 3. Decrypt the dumps, off the box, with the private key. The archives open too: names only, never contents.
+PGBIN=$(brew --prefix libpq)/bin; cd ~/qt-drill
 age -d -i <your age key file> -o public.dump db-public.dump.age
 age -d -i <your age key file> -o auth.dump db-auth.dump.age
+age -d -i <your age key file> env.tar.age | tar -tf -      # .env.local
+age -d -i <your age key file> host.tar.age | tar -tf -     # unit files, scripts, crontab.txt
+age -d -i <your age key file> logs.tar.age | tar -tzf - | wc -l
 
-# 3. Data only: the branch already has the schema from supabase/migrations. Leave out the tokens.
-"$PGBIN/pg_restore" --list public.dump | grep -v 'TABLE DATA public broker_connections' > drill.list
-"$PGBIN/pg_restore" --data-only --no-owner --no-privileges --use-list=drill.list --file=public.sql public.dump
+# 4. Build the two restore scripts. Left out: the tokens, the two foreign keys that would then fail,
+# and the schema's own entry, which already exists.
+"$PGBIN/pg_restore" --list public.dump | grep -v -E 'TABLE DATA public broker_connections|FK CONSTRAINT public (algorithms|portfolios) [a-z_]*broker_connection_id_fkey|SCHEMA - public ' > drill.list
+"$PGBIN/pg_restore" --no-owner --no-privileges --use-list=drill.list --file=public.sql public.dump
 "$PGBIN/pg_restore" --data-only --no-owner --no-privileges --file=auth.sql auth.dump
 
-# 4. Into the branch, whose connection string comes from the dashboard after it is created.
+# 5. Into the branch. Check the connection string is the branch's, not production's: the first command drops public.
+"$PGBIN/psql" "<branch connection string>" --variable ON_ERROR_STOP=1 --command 'drop schema if exists public cascade' --command 'create schema public'
 "$PGBIN/psql" "<branch connection string>" --single-transaction --variable ON_ERROR_STOP=1 \
   --command 'SET session_replication_role = replica' --file=auth.sql --file=public.sql
 ```
 
 ```sql
--- 5. The same query on the branch and on production. Production may have moved on since 02:22 UTC, so
+-- 6. The same query on the branch and on production. Production may have moved on since 02:22 UTC, so
 -- its counts may be higher by that day's rows; a branch count higher than production is a failure.
+-- broker_connections reads 0 on the branch, by design.
 select 'algorithms' as t, count(*) from public.algorithms
 union all select 'paper_positions', count(*) from public.paper_positions
 union all select 'activity_log', count(*) from public.activity_log
 union all select 'llm_decisions', count(*) from public.llm_decisions
 union all select 'oanda_positioning_cache', count(*) from public.oanda_positioning_cache
+union all select 'broker_connections', count(*) from public.broker_connections
 union all select 'auth.users', count(*) from auth.users;
 ```
 
-6. Delete the branch and `rm -rf ~/qt-drill`.
-7. Send the session the two sets of counts and the cost shown on the usage page. It writes `docs/decisions/evidence/d6-restore-drill-<date>.md`, counts only, and the ledger row, and decision 0011 gets its Tested line.
+7. Delete the branch and `rm -rf ~/qt-drill`.
+8. Send the session the two sets of counts, the branch's status after step 1 and the cost shown on the usage page. It writes `docs/decisions/evidence/d6-restore-drill-<date>.md`, counts only, and the ledger row, and decision 0011 gets its Tested line.
+
+Step 5's `SET session_replication_role = replica` is allowed for `postgres` as a plain `SET` statement, which was tested on production with the value `origin` in a rolled-back transaction on 2026-11-06. The `set_config` function is refused.

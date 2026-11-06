@@ -7,3 +7,5 @@ for a in "$@"; do
   case "$a" in *@*) seen=1 ;; esac
 done
 printf '%s\n' "${cmd# }" >> "$FAKE_HOST/box.log"
+[ -e "$FAKE_HOST/fail-rm" ] && exit 1
+exit 0

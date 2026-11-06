@@ -171,7 +171,7 @@ status: ## VPS: service, checkout vs verified running commit, last verified tick
 	git fetch --quiet origin && git show origin/dev:scripts/ops/status.sh | $(SSH) -- "$$QT_HOST" 'bash -s' && \
 	echo "origin/dev:  $$(git rev-parse --short=12 origin/dev)"
 
-logs: ## VPS: tail a log, read-only — make logs LOG=scan N=40 (scan manage heartbeat oanda-positioning reconcile alpha-decay broker-health m1-band-check prune cohort-report ops-health kill-switch deploys deploy-<stamp>)
+logs: ## VPS: tail a log, read-only — make logs LOG=scan N=40 (scan manage heartbeat oanda-positioning reconcile alpha-decay broker-health m1-band-check prune cohort-report ops-health backup kill-switch deploys deploy-<stamp>)
 	@case "$$QT_HOST" in -*|*[!A-Za-z0-9._-]*|"") echo "make logs: QT_HOST must be an ssh host alias"; exit 2;; esac; \
 	case "$$LOG" in *[!A-Za-z0-9-]*|"") echo "make logs: LOG must be a log name (letters, digits, -)"; exit 2;; esac; \
 	case "$$N" in *[!0-9]*|"") echo "make logs: N must be a number"; exit 2;; esac; \

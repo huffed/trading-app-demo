@@ -3,8 +3,8 @@
 # crontab at 07:05 UTC from /usr/local/lib/quanttrader/ (installed by the D.4 runbook, so it exists
 # whatever commit the checkout holds). One ntfy message: service, crons, the live commit vs the last
 # verified one and vs origin/dev (an HTTPS fetch as ops), Node, disk, memory, pending reboot, failed
-# units, algorithms the kill switch still holds paused, the last ledger line. Priority high only when
-# something needs a hand; "N commits behind dev" is information. Also prunes per-run deploy logs
+# units, algorithms the kill switch still holds paused, the last good backup, the last ledger line.
+# Priority high only when something needs a hand; "N commits behind dev" is information. Also prunes per-run deploy logs
 # older than 30 days. Exit 1 when the push fails or no topic is set.
 set -uo pipefail
 APP=/opt/quanttrader

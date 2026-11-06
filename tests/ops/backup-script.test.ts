@@ -1,8 +1,10 @@
 /**
  * scripts/ops/backup.sh, run for real against stand-ins (tests/ops/fixtures/fake-backup) with its
  * absolute paths rewritten into a temporary directory. Nothing reaches Supabase, the Storage Box or
- * ntfy. Pins what decision 0011 promises: every part is attempted, a broken night never prunes a good
- * one, a failure pushes, and the database password stays out of the output.
+ * ntfy. Pins what decision 0011 promises: every part is attempted, a failed part is never uploaded, a
+ * broken night never prunes a good one or writes OK, a failure pushes, and the database password stays
+ * out of the output. The fake age writes a header on empty input as the real one does, so only
+ * pipefail catches a failed dump.
  */
 import { spawnSync } from "node:child_process";
 import {
@@ -65,27 +67,46 @@ const logOf = (root: string, name: string): string => {
   return existsSync(path) ? readFileSync(path, "utf8") : "";
 };
 const stamped = (root: string): boolean => existsSync(join(root, "state", "backup.last-ok"));
+const uploaded = (root: string): string[] => readdirSync(join(root, "uploaded")).sort();
 
 describe("backup.sh, a good night", () => {
   it("uploads the five encrypted parts, verifies them and stamps the night", () => {
     const run = backup(prepare(URL_LINE, []));
     expect(run.status).toBe(0);
-    expect(readdirSync(join(run.root, "uploaded")).sort()).toEqual([
+    expect(uploaded(run.root)).toEqual([
+      "OK",
       "db-auth.dump.age",
       "db-public.dump.age",
       "env.tar.age",
       "host.tar.age",
       "logs.tar.age",
     ]);
-    expect(logOf(run.root, "rsync.log")).toContain("-anic");
     expect(stamped(run.root)).toBe(true);
     expect(logOf(run.root, "curl.log")).toBe("");
+  });
+
+  it("uploads only what age wrote", () => {
+    const { root } = backup(prepare(URL_LINE, []));
+    for (const part of uploaded(root).filter((name) => name !== "OK")) {
+      expect(readFileSync(join(root, "uploaded", part), "utf8")).toMatch(
+        /^age-encryption\.org\/fake\n/
+      );
+    }
+  });
+
+  it("writes OK after the checksum pass and before the prune", () => {
+    const { root } = backup(prepare(URL_LINE, [daysAgo(40)]));
+    const calls = logOf(root, "rsync.log");
+    expect(calls.indexOf("-rnci")).toBeGreaterThan(-1);
+    expect(calls.indexOf("/out/OK")).toBeGreaterThan(calls.indexOf("-rnci"));
+    expect(calls.indexOf("--list-only")).toBeGreaterThan(calls.indexOf("/out/OK"));
   });
 
   it("dumps public whole and auth's two tables as data, through the read-only role", () => {
     const dumps = logOf(backup(prepare(URL_LINE, [])).root, "pg_dump.log");
     expect(dumps).toContain("--schema=public user=backup_ro.ref host=pooler.test");
     expect(dumps).toContain("--data-only --table=auth.users --table=auth.identities");
+    expect(dumps).toContain("ssl=require password=set");
   });
 
   it("prunes only the nights past the 30-day retention", () => {
@@ -113,13 +134,21 @@ describe("backup.sh, a bad night", () => {
     expect(run.output).toContain(`${part} FAILED`);
     expect(stamped(run.root)).toBe(false);
     expect(logOf(run.root, "box.log")).toBe("");
+    expect(uploaded(run.root)).not.toContain("OK");
     expect(logOf(run.root, "curl.log")).toContain("Priority: urgent");
   };
 
-  it("a failed dump still uploads the other parts, pushes, and prunes nothing", () => {
+  it("a failed dump is not uploaded, the other parts are, and nothing is pruned", () => {
     const run = failing("fail-pg_dump");
     expectFailedNight(run, "db-public");
-    expect(readdirSync(join(run.root, "uploaded"))).toContain("env.tar.age");
+    expect(uploaded(run.root)).not.toContain("db-public.dump.age");
+    expect(uploaded(run.root)).toContain("env.tar.age");
+  });
+
+  it("a failed archive is not uploaded", () => {
+    const run = failing("fail-tar");
+    expectFailedNight(run, "env");
+    expect(uploaded(run.root)).toEqual(["db-auth.dump.age", "db-public.dump.age"]);
   });
 
   it("an empty encrypted file counts as a failure", () => {
@@ -128,6 +157,42 @@ describe("backup.sh, a bad night", () => {
 
   it("a failed upload is a failed night", () => {
     expectFailedNight(failing("fail-upload"), "upload");
+  });
+
+  it("failed pins are a failed night", () => {
+    expectFailedNight(failing("fail-pins"), "pins");
+  });
+
+  it("a night that cannot write OK prunes nothing", () => {
+    expectFailedNight(failing("fail-mark"), "mark");
+  });
+
+  it("a failed prune pushes and leaves no stamp, and the whole night keeps its OK", () => {
+    for (const flag of ["fail-list", "fail-rm"]) {
+      const run = failing(flag);
+      expect(run.status).toBe(1);
+      expect(run.output).toContain("prune FAILED");
+      expect(stamped(run.root)).toBe(false);
+      expect(uploaded(run.root)).toContain("OK");
+      expect(logOf(run.root, "curl.log")).toContain("Priority: urgent");
+    }
+  });
+
+  it("a run that finds the lock held pushes and touches nothing", () => {
+    const run = failing("fail-flock");
+    expect(run.status).toBe(1);
+    expect(run.output).toContain("still holds the lock");
+    expect(logOf(run.root, "pg_dump.log")).toBe("");
+    expect(uploaded(run.root)).toEqual([]);
+    expect(logOf(run.root, "curl.log")).toContain("Priority: urgent");
+  });
+
+  it("removes a working directory left by a killed run", () => {
+    const root = prepare(URL_LINE, []);
+    const stale = join(root, "state", "backup.Ab12Cd");
+    mkdirSync(stale);
+    backup(root);
+    expect(existsSync(stale)).toBe(false);
   });
 
   it("a checksum difference is a failed night", () => {
@@ -141,6 +206,6 @@ describe("backup.sh, a bad night", () => {
     expect(run.status).toBe(1);
     expect(run.output).toContain("BACKUP_DATABASE_URL missing");
     expect(logOf(run.root, "box.log")).toBe("");
-    expect(readdirSync(join(run.root, "uploaded"))).toContain("env.tar.age");
+    expect(uploaded(run.root)).toContain("env.tar.age");
   });
 });
