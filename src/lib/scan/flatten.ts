@@ -10,6 +10,7 @@
  */
 import { getBrokerAdapter } from "@/lib/brokers/registry";
 import type { BrokerConnection } from "@/lib/brokers/types";
+import { logger } from "@/lib/logger";
 import { logActivity } from "@/lib/scan/helpers";
 import type { Tables } from "@/lib/supabase/database.types";
 import { toUpdateRow } from "@/lib/supabase/row-mappers";
@@ -106,11 +107,38 @@ export async function flattenAlgorithmPositions(
     // The broker close above still ran regardless: flatten is the
     // emergency hammer and a duplicate broker close fails harmlessly in
     // the catch.
-    await supabase
+    //
+    // Review 2026-10-28: this update used to be unchecked. A rejected
+    // write (the 00038 CHECK rejected 'daily_loss_halt' / 'portfolio_halt')
+    // left the position OPEN while a close event was still logged — a halt
+    // that fails silently. Now the error is surfaced in the result status,
+    // the server log, and an `error` activity row.
+    const { error: paperCloseError } = await supabase
       .from("paper_positions")
       .update(toUpdateRow<"paper_positions">(closeUpdate))
       .eq("id", pos.id)
       .eq("status", "open");
+    if (paperCloseError) {
+      status = `${status}; paper-close-failed: ${paperCloseError.message}`;
+      logger.error(
+        "flatten",
+        `paper close FAILED for position ${pos.id} (${exitReason}) — position remains OPEN`,
+        paperCloseError.message
+      );
+      await logActivity(supabase, pos.user_id, {
+        algorithm_id: algorithmId,
+        position_id: pos.id,
+        event_type: "error",
+        ticker: pos.ticker,
+        details: {
+          source: "flatten",
+          stage: "paper_close",
+          exit_reason: exitReason,
+          message: paperCloseError.message,
+          broker_status: status.split(";")[0],
+        },
+      });
+    }
 
     // Audit the broker-close outcome. Before this, flatten's
     // broker-closed / broker-failed result existed only in the HTTP
@@ -119,12 +147,11 @@ export async function flattenAlgorithmPositions(
     await logActivity(supabase, pos.user_id, {
       algorithm_id: algorithmId,
       position_id: pos.id,
-      event_type:
-        status === "broker-closed"
-          ? "live_order_closed"
-          : status.startsWith("broker-failed")
-            ? "live_order_close_failed"
-            : "position_closed",
+      event_type: status.startsWith("broker-closed")
+        ? "live_order_closed"
+        : status.startsWith("broker-failed")
+          ? "live_order_close_failed"
+          : "position_closed",
       ticker: pos.ticker,
       details: {
         source: "flatten",

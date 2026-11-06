@@ -163,6 +163,22 @@ async function closePositionForExit(
       `close update failed for position ${a.position.id} — skipping broker exit this tick`,
       claimError.message
     );
+    // Review 2026-10-28: a rejected close (e.g. an exit_reason the DB CHECK
+    // does not allow) used to be visible only in the server journal. The
+    // stagnant check runs before SL/TP and short-circuits them, so a
+    // repeatedly failing close leaves the position unmanageable — make it
+    // visible on /reports as an `error` row every tick it happens.
+    await logActivity(a.supabase, a.userId, {
+      algorithm_id: a.algo.id,
+      position_id: a.position.id,
+      event_type: "error",
+      ticker: a.ticker,
+      details: {
+        source: "closePositionForExit",
+        exit_reason: a.exitCheck,
+        message: claimError.message,
+      },
+    });
     return { closed: 0, updated: 0 };
   }
   if (!claimed || claimed.length === 0) {
@@ -209,6 +225,11 @@ async function closePositionForExit(
   return {
     closed: 1,
     updated: 0,
-    closeEvent: { ticker: a.ticker, reason: a.exitCheck, pnl: a.realizedPnl, price: a.currentPrice },
+    closeEvent: {
+      ticker: a.ticker,
+      reason: a.exitCheck,
+      pnl: a.realizedPnl,
+      price: a.currentPrice,
+    },
   };
 }

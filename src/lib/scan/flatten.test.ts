@@ -73,6 +73,9 @@ interface SupabaseFlattenMockInputs {
   algoData?: { broker_connection_id: string | null } | null;
   connData?: BrokerConnection | null;
   positions?: PosRow[];
+  /** Review 2026-10-28: simulate Postgres rejecting the paper close
+   *  (e.g. a CHECK-constraint violation on exit_reason). */
+  updateError?: { message: string } | null;
 }
 
 interface SupabaseFlattenMockOutputs {
@@ -129,7 +132,7 @@ function makeSupabaseFlattenMock(
 
       const update = vi.fn().mockImplementation((payload: Record<string, unknown>) => {
         const eqCalls: Array<[string, unknown]> = [];
-        const updateResult = { data: null, error: null };
+        const updateResult = { data: null, error: inputs.updateError ?? null };
         const builder = Object.create(null) as Record<string, unknown>;
         builder.eq = vi.fn().mockImplementation((col: string, val: unknown) => {
           eqCalls.push([col, val]);
@@ -508,5 +511,62 @@ describe("flattenAlgorithmPositions — mixed scenarios + audit", () => {
         realized_pnl: 75,
       },
     });
+  });
+});
+
+// ---- Review 2026-10-28: a halt flatten must never fail silently. -------
+describe("flattenAlgorithmPositions — paper close rejected by the DB", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockedGetBrokerAdapter.mockReturnValue(null);
+  });
+
+  it("surfaces the failure in the result status and logs an `error` event (position stays open)", async () => {
+    const { supabase, updateCalls } = makeSupabaseFlattenMock({
+      algoData: { broker_connection_id: null },
+      positions: [makePos({ id: "pos-halt-1" })],
+      updateError: {
+        message:
+          'new row for relation "paper_positions" violates check constraint "paper_positions_exit_reason_check"',
+      },
+    });
+
+    const results = await flattenAlgorithmPositions(supabase, "algo-1", "daily_loss_halt");
+
+    expect(updateCalls).toHaveLength(1);
+    expect(updateCalls[0].payload.exit_reason).toBe("daily_loss_halt");
+    expect(results).toHaveLength(1);
+    expect(results[0].status).toContain("paper-close-failed");
+    // An `error` row is written so the failed halt is visible on /reports,
+    // and the misleading `position_closed` audit row is still emitted with
+    // the failing status embedded (nothing is hidden).
+    expect(mockedLogActivity).toHaveBeenCalledWith(
+      supabase,
+      "user-1",
+      expect.objectContaining({
+        event_type: "error",
+        position_id: "pos-halt-1",
+        details: expect.objectContaining({
+          source: "flatten",
+          stage: "paper_close",
+          exit_reason: "daily_loss_halt",
+        }),
+      })
+    );
+  });
+
+  it("portfolio_halt reason threads through to the paper close payload", async () => {
+    const { supabase, updateCalls } = makeSupabaseFlattenMock({
+      algoData: { broker_connection_id: null },
+      positions: [makePos({ id: "pos-halt-2" })],
+    });
+    const results = await flattenAlgorithmPositions(supabase, "algo-1", "portfolio_halt");
+    expect(updateCalls[0].payload.exit_reason).toBe("portfolio_halt");
+    expect(results[0].status).toBe("paper-only");
+    expect(mockedLogActivity).not.toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.objectContaining({ event_type: "error" })
+    );
   });
 });

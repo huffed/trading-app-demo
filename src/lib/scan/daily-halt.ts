@@ -94,15 +94,8 @@ export async function executeDailyHalt(
   algorithmId: string,
   check: DailyHaltCheck
 ): Promise<void> {
-  const flattened = await flattenAlgorithmPositions(
-    supabase,
-    algorithmId,
-    "daily_loss_halt"
-  );
-  await supabase
-    .from("algorithms")
-    .update({ live_trading_enabled: false })
-    .eq("id", algorithmId);
+  const flattened = await flattenAlgorithmPositions(supabase, algorithmId, "daily_loss_halt");
+  await supabase.from("algorithms").update({ live_trading_enabled: false }).eq("id", algorithmId);
   await logActivity(supabase, userId, {
     algorithm_id: algorithmId,
     event_type: "daily_loss_halt",
@@ -112,6 +105,9 @@ export async function executeDailyHalt(
       realized: Number(check.realized.toFixed(2)),
       unrealized: Number(check.unrealized.toFixed(2)),
       positions_flattened: flattened.length,
+      flatten_failures: flattened.filter(
+        (f) => typeof f?.status === "string" && f.status.includes("paper-close-failed")
+      ).length,
     },
   });
 }

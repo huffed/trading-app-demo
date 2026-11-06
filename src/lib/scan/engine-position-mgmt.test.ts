@@ -48,10 +48,7 @@ import { logger } from "@/lib/logger";
 import type { PriceBar } from "@/lib/market-data/types";
 import type { AlgorithmRules } from "@/types/algorithm";
 import type { PaperPosition } from "@/types/position";
-import {
-  manageExistingPosition,
-  type AlgoForPositionMgmt,
-} from "./engine-position-mgmt";
+import { manageExistingPosition, type AlgoForPositionMgmt } from "./engine-position-mgmt";
 import { checkExitTrigger } from "./exit-trigger";
 import { logActivity } from "./helpers";
 import { executeLiveExit, type BrokerExecutionContext } from "./live-execution";
@@ -88,7 +85,9 @@ interface SupabaseMockBag {
   capturedUpdate: { payload: unknown; eqCalls: Array<[string, unknown]>; selected: boolean } | null;
 }
 
-function makeSupabaseMock(opts: { claimRows?: Array<{ id: string }> | null; claimError?: { message: string } | null } = {}): SupabaseMockBag {
+function makeSupabaseMock(
+  opts: { claimRows?: Array<{ id: string }> | null; claimError?: { message: string } | null } = {}
+): SupabaseMockBag {
   let capturedUpdate: SupabaseMockBag["capturedUpdate"] = null;
 
   const fromMock = vi.fn().mockImplementation((table: string) => {
@@ -197,17 +196,44 @@ beforeEach(() => {
 describe("manageExistingPosition — stagnant-exit gate", () => {
   it("rules.stagnant_exit disabled → checkStagnantExit NOT called, falls through to checkExitTrigger", async () => {
     const { supabase } = makeSupabaseMock();
-    const a = { ...algo, rules: makeRules({ stagnant_exit: { enabled: false } } as unknown as Partial<AlgorithmRules>) };
-    await manageExistingPosition(supabase, "user-1", a, "XAU/USD", makePosition(), makeBars(50), [3055], 3055, null, null);
+    const a = {
+      ...algo,
+      rules: makeRules({ stagnant_exit: { enabled: false } } as unknown as Partial<AlgorithmRules>),
+    };
+    await manageExistingPosition(
+      supabase,
+      "user-1",
+      a,
+      "XAU/USD",
+      makePosition(),
+      makeBars(50),
+      [3055],
+      3055,
+      null,
+      null
+    );
     expect(mockedCheckStagnant).not.toHaveBeenCalled();
     expect(mockedExitTrigger).toHaveBeenCalled();
   });
 
   it("position has stop_loss_price → uses |entry - SL| as stopDistance", async () => {
     const { supabase } = makeSupabaseMock();
-    const rules = makeRules({ stagnant_exit: { enabled: true } } as unknown as Partial<AlgorithmRules>);
+    const rules = makeRules({
+      stagnant_exit: { enabled: true },
+    } as unknown as Partial<AlgorithmRules>);
     const a = { ...algo, rules };
-    await manageExistingPosition(supabase, "user-1", a, "XAU/USD", makePosition({ entry_price: 3000, stop_loss_price: 2985 }), makeBars(50), [3055], 3055, null, null);
+    await manageExistingPosition(
+      supabase,
+      "user-1",
+      a,
+      "XAU/USD",
+      makePosition({ entry_price: 3000, stop_loss_price: 2985 }),
+      makeBars(50),
+      [3055],
+      3055,
+      null,
+      null
+    );
     expect(mockedCheckStagnant).toHaveBeenCalledWith(
       expect.objectContaining({ stopDistance: 15 }) // |3000 - 2985|
     );
@@ -217,9 +243,23 @@ describe("manageExistingPosition — stagnant-exit gate", () => {
   it("position lacks stop_loss_price → falls back to priceDeltaForRule(stop_loss, entry, ticker)", async () => {
     const { supabase } = makeSupabaseMock();
     mockedPriceDelta.mockReturnValue(20);
-    const rules = makeRules({ stagnant_exit: { enabled: true }, stop_loss: { type: "percentage", value: 1.5 } } as unknown as Partial<AlgorithmRules>);
+    const rules = makeRules({
+      stagnant_exit: { enabled: true },
+      stop_loss: { type: "percentage", value: 1.5 },
+    } as unknown as Partial<AlgorithmRules>);
     const a = { ...algo, rules };
-    await manageExistingPosition(supabase, "user-1", a, "XAU/USD", makePosition({ stop_loss_price: null as unknown as number }), makeBars(50), [3055], 3055, null, null);
+    await manageExistingPosition(
+      supabase,
+      "user-1",
+      a,
+      "XAU/USD",
+      makePosition({ stop_loss_price: null as unknown as number }),
+      makeBars(50),
+      [3055],
+      3055,
+      null,
+      null
+    );
     expect(mockedPriceDelta).toHaveBeenCalledWith(rules.stop_loss, 3000, "XAU/USD");
     expect(mockedCheckStagnant).toHaveBeenCalledWith(expect.objectContaining({ stopDistance: 20 }));
   });
@@ -236,11 +276,26 @@ describe("manageExistingPosition — stagnant-exit gate", () => {
       current_r: -0.5,
     } as ReturnType<typeof checkStagnantExit>);
     mockedExitTrigger.mockReturnValue("stop_loss"); // would have triggered, but stagnant wins
-    const rules = makeRules({ stagnant_exit: { enabled: true } } as unknown as Partial<AlgorithmRules>);
+    const rules = makeRules({
+      stagnant_exit: { enabled: true },
+    } as unknown as Partial<AlgorithmRules>);
     const a = { ...algo, rules };
-    const r = await manageExistingPosition(supabase, "user-1", a, "XAU/USD", makePosition(), makeBars(50), [3055], 3055, null, null);
+    const r = await manageExistingPosition(
+      supabase,
+      "user-1",
+      a,
+      "XAU/USD",
+      makePosition(),
+      makeBars(50),
+      [3055],
+      3055,
+      null,
+      null
+    );
     expect(r.closed).toBe(1);
-    expect((conf.capturedUpdate?.payload as { exit_reason: string }).exit_reason).toBe("stagnant_exit");
+    expect((conf.capturedUpdate?.payload as { exit_reason: string }).exit_reason).toBe(
+      "stagnant_exit"
+    );
   });
 });
 
@@ -253,7 +308,18 @@ describe("manageExistingPosition — no-exit update path", () => {
     const conf = makeSupabaseMock();
     const { supabase } = conf;
     mockedPnl.mockReturnValue(42);
-    const r = await manageExistingPosition(supabase, "user-1", algo, "XAU/USD", makePosition(), makeBars(50), [3055], 3055, null, null);
+    const r = await manageExistingPosition(
+      supabase,
+      "user-1",
+      algo,
+      "XAU/USD",
+      makePosition(),
+      makeBars(50),
+      [3055],
+      3055,
+      null,
+      null
+    );
     expect(r).toEqual({ closed: 0, updated: 1 });
     expect(conf.capturedUpdate?.payload).toEqual({ current_price: 3055, unrealized_pnl: 42 });
     expect(conf.capturedUpdate?.eqCalls).toEqual([
@@ -266,13 +332,35 @@ describe("manageExistingPosition — no-exit update path", () => {
   it("livePrice null → falls back to closes[closes.length-1] for currentPrice", async () => {
     const conf = makeSupabaseMock();
     const { supabase } = conf;
-    await manageExistingPosition(supabase, "user-1", algo, "XAU/USD", makePosition(), makeBars(50), [3010, 3020, 3033], null, null, null);
+    await manageExistingPosition(
+      supabase,
+      "user-1",
+      algo,
+      "XAU/USD",
+      makePosition(),
+      makeBars(50),
+      [3010, 3020, 3033],
+      null,
+      null,
+      null
+    );
     expect((conf.capturedUpdate?.payload as { current_price: number }).current_price).toBe(3033); // last close
   });
 
   it("unrealizedPnl computed via pnlInUsd(ticker, side, entry, currentPrice, qty)", async () => {
     const { supabase } = makeSupabaseMock();
-    await manageExistingPosition(supabase, "user-1", algo, "XAU/USD", makePosition({ side: "short", entry_price: 3000, quantity: 2 }), makeBars(50), [2990], 2990, null, null);
+    await manageExistingPosition(
+      supabase,
+      "user-1",
+      algo,
+      "XAU/USD",
+      makePosition({ side: "short", entry_price: 3000, quantity: 2 }),
+      makeBars(50),
+      [2990],
+      2990,
+      null,
+      null
+    );
     expect(mockedPnl).toHaveBeenCalledWith("XAU/USD", "short", 3000, 2990, 2);
   });
 });
@@ -288,15 +376,50 @@ describe("manageExistingPosition — atomic claim + close path", () => {
     mockedExitTrigger.mockReturnValue("stop_loss");
     mockedPnl.mockReturnValue(-100);
     const brokerCtx = { adapter: {}, conn: {} } as unknown as BrokerExecutionContext;
-    const r = await manageExistingPosition(supabase, "user-1", algo, "XAU/USD", makePosition(), makeBars(50), [2980], 2980, brokerCtx, null);
+    const r = await manageExistingPosition(
+      supabase,
+      "user-1",
+      algo,
+      "XAU/USD",
+      makePosition(),
+      makeBars(50),
+      [2980],
+      2980,
+      brokerCtx,
+      null
+    );
     expect(r).toEqual({
       closed: 1,
       updated: 0,
       closeEvent: { ticker: "XAU/USD", reason: "stop_loss", pnl: -100, price: 2980 },
     });
-    expect((conf.capturedUpdate?.payload as { exit_reason: string; status: string; realized_pnl: number }).status).toBe("closed");
-    expect((conf.capturedUpdate?.payload as { exit_reason: string; status: string; realized_pnl: number }).exit_reason).toBe("stop_loss");
-    expect((conf.capturedUpdate?.payload as { exit_reason: string; status: string; realized_pnl: number }).realized_pnl).toBe(-100);
+    expect(
+      (
+        conf.capturedUpdate?.payload as {
+          exit_reason: string;
+          status: string;
+          realized_pnl: number;
+        }
+      ).status
+    ).toBe("closed");
+    expect(
+      (
+        conf.capturedUpdate?.payload as {
+          exit_reason: string;
+          status: string;
+          realized_pnl: number;
+        }
+      ).exit_reason
+    ).toBe("stop_loss");
+    expect(
+      (
+        conf.capturedUpdate?.payload as {
+          exit_reason: string;
+          status: string;
+          realized_pnl: number;
+        }
+      ).realized_pnl
+    ).toBe(-100);
     expect(conf.capturedUpdate?.eqCalls).toEqual([
       ["id", "pos-1"],
       ["status", "open"],
@@ -310,7 +433,18 @@ describe("manageExistingPosition — atomic claim + close path", () => {
     const { supabase } = makeSupabaseMock({ claimRows: [] }); // raced
     mockedExitTrigger.mockReturnValue("stop_loss");
     const brokerCtx = { adapter: {}, conn: {} } as unknown as BrokerExecutionContext;
-    const r = await manageExistingPosition(supabase, "user-1", algo, "XAU/USD", makePosition(), makeBars(50), [2980], 2980, brokerCtx, null);
+    const r = await manageExistingPosition(
+      supabase,
+      "user-1",
+      algo,
+      "XAU/USD",
+      makePosition(),
+      makeBars(50),
+      [2980],
+      2980,
+      brokerCtx,
+      null
+    );
     expect(r).toEqual({ closed: 0, updated: 0 });
     expect(mockedExecuteLiveExit).not.toHaveBeenCalled();
     expect(mockedLogActivity).not.toHaveBeenCalled();
@@ -324,7 +458,18 @@ describe("manageExistingPosition — atomic claim + close path", () => {
     const { supabase } = makeSupabaseMock({ claimError: { message: "DB unreachable" } });
     mockedExitTrigger.mockReturnValue("take_profit");
     const brokerCtx = { adapter: {}, conn: {} } as unknown as BrokerExecutionContext;
-    const r = await manageExistingPosition(supabase, "user-1", algo, "XAU/USD", makePosition(), makeBars(50), [3030], 3030, brokerCtx, null);
+    const r = await manageExistingPosition(
+      supabase,
+      "user-1",
+      algo,
+      "XAU/USD",
+      makePosition(),
+      makeBars(50),
+      [3030],
+      3030,
+      brokerCtx,
+      null
+    );
     expect(r).toEqual({ closed: 0, updated: 0 });
     expect(mockedExecuteLiveExit).not.toHaveBeenCalled();
     expect(mockedLogger.error).toHaveBeenCalledWith(
@@ -334,10 +479,72 @@ describe("manageExistingPosition — atomic claim + close path", () => {
     );
   });
 
+  // Review 2026-10-28: a rejected close must be visible on /reports, not only
+  // in the server journal. Before migration 00053 the DB CHECK rejected the
+  // 'stagnant_exit' spelling, and because the stagnant check short-circuits
+  // SL/TP, the position would have stayed unmanageable with no audit trail.
+  it("claim returns error → an `error` activity row names the position, exit reason and message", async () => {
+    const { supabase } = makeSupabaseMock({
+      claimError: {
+        message:
+          'new row for relation "paper_positions" violates check constraint "paper_positions_exit_reason_check"',
+      },
+    });
+    mockedCheckStagnant.mockReturnValue({
+      exit: true,
+      reason: "stagnant",
+      bars_open: 7,
+      mfe_r: 0,
+      current_r: -0.6,
+    } as never);
+    const stagnantAlgo = {
+      ...algo,
+      rules: makeRules({ stagnant_exit: { enabled: true } } as unknown as Partial<AlgorithmRules>),
+    };
+    const r = await manageExistingPosition(
+      supabase,
+      "user-1",
+      stagnantAlgo,
+      "XAU/USD",
+      makePosition(),
+      makeBars(50),
+      [2990],
+      2990,
+      null,
+      null
+    );
+    expect(r).toEqual({ closed: 0, updated: 0 });
+    expect(mockedLogActivity).toHaveBeenCalledWith(
+      supabase,
+      "user-1",
+      expect.objectContaining({
+        event_type: "error",
+        position_id: "pos-1",
+        ticker: "XAU/USD",
+        details: expect.objectContaining({
+          source: "closePositionForExit",
+          exit_reason: "stagnant_exit",
+          message: expect.stringContaining("paper_positions_exit_reason_check"),
+        }),
+      })
+    );
+  });
+
   it("brokerCtx=null → executeLiveExit NOT called (paper-only close)", async () => {
     const { supabase } = makeSupabaseMock();
     mockedExitTrigger.mockReturnValue("take_profit");
-    await manageExistingPosition(supabase, "user-1", algo, "XAU/USD", makePosition(), makeBars(50), [3030], 3030, null, null);
+    await manageExistingPosition(
+      supabase,
+      "user-1",
+      algo,
+      "XAU/USD",
+      makePosition(),
+      makeBars(50),
+      [3030],
+      3030,
+      null,
+      null
+    );
     expect(mockedExecuteLiveExit).not.toHaveBeenCalled();
     expect(mockedLogActivity).toHaveBeenCalled(); // log still fires
   });
@@ -351,21 +558,54 @@ describe("manageExistingPosition — event_type mapping", () => {
   it("exit_reason=stop_loss → event_type=stop_loss_hit", async () => {
     const { supabase } = makeSupabaseMock();
     mockedExitTrigger.mockReturnValue("stop_loss");
-    await manageExistingPosition(supabase, "user-1", algo, "XAU/USD", makePosition(), makeBars(50), [2980], 2980, null, null);
+    await manageExistingPosition(
+      supabase,
+      "user-1",
+      algo,
+      "XAU/USD",
+      makePosition(),
+      makeBars(50),
+      [2980],
+      2980,
+      null,
+      null
+    );
     expect(mockedLogActivity.mock.calls[0][2]).toMatchObject({ event_type: "stop_loss_hit" });
   });
 
   it("exit_reason=take_profit → event_type=take_profit_hit", async () => {
     const { supabase } = makeSupabaseMock();
     mockedExitTrigger.mockReturnValue("take_profit");
-    await manageExistingPosition(supabase, "user-1", algo, "XAU/USD", makePosition(), makeBars(50), [3030], 3030, null, null);
+    await manageExistingPosition(
+      supabase,
+      "user-1",
+      algo,
+      "XAU/USD",
+      makePosition(),
+      makeBars(50),
+      [3030],
+      3030,
+      null,
+      null
+    );
     expect(mockedLogActivity.mock.calls[0][2]).toMatchObject({ event_type: "take_profit_hit" });
   });
 
   it("exit_reason=signal_exit (anything else) → event_type=position_closed", async () => {
     const { supabase } = makeSupabaseMock();
     mockedExitTrigger.mockReturnValue("signal_exit");
-    await manageExistingPosition(supabase, "user-1", algo, "XAU/USD", makePosition(), makeBars(50), [3010], 3010, null, null);
+    await manageExistingPosition(
+      supabase,
+      "user-1",
+      algo,
+      "XAU/USD",
+      makePosition(),
+      makeBars(50),
+      [3010],
+      3010,
+      null,
+      null
+    );
     expect(mockedLogActivity.mock.calls[0][2]).toMatchObject({ event_type: "position_closed" });
   });
 });
@@ -385,9 +625,22 @@ describe("manageExistingPosition — payload completeness", () => {
       mfe_r: 0.15,
       current_r: -0.5,
     } as ReturnType<typeof checkStagnantExit>);
-    const rules = makeRules({ stagnant_exit: { enabled: true } } as unknown as Partial<AlgorithmRules>);
+    const rules = makeRules({
+      stagnant_exit: { enabled: true },
+    } as unknown as Partial<AlgorithmRules>);
     const a = { ...algo, rules };
-    await manageExistingPosition(supabase, "user-1", a, "XAU/USD", makePosition(), makeBars(50), [3010], 3010, null, null);
+    await manageExistingPosition(
+      supabase,
+      "user-1",
+      a,
+      "XAU/USD",
+      makePosition(),
+      makeBars(50),
+      [3010],
+      3010,
+      null,
+      null
+    );
     expect(mockedLogActivity.mock.calls[0][2]).toMatchObject({
       details: expect.objectContaining({
         stagnant_bars_open: 12,
@@ -402,7 +655,18 @@ describe("manageExistingPosition — payload completeness", () => {
     const { supabase } = makeSupabaseMock();
     mockedExitTrigger.mockReturnValue("take_profit");
     mockedPnl.mockReturnValue(250);
-    const r = await manageExistingPosition(supabase, "user-1", algo, "EUR/USD", makePosition({ ticker: "EUR/USD" }), makeBars(50), [1.1023], 1.1023, null, null);
+    const r = await manageExistingPosition(
+      supabase,
+      "user-1",
+      algo,
+      "EUR/USD",
+      makePosition({ ticker: "EUR/USD" }),
+      makeBars(50),
+      [1.1023],
+      1.1023,
+      null,
+      null
+    );
     expect(r.closeEvent).toEqual({
       ticker: "EUR/USD",
       reason: "take_profit",

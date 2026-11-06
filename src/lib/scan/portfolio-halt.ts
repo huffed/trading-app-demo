@@ -125,10 +125,7 @@ export async function executePortfolioHalt(
 ): Promise<void> {
   for (const algoId of algoIds) {
     const flattened = await flattenAlgorithmPositions(supabase, algoId, "portfolio_halt");
-    await supabase
-      .from("algorithms")
-      .update({ live_trading_enabled: false })
-      .eq("id", algoId);
+    await supabase.from("algorithms").update({ live_trading_enabled: false }).eq("id", algoId);
     await logActivity(supabase, userId, {
       algorithm_id: algoId,
       event_type: "portfolio_halt",
@@ -140,6 +137,9 @@ export async function executePortfolioHalt(
         realized: Number(result.realized.toFixed(2)),
         unrealized: Number(result.unrealized.toFixed(2)),
         positions_flattened: flattened.length,
+        flatten_failures: flattened.filter(
+          (f) => typeof f?.status === "string" && f.status.includes("paper-close-failed")
+        ).length,
         algos_in_portfolio: algoIds.length,
       },
     });
