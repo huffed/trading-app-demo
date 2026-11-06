@@ -7,6 +7,8 @@
 /** keep the literal out of the source text the guards scan */
 export const envFile: string = ".env" + ".local";
 
+const mirrorScript = "scripts/canonical/enable-broker-mirror.ts";
+
 /** [label, path relative to the repo root, expected exit code] for guard-paths.sh */
 export const PATH_CASES: [string, string, number][] = [
   ["live path blocked", "src/lib/scan/engine.ts", 2],
@@ -175,10 +177,39 @@ export const BASH_BLOCKED: string[] = [
   "git commit -m x --no-verify",
   "git commit -n -m x",
   "git commit -am x -n",
+  ...[
+    "pnpm dlx tsx M",
+    "pnpm exec tsx M",
+    "npx tsx M",
+    "tsx M",
+    "bun run M",
+    "FOO=1 pnpm dlx tsx M",
+    "sudo -n tsx M",
+    "env FOO=1 tsx M",
+    "node --import tsx M",
+    `tsx "M"`,
+    "cd scripts/canonical && tsx enable-broker-mirror.ts",
+    "bash -c 'pnpm dlx tsx M'",
+    `node -e 'import("./M")'`,
+    `python3 -c "import subprocess; subprocess.run(['tsx', 'M'])"`,
+    "echo $(tsx M)",
+    "echo M | xargs pnpm dlx tsx",
+    `printf '%s\\n' M | while read -r f; do tsx "$f"; done`,
+    `f=enable-broker-mirror; tsx scripts/canonical/$f.ts`,
+  ].map((c) => c.replaceAll("M", mirrorScript)),
 ];
 
 /** guard-bash.sh must allow these (exit 0) */
 export const BASH_ALLOWED: string[] = [
+  `cat ${mirrorScript}`,
+  `sed -n 150,170p ${mirrorScript}`,
+  `grep -n live_trading_enabled ${mirrorScript}`,
+  `git log --oneline -- ${mirrorScript}`,
+  `pnpm exec eslint ${mirrorScript}`,
+  `pnpm exec prettier --check ${mirrorScript}`,
+  `git commit -m "docs: ${mirrorScript} stays refused"`,
+  `cat > /tmp/note.md <<'EOF'\nthe script \`${mirrorScript}\` stays refused\nEOF`,
+  "pnpm dlx tsx scripts/canonical/m1-progress.ts",
   "grep -n FOO .env.example",
   "git commit -q -F - <<EOF\nfeat: deny for .env* (except .env.example) and pinned data\nEOF",
   'echo "deny .env* reads"',
