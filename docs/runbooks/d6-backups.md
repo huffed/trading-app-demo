@@ -123,9 +123,11 @@ Twice a year and before any schema change; the first one is step 8 of the window
 
 **Cost, quoted 2026-11-06:** a Micro preview branch is $0.01344 per started hour; Compute Credits do not cover it and the Spend Cap does not apply. Three hours is about $0.04, and egress on a 335 MB database stays within the plan. Delete the branch when done.
 
-**The operator runs steps 3 to 6 in their own terminal.** A decrypted dump holds broker tokens and password hashes, and it does not enter a session. `broker_connections` data is left out of the restore so that the branch never holds a token, and with it the two foreign keys that point at that table.
+**The operator runs steps 3 to 5, and step 6 on the branch, in their own terminal.** A decrypted dump holds broker tokens and password hashes, and it does not enter a session. `broker_connections` data is left out of the restore so that the branch never holds a token, and with it the two foreign keys that point at that table.
 
 **1. Create the branch in the dashboard:** user menu, enable **Branching via dashboard**, then **Create branch** in the branch selector. Do not connect GitHub: changes pushed to a connected branch deploy to the project, and draft PR #291's migration is unapplied. A `MIGRATIONS_FAILED` status is expected and is not a drill failure. Supabase's page does not say whether such a branch accepts connections, so if it refuses them at step 5, stop and tell the session rather than retrying. A DNS or routing error is your network, not the branch's state. Copy the branch's **Session pooler** connection string, not the direct one, which may be IPv6 only.
+
+The branch has its own credentials, not production's (Supabase: each branch has unique credentials), so this drill does not need the `postgres` password from step 3b. If the string shows `[YOUR-PASSWORD]`, get the full one with `supabase --experimental branches get <branch> -o env`, which prints `POSTGRES_URL_NON_POOLING`, or reset the password in the dashboard's Database Settings **with the branch selector on the branch, not production**. Neither has been tried here. A wrong password at step 5 prints the STOP line too.
 
 ```bash
 # 2. Fetch through the VPS, because the box accepts only Hetzner hosts. The files are still encrypted.
@@ -164,7 +166,8 @@ unset U
 ```
 
 ```sql
--- 6. The same query on the branch and on production. Production may have moved on since 02:22 UTC, so
+-- 6. The same query on the branch and on production. Use the SQL editor for production, which needs no
+-- password. Production may have moved on since 02:22 UTC, so
 -- its counts may be higher by that day's rows; a branch count higher than production is a failure.
 -- broker_connections reads 0 on the branch, by design.
 select 'algorithms' as t, count(*) from public.algorithms
