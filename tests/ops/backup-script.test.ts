@@ -17,7 +17,10 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+// A test runs the real script, some twice, and the whole suite loads the machine.
+vi.setConfig({ testTimeout: 30_000 });
 
 const FAKES = resolve(process.cwd(), "tests/ops/fixtures/fake-backup");
 const PASSWORD = "s3cret-password";
@@ -181,7 +184,7 @@ describe("backup.sh, a bad night", () => {
   it("a run that finds the lock held pushes and touches nothing", () => {
     const run = failing("fail-flock");
     expect(run.status).toBe(1);
-    expect(run.output).toContain("still holds the lock");
+    expect(run.output).toContain("the lock is held");
     expect(logOf(run.root, "pg_dump.log")).toBe("");
     expect(uploaded(run.root)).toEqual([]);
     expect(logOf(run.root, "curl.log")).toContain("Priority: urgent");
@@ -191,8 +194,11 @@ describe("backup.sh, a bad night", () => {
     const root = prepare(URL_LINE, []);
     const stale = join(root, "state", "backup.Ab12Cd");
     mkdirSync(stale);
+    writeFileSync(join(root, "state", "backup.last-ok"), "earlier\n");
     backup(root);
     expect(existsSync(stale)).toBe(false);
+    expect(stamped(root)).toBe(true);
+    expect(existsSync(join(root, "state", "backup.lock"))).toBe(true);
   });
 
   it("a checksum difference is a failed night", () => {

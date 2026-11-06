@@ -34,7 +34,7 @@ from pg_roles where rolname = 'backup_ro';
 
 `pg_read_all_data` is Postgres's built-in read-only role, and it covers tables added later. It is needed because `postgres` here cannot grant usage on schema `auth` (read 2026-11-06), so a plain `grant usage on schema auth` would succeed with a warning and do nothing. `postgres` holds that role with admin rights, so it can grant it. `bypassrls` is there because `pg_dump` refuses to run where row-level security would hide rows, and every public table has it on. The role reads everything in the database, including `broker_connections` tokens and password hashes, and cannot write. It does not go in `supabase/migrations`: it is not schema the engine depends on.
 
-**2. Its password, from your own terminal.** Do not set it in the SQL editor: `log_statement` is `ddl` here (read 2026-11-06), so a `create role … password` statement reaches the database log in the clear, and the editor can keep it. `\password` hashes it on your machine first. Generate it, keep it in your password manager, and paste it at the two prompts. In the dashboard open Connect, choose **Session pooler**, copy the URI and delete `:[YOUR-PASSWORD]` from it, so `psql` asks for the `postgres` password and it stays out of your shell history.
+**2. Its password, from your own terminal.** Do not set it in the SQL editor: `log_statement` is `ddl` here (read 2026-11-06), so a `create role … password` statement reaches the database log in the clear, and the editor can keep it. `\password` hashes it on your machine first. Generate it, keep it in your password manager, and paste it at the two prompts. In the dashboard open Connect, choose **Session pooler**, copy the URI and delete `:[YOUR-PASSWORD]` from it, so `psql` asks for the `postgres` password and it stays out of your shell history. If you do not have that password, stop and ask the session: resetting it in the dashboard is a production change.
 
 ```bash
 openssl rand -hex 32     # no URL-encoding needed; into the password manager, not a file
@@ -119,13 +119,13 @@ Nothing on the trading path reads any of this.
 
 Twice a year and before any schema change; the first one is step 8 of the window. It proves that the newest whole night can be decrypted and restored, not just that a file exists. `tests/contracts/` does not help here: it reads migrations, not a database, so the proof is row counts.
 
-**It does not rely on the branch's schema.** A branch is built by replaying production's recorded migrations, not `supabase/migrations`, and Supabase's troubleshooting page says a failed replay leaves it "either empty or partly complete". Production records 55 migrations against 52 files, and recorded `00051` revokes on `public.rls_auto_enable()`, which belongs to the dashboard's `ensure_rls` event trigger and is in no migration, so the replay may stop there (DEBT D-34). So step 5 clears `public` on the branch and loads schema and data from the dump, which is what a real restore into a new project does.
+**It does not rely on the branch's schema.** A branch is built by replaying production's recorded migrations, not `supabase/migrations`, and Supabase's troubleshooting page says a failed replay leaves it "either empty or partly complete". Production records 55 migrations against 52 files, and recorded `00051` revokes on `public.rls_auto_enable()`, which belongs to the dashboard's `ensure_rls` event trigger and is in no migration, so the replay may stop there (DEBT D-34). So step 5 clears `public` on the branch and loads schema and data from the dump. That proves the dump loads. A real restore differs: see the end of this section.
 
 **Cost, quoted 2026-11-06:** a Micro preview branch is $0.01344 per started hour; Compute Credits do not cover it and the Spend Cap does not apply. Three hours is about $0.04, and egress on a 335 MB database stays within the plan. Delete the branch when done.
 
 **The operator runs steps 3 to 6 in their own terminal.** A decrypted dump holds broker tokens and password hashes, and it does not enter a session. `broker_connections` data is left out of the restore so that the branch never holds a token, and with it the two foreign keys that point at that table.
 
-**1. Create the branch in the dashboard:** user menu, enable **Branching via dashboard**, then **Create branch** in the branch selector. Do not connect GitHub: changes pushed to a connected branch deploy to the project, and draft PR #291's migration is unapplied. A `MIGRATIONS_FAILED` status is expected and is not a drill failure. Supabase's page does not say whether such a branch accepts connections, so if it refuses them at step 5, stop and tell the session rather than retrying. Copy the branch's direct connection string.
+**1. Create the branch in the dashboard:** user menu, enable **Branching via dashboard**, then **Create branch** in the branch selector. Do not connect GitHub: changes pushed to a connected branch deploy to the project, and draft PR #291's migration is unapplied. A `MIGRATIONS_FAILED` status is expected and is not a drill failure. Supabase's page does not say whether such a branch accepts connections, so if it refuses them at step 5, stop and tell the session rather than retrying. A DNS or routing error is your network, not the branch's state. Copy the branch's **Session pooler** connection string, not the direct one, which may be IPv6 only.
 
 ```bash
 # 2. Fetch through the VPS, because the box accepts only Hetzner hosts. The files are still encrypted.
@@ -150,10 +150,17 @@ age -d -i <your age key file> logs.tar.age | tar -tzf - | wc -l
 "$PGBIN/pg_restore" --no-owner --no-privileges --use-list=drill.list --file=public.sql public.dump
 "$PGBIN/pg_restore" --data-only --no-owner --no-privileges --file=auth.sql auth.dump
 
-# 5. Into the branch. Check the connection string is the branch's, not production's: the first command drops public.
-"$PGBIN/psql" "<branch connection string>" --variable ON_ERROR_STOP=1 --command 'drop schema if exists public cascade' --command 'create schema public'
-"$PGBIN/psql" "<branch connection string>" --single-transaction --variable ON_ERROR_STOP=1 \
-  --command 'SET session_replication_role = replica' --file=auth.sql --file=public.sql
+# 5. Into the branch. The check is what keeps the drop away from production: production has users, a fresh
+# branch has none, and no answer stops it too. Paste the branch's URI at the prompt.
+read -rs -p 'Branch URI: ' U; echo
+if [ "$("$PGBIN/psql" "$U" -Atc 'select count(*) from auth.users')" = 0 ]; then
+  "$PGBIN/psql" "$U" --variable ON_ERROR_STOP=1 --command 'drop schema if exists public cascade' --command 'create schema public' &&
+  "$PGBIN/psql" "$U" --single-transaction --variable ON_ERROR_STOP=1 \
+    --command 'SET session_replication_role = replica' --file=auth.sql --file=public.sql
+else
+  echo 'STOP: this database has users or did not answer, so it is not an empty branch.'
+fi
+unset U
 ```
 
 ```sql
@@ -172,4 +179,12 @@ union all select 'auth.users', count(*) from auth.users;
 7. Delete the branch and `rm -rf ~/qt-drill`.
 8. Send the session the two sets of counts, the branch's status after step 1 and the cost shown on the usage page. It writes `docs/decisions/evidence/d6-restore-drill-<date>.md`, counts only, and the ledger row, and decision 0011 gets its Tested line.
 
-Step 5's `SET session_replication_role = replica` is allowed for `postgres` as a plain `SET` statement, which was tested on production with the value `origin` in a rolled-back transaction on 2026-11-06. The `set_config` function is refused.
+Step 5's `SET session_replication_role = replica` should be allowed for `postgres`: `set local session_replication_role = origin` worked on production in a rolled-back transaction on 2026-11-06, while the `set_config` function is refused. If the drill refuses it, the transaction rolls back and nothing is left half-loaded.
+
+**A real restore is not the drill.** The drill proves the schema and data load, as `postgres`, on a throwaway database. On a new project:
+
+- Do not drop `public`, because that loses the schema's grants and default privileges. Leave out only the `SCHEMA - public` entry.
+- Drop `--no-privileges` from `pg_restore`: the dump keeps the access rules, including `revoke execute` on `prune_sentiment_cache` and the anon grants the dead-man uses.
+- Restore `broker_connections` data and its two foreign keys.
+- Recreate what neither dump holds: the trigger `on_auth_user_created` (`supabase/migrations/00001_create_profiles.sql:30-32`) and the `ensure_rls` event trigger.
+- Restore `auth` first, then `public`, with the same `SET`.

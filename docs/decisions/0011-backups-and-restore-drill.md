@@ -22,13 +22,14 @@ The approval of 2026-10-31 asked for host config, env files encrypted at rest wi
 - The database password on the `pg_dump` command line: rejected, it would be readable in the process list. The URL is read here and passed through libpq's environment.
 - The password in the role's `create role` statement: rejected, `log_statement` is `ddl`, so it would reach the database log in the clear.
 - The direct connection string: IPv6 unless the IPv4 add-on is bought (from memory). Supabase's restore docs say to use the session pooler by default, and it works from any host.
-- `PGSSLMODE=verify-full`: not now. The job uses `require`, which encrypts but does not verify the server, so someone able to intercept the path between Hetzner and Supabase could present another certificate. `verify-full` needs Supabase's CA file on the host and a tested chain through the pooler, and a failed check would stop backups. It is a follow-up, not a blocker: the same path already carries the app's service-role traffic.
-- Replaying `supabase/migrations`, or a branch's own schema, as the drill's starting point: rejected. A branch replays production's recorded history, which does not match the files and may fail (DEBT D-34). The drill clears `public` and loads the dump's schema, so it proves what a real restore needs.
+- `PGSSLMODE=verify-full`: not now. The job uses `require`, which encrypts but does not verify the server, so someone able to intercept the path between Hetzner and Supabase could present another certificate. `verify-full` needs Supabase's CA file on the host and a tested chain through the pooler, and a failed check would stop backups. It is a follow-up, not a blocker.
+- Replaying `supabase/migrations`, or a branch's own schema, as the drill's starting point: rejected. A branch replays production's recorded history, which does not match the files and may fail (DEBT D-34). The drill clears `public`, guarded by an empty `auth.users`, and loads the dump's schema, so it proves the dump loads. It does not prove a whole restore: the runbook lists what a real one adds.
 - `tests/contracts/` as the drill's proof, as the plan first said: rejected, it reads migrations and never touches a database. The drill compares row counts.
 - A local Postgres for the drill: rejected by the operator in favour of a Supabase branch.
 
 ## Consequences
 
+- The dumps keep owners out but keep access rules, so a restore can recover the grants and revokes; `pg_restore` leaves them out only in the drill.
 - `ops/crontab` gains a 12th line and `ops/logrotate/quanttrader` a 13th log.
 - `ops-health.sh` changes, so its installed copy is repeated in the same step.
 - The job needs no sudo; its sudoers entry at D.7 needs nothing for backups beyond what the installation used once.

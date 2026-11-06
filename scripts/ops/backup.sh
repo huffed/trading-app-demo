@@ -70,10 +70,10 @@ print("\x1f".join([u.hostname, str(u.port or 5432), unquote(u.username), unquote
   export PGHOST PGPORT PGUSER PGPASSWORD PGDATABASE PGSSLMODE=require PGCONNECT_TIMEOUT=20
 }
 dump_public() {
-  pg_dump --format=custom --no-owner --no-privileges --schema=public | encrypt "$WORK/part" && keep db-public.dump.age
+  pg_dump --format=custom --no-owner --schema=public | encrypt "$WORK/part" && keep db-public.dump.age
 }
 dump_auth() { # a separate dump: pg_dump ignores --schema once --table is given
-  pg_dump --format=custom --no-owner --no-privileges --data-only --table=auth.users --table=auth.identities \
+  pg_dump --format=custom --no-owner --data-only --table=auth.users --table=auth.identities \
     | encrypt "$WORK/part" && keep db-auth.dump.age
 }
 archive_env() {
@@ -87,7 +87,7 @@ archive_logs() { # a copy first: the crons are appending, and tar exits non-zero
   cp -a "$LOGDIR" "$WORK/logs" && tar -C "$WORK" -czf - logs | encrypt "$WORK/part" && keep logs.tar.age
 }
 upload_night() {
-  "${RSYNC[@]}" -a --partial "$OUT/" "$BOX:nightly/$DAY/"
+  "${RSYNC[@]}" -a "$OUT/" "$BOX:nightly/$DAY/"
 }
 verify_night() { # a checksum dry run that lists any file whose content differs; only the files count
   local differs
@@ -95,7 +95,7 @@ verify_night() { # a checksum dry run that lists any file whose content differs;
   [ -z "$(grep -v '/$' <<< "$differs")" ]
 }
 upload_pins() {
-  "${RSYNC[@]}" -a --partial --include='*-pinned.json' --exclude='*' "$APP/scripts/canonical/data/" "$BOX:pins/"
+  "${RSYNC[@]}" -a --include='*-pinned.json' --exclude='*' "$APP/scripts/canonical/data/" "$BOX:pins/"
 }
 mark_night() {
   date -u +%FT%TZ > "$OUT/OK" && "${RSYNC[@]}" -a "$OUT/OK" "$BOX:nightly/$DAY/OK"
@@ -122,7 +122,7 @@ push_failure() {
 [ "$(id -un)" = ops ] || { echo "backup: run as ops; refusing as $(id -un)" >&2; exit 2; }
 if ! { exec 9> "$STATE/backup.lock" && flock -n 9; }; then
   errors+=("already-running")
-  log "an earlier run still holds the lock"
+  log "the lock is held by an earlier run, or could not be taken"
   push_failure
   exit 1
 fi
