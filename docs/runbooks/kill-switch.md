@@ -26,13 +26,13 @@ Transport: the target opens or reuses one multiplexed ssh connection (`~/.ssh/qt
 
 ## Resume (`make resume`)
 
-Once mirroring is on, this counts as acting on the broker account (decision 0010): it lets the engine trade again. It prompts, writes its ledger line, and prints the mirroring state from the next window's scripts PR onward.
+Once mirroring is on, this counts as acting on the broker account (decision 0010): it brings back the service and the crons the engine trades through, and together with `make unpause` it lets the engine trade again. The algorithms stay paused until `make unpause`. It prompts, writes its ledger line, and prints the mirroring state from the next window's scripts PR onward.
 
 Reverses the stop only: enables and starts the service, waits for `/login` 200, then **checks that no algorithm is active** — if the switch failed to pause (database outage), the crontab stays off, the line says `algorithms-active:N`, and the answer is to run the switch again — restores the crontab from the saved copy, waits for the next manage, heartbeat and scan ticks to log `http=200` (up to 25 minutes; skipped when the service or the crons did not come back), pushes (high priority when anything failed) and writes a `RESUME …` ledger line. **Algorithms stay paused.** Nothing trades after a resume until the operator un-pauses. Exit status is non-zero when any step failed.
 
 ## Un-pause (`make unpause`) — the operator's deliberate act
 
-Once mirroring is on, this counts as acting on the broker account (decision 0010): the next scan of the re-activated algorithms mirrors entries. It prompts, writes its ledger line, and prints the mirroring state from the next window's scripts PR onward.
+Once mirroring is on, this counts as acting on the broker account (decision 0010): together with `make resume` it lets the engine trade again, and the next scan of the re-activated algorithms mirrors entries. It prompts, writes its ledger line, and prints the mirroring state from the next window's scripts PR onward.
 
 Re-activates exactly the algorithms the kill switch paused (the saved id list), never every paused algorithm (the library holds algorithms that were paused on purpose months ago). Refuses while the service is not active (resume first). Writes an `UNPAUSE algorithms=N of M saved` ledger line with the rows actually changed and deletes the id list. Run it only after `make resume` reported OK and you have decided trading should restart; the next scan tick then scans them (`make logs LOG=scan N=1` shows `"scanned":N`). After a stop longer than 90 minutes the first heartbeat after un-pause reports stale algorithms until that scan.
 
