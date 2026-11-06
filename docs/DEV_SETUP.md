@@ -26,6 +26,7 @@ One short section per thing that was set up: **what it is, why it exists, the on
 | deploy, or roll back | `make deploy` (default `REF=origin/dev`) · `make deploy REF=<previous sha>` — outside market hours only (§17) | D1 |
 | stop all trading now | `make kill-switch REASON=<word>` — the one host command allowed in market hours (the one other exception: appending the `HEARTBEAT_PING_URL` line, §17); then `make resume`, then `make unpause` when trading should restart (§18) | D3 |
 | know when the host is unwell | ntfy pushes from the host: unit failure, deploy result, daily 07:05 UTC summary; `make logs LOG=ops-health N=2` (§19) | D4 |
+| back up, or test a restore | nightly at 02:22 UTC from the `ops` crontab; `make logs LOG=backup N=20`, runbook `docs/runbooks/d6-backups.md` (§20) | D6 |
 | catch drift nobody touched | the nightly workflow runs `make check` + `make backtest` on `dev` (scheduled 03:17 UTC, started around 10:45 UTC so far) and pushes on failure (§19) | D5 |
 
 Stubs that exit 2 with a message until the audit's scripts reach `dev`: `make validate` / `make parity`.
@@ -342,3 +343,18 @@ gh workflow run nightly.yml --ref dev        # run the nightly gate now
 ```
 
 **Rules:** the ntfy topic is a secret (anyone holding it reads the pushes); it lives in the host's env file, the repo's GitHub secrets and the healthchecks.io integration, never in the repo. A new push source is a PR with a row in this section. When `notify-failure.sh` or `ops-health.sh` change, the runbook's `install` line is repeated: the host runs the installed copies. `HEARTBEAT_PING_URL` is set since 2026-11-06: healthchecks.io is the operator's account and watches the heartbeat ping. The operator reported the check created with its ntfy integration on (2026-11-02), so that account holds the topic too; no down event has exercised that path yet.
+
+## 20. Backups to the Storage Box, and the restore drill
+
+**What:** `scripts/ops/backup.sh` runs nightly at 02:22 UTC from `/usr/local/lib/quanttrader/` as `ops`. It writes five age-encrypted files to `nightly/<date>/` on the Storage Box sub-account `u708205-sub1`: a dump of schema `public`, a data-only dump of `auth.users` and `auth.identities`, the host's env file, its config and the logs. The pinned corpora go to `pins/`. It keeps 30 nights, prunes only after a fully verified night, and pushes urgently on any failure. The daily summary shows `backup=<time>` and turns high priority if the last good night is older than 26 hours. Supabase's own backups are the first line: Pro plan, daily, 7-day retention, no point-in-time recovery. The private age key is the operator's and is never on the host, the box or in a session.
+
+**Why:** the approval of 2026-10-31 asked for it, Supabase's 7 days sit with the same provider as the data, and `oanda_positioning_cache` is forward-only, so it cannot be fetched again. Decision 0011.
+
+**Commands:**
+
+```bash
+make logs LOG=backup N=20      # last night's run
+pnpm exec vitest run tests/ops/backup-script.test.ts   # the script against stand-ins
+```
+
+**Rules:** a change to `backup.sh` or `ops-health.sh` repeats the runbook's `install` line, because the host runs the installed copies. The restore drill in `docs/runbooks/d6-backups.md` runs twice a year and before any schema change. A decrypted dump holds broker tokens and password hashes and never enters a session.

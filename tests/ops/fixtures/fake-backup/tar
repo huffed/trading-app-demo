@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# Fake tar: emits a stand-in archive on stdout.
+echo archive

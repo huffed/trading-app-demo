@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# Fake rsync: records uploads, serves the box's nightly/ listing from $FAKE_HOST/box-nights, and answers
+# a checksum dry run with $FAKE_HOST/verify-diff when that file exists.
+printf '%s\n' "$*" >> "$FAKE_HOST/rsync.log"
+case "$*" in
+  *--list-only*)
+    while read -r night; do printf 'drwx------ 4096 2026/11/01 02:22:01 %s\n' "$night"; done < "$FAKE_HOST/box-nights"
+    ;;
+  *-anic*) cat "$FAKE_HOST/verify-diff" 2> /dev/null ;;
+  *)
+    [ -e "$FAKE_HOST/fail-upload" ] && exit 12
+    for a in "$@"; do case "$a" in */out/) cp "$a"* "$FAKE_HOST/uploaded/" ;; esac; done
+    ;;
+esac
+exit 0

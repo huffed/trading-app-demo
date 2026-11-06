@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# Fake age: writes stdin to the -o path, or nothing at all when fail-age exists.
+out=""
+prev=""
+for a in "$@"; do
+  [ "$prev" = "-o" ] && out=$a
+  prev=$a
+done
+if [ -e "$FAKE_HOST/fail-age" ]; then
+  cat > /dev/null
+  : > "$out"
+  exit 0
+fi
+cat > "$out"

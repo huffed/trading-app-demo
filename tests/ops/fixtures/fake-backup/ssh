@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# Fake ssh to the Storage Box: records the remote command, which is everything after the host.
+seen=""
+cmd=""
+for a in "$@"; do
+  if [ -n "$seen" ]; then cmd="$cmd $a"; fi
+  case "$a" in *@*) seen=1 ;; esac
+done
+printf '%s\n' "${cmd# }" >> "$FAKE_HOST/box.log"
