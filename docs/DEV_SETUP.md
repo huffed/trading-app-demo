@@ -26,7 +26,7 @@ One short section per thing that was set up: **what it is, why it exists, the on
 | deploy, or roll back | `make deploy` (default `REF=origin/dev`) · `make deploy REF=<previous sha>` — outside market hours only (§17) | D1 |
 | stop all trading now | `make kill-switch REASON=<word>` — the one host command allowed in market hours (the one other exception: appending the `HEARTBEAT_PING_URL` line, §17); then `make resume`, then `make unpause` when trading should restart (§18) | D3 |
 | know when the host is unwell | ntfy pushes from the host: unit failure, deploy result, daily 07:05 UTC summary; `make logs LOG=ops-health N=2` (§19) | D4 |
-| catch drift nobody touched | the nightly workflow runs `make check` + `make backtest` on `dev` at 03:17 UTC and pushes on failure (§19) | D5 |
+| catch drift nobody touched | the nightly workflow runs `make check` + `make backtest` on `dev` (scheduled 03:17 UTC, started around 10:45 UTC so far) and pushes on failure (§19) | D5 |
 
 Stubs that exit 2 with a message until the audit's scripts reach `dev`: `make validate` / `make parity`.
 

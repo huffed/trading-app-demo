@@ -38,7 +38,7 @@ Re-activates exactly the algorithms the kill switch paused (the saved id list), 
 
 ## The dead-man alarm, and deploys
 
-A kill switch left engaged trips the GitHub dead-man workflow (manage stale after 45 minutes, scan after 35) — that is correct: the stop is real. Once `HEARTBEAT_PING_URL` is set, healthchecks.io trips first, about 20 minutes after the last heartbeat ping (the crontab is gone). A paper test that resumes within minutes does not trip it. `make deploy` refuses while the switch is engaged (saved crontab present and the live crontab empty), at its start and again before its restart, so a deploy cannot undo a stop.
+A kill switch left engaged trips healthchecks.io about 20 minutes after the last heartbeat ping (the crontab is gone), and later the GitHub dead-man workflow, whose checks fail once manage is 45 minutes stale and scan 35. Those are thresholds, not detection times: GitHub starts that job 2 to 5 times a day, so it may be hours later (DEBT D-30). Both are correct: the stop is real. A paper test that resumes within minutes does not trip it. `make deploy` refuses while the switch is engaged (saved crontab present and the live crontab empty), at its start and again before its restart, so a deploy cannot undo a stop.
 
 ## Paper test checklist (D.3; done in a window the operator confirms, outside market hours)
 
