@@ -28,7 +28,11 @@ Transport: the target opens or reuses one multiplexed ssh connection (`~/.ssh/qt
 
 Once mirroring is on, this counts as acting on the broker account (decision 0010): it brings back the service and the crons the engine trades through, and together with `make unpause` it lets the engine trade again. The algorithms stay paused until `make unpause`. It prompts, prints the mirroring state of the saved algorithms and writes it on its ledger line.
 
-Reverses the stop only: enables and starts the service, waits for `/login` 200, then **checks that no algorithm is active** — if the switch failed to pause (database outage), the crontab stays off, the line says `algorithms-active:N`, and the answer is to run the switch again. If the crontab never came off, the line says the same and the push is high priority, but those algorithms can already trade, so run the switch at once — restores the crontab from the saved copy, waits for the next manage, heartbeat and scan ticks to log `http=200` (up to 25 minutes; skipped when the service or the crons did not come back), pushes (high priority when anything failed) and writes a `RESUME …` ledger line. **Algorithms stay paused.** Nothing trades after a resume until the operator un-pauses. Exit status is non-zero when any step failed.
+Reverses the stop only: enables and starts the service, waits for `/login` 200, then **checks that no algorithm is active**, and restores the crontab from the saved copy only if so. If the switch failed to pause (database outage), the crontab stays off, the line says `algorithms-active:N`, and the answer is to run the switch again.
+
+With the crontab already on, the line also says `algorithms-active:N`, and the push comes at once and says they are active, not paused. **That is not by itself a reason to run the switch.** It is expected after `make unpause`, or if no switch ran. Run the switch only if it ran before and failed, because it flattens every active algorithm. If the check itself failed with the crontab on, the line says so, and any active algorithm trades as soon as the database answers.
+
+It then waits for the next manage, heartbeat and scan ticks to log `http=200` (up to 25 minutes; skipped when the service or the crons did not come back, or when algorithms are active), pushes (high priority when anything failed) and writes a `RESUME …` ledger line. **What the switch paused stays paused** until the operator un-pauses. Exit status is non-zero when any step failed.
 
 ## Un-pause (`make unpause`) — the operator's deliberate act
 
@@ -115,7 +119,14 @@ update public.algorithms set status = 'active' where status = 'paused' and id in
 12. The next scan tick shows `"scanned":5`, and every real position from step 1 is still open.
 13. Ledger rows: copy the KILL, RESUME and UNPAUSE lines into `docs/decisions/deploys.md`, with the two reserved ids and any algorithm flipped in step 1.
 
-If a step differs, stop there. To restore the starting state: `make resume` (if its line says `algorithms-active:N`, the pause failed, so run `make kill-switch` again first, then `make resume`), then the SQL in step 9, then `make unpause`, then step 11. Finish with `make status`: service active, crontab 11.
+If a step differs, stop there and run `make status` first. To restore the starting state:
+
+- **Service stopped or crontab 0: a switch is engaged.** Run `make resume`. If it says `algorithms-active:N` with the crontab still off, the pause failed, so run `make kill-switch` again, then `make resume`.
+- **Service active and crontab 11: no switch is engaged** (before step 3, or after step 10). Skip `make resume`. It would read `algorithms-active:N` because those algorithms are meant to be active, and **that is not a reason to run the switch**.
+
+Then the SQL in step 9, then `make unpause`, then step 11. Finish with `make status`: service active, crontab 11.
+
+**After step 11 do not run the switch at all.** It flattens every active algorithm, which by then includes the ones holding the real positions.
 
 ## Rollback of the kill switch itself
 

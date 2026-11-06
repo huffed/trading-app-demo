@@ -6,7 +6,8 @@
 # restores the saved crontab, waits for the next manage, heartbeat
 # and scan ticks to log http=200 (≤ 25 min), alerts and writes a RESUME line with the mirroring state
 # of the saved algorithms. Algorithms stay paused — un-pausing them is the operator's deliberate act
-# (scripts/ops/unpause.sh). Idempotent. Exit status is non-zero when any step failed.
+# (scripts/ops/unpause.sh). Safe to re-run, though after make unpause it reports the active algorithms
+# as an error. Exit status is non-zero when any step failed.
 set -uo pipefail
 trap '' HUP INT PIPE
 
@@ -61,8 +62,10 @@ crons_n=$(crontab -l 2> /dev/null | grep -c '^[0-9*]' || true)
 if [ "$crons_n" != 0 ]; then
   log "crontab already installed ($crons_n entries); active algorithms: $active_n"
   # the crontab never came off, so nothing holds these back: with the service up they trade (DEBT D-28)
-  if [ "$active_n" != 0 ] && [ "$active_n" != "?" ]; then
-    errors+=("algorithms-active:$active_n"); log "$active_n algorithm(s) are ACTIVE with the crontab installed — they can trade now: run make kill-switch to stop them"
+  if [ "$active_n" = "?" ]; then
+    log "the active-algorithm check did not finish and the crontab is on: any active algorithm trades as soon as the database answers"
+  elif [ "$active_n" != 0 ]; then
+    errors+=("algorithms-active:$active_n"); log "$active_n algorithm(s) are ACTIVE with the crontab on, so they can trade. Expected after make unpause, or if no switch ran. Only if the switch ran and failed: make kill-switch, which flattens every active algorithm"
   fi
 elif [ "$active_n" = 0 ]; then
   if [ -s "$STATE/crontab.disabled" ]; then
@@ -76,8 +79,9 @@ else
   errors+=("algorithms-active:$active_n"); log "$active_n algorithm(s) are ACTIVE — the switch did not pause them; the crontab stays off: run make kill-switch again, then make resume"
 fi
 
-# the next manage, heartbeat and scan ticks after T0 must log http=200 — only if the service came up and the crons are back
-if [ "$code" = 200 ] && [ "$crons_n" != 0 ]; then
+# the next manage, heartbeat and scan ticks after T0 must log http=200 — only if the service came up, the crons are
+# back and nothing is active: an active algorithm is reported now, not after a 25-minute wait
+if [ "$code" = 200 ] && [ "$crons_n" != 0 ] && { [ "$active_n" = 0 ] || [ "$active_n" = "?" ]; }; then
   deadline=$(($(date +%s) + 25 * 60))
   for name in manage heartbeat scan; do
     while :; do
@@ -96,7 +100,12 @@ else
 fi
 
 service_state=$(systemctl is-active quanttrader 2> /dev/null || true)
-summary="RESUMED at $T0: service=$service_state crons=$crons_n active_algorithms=$active_n mirroring=$mirroring (still paused: make unpause) errors=${errors[*]:-none}"
+case "$active_n" in
+  0) paused_note="still paused: make unpause" ;;
+  "?") paused_note="not checked: algorithms may be active" ;;
+  *) paused_note="$active_n ACTIVE, not paused: read the runbook before make kill-switch" ;;
+esac
+summary="RESUMED at $T0: service=$service_state crons=$crons_n active_algorithms=$active_n mirroring=$mirroring ($paused_note) errors=${errors[*]:-none}"
 NTFY_TOPIC=$(envval NTFY_TOPIC); NTFY_TOKEN=$(envval NTFY_TOKEN); alert="no-topic"
 push() { # $1 priority, $2 text
   { [ -n "$NTFY_TOKEN" ] && printf 'Authorization: Bearer %s\n' "$NTFY_TOKEN" || printf 'X-Unused: 1\n'; } \

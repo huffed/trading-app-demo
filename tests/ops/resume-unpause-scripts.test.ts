@@ -86,7 +86,27 @@ describe("resume.sh", () => {
     expect(run.stdout).toContain("RESUME_RESULT=PARTIAL");
     expect(run.stdout).toContain("algorithms-active:1");
     expect(ledger(host)).toContain("errors=algorithms-active:1");
-    expect(hostLog(host, "curl-argv.log")).toContain("Priority: high");
+    const push = hostLog(host, "curl-argv.log");
+    expect(push).toContain("Priority: high");
+    expect(push).toContain("1 ACTIVE, not paused");
+    expect(push).not.toContain("still paused");
+  });
+
+  it("stops nothing and does not wait for ticks when it finds them active (D-28)", () => {
+    const host = makeHost({ active: [A], crontab: true });
+    writeTicks(host);
+    const run = runScript(host, "resume.sh");
+    expect(run.stdout).toContain("tick verification skipped");
+    expect(existsSync(join(host.root, "crontab"))).toBe(true);
+    expect(curlCalls(host).filter((c) => c.startsWith("PATCH"))).toEqual([]);
+  });
+
+  it("with no database credentials and the crontab installed, reports that and no active count", () => {
+    const host = makeHost({ active: [A], crontab: true, env: "NTFY_TOPIC=t\n" });
+    writeTicks(host);
+    const run = runScript(host, "resume.sh");
+    expect(run.stdout).toContain("RESUME_ERRORS=no-supabase-credentials");
+    expect(run.stdout).not.toContain("algorithms-active");
   });
 
   it("a failed check with the crontab installed reports the failure, not an active count", () => {
@@ -96,6 +116,8 @@ describe("resume.sh", () => {
     const run = runScript(host, "resume.sh");
     expect(run.stdout).toContain("RESUME_ERRORS=algorithms-check-failed");
     expect(run.stdout).not.toContain("algorithms-active");
+    expect(run.stdout).toContain("any active algorithm trades as soon as the database answers");
+    expect(hostLog(host, "curl-argv.log")).toContain("not checked: algorithms may be active");
   });
 });
 
