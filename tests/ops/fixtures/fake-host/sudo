@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
-# Fake sudo: drops -n and runs the command.
+# Fake sudo: drops -n and runs the command; fail-sudo refuses.
+[ -e "$FAKE_HOST/fail-sudo" ] && exit 1
 [ "$1" = "-n" ] && shift
 exec "$@"

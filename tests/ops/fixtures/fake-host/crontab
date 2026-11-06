@@ -1,7 +1,12 @@
 #!/usr/bin/env bash
-# Fake crontab: the table is the file $FAKE_HOST/crontab; absent means no crontab.
+# Fake crontab: the table is the file $FAKE_HOST/crontab; absent means no crontab. The removal goes in
+# curl.log too, so a test can see it came before the first database call. fail-crontab-r refuses it.
 case "${1:-}" in
   -l) [ -f "$FAKE_HOST/crontab" ] && cat "$FAKE_HOST/crontab" || exit 1 ;;
-  -r) rm -f "$FAKE_HOST/crontab" ;;
+  -r)
+    [ -e "$FAKE_HOST/fail-crontab-r" ] && exit 1
+    printf 'CRONTAB -r\n' >> "$FAKE_HOST/curl.log"
+    rm -f "$FAKE_HOST/crontab"
+    ;;
   *) cp "$1" "$FAKE_HOST/crontab" ;;
 esac

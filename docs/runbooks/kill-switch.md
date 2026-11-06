@@ -7,12 +7,12 @@
 Every step is attempted even after an earlier one failed, and the schedulers go first so nothing waits on the database or the app before new ticks are impossible:
 
 1. **Disable the crontab**: saved to `/var/lib/quanttrader/crontab.disabled`, then removed. No new scan or manage tick can start.
-2. **Pause** every `status='active'` algorithm through Supabase's REST API with the service role read from the host's `.env.local` (`status='paused'`); the ids are saved to `/var/lib/quanttrader/kill-switch.paused-ids`, merged with any ids a previous run saved.
-3. **Flatten** the open positions of those algorithms, and of any ids an earlier run saved that `make unpause` has not consumed, through the app's own route `POST /api/admin/flatten-algo?id=…` on loopback with `CRON_SECRET` read on the host: the paper rows (`exit_reason` `manual`) **and the broker side of any position that carries a `broker_position_id`**, which the route closes through the adapter. A failed broker close (`broker-failed:` in the route's response) is an error even though the route answers 200, and the paper row closes anyway. Once the app stops answering (connection refused or a 60 s timeout) the remaining ids are skipped rather than waited on.
+2. **Pause** every `status='active'` algorithm through Supabase's REST API with the service role read from the host's `.env.local` (`status='paused'`); the ids are saved to `/var/lib/quanttrader/kill-switch.paused-ids` for `make unpause`, and merged with a previous run's while the crontab is still empty.
+3. **Flatten** the open positions of those algorithms, and of every id this engagement has targeted (`kill-switch.flatten-ids`, kept until `make unpause`), through the app's own route `POST /api/admin/flatten-algo?id=…` on loopback with `CRON_SECRET` read on the host: the paper rows (`exit_reason` `manual`) **and the broker side of any position that carries a `broker_position_id`**, which the route closes through the adapter. A broker position that did not close is an error even though the route answers 200 and the paper row closes anyway: `broker-failed:` in the route's response, or `paper-only` on a row with a broker id, where no connection or adapter was found so the close was never attempted. It stays an error on later runs (`broker-failed-earlier:N`) until `make unpause`. Once the app stops answering (connection refused or a 60 s timeout) the remaining ids are skipped rather than waited on.
 4. **Stop and disable the service** (`systemctl disable --now quanttrader`): a reboot does not bring trading back.
-5. **Count what is still open** for those algorithms (`open_after=`), or every open position when there is no id to flatten, which is then an error (`open-untargeted:N`); read their mirroring state (`mirroring=<on>/<total>`, `live_trading_enabled`, a record and not a safeguard, decision 0010); send the urgent ntfy push (`NTFY_TOPIC` from `.env.local`) and write a `KILL …` ledger line with `crons=`, `paused=`, `flattened=`, `service=`, `open_after=`, `mirroring=`, `alert=` and `errors=` — each field says what actually happened (`FAILED`, `SKIPPED`, `N (M failed, K broker-failed, rest skipped)`), never a literal success.
+5. **Count every open position**: those on the targeted algorithms (`open_after=`) and those on any other (`open_untargeted=`, for example an algorithm alpha-decay paused, whose position nothing manages). Either is an error (`open-after:N`, `open-untargeted:N`). Read the targets' mirroring state (`mirroring=<on>/<total>`, `live_trading_enabled`, a record and not a safeguard, decision 0010); send the urgent ntfy push (`NTFY_TOPIC` from `.env.local`) and write a `KILL …` ledger line with `crons=`, `paused=`, `flattened=`, `service=`, `open_after=`, `open_untargeted=`, `mirroring=`, `alert=` and `errors=` — each field says what actually happened (`FAILED`, `SKIPPED`, `N (M failed, K broker-failed, rest skipped)`, and `paused=unknown` when the PATCH failed and may have committed), never a literal success. If the ledger append fails, a second push says so, because that push is then the only record.
 
-If the database or the app is unreachable, steps 2, 3 and 5 report failures and steps 1 and 4 still run. The run ignores a dropped ssh session (HUP, INT, PIPE) and also logs to `/var/log/quanttrader/kill-switch.log`, so it finishes once started. Secrets go to curl through stdin headers and are never printed. The exit status is non-zero when any step failed (`KILL_RESULT=PARTIAL`). Running it twice is harmless: an already-empty crontab keeps the saved copy, a stopped service stays stopped, nothing active means nothing to pause, and the flatten is skipped (`flattened=SKIPPED`) while `open_after` still counts what is open. The recovery for `open_after>0` is `make resume`, then the switch again: the saved ids are flattened whatever the crontab says (DEBT D-27). `open_after` counts paper rows only: a failed broker close shows `open_after=0` with `broker-failed:…` in `errors=`, and because the paper row has closed a re-run cannot retry it, so close that position at the broker (D-25, whose engine half waits for the audit verdict). The saved id list is kept across re-runs of one engagement and replaced at the next fresh engagement, so `make unpause` never wakes algorithms paused on purpose in between.
+If the database or the app is unreachable, steps 2, 3 and 5 report failures and steps 1 and 4 still run. The run ignores a dropped ssh session (HUP, INT, PIPE) and also logs to `/var/log/quanttrader/kill-switch.log`, so it finishes once started. Secrets go to curl through stdin headers and are never printed. The exit status is non-zero when any step failed (`KILL_RESULT=PARTIAL`). Running it twice is harmless: an already-empty crontab keeps the saved copy, a stopped service stays stopped, nothing active means nothing to pause, and the flatten is skipped (`flattened=SKIPPED`) while `open_after` still counts what is open. The recovery for `open_after>0` is `make resume`, then the switch again: every id the engagement targeted is flattened whatever the crontab says (DEBT D-27). For `open_untargeted>0` the switch has no id: `make resume`, then close them through the flatten route for that algorithm. Both count paper rows only: a broker position that did not close shows `open_after=0` with `broker-failed:…` in `errors=`, and because the paper row has closed a re-run cannot retry it, so close that position at the broker (D-25, whose engine half waits for the audit verdict); later runs report `broker-failed-earlier:N` until `make unpause`. The un-pause list is replaced when a run with something active starts while the crontab is back, so an algorithm from the earlier engagement is not woken by `make unpause` and stays paused until you activate it. `make unpause` ends the engagement and clears all three lists.
 
 ```bash
 make kill-switch REASON=<one-word-reason>      # e.g. REASON=broker-fills-wrong, REASON=paper-test
@@ -45,8 +45,8 @@ A kill switch left engaged should trip healthchecks.io about 20 minutes after th
 Expect no open positions; the point is the sequence.
 
 1. `git fetch origin` (the local `origin/dev` must hold the scripts); `make status` → service active, 11 cron entries (10 in the 2026-11-01 test, before D.4's ops-health line), ticks 200.
-2. `make kill-switch REASON=paper-test` → output ends `KILL_RESULT=OK`, `KILL_ERRORS=none`; the line reads `crons=disabled paused=5 flattened=0 service=inactive open_after=0 alert=sent` (`service=failed` in the 2026-11-01 test runs, which predate the 16:07Z install of decision 0009's unit with `SuccessExitStatus=143`: Next exits 143 on SIGTERM; from the next stop the line reads `service=inactive`); the phone receives the urgent push; `make status` → service inactive, crontab 0.
-3. `make kill-switch REASON=paper-test-again` → `KILL_RESULT=OK` with `crons=already-empty paused=0 flattened=SKIPPED open_after=0` (idempotency: the service is already stopped, so there is nothing to flatten through; `open_after` is the check that matters).
+2. `make kill-switch REASON=paper-test` → output ends `KILL_RESULT=OK`, `KILL_ERRORS=none`; the line reads `crons=disabled paused=5 flattened=0 service=inactive open_after=0 open_untargeted=0 mirroring=0/5 alert=sent` (`service=failed` in the 2026-11-01 test runs, which predate the 16:07Z install of decision 0009's unit with `SuccessExitStatus=143`: Next exits 143 on SIGTERM; from the next stop the line reads `service=inactive`); the phone receives the urgent push; `make status` → service inactive, crontab 0.
+3. `make kill-switch REASON=paper-test-again` → `KILL_RESULT=OK` with `crons=already-empty paused=0 flattened=SKIPPED open_after=0 open_untargeted=0` (idempotency: the service is already stopped, so there is nothing to flatten through; `open_after` is the check that matters).
 4. In the database: the five algorithms are `paused`; no open paper position; any position closed by the flatten has `exit_reason='manual'`.
 5. `make resume` → service active, `active_algorithms=0`, crontab 11 (10 in the 2026-11-01 test), the next manage, heartbeat and scan ticks 200, `RESUME_RESULT=OK`, normal-priority push received.
 6. `make unpause` → `UNPAUSE_RESULT=OK`, `algorithms=5 of 5 saved`; the next scan tick shows `"scanned":5`.
@@ -56,23 +56,30 @@ Expect no open positions; the point is the sequence.
 
 Run after the scripts PR is merged and `git fetch origin` has brought it to the workstation, with the market closed. All SQL below is the operator's, in the Supabase SQL editor: a session writes to the live tables only through the three targets. The schema has no test flag, so the test uses a reserved algorithm id, which it supports cleanly: `algorithms` needs only a name and a user, `paper_positions` has no one-open-position rule, and only `updated_at` triggers fire.
 
-**The switch flattens every active algorithm and every saved id, so a real open position closes unless its algorithm is out of the active set first.** Step 1 flips those algorithms to `paused` for the length of the test and step 11 flips them back. With the market closed nothing moves, but nothing manages those positions either. If you would rather not flip them, wait until they have closed on their own.
+**The switch flattens every active algorithm and every saved id, so a real open position closes unless its algorithm is out of the active set first.** Step 1 flips those algorithms to `paused` for the length of the test and step 11 flips them back. With the market closed nothing moves, but nothing manages those positions either. If you would rather not flip them, wait until they have closed on their own. A position left alone this way is one the switch did not target, so with `r` real positions open every run below reads `open_untargeted=r` and ends `KILL_RESULT=PARTIAL` with `open-untargeted:r`, by design; with none open it ends `OK`.
+
+Before starting, `make logs LOG=ops-health N=1` must show `held-by-kill-switch=0`: a leftover id file would be flattened whatever its algorithm's status.
 
 Reserved ids: test algorithm `00000000-0000-4000-8000-00000000d027`, test position `00000000-0000-4000-8000-00000000d028`. Allow about an hour, because each `make resume` waits up to 25 minutes for ticks. Avoid 21:30 UTC, when the M1 band check reads positions. Expect urgent pushes from the switch and a down and an up from healthchecks.io.
 
 ```sql
--- 1. What is open. Note the algorithm ids; if any row is listed, pause them (the ids are yours to paste).
-select id, algorithm_id, ticker, side, opened_at from public.paper_positions where status = 'open';
+-- 1. What is open. If any row is listed, pause its algorithm_id, the first column (the ids are yours to paste).
+select algorithm_id, id as position_id, ticker, side, opened_at from public.paper_positions where status = 'open';
 update public.algorithms set status = 'paused' where status = 'active' and id in ('<algorithm id>');
 
 -- 2. Right after a scan tick (:00, :15, :30, :45): the test algorithm, active, no broker, no watchlist.
 insert into public.algorithms (id, user_id, name, status, asset_class)
 select '00000000-0000-4000-8000-00000000d027', user_id, 'TEST kill-switch re-test, delete me', 'active', 'commodity'
-from public.algorithms where id = '6cea13b6-86fb-41f6-9f2c-6bef47541a6a';
+from public.algorithms where id = '6cea13b6-86fb-41f6-9f2c-6bef47541a6a';   -- INSERT 0 1
+
+-- The gate, immediately before step 3. It must return no rows; if it returns one, go back to step 1.
+select p.id, p.algorithm_id from public.paper_positions p
+join public.algorithms a on a.id = p.algorithm_id
+where p.status = 'open' and a.status = 'active';
 ```
 
-3. `make kill-switch REASON=paper-retest` within a minute or two → `KILL_RESULT=OK`, `crons=disabled`, `paused=N`, `flattened=0`, `service=inactive`, `open_after=0`, `mirroring=0/N`; the urgent push arrives; `make status` → service inactive, crontab 0.
-4. `make kill-switch REASON=paper-retest-again` → `KILL_RESULT=OK`, `crons=already-empty paused=0 flattened=SKIPPED`.
+3. `make kill-switch REASON=paper-retest` at once → `crons=disabled`, `paused=N`, `flattened=0`, `service=inactive`, `open_after=0`, `open_untargeted=r`, `mirroring=0/N`; the urgent push arrives; `make status` → service inactive, crontab 0.
+4. `make kill-switch REASON=paper-retest-again` → `crons=already-empty paused=0 flattened=SKIPPED open_untargeted=r`.
 5. `make resume` → `RESUME_RESULT=OK`, `active_algorithms=0`, crontab 11, ticks 200, `mirroring=0/N`.
 
 ```sql
@@ -82,7 +89,7 @@ select '00000000-0000-4000-8000-00000000d028', user_id, id, 'XAU/USD', 'long', 0
 from public.algorithms where id = '00000000-0000-4000-8000-00000000d027';
 ```
 
-7. `make kill-switch REASON=paper-retest-rerun` → `KILL_RESULT=OK`, `crons=disabled paused=0 flattened=1 open_after=0`. This is the D-27 path: the crontab is back, nothing is active, and the switch still flattens the saved ids.
+7. `make kill-switch REASON=paper-retest-rerun` → `crons=disabled paused=0 flattened=1 open_after=0 open_untargeted=r`. This is the D-27 path: the crontab is back, nothing is active, and the switch still flattens the ids the engagement targeted. Those exclude step 1's algorithms, so the real positions stay open.
 8. `make resume` → `RESUME_RESULT=OK`.
 
 ```sql
@@ -93,7 +100,7 @@ delete from public.activity_log where algorithm_id = '00000000-0000-4000-8000-00
 delete from public.algorithms where id = '00000000-0000-4000-8000-00000000d027';
 ```
 
-10. `make unpause` → `UNPAUSE_RESULT=OK`, `algorithms=M of N saved` with M one fewer than N, because the test algorithm is gone.
+10. `make unpause` → `UNPAUSE_RESULT=OK`; `make logs LOG=deploys N=1` shows `algorithms=M of N saved` with M one fewer than N, because the test algorithm is gone.
 
 ```sql
 -- 11. Only if step 1 paused anything.
@@ -103,7 +110,7 @@ update public.algorithms set status = 'active' where status = 'paused' and id in
 12. The next scan tick shows `"scanned":5`, and every real position from step 1 is still open.
 13. Ledger rows: copy the KILL, RESUME and UNPAUSE lines into `docs/decisions/deploys.md`, with the two reserved ids and any algorithm flipped in step 1.
 
-If a step differs, stop there: `make resume`, then the SQL in step 9, then `make unpause`, then step 11 restore the starting state.
+If a step differs, stop there. To restore the starting state: `make resume` (if its line says `algorithms-active:N`, the pause failed, so run `make kill-switch` again first, then `make resume`), then the SQL in step 9, then `make unpause`, then step 11. Finish with `make status`: service active, crontab 11.
 
 ## Rollback of the kill switch itself
 

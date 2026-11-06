@@ -18,7 +18,7 @@ errors=()
 log() { printf '[%s] resume: %s\n' "$(date -u +%FT%TZ)" "$*" | tee -a "$LOGDIR/kill-switch.log" 2> /dev/null; }
 envval() { grep -E "^$1=" "$ENV_FILE" 2> /dev/null | head -n 1 | cut -d= -f2- | tr -d '"' | tr -d "'"; }
 http_code() { curl -s -o /dev/null -w '%{http_code}' --max-time 5 "$1" || true; }
-ids_from_json() { python3 -c 'import json,sys; print("\n".join(r["id"] for r in json.load(sys.stdin)))' 2> /dev/null; }
+count_rows() { python3 -c 'import json,sys; print(len(json.load(sys.stdin)))' 2> /dev/null; }
 
 [ "$(id -un)" = ops ] || { echo "resume: run as ops; refusing as $(id -un)" >&2; exit 2; }
 T0=$(date -u +%FT%TZ)
@@ -38,7 +38,7 @@ active_n="?"
 mirroring=n/a
 if [ -n "$SB_URL" ] && [ -n "$SB_KEY" ]; then
   if body=$(printf 'apikey: %s\nAuthorization: Bearer %s\n' "$SB_KEY" "$SB_KEY" | curl -fsS --max-time 15 -H @- "$SB_URL/rest/v1/algorithms?status=eq.active&select=id"); then
-    active_n=$(ids_from_json <<< "$body" | grep -c . || true)
+    active_n=$(count_rows <<< "$body") || { active_n="?"; errors+=("algorithms-check-failed"); log "could not read the active-algorithm check"; }
   else
     errors+=("algorithms-check-failed"); log "could not check for active algorithms (database unreachable?)"
   fi
@@ -93,15 +93,20 @@ fi
 service_state=$(systemctl is-active quanttrader 2> /dev/null || true)
 summary="RESUMED at $T0: service=$service_state crons=$crons_n active_algorithms=$active_n mirroring=$mirroring (still paused: make unpause) errors=${errors[*]:-none}"
 NTFY_TOPIC=$(envval NTFY_TOPIC); NTFY_TOKEN=$(envval NTFY_TOKEN); alert="no-topic"
+push() { # $1 priority, $2 text
+  { [ -n "$NTFY_TOKEN" ] && printf 'Authorization: Bearer %s\n' "$NTFY_TOKEN" || printf 'X-Unused: 1\n'; } \
+    | curl -fsS --max-time 15 -H @- -H "Title: quanttrader-prod resumed" -H "Priority: $1" -d "$2" "https://ntfy.sh/$NTFY_TOPIC" > /dev/null
+}
 if [ -n "$NTFY_TOPIC" ]; then
   prio=default; [ ${#errors[@]} -eq 0 ] || prio=high
-  if { [ -n "$NTFY_TOKEN" ] && printf 'Authorization: Bearer %s\n' "$NTFY_TOKEN" || printf 'X-Unused: 1\n'; } \
-    | curl -fsS --max-time 15 -H @- -H "Title: quanttrader-prod resumed" -H "Priority: $prio" -d "$summary" "https://ntfy.sh/$NTFY_TOPIC" > /dev/null; then alert=sent; else alert=FAILED; errors+=("alert"); fi
+  if push "$prio" "$summary"; then alert=sent; else alert=FAILED; errors+=("alert"); fi
 fi
-unset NTFY_TOKEN
 if ! printf '%s RESUME service=%s crons=%s active_algorithms=%s mirroring=%s alert=%s errors=%s\n' "$(date -u +%FT%TZ)" "$service_state" "$crons_n" "$active_n" "$mirroring" "$alert" "${errors[*]:-none}" >> "$LEDGER" 2> /dev/null; then
   errors+=("ledger"); log "ledger write FAILED"
+  # the first push said errors as they stood before this one; without a ledger line this is the only record
+  [ -z "$NTFY_TOPIC" ] || push high "RESUME: the ledger line was NOT written. errors=${errors[*]}" || log "the second push FAILED"
 fi
+unset NTFY_TOKEN
 log "$summary alert=$alert"
 echo "RESUME_RESULT=$([ ${#errors[@]} -eq 0 ] && echo OK || echo PARTIAL)"
 echo "RESUME_ERRORS=${errors[*]:-none}"
