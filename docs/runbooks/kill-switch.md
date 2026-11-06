@@ -58,13 +58,17 @@ Run after the scripts PR is merged and `git fetch origin` has brought it to the 
 
 **The switch flattens every active algorithm and every saved id, so a real open position closes unless its algorithm is out of the active set first.** Step 1 flips those algorithms to `paused` for the length of the test and step 11 flips them back. With the market closed nothing moves, but nothing manages those positions either. If you would rather not flip them, wait until they have closed on their own. A position left alone this way is one the switch did not target, so with `r` real positions open every run below reads `open_untargeted=r` and ends `KILL_RESULT=PARTIAL` with `open-untargeted:r`, by design; with none open it ends `OK`.
 
-Before starting, `make logs LOG=ops-health N=1` must show `held-by-kill-switch=0`: a leftover id file would be flattened whatever its algorithm's status.
+Before starting, `make logs LOG=ops-health N=2` must show `held-by-kill-switch=0`: a leftover id file would be flattened whatever its algorithm's status.
 
 Reserved ids: test algorithm `00000000-0000-4000-8000-00000000d027`, test position `00000000-0000-4000-8000-00000000d028`. Allow about an hour, because each `make resume` waits up to 25 minutes for ticks. Avoid 21:30 UTC, when the M1 band check reads positions. Expect urgent pushes from the switch and a down and an up from healthchecks.io.
 
 ```sql
--- 1. What is open. If any row is listed, pause its algorithm_id, the first column (the ids are yours to paste).
-select algorithm_id, id as position_id, ticker, side, opened_at from public.paper_positions where status = 'open';
+-- 1. What is open. Pause the algorithm_id of every row whose algorithm_status is active, and note exactly
+-- those ids: step 11 restores them and nothing else. A row already paused stays as it is, because it was paused
+-- on purpose. It will show in open_untargeted like the others.
+select p.algorithm_id, a.status as algorithm_status, p.id as position_id, p.ticker, p.side, p.opened_at
+from public.paper_positions p join public.algorithms a on a.id = p.algorithm_id
+where p.status = 'open';
 update public.algorithms set status = 'paused' where status = 'active' and id in ('<algorithm id>');
 
 -- 2. Right after a scan tick (:00, :15, :30, :45): the test algorithm, active, no broker, no watchlist.
@@ -72,7 +76,8 @@ insert into public.algorithms (id, user_id, name, status, asset_class)
 select '00000000-0000-4000-8000-00000000d027', user_id, 'TEST kill-switch re-test, delete me', 'active', 'commodity'
 from public.algorithms where id = '6cea13b6-86fb-41f6-9f2c-6bef47541a6a';   -- INSERT 0 1
 
--- The gate, immediately before step 3. It must return no rows; if it returns one, go back to step 1.
+-- The gate, immediately before step 3. It must return no rows. If it returns one, pause that algorithm as in
+-- step 1, note its id, and run the gate again. Do not repeat the insert.
 select p.id, p.algorithm_id from public.paper_positions p
 join public.algorithms a on a.id = p.algorithm_id
 where p.status = 'open' and a.status = 'active';
@@ -103,7 +108,7 @@ delete from public.algorithms where id = '00000000-0000-4000-8000-00000000d027';
 10. `make unpause` → `UNPAUSE_RESULT=OK`; `make logs LOG=deploys N=1` shows `algorithms=M of N saved` with M one fewer than N, because the test algorithm is gone.
 
 ```sql
--- 11. Only if step 1 paused anything.
+-- 11. Only the ids step 1 paused, which read active there. Never an algorithm that was already paused.
 update public.algorithms set status = 'active' where status = 'paused' and id in ('<algorithm id>');
 ```
 
