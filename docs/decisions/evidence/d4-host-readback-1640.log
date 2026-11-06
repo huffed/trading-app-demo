@@ -1,4 +1,4 @@
-# Recovered 2026-11-06 from the session transcript: the original temporary file was removed by the workstation's temp cleanup. The text below this line is unchanged.
+# Recovered 2026-11-06 from the session transcript: the original temporary file was removed by the workstation's temp cleanup. The text below this line is unchanged, except that the control socket's hash is replaced with <hash>.
 # Read-only check 2026-11-01 ~16:40Z through the new shared `make` connection (Makefile `override SSH`, ControlPath ~/.ssh/qt-make-%C).
 # Sequence in one shell: make status; make logs LOG=ops-health N=2; ls ~/.ssh/qt-make-*; ssh -O check; one ssh command with the same ControlPath; ssh -O check; ssh -O exit.
 # Output verbatim (the ssh facts command passed `-o BatchMode=yes -o ControlPath=~/.ssh/qt-make-%C`).
@@ -24,7 +24,7 @@ make: *** [logs] Error 1
 # (the log is created by the 07:05 UTC cron entry; today's summary ran by hand to the terminal)
 
 $ ls ~/.ssh/qt-make-*
-/Users/jack.jones/.ssh/qt-make-e0295d5bde3a0c12b74cbe8ae170aef9eec71c5c
+/Users/jack.jones/.ssh/qt-make-<hash>
 $ ssh -O check -o ControlPath=~/.ssh/qt-make-%C qt
 Master running (pid=68306)
 
