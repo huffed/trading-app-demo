@@ -46,7 +46,7 @@ Approved 2026-10-31 (questions 2 and 3) and designed in `docs/decisions/0007-nod
 
 - `make kill-switch REASON=<word>` → `scripts/ops/kill-switch.sh` on the host as `ops`, streamed from the local `origin/dev` (no GitHub dependency): (1) pause every active algorithm through Supabase REST with the host's service role, saving the ids; (2) flatten their open paper positions through `/api/admin/flatten-algo` on loopback; (3) stop the service, save and remove the crontab; (4) urgent ntfy push + `KILL` ledger line. Every step is attempted; with the database or the app unreachable the stop still happens (fail closed). Idempotent. The only host command allowed in market hours (the one other exception since 2026-11-02: appending the `HEARTBEAT_PING_URL` line, D.4).
 - `make resume` reverses the stop (service, crontab, tick verification, push, `RESUME` line) and un-pauses nothing; `make unpause` re-activates exactly the saved ids (`UNPAUSE` line) — the operator's deliberate act.
-- Paper test (checklist in `docs/runbooks/kill-switch.md`): expect no open positions; the sequence is the test. healthchecks.io trips about 20 min after the last heartbeat ping; the dead-man's checks fail once ticks are 35–45 min stale, but they run only when GitHub starts the job, 2 to 5 times a day (DEBT D-30). Rows go to `docs/decisions/deploys.md` and the test log to decision 0008.
+- Paper test (checklist in `docs/runbooks/kill-switch.md`): expect no open positions; the sequence is the test. healthchecks.io should trip about 20 min after the last heartbeat ping; the dead-man's checks fail once ticks are 35–45 min stale, but they run only when GitHub starts the job, 2 to 5 times a day (DEBT D-30). Rows go to `docs/decisions/deploys.md` and the test log to decision 0008.
 
 ## D.4 Alerts and hygiene — built per decision 0009 (2026-11-01); applied to the host 2026-11-01 16:01–16:07Z per `docs/runbooks/d4-alerts-and-rotation.md` (ledger row `2026-11-01T16:07:33Z`); verified 2026-11-02 (both test pushes received, first daily summary ran; ledger row `2026-11-02T07:05:03Z`); `ping sent` logged by 2026-11-06 12:35Z (ledger row `2026-11-06T12:30Z`); still to verify: healthchecks.io receipt, the first weekly rotation, the next deploy's clean stop
 
@@ -58,7 +58,7 @@ Approved 2026-10-31 (questions 2 and 3) and designed in `docs/decisions/0007-nod
 ## D.5 Nightly parity job
 
 - Depends on the audit's `paper-replay.ts` landing on `dev` (then `make parity` stops being a stub, DEBT D-02). The job: nightly, on the VPS or as a scheduled GitHub Actions workflow, runs the parity replay over the paper positions of the last N days against the pinned bars, posts the summary to ntfy, exits non-zero on divergence above the agreed band.
-- **Done (CI half, decision 0009):** `.github/workflows/nightly.yml` runs `make check` + `make backtest` on `dev` at 03:17 UTC and pushes to the phone on failure.
+- **Done (CI half, decision 0009):** `.github/workflows/nightly.yml` runs `make check` + `make backtest` on `dev`, scheduled 03:17 UTC, started around 10:45 UTC so far, and pushes to the phone on failure.
 
 ## D.6 Backups with a tested restore
 

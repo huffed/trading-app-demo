@@ -4,10 +4,10 @@
 # When any link dies, ticks stop SILENTLY — the 2026-05-24 outage went
 # unnoticed for 17 days and Supabase's free tier auto-paused the project
 # from zero traffic. This check inverts that: GitHub (independent infra)
-# verifies every 30 min that a manage_tick reached the database recently,
-# and FAILS when the trail goes stale — GitHub emails the repo owner on
-# scheduled-workflow failure, so a dead Mac/server/cron/DB alerts within
-# ~45-60 min with zero third-party accounts.
+# verifies on each run that a manage_tick reached the database recently and
+# FAILS when the trail is stale; GitHub emails the repo owner on the failure.
+# Scheduled every 30 min, but GitHub starts it only 2 to 5 times a day, so the
+# 45 and 35 below are staleness thresholds, not detection times (DEBT D-30).
 #
 # Depends on the `public.last_manage_tick()` SECURITY DEFINER function
 # (anon-executable, exposes ONE timestamp and nothing else — RLS keeps

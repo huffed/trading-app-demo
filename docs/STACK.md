@@ -74,7 +74,7 @@ cron (6-hourly)     ─curl─▶ GET /api/cron/alpha-decay, /api/cron/reconcile
 | Twelve Data | **live quotes for paper fills and SL/TP checks** (`fetchBatchQuotes`); bar fallback | `TWELVE_DATA_API_KEY` | 800 credits/day; HTTP-200 error bodies unchecked (audit F1) |
 | Yahoo Finance (unauthenticated) | bar fallback (refuses 4h) | — | |
 | Alpha Vantage | last-resort bars; news sentiment | `ALPHA_VANTAGE_API_KEY` | 25 req/day |
-| Finnhub | economic calendar for the news veto (fails open) | `FINNHUB_API_KEY` | |
+| Finnhub | economic calendar for the news veto (fails open; every call since 30 Oct has failed and the veto has not fired since 2026-06-11, DEBT D-32) | `FINNHUB_API_KEY` | |
 | MetaApi (MT5) | broker mirroring, spreads, reconcile — currently off (`live_trading_enabled=false` ×5) | token in `broker_connections` rows | `src/lib/brokers/metaapi*.ts` |
 | cTrader Open API | dormant by design | `CTRADER_CLIENT_ID/SECRET` (undocumented) | `src/lib/brokers/ctrader*` |
 | Anthropic (Haiku 4.5) | dormant LLM-trader path | `ANTHROPIC_API_KEY` | no spend cap on the live path (audit F7) |

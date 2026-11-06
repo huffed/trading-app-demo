@@ -20,7 +20,7 @@ DEBT D-19: there was no single kill switch; `status='paused'` alone orphans open
 ## Consequences
 
 - `make deploy` refuses while the switch is engaged (saved crontab present, live crontab empty), at its start and before its restart (decision 0005 consequence, done here).
-- A switch left engaged trips the dead-man workflow by design (manage > 45 min, scan > 35 min).
+- A switch left engaged trips the dead-man workflow by design: on its next run after manage is 45 minutes stale and scan 35, which can be hours later (DEBT D-30).
 - The three targets write `algorithms.status` and the flatten route can reach the broker. `CLAUDE.md`'s sentence "nothing that connects to a broker or writes to the live tables runs from a Claude session" predated the switch; the targets prompt and run only when the operator asks for them. The operator amended the live-table half on 2026-11-01 (decision 0010: the three targets are the only exception, prompt every time, are never pre-approved, write a ledger row); the broker half on 2026-11-02 (0010): no session acts on a broker account except `make kill-switch`, which may flatten mirrored positions, and, once mirroring is on, `make resume` and `make unpause`, which together let the engine trade again.
 - The paused-ids file and the saved crontab live in `/var/lib/quanttrader`, owned by `ops`.
 - The paper test is recorded in `docs/decisions/deploys.md` (KILL, RESUME, UNPAUSE rows) and below.
