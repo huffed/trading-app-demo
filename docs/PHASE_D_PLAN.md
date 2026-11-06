@@ -72,6 +72,25 @@ Approved 2026-10-31 (questions 2 and 3) and designed in `docs/decisions/0007-nod
 - **`main`:** absent on the remote (verified 2026-10-31; the local `main` is an old ancestor of `dev`). Approved (question 5): the first `make deploy` creates it as the production pointer and every verified deploy moves it (decision 0005).
 - **sudoers narrowing:** D.2.
 
+## Window of 7 and 8 November 2026 (approved by the operator 2026-11-06)
+
+Every host command runs only when the operator asks. Anything unfinished by Sunday 18:00 UK waits a week. Steps 4 to 6 and 8 drop out if their PRs are not reviewed by Saturday morning; steps 2 and 3 still run. The sudoers half of step 9b follows D.6, as D.7 always has, and needs its own reviewed PR with a decision entry (D-23). No such PR exists yet, so it drops with step 8 or without that PR, and the firewall half stands alone.
+
+| # | When | Step | Changes on the host | Rollback |
+|---|---|---|---|---|
+| 1 | Sat | Pre-flight: `make status`, gate green | Nothing | None needed |
+| 2 | Sat | `make deploy` of `dev` | Checkout, install, build, one restart, commit records, `main`. No file in `src`, `supabase` or the lockfile differs. First stop under the new unit. | `make deploy REF=2635d1f` |
+| 3 | Sat, after step 2 verifies | Reboot, two ledger rows | New kernel (7.0.0-42); all processes restart; the pending flag clears | None for the app; if the kernel misbehaves, boot 7.0.0-38 from the Hetzner console |
+| 4 | Sat | Merge the scripts PR, `git fetch` | Nothing, but the three targets stream the new scripts from then on | Revert the PR, `git fetch` |
+| 5 | Sat | Paper re-test with a synthetic position, including the D-27 path (`docs/runbooks/kill-switch.md`) | Crontab off and back; algorithms paused and back; service stopped and restarted; about an hour. Both reserved ids go in the ledger row. | The runbook's recovery: `make resume`, its clean-up SQL, `make unpause`, then the flip-back. Not in the approved text, and for the operator to decide on the day: the switch flattens every active algorithm, so a real position stays open only if its algorithm is flipped first, or the test waits until it closes on its own. |
+| 6 | Sat or Sun | `make deploy` again | Same as step 2; the checkout gets the new scripts | `make deploy REF=<step 2 commit>` |
+| 7 | Sun | Rotation check: the first weekly rotation is expected at 00:00 UTC | Read-only | None needed |
+| 8 | Sun, if clean | Merge the D.6 PR, `git fetch`, then D.6 per `docs/runbooks/d6-backups.md` from a workstation checkout of `origin/dev`, no deploy needed, then the restore drill on a Supabase branch (Micro, $0.01344 per started hour, about $0.04 for 3 hours, quoted to the operator 2026-11-06) | `pg_dump` and `age`, `ops` key, backup script, reinstalled `ops-health.sh` and logrotate file, 12th crontab line, first backup. Prerequisite: the operator's role and password, then the database line on the host after 22:00 UK on Friday, which stays there if this step drops. | The runbook's Rollback, including `revoke` and `drop role backup_ro`. No trading path touches them. |
+| 9a | Sun, if time remains, before anything touches sudoers | The operator sets a root password at the prompt (`sudo passwd root`, value in their password manager, never printed or sent), then proves one console login through the Hetzner console | Root password set. Root SSH login stays off. | `sudo passwd -l root` |
+| 9b | Sun: the firewall after 9a; sudoers only after 9a and step 8, with its reviewed PR | D.7: the operator adds the Hetzner firewall (22/tcp, 41641/udp); narrow sudoers, keeping `systemctl disable --now` and `enable --now quanttrader`, which the switch and resume use, and check `sudo -n -l` for them before closing the second root shell | Sudoers file; the firewall sits outside the host | Keep a second root shell open and run `visudo -c`, then restore the file; detach the firewall in the console |
+
+Console login is not a recovery path until 9a passes: on 2026-11-06 the login screen appeared but no root password was known. Step 3's rollback needs only the GRUB menu, which should take no login but has not been reached. Detaching the firewall is the Cloud panel and needs no root password.
+
 ## Check-in questions before any VPS change
 
 1. D.1 as designed, including the first deploy of current `dev` and the pending reboot in the same window — which window?
