@@ -34,7 +34,7 @@ Host qt
   IdentitiesOnly yes
 ```
 
-Keep **two** SSH sessions open for every step below: one to make the change, one to prove you can still log in. Never close the proving session until the new login works. Recovery if locked out: Hetzner Cloud console → server → Console (web TTY) → log in and revert the drop-in file.
+Keep **two** SSH sessions open for every step below: one to make the change, one to prove you can still log in. Never close the proving session until the new login works. Console login needs a root password, and none exists until step 9a of the window plan in `docs/PHASE_D_PLAN.md`. Recovery if locked out: Hetzner Cloud console → server → Console (web TTY) → log in and revert the drop-in file.
 
 ## Phase 1 — today
 
