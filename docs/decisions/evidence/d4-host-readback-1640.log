@@ -1,0 +1,47 @@
+# Recovered 2026-11-06 from the session transcript: the original temporary file was removed by the workstation's temp cleanup. The text below this line is unchanged.
+# Read-only check 2026-11-01 ~16:40Z through the new shared `make` connection (Makefile `override SSH`, ControlPath ~/.ssh/qt-make-%C).
+# Sequence in one shell: make status; make logs LOG=ops-health N=2; ls ~/.ssh/qt-make-*; ssh -O check; one ssh command with the same ControlPath; ssh -O check; ssh -O exit.
+# Output verbatim (the ssh facts command passed `-o BatchMode=yes -o ControlPath=~/.ssh/qt-make-%C`).
+
+$ make status
+host:        quanttrader-prod, up 1 day, 52 minutes, 2026-11-01T16:40:35Z
+service:     active (enabled), since Sun 2026-11-01 15:20:48 UTC, restarts 0
+checkout:    2635d1f5b1de; live since last restart: 2635d1f5b1de; verified: 2635d1f5b1de; .nvmrc 26.13.0; host node v26.13.0; unit user ops
+last deploy: 2026-11-01T15:31:38Z UNPAUSE algorithms=5 of 5 saved
+scan tick:   [2026-11-01T16:30:01Z] http=200 body={"scanned":5,"portfolio
+manage tick: [2026-11-01T16:40:01Z] http=200 body={"algorithms":0,"positi
+heartbeat tick:[2026-11-01T16:40:02Z] http=200 body={"status":"healthy","ac
+reboot:      not required
+disk:        25% used of 38G
+crontab:     ops 11 entries; root 0 entries (two schedulers = double ticks; after D.2 root must be 0)
+listening:   127.0.0.1:3000 100.77.24.89:3000 [fd7a:115c:a1e0::ce01:18a8]:3000
+tailnet:     socket active on 100.77.24.89:3000 (Stream) [fd7a:115c:a1e0::ce01:18a8]:3000 (Stream) ; host addresses 100.77.24.89 fd7a:115c:a1e0::ce01:18a8 (must match); serve: No serve config
+origin/dev:  6cfc317b4982
+
+$ make logs LOG=ops-health N=2
+tail: cannot open '/var/log/quanttrader/ops-health.log' for reading: No such file or directory
+make: *** [logs] Error 1
+# (the log is created by the 07:05 UTC cron entry; today's summary ran by hand to the terminal)
+
+$ ls ~/.ssh/qt-make-*
+/Users/jack.jones/.ssh/qt-make-e0295d5bde3a0c12b74cbe8ae170aef9eec71c5c
+$ ssh -O check -o ControlPath=~/.ssh/qt-make-%C qt
+Master running (pid=68306)
+
+$ ssh -o BatchMode=yes -o ControlPath=~/.ssh/qt-make-%C -- qt 'stat …; logrotate -d … | grep -c "considering log"; systemctl show …'
+2026-11-01 16:01:14.690985676 +0000 /etc/logrotate.d/quanttrader
+2026-11-01 16:01:13.925952657 +0000 /usr/local/lib/quanttrader/notify-failure.sh
+2026-11-01 16:01:13.925952657 +0000 /usr/local/lib/quanttrader/ops-health.sh
+2026-11-01 16:07:28.812133413 +0000 /etc/systemd/system/quanttrader.service
+logrotate -d considering: 12
+ActiveState=active
+SuccessExitStatus=143
+MainPID=31969
+NRestarts=0
+ExecMainStartTimestamp=Sun 2026-11-01 15:20:48 UTC
+{ path=/usr/local/lib/quanttrader/notify-failure.sh ; argv[]=/usr/local/lib/quanttrader/notify-failure.sh quanttrader ; ignore_errors=yes ; start_time=[n/a] ; stop_time=[n/a] ; pid=0 ; code=(null) ; s
+
+$ ssh -O check -o ControlPath=~/.ssh/qt-make-%C qt
+Master running (pid=68306)
+$ ssh -O exit -o ControlPath=~/.ssh/qt-make-%C qt
+Exit request sent.
