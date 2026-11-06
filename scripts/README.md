@@ -181,7 +181,7 @@ monitor:
    paused/erroring Supabase, and silently-stale scans.
 
 **Active alert channel: GitHub Actions** (`.github/workflows/dead-man.yml`,
-2026-06-10). Every 30 min GitHub — independent infrastructure, no extra
+2026-06-10). Scheduled every 30 min, though GitHub starts it only 2 to 5 times a day (docs/DEBT.md D-30). On each run GitHub — independent infrastructure, no extra
 account — runs FOUR parallel jobs: (1) `check-heartbeat` calls the
 anon-executable `public.last_manage_tick()` RPC and FAILS when the
 latest manage_tick is older than 45 min; (2) `check-scan-tick`
@@ -414,7 +414,7 @@ commands below on the VPS (`ssh qt`, as `ops`; `sudo` where shown).
    Crontab empty → `crontab ops/crontab` as `ops` from a checkout of `dev`.
 4. **Which tick is stale?** The failing GitHub job names it: scan (>35 min),
    manage/heartbeat (>45 min), alpha-decay (>26 h — cron runs 6-hourly at :10).
-5. **Confirm recovery:** wait for the next scheduled dead-man run (≤30 min) or
+5. **Confirm recovery:** wait for the next scheduled dead-man run (gaps of up to ten hours so far: GitHub starts it 2 to 5 times a day) or
    force one: `gh workflow run dead-man.yml --ref dev`, then
    `gh run list --workflow=dead-man.yml --limit 1` → conclusion `success`.
 
