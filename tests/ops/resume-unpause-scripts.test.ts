@@ -10,6 +10,7 @@ import {
   breakLedger,
   curlCalls,
   failCall,
+  hostLog,
   ledger,
   listsLeft,
   makeHost,
@@ -77,15 +78,25 @@ describe("resume.sh", () => {
     expect(curlCalls(host).filter((c) => c.includes("ntfy.sh"))).toHaveLength(2);
   });
 
-  it(
-    "D-28: reports an error while algorithms are active and the crontab is installed",
-    { fails: true },
-    () => {
-      const host = makeHost({ active: [A], crontab: true });
-      writeTicks(host);
-      expect(runScript(host, "resume.sh").stdout).toContain("RESUME_RESULT=PARTIAL");
-    }
-  );
+  it("reports an error while algorithms are active and the crontab is installed (D-28)", () => {
+    const host = makeHost({ active: [A], crontab: true });
+    writeTicks(host);
+    const run = runScript(host, "resume.sh");
+    expect(run.status).toBe(1);
+    expect(run.stdout).toContain("RESUME_RESULT=PARTIAL");
+    expect(run.stdout).toContain("algorithms-active:1");
+    expect(ledger(host)).toContain("errors=algorithms-active:1");
+    expect(hostLog(host, "curl-argv.log")).toContain("Priority: high");
+  });
+
+  it("a failed check with the crontab installed reports the failure, not an active count", () => {
+    const host = makeHost({ active: [A], crontab: true });
+    writeTicks(host);
+    failCall(host, "list-active");
+    const run = runScript(host, "resume.sh");
+    expect(run.stdout).toContain("RESUME_ERRORS=algorithms-check-failed");
+    expect(run.stdout).not.toContain("algorithms-active");
+  });
 });
 
 describe("unpause.sh", () => {

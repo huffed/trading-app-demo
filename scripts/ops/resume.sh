@@ -2,7 +2,8 @@
 # scripts/ops/resume.sh — runs ON THE VPS as `ops`, streamed by `make resume`. Reverses the kill
 # switch's stop only: enables and starts the service, waits for /login 200, checks that NO algorithm
 # is active (the switch may have failed to pause during an outage — then the crontab stays off and
-# the operator re-runs the switch), restores the saved crontab, waits for the next manage, heartbeat
+# the operator re-runs the switch; with the crontab already installed they are reported as an error),
+# restores the saved crontab, waits for the next manage, heartbeat
 # and scan ticks to log http=200 (≤ 25 min), alerts and writes a RESUME line with the mirroring state
 # of the saved algorithms. Algorithms stay paused — un-pausing them is the operator's deliberate act
 # (scripts/ops/unpause.sh). Idempotent. Exit status is non-zero when any step failed.
@@ -59,6 +60,10 @@ unset SB_KEY
 crons_n=$(crontab -l 2> /dev/null | grep -c '^[0-9*]' || true)
 if [ "$crons_n" != 0 ]; then
   log "crontab already installed ($crons_n entries); active algorithms: $active_n"
+  # the crontab never came off, so nothing holds these back: with the service up they trade (DEBT D-28)
+  if [ "$active_n" != 0 ] && [ "$active_n" != "?" ]; then
+    errors+=("algorithms-active:$active_n"); log "$active_n algorithm(s) are ACTIVE with the crontab installed — they can trade now: run make kill-switch to stop them"
+  fi
 elif [ "$active_n" = 0 ]; then
   if [ -s "$STATE/crontab.disabled" ]; then
     if crontab "$STATE/crontab.disabled"; then crons_n=$(crontab -l | grep -c '^[0-9*]' || true); log "crontab restored ($crons_n entries)"; else errors+=("crontab"); log "crontab restore FAILED"; fi
