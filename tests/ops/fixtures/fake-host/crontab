@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# Fake crontab: the table is the file $FAKE_HOST/crontab; absent means no crontab.
+case "${1:-}" in
+  -l) [ -f "$FAKE_HOST/crontab" ] && cat "$FAKE_HOST/crontab" || exit 1 ;;
+  -r) rm -f "$FAKE_HOST/crontab" ;;
+  *) cp "$1" "$FAKE_HOST/crontab" ;;
+esac

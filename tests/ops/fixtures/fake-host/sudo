@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Fake sudo: drops -n and runs the command.
+[ "$1" = "-n" ] && shift
+exec "$@"
