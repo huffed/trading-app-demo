@@ -195,9 +195,10 @@ describe("backup.sh, a bad night", () => {
     const stale = join(root, "state", "backup.Ab12Cd");
     mkdirSync(stale);
     writeFileSync(join(root, "state", "backup.last-ok"), "earlier\n");
+    writeFileSync(join(root, "fail-upload"), "");
     backup(root);
     expect(existsSync(stale)).toBe(false);
-    expect(stamped(root)).toBe(true);
+    expect(readFileSync(join(root, "state", "backup.last-ok"), "utf8")).toBe("earlier\n");
     expect(existsSync(join(root, "state", "backup.lock"))).toBe(true);
   });
 

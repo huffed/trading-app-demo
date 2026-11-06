@@ -152,10 +152,10 @@ age -d -i <your age key file> logs.tar.age | tar -tzf - | wc -l
 
 # 5. Into the branch. The check is what keeps the drop away from production: production has users, a fresh
 # branch has none, and no answer stops it too. Paste the branch's URI at the prompt.
-read -rs -p 'Branch URI: ' U; echo
-if [ "$("$PGBIN/psql" "$U" -Atc 'select count(*) from auth.users')" = 0 ]; then
-  "$PGBIN/psql" "$U" --variable ON_ERROR_STOP=1 --command 'drop schema if exists public cascade' --command 'create schema public' &&
-  "$PGBIN/psql" "$U" --single-transaction --variable ON_ERROR_STOP=1 \
+printf 'Branch URI: '; stty -echo; IFS= read -r U; stty echo; echo
+if [ "$("$PGBIN/psql" -X "$U" -Atc 'select count(*) from auth.users')" = 0 ]; then
+  "$PGBIN/psql" -X "$U" --variable ON_ERROR_STOP=1 --command 'drop schema if exists public cascade' --command 'create schema public' &&
+  "$PGBIN/psql" -X "$U" --single-transaction --variable ON_ERROR_STOP=1 \
     --command 'SET session_replication_role = replica' --file=auth.sql --file=public.sql
 else
   echo 'STOP: this database has users or did not answer, so it is not an empty branch.'
@@ -181,10 +181,11 @@ union all select 'auth.users', count(*) from auth.users;
 
 Step 5's `SET session_replication_role = replica` should be allowed for `postgres`: `set local session_replication_role = origin` worked on production in a rolled-back transaction on 2026-11-06, while the `set_config` function is refused. If the drill refuses it, the transaction rolls back and nothing is left half-loaded.
 
-**A real restore is not the drill.** The drill proves the schema and data load, as `postgres`, on a throwaway database. On a new project:
+**A real restore is not the drill.** The drill proves the schema and data load, as `postgres`, on a throwaway database. This outline for a new project has never been run:
 
-- Do not drop `public`, because that loses the schema's grants and default privileges. Leave out only the `SCHEMA - public` entry.
-- Drop `--no-privileges` from `pg_restore`: the dump keeps the access rules, including `revoke execute` on `prune_sentiment_cache` and the anon grants the dead-man uses.
-- Restore `broker_connections` data and its two foreign keys.
-- Recreate what neither dump holds: the trigger `on_auth_user_created` (`supabase/migrations/00001_create_profiles.sql:30-32`) and the `ensure_rls` event trigger.
-- Restore `auth` first, then `public`, with the same `SET`.
+1. Keep `public`, because dropping it loses the schema's grants and default privileges. Leave out only the `SCHEMA - public` entry.
+2. Restore `auth` first, then `public`, with the same `SET`, and with `broker_connections` data and its two foreign keys this time.
+3. Drop `--no-privileges` from `pg_restore`: the dump keeps the access rules, including `revoke execute` on `prune_sentiment_cache` and the anon grants the dead-man uses.
+4. Afterwards, recreate what neither dump holds: the trigger `on_auth_user_created` (`supabase/migrations/00001_create_profiles.sql:30-32`), which needs the restored `public.handle_new_user()`, and the `ensure_rls` event trigger.
+
+From memory, two things may stop it in one transaction: `alter default privileges` entries for `supabase_admin`, which `postgres` may be refused, and a `public.rls_auto_enable` a new project may already have. Filter those entries out of the list if so.
