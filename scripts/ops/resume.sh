@@ -3,9 +3,9 @@
 # switch's stop only: enables and starts the service, waits for /login 200, checks that NO algorithm
 # is active (the switch may have failed to pause during an outage — then the crontab stays off and
 # the operator re-runs the switch), restores the saved crontab, waits for the next manage, heartbeat
-# and scan ticks to log http=200 (≤ 25 min), alerts and writes a RESUME line. Algorithms stay paused
-# — un-pausing them is the operator's deliberate act (scripts/ops/unpause.sh). Idempotent. Exit
-# status is non-zero when any step failed.
+# and scan ticks to log http=200 (≤ 25 min), alerts and writes a RESUME line with the mirroring state
+# of the saved algorithms. Algorithms stay paused — un-pausing them is the operator's deliberate act
+# (scripts/ops/unpause.sh). Idempotent. Exit status is non-zero when any step failed.
 set -uo pipefail
 trap '' HUP INT PIPE
 
@@ -35,11 +35,22 @@ if [ "$code" = 200 ]; then log "/login 200"; else errors+=("login:$code"); log "
 SB_URL=$(envval NEXT_PUBLIC_SUPABASE_URL)
 SB_KEY=$(envval SUPABASE_SERVICE_ROLE_KEY)
 active_n="?"
+mirroring=n/a
 if [ -n "$SB_URL" ] && [ -n "$SB_KEY" ]; then
   if body=$(printf 'apikey: %s\nAuthorization: Bearer %s\n' "$SB_KEY" "$SB_KEY" | curl -fsS --max-time 15 -H @- "$SB_URL/rest/v1/algorithms?status=eq.active&select=id"); then
     active_n=$(ids_from_json <<< "$body" | grep -c . || true)
   else
     errors+=("algorithms-check-failed"); log "could not check for active algorithms (database unreachable?)"
+  fi
+  saved=$(grep -E '^[0-9a-f-]{36}$' "$STATE/kill-switch.paused-ids" 2> /dev/null | paste -sd, - || true)
+  if [ -n "$saved" ]; then
+    mirroring="?"
+    if body=$(printf 'apikey: %s\nAuthorization: Bearer %s\n' "$SB_KEY" "$SB_KEY" | curl -fsS --max-time 15 -H @- "$SB_URL/rest/v1/algorithms?id=in.($saved)&select=live_trading_enabled"); then
+      mirroring=$(python3 -c 'import json,sys
+r=json.load(sys.stdin)
+print("%d/%d" % (sum(1 for x in r if x.get("live_trading_enabled")), len(r)))' <<< "$body" 2> /dev/null || echo "?")
+    fi
+    log "mirroring state of the saved algorithms (live_trading_enabled on/total): $mirroring"
   fi
 else
   errors+=("no-supabase-credentials"); log "Supabase URL/service key not found in $ENV_FILE"
@@ -80,7 +91,7 @@ else
 fi
 
 service_state=$(systemctl is-active quanttrader 2> /dev/null || true)
-summary="RESUMED at $T0: service=$service_state crons=$crons_n active_algorithms=$active_n (still paused: make unpause) errors=${errors[*]:-none}"
+summary="RESUMED at $T0: service=$service_state crons=$crons_n active_algorithms=$active_n mirroring=$mirroring (still paused: make unpause) errors=${errors[*]:-none}"
 NTFY_TOPIC=$(envval NTFY_TOPIC); NTFY_TOKEN=$(envval NTFY_TOKEN); alert="no-topic"
 if [ -n "$NTFY_TOPIC" ]; then
   prio=default; [ ${#errors[@]} -eq 0 ] || prio=high
@@ -88,7 +99,9 @@ if [ -n "$NTFY_TOPIC" ]; then
     | curl -fsS --max-time 15 -H @- -H "Title: quanttrader-prod resumed" -H "Priority: $prio" -d "$summary" "https://ntfy.sh/$NTFY_TOPIC" > /dev/null; then alert=sent; else alert=FAILED; errors+=("alert"); fi
 fi
 unset NTFY_TOKEN
-printf '%s RESUME service=%s crons=%s active_algorithms=%s alert=%s errors=%s\n' "$(date -u +%FT%TZ)" "$service_state" "$crons_n" "$active_n" "$alert" "${errors[*]:-none}" >> "$LEDGER" 2> /dev/null || log "ledger write FAILED"
+if ! printf '%s RESUME service=%s crons=%s active_algorithms=%s mirroring=%s alert=%s errors=%s\n' "$(date -u +%FT%TZ)" "$service_state" "$crons_n" "$active_n" "$mirroring" "$alert" "${errors[*]:-none}" >> "$LEDGER" 2> /dev/null; then
+  errors+=("ledger"); log "ledger write FAILED"
+fi
 log "$summary alert=$alert"
 echo "RESUME_RESULT=$([ ${#errors[@]} -eq 0 ] && echo OK || echo PARTIAL)"
 echo "RESUME_ERRORS=${errors[*]:-none}"

@@ -3,19 +3,21 @@
 # workstation's local copy of origin/dev (no fetch: the switch must not depend on GitHub). On the
 # host itself (after a deploy has put it in the checkout): sudo -u ops bash /opt/quanttrader/scripts/ops/kill-switch.sh <reason>
 #
-#   kill-switch.sh [reason]      idempotent; safe to run twice; the only VPS change allowed in market hours
+#   kill-switch.sh [reason]      idempotent; safe to run twice; the only host command allowed in market hours
 #
 # Order — every step attempted even if an earlier one failed (fail closed), nothing here waits on
 # the database or the app before the schedulers are gone:
 #   1. disable the crontab (saved to /var/lib/quanttrader/crontab.disabled) — no new ticks;
 #   2. pause every ACTIVE algorithm (Supabase REST, service role read from .env.local on the host);
 #      the ids are saved for `make unpause`, merged with any ids a previous run saved;
-#   3. flatten the open positions of those algorithms through the app's own /api/admin/flatten-algo
-#      route on loopback — paper rows, and the broker side of any position that carries a
-#      broker_position_id; after the app stops answering (connection refused / timeout) the remaining
-#      ids are skipped, not waited on;
+#   3. flatten the open positions of those algorithms, and of any ids an earlier run saved that
+#      `make unpause` has not consumed, through the app's own /api/admin/flatten-algo route on
+#      loopback — paper rows, and the broker side of any position that carries a broker_position_id;
+#      a broker close that failed is an error even though the route answers 200; after the app stops
+#      answering (connection refused / timeout) the remaining ids are skipped, not waited on;
 #   4. stop AND disable the service (a reboot must not bring trading back);
-#   5. count positions still open for those algorithms, alert (ntfy, urgent) and write a KILL line to
+#   5. count positions still open for those algorithms (all open positions when there is no id to
+#      flatten), read their mirroring state, alert (ntfy, urgent) and write a KILL line to
 #      /var/log/quanttrader/deploys.log that says exactly what succeeded and what did not.
 # Signals from a dropped ssh session are ignored, and every line is also appended to
 # /var/log/quanttrader/kill-switch.log, so the run finishes once started. Secrets are read on the
@@ -45,6 +47,23 @@ ids_from_json() { python3 -c 'import json,sys; print("\n".join(r["id"] for r in 
 sb_get() { # $1 path+query → body on stdout; needs SB_URL/SB_KEY
   printf 'apikey: %s\nAuthorization: Bearer %s\n' "$SB_KEY" "$SB_KEY" | curl -fsS --max-time 15 -H @- "$SB_URL/rest/v1/$1"
 }
+# the route's {"flattened":N,"results":[{"status":…}]} → "<closed> <broker-failed>"; flattened counts every
+# row it touched, and the paper row closes whatever the broker answered (DEBT D-25)
+flatten_counts() {
+  python3 -c 'import json,sys
+r=json.load(sys.stdin)["results"]
+print(len(r), sum(1 for x in r if str(x.get("status","")).startswith("broker-failed:")))' 2> /dev/null
+}
+mirroring_of() { # $1 comma list of ids → "<on>/<total>" algorithms with live_trading_enabled, "?" when unreadable
+  local body
+  if body=$(sb_get "algorithms?id=in.($1)&select=live_trading_enabled"); then
+    python3 -c 'import json,sys
+r=json.load(sys.stdin)
+print("%d/%d" % (sum(1 for x in r if x.get("live_trading_enabled")), len(r)))' <<< "$body" 2> /dev/null || echo "?"
+  else
+    echo "?"
+  fi
+}
 
 [ "$(id -un)" = ops ] || { echo "kill-switch: run as ops (sudo -u ops bash $0 <reason>); refusing as $(id -un)" >&2; exit 2; }
 mkdir -p "$STATE" 2> /dev/null || true
@@ -66,16 +85,20 @@ fi
 SB_URL=$(envval NEXT_PUBLIC_SUPABASE_URL)
 SB_KEY=$(envval SUPABASE_SERVICE_ROLE_KEY)
 ids=""
-# a previous run's saved ids count only while that engagement is still on (crontab already empty);
-# a fresh engagement replaces the list, so an un-pause never wakes algorithms paused on purpose in between
-saved_ids=""
-[ "$crons" = already-empty ] && saved_ids=$(grep -E '^[0-9a-f-]{36}$' "$IDS_FILE" 2> /dev/null || true)
+# ids an earlier run saved stay in the file until make unpause consumes them, so those algorithms are
+# still paused and still the switch's to flatten, whatever the crontab says: after make resume it is back
+# (DEBT D-27). The un-pause list is narrower: it keeps them only while that engagement is still on
+# (crontab already empty); a fresh engagement replaces it, so an un-pause never wakes algorithms paused
+# on purpose in between.
+saved_ids=$(grep -E '^[0-9a-f-]{36}$' "$IDS_FILE" 2> /dev/null || true)
+keep_ids=""
+[ "$crons" = already-empty ] && keep_ids=$saved_ids
 if [ -n "$SB_URL" ] && [ -n "$SB_KEY" ]; then
   if active=$(sb_get "algorithms?status=eq.active&select=id" | ids_from_json); then
     ids=$active
     if [ -n "$ids" ]; then
       # save BEFORE the PATCH: a PATCH that commits but times out must still be un-pausable
-      printf '%s\n' "$ids" "$saved_ids" | grep -E '^[0-9a-f-]{36}$' | sort -u > "$IDS_FILE" 2> /dev/null || { errors+=("save-ids"); log "saving the ids FAILED"; }
+      printf '%s\n' "$ids" "$keep_ids" | grep -E '^[0-9a-f-]{36}$' | sort -u > "$IDS_FILE" 2> /dev/null || { errors+=("save-ids"); log "saving the ids FAILED"; }
       if printf 'apikey: %s\nAuthorization: Bearer %s\nContent-Type: application/json\nPrefer: return=minimal\n' "$SB_KEY" "$SB_KEY" \
         | curl -fsS --max-time 15 -H @- -X PATCH "$SB_URL/rest/v1/algorithms?status=eq.active" -d '{"status":"paused"}' > /dev/null; then
         paused=$(grep -c . <<< "$ids")
@@ -103,14 +126,20 @@ elif [ "$(systemctl is-active quanttrader 2> /dev/null || true)" != active ]; th
 elif [ -z "$CRON_SECRET" ]; then
   flattened=FAILED; errors+=("no-cron-secret"); log "CRON_SECRET not found in $ENV_FILE — cannot flatten"
 else
-  total=0; nfail=0; skipped=0
+  total=0; nfail=0; nbroker=0; skipped=0
   while IFS= read -r id; do
     [ -n "$id" ] || continue
     if [ "$skipped" = 1 ]; then errors+=("flatten-skipped:${id:0:8}"); continue; fi
     if out=$(printf 'Authorization: Bearer %s\n' "$CRON_SECRET" | curl -sS --max-time 60 -H @- -X POST -w '\n%{http_code}' "http://127.0.0.1:3000/api/admin/flatten-algo?id=$id" 2> /dev/null); then
       code=${out##*$'\n'}; body=${out%$'\n'*}
       if [ "$code" = 200 ]; then
-        n=$(grep -o '"flattened":[0-9]*' <<< "$body" | head -n 1 | cut -d: -f2); total=$((total + ${n:-0}))
+        if counts=$(flatten_counts <<< "$body") && [ -n "$counts" ]; then
+          touched=${counts% *}; failed=${counts#* }
+          total=$((total + touched - failed)); nbroker=$((nbroker + failed))
+          [ "$failed" = 0 ] || { errors+=("broker-failed:${id:0:8}:$failed"); log "flatten for ${id:0:8}: $failed broker close(s) FAILED; the paper rows closed anyway"; }
+        else
+          nfail=$((nfail + 1)); errors+=("flatten:${id:0:8}:unreadable"); log "flatten for ${id:0:8} answered 200 with an unreadable body"
+        fi
       else
         nfail=$((nfail + 1)); errors+=("flatten:${id:0:8}:http$code"); log "flatten for ${id:0:8} answered $code"
       fi
@@ -119,7 +148,11 @@ else
       case "$rc" in 7 | 28) skipped=1; log "the app is not answering; skipping the remaining ids" ;; esac
     fi
   done <<< "$targets"
-  if [ "$nfail" = 0 ] && [ "$skipped" = 0 ]; then flattened=$total; else flattened="$total ($nfail failed$([ "$skipped" = 1 ] && echo ', rest skipped'))"; fi
+  if [ "$nfail" = 0 ] && [ "$skipped" = 0 ] && [ "$nbroker" = 0 ]; then
+    flattened=$total
+  else
+    flattened="$total ($nfail failed, $nbroker broker-failed$([ "$skipped" = 1 ] && echo ', rest skipped'))"
+  fi
   log "flattened $flattened open position(s)"
 fi
 unset CRON_SECRET
@@ -133,17 +166,30 @@ fi
 service_state=$(systemctl is-active quanttrader 2> /dev/null || true)
 
 # 5. what is still open, then alert and record
-if [ -n "$targets" ] && [ -n "$SB_URL" ] && [ -n "$SB_KEY" ]; then
-  list=$(paste -sd, - <<< "$targets")
-  if body=$(sb_get "paper_positions?status=eq.open&algorithm_id=in.($list)&select=id"); then
+mirroring=n/a
+if [ -n "$SB_URL" ] && [ -n "$SB_KEY" ]; then
+  open_query="paper_positions?status=eq.open&select=id"
+  if [ -n "$targets" ]; then
+    list=$(paste -sd, - <<< "$targets")
+    open_query="paper_positions?status=eq.open&algorithm_id=in.($list)&select=id"
+    mirroring=$(mirroring_of "$list")
+    log "mirroring state of those algorithms (live_trading_enabled on/total): $mirroring"
+  fi
+  if body=$(sb_get "$open_query"); then
     open_after=$(ids_from_json <<< "$body" | grep -c . || true)
-    [ "$open_after" = 0 ] || { errors+=("open-after:$open_after"); log "$open_after position(s) still open for the paused algorithms — resume, then run the switch again"; }
+    if [ "$open_after" != 0 ]; then
+      if [ -n "$targets" ]; then
+        errors+=("open-after:$open_after"); log "$open_after position(s) still open for the paused algorithms — resume, then run the switch again"
+      else
+        errors+=("open-untargeted:$open_after"); log "$open_after open position(s) on algorithms that are neither active nor saved: the switch has no id to flatten them — resume, then close them through the flatten route for that algorithm"
+      fi
+    fi
   else
     open_after="?"; errors+=("open-after-check"); log "could not count open positions (database unreachable?)"
   fi
 fi
 unset SB_KEY
-summary="KILL SWITCH ($REASON) at $T0: crons=$crons paused=$paused flattened=$flattened service=$service_state open_after=$open_after errors=${errors[*]:-none}"
+summary="KILL SWITCH ($REASON) at $T0: crons=$crons paused=$paused flattened=$flattened service=$service_state open_after=$open_after mirroring=$mirroring errors=${errors[*]:-none}"
 NTFY_TOPIC=$(envval NTFY_TOPIC)
 NTFY_TOKEN=$(envval NTFY_TOKEN)
 alert="no-topic"
@@ -156,8 +202,10 @@ if [ -n "$NTFY_TOPIC" ]; then
   fi
 fi
 unset NTFY_TOKEN
-printf '%s KILL reason=%s crons=%s paused=%s flattened=%s service=%s open_after=%s alert=%s errors=%s\n' \
-  "$(date -u +%FT%TZ)" "$REASON" "$crons" "$paused" "$flattened" "$service_state" "$open_after" "$alert" "${errors[*]:-none}" >> "$LEDGER" 2> /dev/null || log "ledger write FAILED"
+if ! printf '%s KILL reason=%s crons=%s paused=%s flattened=%s service=%s open_after=%s mirroring=%s alert=%s errors=%s\n' \
+  "$(date -u +%FT%TZ)" "$REASON" "$crons" "$paused" "$flattened" "$service_state" "$open_after" "$mirroring" "$alert" "${errors[*]:-none}" >> "$LEDGER" 2> /dev/null; then
+  errors+=("ledger"); log "ledger write FAILED"
+fi
 log "$summary alert=$alert"
 echo "KILL_RESULT=$([ ${#errors[@]} -eq 0 ] && echo OK || echo PARTIAL)"
 echo "KILL_ERRORS=${errors[*]:-none}"
