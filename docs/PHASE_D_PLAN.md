@@ -70,26 +70,49 @@ Approved 2026-10-31 (questions 2 and 3) and designed in `docs/decisions/0007-nod
 
 - **Hetzner Cloud firewall** (console or `hcloud` with an API token the operator creates): inbound 22/tcp and Tailscale's 41641/udp only. Second layer under ufw.
 - **`main`:** absent on the remote (verified 2026-10-31; the local `main` is an old ancestor of `dev`). Approved (question 5): the first `make deploy` creates it as the production pointer and every verified deploy moves it (decision 0005).
-- **sudoers narrowing:** D.2.
+- **sudoers narrowing:** the next window, after D.6 (D-23, and the window section below).
 
 ## Window of 7 and 8 November 2026 (approved by the operator 2026-11-06)
 
-Every host command runs only when the operator asks. Anything unfinished by Sunday 18:00 UK waits a week. Steps 4 to 6 and 8 drop out if their PRs are not reviewed by Saturday morning; steps 2 and 3 still run. The sudoers half of step 9b follows D.6, as D.7 always has, and needs its own reviewed PR with a decision entry (D-23). No such PR exists yet, so it drops with step 8 or without that PR, and the firewall half stands alone.
+Every host command runs only when the operator asks. Anything unfinished by Sunday 18:00 UK waits a week. Steps 4 to 6 and 8 drop out if their PRs are not reviewed by Saturday morning; steps 2, 9a, 3 and 3b still run. Saturday's order is 1, 2, 9a, 3, 3b, then as numbered (operator, 2026-11-06), and the table is in that order.
 
 | # | When | Step | Changes on the host | Rollback |
 |---|---|---|---|---|
 | 1 | Sat | Pre-flight: `make status`, gate green | Nothing | None needed |
 | 2 | Sat | `make deploy` of `dev` | Checkout, install, build, one restart, commit records, `main`. No file in `src`, `supabase` or the lockfile differs. First stop under the new unit. | `make deploy REF=2635d1f` |
-| 3 | Sat, after step 2 verifies | Reboot, two ledger rows | New kernel (7.0.0-42); all processes restart; the pending flag clears | None for the app; if the kernel misbehaves, boot 7.0.0-38 from the Hetzner console |
+| 9a | Sat, after step 2 verifies, before step 3 | The operator sets a root password at the prompt (`sudo passwd root`, value in their password manager, never printed or sent), then proves one console login through the Hetzner console. If the login fails, stop: step 3 waits for the operator's call. A ledger row with the time, never the value. | Root password set. Root SSH login stays off. | `sudo passwd -l root` |
+| 3 | Sat, after 9a passes | Reboot, two ledger rows | New kernel (7.0.0-42); all processes restart; the pending flag clears | None for the app; if the kernel misbehaves, boot 7.0.0-38 from the Hetzner console |
+| 3b | Sat, after step 3 verifies, on its own. If step 3 waits, this still runs on Saturday. | The operator resets the `postgres` database password in the Supabase dashboard, value in their password manager, never printed or sent, after the check below has run on both machines. Then the next heartbeat reads healthy (`make logs LOG=heartbeat N=1`) and `make status` is unchanged. That is a smoke check only, because the app does not hold this password. A ledger row with the time, never the value. | Nothing on the host | None back to the old value, which is exposed. If something does break, it was using the password: put the new value there. |
 | 4 | Sat | Merge the scripts PR, `git fetch` | Nothing, but the three targets stream the new scripts from then on | Revert the PR, `git fetch` |
-| 5 | Sat | Paper re-test with a synthetic position, including the D-27 path (`docs/runbooks/kill-switch.md`) | Crontab off and back; algorithms paused and back; service stopped and restarted; about an hour. Both reserved ids go in the ledger row. | The runbook's recovery: `make resume`, its clean-up SQL, `make unpause`, then the flip-back. Not in the approved text, and for the operator to decide on the day: the switch flattens every active algorithm, so a real position stays open only if its algorithm is flipped first, or the test waits until it closes on its own. |
+| 5 | Sat | Paper re-test with a synthetic position, including the D-27 path (`docs/runbooks/kill-switch.md`) | Crontab off and back; algorithms paused and back; service stopped and restarted; about an hour. Both reserved ids go in the ledger row. | The runbook's fallback, which starts from `make status`. Accepted by the operator, 2026-11-06: the switch flattens every active algorithm, so the algorithms holding real positions are paused first and checked by the gate query. Expect `open_untargeted=` the number of rows from the runbook's step 1 query (two positions on 6 November) and `KILL_RESULT=PARTIAL`. Nothing manages those positions while their algorithms are paused. |
 | 6 | Sat or Sun | `make deploy` again | Same as step 2; the checkout gets the new scripts | `make deploy REF=<step 2 commit>` |
 | 7 | Sun | Rotation check: the first weekly rotation is expected at 00:00 UTC | Read-only | None needed |
 | 8 | Sun, if clean | Merge the D.6 PR, `git fetch`, then D.6 per `docs/runbooks/d6-backups.md` from a workstation checkout of `origin/dev`, no deploy needed, then the restore drill on a Supabase branch (Micro, $0.01344 per started hour, about $0.04 for 3 hours, quoted to the operator 2026-11-06) | `pg_dump` and `age`, `ops` key, backup script, reinstalled `ops-health.sh` and logrotate file, 12th crontab line, first backup. Prerequisite: the operator's role and password, then the database line on the host after 22:00 UK on Friday, which stays there if this step drops. | The runbook's Rollback, including `revoke` and `drop role backup_ro`. No trading path touches them. |
-| 9a | Sun, if time remains, before anything touches sudoers | The operator sets a root password at the prompt (`sudo passwd root`, value in their password manager, never printed or sent), then proves one console login through the Hetzner console | Root password set. Root SSH login stays off. | `sudo passwd -l root` |
-| 9b | Sun: the firewall after 9a; sudoers only after 9a and step 8, with its reviewed PR | D.7: the operator adds the Hetzner firewall (22/tcp, 41641/udp); narrow sudoers, keeping `systemctl disable --now` and `enable --now quanttrader`, which the switch and resume use, and check `sudo -n -l` for them before closing the second root shell | Sudoers file; the firewall sits outside the host | Keep a second root shell open and run `visudo -c`, then restore the file; detach the firewall in the console |
+| 9b | Sun | D.7, the firewall: the operator adds the Hetzner firewall (22/tcp, 41641/udp) | Nothing on the host; the firewall sits outside it | Detach the firewall in the console |
 
-Console login is not a recovery path until 9a passes: on 2026-11-06 the login screen appeared but no root password was known. Step 3's rollback needs only the GRUB menu, which should take no login but has not been reached. Detaching the firewall is the Cloud panel and needs no root password.
+9a runs before the reboot because step 3 is the first reboot since D.2 and the console is the way back. On 2026-11-06 the login screen appeared but no root password was known. Step 3's rollback also needs the GRUB menu, which should take no login but has not been reached. Detaching the firewall is the Cloud panel and needs no root password.
+
+**The `postgres` password (step 3b).** It was exposed in chat and shell history on 2026-11-06. Nothing automated uses it. Read that day: no direct database client or connection string in the code, scripts, crons or workflows; the four GitHub secrets are ntfy and the public Supabase URL and anon key; the database has no foreign server, subscription, vault secret, `dblink` call or edge function, and no client was connected as `postgres`. The app and the crons use the Supabase URL and API keys, `make db-types` the access token, the Supabase MCP its own login, and the backup job `backup_ro`, whose password is separate.
+
+The operator is what uses it:
+
+- **A saved JetBrains connection,** `postgres@db.<ref>.supabase.co` in `.idea/dataSources*.xml`. It is gitignored and last changed in May, so it looks dormant. Update or delete it.
+- **`psql` as `postgres`,** as in step 2 of `docs/runbooks/d6-backups.md`, which is done, and in any real restore. Keep the new value for these.
+- **Drill step 6's production count,** if run from `psql`. The SQL editor needs no password, so use that.
+
+A session cannot read the two `.env.local` files or the operator's own tools, so run this check from the repo root first. It prints counts, never values. An error line above a count means that check did not run.
+
+```bash
+grep -Ei 'postgres(ql)?://|^[[:space:]]*(export[[:space:]]+)?[A-Z0-9_]*(DB|DATABASE|PG|POSTGRES|SUPABASE_PASS)[A-Z0-9_]*=' .env.local | grep -vc backup_ro
+ssh qt "grep -Ei 'postgres(ql)?://|^[[:space:]]*(export[[:space:]]+)?[A-Z0-9_]*(DB|DATABASE|PG|POSTGRES|SUPABASE_PASS)[A-Z0-9_]*=' /opt/quanttrader/.env.local | grep -vc backup_ro"
+```
+
+A count above 0 means reading those lines in your own terminal, deciding whether they hold this password, and updating them after the reset. Check `~/.pgpass` and any other saved `psql` or GUI connection too. The drill's branch has its own credentials, so the reset does not touch drill steps 1 to 5.
+
+**Moved to the next window, 14 and 15 November (operator, 2026-11-06):**
+
+- **Sudoers (D-23).** The PR is written after D.6 shows what the backup job needs, with a decision entry. It keeps `systemctl disable --now` and `enable --now quanttrader`, which the switch and resume use, checks `sudo -n -l` for them, and runs with a second root shell open and `visudo -c`.
+- **Drill (b), the throwaway VPS,** if D.6 is clean. It is the real disaster-recovery proof, and it costs cents.
 
 ## Check-in questions before any VPS change
 
