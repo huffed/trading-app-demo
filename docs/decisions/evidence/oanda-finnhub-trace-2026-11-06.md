@@ -39,7 +39,7 @@ Position book since 2026-10-20, 1,262 ticks: 1,175 OK, 85 × 401, 2 others. Long
 | :20 | 6 | 420 | 1.4% |
 | :40 | 6 | 421 | 1.4% |
 
-By UTC hour there is no pattern. Inferred, not proven: the failures cluster where the most OANDA calls run at once, since the :00 tick overlaps the scan's own candle calls. The token works on the other ticks, so a bad or expired key does not explain it.
+By UTC hour there is no pattern. Inferred, not proven: the failures cluster where the most OANDA calls run at once, since the :00 tick overlaps the scan's own candle calls. The token works on the other ticks, so a bad or expired key does not explain it. §4's later reads argue against this: see the table of explanations there.
 
 ## 2. What the system does when a candle call fails
 
@@ -83,7 +83,7 @@ All five deployed algorithms have `rules.news_veto.enabled = true`, which is the
 
 Read on 2026-11-06 about 19:10Z and 2026-11-07 about 15:35Z, for the three questions the operator passed on with this file. Nothing was changed. Sources: `sudo -n journalctl -u quanttrader` from 2026-08-27 17:01Z, and `/var/log/quanttrader/oanda-positioning.log`, which records every tick. Counts run to the time of the read, so they are higher than §1's, which ended 13:00Z on 6 November.
 
-**Which endpoint.** Both calls in §1 return the same 401 body, and the candle call fails on both granularities it requests. Each candle 401 to 15:35Z on 7 November, matched to the first `DQ.4` line within the next six journal lines: 1,066 were `4h` refreshes, 930 `1day`, and 59 had no `DQ.4` line that close. So it is not one endpoint or one granularity. Candle failures to 19:10Z on 6 November: 2,000 × 401, 247 × 504, 1 × 502. None of the `OANDA request failed:` lines lacks a status; §1's two lines with no status are not among them.
+**Which endpoint.** Both calls in §1 return the same 401 body, and the candle call fails on both granularities it requests. Each candle 401 to 15:35Z on 7 November, matched to the first `DQ.4` line within the next six journal lines: 1,066 were `4h` refreshes, 930 `1day`, and 59 had no `DQ.4` line that close. So it is not one endpoint or one granularity. Candle failures to 19:10Z on 6 November: 2,000 × 401, 247 × 504, 1 × 502. None of the `OANDA request failed:` lines lacks a status. §1 also counted 2 lines with no status, which this session did not identify; the totals here exclude them.
 
 **Which hours.** Not by UTC hour, and until this week mostly on the `:00` minute.
 
@@ -107,7 +107,7 @@ The busiest hour has under twice the quietest (119 at 07Z, 61 at 22Z). By minute
 | On `:00` | 26 | 102 | 80 | 72 | 132 | 158 | 207 | 79 | 211 | 231 | 164 |
 | Off `:00` | 7 | 53 | 38 | 12 | 37 | 46 | 49 | 13 | 36 | 71 | 231 |
 
-The counts rise over the period but not week on week (W37 to W38 and W42 fall; W42 is the egress lockout, when the call volume fell). Through W44, 66% to 86% fell on `:00` each week. In W45, 2 to 7 November, only 42% did.
+The counts rise over the period but not week on week: W37, W38 and W42 fall. W42 is the egress lockout, when, inferred from the lockout, the call volume fell; yet it has the highest position-book `:00` rate of any week (33/168, 19.6%). Through W44, 66% to 86% fell on `:00` each week. In W45, 2 to 7 November, only 42% did.
 
 The position book shows the same change, with real rates:
 
@@ -126,8 +126,8 @@ By weekday, candle 401s per day, over the days of each weekday from 2026-08-27 t
 
 | Explanation | What it predicts | Against it |
 |---|---|---|
-| OANDA limiting this key (the operator's reading of the `:00` clustering, 2026-11-07) | Failures where this key's calls bunch | From memory, not checked: OANDA's documented rate-limit answer is 429, not 401. `:30` has the same host load as `:15` and `:45` but far more failures |
+| OANDA limiting this key (the operator's reading of the `:00` clustering, 2026-11-07) | Failures where this key's calls bunch, and fewer when calls fall | Recalled in review, not verified: OANDA's rate-limit answer is 429, not 401. From reading the crontab and the reconcile route, `:30` has the same host load as `:15` and `:45` but far more failures. W42 had the fewest candle calls and the highest position-book `:00` rate |
 | OANDA-side load at the top and half of the hour, whatever the key | Failures at `:00`, then `:30`, few on weekends | Does not by itself explain W45's spread to other minutes |
-| A second client using the same key | Failures when the other client is busy | The key is in the workstation's `.env.local`, and any `pnpm dev` there scans every active algorithm with it (`CLAUDE.md`). Whether one ran this week is not known |
+| A second client using the same key | Failures when the other client is busy | The key is in the workstation's `.env.local`. Nothing in the app schedules a scan by itself, so the workstation calls OANDA only when something calls its routes, such as a `pnpm dev` with the workstation crontab installed (`scripts/README.md:283`). Whether that ran this week is not known |
 
 Host contention cannot produce OANDA's 401 body by itself. Successful candle calls log nothing, so a per-call failure rate for candles still cannot be computed; the position book's rates are the only real ones.
