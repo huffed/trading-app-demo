@@ -63,6 +63,8 @@ No restart: the app does not read this name. Tell the session the time; the ledg
 
 ## Window steps, as `ops`, market closed
 
+**Before step 1:** `make status` shows the service active and the crontab at 11, and `make logs LOG=ops-health N=1` shows `held-by-kill-switch=0`. Step 7 replaces the crontab, which must not happen while a kill switch is engaged: it would bring the crons back with the saved copy still on disk.
+
 Window plan step 8 (`docs/PHASE_D_PLAN.md`). **First merge this PR and run `git fetch origin`, then run these from a workstation checkout of `origin/dev`** (`git switch --detach origin/dev`). As in D.4, nothing here depends on the commit the host's checkout holds, so no extra deploy is needed. The crontab and installed copies are ahead of the host's checkout until the next deploy, which is harmless.
 
 `Host qt` in `~/.ssh/config` holds one control master (`ControlMaster auto`, added 2026-11-01), so these connections count as one against `ufw limit`. Go on only if the previous step printed what it says.
@@ -123,11 +125,11 @@ Twice a year and before any schema change; the first one is step 8 of the window
 
 **Cost, quoted 2026-11-06:** a Micro preview branch is $0.01344 per started hour; Compute Credits do not cover it and the Spend Cap does not apply. Three hours is about $0.04, and egress on a 335 MB database stays within the plan. Delete the branch when done.
 
-**The operator runs steps 3 to 5, and step 6 on the branch, in their own terminal.** A decrypted dump holds broker tokens and password hashes, and it does not enter a session. `broker_connections` data is left out of the restore so that the branch never holds a token, and with it the two foreign keys that point at that table.
+**The operator runs steps 3 to 5 and step 6a in their own terminal.** A decrypted dump holds broker tokens and password hashes, and it does not enter a session. `broker_connections` data is left out of the restore so that the branch never holds a token, and with it the two foreign keys that point at that table.
 
 **1. Create the branch in the dashboard:** user menu, enable **Branching via dashboard**, then **Create branch** in the branch selector. Do not connect GitHub: changes pushed to a connected branch deploy to the project, and draft PR #291's migration is unapplied. A `MIGRATIONS_FAILED` status is expected and is not a drill failure. Supabase's page does not say whether such a branch accepts connections, so if it refuses them at step 5, stop and tell the session rather than retrying. A DNS or routing error is your network, not the branch's state. Copy the branch's **Session pooler** connection string, not the direct one, which may be IPv6 only.
 
-The branch has its own credentials, not production's (Supabase: each branch has unique credentials), so this drill does not need the `postgres` password from step 3b. If the string shows `[YOUR-PASSWORD]`, take only the password from `supabase --experimental branches get <branch> -o env` (its `POSTGRES_URL_NON_POOLING` is the direct string, so keep the Session pooler host above), or reset the password in the dashboard's Database Settings **with the branch selector on the branch, not production**. Neither has been tried here. A wrong password at step 5 prints the STOP line too.
+The branch has its own credentials, not production's (Supabase: each branch has unique credentials), so this drill does not need the `postgres` password from step 3b. If the string shows `[YOUR-PASSWORD]`, take only the password from `supabase --experimental branches get <branch> -o env`, run in your own terminal and never in a session, since it prints the branch's credentials (its `POSTGRES_URL_NON_POOLING` is the direct string, so keep the Session pooler host above), or reset the password in the dashboard's Database Settings **with the branch selector on the branch, not production**. Neither has been tried here. A wrong password at step 5 prints the STOP line too.
 
 ```bash
 # 2. Fetch through the VPS, because the box accepts only Hetzner hosts. The files are still encrypted.
@@ -165,11 +167,27 @@ fi
 unset U
 ```
 
+```bash
+# 6a. The counts on the branch, in your terminal. Paste the branch's URI again.
+printf 'Branch URI: '; stty -echo; IFS= read -r U; stty echo; echo
+"$PGBIN/psql" -X "$U" -At -F ' ' <<'SQL'
+select 'algorithms' as t, count(*) from public.algorithms
+union all select 'paper_positions', count(*) from public.paper_positions
+union all select 'activity_log', count(*) from public.activity_log
+union all select 'llm_decisions', count(*) from public.llm_decisions
+union all select 'oanda_positioning_cache', count(*) from public.oanda_positioning_cache
+union all select 'broker_connections', count(*) from public.broker_connections
+union all select 'auth.users', count(*) from auth.users;
+SQL
+unset U
+```
+
 ```sql
--- 6. The same query on the branch and on production. Use the SQL editor for production, which needs no
--- password. Production may have moved on since 02:22 UTC, so
--- its counts may be higher by that day's rows; a branch count higher than production is a failure.
--- broker_connections reads 0 on the branch, by design.
+-- 6b. The same query on production, in the SQL editor, with the branch selector back on production.
+-- broker_connections tells them apart: production has rows (7 on 2026-11-06), the branch reads 0 by design.
+-- If this reads 0, the editor is on the branch: switch the selector and run it again.
+-- Production may have moved on since 02:22 UTC, so its counts may be higher by that day's rows;
+-- a branch count higher than production is a failure.
 select 'algorithms' as t, count(*) from public.algorithms
 union all select 'paper_positions', count(*) from public.paper_positions
 union all select 'activity_log', count(*) from public.activity_log
@@ -180,7 +198,7 @@ union all select 'auth.users', count(*) from auth.users;
 ```
 
 7. Delete the branch and `rm -rf ~/qt-drill`.
-8. Send the session the two sets of counts, the branch's status after step 1 and the cost shown on the usage page. It writes `docs/decisions/evidence/d6-restore-drill-<date>.md`, counts only, and the ledger row, and decision 0011 gets its Tested line.
+8. Send the session the two sets of counts, the branch's status after step 1 and the cost shown on the usage page. It writes `docs/decisions/evidence/d6-restore-drill-<date>.md`, the counts and the branch status only, and the ledger row, and decision 0011 gets its Tested line.
 
 Step 5's `SET session_replication_role = replica` should be allowed for `postgres`: `set local session_replication_role = origin` worked on production in a rolled-back transaction on 2026-11-06, while the `set_config` function is refused. If the drill refuses it, the transaction rolls back and nothing is left half-loaded.
 
