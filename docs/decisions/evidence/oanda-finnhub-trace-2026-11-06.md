@@ -1,6 +1,6 @@
 # OANDA and Finnhub failures on the VPS: read-only trace, 2026-11-06
 
-Measured for the audit's fill findings. Nothing was changed. Sources: `journalctl -u quanttrader` (the journal starts 2026-08-27 17:01Z), `/var/log/quanttrader/oanda-positioning.log`, the `scan` cron log, the code on `dev`, and read-only queries on the database. The app writes everything to the journal at info priority, so `journalctl -p err` returns nothing and proves nothing; these counts come from the message text.
+Measured for the audit's fill findings. Nothing was changed. Sources: `sudo -n journalctl -u quanttrader` (from 2026-08-27 17:01Z; without sudo, `ops` sees only entries since 2026-11-01T13:25Z, when D.2 moved the service to that user), `/var/log/quanttrader/oanda-positioning.log`, the `scan` cron log, the code on `dev`, and read-only queries on the database. The app writes everything to the journal at info priority, so `journalctl -p err` returns nothing and proves nothing; these counts come from the message text.
 
 ## 1. Two OANDA calls fail with the same 401
 
@@ -79,15 +79,15 @@ What settles it is the veto's own record. When it fires it writes `signal_no_act
 
 All five deployed algorithms have `rules.news_veto.enabled = true`, which is the key the gate reads (`entry-gates.ts:69`), with `min_impact` high, 15 minutes before, 30 after. On failure `fetchEconomicCalendar` returns `[]` (`economic-calendar.ts:138-139`), the veto finds no event and passes. The 16 archive rows are real firings on named events (for example `USD Non Farm Payrolls` on 2026-05-08), on four algorithms now archived, none of today's five, 13 of the rows from the LLM trader, and the last is 2026-06-10 12:30Z, so the endpoint returned events until at least that date. The archive ends at 2026-06-11 10:35:01Z and the live table starts at 10:40:01Z, one 5-minute tick later, so no window is missing and nothing has been logged since. Today's five algorithms were created between 2026-06-29 and 2026-07-20, so their whole lives sit inside that live table, which has no `News veto:` row. A rejected insert would be lost, because `logActivity` only logs the failure, but 42,245 rows of that event type landed. Cause unknown: the endpoint returned events in the spring and answers 403 on the VPS, so the key, the plan or Finnhub's terms changed; the 403 body is not logged, and no log covers 11 June to 27 August. Backtests pass no events to the veto (`options.events ?? []`, `portfolio-backtest.ts:1195`), so paper and backtest agree, but only because neither applies it.
 
-## 4. Second read: which endpoint, which hours, which token
+## 4. Later reads: which endpoint, which hours, which token
 
-Read 2026-11-06 about 19:10Z, for the three questions the operator passed on with this file. Nothing was changed. Sources: `sudo -n journalctl -u quanttrader` from 2026-08-27 17:01Z, and `/var/log/quanttrader/oanda-positioning.log`. As `ops` without sudo the journal starts at 2026-11-01T13:25Z, when D.2 moved the service to that user, so read the history with sudo.
+Read on 2026-11-06 about 19:10Z and 2026-11-07 about 15:35Z, for the three questions the operator passed on with this file. Nothing was changed. Sources: `sudo -n journalctl -u quanttrader` from 2026-08-27 17:01Z, and `/var/log/quanttrader/oanda-positioning.log`, which records every tick. Counts run to the time of the read, so they are higher than §1's, which ended 13:00Z on 6 November.
 
-**Which endpoint.** Both calls in §1 return the same 401 body, and the candle call fails on both granularities it requests. Since 20 October the lines after a candle 401 are the `DQ.4` lines of 658 `1day` and 461 `4h` refreshes. So it is not one endpoint or one granularity. All candle failures to date: 2,000 × 401, 247 × 504, 1 × 502.
+**Which endpoint.** Both calls in §1 return the same 401 body, and the candle call fails on both granularities it requests. Each candle 401 to 15:35Z on 7 November, matched to the first `DQ.4` line within the next six journal lines: 1,066 were `4h` refreshes, 930 `1day`, and 59 had no `DQ.4` line that close. So it is not one endpoint or one granularity. Candle failures to 19:10Z on 6 November: 2,000 × 401, 247 × 504, 1 × 502. None of the `OANDA request failed:` lines lacks a status; §1's two lines with no status are not among them.
 
-**Which hours.** Not by UTC hour, but by minute of the hour.
+**Which hours.** Not by UTC hour, and until this week mostly on the `:00` minute.
 
-Candle 401s, all time, by UTC hour:
+Candle 401s to 19:10Z on 6 November, by UTC hour:
 
 | 00 | 01 | 02 | 03 | 04 | 05 | 06 | 07 | 08 | 09 | 10 | 11 |
 |---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -97,20 +97,37 @@ Candle 401s, all time, by UTC hour:
 |---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | 113 | 87 | 90 | 70 | 70 | 81 | 74 | 80 | 81 | 71 | 61 | 77 |
 
-The busiest hour has under twice the quietest. By minute of the hour, all time: `:00` 1,454 (73%), `:30` 356, `:45` 79, `:15` 60, every other minute 8 or fewer. By second of the minute since 2 November: 127 in 00–09, 107 in 10–19, 63 in 20–29, 29 in 30–39, 12 in 40–49, 2 in 50–59. In a minute with any candle 401 since 2 November, 99 minutes had one, 44 had two and 39 had three to seven.
+The busiest hour has under twice the quietest (119 at 07Z, 61 at 22Z). By minute of the hour over the same span: `:00` 1,454 (73%), `:30` 356, `:45` 79, `:15` 60, every other minute 8 or fewer.
 
-Position-book ticks since 20 October, 401s out of ticks. This log records every tick, so these are real rates:
+**This week the pattern changed.** Candle 401s by ISO week, to 15:35Z on 7 November:
 
-| Tick | 00–06Z | 07–12Z | 13–20Z | 21–23Z |
-|---|---:|---:|---:|---:|
-| `:00` | 26/126 (20.6%) | 22/108 (20.4%) | 23/143 (16.1%) | 4/51 (7.8%) |
-| `:20` | 2/126 (1.6%) | 2/108 (1.9%) | 4/141 (2.8%) | 1/51 (2.0%) |
-| `:40` | 2/126 (1.6%) | 3/108 (2.8%) | 3/142 (2.1%) | 0/51 (0%) |
+| Week | W35 | W36 | W37 | W38 | W39 | W40 | W41 | W42 | W43 | W44 | W45 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| All | 33 | 155 | 118 | 84 | 169 | 204 | 256 | 92 | 247 | 302 | 395 |
+| On `:00` | 26 | 102 | 80 | 72 | 132 | 158 | 207 | 79 | 211 | 231 | 164 |
+| Off `:00` | 7 | 53 | 38 | 12 | 37 | 46 | 49 | 13 | 36 | 71 | 231 |
 
-By weekday, candle 401s per day: Mon 31, Tue 41, Wed 47, Thu 43, Fri 35, Sat 2, Sun 7. They are rising. By ISO week, W35 to W45, the last ending 19:00Z on Friday: 33, 155, 118, 84, 169, 204, 256, 92, 247, 302, 340. This session did not establish why.
+The counts rise over the period but not week on week (W37 to W38 and W42 fall; W42 is the egress lockout, when the call volume fell). Through W44, 66% to 86% fell on `:00` each week. In W45, 2 to 7 November, only 42% did.
 
-**Which token.** The same on both machines. The operator compared the two copies on 2026-11-07 with a check that prints `same`, `different` or `missing`, and it printed `same`. No value was read by a session. So D-31 is not a token mismatch, which fits the counts: one service process with one `OANDA_API_KEY` succeeds on about 80% to 100% of position-book ticks.
+The position book shows the same change, with real rates:
 
-**The operator's reading (2026-11-07):** the clustering on the `:00` minute points at rate limiting or contention at the top of the hour.
+| Week | W35 | W36 | W37 | W38 | W39 | W40 | W41 | W42 | W43 | W44 | W45 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| `:00` ticks | 4/78 | 17/168 | 13/168 | 9/168 | 17/168 | 20/168 | 15/168 | 33/168 | 32/168 | 30/168 | 23/136 |
+| `:20` and `:40` ticks | 0/158 | 0/336 | 0/336 | 0/336 | 0/336 | 0/336 | 1/336 | 0/336 | 0/336 | 0/335 | 17/271 |
 
-Inferred, not proven, and consistent with that reading: the failures follow how many OANDA calls run at once, since they sit in the first seconds of the ticks that overlap the scan. Whether OANDA is limiting this key or the host is contending with itself is not established. Successful candle calls log nothing, so a candle failure rate per call still cannot be computed.
+One failure on a `:20` or `:40` tick in ten weeks, then 17 in W45. On the afternoon of 6 November alone: 13:20, 15:40, 16:00, 16:20, 17:00, 17:20 and 18:40Z, five of them off `:00`. That is why §1's position-book counts (73/421, 6/420 and 6/421) and the first §4 read's (75/428, 9/426 and 8/427) differ by more than six hours of ticks would suggest.
+
+By weekday, candle 401s per day, over the days of each weekday from 2026-08-27 to 2026-11-07: Mon 31 (310 in 10 days), Tue 41 (414 in 10), Wed 43 (427 in 10), Thu 39 (431 in 11), Fri 34 (376 in 11), Sat 3 (37 in 11), Sun 6 (60 in 10). The crons run every day and the refresh has no market-hours check that this session found, so the weekend fall is not explained by the host's own load.
+
+**Which token.** The workstation's `.env.local` and the host's `/opt/quanttrader/.env.local` hold the same `OANDA_API_KEY`. The operator compared the two on 2026-11-07 with a check that prints `same`, `different` or `missing`, and it printed `same`. No value was read by a session. A matching file does not prove what the running process holds. What rules out a wrong or revoked key is that the failures are intermittent: one service process makes both calls, and the position book succeeds on most ticks with that key.
+
+**What could explain it, side by side. None is established.**
+
+| Explanation | What it predicts | Against it |
+|---|---|---|
+| OANDA limiting this key (the operator's reading of the `:00` clustering, 2026-11-07) | Failures where this key's calls bunch | From memory, not checked: OANDA's documented rate-limit answer is 429, not 401. `:30` has the same host load as `:15` and `:45` but far more failures |
+| OANDA-side load at the top and half of the hour, whatever the key | Failures at `:00`, then `:30`, few on weekends | Does not by itself explain W45's spread to other minutes |
+| A second client using the same key | Failures when the other client is busy | The key is in the workstation's `.env.local`, and any `pnpm dev` there scans every active algorithm with it (`CLAUDE.md`). Whether one ran this week is not known |
+
+Host contention cannot produce OANDA's 401 body by itself. Successful candle calls log nothing, so a per-call failure rate for candles still cannot be computed; the position book's rates are the only real ones.
