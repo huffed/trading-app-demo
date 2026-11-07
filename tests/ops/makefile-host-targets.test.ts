@@ -181,12 +181,58 @@ describe("the host targets prompt every time", () => {
     for (const line of usage) expect(line).toMatch(glob);
   });
 
-  it("pre-approve nothing that can run a TypeScript or JavaScript file, committed or local", () => {
-    const runsCode = (rule: string): boolean =>
-      /^Bash\((pnpm dlx|pnpm exec (tsx|node)|npx (tsx|node)|tsx|node|bun|deno)\b/.test(rule);
-    expect(project.allow.filter(runsCode)).toEqual([]);
+  // a general-purpose runner with open arguments could run the doctor without naming it on the command
+  // line; a rule for one exact command, and the test runners decision 0010 records as a gap, pass
+  const opensARunner = (rule: string): boolean => {
+    if (!rule.startsWith("Bash(") || !rule.includes("*")) return false;
+    const body = rule.slice(5, -1).replace(/^([A-Za-z_][A-Za-z0-9_]*=\S*\s+)+/, "");
+    const bare = /^(npx|pnpm|pnpm exec|npm exec)( \*|:\*|\*)$/.test(body);
+    const runner =
+      /^(pnpm dlx|pnpm tsx|npm exec|npx (tsx|node|ts-node)|pnpm exec (tsx|node|ts-node)|tsx|ts-node|node|bun|deno|bash|sh)(\s|:|\*|$)/.test(
+        body
+      );
+    return bare || runner;
+  };
+
+  it("recognises the runner rules that could run the doctor unnamed, and no others", () => {
+    for (const rule of [
+      "Bash(npx *)",
+      "Bash(npx:*)",
+      "Bash(pnpm exec *)",
+      "Bash(pnpm *)",
+      "Bash(pnpm dlx tsx *)",
+    ])
+      expect(opensARunner(rule), rule).toBe(true);
+    for (const rule of [
+      "Bash(tsx *)",
+      "Bash(node -e *)",
+      "Bash(bash -c *)",
+      "Bash(X=1 npx tsx *)",
+      "Bash(npm exec *)",
+    ])
+      expect(opensARunner(rule), rule).toBe(true);
+    for (const rule of [
+      "Bash(npx tsc *)",
+      "Bash(pnpm test *)",
+      "Bash(pnpm exec vitest run *)",
+      "Bash(npx --version)",
+    ])
+      expect(opensARunner(rule), rule).toBe(false);
+    expect(opensARunner("Bash(ALGO_ID=x npx tsx scripts/inspect-algo.ts)")).toBe(false);
+  });
+
+  it("pre-approve no runner with open arguments: committed, in a skill, or local", () => {
+    expect(project.allow.filter(opensARunner)).toEqual([]);
+    const skills = resolve(process.cwd(), ".claude/skills");
+    for (const skill of readdirSync(skills)) {
+      const file = resolve(skills, skill, "SKILL.md");
+      if (!existsSync(file)) continue;
+      const allowed = /^allowed-tools:(.*)$/m.exec(readFileSync(file, "utf8"));
+      const rules = allowed === null ? [] : (allowed[1].match(/Bash\([^)]*\)/g) ?? []);
+      expect(rules.filter(opensARunner), skill).toEqual([]);
+    }
     const local = resolve(process.cwd(), ".claude/settings.local.json");
-    if (existsSync(local)) expect(permissionRules(local).allow.filter(runsCode)).toEqual([]);
+    if (existsSync(local)) expect(permissionRules(local).allow.filter(opensARunner)).toEqual([]);
   });
 });
 
