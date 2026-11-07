@@ -130,4 +130,6 @@ By weekday, candle 401s per day, over the days of each weekday from 2026-08-27 t
 | OANDA-side load at the top and half of the hour, whatever the key | Failures at `:00`, then `:30`, few on weekends | Does not by itself explain W45's spread to other minutes |
 | A second client using the same key | Failures when the other client is busy | The key is in the workstation's `.env.local`. Nothing in the app schedules a scan by itself, so the workstation calls OANDA only when something calls its routes, such as a `pnpm dev` with the workstation crontab installed (`scripts/README.md:283`). Whether that ran this week is not known |
 
+**Update, 2026-11-07 (operator):** `pnpm dev` has not run on the workstation this week and its crontab is not installed (`crontab -l` empty, no `/tmp/quanttrader-*.log`), so the second client is out for this week's failures; the other two explanations stay open for the audit.
+
 Host contention cannot produce OANDA's 401 body by itself. Successful candle calls log nothing, so a per-call failure rate for candles still cannot be computed; the position book's rates are the only real ones.
