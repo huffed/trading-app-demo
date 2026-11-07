@@ -201,23 +201,26 @@ describe("the host targets prompt every time", () => {
       "Bash(pnpm exec *)",
       "Bash(pnpm *)",
       "Bash(pnpm dlx tsx *)",
-    ])
+    ]) {
       expect(opensARunner(rule), rule).toBe(true);
+    }
     for (const rule of [
       "Bash(tsx *)",
       "Bash(node -e *)",
       "Bash(bash -c *)",
       "Bash(X=1 npx tsx *)",
       "Bash(npm exec *)",
-    ])
+    ]) {
       expect(opensARunner(rule), rule).toBe(true);
+    }
     for (const rule of [
       "Bash(npx tsc *)",
       "Bash(pnpm test *)",
       "Bash(pnpm exec vitest run *)",
       "Bash(npx --version)",
-    ])
+    ]) {
       expect(opensARunner(rule), rule).toBe(false);
+    }
     expect(opensARunner("Bash(ALGO_ID=x npx tsx scripts/inspect-algo.ts)")).toBe(false);
   });
 
