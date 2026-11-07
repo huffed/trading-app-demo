@@ -14,6 +14,8 @@
 #   4  mirror pushes; force, delete or +refspec pushes that touch dev or main,
 #      including a bare `git push --force` while dev or main is checked out
 #   5  git commit --no-verify (any unambiguous prefix), -n, or HUSKY=0
+#   6  a command that names scripts/canonical/enable-broker-mirror.ts and runs anything that can
+#      execute it (DEBT D-33; lifts when MODERNISATION P19 lands). Reading the file stays allowed
 #   7  pre-approved commands turned into writes: make with an alternate makefile
 #      (-f, -C, --eval, MAKEFILES=, a makefile on stdin — quoted or not), a host
 #      target beside another goal, behind a flag or behind an override, or a
@@ -74,6 +76,8 @@ q="[\"']?"
 pathprefix='([^[:space:];&|"'"'"']*/)?'
 readers='(cat|less|more|head|tail|nl|tac|paste|uniq|column|fold|fmt|hexdump|grep|rg|ag|sed|awk|cut|sort|diff|cmp|cp|mv|rm|tee|source|\.|vi|vim|nano|open|scp|rsync|base64|xxd|od|strings|dotenv|export|set|perl|python3?|node|ruby|php|bash|sh|zsh|jq|xargs)'
 interpreters='(node|python3?|perl|ruby|php|bash|sh|zsh|eval)'
+mirror_script='enable-broker-mirror'
+ts_runners='(tsx|ts-node|vite-node|jiti|bun|deno|npx|pnpm|yarn|npm)'
 anywriters='(mv|rm|tee|truncate|touch|chmod|chown|mkdir|rmdir|shred|unlink|ln)'
 destwriters='(cp|install|rsync|scp)'
 destructive='(rm|mv|truncate|shred|unlink|rmdir)'
@@ -116,6 +120,8 @@ pipeline_env=0
 in_compound=0
 any_protected=0
 destructive_elsewhere=""
+mirror_named=0
+runner_seen=""
 fence_down="${QT_ALLOW_LIVE_EDITS:-0}"
 
 while IFS=$'\t' read -r sep seg; do
@@ -203,6 +209,12 @@ while IFS=$'\t' read -r sep seg; do
     deny "$orig" "git commit --no-verify / -n skips gitleaks and the commit-msg hook; commit normally (docs/DEV_SETUP.md §9)"
   fi
 
+  # 6. the script that turns mirroring on: judged across the whole command below, so a path in a variable or
+  # fed through a pipe is still seen. eslint, prettier, tsc and vitest only read it
+  grep -qi "$mirror_script" <<<"$s" && mirror_named=1
+  if grep -qiE "^(${interpreters}|${ts_runners})([[:space:]]|$)" <<<"$s" \
+     && ! grep -qiE "^(pnpm|npx)[[:space:]]+(exec[[:space:]]+)?(eslint|prettier|tsc|vitest)([[:space:]]|$)" <<<"$s"; then runner_seen=$orig; fi
+
   # 7. pre-approved commands that can be turned into writes
   if grep -qiE "^make([[:space:]]|$)" <<<"$s"; then
     # quotes and backslashes removed but their content kept: a quoted '--eval=…', an escaped --e\val or a
@@ -274,6 +286,9 @@ while IFS=$'\t' read -r sep seg; do
   fi
 done <<<"$raw"
 
+if [ "$mirror_named" = "1" ] && [ -n "$runner_seen" ]; then
+  deny "$runner_seen" "enable-broker-mirror.ts sets live_trading_enabled=true with the service role and writes no ledger row, and it runs on import, so it is refused from a session until MODERNISATION P19 lands (DEBT D-33). Reading it is fine; if you only mention it, keep that apart from any command that runs code"
+fi
 if [ -n "$destructive_elsewhere" ] && [ "$any_protected" = "1" ]; then
   deny "$destructive_elsewhere" "a destructive command takes its paths from another command or a variable while this command line names pinned data, golden inputs or live-runner paths"
 fi
