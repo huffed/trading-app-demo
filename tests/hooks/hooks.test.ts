@@ -9,7 +9,7 @@ import { spawnSync } from "node:child_process";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   BASH_ALLOWED,
   BASH_BLOCKED,
@@ -18,6 +18,9 @@ import {
   REVIEWER_ALLOWED,
   REVIEWER_BLOCKED,
 } from "./cases";
+
+// each case spawns bash and node; under a loaded machine the 5 s default timed out (2026-11-07)
+vi.setConfig({ testTimeout: 30_000 });
 
 const ROOT = resolve(__dirname, "..", "..");
 const HOOKS = join(ROOT, ".claude", "hooks");
