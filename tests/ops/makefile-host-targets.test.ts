@@ -163,6 +163,10 @@ describe("the host targets prompt every time", () => {
     }
     expect(project.ask).toContain("Bash(make -*)");
   });
+
+  it("ask before every run of the script that can redeploy MetaApi (decision 0010)", () => {
+    expect(project.ask).toContain("Bash(*metaapi-connection-doctor*)");
+  });
 });
 
 // make runs every goal on its command line, so a host goal behind a pre-approved goal would run without a

@@ -51,6 +51,7 @@
       "Bash(make unpause)",
       "Bash(make unpause *)",
       "Bash(make -*)",
+      "Bash(*metaapi-connection-doctor*)",
       "Bash(make status *)",
       "Bash(make status)",
       "Bash(make logs *)",
