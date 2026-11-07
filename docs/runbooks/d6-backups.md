@@ -63,7 +63,7 @@ No restart: the app does not read this name. Tell the session the time; the ledg
 
 ## Window steps, as `ops`, market closed
 
-**Before step 1:** `make status` shows the service active and the crontab at 11, and `make logs LOG=ops-health N=1` shows `held-by-kill-switch=0`. Step 7 replaces the crontab, which must not happen while a kill switch is engaged: it would bring the crons back with the saved copy still on disk.
+**Before step 1:** `make status` shows the service active and the crontab at 11, and `make logs LOG=ops-health N=2` shows `held-by-kill-switch=0` on its summary line. Step 7 replaces the crontab, which must not happen while a kill switch is engaged: it would bring the crons back with the saved copy still on disk.
 
 Window plan step 8 (`docs/PHASE_D_PLAN.md`). **First merge this PR and run `git fetch origin`, then run these from a workstation checkout of `origin/dev`** (`git switch --detach origin/dev`). As in D.4, nothing here depends on the commit the host's checkout holds, so no extra deploy is needed. The crontab and installed copies are ahead of the host's checkout until the next deploy, which is harmless.
 
