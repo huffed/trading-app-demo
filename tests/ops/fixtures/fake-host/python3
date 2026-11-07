@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Stand-in python3: fail-python is a broken interpreter; otherwise the real one, past this directory.
+[ -e "$FAKE_HOST/fail-python" ] && exit 1
+PATH=${PATH#*:} exec python3 "$@"
