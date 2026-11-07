@@ -109,6 +109,8 @@ Position-book ticks since 20 October, 401s out of ticks. This log records every 
 
 By weekday, candle 401s per day: Mon 31, Tue 41, Wed 47, Thu 43, Fri 35, Sat 2, Sun 7. They are rising. By ISO week, W35 to W45, the last ending 19:00Z on Friday: 33, 155, 118, 84, 169, 204, 256, 92, 247, 302, 340. This session did not establish why.
 
-**Which token.** Not read. A session reads no `.env*` file, so the operator compares the two copies with a check that prints `same`, `different` or `missing`. The counts limit what that can explain. One service process makes these calls with one `OANDA_API_KEY`, and the position book succeeds on about 80% to 100% of ticks with it. A wrong or revoked token would fail every call, so a mismatch with the local copy cannot by itself produce this pattern.
+**Which token.** The same on both machines. The operator compared the two copies on 2026-11-07 with a check that prints `same`, `different` or `missing`, and it printed `same`. No value was read by a session. So D-31 is not a token mismatch, which fits the counts: one service process with one `OANDA_API_KEY` succeeds on about 80% to 100% of position-book ticks.
 
-Inferred, not proven: the failures follow how many OANDA calls run at once, since they sit in the first seconds of the ticks that overlap the scan. Successful candle calls log nothing, so a candle failure rate per call still cannot be computed.
+**The operator's reading (2026-11-07):** the clustering on the `:00` minute points at rate limiting or contention at the top of the hour.
+
+Inferred, not proven, and consistent with that reading: the failures follow how many OANDA calls run at once, since they sit in the first seconds of the ticks that overlap the scan. Whether OANDA is limiting this key or the host is contending with itself is not established. Successful candle calls log nothing, so a candle failure rate per call still cannot be computed.
