@@ -26,13 +26,13 @@ Transport: the target opens or reuses one multiplexed ssh connection (`~/.ssh/qt
 
 ## Resume (`make resume`)
 
-Once mirroring is on, this counts as acting on the broker account (decision 0010): it brings back the service and the crons the engine trades through, and together with `make unpause` it lets the engine trade again. The algorithms stay paused until `make unpause`. It prompts, prints the mirroring state of the saved algorithms and writes it on its ledger line.
+Once mirroring is on, this counts as acting on the broker account (decision 0010): it brings back the service and the crons the engine trades through, and together with `make unpause` it lets the engine trade again. What the switch paused stays paused until `make unpause`. It prompts, prints the mirroring state of the saved algorithms and writes it on its ledger line.
 
 Reverses the stop only: enables and starts the service, waits for `/login` 200, then **checks that no algorithm is active**, and restores the crontab from the saved copy only if so. If the switch failed to pause (database outage), the crontab stays off, the line says `algorithms-active:N`, and the answer is to run the switch again.
 
 With the crontab already on, the line also says `algorithms-active:N`, and the push comes at once and says they are active, not paused. **That is not by itself a reason to run the switch.** It is expected after `make unpause`, or if no switch ran. Run the switch only if it ran before and failed, because it flattens every active algorithm. If the check itself failed with the crontab on, the line says so, and any active algorithm trades as soon as the database answers.
 
-It then waits for the next manage, heartbeat and scan ticks to log `http=200` (up to 25 minutes; skipped when the service or the crons did not come back, or when algorithms are active), pushes (high priority when anything failed) and writes a `RESUME …` ledger line. **What the switch paused stays paused** until the operator un-pauses. Exit status is non-zero when any step failed.
+It then waits for the next manage, heartbeat and scan ticks to log `http=200` (up to 25 minutes; skipped when the service or the crons did not come back, or when algorithms are active or not checked), pushes (high priority when anything failed) and writes a `RESUME …` ledger line. **What the switch paused stays paused** until the operator un-pauses. Exit status is non-zero when any step failed.
 
 ## Un-pause (`make unpause`) — the operator's deliberate act
 
@@ -121,12 +121,12 @@ update public.algorithms set status = 'active' where status = 'paused' and id in
 
 If a step differs, stop there and run `make status` first. To restore the starting state:
 
-- **Service stopped or crontab 0: a switch is engaged.** Run `make resume`. If it says `algorithms-active:N` with the crontab still off, the pause failed, so run `make kill-switch` again, then `make resume`.
-- **Service active and crontab 11: no switch is engaged** (before step 3, or after step 10). Skip `make resume`. It would read `algorithms-active:N` because those algorithms are meant to be active, and **that is not a reason to run the switch**.
+- **Service stopped or crontab 0: the stop is in place.** Run `make resume`. Before step 11 only: if it says `algorithms-active:N` with the crontab still off, the pause failed, so run `make kill-switch` again, then `make resume`. If it says `algorithms-check-failed`, wait for the database and run `make resume` again.
+- **Service active and crontab 11: the stop is not in place** (before step 3, after a resume, or after step 10). Skip `make resume`. Before step 3 or after step 10 it would read `algorithms-active:N` because those algorithms are meant to be active, and **that is not a reason to run the switch**.
 
-Then the SQL in step 9, then `make unpause`, then step 11. Finish with `make status`: service active, crontab 11.
+An engagement lasts until `make unpause`, which `make status` does not show, so read the state, not the step number. Go on only when `make status` shows crontab 11: then the SQL in step 9, then `make unpause`, then step 11. Finish with `make status`: service active, crontab 11.
 
-**After step 11 do not run the switch at all.** It flattens every active algorithm, which by then includes the ones holding the real positions.
+**In this fallback, do not run the switch after step 11.** It flattens every active algorithm, which by then includes the ones holding the real positions. In a real emergency the switch is still the stop.
 
 ## Rollback of the kill switch itself
 

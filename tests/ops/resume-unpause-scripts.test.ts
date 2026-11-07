@@ -77,7 +77,9 @@ describe("resume.sh", () => {
     expect(run.stdout).toContain("RESUME_RESULT=PARTIAL");
     expect(curlCalls(host).filter((c) => c.includes("ntfy.sh"))).toHaveLength(2);
   });
+});
 
+describe("resume.sh with the crontab already installed (D-28)", () => {
   it("reports an error while algorithms are active and the crontab is installed (D-28)", () => {
     const host = makeHost({ active: [A], crontab: true });
     writeTicks(host);

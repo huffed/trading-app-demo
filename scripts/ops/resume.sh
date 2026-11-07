@@ -5,7 +5,7 @@
 # the operator re-runs the switch; with the crontab already installed they are reported as an error),
 # restores the saved crontab, waits for the next manage, heartbeat
 # and scan ticks to log http=200 (≤ 25 min), alerts and writes a RESUME line with the mirroring state
-# of the saved algorithms. Algorithms stay paused — un-pausing them is the operator's deliberate act
+# of the saved algorithms. What the switch paused stays paused — un-pausing it is the operator's deliberate act
 # (scripts/ops/unpause.sh). Safe to re-run, though after make unpause it reports the active algorithms
 # as an error. Exit status is non-zero when any step failed.
 set -uo pipefail
@@ -80,8 +80,8 @@ else
 fi
 
 # the next manage, heartbeat and scan ticks after T0 must log http=200 — only if the service came up, the crons are
-# back and nothing is active: an active algorithm is reported now, not after a 25-minute wait
-if [ "$code" = 200 ] && [ "$crons_n" != 0 ] && { [ "$active_n" = 0 ] || [ "$active_n" = "?" ]; }; then
+# back and the check read 0: an active or unchecked algorithm is reported now, not after a 25-minute wait
+if [ "$code" = 200 ] && [ "$crons_n" != 0 ] && [ "$active_n" = 0 ]; then
   deadline=$(($(date +%s) + 25 * 60))
   for name in manage heartbeat scan; do
     while :; do
@@ -96,12 +96,12 @@ if [ "$code" = 200 ] && [ "$crons_n" != 0 ] && { [ "$active_n" = 0 ] || [ "$acti
     done
   done
 else
-  log "tick verification skipped (service or crons not back, or algorithms still active)"
+  log "tick verification skipped (service or crons not back, or algorithms active or not checked)"
 fi
 
 service_state=$(systemctl is-active quanttrader 2> /dev/null || true)
 case "$active_n" in
-  0) paused_note="still paused: make unpause" ;;
+  0) if [ "$crons_n" != 0 ]; then paused_note="still paused: make unpause"; else paused_note="still paused; crontab not restored"; fi ;;
   "?") paused_note="not checked: algorithms may be active" ;;
   *) paused_note="$active_n ACTIVE, not paused: read the runbook before make kill-switch" ;;
 esac
