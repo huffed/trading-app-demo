@@ -164,8 +164,29 @@ describe("the host targets prompt every time", () => {
     expect(project.ask).toContain("Bash(make -*)");
   });
 
-  it("ask before every run of the script that can redeploy MetaApi (decision 0010)", () => {
-    expect(project.ask).toContain("Bash(*metaapi-connection-doctor*)");
+  it("ask before every command that names the script that can redeploy MetaApi (decision 0010)", () => {
+    const rule = "Bash(*metaapi-connection-doctor*)";
+    expect(project.ask).toContain(rule);
+    const script = resolve(process.cwd(), "scripts/canonical/metaapi-connection-doctor.ts");
+    expect(existsSync(script)).toBe(true);
+    const escape = (part: string): string => part.replace(/[.+?^${}()|[\]\\]/g, "\\$&");
+    const glob = new RegExp(`^${rule.slice(5, -1).split("*").map(escape).join(".*")}$`);
+    const usage = readFileSync(script, "utf8")
+      .split("\n")
+      .filter((line) =>
+        / \*\s+.*pnpm dlx tsx scripts\/canonical\/metaapi-connection-doctor\.ts/.test(line)
+      )
+      .map((line) => line.replace(/^\s*\*\s+/, "").replace(/\s+#.*$/, ""));
+    expect(usage.length).toBeGreaterThanOrEqual(3);
+    for (const line of usage) expect(line).toMatch(glob);
+  });
+
+  it("pre-approve nothing that can run a TypeScript or JavaScript file, committed or local", () => {
+    const runsCode = (rule: string): boolean =>
+      /^Bash\((pnpm dlx|pnpm exec (tsx|node)|npx (tsx|node)|tsx|node|bun|deno)\b/.test(rule);
+    expect(project.allow.filter(runsCode)).toEqual([]);
+    const local = resolve(process.cwd(), ".claude/settings.local.json");
+    if (existsSync(local)) expect(permissionRules(local).allow.filter(runsCode)).toEqual([]);
   });
 });
 
