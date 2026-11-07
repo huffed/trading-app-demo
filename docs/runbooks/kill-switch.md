@@ -48,11 +48,11 @@ A kill switch left engaged should trip healthchecks.io about 20 minutes after th
 
 Expect no open positions; the point is the sequence.
 
-1. `git fetch origin` (the local `origin/dev` must hold the scripts); `make status` → service active, 11 cron entries (10 in the 2026-11-01 test, before D.4's ops-health line), ticks 200.
+1. `git fetch origin` (the local `origin/dev` must hold the scripts); `make status` → service active, 12 cron entries (11 before D.6, 10 in the 2026-11-01 test, before D.4's ops-health line), ticks 200.
 2. `make kill-switch REASON=paper-test` → output ends `KILL_RESULT=OK`, `KILL_ERRORS=none`; the line reads `crons=disabled paused=5 flattened=0 service=inactive open_after=0 open_untargeted=0 mirroring=0/5 alert=sent` (`service=failed` in the 2026-11-01 test runs, which predate the 16:07Z install of decision 0009's unit with `SuccessExitStatus=143`: Next exits 143 on SIGTERM; from the next stop the line reads `service=inactive`); the phone receives the urgent push; `make status` → service inactive, crontab 0.
 3. `make kill-switch REASON=paper-test-again` → `KILL_RESULT=OK` with `crons=already-empty paused=0 flattened=SKIPPED open_after=0 open_untargeted=0` (idempotency: the service is already stopped, so there is nothing to flatten through; `open_after` is the check that matters).
 4. In the database: the five algorithms are `paused`; no open paper position; any position closed by the flatten has `exit_reason='manual'`.
-5. `make resume` → service active, `active_algorithms=0`, crontab 11 (10 in the 2026-11-01 test), the next manage, heartbeat and scan ticks 200, `RESUME_RESULT=OK`, normal-priority push received.
+5. `make resume` → service active, `active_algorithms=0`, crontab 12 (11 before D.6, 10 in the 2026-11-01 test), the next manage, heartbeat and scan ticks 200, `RESUME_RESULT=OK`, normal-priority push received.
 6. `make unpause` → `UNPAUSE_RESULT=OK`, `algorithms=5 of 5 saved`; the next scan tick shows `"scanned":5`.
 7. Ledger rows KILL, KILL, RESUME and UNPAUSE on the host; copy them into `docs/decisions/deploys.md` with the test's decision entry (0008) in the next PR.
 
@@ -89,7 +89,7 @@ where p.status = 'open' and a.status = 'active';
 
 3. `make kill-switch REASON=paper-retest` at once → `crons=disabled`, `paused=N`, `flattened=0`, `service=inactive`, `open_after=0`, `open_untargeted=r`, `mirroring=0/N`; the urgent push arrives; `make status` → service inactive, crontab 0.
 4. `make kill-switch REASON=paper-retest-again` → `crons=already-empty paused=0 flattened=SKIPPED open_untargeted=r`.
-5. `make resume` → `RESUME_RESULT=OK`, `active_algorithms=0`, crontab 11, ticks 200, `mirroring=0/N`.
+5. `make resume` → `RESUME_RESULT=OK`, `active_algorithms=0`, crontab 12 (11 before D.6), ticks 200, `mirroring=0/N`.
 
 ```sql
 -- 6. The synthetic position, on the test algorithm, which is paused and saved.
@@ -122,9 +122,9 @@ update public.algorithms set status = 'active' where status = 'paused' and id in
 If a step differs, stop there and run `make status` first. To restore the starting state:
 
 - **Service stopped or crontab 0: the stop is in place.** Run `make resume`. Before step 11 only: if it says `algorithms-active:N` with the crontab still off, the pause failed, so run `make kill-switch` again, then `make resume`. If it says `algorithms-check-failed`, wait for the database and run `make resume` again.
-- **Service active and crontab 11: the stop is not in place** (before step 3, after a resume, or after step 10). Skip `make resume`. Before step 3 or after step 10 it would read `algorithms-active:N` because those algorithms are meant to be active, and **that is not a reason to run the switch**.
+- **Service active and crontab 12 (11 before D.6): the stop is not in place** (before step 3, after a resume, or after step 10). Skip `make resume`. Before step 3 or after step 10 it would read `algorithms-active:N` because those algorithms are meant to be active, and **that is not a reason to run the switch**.
 
-An engagement lasts until `make unpause`, which `make status` does not show, so read the state, not the step number. Go on only when `make status` shows crontab 11: then the SQL in step 9, then `make unpause`, then step 11. Finish with `make status`: service active, crontab 11.
+An engagement lasts until `make unpause`, which `make status` does not show, so read the state, not the step number. Go on only when `make status` shows crontab 12 (11 before D.6): then the SQL in step 9, then `make unpause`, then step 11. Finish with `make status`: service active, crontab 12 (11 before D.6).
 
 **In this fallback, do not run the switch after step 11.** It flattens every active algorithm, which by then includes the ones holding the real positions. In a real emergency the switch is still the stop.
 

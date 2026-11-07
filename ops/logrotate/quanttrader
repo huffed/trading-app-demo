@@ -16,6 +16,7 @@
 /var/log/quanttrader/m1-band-check.log
 /var/log/quanttrader/ops-health.log
 /var/log/quanttrader/kill-switch.log
+/var/log/quanttrader/backup.log
 {
     su ops ops
     weekly
