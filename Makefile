@@ -195,7 +195,7 @@ kill-switch: ## EMERGENCY: disable the crons, pause every active algorithm, flat
 	echo "kill-switch: streaming scripts/ops/kill-switch.sh from local origin/dev $$(git rev-parse --short=12 origin/dev) to $$QT_HOST"; \
 	git show origin/dev:scripts/ops/kill-switch.sh | $(SSH) -- "$$QT_HOST" "bash -s -- $$REASON"
 
-resume: ## Reverse the kill switch's stop: enable + start the service, refuse while any algorithm is active, restore the crontab, verify the next ticks, alert, ledger line — algorithms stay paused (make unpause is the operator's act); prompts every time, never pre-approved
+resume: ## Reverse the kill switch's stop: enable + start the service, restore the crontab only if no algorithm is active, verify the next ticks, alert, ledger line — algorithms stay paused (make unpause is the operator's act); prompts every time, never pre-approved
 	@set -o pipefail; \
 	case "$$QT_HOST" in -*|*[!A-Za-z0-9._-]*|"") echo "make resume: QT_HOST must be an ssh host alias"; exit 2;; esac; \
 	git cat-file -e origin/dev:scripts/ops/resume.sh 2>/dev/null || { echo "make resume: scripts/ops/resume.sh is not in your local origin/dev — run: git fetch origin"; exit 2; }; \

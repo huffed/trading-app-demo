@@ -34,7 +34,7 @@ Host qt
   IdentitiesOnly yes
 ```
 
-Keep **two** SSH sessions open for every step below: one to make the change, one to prove you can still log in. Never close the proving session until the new login works. Recovery if locked out: Hetzner Cloud console → server → Console (web TTY) → log in and revert the drop-in file.
+Keep **two** SSH sessions open for every step below: one to make the change, one to prove you can still log in. Never close the proving session until the new login works. Console login needs a root password, and none is known until step 9a of the window plan in `docs/PHASE_D_PLAN.md`. Recovery if locked out: Hetzner Cloud console → server → Console (web TTY) → log in and revert the drop-in file.
 
 ## Phase 1 — today
 
@@ -111,4 +111,4 @@ The sequence as first drafted, kept for the record; the executed design is the D
 
 ## Rollback
 
-Any step, as `ops`: `sudo rm /etc/ssh/sshd_config.d/10-hardening.conf && sudo sshd -t && sudo systemctl reload ssh` restores the distribution defaults (root key login, password auth on). If no login works at all: Hetzner Cloud console → server → Console, then the same command as root. `ufw allow 22/tcp` restores the plain allow. `systemctl disable --now fail2ban` stops the jail.
+Any step, as `ops`: `sudo rm /etc/ssh/sshd_config.d/10-hardening.conf && sudo sshd -t && sudo systemctl reload ssh` restores the distribution defaults (root key login, password auth on). If no login works at all: Hetzner Cloud console → server → Console, then the same command as root, once step 9a of the window plan has set a root password. `ufw allow 22/tcp` restores the plain allow. `systemctl disable --now fail2ban` stops the jail.

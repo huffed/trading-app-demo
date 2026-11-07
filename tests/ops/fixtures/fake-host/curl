@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+# Fake curl for the kill-switch tests. Answers from files under $FAKE_HOST and records every call in
+# $FAKE_HOST/curl.log, its arguments in curl-argv.log and its stdin headers in curl-stdin.log. A file
+# fail-<name> makes that call exit with the code it holds, or 22, as curl -f does, when it is empty.
+for a in "$@"; do [ "$a" = "@-" ] && cat >> "$FAKE_HOST/curl-stdin.log"; done
+printf '%s\n' "$*" >> "$FAKE_HOST/curl-argv.log"
+url=""
+method=GET
+prev=""
+for a in "$@"; do
+  case "$a" in http*) url=$a ;; esac
+  [ "$prev" = "-X" ] && method=$a
+  prev=$a
+done
+printf '%s %s\n' "$method" "$url" >> "$FAKE_HOST/curl.log"
+fail() {
+  if [ -e "$FAKE_HOST/fail-$1" ]; then
+    code=$(cat "$FAKE_HOST/fail-$1")
+    exit "${code:-22}"
+  fi
+}
+case "$url" in
+  */login) printf '200' ;;
+  *ntfy.sh/*) fail ntfy ;;
+  */api/admin/flatten-algo*)
+    fail flatten
+    if [ -e "$FAKE_HOST/flatten-http" ]; then
+      printf 'error\n%s' "$(cat "$FAKE_HOST/flatten-http")"
+      exit 0
+    fi
+    PATH=${PATH#*:} python3 "$(dirname "$0")/flatten-route.py" "$FAKE_HOST" "${url##*id=}"
+    printf '\n200'
+    ;;
+  *"/rest/v1/algorithms?status=eq.active&select=id")
+    fail list-active
+    cat "$FAKE_HOST/active.json"
+    ;;
+  *"/rest/v1/algorithms?status=eq.active")
+    fail pause
+    printf '[]' > "$FAKE_HOST/active.json"
+    ;;
+  *"/rest/v1/algorithms?status=eq.paused"*)
+    fail unpause
+    cat "$FAKE_HOST/unpause.json"
+    ;;
+  *"/rest/v1/algorithms?id=in."*"select=live_trading_enabled")
+    fail mirroring
+    cat "$FAKE_HOST/mirroring.json"
+    ;;
+  *"/rest/v1/paper_positions?"*)
+    fail open-count
+    cat "$FAKE_HOST/open.json"
+    ;;
+  *) echo "fake curl: unexpected url $url" >&2; exit 3 ;;
+esac

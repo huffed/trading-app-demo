@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# Fake systemctl: the service state is the file $FAKE_HOST/service. send-hup hangs up the script that
+# called it, which is what a dropped ssh session does.
+case "$1" in
+  is-active) cat "$FAKE_HOST/service" ;;
+  disable | enable)
+    [ -e "$FAKE_HOST/send-hup" ] && kill -HUP "$PPID"
+    if [ "$1" = disable ]; then echo inactive > "$FAKE_HOST/service"; else echo active > "$FAKE_HOST/service"; fi
+    ;;
+esac
