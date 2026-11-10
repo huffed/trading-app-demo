@@ -1,6 +1,8 @@
 # 0011 — Nightly encrypted backups to the Storage Box, with a tested restore
 
-**Date:** 2026-11-06 · **Status:** active once installed (window of 2026-11-07/08, ledger row then) · **Phase:** D.6.
+**Date:** 2026-11-06 · **Status:** active since 2026-11-07 (installed in the window, ledger row 2026-11-07T16:42Z) · **Phase:** D.6.
+
+**Tested:** 2026-11-07 to 2026-11-10, a restore drill of `nightly/2026-11-07` into a Supabase branch. Both dumps loaded with no error, and the branch's count for each of the five tables equals production's rows created before the dump (`evidence/d6-restore-drill-2026-11-07.md`). The branch's status was unhealthy, which the operator attributes to the migration replay D-34 expected (no failing migration was read); the drill does not use its schema. Not tested: a whole restore into a new project, and the throwaway-VPS drill.
 
 ## Decision
 
