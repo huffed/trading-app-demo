@@ -3,13 +3,14 @@
  * into each hook exactly as Claude Code does and assert the exit code
  * (0 = allow, 2 = refuse) and, where it matters, the output. They also cover
  * the commit-msg hook and the fence check. Nothing here runs the commands under
- * test; the hooks only classify them. The case tables live in ./cases.ts.
+ * test; the hooks only classify them. The case tables live in ./cases.ts, and rule 8's (raw host commands)
+ * in ./host-cases.ts.
  */
 import { spawnSync } from "node:child_process";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   BASH_ALLOWED,
   BASH_BLOCKED,
@@ -18,6 +19,10 @@ import {
   REVIEWER_ALLOWED,
   REVIEWER_BLOCKED,
 } from "./cases";
+import { HOST_ALLOWED, HOST_BLOCKED } from "./host-cases";
+
+// each case spawns bash and node; under a loaded machine the 5 s default timed out a case
+vi.setConfig({ testTimeout: 30_000 });
 
 const ROOT = resolve(__dirname, "..", "..");
 const HOOKS = join(ROOT, ".claude", "hooks");
@@ -118,6 +123,21 @@ describe("guard-bash.sh (shell commands)", () => {
   it("fails closed on malformed input", () => {
     expect(runHook("guard-bash.sh", "not json").status).toBe(2);
   });
+});
+
+describe("guard-bash.sh rule 8 (raw host commands reach the qt alias only, bare, so they prompt)", () => {
+  for (const [cmd, reason] of HOST_BLOCKED) {
+    it(`blocks: ${firstLine(cmd)}`, () => {
+      const r = runHook("guard-bash.sh", bash(cmd));
+      expect(r.status).toBe(2);
+      expect(r.stderr).toContain(reason);
+    });
+  }
+  for (const cmd of HOST_ALLOWED) {
+    it(`allows: ${firstLine(cmd)}`, () => {
+      expect(runHook("guard-bash.sh", bash(cmd)).status).toBe(0);
+    });
+  }
 });
 
 describe("reviewer-bash-allowlist.sh (read-only reviewer)", () => {

@@ -20,6 +20,11 @@
 #      variable override containing shell metacharacters;
 #      git diff/log/show/blame/grep --output or -O; vitest -u/--outputFile;
 #      prettier --check combined with --write
+#   8  raw host commands (ssh, scp, sftp, rsync) to anything but the qt alias, with
+#      a user@ or an option that changes the host, user, port, config, proxy or
+#      remote shell, or in any form the ask rules may not see: behind a wrapper,
+#      a VAR= prefix, a path, a keyword, a shell's -c, eval, or inside $(…); the
+#      ssh variants (autossh, sshpass, ssh-copy-id, sshfs, mosh) outright
 # Pattern-based and best-effort by nature (DEBT D-22); the permission deny rules
 # are the hard stop for Claude's own file tools. Fails CLOSED on any inspection
 # error. Every rule has a case in tests/hooks/hooks.test.ts.
@@ -109,6 +114,47 @@ destroys() { # destructive verbs only, for parent directories
   local target=$1 seg_l=$2
   grep -qiE "^(${destructive}|git[[:space:]]+(rm|checkout|restore|clean)|find)([[:space:]]|$)" <<<"$seg_l" || return 1
   grep -qiE "(^|[[:space:]/\"'])${target}" <<<"$seg_l"
+}
+
+# host_check <ssh|scp|sftp|rsync> <arguments>: 0 when every host the command reaches is the qt alias, given with
+# no user and no option that changes the host, user, port, config, proxy or remote shell; else 1 and $host_reason
+host_reason=""
+host_check() {
+  local cmd=$1 args toks tok dest="" end=0 remote
+  args=$(tr -d "\"'\\\\" <<<"$2")                    # quotes and backslashes go; the words stay
+  read -r -a toks <<<"$args"
+  case "$cmd" in
+    ssh|sftp)
+      for tok in ${toks[@]+"${toks[@]}"}; do
+        if [ "$end" = 0 ] && [ "$tok" = "--" ]; then end=1; continue; fi
+        if [ "$end" = 0 ] && [ "${tok#-}" != "$tok" ]; then
+          case "$cmd:${tok#-}" in
+            ssh:*[!46CGnqtTvx]*|sftp:*[!46Cqv]*)
+              host_reason="$cmd $tok changes the host, user, port, config, proxy or forwarding, or is not on the short list; the qt alias carries its own settings"; return 1 ;;
+          esac
+          continue
+        fi
+        dest=$tok; break
+      done
+      dest=${dest%%:*}
+      [ "$dest" = qt ] || { host_reason="$cmd to ${dest:-no host}; raw host commands go to the qt alias only, with no user@"; return 1; } ;;
+    scp|rsync)
+      for tok in ${toks[@]+"${toks[@]}"}; do
+        case "$cmd:$tok" in
+          rsync:-e*|rsync:--rsh*|rsync:-[!-]*e*|scp:-*[!-346BCOpqrv]*)
+            host_reason="$cmd $tok sets a remote shell, a port, a config, a proxy or another option off the short list"; return 1 ;;
+        esac
+        case "$tok" in
+          -*) ;;
+          *::*|*://*)
+            host_reason="$cmd $tok is a daemon or URL form; use qt:path"; return 1 ;;
+          [!/]*:*)
+            remote=${tok%%:*}
+            [ "$remote" = qt ] || { host_reason="$cmd to $remote; raw host commands go to the qt alias only, with no user@"; return 1; } ;;
+        esac
+      done ;;
+  esac
+  return 0
 }
 
 notice_emitted=0
@@ -272,6 +318,26 @@ while IFS=$'\t' read -r sep seg; do
   if grep -qE "^pnpm[[:space:]]+(exec[[:space:]]+)?prettier([[:space:]]|$)" <<<"$s" && grep -qE "(^|[[:space:]])--check([[:space:]]|$)" <<<"$uq" && grep -qE "(^|[[:space:]])(-w|--write)([[:space:]]|$)" <<<"$uq"; then
     deny "$orig" "prettier --check combined with --write is a write; use make format (an ask rule) on purpose"
   fi
+
+  # 8. raw host commands: ssh, scp, sftp and rsync reach only the qt alias, and only as the first word of their own
+  #    command, so the ask rules (Bash(ssh *) and the rest) see them and prompt every time — never behind a
+  #    wrapper, a VAR= prefix, a path, a shell keyword, a shell's -c, eval or a substitution; the ssh variants are
+  #    not used from a session at all
+  host_head=${s%%[[:space:]]*}
+  case "$host_head" in
+    autossh|sshpass|ssh-copy-id|sshfs|mosh)
+      deny "$orig" "$host_head is not used from a session; raw host commands are ssh, scp, sftp or rsync to the qt alias, run bare so they prompt (docs/DEV_SETUP.md §17)" ;;
+    ssh|scp|sftp|rsync)
+      # the bare word alone prints usage and reaches nothing (and is how markdown in a heredoc names the command)
+      [ "$seg" != "$host_head" ] || continue
+      [ "$sep" != "subst" ] || deny "$orig" "a host command inside \$(…) or backticks; run it as its own command so the ask rule prompts (docs/DEV_SETUP.md §17)"
+      grep -qE "^${host_head}([[:space:]]|$)" <<<"$seg" || deny "$orig" "a host command behind a wrapper, a VAR= prefix, a path, a backslash or a shell keyword; run $host_head bare as the first word so the ask rule prompts (docs/DEV_SETUP.md §17)"
+      host_check "$host_head" "${s#"$host_head"}" || deny "$orig" "$host_reason (docs/DEV_SETUP.md §17)" ;;
+    bash|sh|zsh|dash|ksh|eval|timeout|stdbuf|caffeinate|watch|parallel|flock|unbuffer)
+      if grep -qE "(^|[^A-Za-z0-9_./-])(ssh|scp|sftp|rsync|autossh|sshpass|ssh-copy-id|sshfs|mosh)([^A-Za-z0-9_-]|$)" <<<"${s#"$host_head"}"; then
+        deny "$orig" "a host command given to $host_head; run it bare as the first word so the ask rule prompts (docs/DEV_SETUP.md §17)"
+      fi ;;
+  esac
 done <<<"$raw"
 
 if [ -n "$destructive_elsewhere" ] && [ "$any_protected" = "1" ]; then
