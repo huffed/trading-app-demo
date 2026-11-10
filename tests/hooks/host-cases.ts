@@ -200,6 +200,13 @@ export const HOST_BLOCKED: readonly (readonly [string, string])[] = [
   ["printf -v RSYNC_RSH 'x'; export RSYNC_RSH; rsync -a d/ qt:/x/", "names the variable"],
   ["export RSYNC_RSH", "names the variable"],
   ["ssh-keyscan other", bare],
+  // round 4, the third review of #333
+  [
+    "git -c remote.origin.url=qt:/tmp/x -c remote.origin.receivepack='sudo -n reboot;' push origin HEAD",
+    "rewritten URL",
+  ],
+  ["scp f qt:/tmp/ \\\nnl\tother:/etc/hosts", "continued over several lines"],
+  ["ssh qt \\\nstart\t-oHostName=203.0.113.5 uptime", "backslash-newline"],
   // known false positives, kept closed: the splitter cannot tell a heredoc's text from commands, and an
   // assignment whose quoted value has a space reads as a command (write such text with the file tools)
   ["cat > /tmp/n.md <<'EOF'\nUse `ssh`, `scp` and `rsync` here.\nEOF", bare],
@@ -281,4 +288,12 @@ export const HOST_ALLOWED: readonly string[] = [
   "ssh qt uptime | grep load",
   "scp 'qt:/tmp/qt-drill/*.age' ~/qt-drill/",
   "rsync -a 'qt:/var/log/quanttrader/*.log' ./logs/",
+  // round 4: routine text and commands the third review found refused
+  "cat > /tmp/n.md <<'EOF'\n* first item\n* second item\nEOF",
+  "cat > /tmp/n.md <<'EOF'\n$10K accounts pass at 17 trades\nEOF",
+  'git commit -m "fix: the band moved (+0.6pp)"',
+  "git log --oneline -300 -F '--grep=(+'",
+  "git rebase --exec 'pnpm test' origin/dev",
+  "ssh qt 'cat /usr/local/lib/quanttrader/backup.sh' | diff - scripts/ops/backup.sh",
+  "ssh qt 'cat /x' | shasum -a 256",
 ];

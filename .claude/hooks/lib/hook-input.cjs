@@ -210,7 +210,9 @@ switch (mode) {
     if (typeof cmd !== "string") process.exit(3);
     const r = segments(cmd, strict);
     if (r.deny) process.stdout.write(`DENY:${r.deny}`);
-    else process.stdout.write(r.segments.map((s) => `${s.sep}\t${s.text}`).join("\n"));
+    // a newline kept inside a segment (a backslash-newline or one in quotes) starts its next line with \x1f, so a
+    // continuation line can never pass for a record of its own, whatever its first field says
+    else process.stdout.write(r.segments.map((s) => `${s.sep}\t${s.text.replace(/\n/g, "\n\x1f")}`).join("\n"));
     break;
   }
   case "stop-active":
