@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Fake flock (macOS has none): fail-flock stands for a run that still holds the lock.
+[ -e "$FAKE_HOST/fail-flock" ] && exit 1
+exit 0

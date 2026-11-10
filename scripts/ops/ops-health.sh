@@ -3,8 +3,8 @@
 # crontab at 07:05 UTC from /usr/local/lib/quanttrader/ (installed by the D.4 runbook, so it exists
 # whatever commit the checkout holds). One ntfy message: service, crons, the live commit vs the last
 # verified one and vs origin/dev (an HTTPS fetch as ops), Node, disk, memory, pending reboot, failed
-# units, algorithms the kill switch still holds paused, the last ledger line. Priority high only when
-# something needs a hand; "N commits behind dev" is information. Also prunes per-run deploy logs
+# units, algorithms the kill switch still holds paused, the last good backup, the last ledger line.
+# Priority high only when something needs a hand; "N commits behind dev" is information. Also prunes per-run deploy logs
 # older than 30 days. Exit 1 when the push fails or no topic is set.
 set -uo pipefail
 APP=/opt/quanttrader
@@ -42,9 +42,14 @@ restarts=$(systemctl show quanttrader -p NRestarts --value 2> /dev/null || echo 
 crons=$(crontab -l 2> /dev/null | grep -c '^[0-9*]' || true)
 held=$(grep -c . "$STATE/kill-switch.paused-ids" 2> /dev/null); held=${held:-0}
 [ "$held" != 0 ] && attention+=("$held algorithm(s) paused by the kill switch: make unpause")
+backup=n/a
+if [ -f /usr/local/lib/quanttrader/backup.sh ]; then
+  backup=$(cat "$STATE/backup.last-ok" 2> /dev/null || echo none)
+  [ -n "$(find "$STATE/backup.last-ok" -mmin -1560 2> /dev/null)" ] || attention+=("no good backup in 26 h")
+fi
 last=$(tail -n 1 "$LOGDIR/deploys.log" 2> /dev/null | cut -c1-120)
 pruned=$(find "$LOGDIR" -maxdepth 1 -name 'deploy-*.log' -mtime +30 -print -delete 2> /dev/null | wc -l | tr -d ' ')
-summary="quanttrader-prod $(date -u +%F): service=$service restarts=$restarts crons=$crons live=${live:0:7} verified=${running:0:7} dev=${devhead:0:7} (behind by $behind, fetch $fetch) node=$(node -v 2> /dev/null) disk=$disk mem=$mem reboot=$reboot held-by-kill-switch=$held failed-units=${failed:-none} pruned-deploy-logs=$pruned; last ledger: ${last:-none}"
+summary="quanttrader-prod $(date -u +%F): service=$service restarts=$restarts crons=$crons live=${live:0:7} verified=${running:0:7} dev=${devhead:0:7} (behind by $behind, fetch $fetch) node=$(node -v 2> /dev/null) disk=$disk mem=$mem reboot=$reboot held-by-kill-switch=$held failed-units=${failed:-none} pruned-deploy-logs=$pruned backup=$backup; last ledger: ${last:-none}"
 prio="default"; title="quanttrader-prod daily: OK"
 if [ ${#attention[@]} -gt 0 ]; then prio="high"; title="quanttrader-prod daily: ${attention[*]}"; fi
 echo "[$(date -u +%FT%TZ)] $summary"

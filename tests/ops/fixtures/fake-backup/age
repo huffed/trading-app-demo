@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Fake age: like the real one it writes a header even on empty stdin, so only pipefail can catch a
+# dump that failed, and every uploaded part can be checked for it. fail-age writes nothing at all.
+out=""
+prev=""
+for a in "$@"; do
+  [ "$prev" = "-o" ] && out=$a
+  prev=$a
+done
+if [ -e "$FAKE_HOST/fail-age" ]; then
+  cat > /dev/null
+  : > "$out"
+  exit 0
+fi
+printf 'age-encryption.org/fake\n' > "$out"
+cat >> "$out"

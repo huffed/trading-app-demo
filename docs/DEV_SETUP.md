@@ -26,6 +26,7 @@ One short section per thing that was set up: **what it is, why it exists, the on
 | deploy, or roll back | `make deploy` (default `REF=origin/dev`) · `make deploy REF=<previous sha>` — outside market hours only (§17) | D1 |
 | stop all trading now | `make kill-switch REASON=<word>` — the one host command allowed in market hours (the one other exception: appending the `HEARTBEAT_PING_URL` line, §17); then `make resume`, then `make unpause` when trading should restart (§18) | D3 |
 | know when the host is unwell | ntfy pushes from the host: unit failure, deploy result, daily 07:05 UTC summary; `make logs LOG=ops-health N=2` (§19) | D4 |
+| back up, or test a restore | nightly at 02:22 UTC from the `ops` crontab; `make logs LOG=backup N=20`, runbook `docs/runbooks/d6-backups.md` (§20) | D6 |
 | catch drift nobody touched | the nightly workflow runs `make check` + `make backtest` on `dev` (scheduled 03:17 UTC, started around 10:45 UTC so far) and pushes on failure (§19) | D5 |
 
 Stubs that exit 2 with a message until the audit's scripts reach `dev`: `make validate` / `make parity`.
@@ -37,7 +38,7 @@ Stubs that exit 2 with a message until the audit's scripts reach `dev`: `make va
 - **GitHub Actions:** repo secrets `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `NTFY_TOPIC`, `NTFY_TOKEN` (dead-man workflow only; CI needs none).
 - **`.env.example` is the index:** every variable the code reads appears there by name with a one-line purpose, values never. Adding a `process.env.X` read means adding `X` to `.env.example` in the same PR (a CI check for this arrives with the CI PR).
 - **Rotation:** `docs/runbooks/rotate-cron-secret.md`. `CRON_SECRET` was rotated on 2026-10-29: the 2026-10-28 inventory had found its value in a local Claude Code allow-rule (deleted the same day; it was never committed: `git log --all -- .claude/settings.local.json` is empty).
-- **Public repo = constraint.** Nothing host-identifying (IPs, user names, SSH lines) goes into the repo; use the `qt` SSH alias and a private ops note.
+- **Public repo = constraint.** Nothing host-identifying (IPs, user names, SSH lines) goes into the repo; use the `qt` SSH alias and a private ops note. One recorded exception: the Storage Box name and sub-account, on the operator's instruction (decision 0011).
 
 ## 3. GitHub secret scanning and push protection (what to click)
 
@@ -329,7 +330,7 @@ make logs LOG=deploys N=5                # KILL / RESUME / UNPAUSE lines
 
 ## 19. Alerts from the host, log rotation, the nightly gate
 
-**What:** three pushes from the host itself through the ntfy topic the dead-man workflow already uses (`NTFY_TOPIC` in the host's `.env.local`, read by the scripts, never printed): `quanttrader.service` has `SuccessExitStatus=143` (Next exits 143 on SIGTERM; without it every deliberate stop ended the unit `failed`) and `ExecStopPost=/usr/local/lib/quanttrader/notify-failure.sh`, a hook systemd runs after every stop that posts an urgent message only when the stop was not clean (`SERVICE_RESULT`), at most one per 10 minutes, so a crash loop under `Restart=always` reaches the phone while deploys and the kill switch stay silent; `scripts/ops/deploy.sh` posts the result of every run (default priority on OK, urgent on FAIL, after the restore); `/usr/local/lib/quanttrader/ops-health.sh` runs from the `ops` crontab at 07:05 UTC and posts one daily summary (service, crons, live vs verified commit and commits behind `origin/dev`, Node, disk, memory, pending reboot, failed units, algorithms held paused by the kill switch, last ledger line), at high priority only when something needs a hand; it also prunes per-run deploy logs older than 30 days. `ops/logrotate/quanttrader` rotates the twelve cron and ops logs weekly, eight rotations, owned by `ops`, and never touches `deploys.log`. `.github/workflows/nightly.yml` runs CI's exact gate plus `make backtest` on `dev`, scheduled 03:17 UTC, started around 10:45 UTC so far, and pushes on failure. The two host scripts are installed to `/usr/local/lib/quanttrader/` so a rollback cannot remove them; applying: `docs/runbooks/d4-alerts-and-rotation.md`; decision 0009.
+**What:** three pushes from the host itself through the ntfy topic the dead-man workflow already uses (`NTFY_TOPIC` in the host's `.env.local`, read by the scripts, never printed): `quanttrader.service` has `SuccessExitStatus=143` (Next exits 143 on SIGTERM; without it every deliberate stop ended the unit `failed`) and `ExecStopPost=/usr/local/lib/quanttrader/notify-failure.sh`, a hook systemd runs after every stop that posts an urgent message only when the stop was not clean (`SERVICE_RESULT`), at most one per 10 minutes, so a crash loop under `Restart=always` reaches the phone while deploys and the kill switch stay silent; `scripts/ops/deploy.sh` posts the result of every run (default priority on OK, urgent on FAIL, after the restore); `/usr/local/lib/quanttrader/ops-health.sh` runs from the `ops` crontab at 07:05 UTC and posts one daily summary (service, crons, live vs verified commit and commits behind `origin/dev`, Node, disk, memory, pending reboot, failed units, algorithms held paused by the kill switch, last ledger line), at high priority only when something needs a hand; it also prunes per-run deploy logs older than 30 days. `ops/logrotate/quanttrader` rotates the thirteen cron and ops logs weekly, eight rotations, owned by `ops`, and never touches `deploys.log`. `.github/workflows/nightly.yml` runs CI's exact gate plus `make backtest` on `dev`, scheduled 03:17 UTC, started around 10:45 UTC so far, and pushes on failure. The two host scripts are installed to `/usr/local/lib/quanttrader/` so a rollback cannot remove them; applying: `docs/runbooks/d4-alerts-and-rotation.md`; decision 0009.
 
 **Why:** alerting covered liveness only and only through GitHub Actions (DEBT D-19); a failed unit, a failed deploy or a full disk told nobody, and the logs had never been rotated.
 
@@ -341,4 +342,19 @@ make logs LOG=deploys N=3                    # the ledger lines the pushes summa
 gh workflow run nightly.yml --ref dev        # run the nightly gate now
 ```
 
-**Rules:** the ntfy topic is a secret (anyone holding it reads the pushes); it lives in the host's env file, the repo's GitHub secrets and the healthchecks.io integration, never in the repo. A new push source is a PR with a row in this section. When `notify-failure.sh` or `ops-health.sh` change, the runbook's `install` line is repeated: the host runs the installed copies. `HEARTBEAT_PING_URL` is set since 2026-11-06: healthchecks.io is the operator's account and watches the heartbeat ping. The operator reported the check created with its ntfy integration on (2026-11-02), so that account holds the topic too; no down event has exercised that path yet.
+**Rules:** the ntfy topic is a secret (anyone holding it reads the pushes); it lives in the host's env file, the repo's GitHub secrets and the healthchecks.io integration, never in the repo. A new push source is a PR with a row in this section; `backup.sh` is the fourth, from D.6 (§20). When `notify-failure.sh` or `ops-health.sh` change, the runbook's `install` line is repeated: the host runs the installed copies. `HEARTBEAT_PING_URL` is set since 2026-11-06: healthchecks.io is the operator's account and watches the heartbeat ping. The operator reported the check created with its ntfy integration on (2026-11-02), so that account holds the topic too; no down event has exercised that path yet.
+
+## 20. Backups to the Storage Box, and the restore drill
+
+**What:** `scripts/ops/backup.sh` runs nightly at 02:22 UTC from `/usr/local/lib/quanttrader/` as `ops`. It writes five age-encrypted files to `nightly/<date>/` on the Storage Box sub-account `u708205-sub1`: a dump of schema `public`, a data-only dump of `auth.users` and `auth.identities`, the host's env file, its config and the logs. The pinned corpora go to `pins/`. A failed part is not uploaded, and an `OK` file goes up last on a whole night only. It keeps 30 nights, prunes only after a fully verified night, and pushes urgently on any failure. It reads the database as `backup_ro`, a role that can read everything and write nothing. The daily summary shows `backup=<time>` and turns high priority if the last good night is older than 26 hours. Supabase's own backups are the first line: Pro plan, daily, 7-day retention, no point-in-time recovery. The private age key is the operator's and is never on the host, the box or in a session.
+
+**Why:** the approval of 2026-10-31 asked for it, Supabase's 7 days sit with the same provider as the data, and `oanda_positioning_cache` is forward-only, so it cannot be fetched again. Decision 0011.
+
+**Commands:**
+
+```bash
+make logs LOG=backup N=20      # last night's run
+pnpm exec vitest run tests/ops/backup-script.test.ts   # the script against stand-ins
+```
+
+**Rules:** a change to `backup.sh` or `ops-health.sh` repeats the runbook's `install` line, because the host runs the installed copies. The restore drill in `docs/runbooks/d6-backups.md` runs twice a year and before any schema change. A decrypted dump holds broker tokens and password hashes and never enters a session.
