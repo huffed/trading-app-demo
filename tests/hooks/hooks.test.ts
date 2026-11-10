@@ -7,7 +7,7 @@
  * in ./host-cases.ts.
  */
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -134,6 +134,24 @@ describe("guard-bash.sh rule 8 (raw host commands reach the qt alias only, bare,
     it(`allows: ${firstLine(cmd)}`, () => {
       expect(runHook("guard-bash.sh", bash(cmd)).status).toBe(0);
     });
+  }
+  // every one-line command to the qt alias that the runbooks give must still pass, with its trailing comment
+  // dropped (the guard does not model comments); commands to other hosts are the operator's, from their terminal
+  const docs = [
+    ...readdirSync(join(ROOT, "docs", "runbooks")).map((f) => join("docs", "runbooks", f)),
+    join("docs", "DEV_SETUP.md"),
+  ].filter((f) => f.endsWith(".md"));
+  for (const doc of docs) {
+    const blocks = readFileSync(join(ROOT, doc), "utf8").match(/```bash\n[\s\S]*?```/g) ?? [];
+    const lines = blocks
+      .flatMap((b) => b.split("\n"))
+      .filter((l) => /^(ssh|scp|sftp|rsync) /.test(l) && /(^|[\s'":])qt([\s:'"]|$)/.test(l))
+      .map((l) => l.replace(/\s+#\s.*$/, ""));
+    for (const line of lines) {
+      it(`allows the runbook line in ${doc}: ${line.slice(0, 60)}`, () => {
+        expect(runHook("guard-bash.sh", bash(line)).stderr).toBe("");
+      });
+    }
   }
 });
 

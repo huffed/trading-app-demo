@@ -308,40 +308,56 @@ make logs LOG=deploy-20261031T140000Z N=60   # one run's full log (the stamp is 
 ssh qt 'sudo -n reboot'; sleep 60; make status   # a reboot: ledger row + decision entry, outside market hours
 ```
 
-**Raw host commands prompt** (DEBT D-37, operator decision 2026-11-10). `ssh`, `scp`, `sftp` and `rsync` are `ask` rules in `.claude/settings.json`, like the host `make` targets. Before 2026-11-10, auto mode's classifier approved them with no prompt, among them a reboot, a package install and a crontab install. An ask rule matches the command as written, so the Bash guard (rule 8) holds them to one spelling it can check:
+**Raw host commands prompt** (DEBT D-37, operator decision 2026-11-10). `ssh`, `scp`, `sftp` and `rsync` are `ask` rules in `.claude/settings.json`, like the host `make` targets. Before 2026-11-10, auto mode's classifier approved them with no prompt, among them a reboot, a package install and a crontab install. Claude Code's docs say an explicit ask rule prompts in every mode, `bypassPermissions` included. They also say a Bash rule matches the command as written, after compound commands are split and wrappers stripped, not `/usr/bin/ssh` or `sh -c '…'`, and they name the sandbox as the control that does not depend on text (read 2026-11-10).
 
-- **Run bare.** `ssh`, `scp`, `sftp` or `rsync`, lower case and unquoted, is the first word of its own command (after `cd … &&`, or after or before a pipe, is fine). It must reach the `qt` alias directly, with no `user@`. Only short-listed options are allowed, and ssh's are read before and after the host, as OpenSSH reads them:
+**The Bash guard's rule 8 holds host commands to one spelling the ask rules match.** It is a text check, best-effort against the plain and accidental forms. A deliberate spelling can still get past it (D-22), and its two review rounds kept finding them:
+
+- **Run bare.** `ssh`, `scp`, `sftp` or `rsync`, lower case and unquoted, is the first word of its own command (after `cd … &&`, or after or before a pipe, is fine). It reaches the `qt` alias, with no `user@`; ssh's host is read after the last `@`. Its arguments hold no `$` or backtick outside single quotes, and no unquoted glob where the host or an option is read. Only short-listed options are allowed, and ssh's are read before and after the host, as OpenSSH reads them:
   - ssh flags `-4 -6 -C -G -N -n -q -t -T -v -x`;
   - the Makefile's connection-sharing `-o` options (`ControlMaster`, `ControlPath=~/.ssh/qt-…`, `ControlPersist`, `BatchMode`, `ConnectTimeout`, `ServerAliveInterval`, `ServerAliveCountMax`);
   - `-O exit|check|stop`;
-  - `-L <port>:localhost:<port>`;
+  - `-L <port>:localhost|127.0.0.1:<port>`;
+  - sftp's `-4 -6 -C -q -v`;
   - scp's `-3 -4 -6 -B -C -O -p -q -r -v`;
   - rsync without `-e`/`--rsh` or a daemon form.
 
-  So `ssh qt '…'`, `ssh qt 'bash -s' < file`, `scp … qt:/tmp/`, `rsync -a qt:… ./`, the kill switch's `ssh -O exit -o ControlPath=~/.ssh/qt-make-%C qt` and the UI's `ssh -L 3000:localhost:3000 qt` all pass, then prompt. The bare word alone passes too: it prints usage and reaches nothing.
-- **Everything else that names a host word is refused.** A host word is `ssh`, `slogin`, `scp`, `sftp`, `rsync` or an ssh variant, found after quotes and backslashes are removed and case is folded. That covers `'ssh'`, `s\sh`, `SSH`, `./ssh`, `/usr/bin/ssh`, `=ssh`, `c=ssh`, `{ssh,…}`, `sudo`/`env`/`nice`/`command -p`/`xargs`/`find -exec`/`script`/`ssh-agent` in front, `bash -c`/`csh -c`/`eval`/`osascript`, `$(…)` and backticks. The exception is a command that only reads or prints the word: `grep`, `rg`, `echo`, `printf`, `cat`, `ls`, `head`, `tail`, `wc`, `jq`, `man`, `which`, `type`, `command -v`, and git's `commit|log|show|diff|grep|blame|status|add`.
+  So `ssh qt '…'`, `ssh qt 'bash -s' < file`, `scp … qt:/tmp/`, `rsync -a qt:… ./`, the kill switch's `ssh -O exit -o ControlPath=~/.ssh/qt-make-%C qt` and the UI's `ssh -L 3000:localhost:3000 qt` all pass, then prompt. The bare word alone passes too: it prints usage and reaches nothing. A test runs every one-line command to `qt` in the runbooks and this file through the guard.
+- **Everything else that names a host word is refused.** A host word is `ssh`, `slogin`, `scp`, `sftp`, `rsync`, `ssh-keyscan` or an ssh variant, found after quotes and backslashes are removed and case is folded. That covers:
+  - spellings: `'ssh'`, `s\sh`, `SSH`, `./ssh`, `/usr/bin/ssh`, `=ssh`, `c=ssh`, `printf -v c ssh`, `{ssh,…}`;
+  - wrappers in front: `sudo`, `env`, `nice`, `command -p`, `xargs`, `find -exec`, `script`, `ssh-agent`;
+  - runners: `bash -c`, `csh -c`, `eval`, `osascript`;
+  - `$(…)`, `=(…)` and backticks.
+
+  The exception is a command that only reads or prints the word: `grep`, `egrep`, `fgrep`, `rg` (not `--pre`), `ag`, `echo`, `printf` (not `-v`), `cat`, `ls`, `head`, `tail`, `wc`, `file`, `stat`, `jq`, `shellcheck`, `which`, `whereis`, `type`, `command -v`, and git's `commit|log|show|diff|blame|status|add` (after its global options).
 - **Also refused:**
-  - a shell fed by a pipe from a command that named a host word, or by a heredoc or here-string in such a command;
-  - a host word on a continuation line, and a backslash-newline after an ssh;
-  - `RSYNC_RSH=`, `RSYNC_CONNECT_PROG=` and `GIT_SSH*=`;
-  - git with `core.sshCommand`, `--receive-pack`, `--upload-pack` or `--exec` on a remote subcommand;
-  - a non-https `git remote add|set-url`, and git reaching an ssh remote;
-  - a shell write under `~/.ssh`, which decides where `qt` goes. `rm ~/.ssh/qt-make-*` is the exception.
+  - a command word built from a substitution, from a variable or escape in its name, or from a glob that matches a host word (`s?h`, `ss$()h`, `$'\x73sh'`, `$c`);
+  - zsh glob qualifiers that run code;
+  - after a command that names a host word, anything in its pipeline (`|` or `|&`) but a reader, and a heredoc or here-string fed to a non-reader;
+  - a host word on a continuation line, a backslash-newline after an ssh, and an scp, sftp or rsync continued over lines;
+  - any mention of `RSYNC_RSH`, `RSYNC_CONNECT_PROG` or `GIT_SSH*` outside a reader;
+  - git, read with its global options dropped, with `core.sshCommand`, `insteadOf`, `receivepack`, `uploadpack`, `--receive-pack`, `--upload-pack` or `--exec` on any non-local subcommand;
+  - git reaching `user@host:`, a non-https URL, or `host:path` (in the repository position for push, fetch and pull);
+  - any command naming `~/.ssh` that is not a reader (`ls`, `cat`, `grep`, `stat`, `ssh-keygen -l|-F`); `rm ~/.ssh/qt-make-*` is the exception;
+  - shell writes to `.git/config`.
 
 **Known false positives, kept closed:**
 
 - The splitter cannot tell a heredoc's text from commands, so a heredoc line that names a host word is refused unless it starts with a reader. Write such text with the file tools.
 - An assignment whose quoted value has a space (`MSG='fix: ssh rule'`) reads as a command.
 - A colon in a local scp or rsync path reads as a host.
+- A trailing `# comment` is read as part of the command.
+- `gh … --body '…ssh…'`, `sed -n '/ssh/p'`, `pnpm exec vitest run -t ssh` and `chmod`/`shellcheck` on a fixture named `ssh` are refused. Use `--body-file`, a reader, or `make lint-shell`.
 
 **Not caught** (D-22):
 
 - a file the command runs (`bash x.sh` whose text names `ssh`);
 - a program that opens the connection itself (an interpreter's socket);
+- a host command spelled in ways the reviews have not tried;
+- `git fetch|pull|push` given an option's value before a user-less `host:path`;
 - edits to `~/.ssh` through Claude's own file tools, which `guard-paths` does not see outside the project;
-- the user's shell profile exporting `RSYNC_RSH`.
+- an `RSYNC_RSH` exported by the user's shell profile.
 
-`qt` is the only host reached directly; the host itself reaches the Storage Box, as `ssh qt '…'` commands show.
+The structural control is the sandbox: Claude Code's docs say plain ssh cannot connect from a sandboxed command at all. Turning it on is an operator decision, D-22.
 
 **Live check,** 2026-11-10 21:03–21:05Z, in an auto-mode session (Claude Code 2.1.308), none of it reaching the host:
 

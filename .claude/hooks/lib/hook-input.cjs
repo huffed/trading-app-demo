@@ -138,6 +138,15 @@ function segments(cmd, strict) {
       i = end;
       continue;
     }
+    // zsh's =(…) is a process substitution too, where the = starts a word (not arr=(…))
+    if (c === "=" && n === "(" && (i === 0 || /\s/.test(cmd[i - 1]))) {
+      if (strict) return deny("process substitution");
+      const [text, end] = matchSubst(i + 1);
+      inner.push(text);
+      cur += cmd.slice(i, end + 1);
+      i = end;
+      continue;
+    }
     if ((c === "<" || c === ">") && n === "(") {
       if (strict) return deny("process substitution");
       const [text, end] = matchSubst(i + 1);
@@ -159,6 +168,7 @@ function segments(cmd, strict) {
     if (c === ">" && (n === "&" || n === "|")) { cur += c + n; i++; continue; } // 2>&1 and >| are not separators
     if (c === "&" && n === "&") { push("and"); i++; continue; }
     if (c === "|" && n === "|") { push("or"); i++; continue; }
+    if (c === "|" && n === "&") { push("pipe"); i++; continue; } // |& pipes stderr too
     if (c === "|") { push("pipe"); continue; }
     if (c === ";") { push("seq"); continue; }
     if (c === "&") { push("bg"); continue; }
