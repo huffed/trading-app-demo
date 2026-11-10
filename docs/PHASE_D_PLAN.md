@@ -60,7 +60,7 @@ Approved 2026-10-31 (questions 2 and 3) and designed in `docs/decisions/0007-nod
 - Depends on the audit's `paper-replay.ts` landing on `dev` (then `make parity` stops being a stub, DEBT D-02). The job: nightly, on the VPS or as a scheduled GitHub Actions workflow, runs the parity replay over the paper positions of the last N days against the pinned bars, posts the summary to ntfy, exits non-zero on divergence above the agreed band.
 - **Done (CI half, decision 0009):** `.github/workflows/nightly.yml` runs `make check` + `make backtest` on `dev`, scheduled 03:17 UTC, started around 10:45 UTC so far, and pushes to the phone on failure.
 
-## D.6 Backups with a tested restore — designed in decision 0011 and `docs/runbooks/d6-backups.md`; installs in the window
+## D.6 Backups with a tested restore — designed in decision 0011 and `docs/runbooks/d6-backups.md`; installed 2026-11-07, restore drilled 2026-11-07 to 11-10 (ledger row `2026-11-07T16:42Z`)
 
 - **Recorded 2026-11-06:** Supabase Pro, daily backups, 7-day retention, backups listed 26 October to 2 November, read 2 November 2026. Storage Box `u708205`, Falkenstein, SSH only, external reachability off, daily snapshots on; sub-account `u708205-sub1`, base directory `quanttrader`.
 - The list below is the original plan. Decision 0011 replaces its table list (whole `public` plus two `auth` tables) and its `tests/contracts/` check (row counts). Drill (b), the throwaway VPS, is not done; the operator scheduled it for the next window, if D.6 is clean.
