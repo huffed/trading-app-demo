@@ -181,6 +181,20 @@ describe("the host targets prompt every time", () => {
     for (const line of usage) expect(line).toMatch(glob);
   });
 
+  it("ask before every command that names the deploy driver, which reaches the host under make deploy", () => {
+    const rule = "Bash(*deploy-driver*)";
+    expect(project.ask).toContain(rule);
+    expect(makefile).toMatch(/scripts\/ops\/deploy-driver\.sh/);
+    const glob = /^.*deploy-driver.*$/;
+    for (const line of [
+      "scripts/ops/deploy-driver.sh origin/dev",
+      "bash scripts/ops/deploy-driver.sh --pointer-only",
+      "QT_HOST=qt ./scripts/ops/deploy-driver.sh dev",
+    ]) {
+      expect(line).toMatch(glob);
+    }
+  });
+
   // a general-purpose runner with open arguments could run the doctor without naming it on the command
   // line; a rule for one exact command, and the test runners decision 0010 records as a gap, pass
   const opensARunner = (rule: string): boolean => {

@@ -14,14 +14,26 @@
 #   4  mirror pushes; force, delete or +refspec pushes that touch dev or main,
 #      including a bare `git push --force` while dev or main is checked out
 #   5  git commit --no-verify (any unambiguous prefix), -n, or HUSKY=0
-#   6  a command that names scripts/canonical/enable-broker-mirror.ts and runs anything that can
-#      execute it (DEBT D-33; lifts when MODERNISATION P19 lands). Reading the file stays allowed
+#   6  a command that names scripts/canonical/enable-broker-mirror.ts anywhere (an enable-broker
+#      name, continuation lines and quotes included) and runs anything that can execute it: an
+#      interpreter, a TypeScript or package runner by any path, timeout, ssh (DEBT D-33; lifts
+#      when MODERNISATION P19 lands). Reading the file stays allowed
 #   7  pre-approved commands turned into writes: make with an alternate makefile
 #      (-f, -C, --eval, MAKEFILES=, a makefile on stdin — quoted or not), a host
 #      target beside another goal, behind a flag or behind an override, or a
 #      variable override containing shell metacharacters;
 #      git diff/log/show/blame/grep --output or -O; vitest -u/--outputFile;
 #      prettier --check combined with --write
+#   8  raw host commands: ssh, scp, sftp or rsync run bare (lower case, unquoted,
+#      first word of its own command) reach only the qt alias, with no user@ and
+#      only short-listed options, read before and after the host; any other
+#      command that names a host word is refused unless it only reads or prints
+#      it, as are a command word built from a substitution, a variable, or a glob
+#      that matches a host word, anything but a reader fed by a pipe or heredoc that named one, a
+#      host word on a continuation line, RSYNC_RSH/GIT_SSH*, git told to run
+#      another program or to reach an ssh remote, and anything but a reader
+#      naming ~/.ssh. Best-effort against plain and accidental forms; a
+#      deliberate spelling can still get past a text check (DEBT D-22)
 # Pattern-based and best-effort by nature (DEBT D-22); the permission deny rules
 # are the hard stop for Claude's own file tools. Fails CLOSED on any inspection
 # error. Every rule has a case in tests/hooks/hooks.test.ts.
@@ -76,8 +88,8 @@ q="[\"']?"
 pathprefix='([^[:space:];&|"'"'"']*/)?'
 readers='(cat|less|more|head|tail|nl|tac|paste|uniq|column|fold|fmt|hexdump|grep|rg|ag|sed|awk|cut|sort|diff|cmp|cp|mv|rm|tee|source|\.|vi|vim|nano|open|scp|rsync|base64|xxd|od|strings|dotenv|export|set|perl|python3?|node|ruby|php|bash|sh|zsh|jq|xargs)'
 interpreters='(node|python3?|perl|ruby|php|bash|sh|zsh|eval)'
-mirror_script='enable-broker-mirror'
-ts_runners='(tsx|ts-node|vite-node|jiti|bun|deno|npx|pnpm|yarn|npm)'
+mirror_script='enable-broker'                       # the script's name, and any glob that spells it out to here
+ts_runners='(tsx|ts-node|vite-node|jiti|bun|bunx|deno|npx|pnpx|pnpm|yarn|npm|timeout|ssh)'
 anywriters='(mv|rm|tee|truncate|touch|chmod|chown|mkdir|rmdir|shred|unlink|ln)'
 destwriters='(cp|install|rsync|scp)'
 destructive='(rm|mv|truncate|shred|unlink|rmdir)'
@@ -115,16 +127,154 @@ destroys() { # destructive verbs only, for parent directories
   grep -qiE "(^|[[:space:]/\"'])${target}" <<<"$seg_l"
 }
 
+# rule 8's helpers. Host words open an ssh connection or run one. A segment names one when the word appears in it
+# as a word once quotes and backslashes are gone and case is folded: 'ssh', s\sh, SSH, ./ssh, =ssh, c=ssh and
+# {ssh,…} all do; ~/.ssh/… and ssh-keygen do not.
+host_words='(ssh|slogin|scp|sftp|rsync|autossh|sshpass|ssh-copy-id|ssh-agent|ssh-keyscan|sshfs|mosh)'
+mentions_host() {
+  local t=${1//\"/}
+  t=${t//\'/}; t=${t//\\/}
+  t=${t//\$[0-9]/}                                  # a positional parameter is empty here: $1ssh is ssh
+  # a test with no subprocess first: most segments name no host word, and every hook has a 10 s budget
+  case "$t" in
+    *[sS][sS][hH]*|*[sS][cC][pP]*|*[sS][fF][tT][pP]*|*[rR][sS][yY][nN][cC]*|*[sS][lL][oO][gG][iI][nN]*|*[mM][oO][sS][hH]*) ;;
+    *) return 1 ;;
+  esac
+  t=$(tr '[:upper:]' '[:lower:]' <<<"$t")
+  grep -qE "(^|[^a-z0-9_.-])${host_words}([^a-z0-9_-]|$)" <<<"$t"
+}
+# git's words with quotes gone and its global options dropped, so `git -P push …` and `git -C x push …` read as push
+git_words() {
+  tr -d "\"'\\\\" <<<"$1" | awk '{
+    i = 2
+    while (i <= NF && substr($i, 1, 1) == "-") { if ($i == "-C" || $i == "-c" || $i == "--git-dir" || $i == "--work-tree" || $i == "--namespace") i++; i++ }
+    w = "git"; for (j = i; j <= NF; j++) w = w " " $j; print w }'
+}
+# a command for which a host word is data, not a command to run: readers, printers, and git's local subcommands
+inert_mention() {
+  case "$1" in
+    grep|egrep|fgrep|ag|echo|which|whereis|type|ls|cat|head|tail|wc|file|stat|jq|shellcheck) return 0 ;;
+    printf) ! grep -qE '^printf[[:space:]]+-v' <<<"$2" ;;   # printf -v assigns, and the variable can be run
+    rg) ! grep -qE -- '--pre' <<<"$2" ;;                    # rg --pre runs a program on each file
+    man) ! grep -qE '(^|[[:space:]])-[A-Za-z]*P' <<<"$2" ;; # man -P names the pager it runs
+    git) grep -qE "^git[[:space:]]+(commit|log|show|diff|blame|status|add)([[:space:]]|$)" <<<"$(git_words "$2")" ;;
+    *) return 1 ;;
+  esac
+}
+# an ssh -o that the qt alias's connection sharing uses (the Makefile's options), never one that changes the host,
+# user, port, identity, proxy, forwarding or config
+ssh_option_ok() {
+  local key=${1%%=*} value=${1#*=}
+  [ "$key" != "$1" ] || return 1
+  case "$(tr '[:upper:]' '[:lower:]' <<<"$key")" in
+    controlmaster|controlpersist|batchmode|connecttimeout|serveraliveinterval|serveralivecountmax) return 0 ;;
+    controlpath) case "$value" in \~/.ssh/qt-*) return 0 ;; esac ;;
+  esac
+  return 1
+}
+# host_check <ssh|scp|sftp|rsync> <arguments>: 0 when every host the command reaches is the qt alias, given with
+# no user, and every option is on the short list; ssh's options are read before and after the host, as OpenSSH
+# reads them, up to the remote command. Else 1 and $host_reason
+host_reason=""
+host_check() {
+  local cmd=$1 args toks tok dest="" end=0 want="" remote bare
+  # $ and backticks outside single quotes expand before the command sees them, to an option or a host
+  bare=$(sed -E "s/'[^']*'//g" <<<"$2")
+  case "$bare" in
+    *'$'*|*'`'*) host_reason="$cmd with \$ or a backtick outside single quotes, which can expand to an option or a host; single-quote the remote part"; return 1 ;;
+  esac
+  args=$(tr -d "\"'\\\\" <<<"$2")                    # quotes and backslashes go; the words stay
+  read -r -a toks <<<"$args"
+  case "$cmd" in
+    ssh|sftp)
+      for tok in ${toks[@]+"${toks[@]}"}; do
+        if [ -n "$want" ]; then
+          case "$want:$tok" in
+            o:*) ssh_option_ok "$tok" || { host_reason="ssh -o $tok is not one of the qt alias's connection-sharing options"; return 1; } ;;
+            O:exit|O:check|O:stop) ;;
+            L:*) grep -qE '^[0-9]+:(localhost|127\.0\.0\.1):[0-9]+$' <<<"$tok" || { host_reason="ssh -L $tok forwards somewhere other than the host's own loopback"; return 1; } ;;
+            *) host_reason="ssh -$want $tok is not allowed"; return 1 ;;
+          esac
+          want=""; continue
+        fi
+        if [ "$end" = 0 ] && [ "$tok" = "--" ]; then
+          [ -z "$dest" ] || break
+          end=1; continue
+        fi
+        if [ "$end" = 0 ] && [ "${tok#-}" != "$tok" ]; then
+          case "$cmd:$tok" in
+            ssh:-o|ssh:-O|ssh:-L) want=${tok#-} ;;
+            ssh:-o?*) ssh_option_ok "${tok#-o}" || { host_reason="ssh $tok is not one of the qt alias's connection-sharing options"; return 1; } ;;
+            ssh:-*[!46CGNnqtTvx]*|sftp:-*[!46Cqv]*)
+              host_reason="$cmd $tok changes the host, user, port, config, proxy or forwarding, or is not on the short list; the qt alias carries its own settings"; return 1 ;;
+          esac
+          continue
+        fi
+        case "$tok" in *[*?[]*) host_reason="$cmd $tok: a glob where $cmd still reads its host or options"; return 1 ;; esac
+        [ -z "$dest" ] || break                       # the remote command starts: ssh reads no option after it
+        dest=$tok; end=0                              # after the host, ssh reads options again, even after a --
+      done
+      [ -z "$want" ] || { host_reason="$cmd -$want has no value"; return 1; }
+      [ "$cmd" = ssh ] || dest=${dest%%:*}           # sftp takes host:path; ssh takes the host after the last @
+      [ "$dest" = qt ] || { host_reason="$cmd to ${dest:-no host}; raw host commands go to the qt alias only, with no user@"; return 1; } ;;
+    scp|rsync)
+      case "$(sed -E "s/\"[^\"]*\"//g" <<<"$bare")" in
+        *[*?[]*) host_reason="$cmd with an unquoted glob, which can expand to a host:path; quote it"; return 1 ;;
+      esac
+      for tok in ${toks[@]+"${toks[@]}"}; do
+        case "$cmd:$tok" in
+          rsync:-e*|rsync:--rsh*|rsync:-[!-]*e*|scp:-*[!-346BCOpqrv]*)
+            host_reason="$cmd $tok sets a remote shell, a port, a config, a proxy or another option off the short list"; return 1 ;;
+        esac
+        case "$tok" in
+          -*) ;;
+          *::*|*://*)
+            host_reason="$cmd $tok is a daemon or URL form; use qt:path"; return 1 ;;
+          [!/]*:*)
+            remote=${tok%%:*}
+            [ "$remote" = qt ] || { host_reason="$cmd to $remote; raw host commands go to the qt alias only, with no user@"; return 1; } ;;
+        esac
+      done ;;
+  esac
+  return 0
+}
+
 notice_emitted=0
+pipeline_host=0
+prev_host=""
+prev_cont=0
 pipeline_env=0
 in_compound=0
 any_protected=0
 destructive_elsewhere=""
+# rule 6 reads the whole command, continuation lines included, with quotes and backslashes gone: a name split
+# across lines, behind a VAR= prefix or hidden in quotes is still the script's name
 mirror_named=0
+grep -qi "$mirror_script" <<<"$(tr -d "\"'\\\\\n\037" <<<"$raw")" && mirror_named=1
 runner_seen=""
 fence_down="${QT_ALLOW_LIVE_EDITS:-0}"
 
+tab=$'\t'
 while IFS=$'\t' read -r sep seg; do
+  case "$sep" in
+    start|and|or|pipe|seq|bg|nl|subst) ;;
+    *)
+      # a continuation line of the previous command (a backslash-newline, or a newline inside quotes), which the
+      # rules above never see; a tab in it splits it, so the whole line is read again. A host command may not
+      # continue over lines, except an ssh whose remote command carries on inside quotes; no other command may
+      # name a host word on one
+      line="$sep${seg:+$tab$seg}"; line=${line#$'\x1f'}
+      # rule 6: a runner may start the continuation line (FOO=1 \ newline tsx …)
+      cr=${line#"${line%%[![:space:]]*}"}; cr=${cr%%[[:space:]]*}; cr=${cr##*/}
+      case "$cr" in *[A-Z]*) cr=$(tr '[:upper:]' '[:lower:]' <<<"$cr") ;; esac
+      if [[ $cr =~ ^(${interpreters}|${ts_runners})$ ]]; then runner_seen=$line; fi
+      case "$prev_host" in
+        scp|sftp|rsync) deny "$line" "a host command continued over several lines; put it on one line (docs/DEV_SETUP.md §17)" ;;
+        ssh) [ "$prev_cont" = 0 ] || deny "$line" "an ssh continued with a backslash-newline, where its options would hide; put it on one line, or the remote part in a file for ssh qt 'bash -s' < file (docs/DEV_SETUP.md §17)" ;;
+        *) if mentions_host "$line"; then deny "$line" "a continuation line names a host command (docs/DEV_SETUP.md §17)"; fi ;;
+      esac
+      continue ;;
+  esac
   [ -n "$seg" ] || continue
   orig=$seg
   s0=$(printf '%s' "$seg" | sed -E 's/\.env\.example//g')     # the example file is public
@@ -136,7 +286,7 @@ while IFS=$'\t' read -r sep seg; do
   uq_lower=$(printf '%s' "$uq" | tr '[:upper:]' '[:lower:]')
   # a pipeline into a compound command (… | while read f; do cat "$f"; done) keeps its input across the `;`
   case "$seg" in while*|until*|if*|for*|case*) in_compound=1;; esac
-  if [ "$sep" != "pipe" ] && [ "${in_compound:-0}" = "0" ]; then pipeline_env=0; fi
+  if [ "$sep" != "pipe" ] && [ "${in_compound:-0}" = "0" ]; then pipeline_env=0; pipeline_host=0; fi
   case "$seg" in done*|fi|fi\ *|esac*) in_compound=0;; esac
 
   # 1. a reader (after wrapper stripping) given an env file; a redirect to or from one; --env-file
@@ -210,10 +360,12 @@ while IFS=$'\t' read -r sep seg; do
   fi
 
   # 6. the script that turns mirroring on: judged across the whole command below, so a path in a variable or
-  # fed through a pipe is still seen. eslint, prettier, tsc and vitest only read it
-  grep -qi "$mirror_script" <<<"$s" && mirror_named=1
-  if grep -qiE "^(${interpreters}|${ts_runners})([[:space:]]|$)" <<<"$s" \
-     && ! grep -qiE "^(pnpm|npx)[[:space:]]+(exec[[:space:]]+)?(eslint|prettier|tsc|vitest)([[:space:]]|$)" <<<"$s"; then runner_seen=$orig; fi
+  # fed through a pipe is still seen. A runner is matched by its name, whatever path it is called by
+  # (node_modules/.bin/tsx); eslint, prettier and tsc only read the file, vitest imports it and so runs it
+  runner=${s%%[[:space:]]*}; runner=${runner##*/}
+  case "$runner" in *[A-Z]*) runner=$(tr '[:upper:]' '[:lower:]' <<<"$runner") ;; esac
+  if [[ $runner =~ ^(${interpreters}|${ts_runners})$ ]] \
+     && ! grep -qiE "^(pnpm|npx)[[:space:]]+(exec[[:space:]]+)?(eslint|prettier|tsc)([[:space:]]|$)" <<<"$s"; then runner_seen=$orig; fi
 
   # 7. pre-approved commands that can be turned into writes
   if grep -qiE "^make([[:space:]]|$)" <<<"$s"; then
@@ -284,6 +436,143 @@ while IFS=$'\t' read -r sep seg; do
   if grep -qE "^pnpm[[:space:]]+(exec[[:space:]]+)?prettier([[:space:]]|$)" <<<"$s" && grep -qE "(^|[[:space:]])--check([[:space:]]|$)" <<<"$uq" && grep -qE "(^|[[:space:]])(-w|--write)([[:space:]]|$)" <<<"$uq"; then
     deny "$orig" "prettier --check combined with --write is a write; use make format (an ask rule) on purpose"
   fi
+
+  # 8. raw host commands. Run bare (ssh, scp, sftp or rsync, lower case and unquoted, the first word of its own
+  #    command) they get host_check and prompt under their ask rules. Any other command that names a host word is
+  #    refused unless it only reads or prints it (inert_mention), and so are a shell fed by a pipe that named one,
+  #    an assignment of the program rsync or git reaches a host with, git told to run another program or to reach
+  #    an ssh remote, and a shell write under ~/.ssh, which decides where qt goes
+  host_head=${seg%%[[:space:]]*}
+  case "$host_head" in
+    ssh|scp|sftp|rsync)
+      prev_host=$host_head
+      case "$seg" in *\\) prev_cont=1 ;; *) prev_cont=0 ;; esac
+      pipeline_host=1
+      [ "$seg" != "$host_head" ] || continue         # the bare word alone prints usage and reaches nothing
+      [ "$sep" != "subst" ] || deny "$orig" "a host command inside \$(…) or backticks; run it as its own command so the ask rule prompts (docs/DEV_SETUP.md §17)"
+      host_check "$host_head" "${seg#"$host_head"}" || deny "$orig" "$host_reason (docs/DEV_SETUP.md §17)"
+      continue ;;
+  esac
+  prev_host=""; prev_cont=0
+  sq=${seg//\"/}; sq=${sq//\'/}; sq=${sq//\\/}       # the segment with quotes and backslashes gone, no subprocess
+  nh=${s//\"/}; nh=${nh//\'/}; nh=${nh//\\/}
+  nh=${nh%%[[:space:]]*}; nh=${nh##*/}
+  case "$nh" in *[A-Z]*) nh=$(tr '[:upper:]' '[:lower:]' <<<"$nh") ;; esac
+  # a command word built from a glob, a substitution, a quoted escape or a bare variable can be any program, a host
+  # command among them (s?h, ss$()h, $'\x73sh', $c); an assignment, a case label and a test bracket are not commands
+  w=${s%%[[:space:]]*}
+  if ! [[ $w =~ ^[A-Za-z_][A-Za-z0-9_]*(\[[^]]*\])?\+?= ]]; then
+    case "$w" in
+      '['|'[['|*')') ;;
+      *'`'*|*'$('*)
+        deny "$orig" "a command word built from a substitution can be any program, a host command among them; name the program (docs/DEV_SETUP.md §17)" ;;
+      *)
+        b=${w##*/}; b=${b//\"/}; b=${b//\'/}
+        case "$b" in
+          '$'[0-9]*) ;;                               # a positional parameter (empty here) or a price in heredoc text
+          *'$'*) deny "$orig" "a variable or escape in the command's name can be any program, a host command among them; name the program (docs/DEV_SETUP.md §17)" ;;
+          *[a-zA-Z]*[*?[]*|*[*?[]*[a-zA-Z]*)          # a glob with no letter (a markdown bullet's *) names nothing
+            case "$b" in *[A-Z]*) b=$(tr '[:upper:]' '[:lower:]' <<<"$b") ;; esac
+            for hw in ssh slogin scp sftp rsync autossh sshpass ssh-copy-id ssh-agent ssh-keyscan sshfs mosh; do
+              # shellcheck disable=SC2053  # $b is the glob, on purpose
+              if [[ $hw == $b ]]; then deny "$orig" "a command word whose glob matches $hw; name the program (docs/DEV_SETUP.md §17)"; fi
+            done ;;
+        esac ;;
+    esac
+  fi
+  # zsh's glob qualifiers run code from inside a reader's arguments (ls *(e:'…':), *(+fn)); quoted text is not a glob
+  case "$uq" in
+    *'(e:'*|*'(+'*) deny "$orig" "a zsh glob qualifier runs code from a glob (docs/DEV_SETUP.md §17)" ;;
+  esac
+  case "$seg" in                                    # a quote right after the e opens the qualifier's code
+    *"(e'"*|*'(e"'*) deny "$orig" "a zsh glob qualifier runs code from a glob (docs/DEV_SETUP.md §17)" ;;
+  esac
+  # a shell or interpreter inside $(…), <(…) or >(…), in a command that names a host word (… | tee >(bash))
+  if [ "$sep" = "subst" ]; then
+    case "$nh" in
+      bash|sh|zsh|dash|ksh|csh|tcsh|fish|eval|source|.|python|python3|perl|ruby|node|awk|osascript)
+        if mentions_host "$raw"; then
+          deny "$orig" "a shell or interpreter inside a substitution, in a command that names a host command (docs/DEV_SETUP.md §17)"
+        fi ;;
+    esac
+  fi
+  # after a command that names a host word, the rest of its pipeline may only read; a heredoc's or here-string's
+  # lines are read by its command, out of the ask rule's sight, unless that command only reads them
+  if [ "$sep" = "pipe" ] && [ "$pipeline_host" = 1 ]; then
+    case "$nh" in
+      grep|egrep|fgrep|rg|head|tail|cut|sort|uniq|wc|tr|column|cat|less|more|jq|nl|fold|diff|cmp|shasum|sha256sum|md5|tee|od|xxd|hexdump|strings) ;;
+      *) deny "$orig" "a command fed by a pipe that names a host command, and not one that only reads it; run the host command bare (docs/DEV_SETUP.md §17)" ;;
+    esac
+  fi
+  case "$seg" in
+    *'<<'*) if ! inert_mention "$nh" "$s" && mentions_host "$raw"; then
+        deny "$orig" "a heredoc or here-string fed to a command that runs it, in a command that names a host command; run the host command bare (docs/DEV_SETUP.md §17)"
+      fi ;;
+  esac
+  if mentions_host "$seg"; then
+    pipeline_host=1
+    if ! inert_mention "$nh" "$s" && ! grep -qE '^command[[:space:]]+-[vV]([[:space:]]|$)' <<<"$s0"; then
+      deny "$orig" "this names a host command but does not run one bare (ssh, scp, sftp or rsync, lower case and unquoted, the first word of its own command), so its ask rule might not see it (docs/DEV_SETUP.md §17)"
+    fi
+  fi
+  case "$orig" in
+    *RSYNC_RSH*|*RSYNC_CONNECT_PROG*|*GIT_SSH*)
+      if ! inert_mention "$nh" "$s"; then
+        deny "$orig" "it names the variable rsync or git reaches a host through; only the qt alias's own ssh is used (docs/DEV_SETUP.md §17)"
+      fi ;;
+  esac
+  if [ "$nh" = git ]; then
+    if grep -qiE "(^|[[:space:]])-c[[:space:]]*[^[:space:]]*(sshcommand|insteadof|receive-?pack|upload-?pack|\.url=|pushurl)" <<<"$(tr -d "\"'\\\\" <<<"$s")"; then
+      deny "$orig" "git told to reach a host through another ssh command or a rewritten URL (docs/DEV_SETUP.md §17)"
+    fi
+    gq=$(git_words "$s")
+    gsub=$(awk '{print $2}' <<<"$gq")
+    case "$gsub" in
+      commit|log|show|diff|blame|status|add) ;;
+      *)
+        if grep -qiE "sshcommand|receive-?pack|upload-?pack|insteadof" <<<"$gq" \
+           || { [[ $gsub =~ ^(push|fetch|pull|clone|ls-remote|archive)$ ]] && grep -qE "(^|[[:space:]])--exec(=|[[:space:]]|$)" <<<"$gq"; }; then
+          deny "$orig" "git told to run another program on the far side, through another ssh, or to rewrite a URL (docs/DEV_SETUP.md §17)"
+        fi
+        # an ssh remote anywhere: user@host:, ssh://; and host:path wherever no refspec can stand (not push,
+        # fetch or pull, whose src:dst refspecs look the same; there only the repository position is read)
+        for tok in $gq; do
+          case "$tok" in
+            *://*) case "$tok" in https://*|http://*|--*=https://*|--*=http://*) ;; *) deny "$orig" "git reaching $tok, not an https URL (docs/DEV_SETUP.md §17)" ;; esac ;;
+            *@*:*) deny "$orig" "git reaching $tok, an ssh remote (docs/DEV_SETUP.md §17)" ;;
+          esac
+        done
+        case "$gsub" in
+          push|fetch|pull)
+            repo=$(awk '{for (i = 3; i <= NF; i++) if (substr($i, 1, 1) != "-") { print $i; exit }}' <<<"$gq")
+            case "$repo" in *://*) ;; [!/]*:*) deny "$orig" "git reaching $repo, an ssh remote (docs/DEV_SETUP.md §17)" ;; esac ;;
+          clone|ls-remote|remote|config|submodule|archive)
+            for tok in $gq; do
+              case "$tok" in -*|*://*) ;; [!/]*:*) deny "$orig" "git reaching $tok, an ssh remote (docs/DEV_SETUP.md §17)" ;; esac
+            done ;;
+        esac ;;
+    esac
+  fi
+  # ~/.ssh decides where qt goes: a command naming it must only read it (a write list misses dd, curl -o, tar -C, cd)
+  case "$sq" in
+    *.[sS][sS][hH]*)
+      if grep -qiE "(^|[[:space:]/=\"'])\.ssh([/[:space:]\"']|$)" <<<"$seg"; then
+        case "$nh" in
+          ls|cat|grep|egrep|fgrep|head|tail|stat|file|wc|test|'['|diff|cmp) ;;
+          ssh-keygen) grep -qE '(^|[[:space:]])-[A-Za-z]*[lF]' <<<"$s" \
+              || deny "$orig" "ssh-keygen writing under ~/.ssh; only -l and -F read (docs/DEV_SETUP.md §17)" ;;
+          rm) grep -qE '^rm([[:space:]]+-f)?[[:space:]]+(~|\$HOME)/\.ssh/qt-make-[^[:space:]]*$' <<<"$s" \
+              || deny "$orig" "a write under ~/.ssh, which decides where the qt alias goes; the operator edits it (docs/DEV_SETUP.md §17)" ;;
+          *) deny "$orig" "a command naming ~/.ssh that is not a reader; ~/.ssh decides where the qt alias goes, and the operator edits it (docs/DEV_SETUP.md §17)" ;;
+        esac
+      fi ;;
+  esac
+  # .git/config holds the remotes' URLs and the programs git runs on them
+  case "$sq" in
+    *.git/config*) if writes_to '\.git/config([[:space:]"'"'"']|$)' "$lower" "$uq_lower"; then
+        deny "$orig" "a shell write to .git/config, where a remote's URL or program is set (docs/DEV_SETUP.md §17)"
+      fi ;;
+  esac
 done <<<"$raw"
 
 if [ "$mirror_named" = "1" ] && [ -n "$runner_seen" ]; then

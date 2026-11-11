@@ -162,6 +162,7 @@ Each of these needs the audit's numbers or verdict, or changes behaviour that th
 | P17 | `noUncheckedIndexedAccess` and `exactOptionalPropertyTypes` | DEBT §4 | One root tsconfig, so they turn on once. Fixes in bar loops add guards, which are control flow, so they follow P2 |
 | P18 | The dropped daily-bias flag | D-02 | A6: the backtest is one session staler on the 17:00 and 21:00 bars, not leaky, and live is leak-free. Forwarding the flag changes trades, and P7 depends on it. `tests/characterisation/daily-bias-alignment.test.ts:88` holds it as `it.fails` |
 | P19 | Orphan adoption, the session-started dashboard, the script that turns mirroring on | D-26, D-29, D-33 | Whether and when mirroring is wanted depends on the verdict |
+| P20 | Production's recorded migration history against the files | D-34 | Both fixes are outside structure work: a baseline migration changes migration files under the audit freeze, and `supabase migration repair` writes production's `supabase_migrations.schema_migrations`; migrations are fenced either way. Even a history that replays does not let the files rebuild the schema from zero, which is D-34's second half. The D.6 restore drill shows whether the recorded history replays, before anything changes |
 
 ## Before any algorithm gets `live_trading_enabled=true`
 

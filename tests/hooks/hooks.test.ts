@@ -3,13 +3,14 @@
  * into each hook exactly as Claude Code does and assert the exit code
  * (0 = allow, 2 = refuse) and, where it matters, the output. They also cover
  * the commit-msg hook and the fence check. Nothing here runs the commands under
- * test; the hooks only classify them. The case tables live in ./cases.ts.
+ * test; the hooks only classify them. The case tables live in ./cases.ts, rule 6's (the script that turns
+ * mirroring on) in ./mirror-cases.ts, and rule 8's (raw host commands) in ./host-cases.ts.
  */
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
   BASH_ALLOWED,
   BASH_BLOCKED,
@@ -18,10 +19,8 @@ import {
   REVIEWER_ALLOWED,
   REVIEWER_BLOCKED,
 } from "./cases";
+import { HOST_ALLOWED, HOST_BLOCKED } from "./host-cases";
 import { MIRROR_ALLOWED, MIRROR_BLOCKED } from "./mirror-cases";
-
-// each case spawns bash and node; under a loaded machine the 5 s default timed out (2026-11-07)
-vi.setConfig({ testTimeout: 30_000 });
 
 const ROOT = resolve(__dirname, "..", "..");
 const HOOKS = join(ROOT, ".claude", "hooks");
@@ -102,9 +101,16 @@ describe("guard-paths.sh (edits)", () => {
 });
 
 describe("guard-bash.sh (shell commands)", () => {
-  for (const cmd of [...BASH_BLOCKED, ...MIRROR_BLOCKED]) {
+  for (const cmd of BASH_BLOCKED) {
     it(`blocks: ${firstLine(cmd)}`, () => {
       expect(runHook("guard-bash.sh", bash(cmd)).status).toBe(2);
+    });
+  }
+  for (const cmd of MIRROR_BLOCKED) {
+    it(`blocks, under rule 6: ${firstLine(cmd)}`, () => {
+      const r = runHook("guard-bash.sh", bash(cmd));
+      expect(r.status).toBe(2);
+      expect(r.stderr).toContain("DEBT D-33");
     });
   }
   for (const cmd of [...BASH_ALLOWED, ...MIRROR_ALLOWED]) {
@@ -122,6 +128,39 @@ describe("guard-bash.sh (shell commands)", () => {
   it("fails closed on malformed input", () => {
     expect(runHook("guard-bash.sh", "not json").status).toBe(2);
   });
+});
+
+describe("guard-bash.sh rule 8 (raw host commands reach the qt alias only, bare, so they prompt)", () => {
+  for (const [cmd, reason] of HOST_BLOCKED) {
+    it(`blocks: ${firstLine(cmd)}`, () => {
+      const r = runHook("guard-bash.sh", bash(cmd));
+      expect(r.status).toBe(2);
+      expect(r.stderr).toContain(reason);
+    });
+  }
+  for (const cmd of HOST_ALLOWED) {
+    it(`allows: ${firstLine(cmd)}`, () => {
+      expect(runHook("guard-bash.sh", bash(cmd)).status).toBe(0);
+    });
+  }
+  // every one-line command to the qt alias that the runbooks give must still pass, with its trailing comment
+  // dropped (the guard does not model comments); commands to other hosts are the operator's, from their terminal
+  const docs = [
+    ...readdirSync(join(ROOT, "docs", "runbooks")).map((f) => join("docs", "runbooks", f)),
+    join("docs", "DEV_SETUP.md"),
+  ].filter((f) => f.endsWith(".md"));
+  for (const doc of docs) {
+    const blocks = readFileSync(join(ROOT, doc), "utf8").match(/```bash\n[\s\S]*?```/g) ?? [];
+    const lines = blocks
+      .flatMap((b) => b.split("\n"))
+      .filter((l) => /^(ssh|scp|sftp|rsync) /.test(l) && /(^|[\s'":])qt([\s:'"]|$)/.test(l))
+      .map((l) => l.replace(/\s+#\s.*$/, ""));
+    for (const line of lines) {
+      it(`allows the runbook line in ${doc}: ${line.slice(0, 60)}`, () => {
+        expect(runHook("guard-bash.sh", bash(line)).stderr).toBe("");
+      });
+    }
+  }
 });
 
 describe("reviewer-bash-allowlist.sh (read-only reviewer)", () => {

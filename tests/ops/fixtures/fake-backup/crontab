@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# Fake crontab -l.
+echo '*/5 * * * * manage'

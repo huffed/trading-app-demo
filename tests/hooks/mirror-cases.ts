@@ -25,6 +25,18 @@ export const MIRROR_BLOCKED: string[] = [
   "echo M | xargs pnpm dlx tsx",
   `printf '%s\\n' M | while read -r f; do tsx "$f"; done`,
   `f=enable-broker-mirror; tsx scripts/canonical/$f.ts`,
+  // the review of #331: more runners, a runner by its path, vitest, a glob, a name across lines, the host
+  "pnpx tsx M",
+  "bunx tsx M",
+  "timeout 60 tsx M",
+  "node_modules/.bin/tsx M",
+  "./node_modules/.bin/tsx M",
+  "Tsx M",
+  "pnpm exec vitest run M",
+  "tsx scripts/canonical/enable-broker*.ts",
+  "tsx scripts/canonical/enable-\\\nbroker-mirror.ts",
+  "FOO=1 \\\ntsx M",
+  "ssh qt 'cd /opt/quanttrader && pnpm exec tsx M'",
 ].map((c) => c.replaceAll("M", mirrorScript));
 
 /** guard-bash.sh must allow these (exit 0): reading or naming the script, and running another one */

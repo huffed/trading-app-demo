@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Fake curl: the only call backup.sh makes is the failure push; it records the arguments.
+cat > /dev/null
+printf '%s\n' "$*" >> "$FAKE_HOST/curl.log"

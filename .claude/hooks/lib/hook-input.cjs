@@ -138,6 +138,15 @@ function segments(cmd, strict) {
       i = end;
       continue;
     }
+    // zsh's =(…) is a process substitution too, where the = starts a word (not arr=(…))
+    if (c === "=" && n === "(" && (i === 0 || /\s/.test(cmd[i - 1]))) {
+      if (strict) return deny("process substitution");
+      const [text, end] = matchSubst(i + 1);
+      inner.push(text);
+      cur += cmd.slice(i, end + 1);
+      i = end;
+      continue;
+    }
     if ((c === "<" || c === ">") && n === "(") {
       if (strict) return deny("process substitution");
       const [text, end] = matchSubst(i + 1);
@@ -159,6 +168,7 @@ function segments(cmd, strict) {
     if (c === ">" && (n === "&" || n === "|")) { cur += c + n; i++; continue; } // 2>&1 and >| are not separators
     if (c === "&" && n === "&") { push("and"); i++; continue; }
     if (c === "|" && n === "|") { push("or"); i++; continue; }
+    if (c === "|" && n === "&") { push("pipe"); i++; continue; } // |& pipes stderr too
     if (c === "|") { push("pipe"); continue; }
     if (c === ";") { push("seq"); continue; }
     if (c === "&") { push("bg"); continue; }
@@ -200,7 +210,9 @@ switch (mode) {
     if (typeof cmd !== "string") process.exit(3);
     const r = segments(cmd, strict);
     if (r.deny) process.stdout.write(`DENY:${r.deny}`);
-    else process.stdout.write(r.segments.map((s) => `${s.sep}\t${s.text}`).join("\n"));
+    // a newline kept inside a segment (a backslash-newline or one in quotes) starts its next line with \x1f, so a
+    // continuation line can never pass for a record of its own, whatever its first field says
+    else process.stdout.write(r.segments.map((s) => `${s.sep}\t${s.text.replace(/\n/g, "\n\x1f")}`).join("\n"));
     break;
   }
   case "stop-active":
