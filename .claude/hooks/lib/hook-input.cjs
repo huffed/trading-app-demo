@@ -23,6 +23,8 @@
  *                                         such as -t "--config x" stays one word
  *   node hook-input.cjs expands           (stdin is one simple command) 1 when the shell would expand it: a $ or
  *                                         backtick outside single quotes, or a { outside any quotes; else 0
+ *   node hook-input.cjs gitenv <root>     (stdin is one simple command) why a git command can print an ignored file
+ *                                         such as .env.local (guard-bash rule 1d), or nothing
  *
  * Exit 3 on malformed input or an unknown mode. Callers treat anything but
  * exit 0 as "cannot inspect, refuse" (fail closed).
@@ -257,7 +259,108 @@ function expands(cmd) {
   return 0;
 }
 
+// rule 1d of guard-bash.sh: the git forms that print an ignored file such as .env.local
+const ENV_NAME = /(^|[^A-Za-z0-9_])\.env(rc|[._-][A-Za-z0-9_.-]*)?([^A-Za-z0-9_]|$)/i;
+const GIT_GLOBAL_VALUE = new Set(["-c", "-C", "--git-dir", "--work-tree", "--namespace", "--exec-path", "--config-env"]);
+// short options that take a value, per subcommand: the value is the rest of the bundle or the next word
+const GIT_SHORT_VALUE = { commit: "mFtcC", tag: "mFu", merge: "mF", stash: "m", notes: "mFcC", blame: "LS", grep: "efABC" };
+const GIT_MESSAGE = new Set(["-m", "--message"]);
+const GIT_MESSAGE_SUBS = new Set(["commit", "tag", "merge", "stash", "notes"]);
+// long options that make git read a path outside the index, or stage an ignored file; git takes any unambiguous
+// prefix of a long option, so a word that is a prefix of one of these counts (diff matches --no-index exactly,
+// but a prefix there is refused too)
+const GIT_REFUSED_LONG = {
+  diff: ["--no-index"],
+  grep: ["--no-index", "--no-exclude-standard"],
+  blame: ["--contents", "--ignore-revs-file"],
+  add: ["--force"],
+  stash: ["--all"],
+};
+const GIT_REFUSED_SHORT = { blame: "S", add: "f", stash: "a" };
+
+/**
+ * Why a git command (one simple command, wrappers stripped, .env.example already removed) can print an ignored
+ * file, or "" when it cannot by any of the forms below. Best-effort, like the rest of the guard: a deliberate
+ * spelling (a variable, a glob, an alias in a config file) can still get past it (DEBT D-22).
+ */
+function gitEnv(cmd, root) {
+  if (/\$'/.test(cmd)) return "$'…' quoting in a git command";
+  const w = words(cmd.replace(/\n\x1f/g, "\n"));
+  if (!w.length || w[0].replace(/.*\//, "").toLowerCase() !== "git") return "";
+  let i = 1;
+  for (; i < w.length && w[i].startsWith("-"); i++) {
+    const g = w[i];
+    if (/^(-c|--config-env)$/.test(g) && /^alias\./i.test(w[i + 1] || "")) return "an alias set with -c";
+    if (/^--config-env=alias\./i.test(g)) return "an alias set with --config-env";
+    if (GIT_GLOBAL_VALUE.has(g)) i++;
+  }
+  const sub = (w[i] || "").toLowerCase();
+  const args = w.slice(i + 1);
+  const shortValue = GIT_SHORT_VALUE[sub] || "";
+  const named = [];
+  let pathsOnly = false;
+  for (let k = 0; k < args.length; k++) {
+    const a = args[k];
+    if (pathsOnly || a === "-" || !a.startsWith("-")) {
+      named.push(a);
+      continue;
+    }
+    if (a === "--") {
+      pathsOnly = true;
+      continue;
+    }
+    if (a.startsWith("--")) {
+      const name = a.split("=")[0];
+      if (name.length >= 3 && (GIT_REFUSED_LONG[sub] || []).some((l) => l.startsWith(name))) return `${sub} ${name}`;
+      if (GIT_MESSAGE.has(name) && GIT_MESSAGE_SUBS.has(sub)) {
+        if (!a.includes("=")) k++; // the message is text, so it may mention an env file
+        continue;
+      }
+      named.push(a);
+      continue;
+    }
+    // a bundle of short options, -abc: the first one that takes a value takes the rest of the word or the next word
+    let flags = a;
+    for (let c = 1; c < a.length; c++) {
+      if ((GIT_REFUSED_SHORT[sub] || "").includes(a[c])) return `${sub} -${a[c]}`;
+      if (shortValue.includes(a[c])) {
+        const value = c + 1 < a.length ? a.slice(c + 1) : args[++k] || "";
+        if (!(a[c] === "m" && GIT_MESSAGE_SUBS.has(sub))) named.push(value);
+        flags = a.slice(0, c + 1);
+        break;
+      }
+    }
+    named.push(flags);
+  }
+  // diff compares two plain files, --no-index or not, when one path is outside the work tree
+  if (sub === "diff") {
+    const home = process.env.HOME || "~";
+    const outside = named.find((a) => {
+      if (!/^(\/|~|\.\.)/.test(a)) return false;
+      const p = path.resolve(root, a.replace(/^~(?=\/|$)/, home));
+      return p !== root && !p.startsWith(root + path.sep);
+    });
+    if (outside !== undefined) return `diff of a path outside the repository (${outside}), which is --no-index`;
+  }
+  // naming an env file: only git status and check-ignore, and the commands that take one out of the index, may
+  const inert =
+    /^(status|check-ignore|check-attr|ls-files)$/.test(sub) ||
+    (sub === "rm" && args.includes("--cached")) ||
+    (sub === "restore" && args.some((a) => /^(--staged|-S)$/.test(a)) && !args.some((a) => /^(--worktree|-W)$/.test(a)));
+  if (!inert) {
+    const hit = named.find((a) => ENV_NAME.test(a));
+    if (hit !== undefined) return `it names ${hit}`;
+  }
+  return "";
+}
+
 const mode = process.argv[2];
+if (mode === "gitenv") {
+  const root = process.argv[3];
+  if (!root) process.exit(3);
+  process.stdout.write(gitEnv(fs.readFileSync(0, "utf8"), path.resolve(root)));
+  process.exit(0);
+}
 if (mode === "words") {
   process.stdout.write(words(fs.readFileSync(0, "utf8")).map((w) => `${w}\n`).join(""));
   process.exit(0);

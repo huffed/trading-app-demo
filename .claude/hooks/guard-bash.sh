@@ -4,8 +4,11 @@
 # xargs, nice, time, VAR=value prefixes, /bin/ paths, a leading backslash, shell
 # keywords) and refuses, with exit 2 and the reason on stderr:
 #   1  reads or writes of .env files other than .env.example (readers, interpreters,
-#      --env-file, redirects, quoted or not, any case), and pipelines that feed one
-#      to a reader (echo .env.local | xargs cat)
+#      --env-file, redirects, quoted or not, any case), pipelines that feed one
+#      to a reader (echo .env.local | xargs cat), and git that names one outside a
+#      -m message, reads outside the index or stages an ignored file (1d, gitEnv in
+#      lib/hook-input.cjs). A name it cannot see (a glob, a recursive search) passes
+#      (DEBT D-22)
 #   2  writes into the pinned corpora (scripts/canonical/data) and the golden inputs
 #      (tests/golden/*.json), including rm/mv/git rm/git checkout/find -delete,
 #      redirects, fixers, and destructive verbs on their parent directories
@@ -367,20 +370,20 @@ while IFS=$'\t' read -r sep seg; do
     deny "$orig" "a command in this pipeline names a .env file and this one reads its input; secrets are never read from a Claude session (CLAUDE.md, Secrets)"
   fi
   # 1d. git prints a file it is given or can reach, ignored ones such as .env.local included, and several git
-  # commands are pre-approved: a git command that names an env file (a commit only through -F/--file, so a message
-  # may mention one), reads paths outside the index (diff and grep --no-index, blame --contents, grep
-  # --no-exclude-standard), or brings an ignored file into the index or a stash (add -f, stash -a)
+  # commands are pre-approved. gitEnv in lib/hook-input.cjs reads the words as the shell passes them and refuses a
+  # git command that names an env file anywhere but in a -m/--message text (status, check-ignore, ls-files,
+  # rm --cached and restore --staged may), reads paths outside the index (diff and grep --no-index, a diff path
+  # outside the repository, blame --contents, -S or --ignore-revs-file, grep --no-exclude-standard), brings an
+  # ignored file into the index or a stash (add -f, stash -a), any unambiguous prefix of those long options
+  # included, sets an alias with -c, or uses $'…' quoting
+  # git config set through the environment (an alias, a textconv) reaches every git command after it
+  case "$seg" in
+    *GIT_CONFIG_PARAMETERS=*|*GIT_CONFIG_COUNT=*|*GIT_CONFIG_KEY_*=*|*GIT_CONFIG_VALUE_*=*)
+      deny "$orig" "git can print an ignored file such as .env.local this way: configuration set through GIT_CONFIG_* can define an alias that does; secrets are never read from a Claude session (CLAUDE.md, Secrets)" ;;
+  esac
   if grep -qiE "^git([[:space:]]|$)" <<<"$s"; then
-    gw=$(git_words "$s")
-    if { [ "$mentions_env" = "1" ] && ! grep -qE "^git[[:space:]]+commit([[:space:]]|$)" <<<"$gw"; } \
-       || grep -qiE "^git[[:space:]]+commit([[:space:]].*)?[[:space:]](-F|--file)(=|[[:space:]]+)[^[:space:]]*${envfile}" <<<"$gw" \
-       || grep -qE "^git[[:space:]]+(diff|grep)([[:space:]].*)?[[:space:]]--no-index([[:space:]=]|$)" <<<"$gw" \
-       || grep -qE "^git[[:space:]]+blame([[:space:]].*)?[[:space:]]--contents([[:space:]=]|$)" <<<"$gw" \
-       || grep -qE "^git[[:space:]]+grep([[:space:]].*)?[[:space:]]--no-exclude-standard([[:space:]]|$)" <<<"$gw" \
-       || grep -qE "^git[[:space:]]+add([[:space:]].*)?[[:space:]](--force|-[a-zA-Z]*f[a-zA-Z]*)([[:space:]]|$)" <<<"$gw" \
-       || grep -qE "^git[[:space:]]+stash([[:space:]].*)?[[:space:]](--all|-[a-zA-Z]*a[a-zA-Z]*)([[:space:]]|$)" <<<"$gw"; then
-      deny "$orig" "git can print an ignored file such as .env.local this way (naming it, --no-index, blame --contents, grep --no-exclude-standard, add -f, stash -a); secrets are never read from a Claude session (CLAUDE.md, Secrets)"
-    fi
+    why=$(printf '%s' "$s" | node "$here/lib/hook-input.cjs" gitenv "$root") || deny "$orig" "could not inspect this git command"
+    [ -z "$why" ] || deny "$orig" "git can print an ignored file such as .env.local this way: ${why}; secrets are never read from a Claude session (CLAUDE.md, Secrets)"
   fi
   [ "$mentions_env" = "1" ] && pipeline_env=1
 

@@ -165,7 +165,7 @@ describe("guard-bash.sh rule 8 (raw host commands reach the qt alias only, bare,
   }
 });
 
-describe("guard-bash.sh rule 1d (git cannot be made to print an ignored file such as .env.local)", () => {
+describe("guard-bash.sh rule 1d (the git forms that print an ignored file such as .env.local)", () => {
   for (const cmd of GIT_ENV_BLOCKED) {
     it(`blocks: ${firstLine(cmd)}`, () => {
       const r = runHook("guard-bash.sh", bash(cmd));
