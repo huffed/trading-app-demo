@@ -181,6 +181,13 @@ describe("the host targets prompt every time", () => {
     for (const line of usage) expect(line).toMatch(glob);
   });
 
+  it("ask before every command that names the script that turns mirroring on (D-33)", () => {
+    expect(project.ask).toContain("Bash(*enable-broker-mirror*)");
+    expect(existsSync(resolve(process.cwd(), "scripts/canonical/enable-broker-mirror.ts"))).toBe(
+      true
+    );
+  });
+
   it("ask before every command that names the deploy driver, which reaches the host under make deploy", () => {
     const rule = "Bash(*deploy-driver*)";
     expect(project.ask).toContain(rule);

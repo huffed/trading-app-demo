@@ -14,6 +14,10 @@
 #   4  mirror pushes; force, delete or +refspec pushes that touch dev or main,
 #      including a bare `git push --force` while dev or main is checked out
 #   5  git commit --no-verify (any unambiguous prefix), -n, or HUSKY=0
+#   6  a command that names scripts/canonical/enable-broker-mirror.ts anywhere (an enable-broker
+#      name, continuation lines and quotes included) and runs anything that can execute it: an
+#      interpreter, a TypeScript or package runner by any path, timeout, ssh (DEBT D-33; lifts
+#      when MODERNISATION P19 lands). Reading the file stays allowed
 #   7  pre-approved commands turned into writes: make with an alternate makefile
 #      (-f, -C, --eval, MAKEFILES=, a makefile on stdin — quoted or not), a host
 #      target beside another goal, behind a flag or behind an override, or a
@@ -84,6 +88,9 @@ q="[\"']?"
 pathprefix='([^[:space:];&|"'"'"']*/)?'
 readers='(cat|less|more|head|tail|nl|tac|paste|uniq|column|fold|fmt|hexdump|grep|rg|ag|sed|awk|cut|sort|diff|cmp|cp|mv|rm|tee|source|\.|vi|vim|nano|open|scp|rsync|base64|xxd|od|strings|dotenv|export|set|perl|python3?|node|ruby|php|bash|sh|zsh|jq|xargs)'
 interpreters='(node|python3?|perl|ruby|php|bash|sh|zsh|eval)'
+mirror_script='enable-broker'                       # the script's name, and any glob that spells it out to here
+# rule 6's runners: anything that can execute a TypeScript file, by name at any path
+runner_words='(node|python3?|perl|ruby|php|bash|sh|zsh|eval|awk|gawk|tsx|ts-node|vite-node|vite|vitest|jiti|bun|bunx|deno|npx|pnpx|pnpm|yarn|npm|corepack|timeout|ssh)'
 anywriters='(mv|rm|tee|truncate|touch|chmod|chown|mkdir|rmdir|shred|unlink|ln)'
 destwriters='(cp|install|rsync|scp)'
 destructive='(rm|mv|truncate|shred|unlink|rmdir)'
@@ -241,6 +248,32 @@ pipeline_env=0
 in_compound=0
 any_protected=0
 destructive_elsewhere=""
+# rule 6 reads the whole command, continuation lines included, with quotes and backslashes gone: a name split
+# across lines, behind a VAR= prefix or hidden in quotes is still the script's name
+mirror_named=0
+grep -qi "$mirror_script" <<<"$(tr -d "\"'\\\\\n\037" <<<"$raw")" && mirror_named=1
+runner_seen=""
+bs_cont=0
+# rule 6, only when the command names the script: does this text run something that could execute it? A runner
+# word anywhere in it counts, quotes gone and case folded, so VAR="a b", xargs -I{}, find -exec, nice -n, sudo -u
+# and a quoted path do not hide one. Not if the command only reads or prints, nor eslint, prettier or tsc with no
+# flag that loads a module (prettier --config and --plugin import the file they name)
+# mirror_runner <command, wrappers stripped> [<the segment as written>]: the head is read from the first, runner
+# words from the second, so one inside a VAR= value (GIT_EDITOR="tsx …" git commit) still counts
+mirror_runner() {
+  local r q h w
+  r=$(tr -d "\"'\\\\" <<<"$1")
+  q=$(tr '[:upper:]' '[:lower:]' <<<"$r")
+  w=$(tr -d "\"'\\\\" <<<"${2:-$1}" | tr '[:upper:]' '[:lower:]')
+  h=${q#"${q%%[![:space:]]*}"}; h=${h%%[[:space:]]*}; h=${h##*/}
+  if grep -qE "^[[:space:]]*(pnpm|npx)[[:space:]]+(exec[[:space:]]+)?(eslint|prettier|tsc)([[:space:]]|$)" <<<"$q" \
+     && ! grep -qE "(^|[[:space:]])(-c|--config|--plugin|--rulesdir|--resolve-plugins-relative-to|--loader|--import|--require|-r|-f|--format)(=|[[:space:]]|$)" <<<"$q"; then
+    return 1
+  fi
+  # a reader only reads, unless git is handed a -c (diff.external, core.pager and others run a program)
+  if inert_mention "$h" "$r" && ! { [ "$h" = git ] && grep -qE "(^|[[:space:]])-c[[:space:]]" <<<"$q"; }; then return 1; fi
+  grep -qE "(^|[^a-z0-9_.-])${runner_words}([^a-z0-9_-]|$)" <<<"$w"
+}
 fence_down="${QT_ALLOW_LIVE_EDITS:-0}"
 
 tab=$'\t'
@@ -253,6 +286,10 @@ while IFS=$'\t' read -r sep seg; do
       # continue over lines, except an ssh whose remote command carries on inside quotes; no other command may
       # name a host word on one
       line="$sep${seg:+$tab$seg}"; line=${line#$'\x1f'}
+      # rule 6: after a backslash-newline the command goes on (FOO=1 \ newline tsx …); a newline inside quotes is
+      # text, such as a commit message's next line
+      if [ "$mirror_named" = 1 ] && [ "$bs_cont" = 1 ] && mirror_runner "$line"; then runner_seen=$line; fi
+      case "$line" in *\\) bs_cont=1 ;; *) bs_cont=0 ;; esac
       case "$prev_host" in
         scp|sftp|rsync) deny "$line" "a host command continued over several lines; put it on one line (docs/DEV_SETUP.md §17)" ;;
         ssh) [ "$prev_cont" = 0 ] || deny "$line" "an ssh continued with a backslash-newline, where its options would hide; put it on one line, or the remote part in a file for ssh qt 'bash -s' < file (docs/DEV_SETUP.md §17)" ;;
@@ -261,6 +298,7 @@ while IFS=$'\t' read -r sep seg; do
       continue ;;
   esac
   [ -n "$seg" ] || continue
+  case "$seg" in *\\) bs_cont=1 ;; *) bs_cont=0 ;; esac
   orig=$seg
   s0=$(printf '%s' "$seg" | sed -E 's/\.env\.example//g')     # the example file is public
   xargs_fed=0
@@ -343,6 +381,10 @@ while IFS=$'\t' read -r sep seg; do
      && grep -qE "(^|[[:space:]])(--no-v[a-z]*|-[a-zA-Z]*n[a-zA-Z]*)([[:space:]]|$)" <<<"$uq"; then
     deny "$orig" "git commit --no-verify / -n skips gitleaks and the commit-msg hook; commit normally (docs/DEV_SETUP.md §9)"
   fi
+
+  # 6. the script that turns mirroring on: judged across the whole command below, so a path in a variable or
+  # fed through a pipe is still seen; mirror_runner says what counts as a runner
+  if [ "$mirror_named" = 1 ] && mirror_runner "$s" "$orig"; then runner_seen=$orig; fi
 
   # 7. pre-approved commands that can be turned into writes
   if grep -qiE "^make([[:space:]]|$)" <<<"$s"; then
@@ -552,6 +594,9 @@ while IFS=$'\t' read -r sep seg; do
   esac
 done <<<"$raw"
 
+if [ "$mirror_named" = "1" ] && [ -n "$runner_seen" ]; then
+  deny "$runner_seen" "enable-broker-mirror.ts sets live_trading_enabled=true with the service role and writes no ledger row, and it runs on import, so it is refused from a session until MODERNISATION P19 lands (DEBT D-33). Reading it is fine; if you only mention it, keep that apart from any command that runs code"
+fi
 if [ -n "$destructive_elsewhere" ] && [ "$any_protected" = "1" ]; then
   deny "$destructive_elsewhere" "a destructive command takes its paths from another command or a variable while this command line names pinned data, golden inputs or live-runner paths"
 fi

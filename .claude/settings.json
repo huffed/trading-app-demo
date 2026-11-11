@@ -52,6 +52,7 @@
       "Bash(make unpause *)",
       "Bash(make -*)",
       "Bash(*metaapi-connection-doctor*)",
+      "Bash(*enable-broker-mirror*)",
       "Bash(*deploy-driver*)",
       "Bash(ssh *)",
       "Bash(scp *)",

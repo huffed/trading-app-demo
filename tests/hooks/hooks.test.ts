@@ -3,8 +3,8 @@
  * into each hook exactly as Claude Code does and assert the exit code
  * (0 = allow, 2 = refuse) and, where it matters, the output. They also cover
  * the commit-msg hook and the fence check. Nothing here runs the commands under
- * test; the hooks only classify them. The case tables live in ./cases.ts, and rule 8's (raw host commands)
- * in ./host-cases.ts.
+ * test; the hooks only classify them. The case tables live in ./cases.ts, rule 6's (the script that turns
+ * mirroring on) in ./mirror-cases.ts, and rule 8's (raw host commands) in ./host-cases.ts.
  */
 import { spawnSync } from "node:child_process";
 import { mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -20,6 +20,7 @@ import {
   REVIEWER_BLOCKED,
 } from "./cases";
 import { HOST_ALLOWED, HOST_BLOCKED } from "./host-cases";
+import { MIRROR_ALLOWED, MIRROR_BLOCKED } from "./mirror-cases";
 
 const ROOT = resolve(__dirname, "..", "..");
 const HOOKS = join(ROOT, ".claude", "hooks");
@@ -105,7 +106,14 @@ describe("guard-bash.sh (shell commands)", () => {
       expect(runHook("guard-bash.sh", bash(cmd)).status).toBe(2);
     });
   }
-  for (const cmd of BASH_ALLOWED) {
+  for (const cmd of MIRROR_BLOCKED) {
+    it(`blocks, under rule 6: ${firstLine(cmd)}`, () => {
+      const r = runHook("guard-bash.sh", bash(cmd));
+      expect(r.status).toBe(2);
+      expect(r.stderr).toContain("DEBT D-33");
+    });
+  }
+  for (const cmd of [...BASH_ALLOWED, ...MIRROR_ALLOWED]) {
     it(`allows: ${firstLine(cmd)}`, () => {
       expect(runHook("guard-bash.sh", bash(cmd)).status).toBe(0);
     });
