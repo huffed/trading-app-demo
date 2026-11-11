@@ -208,9 +208,10 @@ function segments(cmd, strict) {
       }
     }
     if (body === null && c === "<" && n === "<" && cmd[i + 2] !== "<") {
-      const m = /^<<(-?)[ \t]*(['"]?)([A-Za-z_][A-Za-z0-9_]*)\2/.exec(cmd.slice(i));
+      // the delimiter is the next word with its quotes and backslashes removed, as the shell reads it (<<E"O"F is EOF)
+      const m = /^<<(-?)[ \t]*((?:'[^'\n]*'|"[^"\n]*"|\\.|[^\s;&|<>()'"\\])+)/.exec(cmd.slice(i));
       if (m) {
-        pendingHeredocs.push({ delim: m[3], dash: m[1] === "-" });
+        pendingHeredocs.push({ delim: m[2].replace(/\\(.)/g, "$1").replace(/['"]/g, ""), dash: m[1] === "-" });
         cur += m[0];
         i += m[0].length - 1;
         continue;

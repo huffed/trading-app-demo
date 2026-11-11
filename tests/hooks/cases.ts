@@ -87,6 +87,9 @@ export const BASH_BLOCKED: string[] = [
   `cat > /tmp/x <<EOF\n"\nEOF\ncat ${envFile}`,
   `python3 - <<'EOF'\nimport os\nos.system("cat ${envFile}")\nEOF`,
   `cat <<'EOF' | node\nrequire("fs").readFileSync("${envFile}")\nEOF`,
+  // a partly quoted delimiter is read without its quotes, as the shell does, so the body ends where the shell's does
+  `cat <<E"O"F\nx\nEOF\necho ${envFile} | while read f; do cat "$f"; done`,
+  `cat << 'E O'\nx\nE O\ncat ${envFile}`,
   `cat ${envFile.toUpperCase()}`,
   `bash -c 'cat ${envFile}'`,
   `node -e 'require("fs").readFileSync("${envFile}")'`,
