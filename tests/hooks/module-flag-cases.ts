@@ -36,6 +36,20 @@ export const MODULE_FLAG_BLOCKED: readonly string[] = [
   // tsc: files it writes
   "pnpm exec tsc --noEmit --generateTrace /tmp/trace",
   "pnpm exec tsc --noEmit --generateCpuProfile /tmp/profile.cpuprofile",
+  // the second review of #335: a word the guard drops shifting a flag into a value, tsc going on after --, a
+  // boolean's value turning emit back on, a non-tsconfig -p, an argument file, shell expansion, a reporter package
+  "pnpm exec vitest run -t .env.example -vc scripts/x.ts",
+  "pnpm exec tsc --noEmit -- --generateCpuProfile tests/golden/x.json",
+  "pnpm exec tsc --noEmit false",
+  "pnpm exec tsc --noEmit --pretty false",
+  "pnpm exec tsc --noEmit --pretty -p .env.local",
+  "pnpm exec tsc --noEmit --project=Makefile",
+  "pnpm exec tsc --noEmit @scripts/args.txt",
+  "pnpm exec vitest run {-vc,scripts/x.ts}",
+  "pnpm exec vitest run $'-vc' scripts/x.ts",
+  'pnpm exec vitest run "$v" scripts/x.ts',
+  "pnpm exec vitest run $(printf -- -vc) scripts/x.ts",
+  "pnpm exec vitest run --reporter basic",
 ];
 
 /** guard-bash.sh must allow these (exit 0): the checks as they are run, with the repo's own config */
@@ -50,5 +64,7 @@ export const MODULE_FLAG_ALLOWED: readonly string[] = [
   "pnpm exec vitest run tests/ops -t config --reporter=verbose",
   "pnpm exec vitest run tests/unit --reporter verbose --bail 1 --silent",
   "pnpm exec tsc --noEmit -p tsconfig.json",
-  "pnpm exec tsc --noEmit --pretty false",
+  "pnpm exec tsc --noEmit --project=tsconfig.json --pretty",
+  "pnpm exec vitest run tests/hooks --reporter=agent",
+  "pnpm exec vitest run tests/hooks -t 'a $literal'",
 ];

@@ -278,22 +278,31 @@ mirror_runner() {
 }
 # rule 7: a pre-approved prettier --check, vitest or tsc --noEmit may take only flags known to import, run and
 # write nothing. flag_off_list <tool> reads the command's words on stdin and prints the first flag off its list
-reporter_ok() { case "$1" in default|verbose|dot|basic|tap|tap-flat|junit|json|hanging-process|github-actions|tree) return 0 ;; esac; return 1; }
+reporter_ok() { case "$1" in default|verbose|dot|tap|tap-flat|junit|json|hanging-process|github-actions|tree|agent|minimal) return 0 ;; esac; return 1; }
 flag_off_list() {
   local tool=$1 w n after=0 val=""
   while IFS= read -r w || [ -n "$w" ]; do
     if [ "$after" = 0 ]; then [ "$w" = "$tool" ] && after=1; continue; fi
     if [ -n "$val" ]; then
       if [ "$val" = reporter ] && ! reporter_ok "$w"; then printf '%s' "--reporter $w"; return; fi
+      if [ "$val" = project ]; then case "${w##*/}" in tsconfig*.json) ;; *) printf '%s' "-p $w"; return ;; esac; fi
       val=""; continue
     fi
-    [ "$w" != "--" ] || return 0                     # after --, only file patterns
+    if [ "$w" = "--" ]; then                         # vitest and prettier read only file patterns after --;
+      [ "$tool" != tsc ] || { printf '%s' "--"; return; }   # tsc goes on parsing flags
+      return 0
+    fi
+    if [ "$tool" = tsc ]; then                       # a boolean's value (--noEmit false), and an argument file
+      case "$w" in true|false|null|@*) printf '%s' "$w"; return ;; esac
+    fi
     case "$w" in -*) ;; *) continue ;; esac
     n=${w%%=*}
     case "$tool:$n" in
       prettier:--check|prettier:-c|prettier:--list-different|prettier:-l|prettier:--no-color|prettier:--color|prettier:--ignore-unknown|prettier:-u|prettier:--no-error-on-unmatched-pattern|prettier:--no-editorconfig) ;;
-      prettier:--log-level|vitest:-t|vitest:--testNamePattern|vitest:--bail|vitest:--testTimeout|vitest:--hookTimeout|vitest:--retry|vitest:--maxWorkers|tsc:-p|tsc:--project)
+      prettier:--log-level|vitest:-t|vitest:--testNamePattern|vitest:--bail|vitest:--testTimeout|vitest:--hookTimeout|vitest:--retry|vitest:--maxWorkers)
         [ "$n" != "$w" ] || val=value ;;
+      tsc:-p|tsc:--project)                         # only a tsconfig: tsc prints a non-JSON file's lines as errors
+        if [ "$n" = "$w" ]; then val=project; else case "${w#*=}" in */tsconfig*.json|tsconfig*.json) ;; *) printf '%s' "$w"; return ;; esac; fi ;;
       vitest:--run|vitest:--silent|vitest:--passWithNoTests|vitest:--no-color|vitest:--color|vitest:--no-file-parallelism|vitest:--allowOnly) ;;
       vitest:--reporter)
         if [ "$n" = "$w" ]; then val=reporter; elif ! reporter_ok "${w#*=}"; then printf '%s' "$w"; return; fi ;;
@@ -496,7 +505,13 @@ while IFS=$'\t' read -r sep seg; do
         [ "$(tr -d "\"'\\\\" <<<"$s0")" = "$qhead" ] \
           || deny "$orig" "a pre-approved $tool behind a VAR= prefix, a wrapper or a keyword (NODE_OPTIONS and PRETTIER_EXPERIMENTAL_CLI change what it runs); run it bare (docs/DEV_SETUP.md §16)"
         [ "$bs_cont" = 0 ] || deny "$orig" "a pre-approved $tool continued over several lines, where a flag would hide; put it on one line (docs/DEV_SETUP.md §16)"
-        bad=$(node "$here/lib/hook-input.cjs" words <<<"$s" | flag_off_list "$tool") || bad="(its words could not be read)"
+        # a {…}, $ or backtick outside single quotes is expanded by the shell after this hook has read the words
+        # ({-vc,x}, $v, "$v")
+        case "$(sed -E "s/'[^']*'//g" <<<"$seg")" in
+          *'{'*|*'$'*|*'`'*) deny "$orig" "a pre-approved $tool with a {, \$ or backtick outside single quotes, which the shell expands into words this hook never sees; spell the arguments out (docs/DEV_SETUP.md §16)" ;;
+        esac
+        # the words of the segment as written ($s has .env.example taken out, which would shift a flag into a value)
+        bad=$(node "$here/lib/hook-input.cjs" words <<<"$seg" | flag_off_list "$tool") || bad="(its words could not be read)"
         [ -z "$bad" ] || deny "$orig" "a pre-approved $tool given $bad, which is not on its short list of flags: others import a file, run a program or write one (docs/DEV_SETUP.md §16)" ;;
     esac
   fi
