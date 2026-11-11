@@ -23,7 +23,9 @@
 #      target beside another goal, behind a flag or behind an override, or a
 #      variable override containing shell metacharacters;
 #      git diff/log/show/blame/grep --output or -O; vitest -u/--outputFile;
-#      prettier --check combined with --write
+#      prettier --check combined with --write; a pre-approved prettier --check,
+#      vitest or tsc --noEmit given a flag off its short list of known-safe
+#      flags, behind a VAR= prefix, or continued over lines
 #   8  raw host commands: ssh, scp, sftp or rsync run bare (lower case, unquoted,
 #      first word of its own command) reach only the qt alias, with no user@ and
 #      only short-listed options, read before and after the host; any other
@@ -274,6 +276,42 @@ mirror_runner() {
   if inert_mention "$h" "$r" && ! { [ "$h" = git ] && grep -qE "(^|[[:space:]])-c[[:space:]]" <<<"$q"; }; then return 1; fi
   grep -qE "(^|[^a-z0-9_.-])${runner_words}([^a-z0-9_-]|$)" <<<"$w"
 }
+# rule 7: a pre-approved prettier --check, vitest or tsc --noEmit may take only flags known to import, run and
+# write nothing. flag_off_list <tool> reads the command's words on stdin and prints the first flag off its list
+reporter_ok() { case "$1" in default|verbose|dot|tap|tap-flat|junit|json|hanging-process|github-actions|tree|agent|minimal) return 0 ;; esac; return 1; }
+flag_off_list() {
+  local tool=$1 w n after=0 val=""
+  while IFS= read -r w || [ -n "$w" ]; do
+    if [ "$after" = 0 ]; then [ "$w" = "$tool" ] && after=1; continue; fi
+    if [ -n "$val" ]; then
+      if [ "$val" = reporter ] && ! reporter_ok "$w"; then printf '%s' "--reporter $w"; return; fi
+      if [ "$val" = project ]; then case "${w##*/}" in tsconfig*.json) ;; *) printf '%s' "-p $w"; return ;; esac; fi
+      val=""; continue
+    fi
+    if [ "$w" = "--" ]; then                         # vitest and prettier read only file patterns after --;
+      [ "$tool" != tsc ] || { printf '%s' "--"; return; }   # tsc goes on parsing flags
+      return 0
+    fi
+    if [ "$tool" = tsc ]; then                       # a boolean's value (--noEmit false), and an argument file
+      case "$w" in true|false|null|@*) printf '%s' "$w"; return ;; esac
+    fi
+    case "$w" in -*) ;; *) continue ;; esac
+    n=${w%%=*}
+    case "$tool:$n" in
+      prettier:--check|prettier:-c|prettier:--list-different|prettier:-l|prettier:--no-color|prettier:--color|prettier:--ignore-unknown|prettier:-u|prettier:--no-error-on-unmatched-pattern|prettier:--no-editorconfig) ;;
+      prettier:--log-level|vitest:-t|vitest:--testNamePattern|vitest:--bail|vitest:--testTimeout|vitest:--hookTimeout|vitest:--retry|vitest:--maxWorkers)
+        [ "$n" != "$w" ] || val=value ;;
+      tsc:-p|tsc:--project)                         # only a tsconfig: tsc prints a non-JSON file's lines as errors;
+        if [ "$n" = "$w" ]; then val=project; else printf '%s' "$w"; return; fi ;;   # tsc has no --flag=value form
+      vitest:--run|vitest:--silent|vitest:--passWithNoTests|vitest:--no-color|vitest:--color|vitest:--no-file-parallelism|vitest:--allowOnly) ;;
+      vitest:--reporter)
+        if [ "$n" = "$w" ]; then val=reporter; elif ! reporter_ok "${w#*=}"; then printf '%s' "$w"; return; fi ;;
+      tsc:--noEmit|tsc:--pretty|tsc:--skipLibCheck|tsc:--listFilesOnly|tsc:--extendedDiagnostics) ;;
+      *) printf '%s' "$w"; return ;;
+    esac
+  done
+  return 0
+}
 fence_down="${QT_ALLOW_LIVE_EDITS:-0}"
 
 tab=$'\t'
@@ -454,6 +492,30 @@ while IFS=$'\t' read -r sep seg; do
   fi
   if grep -qE "^pnpm[[:space:]]+(exec[[:space:]]+)?prettier([[:space:]]|$)" <<<"$s" && grep -qE "(^|[[:space:]])--check([[:space:]]|$)" <<<"$uq" && grep -qE "(^|[[:space:]])(-w|--write)([[:space:]]|$)" <<<"$uq"; then
     deny "$orig" "prettier --check combined with --write is a write; use make format (an ask rule) on purpose"
+  fi
+  # prettier --check, vitest run and tsc --noEmit are pre-approved, and each has flags that import a file, run a
+  # program or write one: prettier --config, --plugin, --config-path (its experimental CLI), --cache-location; vitest
+  # --reporter ./x, --environment, --diff, --execArgv, --outputFile.json, -vc; tsc --generateTrace. So such a command
+  # may take only its short list of known-safe flags (flag_off_list), bare and on one line
+  qhead=$(tr -d "\"'\\\\" <<<"$s")
+  if [[ $qhead =~ ^(pnpm|npx)([[:space:]]+-[^[:space:]]*)*[[:space:]]+(exec[[:space:]]+)?(prettier|vitest|tsc)([[:space:]]|$) ]]; then
+    tool=${BASH_REMATCH[4]}
+    case "$tool:$qhead" in
+      prettier:*--check*|prettier:*" -c"*|vitest:*|tsc:*--noEmit*)
+        [ "$(tr -d "\"'\\\\" <<<"$s0")" = "$qhead" ] \
+          || deny "$orig" "a pre-approved $tool behind a VAR= prefix, a wrapper or a keyword (NODE_OPTIONS and PRETTIER_EXPERIMENTAL_CLI change what it runs); run it bare (docs/DEV_SETUP.md §16)"
+        # one line: a backslash-newline, or a newline inside quotes, puts the rest of the command on a continuation
+        # record this rule never reads (the splitter starts each with \x1f)
+        { [ "$bs_cont" = 0 ] && case "$raw" in *$'\n\x1f'*) false ;; *) true ;; esac; } \
+          || deny "$orig" "a pre-approved $tool in a command continued over several lines, where a flag would hide; put it on one line (docs/DEV_SETUP.md §16)"
+        # a $ or backtick outside single quotes, or a { outside any quotes, is expanded by the shell after this hook
+        # has read the words ({-vc,x}, $v, "$v"); the splitter reads the quotes as the shell does
+        [ "$(node "$here/lib/hook-input.cjs" expands <<<"$seg")" = 0 ] \
+          || deny "$orig" "a pre-approved $tool with a \$ or backtick outside single quotes, or a { outside quotes, which the shell expands into words this hook never sees; spell the arguments out (docs/DEV_SETUP.md §16)"
+        # the words of the segment as written ($s has .env.example taken out, which would shift a flag into a value)
+        bad=$(node "$here/lib/hook-input.cjs" words <<<"$seg" | flag_off_list "$tool") || bad="(its words could not be read)"
+        [ -z "$bad" ] || deny "$orig" "a pre-approved $tool given $bad, which is not on its short list of flags: others import a file, run a program or write one (docs/DEV_SETUP.md §16)" ;;
+    esac
   fi
 
   # 8. raw host commands. Run bare (ssh, scp, sftp or rsync, lower case and unquoted, the first word of its own

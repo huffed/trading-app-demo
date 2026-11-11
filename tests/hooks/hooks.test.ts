@@ -21,6 +21,7 @@ import {
 } from "./cases";
 import { HOST_ALLOWED, HOST_BLOCKED } from "./host-cases";
 import { MIRROR_ALLOWED, MIRROR_BLOCKED } from "./mirror-cases";
+import { MODULE_FLAG_ALLOWED, MODULE_FLAG_BLOCKED } from "./module-flag-cases";
 
 const ROOT = resolve(__dirname, "..", "..");
 const HOOKS = join(ROOT, ".claude", "hooks");
@@ -160,6 +161,21 @@ describe("guard-bash.sh rule 8 (raw host commands reach the qt alias only, bare,
         expect(runHook("guard-bash.sh", bash(line)).stderr).toBe("");
       });
     }
+  }
+});
+
+describe("guard-bash.sh rule 7 (a pre-approved prettier, vitest or tsc takes only its short list of flags)", () => {
+  for (const cmd of MODULE_FLAG_BLOCKED) {
+    it(`blocks: ${firstLine(cmd)}`, () => {
+      const r = runHook("guard-bash.sh", bash(cmd));
+      expect(r.status).toBe(2);
+      expect(r.stderr).toContain("a pre-approved");
+    });
+  }
+  for (const cmd of MODULE_FLAG_ALLOWED) {
+    it(`allows: ${firstLine(cmd)}`, () => {
+      expect(runHook("guard-bash.sh", bash(cmd)).status).toBe(0);
+    });
   }
 });
 

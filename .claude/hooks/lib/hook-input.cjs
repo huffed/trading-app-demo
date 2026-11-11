@@ -18,6 +18,11 @@
  *                                         refuse (command or process substitution, heredocs, any `<`, any redirect
  *                                         other than >&1 >&2 >/dev/null 2>/dev/null) — otherwise the same lines.
  *   node hook-input.cjs stop-active       1 when stop_hook_active is true, else 0
+ *   node hook-input.cjs words             (stdin is one simple command, not JSON) its words as the shell would pass
+ *                                         them, quotes and backslashes resolved, one per line: so a quoted value
+ *                                         such as -t "--config x" stays one word
+ *   node hook-input.cjs expands           (stdin is one simple command) 1 when the shell would expand it: a $ or
+ *                                         backtick outside single quotes, or a { outside any quotes; else 0
  *
  * Exit 3 on malformed input or an unknown mode. Callers treat anything but
  * exit 0 as "cannot inspect, refuse" (fail closed).
@@ -184,7 +189,83 @@ function segments(cmd, strict) {
   return { segments: out };
 }
 
+/** The words of one simple command, quotes and backslash escapes resolved; a newline inside a word becomes a space. */
+function words(cmd) {
+  const out = [];
+  let cur = "";
+  let has = false;
+  let quote = null;
+  for (let i = 0; i < cmd.length; i++) {
+    const c = cmd[i];
+    if (quote === "'") {
+      if (c === "'") quote = null;
+      else cur += c;
+      continue;
+    }
+    if (c === "\\" && i + 1 < cmd.length) {
+      if (cmd[i + 1] !== "\n") cur += cmd[i + 1];
+      has = true;
+      i++;
+      continue;
+    }
+    if (quote === '"') {
+      if (c === '"') quote = null;
+      else cur += c;
+      continue;
+    }
+    if (c === "'" || c === '"') {
+      quote = c;
+      has = true;
+      continue;
+    }
+    if (/\s/.test(c)) {
+      if (has || cur) out.push(cur);
+      cur = "";
+      has = false;
+      continue;
+    }
+    cur += c;
+  }
+  if (has || cur) out.push(cur);
+  return out.map((w) => w.replace(/\n/g, " "));
+}
+
+/** 1 when the shell would expand the command: a $ or backtick outside single quotes, or a { outside any quotes. */
+function expands(cmd) {
+  let quote = null;
+  for (let i = 0; i < cmd.length; i++) {
+    const c = cmd[i];
+    if (quote === "'") {
+      if (c === "'") quote = null;
+      continue;
+    }
+    if (c === "\\") {
+      i++;
+      continue;
+    }
+    if (quote === '"') {
+      if (c === '"') quote = null;
+      else if (c === "$" || c === "`") return 1;
+      continue;
+    }
+    if (c === "'" || c === '"') {
+      quote = c;
+      continue;
+    }
+    if (c === "$" || c === "`" || c === "{") return 1;
+  }
+  return 0;
+}
+
 const mode = process.argv[2];
+if (mode === "words") {
+  process.stdout.write(words(fs.readFileSync(0, "utf8")).map((w) => `${w}\n`).join(""));
+  process.exit(0);
+}
+if (mode === "expands") {
+  process.stdout.write(String(expands(fs.readFileSync(0, "utf8"))));
+  process.exit(0);
+}
 const json = payload();
 const ti = toolInput(json);
 

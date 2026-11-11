@@ -37,9 +37,8 @@ export const MIRROR_BLOCKED: string[] = [
   "tsx scripts/canonical/enable-\\\nbroker-mirror.ts",
   "FOO=1 \\\ntsx M",
   "ssh qt 'cd /opt/quanttrader && pnpm exec tsx M'",
-  // the second review of #331: a pre-approved prettier loading it, runners behind quotes, flags and wrappers
-  "pnpm exec prettier --check --config M package.json",
-  "pnpm exec prettier --check --plugin=./M package.json",
+  // the second review of #331: eslint loading it, runners behind quotes, flags and wrappers (a pre-approved
+  // prettier --config or --plugin loading it is refused by rule 7 first: module-flag-cases.ts)
   "npx eslint -c M .",
   'NODE_OPTIONS="--no-warnings --dns-result-order=ipv4first" pnpm dlx tsx M',
   '"$PWD/node_modules/.bin/tsx" M',
