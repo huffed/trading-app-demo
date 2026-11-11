@@ -23,7 +23,8 @@
 #      target beside another goal, behind a flag or behind an override, or a
 #      variable override containing shell metacharacters;
 #      git diff/log/show/blame/grep --output or -O; vitest -u/--outputFile;
-#      prettier --check combined with --write
+#      prettier --check combined with --write; prettier or vitest given a file to
+#      import (--config, --plugin, --setupFiles, --globalSetup, vitest -c)
 #   8  raw host commands: ssh, scp, sftp or rsync run bare (lower case, unquoted,
 #      first word of its own command) reach only the qt alias, with no user@ and
 #      only short-listed options, read before and after the host; any other
@@ -454,6 +455,15 @@ while IFS=$'\t' read -r sep seg; do
   fi
   if grep -qE "^pnpm[[:space:]]+(exec[[:space:]]+)?prettier([[:space:]]|$)" <<<"$s" && grep -qE "(^|[[:space:]])--check([[:space:]]|$)" <<<"$uq" && grep -qE "(^|[[:space:]])(-w|--write)([[:space:]]|$)" <<<"$uq"; then
     deny "$orig" "prettier --check combined with --write is a write; use make format (an ask rule) on purpose"
+  fi
+  # prettier and vitest import and run the file a --config, --plugin, --setupFiles or --globalSetup flag names (vitest
+  # -c too; prettier's -c is --check), and both are pre-approved, so such a flag would let an allowed check run code
+  if grep -qE "^(pnpm|npx)[[:space:]]+(exec[[:space:]]+)?(prettier|vitest)([[:space:]]|$)" <<<"$s"; then
+    qs=$(tr -d "\"'\\\\" <<<"$s")
+    if grep -qE "(^|[[:space:]])(--config|--plugin|--setupFiles|--globalSetup)(=|[[:space:]]|$)" <<<"$qs" \
+       || { grep -qE "^(pnpm|npx)[[:space:]]+(exec[[:space:]]+)?vitest([[:space:]]|$)" <<<"$qs" && grep -qE "(^|[[:space:]])-c(=|[[:space:]]|$)" <<<"$qs"; }; then
+      deny "$orig" "prettier and vitest import the file a --config, --plugin, --setupFiles or --globalSetup flag names (vitest -c too), so a pre-approved check would run code; they find the repo's own config by themselves (docs/DEV_SETUP.md §16)"
+    fi
   fi
 
   # 8. raw host commands. Run bare (ssh, scp, sftp or rsync, lower case and unquoted, the first word of its own
