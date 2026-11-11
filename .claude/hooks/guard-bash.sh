@@ -366,6 +366,22 @@ while IFS=$'\t' read -r sep seg; do
   if { [ "$sep" = "pipe" ] || [ "${in_compound:-0}" = "1" ]; } && [ "$pipeline_env" = "1" ] && grep -qiE "^${readers}([[:space:]]|$)" <<<"$s"; then
     deny "$orig" "a command in this pipeline names a .env file and this one reads its input; secrets are never read from a Claude session (CLAUDE.md, Secrets)"
   fi
+  # 1d. git prints a file it is given or can reach, ignored ones such as .env.local included, and several git
+  # commands are pre-approved: a git command that names an env file (a commit only through -F/--file, so a message
+  # may mention one), reads paths outside the index (diff and grep --no-index, blame --contents, grep
+  # --no-exclude-standard), or brings an ignored file into the index or a stash (add -f, stash -a)
+  if grep -qiE "^git([[:space:]]|$)" <<<"$s"; then
+    gw=$(git_words "$s")
+    if { [ "$mentions_env" = "1" ] && ! grep -qE "^git[[:space:]]+commit([[:space:]]|$)" <<<"$gw"; } \
+       || grep -qiE "^git[[:space:]]+commit([[:space:]].*)?[[:space:]](-F|--file)(=|[[:space:]]+)[^[:space:]]*${envfile}" <<<"$gw" \
+       || grep -qE "^git[[:space:]]+(diff|grep)([[:space:]].*)?[[:space:]]--no-index([[:space:]=]|$)" <<<"$gw" \
+       || grep -qE "^git[[:space:]]+blame([[:space:]].*)?[[:space:]]--contents([[:space:]=]|$)" <<<"$gw" \
+       || grep -qE "^git[[:space:]]+grep([[:space:]].*)?[[:space:]]--no-exclude-standard([[:space:]]|$)" <<<"$gw" \
+       || grep -qE "^git[[:space:]]+add([[:space:]].*)?[[:space:]](--force|-[a-zA-Z]*f[a-zA-Z]*)([[:space:]]|$)" <<<"$gw" \
+       || grep -qE "^git[[:space:]]+stash([[:space:]].*)?[[:space:]](--all|-[a-zA-Z]*a[a-zA-Z]*)([[:space:]]|$)" <<<"$gw"; then
+      deny "$orig" "git can print an ignored file such as .env.local this way (naming it, --no-index, blame --contents, grep --no-exclude-standard, add -f, stash -a); secrets are never read from a Claude session (CLAUDE.md, Secrets)"
+    fi
+  fi
   [ "$mentions_env" = "1" ] && pipeline_env=1
 
   # 2. pinned corpora and golden inputs (plus their parent directories under a destructive verb)

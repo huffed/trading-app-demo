@@ -19,6 +19,7 @@ import {
   REVIEWER_ALLOWED,
   REVIEWER_BLOCKED,
 } from "./cases";
+import { GIT_ENV_ALLOWED, GIT_ENV_BLOCKED } from "./git-env-cases";
 import { HOST_ALLOWED, HOST_BLOCKED } from "./host-cases";
 import { MIRROR_ALLOWED, MIRROR_BLOCKED } from "./mirror-cases";
 import { MODULE_FLAG_ALLOWED, MODULE_FLAG_BLOCKED } from "./module-flag-cases";
@@ -161,6 +162,21 @@ describe("guard-bash.sh rule 8 (raw host commands reach the qt alias only, bare,
         expect(runHook("guard-bash.sh", bash(line)).stderr).toBe("");
       });
     }
+  }
+});
+
+describe("guard-bash.sh rule 1d (git cannot be made to print an ignored file such as .env.local)", () => {
+  for (const cmd of GIT_ENV_BLOCKED) {
+    it(`blocks: ${firstLine(cmd)}`, () => {
+      const r = runHook("guard-bash.sh", bash(cmd));
+      expect(r.status).toBe(2);
+      expect(r.stderr).toContain("git can print an ignored file");
+    });
+  }
+  for (const cmd of GIT_ENV_ALLOWED) {
+    it(`allows: ${firstLine(cmd)}`, () => {
+      expect(runHook("guard-bash.sh", bash(cmd)).status).toBe(0);
+    });
   }
 });
 
