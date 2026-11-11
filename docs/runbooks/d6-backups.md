@@ -147,6 +147,9 @@ age -d -i <your age key file> -o auth.dump db-auth.dump.age
 age -d -i <your age key file> env.tar.age | tar -tf -      # .env.local
 age -d -i <your age key file> host.tar.age | tar -tf -     # unit files, scripts, crontab.txt
 age -d -i <your age key file> logs.tar.age | tar -tzf - | wc -l
+# If the key is in a file for this step, delete it now, not at step 7. On current macOS `rm -P` has no effect
+# (man rm), and FileVault, not an overwrite, is what protects the freed blocks.
+rm -f <your age key file, if a copy>
 
 # 4. Build the two restore scripts. Left out: the tokens, the two foreign keys that would then fail,
 # and the schema's own entry, which already exists.
@@ -165,6 +168,9 @@ else
   echo 'STOP: this database has users or did not answer, so it is not an empty branch.'
 fi
 unset U
+# Whatever step 5 printed: delete the decrypted dumps and SQL now. They hold the broker tokens and the password
+# hashes, the drill's biggest exposure. A retry decrypts again from the .age files, which stay until step 7.
+rm -f public.dump auth.dump public.sql auth.sql
 ```
 
 ```bash
@@ -197,7 +203,7 @@ union all select 'broker_connections', count(*) from public.broker_connections
 union all select 'auth.users', count(*) from auth.users;
 ```
 
-7. Delete the branch and `rm -rf ~/qt-drill`.
+7. Delete the branch and `rm -rf ~/qt-drill`. By then only the `.age` files and `drill.list` should be left; the key copy went after step 3 and the dumps after step 5. The first drill left both on the workstation for three days (`docs/decisions/evidence/d6-restore-drill-2026-11-07.md`).
 8. Send the session the two sets of counts, the branch's status after step 1 and the cost shown on the usage page. It writes `docs/decisions/evidence/d6-restore-drill-<date>.md`, the counts and the branch status only, and the ledger row, and decision 0011 gets its Tested line.
 
 Step 5's `SET session_replication_role = replica` should be allowed for `postgres`: `set local session_replication_role = origin` worked on production in a rolled-back transaction on 2026-11-06, while the `set_config` function is refused. If the drill refuses it, the transaction rolls back and nothing is left half-loaded.
