@@ -89,7 +89,8 @@ pathprefix='([^[:space:];&|"'"'"']*/)?'
 readers='(cat|less|more|head|tail|nl|tac|paste|uniq|column|fold|fmt|hexdump|grep|rg|ag|sed|awk|cut|sort|diff|cmp|cp|mv|rm|tee|source|\.|vi|vim|nano|open|scp|rsync|base64|xxd|od|strings|dotenv|export|set|perl|python3?|node|ruby|php|bash|sh|zsh|jq|xargs)'
 interpreters='(node|python3?|perl|ruby|php|bash|sh|zsh|eval)'
 mirror_script='enable-broker'                       # the script's name, and any glob that spells it out to here
-ts_runners='(tsx|ts-node|vite-node|jiti|bun|bunx|deno|npx|pnpx|pnpm|yarn|npm|timeout|ssh)'
+# rule 6's runners: anything that can execute a TypeScript file, by name at any path
+runner_words='(node|python3?|perl|ruby|php|bash|sh|zsh|eval|awk|gawk|tsx|ts-node|vite-node|vite|vitest|jiti|bun|bunx|deno|npx|pnpx|pnpm|yarn|npm|corepack|timeout|ssh)'
 anywriters='(mv|rm|tee|truncate|touch|chmod|chown|mkdir|rmdir|shred|unlink|ln)'
 destwriters='(cp|install|rsync|scp)'
 destructive='(rm|mv|truncate|shred|unlink|rmdir)'
@@ -252,6 +253,22 @@ destructive_elsewhere=""
 mirror_named=0
 grep -qi "$mirror_script" <<<"$(tr -d "\"'\\\\\n\037" <<<"$raw")" && mirror_named=1
 runner_seen=""
+bs_cont=0
+# rule 6, only when the command names the script: does this text run something that could execute it? A runner
+# word anywhere in it counts, quotes gone and case folded, so VAR="a b", xargs -I{}, find -exec, nice -n, sudo -u
+# and a quoted path do not hide one. Not if the command only reads or prints, nor eslint, prettier or tsc with no
+# flag that loads a module (prettier --config and --plugin import the file they name)
+mirror_runner() {
+  local q h
+  q=$(tr -d "\"'\\\\" <<<"$1" | tr '[:upper:]' '[:lower:]')
+  h=${q#"${q%%[![:space:]]*}"}; h=${h%%[[:space:]]*}; h=${h##*/}
+  if grep -qE "^[[:space:]]*(pnpm|npx)[[:space:]]+(exec[[:space:]]+)?(eslint|prettier|tsc)([[:space:]]|$)" <<<"$q" \
+     && ! grep -qE "(^|[[:space:]])(-c|--config|--plugin|--rulesdir|--resolve-plugins-relative-to|--loader|--import|--require|-r)(=|[[:space:]]|$)" <<<"$q"; then
+    return 1
+  fi
+  if inert_mention "$h" "$q"; then return 1; fi
+  grep -qE "(^|[^a-z0-9_.-])${runner_words}([^a-z0-9_-]|$)" <<<"$q"
+}
 fence_down="${QT_ALLOW_LIVE_EDITS:-0}"
 
 tab=$'\t'
@@ -264,10 +281,10 @@ while IFS=$'\t' read -r sep seg; do
       # continue over lines, except an ssh whose remote command carries on inside quotes; no other command may
       # name a host word on one
       line="$sep${seg:+$tab$seg}"; line=${line#$'\x1f'}
-      # rule 6: a runner may start the continuation line (FOO=1 \ newline tsx …)
-      cr=${line#"${line%%[![:space:]]*}"}; cr=${cr%%[[:space:]]*}; cr=${cr##*/}
-      case "$cr" in *[A-Z]*) cr=$(tr '[:upper:]' '[:lower:]' <<<"$cr") ;; esac
-      if [[ $cr =~ ^(${interpreters}|${ts_runners})$ ]]; then runner_seen=$line; fi
+      # rule 6: after a backslash-newline the command goes on (FOO=1 \ newline tsx …); a newline inside quotes is
+      # text, such as a commit message's next line
+      if [ "$mirror_named" = 1 ] && [ "$bs_cont" = 1 ] && mirror_runner "$line"; then runner_seen=$line; fi
+      case "$line" in *\\) bs_cont=1 ;; *) bs_cont=0 ;; esac
       case "$prev_host" in
         scp|sftp|rsync) deny "$line" "a host command continued over several lines; put it on one line (docs/DEV_SETUP.md §17)" ;;
         ssh) [ "$prev_cont" = 0 ] || deny "$line" "an ssh continued with a backslash-newline, where its options would hide; put it on one line, or the remote part in a file for ssh qt 'bash -s' < file (docs/DEV_SETUP.md §17)" ;;
@@ -276,6 +293,7 @@ while IFS=$'\t' read -r sep seg; do
       continue ;;
   esac
   [ -n "$seg" ] || continue
+  case "$seg" in *\\) bs_cont=1 ;; *) bs_cont=0 ;; esac
   orig=$seg
   s0=$(printf '%s' "$seg" | sed -E 's/\.env\.example//g')     # the example file is public
   xargs_fed=0
@@ -360,12 +378,8 @@ while IFS=$'\t' read -r sep seg; do
   fi
 
   # 6. the script that turns mirroring on: judged across the whole command below, so a path in a variable or
-  # fed through a pipe is still seen. A runner is matched by its name, whatever path it is called by
-  # (node_modules/.bin/tsx); eslint, prettier and tsc only read the file, vitest imports it and so runs it
-  runner=${s%%[[:space:]]*}; runner=${runner##*/}
-  case "$runner" in *[A-Z]*) runner=$(tr '[:upper:]' '[:lower:]' <<<"$runner") ;; esac
-  if [[ $runner =~ ^(${interpreters}|${ts_runners})$ ]] \
-     && ! grep -qiE "^(pnpm|npx)[[:space:]]+(exec[[:space:]]+)?(eslint|prettier|tsc)([[:space:]]|$)" <<<"$s"; then runner_seen=$orig; fi
+  # fed through a pipe is still seen; mirror_runner says what counts as a runner
+  if [ "$mirror_named" = 1 ] && mirror_runner "$s"; then runner_seen=$orig; fi
 
   # 7. pre-approved commands that can be turned into writes
   if grep -qiE "^make([[:space:]]|$)" <<<"$s"; then

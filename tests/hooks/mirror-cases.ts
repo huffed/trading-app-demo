@@ -37,6 +37,26 @@ export const MIRROR_BLOCKED: string[] = [
   "tsx scripts/canonical/enable-\\\nbroker-mirror.ts",
   "FOO=1 \\\ntsx M",
   "ssh qt 'cd /opt/quanttrader && pnpm exec tsx M'",
+  // the second review of #331: a pre-approved prettier loading it, runners behind quotes, flags and wrappers
+  "pnpm exec prettier --check --config M package.json",
+  "pnpm exec prettier --check --plugin=./M package.json",
+  "npx eslint -c M .",
+  'NODE_OPTIONS="--no-warnings --dns-result-order=ipv4first" pnpm dlx tsx M',
+  '"$PWD/node_modules/.bin/tsx" M',
+  '"./node_modules/.bin/tsx" M',
+  "FOO=1 \\\nBAR=2 pnpm dlx tsx M",
+  "cd scripts/canonical && \\\nenv X=1 tsx enable-broker-mirror.ts",
+  "printf '%s\\0' M | xargs -0 pnpm dlx tsx",
+  "printf '%s\\n' M | xargs -I{} pnpm dlx tsx {}",
+  "find . -name enable-broker-mirror.ts -exec pnpm dlx tsx {} \\;",
+  "nice -n 10 tsx M",
+  "sudo -u ops tsx M",
+  `awk 'BEGIN{system("tsx M")}'`,
+  "node_modules/.bin/vite --config M",
+  "node_modules/.bin/vitest run --config M",
+  "corepack pnpm dlx tsx M",
+  // a known false positive, kept closed: a test filter that names the script, beside a runner
+  "pnpm exec vitest run tests/hooks/hooks.test.ts -t enable-broker-mirror",
 ].map((c) => c.replaceAll("M", mirrorScript));
 
 /** guard-bash.sh must allow these (exit 0): reading or naming the script, and running another one */
@@ -50,4 +70,8 @@ export const MIRROR_ALLOWED: string[] = [
   `git commit -m "docs: ${mirrorScript} stays refused"`,
   `cat > /tmp/note.md <<'EOF'\nthe script \`${mirrorScript}\` stays refused\nEOF`,
   "pnpm dlx tsx scripts/canonical/m1-progress.ts",
+  `npx tsc --noEmit ${mirrorScript}`,
+  `npx eslint ${mirrorScript}`,
+  `pnpm prettier --check ${mirrorScript}`,
+  `git commit -m "docs: ${mirrorScript} stays refused\nrun it with pnpm only after P19"`,
 ];
