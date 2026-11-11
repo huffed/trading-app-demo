@@ -40,11 +40,11 @@ In every table, the "created before" count equals the branch's count. That means
 
 - **Cost:** not read from the usage page. The branch existed for about 74 hours at Micro size. At the runbook's quoted rate of $0.01344 per hour, that is about $1.00.
 - **Deleted:** the branch and `~/qt-drill`, at 19:48 UK on 2026-11-10.
-- **The key file** (operator, 2026-11-10) was `~/qt-drill/key.txt`: a temporary copy of the age private key, mode 600, written for step 3's decrypt and removed with `rm -P` before the directory. The private key itself lives only in the operator's password manager, and nothing else was overwritten.
-  - On this workstation's macOS (27.0.1), `man rm` says of `-P`: "This flag has no effect". So `key.txt` was deleted, not overwritten; on an APFS SSD an overwrite in place is not reliable anyway.
+- **The key file** (operator, 2026-11-10) was `~/qt-drill/key.txt`: a temporary copy of the age private key, mode 600, written for step 3's decrypt and removed with `rm -P` before the directory. No other file copy of the key was on the workstation, and nothing else was overwritten (operator).
+  - On this workstation's macOS (27.0.1), `man rm` says of `-P`: "This flag has no effect". So `key.txt` was deleted, not overwritten. On an SSD an overwrite in place is not reliable in any case (general knowledge, not checked here).
   - FileVault is on (`fdesetup status`, 2026-11-10), so the freed blocks are encrypted at rest.
   - So a copy of the private key sat in `~/qt-drill` from 2026-11-07 to 2026-11-10, beside the decrypted dumps.
-  - The operator decided on 2026-11-10 not to rotate the key. The copy stayed on their own encrypted machine, mode 600, never in a session, with no Time Machine destination.
+  - The operator decided on 2026-11-10 not to rotate the key. Their reasons: the copy was written only on their FileVault machine, mode 600, and never shown to a session; and Time Machine has no destination. Other backup or sync software was not checked.
 - **The decrypted dumps sat on the workstation from the evening of 2026-11-07 until 19:48 UK on 2026-11-10,** about three days instead of the drill's few hours.
   - They held `auth.users` with its password hashes, and the whole of `public`, including `broker_connections` with its tokens. Step 4 kept that table out of the branch, not out of the file.
   - This is within decision 0011, which allows decryption only on the operator's machine, but it was longer than planned. The runbook now deletes the key copy right after step 3, and the dumps and SQL files right after step 5 (operator, 2026-11-10).
