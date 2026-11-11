@@ -55,6 +55,11 @@ export const MIRROR_BLOCKED: string[] = [
   "node_modules/.bin/vite --config M",
   "node_modules/.bin/vitest run --config M",
   "corepack pnpm dlx tsx M",
+  // the third review of #331: a runner inside a VAR= value, git -c, man -P, eslint -f
+  'GIT_EDITOR="tsx M" git commit',
+  "git -c diff.external=tsx diff --no-index /dev/null M",
+  'man -P "tsx M" ls',
+  "npx eslint -f ./M .",
   // a known false positive, kept closed: a test filter that names the script, beside a runner
   "pnpm exec vitest run tests/hooks/hooks.test.ts -t enable-broker-mirror",
 ].map((c) => c.replaceAll("M", mirrorScript));

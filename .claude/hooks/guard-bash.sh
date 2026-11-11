@@ -258,16 +258,21 @@ bs_cont=0
 # word anywhere in it counts, quotes gone and case folded, so VAR="a b", xargs -I{}, find -exec, nice -n, sudo -u
 # and a quoted path do not hide one. Not if the command only reads or prints, nor eslint, prettier or tsc with no
 # flag that loads a module (prettier --config and --plugin import the file they name)
+# mirror_runner <command, wrappers stripped> [<the segment as written>]: the head is read from the first, runner
+# words from the second, so one inside a VAR= value (GIT_EDITOR="tsx …" git commit) still counts
 mirror_runner() {
-  local q h
-  q=$(tr -d "\"'\\\\" <<<"$1" | tr '[:upper:]' '[:lower:]')
+  local r q h w
+  r=$(tr -d "\"'\\\\" <<<"$1")
+  q=$(tr '[:upper:]' '[:lower:]' <<<"$r")
+  w=$(tr -d "\"'\\\\" <<<"${2:-$1}" | tr '[:upper:]' '[:lower:]')
   h=${q#"${q%%[![:space:]]*}"}; h=${h%%[[:space:]]*}; h=${h##*/}
   if grep -qE "^[[:space:]]*(pnpm|npx)[[:space:]]+(exec[[:space:]]+)?(eslint|prettier|tsc)([[:space:]]|$)" <<<"$q" \
-     && ! grep -qE "(^|[[:space:]])(-c|--config|--plugin|--rulesdir|--resolve-plugins-relative-to|--loader|--import|--require|-r)(=|[[:space:]]|$)" <<<"$q"; then
+     && ! grep -qE "(^|[[:space:]])(-c|--config|--plugin|--rulesdir|--resolve-plugins-relative-to|--loader|--import|--require|-r|-f|--format)(=|[[:space:]]|$)" <<<"$q"; then
     return 1
   fi
-  if inert_mention "$h" "$q"; then return 1; fi
-  grep -qE "(^|[^a-z0-9_.-])${runner_words}([^a-z0-9_-]|$)" <<<"$q"
+  # a reader only reads, unless git is handed a -c (diff.external, core.pager and others run a program)
+  if inert_mention "$h" "$r" && ! { [ "$h" = git ] && grep -qE "(^|[[:space:]])-c[[:space:]]" <<<"$q"; }; then return 1; fi
+  grep -qE "(^|[^a-z0-9_.-])${runner_words}([^a-z0-9_-]|$)" <<<"$w"
 }
 fence_down="${QT_ALLOW_LIVE_EDITS:-0}"
 
@@ -379,7 +384,7 @@ while IFS=$'\t' read -r sep seg; do
 
   # 6. the script that turns mirroring on: judged across the whole command below, so a path in a variable or
   # fed through a pipe is still seen; mirror_runner says what counts as a runner
-  if [ "$mirror_named" = 1 ] && mirror_runner "$s"; then runner_seen=$orig; fi
+  if [ "$mirror_named" = 1 ] && mirror_runner "$s" "$orig"; then runner_seen=$orig; fi
 
   # 7. pre-approved commands that can be turned into writes
   if grep -qiE "^make([[:space:]]|$)" <<<"$s"; then
