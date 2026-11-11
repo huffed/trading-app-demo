@@ -166,11 +166,25 @@ describe("guard-bash.sh rule 8 (raw host commands reach the qt alias only, bare,
 });
 
 describe("guard-bash.sh rule 1d (the git forms that print an ignored file such as .env.local)", () => {
-  for (const cmd of GIT_ENV_BLOCKED) {
+  it("holds every git subcommand .claude/settings.json pre-approves to its short list", () => {
+    const settings = JSON.parse(readFileSync(join(ROOT, ".claude", "settings.json"), "utf8")) as {
+      permissions: { allow: string[] };
+    };
+    const allowed = settings.permissions.allow.flatMap(
+      (r) => /^Bash\(git ([a-z-]+)[ :]/.exec(r)?.[1] ?? []
+    );
+    const src = readFileSync(join(HOOKS, "lib", "git-check.cjs"), "utf8");
+    const listed = JSON.parse(
+      /const PRE_APPROVED = (\[[^\]]*\]);/.exec(src)?.[1] ?? "[]"
+    ) as string[];
+    expect([...listed].sort()).toEqual([...allowed].sort());
+  });
+  for (const [cmd, reason] of GIT_ENV_BLOCKED) {
     it(`blocks: ${firstLine(cmd)}`, () => {
       const r = runHook("guard-bash.sh", bash(cmd));
       expect(r.status).toBe(2);
       expect(r.stderr).toContain("git can print an ignored file");
+      expect(r.stderr).toContain(reason);
     });
   }
   for (const cmd of GIT_ENV_ALLOWED) {

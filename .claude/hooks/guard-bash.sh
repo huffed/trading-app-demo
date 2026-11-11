@@ -4,11 +4,12 @@
 # xargs, nice, time, VAR=value prefixes, /bin/ paths, a leading backslash, shell
 # keywords) and refuses, with exit 2 and the reason on stderr:
 #   1  reads or writes of .env files other than .env.example (readers, interpreters,
-#      --env-file, redirects, quoted or not, any case), pipelines that feed one
-#      to a reader (echo .env.local | xargs cat), and git that names one outside a
-#      -m message, reads outside the index or stages an ignored file (1d, gitEnv in
-#      lib/hook-input.cjs). A name it cannot see (a glob, a recursive search) passes
-#      (DEBT D-22)
+#      --env-file, dd if=, redirects, quoted or not, any case), pipelines that feed
+#      one to a reader or to git (echo .env.local | xargs cat), and git (1d,
+#      lib/git-check.cjs, after the other rules): the seven pre-approved git
+#      subcommands only bare, on one line, unexpanded, with their short list of
+#      flags and paths in the repository; other git for the known forms. A name it
+#      cannot see (a glob, a recursive search) passes (DEBT D-22)
 #   2  writes into the pinned corpora (scripts/canonical/data) and the golden inputs
 #      (tests/golden/*.json), including rm/mv/git rm/git checkout/find -delete,
 #      redirects, fixers, and destructive verbs on their parent directories
@@ -91,7 +92,7 @@ envfile='\.env(rc|[._-][A-Za-z0-9_.-]*)?'
 tail_='([^A-Za-z0-9_]|$)'
 q="[\"']?"
 pathprefix='([^[:space:];&|"'"'"']*/)?'
-readers='(cat|less|more|head|tail|nl|tac|paste|uniq|column|fold|fmt|hexdump|grep|rg|ag|sed|awk|cut|sort|diff|cmp|cp|mv|rm|tee|source|\.|vi|vim|nano|open|scp|rsync|base64|xxd|od|strings|dotenv|export|set|perl|python3?|node|ruby|php|bash|sh|zsh|jq|xargs)'
+readers='(cat|less|more|head|tail|nl|tac|paste|uniq|column|fold|fmt|hexdump|grep|egrep|fgrep|zgrep|rg|ag|sed|awk|cut|sort|diff|sdiff|cmp|comm|rev|iconv|dd|cp|mv|ln|install|rm|tee|source|\.|vi|vim|nano|open|scp|rsync|base64|xxd|od|strings|dotenv|export|set|perl|python3?|node|ruby|php|bash|sh|zsh|jq|xargs)'
 interpreters='(node|python3?|perl|ruby|php|bash|sh|zsh|eval)'
 mirror_script='enable-broker'                       # the script's name, and any glob that spells it out to here
 # rule 6's runners: anything that can execute a TypeScript file, by name at any path
@@ -354,7 +355,7 @@ while IFS=$'\t' read -r sep seg; do
   case "$seg" in done*|fi|fi\ *|esac*) in_compound=0;; esac
 
   # 1. a reader (after wrapper stripping) given an env file; a redirect to or from one; --env-file
-  if grep -qiE "^${readers}([[:space:]]+[^[:space:]]+)*[[:space:]]+${q}(--env-file=)?${pathprefix}${envfile}${tail_}" <<<"$s" \
+  if grep -qiE "^${readers}([[:space:]]+[^[:space:]]+)*[[:space:]]+${q}(--env-file=|if=)?${pathprefix}${envfile}${tail_}" <<<"$s" \
      || grep -qiE "[<>][|]?[[:space:]]*${q}${pathprefix}${envfile}${tail_}" <<<"$s" \
      || grep -qiE "(^|[[:space:]])--env-file(=|[[:space:]]+)${q}${pathprefix}${envfile}" <<<"$s"; then
     deny "$orig" "it reads or writes a .env file; secrets are never read, printed, moved or edited from a Claude session (CLAUDE.md, Secrets). .env.example is fine"
@@ -366,24 +367,8 @@ while IFS=$'\t' read -r sep seg; do
     deny "$orig" "an interpreter is given a .env file name; secrets are never read, printed, moved or edited from a Claude session (CLAUDE.md, Secrets)"
   fi
   # 1c. a pipe-fed reader (or one inside the compound the pipe feeds) after a command that named an env file
-  if { [ "$sep" = "pipe" ] || [ "${in_compound:-0}" = "1" ]; } && [ "$pipeline_env" = "1" ] && grep -qiE "^${readers}([[:space:]]|$)" <<<"$s"; then
+  if { [ "$sep" = "pipe" ] || [ "${in_compound:-0}" = "1" ]; } && [ "$pipeline_env" = "1" ] && grep -qiE "^(${readers}|git)([[:space:]]|$)" <<<"$s"; then
     deny "$orig" "a command in this pipeline names a .env file and this one reads its input; secrets are never read from a Claude session (CLAUDE.md, Secrets)"
-  fi
-  # 1d. git prints a file it is given or can reach, ignored ones such as .env.local included, and several git
-  # commands are pre-approved. gitEnv in lib/hook-input.cjs reads the words as the shell passes them and refuses a
-  # git command that names an env file anywhere but in a -m/--message text (status, check-ignore, ls-files,
-  # rm --cached and restore --staged may), reads paths outside the index (diff and grep --no-index, a diff path
-  # outside the repository, blame --contents, -S or --ignore-revs-file, grep --no-exclude-standard), brings an
-  # ignored file into the index or a stash (add -f, stash -a), any unambiguous prefix of those long options
-  # included, sets an alias with -c, or uses $'…' quoting
-  # git config set through the environment (an alias, a textconv) reaches every git command after it
-  case "$seg" in
-    *GIT_CONFIG_PARAMETERS=*|*GIT_CONFIG_COUNT=*|*GIT_CONFIG_KEY_*=*|*GIT_CONFIG_VALUE_*=*)
-      deny "$orig" "git can print an ignored file such as .env.local this way: configuration set through GIT_CONFIG_* can define an alias that does; secrets are never read from a Claude session (CLAUDE.md, Secrets)" ;;
-  esac
-  if grep -qiE "^git([[:space:]]|$)" <<<"$s"; then
-    why=$(printf '%s' "$s" | node "$here/lib/hook-input.cjs" gitenv "$root") || deny "$orig" "could not inspect this git command"
-    [ -z "$why" ] || deny "$orig" "git can print an ignored file such as .env.local this way: ${why}; secrets are never read from a Claude session (CLAUDE.md, Secrets)"
   fi
   [ "$mentions_env" = "1" ] && pipeline_env=1
 
@@ -681,4 +666,14 @@ fi
 if [ -n "$destructive_elsewhere" ] && [ "$any_protected" = "1" ]; then
   deny "$destructive_elsewhere" "a destructive command takes its paths from another command or a variable while this command line names pinned data, golden inputs or live-runner paths"
 fi
+# 1d, after the rules above so their own reasons come first. git prints any file it is given or can reach, ignored
+# ones such as .env.local included, and seven git subcommands are pre-approved: lib/git-check.cjs holds those to bare,
+# one line, no shell expansion, their short list of flags and paths inside the repository, and refuses the known
+# forms in every other git command (best-effort, DEBT D-22). It reads the whole command, continuation lines included
+case "$(tr -d "\"'\\\\" <<<"$raw" | tr '[:upper:]' '[:lower:]')" in
+  *git*|*home=*)
+    git_why=$(printf '%s' "$input" | node "$here/lib/hook-input.cjs" gitcheck "$root") \
+      || { echo "guard-bash: could not inspect the git in this command; refusing" >&2; exit 2; }
+    [ -z "$git_why" ] || deny "${git_why%%$'\t'*}" "git can print an ignored file such as .env.local this way: ${git_why#*$'\t'}; secrets are never read from a Claude session (CLAUDE.md, Secrets). A pre-approved git runs bare, on one line, with its listed flags (docs/DEV_SETUP.md §16)" ;;
+esac
 exit 0
