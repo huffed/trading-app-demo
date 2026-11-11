@@ -128,6 +128,7 @@ host_words='(ssh|slogin|scp|sftp|rsync|autossh|sshpass|ssh-copy-id|ssh-agent|ssh
 mentions_host() {
   local t=${1//\"/}
   t=${t//\'/}; t=${t//\\/}
+  t=${t//\$[0-9]/}                                  # a positional parameter is empty here: $1ssh is ssh
   # a test with no subprocess first: most segments name no host word, and every hook has a 10 s budget
   case "$t" in
     *[sS][sS][hH]*|*[sS][cC][pP]*|*[sS][fF][tT][pP]*|*[rR][sS][yY][nN][cC]*|*[sS][lL][oO][gG][iI][nN]*|*[mM][oO][sS][hH]*) ;;
@@ -458,8 +459,20 @@ while IFS=$'\t' read -r sep seg; do
   fi
   # zsh's glob qualifiers run code from inside a reader's arguments (ls *(e:'…':), *(+fn)); quoted text is not a glob
   case "$uq" in
-    *'(e:'*|*"(e'"*|*'(e"'*|*'(+'*) deny "$orig" "a zsh glob qualifier runs code from a glob (docs/DEV_SETUP.md §17)" ;;
+    *'(e:'*|*'(+'*) deny "$orig" "a zsh glob qualifier runs code from a glob (docs/DEV_SETUP.md §17)" ;;
   esac
+  case "$seg" in                                    # a quote right after the e opens the qualifier's code
+    *"(e'"*|*'(e"'*) deny "$orig" "a zsh glob qualifier runs code from a glob (docs/DEV_SETUP.md §17)" ;;
+  esac
+  # a shell or interpreter inside $(…), <(…) or >(…), in a command that names a host word (… | tee >(bash))
+  if [ "$sep" = "subst" ]; then
+    case "$nh" in
+      bash|sh|zsh|dash|ksh|csh|tcsh|fish|eval|source|.|python|python3|perl|ruby|node|awk|osascript)
+        if mentions_host "$raw"; then
+          deny "$orig" "a shell or interpreter inside a substitution, in a command that names a host command (docs/DEV_SETUP.md §17)"
+        fi ;;
+    esac
+  fi
   # after a command that names a host word, the rest of its pipeline may only read; a heredoc's or here-string's
   # lines are read by its command, out of the ask rule's sight, unless that command only reads them
   if [ "$sep" = "pipe" ] && [ "$pipeline_host" = 1 ]; then

@@ -321,7 +321,7 @@ ssh qt 'sudo -n reboot'; sleep 60; make status   # a reboot: ledger row + decisi
   - scp's `-3 -4 -6 -B -C -O -p -q -r -v`;
   - rsync without `-e`/`--rsh` or a daemon form.
 
-  So `ssh qt '…'`, `ssh qt 'bash -s' < file`, `scp … qt:/tmp/`, `rsync -a qt:… ./`, the kill switch's `ssh -O exit -o ControlPath=~/.ssh/qt-make-%C qt` and the UI's `ssh -L 3000:localhost:3000 qt` all pass, then prompt. The bare word alone passes too: it prints usage and reaches nothing. A canonical `scp` or `rsync` to a local `~/.ssh` path passes this check too, and prompts. A test runs through the guard every line of a `bash` block in the runbooks and this file that starts with `ssh`, `scp`, `sftp` or `rsync` and names `qt`, with its trailing comment dropped. The deploy driver, which `make deploy` runs and which reaches the host itself, has its own ask rule, `Bash(*deploy-driver*)`.
+  So `ssh qt '…'`, `ssh qt 'bash -s' < file`, `scp … qt:/tmp/`, `rsync -a qt:… ./`, the kill switch's `ssh -O exit -o ControlPath=~/.ssh/qt-make-%C qt` and the UI's `ssh -L 3000:localhost:3000 qt` all pass, then prompt. The bare word alone passes too: it prints usage and reaches nothing. A canonical `scp` or `rsync` to a local `~/.ssh` path passes this check too, and prompts. A test runs through the guard every line of a `bash` block in the runbooks and this file that starts with `ssh`, `scp`, `sftp` or `rsync` and names `qt`, with its trailing comment dropped. The deploy driver, which `make deploy` runs and which reaches the host itself, has its own ask rule, `Bash(*deploy-driver*)`; a harmless `echo deploy-driver-probe` prompted under it in an auto-mode session on 2026-11-11.
 - **Everything else that names a host word is refused.** A host word is `ssh`, `slogin`, `scp`, `sftp`, `rsync`, `ssh-keyscan` or an ssh variant, found after quotes and backslashes are removed and case is folded. That covers:
   - spellings: `'ssh'`, `s\sh`, `SSH`, `./ssh`, `/usr/bin/ssh`, `=ssh`, `c=ssh`, `printf -v c ssh`, `{ssh,…}`;
   - wrappers in front: `sudo`, `env`, `nice`, `command -p`, `xargs`, `find -exec`, `script`, `ssh-agent`;
@@ -331,7 +331,8 @@ ssh qt 'sudo -n reboot'; sleep 60; make status   # a reboot: ledger row + decisi
   The exception is a command that only reads or prints the word: `grep`, `egrep`, `fgrep`, `rg` (not `--pre`), `ag`, `echo`, `printf` (not `-v`), `man` (not `-P`), `cat`, `ls`, `head`, `tail`, `wc`, `file`, `stat`, `jq`, `shellcheck`, `which`, `whereis`, `type`, `command -v`, and git's `commit|log|show|diff|blame|status|add` (after its global options).
 - **Also refused:**
   - a command word built from a substitution, from a variable or escape in its name (not `$` and a digit), or from a glob with a letter in it that matches a host word (`s?h`, `ss$()h`, `$'\x73sh'`, `$c`);
-  - zsh glob qualifiers that run code, outside quotes;
+  - zsh glob qualifiers that run code;
+  - a shell or interpreter inside `$(…)`, `<(…)` or `>(…)` in a command that names a host word (`… | tee >(bash)`);
   - after a command that names a host word, anything in its pipeline (`|` or `|&`) but a reader (`grep`, `rg`, `head`, `tail`, `cut`, `sort`, `uniq`, `wc`, `tr`, `column`, `cat`, `less`, `more`, `jq`, `nl`, `fold`, `diff`, `cmp`, `shasum`, `sha256sum`, `md5`, `tee`, `od`, `xxd`, `hexdump`, `strings`), and a heredoc or here-string fed to a non-reader;
   - a host word on a continuation line, a backslash-newline after an ssh, and an scp, sftp or rsync continued over lines;
   - any mention of `RSYNC_RSH`, `RSYNC_CONNECT_PROG` or `GIT_SSH*` outside a reader;
@@ -357,7 +358,7 @@ ssh qt 'sudo -n reboot'; sleep 60; make status   # a reboot: ledger row + decisi
 - `git fetch|pull|push` given an option's value before a user-less `host:path`;
 - edits to `~/.ssh` through Claude's own file tools, which `guard-paths` does not see outside the project; `.git/config` is on Claude Code's documented protected-path list, not tested here;
 - an `RSYNC_RSH` exported by the user's shell profile;
-- **any command the guard takes longer than its 10 s timeout to read.** Each segment costs about 0.35 s, and the `dev` guard before this change took 10.35 s on a 30-line heredoc (measured 2026-11-10). A timed-out hook lets the call through unless it sets `"onFailure": "block"` (D-22).
+- **any command the guard takes longer than its 10 s timeout to read.** Each segment costs about 0.35 s, so the limit falls at about 25–30 lines, depending on the machine; the `dev` guard before this change took 10.35 s on a 30-line heredoc (measured 2026-11-10). A timed-out hook lets the call through unless it sets `"onFailure": "block"` (D-22).
 
 The structural control is the sandbox: Claude Code's docs say plain ssh cannot connect from a sandboxed command at all. Turning it on is an operator decision, D-22.
 

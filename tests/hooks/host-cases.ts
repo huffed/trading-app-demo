@@ -207,6 +207,9 @@ export const HOST_BLOCKED: readonly (readonly [string, string])[] = [
   ],
   ["scp f qt:/tmp/ \\\nnl\tother:/etc/hosts", "continued over several lines"],
   ["ssh qt \\\nstart\t-oHostName=203.0.113.5 uptime", "backslash-newline"],
+  ["$1ssh other uptime", bare],
+  ["ls *(e'ssh other uptime')", "glob qualifier"],
+  ["echo 'ssh other uptime' | tee >(bash)", "inside a substitution"],
   // known false positives, kept closed: the splitter cannot tell a heredoc's text from commands, and an
   // assignment whose quoted value has a space reads as a command (write such text with the file tools)
   ["cat > /tmp/n.md <<'EOF'\nUse `ssh`, `scp` and `rsync` here.\nEOF", bare],
