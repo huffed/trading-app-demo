@@ -23,8 +23,9 @@
 #      target beside another goal, behind a flag or behind an override, or a
 #      variable override containing shell metacharacters;
 #      git diff/log/show/blame/grep --output or -O; vitest -u/--outputFile;
-#      prettier --check combined with --write; prettier or vitest given a file to
-#      import (--config, --plugin, --setupFiles, --globalSetup, vitest -c)
+#      prettier --check combined with --write; a pre-approved prettier --check,
+#      vitest or tsc --noEmit given a flag off its short list of known-safe
+#      flags, behind a VAR= prefix, or continued over lines
 #   8  raw host commands: ssh, scp, sftp or rsync run bare (lower case, unquoted,
 #      first word of its own command) reach only the qt alias, with no user@ and
 #      only short-listed options, read before and after the host; any other
@@ -275,6 +276,33 @@ mirror_runner() {
   if inert_mention "$h" "$r" && ! { [ "$h" = git ] && grep -qE "(^|[[:space:]])-c[[:space:]]" <<<"$q"; }; then return 1; fi
   grep -qE "(^|[^a-z0-9_.-])${runner_words}([^a-z0-9_-]|$)" <<<"$w"
 }
+# rule 7: a pre-approved prettier --check, vitest or tsc --noEmit may take only flags known to import, run and
+# write nothing. flag_off_list <tool> reads the command's words on stdin and prints the first flag off its list
+reporter_ok() { case "$1" in default|verbose|dot|basic|tap|tap-flat|junit|json|hanging-process|github-actions|tree) return 0 ;; esac; return 1; }
+flag_off_list() {
+  local tool=$1 w n after=0 val=""
+  while IFS= read -r w || [ -n "$w" ]; do
+    if [ "$after" = 0 ]; then [ "$w" = "$tool" ] && after=1; continue; fi
+    if [ -n "$val" ]; then
+      if [ "$val" = reporter ] && ! reporter_ok "$w"; then printf '%s' "--reporter $w"; return; fi
+      val=""; continue
+    fi
+    [ "$w" != "--" ] || return 0                     # after --, only file patterns
+    case "$w" in -*) ;; *) continue ;; esac
+    n=${w%%=*}
+    case "$tool:$n" in
+      prettier:--check|prettier:-c|prettier:--list-different|prettier:-l|prettier:--no-color|prettier:--color|prettier:--ignore-unknown|prettier:-u|prettier:--no-error-on-unmatched-pattern|prettier:--no-editorconfig) ;;
+      prettier:--log-level|vitest:-t|vitest:--testNamePattern|vitest:--bail|vitest:--testTimeout|vitest:--hookTimeout|vitest:--retry|vitest:--maxWorkers|tsc:-p|tsc:--project)
+        [ "$n" != "$w" ] || val=value ;;
+      vitest:--run|vitest:--silent|vitest:--passWithNoTests|vitest:--no-color|vitest:--color|vitest:--no-file-parallelism|vitest:--allowOnly) ;;
+      vitest:--reporter)
+        if [ "$n" = "$w" ]; then val=reporter; elif ! reporter_ok "${w#*=}"; then printf '%s' "$w"; return; fi ;;
+      tsc:--noEmit|tsc:--pretty|tsc:--skipLibCheck|tsc:--listFilesOnly|tsc:--extendedDiagnostics) ;;
+      *) printf '%s' "$w"; return ;;
+    esac
+  done
+  return 0
+}
 fence_down="${QT_ALLOW_LIVE_EDITS:-0}"
 
 tab=$'\t'
@@ -456,14 +484,21 @@ while IFS=$'\t' read -r sep seg; do
   if grep -qE "^pnpm[[:space:]]+(exec[[:space:]]+)?prettier([[:space:]]|$)" <<<"$s" && grep -qE "(^|[[:space:]])--check([[:space:]]|$)" <<<"$uq" && grep -qE "(^|[[:space:]])(-w|--write)([[:space:]]|$)" <<<"$uq"; then
     deny "$orig" "prettier --check combined with --write is a write; use make format (an ask rule) on purpose"
   fi
-  # prettier and vitest import and run the file a --config, --plugin, --setupFiles or --globalSetup flag names (vitest
-  # -c too; prettier's -c is --check), and both are pre-approved, so such a flag would let an allowed check run code
-  if grep -qE "^(pnpm|npx)[[:space:]]+(exec[[:space:]]+)?(prettier|vitest)([[:space:]]|$)" <<<"$s"; then
-    qs=$(tr -d "\"'\\\\" <<<"$s")
-    if grep -qE "(^|[[:space:]])(--config|--plugin|--setupFiles|--globalSetup)(=|[[:space:]]|$)" <<<"$qs" \
-       || { grep -qE "^(pnpm|npx)[[:space:]]+(exec[[:space:]]+)?vitest([[:space:]]|$)" <<<"$qs" && grep -qE "(^|[[:space:]])-c(=|[[:space:]]|$)" <<<"$qs"; }; then
-      deny "$orig" "prettier and vitest import the file a --config, --plugin, --setupFiles or --globalSetup flag names (vitest -c too), so a pre-approved check would run code; they find the repo's own config by themselves (docs/DEV_SETUP.md §16)"
-    fi
+  # prettier --check, vitest run and tsc --noEmit are pre-approved, and each has flags that import a file, run a
+  # program or write one: prettier --config, --plugin, --config-path (its experimental CLI), --cache-location; vitest
+  # --reporter ./x, --environment, --diff, --execArgv, --outputFile.json, -vc; tsc --generateTrace. So such a command
+  # may take only its short list of known-safe flags (flag_off_list), bare and on one line
+  qhead=$(tr -d "\"'\\\\" <<<"$s")
+  if [[ $qhead =~ ^(pnpm|npx)([[:space:]]+-[^[:space:]]*)*[[:space:]]+(exec[[:space:]]+)?(prettier|vitest|tsc)([[:space:]]|$) ]]; then
+    tool=${BASH_REMATCH[4]}
+    case "$tool:$qhead" in
+      prettier:*--check*|prettier:*" -c"*|vitest:*|tsc:*--noEmit*)
+        [ "$(tr -d "\"'\\\\" <<<"$s0")" = "$qhead" ] \
+          || deny "$orig" "a pre-approved $tool behind a VAR= prefix, a wrapper or a keyword (NODE_OPTIONS and PRETTIER_EXPERIMENTAL_CLI change what it runs); run it bare (docs/DEV_SETUP.md §16)"
+        [ "$bs_cont" = 0 ] || deny "$orig" "a pre-approved $tool continued over several lines, where a flag would hide; put it on one line (docs/DEV_SETUP.md §16)"
+        bad=$(node "$here/lib/hook-input.cjs" words <<<"$s" | flag_off_list "$tool") || bad="(its words could not be read)"
+        [ -z "$bad" ] || deny "$orig" "a pre-approved $tool given $bad, which is not on its short list of flags: others import a file, run a program or write one (docs/DEV_SETUP.md §16)" ;;
+    esac
   fi
 
   # 8. raw host commands. Run bare (ssh, scp, sftp or rsync, lower case and unquoted, the first word of its own

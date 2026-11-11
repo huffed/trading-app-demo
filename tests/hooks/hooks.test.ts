@@ -164,12 +164,12 @@ describe("guard-bash.sh rule 8 (raw host commands reach the qt alias only, bare,
   }
 });
 
-describe("guard-bash.sh rule 7 (a pre-approved prettier or vitest given a file to import)", () => {
+describe("guard-bash.sh rule 7 (a pre-approved prettier, vitest or tsc takes only its short list of flags)", () => {
   for (const cmd of MODULE_FLAG_BLOCKED) {
     it(`blocks: ${firstLine(cmd)}`, () => {
       const r = runHook("guard-bash.sh", bash(cmd));
       expect(r.status).toBe(2);
-      expect(r.stderr).toContain("import the file");
+      expect(r.stderr).toContain("a pre-approved");
     });
   }
   for (const cmd of MODULE_FLAG_ALLOWED) {
