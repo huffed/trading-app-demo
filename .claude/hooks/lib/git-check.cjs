@@ -1,10 +1,11 @@
 /**
  * guard-bash rule 1d: git prints any file it is given or can reach, ignored ones such as .env.local included, and
- * .claude/settings.json pre-approves seven git subcommands. Those run only bare, on one line, with no shell expansion,
- * with their short list of flags and paths inside the repository (rule 7's approach for prettier, vitest and tsc, which
- * replaced a list of bad flags after its review found more). Every other git command prompts or goes to the auto-mode
- * classifier, and gets the known forms refused, best-effort (DEBT D-22). Required by hook-input.cjs (mode gitcheck) and
- * by the tests.
+ * .claude/settings.json pre-approves seven git subcommands. Those run only when their text is plain (plainGate: words
+ * of ordinary characters, quotes with nothing the shell expands, a few fixed redirections), bare, with their short list
+ * of global options and flags, and with paths inside the repository (rule 7's approach for prettier, vitest and tsc,
+ * which replaced a list of bad flags after its reviews found more; this rule's four reviews found the same, the last
+ * one through the shell's own syntax). Every other git command prompts or goes to the auto-mode classifier, and gets
+ * the known forms refused, best-effort (DEBT D-22). Required by hook-input.cjs (mode gitcheck) and by the tests.
  */
 
 const path = require("path");
@@ -18,8 +19,8 @@ const optionNamesEnv = (w) => /\.env(rc|[._-][A-Za-z0-9_.-]*)?([^A-Za-z0-9_]|$)/
 /**
  * The words of one simple command, quotes resolved, each with what the shell would do to it after this hook has
  * read it: expands (a $ or backtick outside single quotes, $'…' and $"…" included; an unquoted {a,b} or {a..b}; an
- * unquoted leading ~), bare when one of those is outside double quotes too, so the shell may split it into more words,
- * and plain (no quote or backslash in it). cont is set by a backslash-newline outside quotes.
+ * unquoted leading ~), bare when one of those is outside double quotes too, glob for an unquoted * ? or [, and plain
+ * (no quote or backslash in it). A backslash-newline joins the two halves of a word, as the shell does; cont records it.
  */
 function lexWords(cmd) {
   const out = [];
@@ -27,7 +28,7 @@ function lexWords(cmd) {
   let quote = null;
   let cont = false;
   const begin = () => {
-    if (!w) w = { text: "", expands: false, bare: false, plain: true, nl: false };
+    if (!w) w = { text: "", expands: false, bare: false, glob: false, plain: true, nl: false };
   };
   const end = () => {
     if (w) out.push(w);
@@ -57,10 +58,8 @@ function lexWords(cmd) {
       continue;
     }
     if (c === "\\" && n !== undefined) {
-      if (n === "\n") {
-        cont = true;
-        end();
-      } else {
+      if (n === "\n") cont = true; // a line continuation: removed, and the word goes on
+      else {
         begin();
         w.plain = false;
         w.text += n;
@@ -79,10 +78,11 @@ function lexWords(cmd) {
       continue;
     }
     begin();
-    if (c === "$" || c === "`" || (c === "~" && w.text === "") || (c === "{" && /^\{[^{}\s]*(,|\.\.)[^{}\s]*\}/.test(cmd.slice(i)))) {
+    if (c === "$" || c === "`" || (c === "~" && w.text === "") || (c === "{" && /^\{[^{}]*(,|\.\.)[^{}]*\}/.test(cmd.slice(i)))) {
       w.expands = true;
       w.bare = true;
     }
+    if (c === "*" || c === "?" || c === "[") w.glob = true;
     w.text += c;
   }
   end();
@@ -90,23 +90,98 @@ function lexWords(cmd) {
   const words = [];
   for (let k = 0; k < out.length; k++) {
     const t = out[k].text;
-    if (!out[k].plain || !/^(\d*|&)(>>?|>\||>&|<<?<?|<&|<>)/.test(t)) words.push(out[k]);
-    else if (/^(\d*|&)(>>?|>\||>&|<<?<?|<&|<>)$/.test(t)) k++;
+    if (!out[k].plain || !/^(\d*|&)(>>?|>\||>&|<<-?|<&|<>)/.test(t)) words.push(out[k]);
+    else if (/^(\d*|&)(>>?|>\||>&|<<-?|<&|<>)$/.test(t)) k++;
   }
   return { words, cont };
+}
+
+/**
+ * Why a pre-approved git segment is not plain text, or "". Plain: ordinary characters (letters, digits and
+ * _ . / : @ ^ ~ = , + % # -, ~ not starting a word), single-quoted text, double-quoted text with no $, backtick or
+ * backslash, @{…} of a revision, a leading ! or shell keyword, and the redirections 2>&1, >&2, >/dev/null,
+ * 2>/dev/null, &>/dev/null, > file, >> file and <<EOF. Anything else (a ( { < $ glob, an unquoted backslash or
+ * newline) is shell syntax this rule does not read, and the shell may turn it into words git sees and this hook
+ * never did.
+ */
+function plainGate(s) {
+  const not = (what) => `${what}, shell syntax this rule does not read; write the command plainly (a message with $ or a backtick goes in a file for -F)`;
+  let i = 0;
+  let wordStart = true;
+  let first = true;
+  while (i < s.length) {
+    const c = s[i];
+    if (c === " " || c === "\t") {
+      i++;
+      wordStart = true;
+      continue;
+    }
+    if (wordStart) {
+      const rest = s.slice(i);
+      const fixed = /^(2>&1|1>&2|>&2|&>\/dev\/null|[12]?>\/dev\/null|<<-?(EOF|'EOF'|"EOF"))(?=[ \t]|$)/.exec(rest);
+      if (fixed) {
+        i += fixed[0].length;
+        continue;
+      }
+      const out = /^[12]?>>?[ \t]*(?=[A-Za-z0-9_./-])/.exec(rest);
+      if (out) {
+        i += out[0].length;
+        wordStart = false;
+        continue;
+      }
+      if (first && /^![ \t]/.test(rest)) {
+        i += 1;
+        continue;
+      }
+      if (c === "~") return not("a ~ that starts a word");
+    }
+    first = false;
+    wordStart = false;
+    if (c === "'") {
+      const j = s.indexOf("'", i + 1);
+      if (j < 0) return not("an unterminated quote");
+      i = j + 1;
+      continue;
+    }
+    if (c === '"') {
+      let j = i + 1;
+      while (j < s.length && s[j] !== '"') {
+        if ("$`\\".includes(s[j])) return not(`a ${s[j]} inside double quotes`);
+        j++;
+      }
+      if (j >= s.length) return not("an unterminated quote");
+      i = j + 1;
+      continue;
+    }
+    if (c === "@" && s[i + 1] === "{") {
+      const m = /^@\{[A-Za-z0-9_./-]+\}/.exec(s.slice(i));
+      if (!m) return not("a {");
+      i += m[0].length;
+      continue;
+    }
+    // # is ordinary here: a comment is either dropped by the shell or passed to git as words, which the flag and
+    // path checks then read, and one that holds a quote is refused by the splitter (hook-input.cjs segments)
+    if (/[A-Za-z0-9_./:@^~=,+%#-]/.test(c)) {
+      i++;
+      continue;
+    }
+    return not(c === "\n" ? "a newline outside quotes" : `${c} outside quotes`);
+  }
+  return "";
 }
 
 // the git subcommands .claude/settings.json pre-approves (tests/hooks/hooks.test.ts checks the two lists agree)
 const PRE_APPROVED = ["status", "diff", "log", "show", "blame", "add", "commit"];
 const GLOBAL_OK = new Set(["--no-pager", "-P", "--no-optional-locks"]);
 // every other global option git knows; one it does not know could take a value and shift the subcommand
-const GLOBAL_KNOWN = /^(-p|--paginate|--no-replace-objects|--no-lazy-fetch|--no-advice|--bare|--literal-pathspecs|--glob-pathspecs|--noglob-pathspecs|--icase-pathspecs|--exec-path(=.*)?|--html-path|--man-path|--info-path|--version|--help|-v|-h|--(git-dir|work-tree|namespace|attr-source|super-prefix|list-cmds)=.*)$/;
+const GLOBAL_KNOWN = /^(-p|--paginate|--no-replace-objects|--no-lazy-fetch|--no-advice|--bare|--literal-pathspecs|--glob-pathspecs|--noglob-pathspecs|--icase-pathspecs|--html-path|--man-path|--info-path|--version|--help|-v|-h|--(git-dir|work-tree|namespace|attr-source|super-prefix|list-cmds)=.*)$/;
 const DIFFISH = [
   "--stat", "--shortstat", "--numstat", "--dirstat", "--summary", "--compact-summary", "--name-only", "--name-status",
   "-p", "-u", "--patch", "-s", "--no-patch", "-U", "--unified", "--no-color", "--color", "--color-moved", "-w",
-  "--ignore-all-space", "-b", "--ignore-space-change", "--ignore-blank-lines", "--word-diff", "--diff-filter",
-  "--exit-code", "--quiet", "-M", "--find-renames", "--no-renames", "--check", "--no-ext-diff", "--no-textconv",
-  "--minimal", "--patience", "--histogram", "-R", "--relative", "-z", "--abbrev", "--full-index", "--binary",
+  "--ignore-all-space", "-b", "--ignore-space-change", "--ignore-blank-lines", "--word-diff", "--color-words",
+  "--diff-filter", "--exit-code", "--quiet", "-M", "--find-renames", "-C", "--find-copies", "--no-renames", "--check",
+  "--no-ext-diff", "--no-textconv", "--minimal", "--patience", "--histogram", "-R", "--relative", "-z", "--abbrev",
+  "--full-index", "--binary", "-W", "--function-context",
 ];
 const LOGISH = [
   ...DIFFISH, "--oneline", "-n", "--max-count", "--skip", "--format", "--pretty", "--date", "--since", "--after",
@@ -114,7 +189,7 @@ const LOGISH = [
   "--invert-grep", "-E", "--extended-regexp", "-F", "--fixed-strings", "--all", "--branches", "--remotes", "--tags",
   "--graph", "--decorate", "--no-decorate", "--abbrev-commit", "--no-abbrev-commit", "--follow", "-S", "-G",
   "--pickaxe-regex", "--reverse", "--no-merges", "--merges", "--first-parent", "--left-right", "--cherry-pick",
-  "--topo-order", "--date-order", "-L", "--full-history", "--ancestry-path", "--no-walk", "--boundary",
+  "--topo-order", "--date-order", "-L", "--full-history", "--ancestry-path", "--no-walk", "--boundary", "--not",
   "--relative-date", "-m", "-c", "--cc", "--source", "--show-signature",
 ];
 // per subcommand: the flags it may take, and which of them take a value (attached, after =, or the next word)
@@ -124,43 +199,77 @@ const FLAGS = {
   log: { ok: LOGISH, value: ["-n", "-L", "-S", "-G"] },
   show: { ok: LOGISH, value: ["-n", "-L", "-S", "-G"] },
   blame: { ok: ["-L", "-w", "-M", "-C", "-e", "--show-email", "-s", "-l", "-t", "-f", "--show-name", "-n", "--show-number", "-p", "--porcelain", "--line-porcelain", "--date", "--root", "--show-stats", "--abbrev", "-c", "--color-lines", "--color-by-age", "--first-parent", "--ignore-rev", "--progress", "--no-progress"], value: ["-L", "--ignore-rev"] },
-  add: { ok: ["-A", "--all", "-u", "--update", "-p", "--patch", "-N", "--intent-to-add", "-n", "--dry-run", "-v", "--verbose"], value: [] },
-  commit: { ok: ["-m", "--message", "-F", "--file", "-a", "--all", "-q", "--quiet", "-v", "--verbose", "--amend", "--no-edit", "--allow-empty", "--fixup", "--squash"], value: ["-m", "-F"] },
+  add: { ok: ["-A", "--all", "-u", "--update", "-p", "--patch", "-N", "--intent-to-add", "-n", "--dry-run", "-v", "--verbose", "--chmod"], value: [] },
+  commit: { ok: ["-m", "--message", "-F", "--file", "-a", "--all", "-q", "--quiet", "-v", "--verbose", "--amend", "--no-edit", "--allow-empty", "--fixup", "--squash", "-s", "--signoff"], value: ["-m", "-F"] },
 };
 const MESSAGE_FLAGS = new Set(["-m", "--message"]);
 const TEMP_DIRS = ["/tmp/", "/private/tmp/", "/var/folders/", "/private/var/folders/"];
-const WRAPPERS = new Set(["sudo", "doas", "env", "nice", "nohup", "time", "timeout", "stdbuf", "command", "builtin", "exec", "xargs", "caffeinate", "ionice", "unbuffer", "chronic"]);
-const KEYWORDS = new Set(["if", "then", "else", "elif", "do", "while", "until", "!", "{", "("]);
+const WRAPPERS = new Set(["sudo", "doas", "env", "nice", "nohup", "time", "timeout", "stdbuf", "command", "builtin", "exec", "xargs", "caffeinate", "ionice", "unbuffer", "chronic", "noglob", "-"]);
+const KEYWORDS = new Set(["if", "then", "else", "elif", "do", "while", "until", "!", "{", "(", "time"]);
 const C_KEYS_OK = /^(color\.[a-z.]+|core\.quotepath|advice\.[a-z.]+)=/i;
-const ASSIGN = /^(GIT_[A-Z0-9_]+|HOME|XDG_CONFIG_HOME)=/;
+// a variable git (or the editor and pager it runs) reads; += and name[i]= set it too
+const GIT_VAR = /^(GIT_[A-Z0-9_]+|HOME|XDG_CONFIG_HOME|EDITOR|VISUAL|PAGER|LESSOPEN|LESSCLOSE)(\[[^\]]*\])?\+?=/;
+const GIT_VAR_NAME = /^(GIT_[A-Z0-9_]+|HOME|XDG_CONFIG_HOME|EDITOR|VISUAL|PAGER|LESSOPEN|LESSCLOSE)$/;
+const ASSIGNMENT = /^[A-Za-z_][A-Za-z0-9_]*(\[[^\]]*\])?\+?=/;
+
+/** Does a shell glob (* ? [..]) match a name? A pattern that cannot be read is taken to match (fail closed). */
+function globMatches(glob, name) {
+  let re = "";
+  for (let k = 0; k < glob.length; k++) {
+    const ch = glob[k];
+    if (ch === "*") re += ".*";
+    else if (ch === "?") re += ".";
+    else if (ch === "[") {
+      const close = glob.indexOf("]", k + 2);
+      if (close < 0) re += "\\[";
+      else {
+        re += "[" + glob.slice(k + 1, close).replace(/^!/, "^").replace(/\\/g, "\\\\") + "]";
+        k = close;
+      }
+    } else re += ch.replace(/[.+^${}()|\\/]/g, "\\$&");
+  }
+  try {
+    return new RegExp(`^${re}$`).test(name);
+  } catch {
+    return true;
+  }
+}
 
 const outsideRoot = (p, root) => {
   const r = path.resolve(root, p);
   return r !== root && !r.startsWith(root + path.sep);
 };
-const pathEscapes = (p) => p.startsWith("/") || p.split("/").includes("..");
 
 /**
  * Why this simple command, if it runs git, can print an ignored file such as .env.local, or "" when it cannot by any
- * form below. The pre-approved subcommands are held to a short list (rule 7's approach); the rest are checked for the
- * known forms only, best-effort (DEBT D-22).
+ * form below. The pre-approved subcommands are held to plain text and short lists (rule 7's approach); the rest are
+ * checked for the known forms only, best-effort (DEBT D-22).
  */
 function gitCheck(text, root) {
   const { words, cont } = lexWords(text.replace(/\n\x1f/g, "\n"));
-  // an assignment of a variable git reads (GIT_DIR, GIT_EXTERNAL_DIFF, GIT_CONFIG_*, HOME …), as a prefix or exported
-  let i = 0;
-  const assignsGit = (k) => ASSIGN.test(words[k].text);
-  if (words.length && /^(export|declare|typeset|readonly|local)$/.test(words[0].text)) {
-    if (words.slice(1).some((w) => ASSIGN.test(w.text))) return "an assignment of a variable git reads (GIT_*, HOME, XDG_CONFIG_HOME)";
+  if (!words.length) return "";
+  // a variable git reads, set for this command, exported, or set by printf -v / read
+  const head0 = words[0].text;
+  if (/^(export|declare|typeset|readonly|local)$/.test(head0)) {
+    if (words.slice(1).some((w) => GIT_VAR.test(w.text) || GIT_VAR_NAME.test(w.text))) return "an assignment of a variable git reads (GIT_*, HOME, XDG_CONFIG_HOME, EDITOR, VISUAL, PAGER)";
     return "";
   }
-  // find git: past shell keywords, assignments and wrappers with their options and numbers
+  if ((head0 === "printf" && words.some((w, k) => k > 0 && words[k - 1].text === "-v" && GIT_VAR_NAME.test(w.text))) || (head0 === "read" && words.slice(1).some((w) => GIT_VAR_NAME.test(w.text)))) {
+    return "an assignment of a variable git reads (GIT_*, HOME, XDG_CONFIG_HOME, EDITOR, VISUAL, PAGER)";
+  }
+  // find the command word: past shell keywords (a ( { or ! glued to the word too), a case pattern, assignments, and
+  // wrappers with their options and numbers. A pre-approved git found behind a ( { ) is then refused by plainGate
+  let i = 0;
   let wrapped = false;
   while (i < words.length) {
     const t = words[i].text;
     if (KEYWORDS.has(t)) i++;
-    else if (/^[A-Za-z_][A-Za-z0-9_]*=/.test(t)) {
-      if (assignsGit(i)) return "an assignment of a variable git reads (GIT_*, HOME, XDG_CONFIG_HOME)";
+    else if (/^[({!]+./.test(t) && words[i].plain) words[i] = { ...words[i], text: t.replace(/^[({!]+/, "") };
+    else if (t === "case") {
+      while (i < words.length && !/\)$/.test(words[i].text)) i++;
+      i++;
+    } else if (ASSIGNMENT.test(t)) {
+      if (GIT_VAR.test(t)) return "an assignment of a variable git reads (GIT_*, HOME, XDG_CONFIG_HOME, EDITOR, VISUAL, PAGER)";
       wrapped = true;
       i++;
     } else if (WRAPPERS.has(t.replace(/.*\//, ""))) {
@@ -172,7 +281,12 @@ function gitCheck(text, root) {
       }
     } else break;
   }
-  if (i >= words.length || words[i].text.replace(/.*\//, "").toLowerCase() !== "git") return "";
+  if (i >= words.length) return "";
+  // a command word that is a glob the shell could expand to git (/usr/bin/gi?, g[i]t); a case pattern (x) or *) and
+  // a heredoc line (* item, lines[a:b] = x) are not
+  const cw = words[i].text;
+  if (words[i].glob && !/\)$/.test(cw) && /[git]/.test(cw.replace(/.*\//, "")) && globMatches(cw.replace(/.*\//, ""), "git")) return `a command word that is a glob (${cw}), which the shell may expand to git; name the program`;
+  if (words[i].text.replace(/.*\//, "").toLowerCase() !== "git") return "";
   const gitWord = words[i];
   // global options
   let j = i + 1;
@@ -184,51 +298,54 @@ function gitCheck(text, root) {
       const v = words[j + 1] ? words[j + 1].text : "";
       if (g === "-c" && !C_KEYS_OK.test(v)) return `git -c ${v.split("=")[0]}, which can make git run a program or read another file`;
       if (g === "--config-env") return "git --config-env, which can make git run a program";
-      if (/^(-C|--git-dir|--work-tree)$/.test(g) && outsideRoot(v, root)) return `git ${g} outside the repository`;
+      if (/^(-C|--git-dir|--work-tree)$/.test(g) && (outsideRoot(v, root) || (words[j + 1] && words[j + 1].expands))) return `git ${g} outside the repository`;
       globals[globals.length - 1].v = v;
       j++;
     } else if (/^--(git-dir|work-tree)=/.test(g) && outsideRoot(g.split("=")[1], root)) return `git ${g.split("=")[0]} outside the repository`;
     else if (/^--config-env=/.test(g)) return "git --config-env, which can make git run a program";
-    else if (!GLOBAL_OK.has(g) && !GLOBAL_KNOWN.test(g)) return `git with the global option ${g}, which git may read as taking a value`;
+    else if (!GLOBAL_OK.has(g) && !GLOBAL_KNOWN.test(g)) return `git with the global option ${g}, which git may read as taking a value or running a program`;
   }
   const subWord = words[j];
   const sub = subWord ? subWord.text.toLowerCase() : "";
   const args = words.slice(j + 1);
 
-  if (PRE_APPROVED.includes(sub)) return preApproved(sub, { words, cont, wrapped, gitWord, globals, subWord, args, i, j }, root);
+  if (PRE_APPROVED.includes(sub)) {
+    const lead = `a pre-approved git ${sub}`;
+    if (wrapped) return `${lead} behind a VAR= prefix or a wrapper; run git bare`;
+    const gate = plainGate(text.replace(/\n\x1f/g, "\n"));
+    if (gate) return `${lead} with ${gate}`;
+    return preApproved(sub, lead, { cont, gitWord, globals, subWord, args }, root);
+  }
   return otherGit(sub, args);
 }
 
-/** The pre-approved subcommands run with no prompt, so they take only their short lists. */
-function preApproved(sub, c, root) {
-  const lead = `a pre-approved git ${sub}`;
-  if (c.wrapped || c.words.slice(0, c.i).some((w) => !KEYWORDS.has(w.text))) return `${lead} behind a VAR= prefix or a wrapper; run git bare`;
+/** The pre-approved subcommands run with no prompt, so they take only their short lists. Their text is plain here. */
+function preApproved(sub, lead, c, root) {
   if (!c.gitWord.plain || c.gitWord.text !== "git" || !c.subWord.plain) return `${lead} not spelled as plain lower-case git ${sub}; spell it plainly`;
   if (c.cont) return `${lead} continued with a backslash-newline; put it on one line`;
   for (const { g, v } of c.globals) {
-    if (GLOBAL_OK.has(g) || (g === "-c" && C_KEYS_OK.test(v)) || (g === "-C" && v && !pathEscapes(v))) continue;
+    if (GLOBAL_OK.has(g) || (g === "-c" && C_KEYS_OK.test(v)) || (g === "-C" && v && !outsideRoot(v, root))) continue;
     return `${lead} with the global option ${g}, which is not on its short list`;
   }
   const spec = FLAGS[sub];
   const countFlag = (t) => /^-\d+$/.test(t) && (sub === "log" || sub === "show");
   const optional = new Set(sub === "status" ? ["-u"] : ["-U", "-M", "-C"]); // -U3, -M50, -uno: an attached value may follow
+  const pathOk = (t) => {
+    if (outsideRoot(t, root)) return `${lead} with the path ${t}, outside the repository; give a path inside it`;
+    if (namesEnv(t) && sub !== "status") return `${lead} that names ${t}`;
+    return "";
+  };
   let message = false; // the next word is a -m text
   let paths = false; // after --
   for (let k = 0; k < c.args.length; k++) {
-    const w = c.args[k];
-    const t = w.text;
-    // a -m text is one word, so inside double quotes it may expand and run over lines ("$(cat <<'EOF' …)")
+    const t = c.args[k].text;
     if (message) {
-      if (w.bare) return `${lead} whose message the shell expands outside double quotes, into more words; quote it or use -F`;
-      message = false;
+      message = false; // a -m text is one word of plain text, so it may mention an env file
       continue;
     }
-    const attachedMessage = sub === "commit" && /^(--message=|-[a-zA-Z]*m.)/.test(t) && !w.bare;
-    if (w.expands && !attachedMessage) return `${lead} with ${t}, which the shell expands after this hook has read it; spell it out`;
-    if (w.nl && !attachedMessage) return `${lead} with a newline inside a word; write a multi-line message to a file and use -F`;
     if (paths || t === "-" || !t.startsWith("-")) {
-      if (pathEscapes(t)) return `${lead} with the path ${t}, outside the repository or through ..; give a path inside it`;
-      if (namesEnv(t) && sub !== "status") return `${lead} that names ${t}`;
+      const r = t === "-" ? "" : pathOk(t);
+      if (r) return r;
       continue;
     }
     if (t === "--") {
@@ -251,10 +368,13 @@ function preApproved(sub, c, root) {
         continue;
       }
       if (value !== null && namesEnv(value)) return `${lead} with ${t}, which names an env file`;
-      if (name === "--ignore-rev") k++; // its value is a revision
+      if (name === "--ignore-rev") {
+        const v = c.args[++k] ? c.args[k].text : "";
+        if (namesEnv(v)) return `${lead} with --ignore-rev ${v}, which names an env file`;
+      }
       continue;
     }
-    // a bundle of short flags, -abc: each must be on the list; one that takes a value takes the rest or the next word
+    // a bundle of short flags, -abc: each must be on the list; the first that takes a value takes the rest or the next word
     for (let x = 1; x < t.length; x++) {
       const f = "-" + t[x];
       const rest = t.slice(x + 1);
@@ -262,23 +382,19 @@ function preApproved(sub, c, root) {
       if (optional.has(f) && /^[A-Za-z0-9%]*$/.test(rest)) break;
       if (!spec.value.includes(f)) continue;
       const v = rest !== "" ? rest : c.args[k + 1] ? c.args[k + 1].text : "";
-      if (f === "-m") message = rest === "";
-      else {
-        if (rest === "") k++;
-        if (rest === "" && c.args[k] && (c.args[k].expands || c.args[k].nl)) return `${lead} with ${c.args[k].text}, which the shell expands after this hook has read it; spell it out`;
-        if (f === "-F") {
-          const r = fileOk(v, root);
-          if (r) return `${lead} -F ${v}: ${r}`;
-        } else if (namesEnv(v)) return `${lead} with ${f} ${v}, which names an env file`;
-      }
+      if (rest === "") k++;
+      if (f === "-F") {
+        const r = fileOk(v, root);
+        if (r) return `${lead} -F ${v}: ${r}`;
+      } else if (f !== "-m" && namesEnv(v)) return `${lead} with ${f} ${v}, which names an env file`;
       break;
     }
   }
   return "";
 }
 
-/** A -F message file: a plain path in the repository or a temp directory, not an env file; - is stdin, which rules 1
- * and 1c keep an env file out of */
+/** A -F message file: a path in the repository or a temp directory, not an env file; - is a heredoc, the only stdin the
+ * plain text allows */
 function fileOk(v, root) {
   if (v === "-") return "";
   if (v === "") return "no message file given";
@@ -288,17 +404,26 @@ function fileOk(v, root) {
   return "";
 }
 
-// the forms that read outside the index or stage an ignored file, for git commands that are not pre-approved; git
-// takes any unambiguous prefix of a long option, so a word that is a 3+ character prefix of one counts
-const REFUSED_LONG = { grep: ["--no-index", "--no-exclude-standard"], stash: ["--all"] };
-const REFUSED_SHORT = { stash: "a" };
+// the forms that read outside the index, stage an ignored file or run a program, for git commands that are not
+// pre-approved; git takes any unambiguous prefix of a long option, so a word that is a 3+ character prefix of one counts
+const REFUSED_LONG = { grep: ["--no-index", "--no-exclude-standard", "--open-files-in-pager"], stash: ["--all"] };
+const REFUSED_SHORT = { stash: "a", grep: "O" };
 
 function otherGit(sub, args) {
   if (/^(difftool|mergetool)$/.test(sub)) return `git ${sub}, which runs another program`;
+  // rebase -x, bisect run and submodule foreach run a command, as bash -c does: refused when it names an env file or
+  // holds a glob, which that command's own shell expands
+  const runs =
+    (sub === "rebase" && args.some((a) => /^(-x|--exec)/.test(a.text))) ||
+    (sub === "bisect" && args.some((a) => a.text === "run")) ||
+    (sub === "submodule" && args.some((a) => a.text === "foreach"));
+  if (runs && args.some((a) => optionNamesEnv(a.text) || /[*?[]/.test(a.text))) return `git ${sub} running a command that names an env file or holds a glob`;
   if (sub === "config") {
     const reads = args.some((a) => /^(--get|--get-all|--get-regexp|-l|--list|--show-origin|--show-scope|get|list)$/.test(a.text));
     if (!reads) return "a git config write, which can make every later git command run a program";
   }
+  const bareWord = args.find((a) => a.bare);
+  if (bareWord) return `git ${sub} with ${bareWord.text}, which the shell expands after this hook has read it`;
   const named = [];
   let paths = false;
   for (let k = 0; k < args.length; k++) {
@@ -336,4 +461,4 @@ function otherGit(sub, args) {
   return "";
 }
 
-module.exports = { gitCheck, lexWords, PRE_APPROVED };
+module.exports = { gitCheck, lexWords, plainGate, PRE_APPROVED };

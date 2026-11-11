@@ -170,8 +170,11 @@ describe("guard-bash.sh rule 1d (the git forms that print an ignored file such a
     const settings = JSON.parse(readFileSync(join(ROOT, ".claude", "settings.json"), "utf8")) as {
       permissions: { allow: string[] };
     };
-    const allowed = settings.permissions.allow.flatMap(
-      (r) => /^Bash\(git ([a-z-]+)[ :]/.exec(r)?.[1] ?? []
+    // every git allow must be Bash(git <sub> *): a wider one (Bash(git *), Bash(git:*), Bash(git --no-pager log *))
+    // would pre-approve forms this rule does not hold to a list
+    const gitRules = settings.permissions.allow.filter((r) => /^Bash\(\s*git\b/.test(r));
+    const allowed = gitRules.map(
+      (r) => /^Bash\(git ([a-z-]+) \*\)$/.exec(r)?.[1] ?? `unlisted form: ${r}`
     );
     const src = readFileSync(join(HOOKS, "lib", "git-check.cjs"), "utf8");
     const listed = JSON.parse(
