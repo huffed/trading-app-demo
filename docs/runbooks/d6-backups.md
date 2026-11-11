@@ -133,11 +133,11 @@ The branch has its own credentials, not production's (Supabase: each branch has 
 
 ```bash
 # 2. Fetch through the VPS, because the box accepts only Hetzner hosts. The files are still encrypted.
-# The night must have an OK file, or it was not whole: use the newest night that has one.
-NIGHT=$(date -u +%F)
-BOX='ssh -p 23 -i ~/.ssh/quanttrader_backup -o IdentitiesOnly=yes -o UserKnownHostsFile=~/.ssh/known_hosts_storagebox'
-ssh qt "$BOX u708205-sub1@u708205-sub1.your-storagebox.de ls nightly/$NIGHT/OK"
-ssh qt "mkdir -p /tmp/qt-drill && rsync -a -e '$BOX' u708205-sub1@u708205-sub1.your-storagebox.de:nightly/$NIGHT/ /tmp/qt-drill/"
+# The night must have an OK file, or it was not whole: use the newest night that has one (for another night,
+# put its date in place of $(date -u +%F)). Everything inside the single quotes runs on the host, so a
+# session's Bash guard sees one plain ssh qt (docs/DEV_SETUP.md §17).
+ssh qt 'B="ssh -p 23 -i ~/.ssh/quanttrader_backup -o IdentitiesOnly=yes -o UserKnownHostsFile=~/.ssh/known_hosts_storagebox"; $B u708205-sub1@u708205-sub1.your-storagebox.de ls nightly/$(date -u +%F)/OK'
+ssh qt 'B="ssh -p 23 -i ~/.ssh/quanttrader_backup -o IdentitiesOnly=yes -o UserKnownHostsFile=~/.ssh/known_hosts_storagebox"; mkdir -p /tmp/qt-drill && rsync -a -e "$B" u708205-sub1@u708205-sub1.your-storagebox.de:nightly/$(date -u +%F)/ /tmp/qt-drill/'
 mkdir -p ~/qt-drill && scp 'qt:/tmp/qt-drill/*.age' ~/qt-drill/ && ssh qt 'rm -rf /tmp/qt-drill'
 
 # 3. Decrypt the dumps, off the box, with the private key. The archives open too: names only, never contents.
