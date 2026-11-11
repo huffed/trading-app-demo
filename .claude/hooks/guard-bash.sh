@@ -301,8 +301,8 @@ flag_off_list() {
       prettier:--check|prettier:-c|prettier:--list-different|prettier:-l|prettier:--no-color|prettier:--color|prettier:--ignore-unknown|prettier:-u|prettier:--no-error-on-unmatched-pattern|prettier:--no-editorconfig) ;;
       prettier:--log-level|vitest:-t|vitest:--testNamePattern|vitest:--bail|vitest:--testTimeout|vitest:--hookTimeout|vitest:--retry|vitest:--maxWorkers)
         [ "$n" != "$w" ] || val=value ;;
-      tsc:-p|tsc:--project)                         # only a tsconfig: tsc prints a non-JSON file's lines as errors
-        if [ "$n" = "$w" ]; then val=project; else case "${w#*=}" in */tsconfig*.json|tsconfig*.json) ;; *) printf '%s' "$w"; return ;; esac; fi ;;
+      tsc:-p|tsc:--project)                         # only a tsconfig: tsc prints a non-JSON file's lines as errors;
+        if [ "$n" = "$w" ]; then val=project; else printf '%s' "$w"; return; fi ;;   # tsc has no --flag=value form
       vitest:--run|vitest:--silent|vitest:--passWithNoTests|vitest:--no-color|vitest:--color|vitest:--no-file-parallelism|vitest:--allowOnly) ;;
       vitest:--reporter)
         if [ "$n" = "$w" ]; then val=reporter; elif ! reporter_ok "${w#*=}"; then printf '%s' "$w"; return; fi ;;
@@ -504,12 +504,14 @@ while IFS=$'\t' read -r sep seg; do
       prettier:*--check*|prettier:*" -c"*|vitest:*|tsc:*--noEmit*)
         [ "$(tr -d "\"'\\\\" <<<"$s0")" = "$qhead" ] \
           || deny "$orig" "a pre-approved $tool behind a VAR= prefix, a wrapper or a keyword (NODE_OPTIONS and PRETTIER_EXPERIMENTAL_CLI change what it runs); run it bare (docs/DEV_SETUP.md §16)"
-        [ "$bs_cont" = 0 ] || deny "$orig" "a pre-approved $tool continued over several lines, where a flag would hide; put it on one line (docs/DEV_SETUP.md §16)"
-        # a {…}, $ or backtick outside single quotes is expanded by the shell after this hook has read the words
-        # ({-vc,x}, $v, "$v")
-        case "$(sed -E "s/'[^']*'//g" <<<"$seg")" in
-          *'{'*|*'$'*|*'`'*) deny "$orig" "a pre-approved $tool with a {, \$ or backtick outside single quotes, which the shell expands into words this hook never sees; spell the arguments out (docs/DEV_SETUP.md §16)" ;;
-        esac
+        # one line: a backslash-newline, or a newline inside quotes, puts the rest of the command on a continuation
+        # record this rule never reads (the splitter starts each with \x1f)
+        { [ "$bs_cont" = 0 ] && case "$raw" in *$'\n\x1f'*) false ;; *) true ;; esac; } \
+          || deny "$orig" "a pre-approved $tool in a command continued over several lines, where a flag would hide; put it on one line (docs/DEV_SETUP.md §16)"
+        # a $ or backtick outside single quotes, or a { outside any quotes, is expanded by the shell after this hook
+        # has read the words ({-vc,x}, $v, "$v"); the splitter reads the quotes as the shell does
+        [ "$(node "$here/lib/hook-input.cjs" expands <<<"$seg")" = 0 ] \
+          || deny "$orig" "a pre-approved $tool with a \$ or backtick outside single quotes, or a { outside quotes, which the shell expands into words this hook never sees; spell the arguments out (docs/DEV_SETUP.md §16)"
         # the words of the segment as written ($s has .env.example taken out, which would shift a flag into a value)
         bad=$(node "$here/lib/hook-input.cjs" words <<<"$seg" | flag_off_list "$tool") || bad="(its words could not be read)"
         [ -z "$bad" ] || deny "$orig" "a pre-approved $tool given $bad, which is not on its short list of flags: others import a file, run a program or write one (docs/DEV_SETUP.md §16)" ;;

@@ -50,6 +50,11 @@ export const MODULE_FLAG_BLOCKED: readonly string[] = [
   'pnpm exec vitest run "$v" scripts/x.ts',
   "pnpm exec vitest run $(printf -- -vc) scripts/x.ts",
   "pnpm exec vitest run --reporter basic",
+  // the third review of #335: quote characters that hide an expansion, a newline inside quotes, tsc's = form
+  `pnpm exec vitest run "'" {-vc,scripts/x.ts} "'"`,
+  "pnpm exec vitest run \\' {-vc,scripts/x.ts} \\'",
+  'pnpm exec vitest run -t "a\nb" -vc scripts/x.ts',
+  "pnpm exec tsc --noEmit --project=tsconfig.json",
 ];
 
 /** guard-bash.sh must allow these (exit 0): the checks as they are run, with the repo's own config */
@@ -64,7 +69,8 @@ export const MODULE_FLAG_ALLOWED: readonly string[] = [
   "pnpm exec vitest run tests/ops -t config --reporter=verbose",
   "pnpm exec vitest run tests/unit --reporter verbose --bail 1 --silent",
   "pnpm exec tsc --noEmit -p tsconfig.json",
-  "pnpm exec tsc --noEmit --project=tsconfig.json --pretty",
+  "pnpm exec tsc --noEmit --project tsconfig.json --pretty",
+  'pnpm exec prettier --check "src/**/*.{ts,tsx}"',
   "pnpm exec vitest run tests/hooks --reporter=agent",
   "pnpm exec vitest run tests/hooks -t 'a $literal'",
 ];

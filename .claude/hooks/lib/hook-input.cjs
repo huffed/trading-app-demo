@@ -21,6 +21,8 @@
  *   node hook-input.cjs words             (stdin is one simple command, not JSON) its words as the shell would pass
  *                                         them, quotes and backslashes resolved, one per line: so a quoted value
  *                                         such as -t "--config x" stays one word
+ *   node hook-input.cjs expands           (stdin is one simple command) 1 when the shell would expand it: a $ or
+ *                                         backtick outside single quotes, or a { outside any quotes; else 0
  *
  * Exit 3 on malformed input or an unknown mode. Callers treat anything but
  * exit 0 as "cannot inspect, refuse" (fail closed).
@@ -228,9 +230,40 @@ function words(cmd) {
   return out.map((w) => w.replace(/\n/g, " "));
 }
 
+/** 1 when the shell would expand the command: a $ or backtick outside single quotes, or a { outside any quotes. */
+function expands(cmd) {
+  let quote = null;
+  for (let i = 0; i < cmd.length; i++) {
+    const c = cmd[i];
+    if (quote === "'") {
+      if (c === "'") quote = null;
+      continue;
+    }
+    if (c === "\\") {
+      i++;
+      continue;
+    }
+    if (quote === '"') {
+      if (c === '"') quote = null;
+      else if (c === "$" || c === "`") return 1;
+      continue;
+    }
+    if (c === "'" || c === '"') {
+      quote = c;
+      continue;
+    }
+    if (c === "$" || c === "`" || c === "{") return 1;
+  }
+  return 0;
+}
+
 const mode = process.argv[2];
 if (mode === "words") {
   process.stdout.write(words(fs.readFileSync(0, "utf8")).map((w) => `${w}\n`).join(""));
+  process.exit(0);
+}
+if (mode === "expands") {
+  process.stdout.write(String(expands(fs.readFileSync(0, "utf8"))));
   process.exit(0);
 }
 const json = payload();
