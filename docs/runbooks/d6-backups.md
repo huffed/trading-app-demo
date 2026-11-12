@@ -124,13 +124,13 @@ The job connected with `PGSSLMODE=require` from 2026-11-07: encrypted, but nothi
 
 `80:70:25:AD:50:D4:ED:21:9D:2C:9C:7D:29:9C:00:4F:82:4E:B0:0C:F7:F6:5A:FE:F6:07:D0:7B:72:E6:CA:FA`
 
-The session copied it from the operator's `~/Downloads/prod-ca-2021.crt` (byte-identical, checked with `cmp`); the operator confirms that is the file they tested. `backup.sh` reads its installed copy and refuses to dump without it. This comes before the sudoers narrowing (D-23) in the same window, which may refuse step 2's `sudo -n install`. After the PR merges, from a workstation checkout of `origin/dev`, as `ops`:
+The session copied it from the operator's `~/Downloads/prod-ca-2021.crt` (byte-identical, checked with `cmp`). `backup.sh` reads its installed copy and refuses to dump without it. This comes before the sudoers narrowing (D-23) in the same window, which may refuse step 2's `sudo -n install`. After the PR merges, from a workstation checkout of `origin/dev`, as `ops`:
 
 ```bash
 # 1. Both files to the host.
 scp scripts/ops/backup.sh ops/backup/prod-ca-2021.crt qt:/tmp/
 # 2. Install only if the copy on the host has the fingerprint above; the last line prints 1 for the new backup.sh.
-ssh qt 'openssl x509 -in /tmp/prod-ca-2021.crt -noout -fingerprint -sha256 | grep -qix "sha256 Fingerprint=80:70:25:AD:50:D4:ED:21:9D:2C:9C:7D:29:9C:00:4F:82:4E:B0:0C:F7:F6:5A:FE:F6:07:D0:7B:72:E6:CA:FA" && sudo -n install -m 644 /tmp/prod-ca-2021.crt /usr/local/lib/quanttrader/supabase-prod-ca-2021.crt && sudo -n install -m 755 /tmp/backup.sh /usr/local/lib/quanttrader/ && grep -c "PGSSLMODE=verify-full" /usr/local/lib/quanttrader/backup.sh'
+ssh qt 'openssl x509 -in /tmp/prod-ca-2021.crt -noout -fingerprint -sha256 | grep -qi "=80:70:25:AD:50:D4:ED:21:9D:2C:9C:7D:29:9C:00:4F:82:4E:B0:0C:F7:F6:5A:FE:F6:07:D0:7B:72:E6:CA:FA$" && sudo -n install -m 644 /tmp/prod-ca-2021.crt /usr/local/lib/quanttrader/supabase-prod-ca-2021.crt && sudo -n install -m 755 /tmp/backup.sh /usr/local/lib/quanttrader/ && grep -c "PGSSLMODE=verify-full" /usr/local/lib/quanttrader/backup.sh'
 # 3. One run by hand, as in step 8: "db-public ok" and "db-auth ok", one "OK nightly/<date>" line, no push.
 ssh qt 'bash /usr/local/lib/quanttrader/backup.sh | tee -a /var/log/quanttrader/backup.log'
 ```
