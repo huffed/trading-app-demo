@@ -36,10 +36,13 @@ function daysAgo(days: number): string {
   return new Date(Date.now() - days * 86_400_000).toISOString().slice(0, 10);
 }
 
-function prepare(envFile: string, nights: string[]): string {
+function prepare(envFile: string, nights: string[], withCa = true): string {
   const root = mkdtempSync(join(tmpdir(), "qt-fake-backup-"));
   for (const dir of ["app", "log", "state", "lib", "home/.ssh", "uploaded"]) {
     mkdirSync(join(root, dir), { recursive: true });
+  }
+  if (withCa) {
+    writeFileSync(join(root, "lib", "supabase-prod-ca-2021.crt"), "a stand-in certificate\n");
   }
   writeFileSync(join(root, "app", ".env.local"), `${envFile}NTFY_TOPIC=fake\n`);
   writeFileSync(join(root, "log", "scan.log"), "tick\n");
@@ -109,7 +112,7 @@ describe("backup.sh, a good night", () => {
     const dumps = logOf(backup(prepare(URL_LINE, [])).root, "pg_dump.log");
     expect(dumps).toContain("--schema=public user=backup_ro.ref host=pooler.test");
     expect(dumps).toContain("--data-only --table=auth.users --table=auth.identities");
-    expect(dumps).toContain("ssl=require password=set");
+    expect(dumps).toContain("ssl=verify-full ca=supabase-prod-ca-2021.crt password=set");
   });
 
   it("prunes only the nights past the 30-day retention", () => {
@@ -206,6 +209,16 @@ describe("backup.sh, a bad night", () => {
     const root = prepare(URL_LINE, [daysAgo(40)]);
     writeFileSync(join(root, "verify-diff"), ">fcsT...... db-public.dump.age\n");
     expectFailedNight(backup(root), "verify");
+  });
+
+  it("a missing CA certificate dumps nothing, fails the night and still archives the rest", () => {
+    const run = backup(prepare(URL_LINE, [daysAgo(40)], false));
+    expect(run.status).toBe(1);
+    expect(run.output).toContain("CA certificate is missing");
+    expect(logOf(run.root, "pg_dump.log")).toBe("");
+    expect(logOf(run.root, "box.log")).toBe("");
+    expect(uploaded(run.root)).toContain("env.tar.age");
+    expect(logOf(run.root, "curl.log")).toContain("Priority: urgent");
   });
 
   it("a missing connection line is a failed night that still archives the rest", () => {

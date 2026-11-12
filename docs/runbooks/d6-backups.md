@@ -117,6 +117,21 @@ drop role backup_ro;
 
 Nothing on the trading path reads any of this.
 
+## `verify-full`, in the 14–15 November window
+
+The job connected with `PGSSLMODE=require` from 2026-11-07: encrypted, but nothing checked that the server was Supabase. The operator tested `verify-full` with Supabase's root CA (`prod-ca-2021.crt`, the Supabase Root 2021 CA, valid to 2031-04-26) through the session pooler as `backup_ro` on 2026-11-10. The certificate is `ops/backup/prod-ca-2021.crt`; `backup.sh` reads its installed copy and refuses to dump without it. After the PR merges, from a workstation checkout of `origin/dev`, as `ops`:
+
+```bash
+# 1. Both files to the host.
+scp scripts/ops/backup.sh ops/backup/prod-ca-2021.crt qt:/tmp/
+# 2. Install, root-owned. The fingerprint must end 72:E6:CA:FA.
+ssh qt 'sudo -n install -m 644 /tmp/prod-ca-2021.crt /usr/local/lib/quanttrader/supabase-prod-ca-2021.crt && sudo -n install -m 755 /tmp/backup.sh /usr/local/lib/quanttrader/ && openssl x509 -in /usr/local/lib/quanttrader/supabase-prod-ca-2021.crt -noout -fingerprint -sha256'
+# 3. One run by hand, as in step 8: "db-public ok" and "db-auth ok", one "OK nightly/<date>" line, no push.
+ssh qt 'bash /usr/local/lib/quanttrader/backup.sh | tee -a /var/log/quanttrader/backup.log'
+```
+
+Then a ledger row that says `verify-full` is installed and that the nights from 2026-11-07 to this one ran with `require`. If step 3 fails on the certificate, the night has pushed and nothing was pruned: **rollback** is the previous `backup.sh` (from the commit before this one) installed as in step 2; the certificate can stay. Tell the session what step 3 printed.
+
 ## Restore drill
 
 Twice a year and before any schema change; the first one is step 8 of the window. It proves that the newest whole night can be decrypted and restored, not just that a file exists. `tests/contracts/` does not help here: it reads migrations, not a database, so the proof is row counts.
