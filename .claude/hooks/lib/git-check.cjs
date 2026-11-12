@@ -3,11 +3,13 @@
  * .claude/settings.json pre-approves seven git subcommands. Those run only when their text is plain (plainGate: words
  * of ordinary characters, quotes with nothing the shell expands, a few fixed redirections), bare, with their short list
  * of global options and flags, and with paths inside the repository (rule 7's approach for prettier, vitest and tsc,
- * which replaced a list of bad flags after its reviews found more; this rule's four reviews found the same, the last
- * one through the shell's own syntax). Every other git command prompts or goes to the auto-mode classifier, and gets
- * the known forms refused, best-effort (DEBT D-22). Required by hook-input.cjs (mode gitcheck) and by the tests.
+ * which replaced a list of bad flags after its reviews found more; this rule's six reviews found the same, the later
+ * ones through the shell's own syntax). Every other git command prompts or goes to the auto-mode classifier (unless
+ * settings.local.json pre-approves it), and gets the known forms refused, best-effort (DEBT D-22). Required by
+ * hook-input.cjs (mode gitcheck) and by the tests.
  */
 
+const fs = require("fs");
 const path = require("path");
 
 const ENV_NAME = /(^|[^A-Za-z0-9_])\.env(rc|[._-][A-Za-z0-9_.-]*)?([^A-Za-z0-9_]|$)/i;
@@ -15,6 +17,14 @@ const ENV_NAME = /(^|[^A-Za-z0-9_])\.env(rc|[._-][A-Za-z0-9_.-]*)?([^A-Za-z0-9_]
 const namesEnv = (w) => ENV_NAME.test(w.replace(/(^|[^A-Za-z0-9_])\.env\.example(?=[^A-Za-z0-9_]|$)/gi, "$1"));
 /** The same, anywhere in an option word, where a value can follow the letter directly (-F.env.local) */
 const optionNamesEnv = (w) => /\.env(rc|[._-][A-Za-z0-9_.-]*)?([^A-Za-z0-9_]|$)/i.test(w.replace(/\.env\.example(?=[^A-Za-z0-9_]|$)/gi, ""));
+
+/** Is the { at i a brace expansion ({a,b} or {a..b})? One linear scan to the next brace, not a regex per character. */
+function braceExpands(cmd, i) {
+  const re = /\{[^{}]*\}/y;
+  re.lastIndex = i;
+  const m = re.exec(cmd);
+  return m !== null && /,|\.\./.test(m[0]);
+}
 
 /**
  * The words of one simple command, quotes resolved, each with what the shell would do to it after this hook has
@@ -78,7 +88,7 @@ function lexWords(cmd) {
       continue;
     }
     begin();
-    if (c === "$" || c === "`" || (c === "~" && w.text === "") || (c === "{" && /^\{[^{}]*(,|\.\.)[^{}]*\}/.test(cmd.slice(i)))) {
+    if (c === "$" || c === "`" || (c === "~" && w.text === "") || (c === "{" && braceExpands(cmd, i))) {
       w.expands = true;
       w.bare = true;
     }
@@ -105,7 +115,7 @@ function lexWords(cmd) {
  * the shell does not expand. Anything else (a ( { < $ #, a glob, an unquoted backslash or newline, a write elsewhere)
  * is shell syntax this rule does not read or a write a read-only git must not make.
  */
-function plainGate(s) {
+function plainGate(s, info = {}) {
   const not = (what) => `${what}, shell syntax this rule does not read; write the command plainly (a message with $ or a backtick goes in a file for -F)`;
   let i = 0;
   let wordStart = true;
@@ -121,14 +131,15 @@ function plainGate(s) {
       const rest = s.slice(i);
       const fixed = /^(2>&1|1>&2|>&2|&>[ \t]*\/dev\/null|[12]?>>?[ \t]*\/dev\/null|<<-?[ \t]*('[A-Za-z_][A-Za-z0-9_]*'|"[A-Za-z_][A-Za-z0-9_]*"))(?=[ \t]|$)/.exec(rest);
       if (fixed) {
+        if (fixed[0].startsWith("<<")) info.heredoc = true; // the only stdin -F - may read
         i += fixed[0].length;
         continue;
       }
-      const out = /^[12]?>>?[ \t]*([A-Za-z0-9_./-]+)(?=[ \t]|$)/.exec(rest);
+      const out = /^(&|[12])?>>?[ \t]*([^ \t]+)(?=[ \t]|$)/.exec(rest);
       if (out) {
         // an absolute path only: a relative one is the shell's directory, which this hook does not know
-        const t = out[1];
-        if (!t.startsWith("/") || t.split("/").includes("..") || !TEMP_DIRS.some((d) => t.startsWith(d))) return `a redirect to ${t}, a write a read-only git must not make; send output to an absolute path under /tmp or the scratchpad`;
+        const t = out[2];
+        if (!/^[A-Za-z0-9_./-]+$/.test(t) || !t.startsWith("/") || t.split("/").includes("..") || !TEMP_DIRS.some((d) => t.startsWith(d))) return `a redirect to ${t}, a write a read-only git must not make; send output to an absolute path under /tmp or the scratchpad`;
         i += out[0].length;
         continue;
       }
@@ -158,14 +169,16 @@ function plainGate(s) {
       i = j + 1;
       continue;
     }
-    if (c === "@" && s[i + 1] === "{") {
-      const m = /^@\{[A-Za-z0-9_/-]+(\.[A-Za-z0-9_/-]+)*\}/.exec(s.slice(i)); // no .. or , that would brace-expand
+    if ((c === "@" || c === "^") && s[i + 1] === "{") {
+      // a revision's @{1}, @{upstream} or ^{tree}: no .. or , that would brace-expand
+      const m = /^[@^]\{[A-Za-z0-9_/-]+(\.[A-Za-z0-9_/-]+)*\}/.exec(s.slice(i));
       if (!m) return not("a {");
       i += m[0].length;
       continue;
     }
-    // # stays out: the splitter reads a quote after a comment's # as opening a string, which can hide the next line
-    if (/[A-Za-z0-9_./:@^~=,+%-]/.test(c)) {
+    // # stays out: the splitter reads a quote after a comment's # as opening a string, which can hide the next line.
+    // * ? [ ] pass here; preApproved holds a word that globs to paths inside the repository (globOk)
+    if (/[A-Za-z0-9_./:@^~=,+%*?[\]-]/.test(c)) {
       i++;
       continue;
     }
@@ -210,7 +223,9 @@ const MESSAGE_FLAGS = new Set(["-m", "--message"]);
 const TEMP_DIRS = ["/tmp/", "/private/tmp/", "/var/folders/", "/private/var/folders/"];
 const WRAPPERS = new Set(["sudo", "doas", "env", "nice", "nohup", "time", "timeout", "stdbuf", "command", "builtin", "exec", "xargs", "caffeinate", "ionice", "unbuffer", "chronic", "noglob", "nocorrect", "repeat", "coproc", "xcrun", "arch", "-"]);
 const KEYWORDS = new Set(["if", "then", "else", "elif", "do", "while", "until", "!", "{", "(", "time"]);
-const C_KEYS_OK = /^(color\.[a-z.]+|core\.quotepath|advice\.[a-z.]+)=/i;
+const C_KEYS_OK = /^((color\.[a-z.]+|core\.quotepath|advice\.[a-z.]+)=|(core\.editor|sequence\.editor)=(true|:)$|core\.pager=cat$)/i;
+// an editor or pager set to one of these runs nothing that reads a file (GIT_EDITOR=true git rebase --continue)
+const SAFE_VALUE = /^(GIT_EDITOR|GIT_SEQUENCE_EDITOR|EDITOR|VISUAL|GIT_PAGER|PAGER)=(true|false|cat|:)?$/;
 // a variable git (or the editor and pager it runs) reads; += and name[i]= set it too
 const GIT_VAR = /^(GIT_[A-Z0-9_]+|HOME|XDG_CONFIG_HOME|EDITOR|VISUAL|PAGER|LESSOPEN|LESSCLOSE)(\[[^\]]*\])?\+?=/;
 const GIT_VAR_NAME = /^(GIT_[A-Z0-9_]+|HOME|XDG_CONFIG_HOME|EDITOR|VISUAL|PAGER|LESSOPEN|LESSCLOSE)$/;
@@ -254,8 +269,9 @@ function gitCheck(text, root, ctx = {}) {
   if (!words.length) return "";
   // a variable git reads, set for this command, exported, or set by printf -v / read
   const head0 = words[0].text;
+  const unsafeVar = (t) => (GIT_VAR.test(t) && !SAFE_VALUE.test(t)) || GIT_VAR_NAME.test(t);
   if (/^(export|declare|typeset|readonly|local)$/.test(head0)) {
-    if (words.slice(1).some((w) => GIT_VAR.test(w.text) || GIT_VAR_NAME.test(w.text))) return "an assignment of a variable git reads (GIT_*, HOME, XDG_CONFIG_HOME, EDITOR, VISUAL, PAGER)";
+    if (words.slice(1).some((w) => unsafeVar(w.text))) return "an assignment of a variable git reads (GIT_*, HOME, XDG_CONFIG_HOME, EDITOR, VISUAL, PAGER)";
     return "";
   }
   if ((head0 === "printf" && words.some((w, k) => k > 0 && words[k - 1].text === "-v" && GIT_VAR_NAME.test(w.text))) || (head0 === "read" && words.slice(1).some((w) => GIT_VAR_NAME.test(w.text)))) {
@@ -265,6 +281,7 @@ function gitCheck(text, root, ctx = {}) {
   // wrappers with their options and numbers. A pre-approved git found behind a ( { ) is then refused by plainGate
   let i = 0;
   let wrapped = false;
+  let gitVarSet = false; // a prefix assignment git would read: refused when it reaches git, or stands alone
   while (i < words.length) {
     const t = words[i].text;
     if (KEYWORDS.has(t)) i++;
@@ -273,7 +290,7 @@ function gitCheck(text, root, ctx = {}) {
       while (i < words.length && !/\)$/.test(words[i].text)) i++;
       i++;
     } else if (ASSIGNMENT.test(t)) {
-      if (GIT_VAR.test(t)) return "an assignment of a variable git reads (GIT_*, HOME, XDG_CONFIG_HOME, EDITOR, VISUAL, PAGER)";
+      if (GIT_VAR.test(t) && !SAFE_VALUE.test(t)) gitVarSet = true;
       wrapped = true;
       i++;
     } else if (WRAPPERS.has(t.replace(/.*\//, ""))) {
@@ -285,12 +302,14 @@ function gitCheck(text, root, ctx = {}) {
       }
     } else break;
   }
-  if (i >= words.length) return "";
+  const varWhy = "an assignment of a variable git reads (GIT_*, HOME, XDG_CONFIG_HOME, EDITOR, VISUAL, PAGER)";
+  if (i >= words.length) return gitVarSet ? varWhy : ""; // HOME+=x on its own reaches every later git
   // a command word that is a glob the shell could expand to git (/usr/bin/gi?, g[i]t); a case pattern (x) or *) and
   // a heredoc line (* item, lines[a:b] = x) are not
   const cw = words[i].text;
   if (words[i].glob && !/\)$/.test(cw) && /[git]/.test(cw.replace(/.*\//, "")) && globMatches(cw.replace(/.*\//, ""), "git")) return `a command word that is a glob (${cw}), which the shell may expand to git; name the program`;
   if (words[i].text.replace(/.*\//, "").toLowerCase() !== "git") return "";
+  if (gitVarSet) return varWhy;
   const gitWord = words[i];
   // global options
   let j = i + 1;
@@ -318,10 +337,11 @@ function gitCheck(text, root, ctx = {}) {
     if (wrapped) return `${lead} behind a VAR= prefix or a wrapper; run git bare`;
     if (ctx.away) return `${lead} after a cd, pushd or popd out of the repository, where its paths mean other files; run it from the project directory`;
     const plain = text.replace(/\n\x1f/g, "\n");
-    const gate = plainGate(plain);
+    const info = {};
+    const gate = plainGate(plain, info);
     if (gate) return `${lead} with ${gate}`;
-    // stdin for -F - is a quoted heredoc on this command, never a pipe
-    const stdinOk = ctx.sep !== "pipe" && /<<-?[ \t]*['"]/.test(plain);
+    // stdin for -F - is a quoted heredoc token on this command (as plainGate read it, not text inside quotes)
+    const stdinOk = info.heredoc === true;
     return preApproved(sub, lead, { cont, gitWord, globals, subWord, args, stdinOk }, root);
   }
   return otherGit(sub, args);
@@ -343,10 +363,16 @@ function preApproved(sub, lead, c, root) {
     if (namesEnv(t) && sub !== "status") return `${lead} that names ${t}`;
     return "";
   };
+  // an unquoted glob expands to paths: only under a named directory (so no word it yields starts with -), with no ..
+  // and no part that starts with a dot, which the shell would let it match
+  const globOk = (t) => t.includes("/") && !t.startsWith("/") && !t.split("/").some((p) => p === ".." || (p.startsWith(".") && p !== "."));
   let message = false; // the next word is a -m text
   let paths = false; // after --
   for (let k = 0; k < c.args.length; k++) {
     const t = c.args[k].text;
+    // a word the shell still expands that plainGate let by: zsh reads ''~nobody as ~nobody
+    if (c.args[k].expands) return `${lead} with ${t}, which the shell expands; spell it out`;
+    if (c.args[k].glob && !globOk(t)) return `${lead} with the glob ${t}, which may match a dotfile, an option or a path outside the repository; give it a directory inside the repository`;
     if (message) {
       message = false; // a -m text is one word of plain text, so it may mention an env file
       continue;
@@ -371,15 +397,17 @@ function preApproved(sub, lead, c, root) {
       }
       if (name === "--file") {
         const v = value !== null ? value : c.args[++k] ? c.args[k].text : "";
+        if (value === null && c.args[k] && (c.args[k].expands || c.args[k].glob)) return `${lead} with --file ${v}, which the shell expands; spell it out`;
         const r = fileOk(v, root, c.stdinOk);
         if (r) return `${lead} -F ${v}: ${r}`;
         continue;
       }
       // the one value here that is a path; the others are patterns, dates and formats
       if (name === "--relative" && value !== null && (namesEnv(value) || outsideRoot(value, root))) return `${lead} with ${t}, which names an env file or leaves the repository`;
-      if (name === "--ignore-rev") {
-        const v = c.args[++k] ? c.args[k].text : "";
-        if (namesEnv(v)) return `${lead} with --ignore-rev ${v}, which names an env file`;
+      // --ignore-rev takes a revision, attached after = or as the next word (which is then not read as a flag)
+      if (name === "--ignore-rev" && value === null) {
+        k++;
+        if (c.args[k] && (c.args[k].expands || c.args[k].glob)) return `${lead} with --ignore-rev ${c.args[k].text}, which the shell expands; spell it out`;
       }
       continue;
     }
@@ -392,24 +420,31 @@ function preApproved(sub, lead, c, root) {
       if (!spec.value.includes(f)) continue;
       const v = rest !== "" ? rest : c.args[k + 1] ? c.args[k + 1].text : "";
       if (rest === "") k++;
+      if (rest === "" && c.args[k] && (c.args[k].expands || c.args[k].glob)) return `${lead} with ${f} ${c.args[k].text}, which the shell expands; spell it out`;
       if (f === "-F") {
         const r = fileOk(v, root, c.stdinOk);
         if (r) return `${lead} -F ${v}: ${r}`;
-      } else if (f !== "-m" && namesEnv(v)) return `${lead} with ${f} ${v}, which names an env file`;
+      }
+      // -n, -L, -S and -G take a count, a line range or a search string, read from history, never from the work tree
       break;
     }
   }
   return "";
 }
 
-/** A -F message file: a path in the repository or a temp directory, not an env file; - (stdin) only from a quoted
- * heredoc on the same command */
+/** A -F message file: an absolute path under a temp directory, symlinks resolved (a file in the repository may be an
+ * ignored one, such as .mcp.json); - (stdin) only from a quoted heredoc on the same command */
 function fileOk(v, root, stdinOk) {
   if (v === "-") return stdinOk ? "" : "a message on stdin that is not a quoted heredoc on this command; give a file";
   if (v === "") return "no message file given";
   if (namesEnv(v)) return "it names an env file";
-  const r = path.resolve(root, v);
-  if (!(r.startsWith(root + path.sep) || TEMP_DIRS.some((d) => r.startsWith(d)))) return "a file outside the repository and the temp directories";
+  let r = path.resolve(root, v);
+  try {
+    r = fs.realpathSync(r);
+  } catch {
+    // not there yet: git fails to read it, and the text check below still applies
+  }
+  if (!v.startsWith("/") || v.split("/").includes("..") || !TEMP_DIRS.some((d) => r.startsWith(d))) return "a message file outside the temp directories; write it under /tmp or the scratchpad";
   return "";
 }
 
@@ -428,8 +463,17 @@ function otherGit(sub, args) {
     (sub === "submodule" && args.some((a) => a.text === "foreach"));
   if (runs && args.some((a) => optionNamesEnv(a.text) || /[*?[]/.test(a.text))) return `git ${sub} running a command that names an env file or holds a glob`;
   if (sub === "config") {
-    const reads = args.some((a) => /^(--get|--get-all|--get-regexp|-l|--list|--show-origin|--show-scope|get|list)$/.test(a.text));
+    // a read: --get and friends, get/list, or a bare key with no value and no write option
+    const reads =
+      args.some((a) => /^(--get|--get-all|--get-regexp|-l|--list|--show-origin|--show-scope|get|list)$/.test(a.text)) ||
+      (args.filter((a) => !a.text.startsWith("-")).length === 1 && !args.some((a) => /^(--add|--unset|--unset-all|--replace-all|--rename-section|--remove-section|-e|--edit|--file|-f|--blob)/.test(a.text)));
     if (!reads) return "a git config write, which can make every later git command run a program";
+  }
+  // git writing the files that guard this session (an old guard-bash.sh checked out over the new one); a branch
+  // switch rewrites them too, which a path check cannot see (DEBT D-22)
+  if (/^(checkout|restore|reset|apply|am|cherry-pick|revert|merge|stash|switch|read-tree|update-index|checkout-index)$/.test(sub)) {
+    const guarded = args.find((a) => /^(\.\/)?(\.claude\/|\.husky\/|\.gitignore$|\.gitattributes$)/.test(a.text));
+    if (guarded) return `git ${sub} writing ${guarded.text}, one of the files that guard this session; change it with the file tools, which prompt`;
   }
   const bareWord = args.find((a) => a.bare);
   if (bareWord) return `git ${sub} with ${bareWord.text}, which the shell expands after this hook has read it`;

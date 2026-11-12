@@ -308,12 +308,19 @@ switch (mode) {
     const { gitCheck } = require("./git-check.cjs");
     // a cd, pushd or popd out of the repository moves where a later git runs, and its relative paths with it
     let away = false;
+    // the splitter reads the & of &> and &>> as a separator: put the redirect back on its command
+    const segs = [];
     for (const s of segments(cmd, false).segments) {
+      if (s.sep === "bg" && /^>/.test(s.text) && segs.length) segs[segs.length - 1] = { ...segs[segs.length - 1], text: `${segs[segs.length - 1].text} &${s.text}` };
+      else segs.push(s);
+    }
+    for (const s of segs) {
       const cd = /^(cd|pushd|popd)(\s+(.*))?$/.exec(s.text.trim());
       if (cd) {
         const target = (cd[3] || "").trim();
         const to = path.resolve(root, target);
-        if (target === "-" || !/^[A-Za-z0-9_./-]+$/.test(target) || (to !== path.resolve(root) && !to.startsWith(path.resolve(root) + path.sep))) away = true;
+        // no target, or one starting with - (cd -, cd --, cd -P: OLDPWD or $HOME), leaves the repository
+        if (target === "" || target.startsWith("-") || !/^[A-Za-z0-9_./-]+$/.test(target) || (to !== path.resolve(root) && !to.startsWith(path.resolve(root) + path.sep))) away = true;
         continue;
       }
       const why = gitCheck(s.text, path.resolve(root), { sep: s.sep, away });

@@ -1,7 +1,7 @@
 /**
  * Cases for guard-bash rule 1d (.claude/hooks/lib/git-check.cjs): git prints a file it is given or can reach, ignored
- * ones such as .env.local included, and seven git subcommands are pre-approved. The first two reviews of #336 found
- * the forms in the first part of the refused list; the third and fourth, the rest. Each refused case names the fragment of the
+ * ones such as .env.local included, and seven git subcommands are pre-approved. The six reviews of #336 found the forms
+ * in this list, in order. Each refused case names the fragment of the
  * reason that must fire. Nothing here is executed.
  */
 
@@ -36,14 +36,14 @@ export const GIT_ENV_BLOCKED: readonly (readonly [string, string])[] = [
     "not on its short list",
   ],
   ["git commit --template=.env.local", "not on its short list"],
-  ["git diff /dev/null .en?.local", "shell syntax this rule does not read"],
+  ["git diff /dev/null .en?.local", "outside the repository"],
   ["git diff /var/empty .", "outside the repository"],
   ["git diff ~/empty .", "shell syntax this rule does not read"],
   ["git diff ../../x .", "outside the repository"],
-  ["git blame -S .en?.local README.md", "shell syntax this rule does not read"],
+  ["git blame -S .en?.local README.md", "not on its short list"],
   ["git blame -wS revs README.md", "not on its short list"],
-  ["git blame --ignore-revs-file .en?.local README.md", "shell syntax this rule does not read"],
-  ["git blame --cont .en?.local README.md", "shell syntax this rule does not read"],
+  ["git blame --ignore-revs-file .en?.local README.md", "not on its short list"],
+  ["git blame --cont .en?.local README.md", "not on its short list"],
   ["git add --forc '*.local'", "not on its short list"],
   ["git add --f '*.local'", "not on its short list"],
   ["git grep --no-ind -e .", "git grep --no"],
@@ -52,7 +52,7 @@ export const GIT_ENV_BLOCKED: readonly (readonly [string, string])[] = [
   ["git add $'-f' '*.local'", "shell syntax this rule does not read"],
   ['git -C "a b" diff --no-index /var/empty .', "not on its short list"],
   ["GIT diff --no-index /var/empty .", "not spelled as plain lower-case"],
-  ["git --git-dir=.git --work-tree=. diff --no-index a b", "not on its short list"],
+  ["git --git-dir=.git --work-tree=. diff --no-index a b", "the glob"],
   ["git -c alias.x='!cat .en?.local' x", "which can make git run a program"],
   ["git --config-env=alias.x=X x", "which can make git run a program"],
   [
@@ -113,8 +113,8 @@ export const GIT_ENV_BLOCKED: readonly (readonly [string, string])[] = [
   [`git -C /var/empty diff ${root}/docs ${root}`, "outside the repository"],
   ["git --git-dir=/var/empty diff docs .", "outside the repository"],
   ["GIT_DIR=/var/empty git diff docs .", "assignment of a variable git reads"],
-  ["git --attr-source HEAD diff --no-index /var/empty .", "not on its short list"],
-  ["git --shallow-file x diff --no-index /var/empty .", "not on its short list"],
+  ["git --attr-source HEAD diff --no-index /var/empty .", "the glob"],
+  ["git --shallow-file x diff --no-index /var/empty .", "the glob"],
   [
     "env GIT_CONFIG_\\COUNT=1 GIT_CONFIG_\\KEY_0=core.fsmonitor GIT_CONFIG_\\VALUE_0='cat .env.local >&2; false' git status",
     "assignment of a variable git reads",
@@ -141,8 +141,24 @@ export const GIT_ENV_BLOCKED: readonly (readonly [string, string])[] = [
   ["git commit -am `x`", "shell syntax this rule does not read"],
   ["git log --textconv -p", "not on its short list"],
   ["git show --textconv HEAD", "not on its short list"],
-  ["git log -L 1,5:.env.local", "which names an env file"],
-  ["git commit -F /etc/hosts", "outside the repository"],
+  ["git commit -F /etc/hosts", "a message file outside the temp directories"],
+  ["git commit -F docs/msg.txt", "a message file outside the temp directories"],
+  ["git diff ''~nobody .", "the shell expands"],
+  ['git diff ""~nobody .', "the shell expands"],
+  ["git commit --allow-empty -F ''~/.zsh_history", "the shell expands"],
+  ["git blame --ignore-rev=HEAD --contents=/etc/hosts README.md", "not on its short list"],
+  ["git commit --allow-empty -F .mcp.json", "a message file outside the temp directories"],
+  ["git add *.md", "the glob"],
+  ["git add docs/../*", "the glob"],
+  ["git add docs/.e*", "the glob"],
+  [
+    "git checkout HEAD~1 -- .claude/hooks/guard-bash.sh",
+    "one of the files that guard this session",
+  ],
+  ["git restore --source HEAD~1 .husky/pre-commit", "one of the files that guard this session"],
+  ["git commit -F ''~/x", "the shell expands"],
+  ["git commit --file ''~/x", "the shell expands"],
+  ["git commit -F /tmp/../etc/hosts", "a message file outside the temp directories"],
   ["(git diff --no-index /dev/null .env.local)", "shell syntax this rule does not read"],
   ["case x in x) git diff --no-index /dev/null .env.local", "shell syntax this rule does not read"],
   [
@@ -168,7 +184,7 @@ export const GIT_ENV_BLOCKED: readonly (readonly [string, string])[] = [
   ["git diff =(:) .en?.local", "shell syntax this rule does not read"],
   ["git commit --allow-empty --file ~/.zsh_history", "shell syntax this rule does not read"],
   ["git commit --allow-empty --file .en{v..v}.local", "shell syntax this rule does not read"],
-  ["git commit --allow-empty -F .en?.local", "shell syntax this rule does not read"],
+  ["git commit --allow-empty -F .en?.local", "the shell expands"],
   ["git commit --allow-empty -F - < ~/.zsh_history", "shell syntax this rule does not read"],
   [
     'git commit -m "${(@s: :)${:-x --pathspec-file-nul --pathspec-from-file=.env.local}}"',
