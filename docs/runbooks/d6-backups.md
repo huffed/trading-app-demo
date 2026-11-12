@@ -94,7 +94,8 @@ If `install-ssh-key` is refused, stop and tell the session; Hetzner's key page h
 # 5. Prove the key, and the recursive delete the prune needs. Stop if rm -r is refused: the prune would fail from night 31.
 ssh qt 'B="ssh -p 23 -i ~/.ssh/quanttrader_backup -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=~/.ssh/known_hosts_storagebox u708205-sub1@u708205-sub1.your-storagebox.de"; $B mkdir nightly pins probe && $B mkdir probe/inner && $B rm -r probe && $B ls'   # nightly pins
 
-# 6. Install, root-owned, as D.4's scripts are. Dry run parses: 13, one per log.
+# 6. Install, root-owned, as D.4's scripts are. Dry run parses: 13, one per log. A rebuild after the verify-full
+# section below also installs ops/backup/prod-ca-2021.crt, or every night fails with database-ca.
 scp scripts/ops/backup.sh scripts/ops/ops-health.sh ops/backup/age-recipient.txt ops/logrotate/quanttrader ops/crontab qt:/tmp/
 ssh qt 'sudo -n install -m 755 /tmp/backup.sh /tmp/ops-health.sh /usr/local/lib/quanttrader/ && sudo -n install -m 644 /tmp/age-recipient.txt /usr/local/lib/quanttrader/backup-age-recipient.txt && sudo -n install -m 644 /tmp/quanttrader /etc/logrotate.d/quanttrader && sudo -n logrotate -d /etc/logrotate.d/quanttrader 2>&1 | grep -c "considering log"'
 
@@ -116,6 +117,36 @@ drop role backup_ro;
 ```
 
 Nothing on the trading path reads any of this.
+
+## `verify-full`, in the 14–15 November window
+
+The job connected with `PGSSLMODE=require` from 2026-11-07: encrypted, but nothing checked that the server was Supabase. The operator tested `verify-full` with Supabase's root CA (`prod-ca-2021.crt`, the Supabase Root 2021 CA, valid to 2031-04-26) through the session pooler as `backup_ro` on 2026-11-10. The certificate is `ops/backup/prod-ca-2021.crt`, and its SHA-256 fingerprint is:
+
+`80:70:25:AD:50:D4:ED:21:9D:2C:9C:7D:29:9C:00:4F:82:4E:B0:0C:F7:F6:5A:FE:F6:07:D0:7B:72:E6:CA:FA`
+
+The session copied it from the operator's `~/Downloads/prod-ca-2021.crt` (byte-identical, checked with `cmp`). `backup.sh` reads its installed copy and refuses to dump without it. This comes before the sudoers narrowing (D-23) in the same window, which may refuse step 2's `sudo -n install`. After the PR merges, from a workstation checkout of `origin/dev`, as `ops`:
+
+```bash
+# 1. Both files to the host.
+scp scripts/ops/backup.sh ops/backup/prod-ca-2021.crt qt:/tmp/
+# 2. Install only if the copy on the host has the fingerprint above; the last line prints 1 for the new backup.sh.
+ssh qt 'openssl x509 -in /tmp/prod-ca-2021.crt -noout -fingerprint -sha256 | grep -qi "=80:70:25:AD:50:D4:ED:21:9D:2C:9C:7D:29:9C:00:4F:82:4E:B0:0C:F7:F6:5A:FE:F6:07:D0:7B:72:E6:CA:FA$" && sudo -n install -m 644 /tmp/prod-ca-2021.crt /usr/local/lib/quanttrader/supabase-prod-ca-2021.crt && sudo -n install -m 755 /tmp/backup.sh /usr/local/lib/quanttrader/ && grep -c "PGSSLMODE=verify-full" /usr/local/lib/quanttrader/backup.sh'
+# 3. One run by hand, as in step 8: "db-public ok" and "db-auth ok", one "OK nightly/<date>" line, no push.
+ssh qt 'bash /usr/local/lib/quanttrader/backup.sh | tee -a /var/log/quanttrader/backup.log'
+```
+
+If step 2 prints nothing, the fingerprint did not match and nothing was installed: stop and tell the session. After step 3, a ledger row that says `verify-full` is installed and that the nights from 2026-11-07 to this one ran with `require`.
+
+**Rollback,** if step 3 fails on the certificate (the night has pushed and nothing was pruned): put back the `require` script from the commit before this PR's merge, and run one night by hand.
+
+```bash
+git show <merge-commit>^:scripts/ops/backup.sh > /tmp/backup.sh
+scp /tmp/backup.sh qt:/tmp/
+ssh qt 'sudo -n install -m 755 /tmp/backup.sh /usr/local/lib/quanttrader/ && grep -c "PGSSLMODE=require" /usr/local/lib/quanttrader/backup.sh'
+ssh qt 'bash /usr/local/lib/quanttrader/backup.sh | tee -a /var/log/quanttrader/backup.log'
+```
+
+The certificate can stay installed. Add a ledger row for the rollback with what step 3 printed. `dev` still holds `verify-full`, so the next install of `backup.sh` from it would bring it back: revert this PR on `dev`, or record the rollback in D-35 before the next install.
 
 ## Restore drill
 

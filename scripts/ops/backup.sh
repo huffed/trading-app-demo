@@ -26,6 +26,9 @@ STATE=/var/lib/quanttrader
 LIB=/usr/local/lib/quanttrader
 ENV_FILE=$APP/.env.local
 RECIPIENT=$LIB/backup-age-recipient.txt
+# Supabase's root CA (ops/backup/prod-ca-2021.crt): libpq's verify-full checks the pooler's certificate against it
+# and its name against the host, so an interceptor between Hetzner and Supabase cannot stand in for the database
+CA=$LIB/supabase-prod-ca-2021.crt
 BOX=u708205-sub1@u708205-sub1.your-storagebox.de
 RETENTION_DAYS=30
 HOST_FILES=(
@@ -67,7 +70,8 @@ from urllib.parse import urlsplit, unquote
 u = urlsplit(sys.stdin.read().strip())
 print("\x1f".join([u.hostname, str(u.port or 5432), unquote(u.username), unquote(u.password), u.path.lstrip("/") or "postgres"]))' <<< "$url" 2> /dev/null) || return 1
   IFS=$'\x1f' read -r PGHOST PGPORT PGUSER PGPASSWORD PGDATABASE <<< "$parts"
-  export PGHOST PGPORT PGUSER PGPASSWORD PGDATABASE PGSSLMODE=require PGCONNECT_TIMEOUT=20
+  # GSSAPI encryption, when libpq can use it, is chosen over SSL whatever sslmode says: off, so verify-full always holds
+  export PGHOST PGPORT PGUSER PGPASSWORD PGDATABASE PGSSLMODE=verify-full PGSSLROOTCERT=$CA PGGSSENCMODE=disable PGCONNECT_TIMEOUT=20
 }
 dump_public() {
   pg_dump --format=custom --no-owner --schema=public | encrypt "$WORK/part" && keep db-public.dump.age
@@ -132,12 +136,20 @@ trap 'rm -rf "$WORK"' EXIT
 OUT=$WORK/out
 mkdir "$OUT"
 
-if db_env; then
-  step db-public dump_public
-  step db-auth dump_auth
-else
+db_ready=1 # both checked, so one night reports both
+if ! db_env; then
+  db_ready=0
   errors+=("database-url")
   log "BACKUP_DATABASE_URL missing or unreadable in $ENV_FILE"
+fi
+if [ ! -r "$CA" ]; then # without it verify-full refuses the connection; the night fails and pushes instead
+  db_ready=0
+  errors+=("database-ca")
+  log "Supabase's CA certificate is missing or unreadable at $CA, so the database is not dumped"
+fi
+if [ "$db_ready" = 1 ]; then
+  step db-public dump_public
+  step db-auth dump_auth
 fi
 unset PGPASSWORD
 step env archive_env
