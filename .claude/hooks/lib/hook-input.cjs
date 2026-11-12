@@ -23,6 +23,9 @@
  *                                         such as -t "--config x" stays one word
  *   node hook-input.cjs expands           (stdin is one simple command) 1 when the shell would expand it: a $ or
  *                                         backtick outside single quotes, or a { outside any quotes; else 0
+ *   node hook-input.cjs gitcheck <root>   the first simple command in tool_input.command that git-check.cjs says can
+ *                                         print an ignored file such as .env.local (guard-bash rule 1d), as
+ *                                         <command>\t<reason>, or nothing
  *
  * Exit 3 on malformed input or an unknown mode. Callers treat anything but
  * exit 0 as "cannot inspect, refuse" (fail closed).
@@ -294,6 +297,43 @@ switch (mode) {
     // a newline kept inside a segment (a backslash-newline or one in quotes) starts its next line with \x1f, so a
     // continuation line can never pass for a record of its own, whatever its first field says
     else process.stdout.write(r.segments.map((s) => `${s.sep}\t${s.text.replace(/\n/g, "\n\x1f")}`).join("\n"));
+    break;
+  }
+  case "gitcheck": {
+    // rule 1d over every simple command, continuation lines included: the first that can print an ignored file,
+    // as <command>\t<reason>, or nothing
+    const root = process.argv[3];
+    const cmd = ti.command;
+    if (!root || typeof cmd !== "string") process.exit(3);
+    const { gitCheck, inWorkTree, commandWords } = require("./git-check.cjs");
+    // where the shell is (the payload's cwd, which persists between calls), moved by each cd, pushd or popd; a later
+    // pre-approved git runs there, and away is set once the shell has left the work tree or cannot be followed
+    const top = path.resolve(root);
+    let dir = typeof json.cwd === "string" && json.cwd ? path.resolve(json.cwd) : top;
+    let away = !inWorkTree(dir, top);
+    // the splitter reads the & of &> and &>> as a separator: put the redirect back on its command
+    const segs = [];
+    for (const s of segments(cmd, false).segments) {
+      if (s.sep === "bg" && /^>/.test(s.text) && segs.length) segs[segs.length - 1] = { ...segs[segs.length - 1], text: `${segs[segs.length - 1].text} &${s.text}` };
+      else segs.push(s);
+    }
+    for (const s of segs) {
+      // the command word as gitCheck finds it, past keywords, wrappers and assignments (builtin cd, \cd, { cd, if cd)
+      const cw = commandWords(s.text);
+      if (/^(cd|chdir|pushd|popd)$/.test(cw.word)) {
+        const arg = cw.args[0];
+        // no target, an option (cd -, cd --, cd -P: OLDPWD or $HOME), an expansion, CDPATH, or a directory outside
+        // the work tree (or missing) leaves where this hook can follow
+        if (!arg || cw.cdpath || arg.text.startsWith("-") || arg.expands || arg.glob || !inWorkTree(path.resolve(dir, arg.text), top)) away = true;
+        else dir = path.resolve(dir, arg.text);
+        continue;
+      }
+      const why = gitCheck(s.text, top, { sep: s.sep, away, dir });
+      if (why) {
+        process.stdout.write(`${s.text.replace(/\s+/g, " ").slice(0, 300)}\t${why}`);
+        break;
+      }
+    }
     break;
   }
   case "stop-active":

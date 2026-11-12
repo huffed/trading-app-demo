@@ -180,7 +180,8 @@ export const BASH_BLOCKED: string[] = [
 /** guard-bash.sh must allow these (exit 0) */
 export const BASH_ALLOWED: string[] = [
   "grep -n FOO .env.example",
-  "git commit -q -F - <<EOF\nfeat: deny for .env* (except .env.example) and pinned data\nEOF",
+  // quoted since #336: an unquoted heredoc's body is expanded by the shell, so a pre-approved git takes only <<'EOF'
+  "git commit -q -F - <<'EOF'\nfeat: deny for .env* (except .env.example) and pinned data\nEOF",
   'echo "deny .env* reads"',
   `echo "${envFile} is where secrets live" | wc -c`,
   "ls -la",
