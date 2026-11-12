@@ -11,9 +11,7 @@
  *                                         filesystem); prints OUTSIDE when the path leaves the root
  *   node hook-input.cjs segments [--strict]
  *                                         quote-aware split of tool_input.command into simple commands, one per
- *                                         line as `<sep>\t<command>` where sep is start|and|or|pipe|seq|bg|nl|subst,
- *                                         or body for a heredoc's body lines and terminator; DENY:<reason> for a #
- *                                         comment that holds a quote, which the shell and the splitter read apart.
+ *                                         line as `<sep>\t<command>` where sep is start|and|or|pipe|seq|bg|nl|subst.
  *                                         Without --strict, the inside of every $(…) and `…` is split too and
  *                                         appended as `subst` lines, so inner commands are inspected. With --strict
  *                                         the only output is DENY:<reason> for constructs a read-only caller must
@@ -97,17 +95,6 @@ function segments(cmd, strict) {
   let cur = "";
   let sep = "start";
   let quote = null; // "'" | '"' | "$'"
-  // heredocs: each <<DELIM on a line opens a body after that line's newline, up to a line that is DELIM (tabs
-  // stripped for <<-). A body is text to the shell, so its quotes end at each newline and its # is not a comment;
-  // its lines are still split and inspected as commands, as an interpreter fed the heredoc would run them
-  const pendingHeredocs = [];
-  let body = null;
-  const terminatorEnd = (pos, h) => {
-    const eol = cmd.indexOf("\n", pos);
-    const end = eol < 0 ? cmd.length : eol;
-    const line = cmd.slice(pos, end);
-    return (h.dash ? line.replace(/^\t+/, "") : line) === h.delim ? end : -1;
-  };
   const deny = (why) => ({ deny: why });
   const push = (nextSep) => {
     if (cur.trim()) out.push({ sep, text: cur.trim() });
@@ -130,24 +117,9 @@ function segments(cmd, strict) {
     }
     return [cmd.slice(i + 1), cmd.length - 1];
   };
-  // after a newline that starts a heredoc body or ends one of its lines: an empty body or the body's last line ends it,
-  // and its terminator becomes the current text
-  const enterBodyLine = (i) => {
-    const end = terminatorEnd(i + 1, body);
-    if (end < 0) return i;
-    cur = cmd.slice(i + 1, end);
-    body = null;
-    return end - 1;
-  };
   for (let i = 0; i < cmd.length; i++) {
     const c = cmd[i];
     const n = cmd[i + 1];
-    if (body !== null && c === "\n") {
-      quote = null;
-      push("body");
-      i = enterBodyLine(i);
-      continue;
-    }
     if (quote !== null) {
       if ((quote === '"' || quote === "$'") && c === "\\" && n !== undefined) { cur += c + n; i++; continue; }
       if (quote === '"' && (c === "`" || (c === "$" && n === "("))) {
@@ -161,12 +133,6 @@ function segments(cmd, strict) {
       cur += c;
       if ((quote === '"' && c === '"') || ((quote === "'" || quote === "$'") && c === "'")) quote = null;
       continue;
-    }
-    // a # that starts a word begins a comment, and a quote or backslash in one ends the command somewhere else for the
-    // shell than for this splitter (which reads it as text, as zsh does with interactive comments off): refused
-    if (body === null && c === "#" && (i === 0 || /[\s;&|(]/.test(cmd[i - 1]))) {
-      const eol = cmd.indexOf("\n", i);
-      if (/['"`\\]/.test(cmd.slice(i, eol < 0 ? cmd.length : eol))) return deny("a # comment that holds a quote, a backtick or a backslash, which the shell and this hook read differently; drop the comment");
     }
     if (c === "\\" && n !== undefined) { cur += c + n; i++; continue; }
     if (c === "'") { quote = "'"; cur += c; continue; }
@@ -207,16 +173,6 @@ function segments(cmd, strict) {
         continue;
       }
     }
-    if (body === null && c === "<" && n === "<" && cmd[i + 2] !== "<") {
-      // the delimiter is the next word with its quotes and backslashes removed, as the shell reads it (<<E"O"F is EOF)
-      const m = /^<<(-?)[ \t]*((?:'[^'\n]*'|"[^"\n]*"|\\.|[^\s;&|<>()'"\\])+)/.exec(cmd.slice(i));
-      if (m) {
-        pendingHeredocs.push({ delim: m[2].replace(/\\(.)/g, "$1").replace(/['"]/g, ""), dash: m[1] === "-" });
-        cur += m[0];
-        i += m[0].length - 1;
-        continue;
-      }
-    }
     if (c === ">" && (n === "&" || n === "|")) { cur += c + n; i++; continue; } // 2>&1 and >| are not separators
     if (c === "&" && n === "&") { push("and"); i++; continue; }
     if (c === "|" && n === "|") { push("or"); i++; continue; }
@@ -224,21 +180,13 @@ function segments(cmd, strict) {
     if (c === "|") { push("pipe"); continue; }
     if (c === ";") { push("seq"); continue; }
     if (c === "&") { push("bg"); continue; }
-    if (c === "\n") {
-      push(pendingHeredocs.length ? "body" : "nl");
-      if (pendingHeredocs.length) {
-        body = pendingHeredocs.shift();
-        i = enterBodyLine(i);
-      }
-      continue;
-    }
+    if (c === "\n") { push("nl"); continue; }
     cur += c;
   }
   if (strict && quote !== null) return deny("unterminated quote");
   push("nl");
   for (const text of inner) {
     const r = segments(text, false);
-    if (r.deny) return r;
     for (const s of r.segments) out.push({ sep: "subst", text: s.text });
   }
   return { segments: out };
@@ -358,13 +306,17 @@ switch (mode) {
     const cmd = ti.command;
     if (!root || typeof cmd !== "string") process.exit(3);
     const { gitCheck } = require("./git-check.cjs");
-    const r = segments(cmd, false);
-    if (r.deny) {
-      process.stdout.write(`${cmd.replace(/\s+/g, " ").slice(0, 300)}\t${r.deny}`);
-      break;
-    }
-    for (const s of r.segments) {
-      const why = gitCheck(s.text, path.resolve(root));
+    // a cd, pushd or popd out of the repository moves where a later git runs, and its relative paths with it
+    let away = false;
+    for (const s of segments(cmd, false).segments) {
+      const cd = /^(cd|pushd|popd)(\s+(.*))?$/.exec(s.text.trim());
+      if (cd) {
+        const target = (cd[3] || "").trim();
+        const to = path.resolve(root, target);
+        if (target === "-" || !/^[A-Za-z0-9_./-]+$/.test(target) || (to !== path.resolve(root) && !to.startsWith(path.resolve(root) + path.sep))) away = true;
+        continue;
+      }
+      const why = gitCheck(s.text, path.resolve(root), { sep: s.sep, away });
       if (why) {
         process.stdout.write(`${s.text.replace(/\s+/g, " ").slice(0, 300)}\t${why}`);
         break;

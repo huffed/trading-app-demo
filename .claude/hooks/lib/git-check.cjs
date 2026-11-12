@@ -98,11 +98,12 @@ function lexWords(cmd) {
 
 /**
  * Why a pre-approved git segment is not plain text, or "". Plain: ordinary characters (letters, digits and
- * _ . / : @ ^ ~ = , + % # -, ~ not starting a word), single-quoted text, double-quoted text with no $, backtick or
- * backslash, @{…} of a revision, a leading ! or shell keyword, and the redirections 2>&1, >&2, >/dev/null,
- * 2>/dev/null, &>/dev/null, > file, >> file and <<EOF. Anything else (a ( { < $ glob, an unquoted backslash or
- * newline) is shell syntax this rule does not read, and the shell may turn it into words git sees and this hook
- * never did.
+ * _ . / : @ ^ ~ = , + % -; no = starting a word, which zsh expands to a command's path, and no ~ starting a word or
+ * after = or :, which bash and zsh may expand), single-quoted text, double-quoted text with no $, backtick or
+ * backslash, @{…} of a revision, a leading !, and the redirections 2>&1, 1>&2, >&2, >/dev/null, 2>/dev/null,
+ * &>/dev/null, > or >> to a file under a temp directory, and a heredoc whose delimiter is quoted (<<'EOF'), whose body
+ * the shell does not expand. Anything else (a ( { < $ #, a glob, an unquoted backslash or newline, a write elsewhere)
+ * is shell syntax this rule does not read or a write a read-only git must not make.
  */
 function plainGate(s) {
   const not = (what) => `${what}, shell syntax this rule does not read; write the command plainly (a message with $ or a backtick goes in a file for -F)`;
@@ -118,25 +119,29 @@ function plainGate(s) {
     }
     if (wordStart) {
       const rest = s.slice(i);
-      const fixed = /^(2>&1|1>&2|>&2|&>\/dev\/null|[12]?>\/dev\/null|<<-?(EOF|'EOF'|"EOF"))(?=[ \t]|$)/.exec(rest);
+      const fixed = /^(2>&1|1>&2|>&2|&>[ \t]*\/dev\/null|[12]?>>?[ \t]*\/dev\/null|<<-?[ \t]*('[A-Za-z_][A-Za-z0-9_]*'|"[A-Za-z_][A-Za-z0-9_]*"))(?=[ \t]|$)/.exec(rest);
       if (fixed) {
         i += fixed[0].length;
         continue;
       }
-      const out = /^[12]?>>?[ \t]*(?=[A-Za-z0-9_./-])/.exec(rest);
+      const out = /^[12]?>>?[ \t]*([A-Za-z0-9_./-]+)(?=[ \t]|$)/.exec(rest);
       if (out) {
+        // an absolute path only: a relative one is the shell's directory, which this hook does not know
+        const t = out[1];
+        if (!t.startsWith("/") || t.split("/").includes("..") || !TEMP_DIRS.some((d) => t.startsWith(d))) return `a redirect to ${t}, a write a read-only git must not make; send output to an absolute path under /tmp or the scratchpad`;
         i += out[0].length;
-        wordStart = false;
         continue;
       }
+      if (/^<</.test(rest)) return not("a heredoc whose delimiter is not quoted, so the shell expands its body");
       if (first && /^![ \t]/.test(rest)) {
         i += 1;
         continue;
       }
-      if (c === "~") return not("a ~ that starts a word");
+      if (c === "~" || c === "=") return not(`a ${c} that starts a word`);
     }
     first = false;
     wordStart = false;
+    if (c === "~" && (s[i - 1] === "=" || s[i - 1] === ":")) return not(`a ~ after ${s[i - 1]}`);
     if (c === "'") {
       const j = s.indexOf("'", i + 1);
       if (j < 0) return not("an unterminated quote");
@@ -154,14 +159,13 @@ function plainGate(s) {
       continue;
     }
     if (c === "@" && s[i + 1] === "{") {
-      const m = /^@\{[A-Za-z0-9_./-]+\}/.exec(s.slice(i));
+      const m = /^@\{[A-Za-z0-9_/-]+(\.[A-Za-z0-9_/-]+)*\}/.exec(s.slice(i)); // no .. or , that would brace-expand
       if (!m) return not("a {");
       i += m[0].length;
       continue;
     }
-    // # is ordinary here: a comment is either dropped by the shell or passed to git as words, which the flag and
-    // path checks then read, and one that holds a quote is refused by the splitter (hook-input.cjs segments)
-    if (/[A-Za-z0-9_./:@^~=,+%#-]/.test(c)) {
+    // # stays out: the splitter reads a quote after a comment's # as opening a string, which can hide the next line
+    if (/[A-Za-z0-9_./:@^~=,+%-]/.test(c)) {
       i++;
       continue;
     }
@@ -181,7 +185,7 @@ const DIFFISH = [
   "--ignore-all-space", "-b", "--ignore-space-change", "--ignore-blank-lines", "--word-diff", "--color-words",
   "--diff-filter", "--exit-code", "--quiet", "-M", "--find-renames", "-C", "--find-copies", "--no-renames", "--check",
   "--no-ext-diff", "--no-textconv", "--minimal", "--patience", "--histogram", "-R", "--relative", "-z", "--abbrev",
-  "--full-index", "--binary", "-W", "--function-context",
+  "--full-index", "--binary", "-W", "--function-context", "--raw",
 ];
 const LOGISH = [
   ...DIFFISH, "--oneline", "-n", "--max-count", "--skip", "--format", "--pretty", "--date", "--since", "--after",
@@ -204,7 +208,7 @@ const FLAGS = {
 };
 const MESSAGE_FLAGS = new Set(["-m", "--message"]);
 const TEMP_DIRS = ["/tmp/", "/private/tmp/", "/var/folders/", "/private/var/folders/"];
-const WRAPPERS = new Set(["sudo", "doas", "env", "nice", "nohup", "time", "timeout", "stdbuf", "command", "builtin", "exec", "xargs", "caffeinate", "ionice", "unbuffer", "chronic", "noglob", "-"]);
+const WRAPPERS = new Set(["sudo", "doas", "env", "nice", "nohup", "time", "timeout", "stdbuf", "command", "builtin", "exec", "xargs", "caffeinate", "ionice", "unbuffer", "chronic", "noglob", "nocorrect", "repeat", "coproc", "xcrun", "arch", "-"]);
 const KEYWORDS = new Set(["if", "then", "else", "elif", "do", "while", "until", "!", "{", "(", "time"]);
 const C_KEYS_OK = /^(color\.[a-z.]+|core\.quotepath|advice\.[a-z.]+)=/i;
 // a variable git (or the editor and pager it runs) reads; += and name[i]= set it too
@@ -245,7 +249,7 @@ const outsideRoot = (p, root) => {
  * form below. The pre-approved subcommands are held to plain text and short lists (rule 7's approach); the rest are
  * checked for the known forms only, best-effort (DEBT D-22).
  */
-function gitCheck(text, root) {
+function gitCheck(text, root, ctx = {}) {
   const { words, cont } = lexWords(text.replace(/\n\x1f/g, "\n"));
   if (!words.length) return "";
   // a variable git reads, set for this command, exported, or set by printf -v / read
@@ -276,7 +280,7 @@ function gitCheck(text, root) {
       wrapped = true;
       i++;
       while (i < words.length && (/^-/.test(words[i].text) || /^\d+[smhd]?$/.test(words[i].text))) {
-        if (/^-(n|u|g|k|s|S|C|E|I|L|P)$/.test(words[i].text)) i++;
+        if (/^-(n|u|g|k|s|S|C|E|I|L|P|a)$/.test(words[i].text)) i++; // a wrapper option's value (exec -a x, nice -n 5)
         i++;
       }
     } else break;
@@ -312,9 +316,13 @@ function gitCheck(text, root) {
   if (PRE_APPROVED.includes(sub)) {
     const lead = `a pre-approved git ${sub}`;
     if (wrapped) return `${lead} behind a VAR= prefix or a wrapper; run git bare`;
-    const gate = plainGate(text.replace(/\n\x1f/g, "\n"));
+    if (ctx.away) return `${lead} after a cd, pushd or popd out of the repository, where its paths mean other files; run it from the project directory`;
+    const plain = text.replace(/\n\x1f/g, "\n");
+    const gate = plainGate(plain);
     if (gate) return `${lead} with ${gate}`;
-    return preApproved(sub, lead, { cont, gitWord, globals, subWord, args }, root);
+    // stdin for -F - is a quoted heredoc on this command, never a pipe
+    const stdinOk = ctx.sep !== "pipe" && /<<-?[ \t]*['"]/.test(plain);
+    return preApproved(sub, lead, { cont, gitWord, globals, subWord, args, stdinOk }, root);
   }
   return otherGit(sub, args);
 }
@@ -363,11 +371,12 @@ function preApproved(sub, lead, c, root) {
       }
       if (name === "--file") {
         const v = value !== null ? value : c.args[++k] ? c.args[k].text : "";
-        const r = fileOk(v, root);
+        const r = fileOk(v, root, c.stdinOk);
         if (r) return `${lead} -F ${v}: ${r}`;
         continue;
       }
-      if (value !== null && namesEnv(value)) return `${lead} with ${t}, which names an env file`;
+      // the one value here that is a path; the others are patterns, dates and formats
+      if (name === "--relative" && value !== null && (namesEnv(value) || outsideRoot(value, root))) return `${lead} with ${t}, which names an env file or leaves the repository`;
       if (name === "--ignore-rev") {
         const v = c.args[++k] ? c.args[k].text : "";
         if (namesEnv(v)) return `${lead} with --ignore-rev ${v}, which names an env file`;
@@ -384,7 +393,7 @@ function preApproved(sub, lead, c, root) {
       const v = rest !== "" ? rest : c.args[k + 1] ? c.args[k + 1].text : "";
       if (rest === "") k++;
       if (f === "-F") {
-        const r = fileOk(v, root);
+        const r = fileOk(v, root, c.stdinOk);
         if (r) return `${lead} -F ${v}: ${r}`;
       } else if (f !== "-m" && namesEnv(v)) return `${lead} with ${f} ${v}, which names an env file`;
       break;
@@ -393,10 +402,10 @@ function preApproved(sub, lead, c, root) {
   return "";
 }
 
-/** A -F message file: a path in the repository or a temp directory, not an env file; - is a heredoc, the only stdin the
- * plain text allows */
-function fileOk(v, root) {
-  if (v === "-") return "";
+/** A -F message file: a path in the repository or a temp directory, not an env file; - (stdin) only from a quoted
+ * heredoc on the same command */
+function fileOk(v, root, stdinOk) {
+  if (v === "-") return stdinOk ? "" : "a message on stdin that is not a quoted heredoc on this command; give a file";
   if (v === "") return "no message file given";
   if (namesEnv(v)) return "it names an env file";
   const r = path.resolve(root, v);

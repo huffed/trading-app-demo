@@ -19,10 +19,12 @@ import {
   REVIEWER_ALLOWED,
   REVIEWER_BLOCKED,
 } from "./cases";
-import { GIT_ENV_ALLOWED, GIT_ENV_BLOCKED } from "./git-env-cases";
+import { GIT_ENV_ALLOWED } from "./git-env-allowed";
+import { GIT_ENV_BLOCKED } from "./git-env-cases";
 import { HOST_ALLOWED, HOST_BLOCKED } from "./host-cases";
 import { MIRROR_ALLOWED, MIRROR_BLOCKED } from "./mirror-cases";
 import { MODULE_FLAG_ALLOWED, MODULE_FLAG_BLOCKED } from "./module-flag-cases";
+import { GIT_MULTI_ALLOWED, GIT_MULTI_BLOCKED, RULE1_BLOCKED } from "./rule1-cases";
 
 const ROOT = resolve(__dirname, "..", "..");
 const HOOKS = join(ROOT, ".claude", "hooks");
@@ -193,6 +195,26 @@ describe("guard-bash.sh rule 1d (the git forms that print an ignored file such a
   for (const cmd of GIT_ENV_ALLOWED) {
     it(`allows: ${firstLine(cmd)}`, () => {
       expect(runHook("guard-bash.sh", bash(cmd)).status).toBe(0);
+    });
+  }
+  for (const [cmd, reason] of GIT_MULTI_BLOCKED) {
+    it(`blocks across commands: ${firstLine(cmd)}`, () => {
+      const r = runHook("guard-bash.sh", bash(cmd));
+      expect(r.status).toBe(2);
+      expect(r.stderr).toContain(reason);
+    });
+  }
+  for (const cmd of GIT_MULTI_ALLOWED) {
+    it(`allows across commands: ${firstLine(cmd)}`, () => {
+      expect(runHook("guard-bash.sh", bash(cmd)).status).toBe(0);
+    });
+  }
+});
+
+describe("guard-bash.sh rule 1 (readers the list did not name, and git fed names by a pipe)", () => {
+  for (const cmd of RULE1_BLOCKED) {
+    it(`blocks: ${firstLine(cmd)}`, () => {
+      expect(runHook("guard-bash.sh", bash(cmd)).status).toBe(2);
     });
   }
 });
