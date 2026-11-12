@@ -33,18 +33,18 @@ export const GIT_MULTI_BLOCKED: readonly (readonly [string, string])[] = [
     "export EDITOR='sh /private/tmp/x/e.sh'; git commit --allow-empty",
     "assignment of a variable git reads",
   ],
-  ["cd / && git diff var/empty Users", "after a cd, pushd or popd out of the repository"],
-  ["cd && git log -1", "after a cd, pushd or popd out of the repository"],
-  ["cd - && git log -1", "after a cd, pushd or popd out of the repository"],
+  ["cd / && git diff var/empty Users", "outside the repository's work tree"],
+  ["cd && git log -1", "outside the repository's work tree"],
+  ["cd - && git log -1", "outside the repository's work tree"],
   ["make help | git commit -F -", "not a quoted heredoc"],
   // the sixth review: the splitter reads the & of &> as a separator; cd's options leave the repository; a heredoc
   // token inside quotes is not a heredoc
   ["git log -1 --format=%x21.en%x76.local &>> .gitignore", "a redirect to"],
   ["git log -1 --format=exit%x200 &> .claude/hooks/guard-bash.sh", "a redirect to"],
-  ["cd -- && git log -1", "after a cd, pushd or popd out of the repository"],
+  ["cd -- && git log -1", "outside the repository's work tree"],
   [
     "cd -P && git diff Documents/trading-app/demo-1/docs Documents/trading-app/demo-1",
-    "after a cd",
+    "outside the repository's work tree",
   ],
   [
     'make help | if true; then git commit --allow-empty -F - -- ":(exclude)<<\'x"; fi',
@@ -52,8 +52,35 @@ export const GIT_MULTI_BLOCKED: readonly (readonly [string, string])[] = [
   ],
 ];
 
+/** the seventh review: cd forms the old check did not see, and a cd into .git, where git sees no work tree */
+export const GIT_CD_BLOCKED: readonly string[] = [
+  "cd .git && git diff docs .",
+  "builtin cd / && git diff private/var/empty Users",
+  "\\cd / && git diff private/var/empty Users",
+  "chdir / && git diff private/var/empty Users",
+  "{ cd /; } && git diff private/var/empty Users",
+  "if cd /; then git diff private/var/empty Users; fi",
+  "CDPATH=/ cd private && git diff var/empty x",
+  "cd docs/no-such-directory && git log -1",
+  "git -C .git diff docs .",
+];
+
+/** guard-bash.sh must refuse these when the shell is already in this directory (the payload's cwd, from root) */
+export const GIT_CWD_BLOCKED: readonly (readonly [string, string])[] = [
+  ["git diff docs .", ".git"],
+  ["git log -1", "/tmp"],
+];
+
+/** guard-bash.sh must allow these from this directory */
+export const GIT_CWD_ALLOWED: readonly (readonly [string, string])[] = [
+  ["git log --oneline -1", "docs"],
+  ["git diff ../README.md", "docs"],
+];
+
 /** guard-bash.sh must allow these (exit 0) */
 export const GIT_MULTI_ALLOWED: readonly string[] = [
+  "cd docs && git diff ../README.md",
+  "git -C docs log --oneline -1",
   "cd docs && git log --oneline -1",
   "cd . && git status --short",
   "git commit -q -F - <<'EOF'\nfeat: x\n\nwhy it is needed\nEOF",

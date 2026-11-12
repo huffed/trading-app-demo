@@ -305,9 +305,12 @@ switch (mode) {
     const root = process.argv[3];
     const cmd = ti.command;
     if (!root || typeof cmd !== "string") process.exit(3);
-    const { gitCheck } = require("./git-check.cjs");
-    // a cd, pushd or popd out of the repository moves where a later git runs, and its relative paths with it
-    let away = false;
+    const { gitCheck, inWorkTree, commandWords } = require("./git-check.cjs");
+    // where the shell is (the payload's cwd, which persists between calls), moved by each cd, pushd or popd; a later
+    // pre-approved git runs there, and away is set once the shell has left the work tree or cannot be followed
+    const top = path.resolve(root);
+    let dir = typeof json.cwd === "string" && json.cwd ? path.resolve(json.cwd) : top;
+    let away = !inWorkTree(dir, top);
     // the splitter reads the & of &> and &>> as a separator: put the redirect back on its command
     const segs = [];
     for (const s of segments(cmd, false).segments) {
@@ -315,15 +318,17 @@ switch (mode) {
       else segs.push(s);
     }
     for (const s of segs) {
-      const cd = /^(cd|pushd|popd)(\s+(.*))?$/.exec(s.text.trim());
-      if (cd) {
-        const target = (cd[3] || "").trim();
-        const to = path.resolve(root, target);
-        // no target, or one starting with - (cd -, cd --, cd -P: OLDPWD or $HOME), leaves the repository
-        if (target === "" || target.startsWith("-") || !/^[A-Za-z0-9_./-]+$/.test(target) || (to !== path.resolve(root) && !to.startsWith(path.resolve(root) + path.sep))) away = true;
+      // the command word as gitCheck finds it, past keywords, wrappers and assignments (builtin cd, \cd, { cd, if cd)
+      const cw = commandWords(s.text);
+      if (/^(cd|chdir|pushd|popd)$/.test(cw.word)) {
+        const arg = cw.args[0];
+        // no target, an option (cd -, cd --, cd -P: OLDPWD or $HOME), an expansion, CDPATH, or a directory outside
+        // the work tree (or missing) leaves where this hook can follow
+        if (!arg || cw.cdpath || arg.text.startsWith("-") || arg.expands || arg.glob || !inWorkTree(path.resolve(dir, arg.text), top)) away = true;
+        else dir = path.resolve(dir, arg.text);
         continue;
       }
-      const why = gitCheck(s.text, path.resolve(root), { sep: s.sep, away });
+      const why = gitCheck(s.text, top, { sep: s.sep, away, dir });
       if (why) {
         process.stdout.write(`${s.text.replace(/\s+/g, " ").slice(0, 300)}\t${why}`);
         break;

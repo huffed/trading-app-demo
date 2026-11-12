@@ -50,7 +50,7 @@ export const GIT_ENV_BLOCKED: readonly (readonly [string, string])[] = [
   ["git grep --untracked --no-exclude -e .", "git grep --no"],
   ["git stash push --al", "git stash --a"],
   ["git add $'-f' '*.local'", "shell syntax this rule does not read"],
-  ['git -C "a b" diff --no-index /var/empty .', "not on its short list"],
+  ['git -C "a b" diff --no-index /var/empty .', "outside the repository"],
   ["GIT diff --no-index /var/empty .", "not spelled as plain lower-case"],
   ["git --git-dir=.git --work-tree=. diff --no-index a b", "the glob"],
   ["git -c alias.x='!cat .en?.local' x", "which can make git run a program"],

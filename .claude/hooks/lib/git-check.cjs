@@ -88,7 +88,8 @@ function lexWords(cmd) {
       continue;
     }
     begin();
-    if (c === "$" || c === "`" || (c === "~" && w.text === "") || (c === "{" && braceExpands(cmd, i))) {
+    // ~ or = (zsh's =cmd) starting a word, even after an empty quote (zsh reads ''~nobody and ''=ls as expansions)
+    if (c === "$" || c === "`" || ((c === "~" || c === "=") && w.text === "") || (c === "{" && braceExpands(cmd, i))) {
       w.expands = true;
       w.bare = true;
     }
@@ -260,6 +261,52 @@ const outsideRoot = (p, root) => {
 };
 
 /**
+ * Is this directory in the repository's own work tree, where git finds this repository? Symlinks resolved; not
+ * .git or anything under it (git sees no work tree there), and no directory between the root and it holding a .git
+ * entry (a nested repository or a linked worktree, such as .claude/worktrees/x). From anywhere else a pre-approved
+ * git diff of two paths is a plain-file compare of the whole tree, ignored files included. A missing one is not.
+ */
+function inWorkTree(dir, root) {
+  let r;
+  let top;
+  try {
+    r = fs.realpathSync(dir);
+    top = fs.realpathSync(root);
+  } catch {
+    return false;
+  }
+  if (r !== top && !r.startsWith(top + path.sep)) return false;
+  const parts = path.relative(top, r).split(path.sep).filter(Boolean);
+  if (parts.includes(".git")) return false;
+  let cur = top;
+  for (const p of parts) {
+    cur = path.join(cur, p);
+    if (fs.existsSync(path.join(cur, ".git"))) return false;
+  }
+  return true;
+}
+
+/** The command word of one simple command and the words after it, past keywords, assignments and wrappers. */
+function commandWords(text) {
+  const { words } = lexWords(text.replace(/\n\x1f/g, "\n"));
+  let i = 0;
+  let cdpath = false;
+  while (i < words.length) {
+    const t = words[i].text;
+    if (KEYWORDS.has(t)) i++;
+    else if (/^[({!]+./.test(t) && words[i].plain) words[i] = { ...words[i], text: t.replace(/^[({!]+/, "") };
+    else if (ASSIGNMENT.test(t)) {
+      if (/^CDPATH/.test(t)) cdpath = true;
+      i++;
+    } else if (WRAPPERS.has(t.replace(/.*\//, ""))) {
+      i++;
+      while (i < words.length && (/^-/.test(words[i].text) || /^\d+[smhd]?$/.test(words[i].text))) i++;
+    } else break;
+  }
+  return { word: words[i] ? words[i].text.replace(/.*\//, "") : "", args: words.slice(i + 1), cdpath };
+}
+
+/**
  * Why this simple command, if it runs git, can print an ignored file such as .env.local, or "" when it cannot by any
  * form below. The pre-approved subcommands are held to plain text and short lists (rule 7's approach); the rest are
  * checked for the known forms only, best-effort (DEBT D-22).
@@ -321,7 +368,9 @@ function gitCheck(text, root, ctx = {}) {
       const v = words[j + 1] ? words[j + 1].text : "";
       if (g === "-c" && !C_KEYS_OK.test(v)) return `git -c ${v.split("=")[0]}, which can make git run a program or read another file`;
       if (g === "--config-env") return "git --config-env, which can make git run a program";
-      if (/^(-C|--git-dir|--work-tree)$/.test(g) && (outsideRoot(v, root) || (words[j + 1] && words[j + 1].expands))) return `git ${g} outside the repository`;
+      if (/^(--git-dir|--work-tree)$/.test(g) && (outsideRoot(v, root) || (words[j + 1] && words[j + 1].expands))) return `git ${g} outside the repository`;
+      // -C moves where git runs: only to a directory of this work tree (not .git, not a nested worktree)
+      if (g === "-C" && ((words[j + 1] && words[j + 1].expands) || !inWorkTree(path.resolve(ctx.dir || root, v), root))) return "git -C to a directory outside the repository's work tree";
       globals[globals.length - 1].v = v;
       j++;
     } else if (/^--(git-dir|work-tree)=/.test(g) && outsideRoot(g.split("=")[1], root)) return `git ${g.split("=")[0]} outside the repository`;
@@ -335,14 +384,14 @@ function gitCheck(text, root, ctx = {}) {
   if (PRE_APPROVED.includes(sub)) {
     const lead = `a pre-approved git ${sub}`;
     if (wrapped) return `${lead} behind a VAR= prefix or a wrapper; run git bare`;
-    if (ctx.away) return `${lead} after a cd, pushd or popd out of the repository, where its paths mean other files; run it from the project directory`;
+    if (ctx.away || !inWorkTree(ctx.dir || root, root)) return `${lead} run from outside the repository's work tree (a cd, pushd or popd, .git or a nested worktree), where its paths mean other files; run it from the project directory`;
     const plain = text.replace(/\n\x1f/g, "\n");
     const info = {};
     const gate = plainGate(plain, info);
     if (gate) return `${lead} with ${gate}`;
     // stdin for -F - is a quoted heredoc token on this command (as plainGate read it, not text inside quotes)
     const stdinOk = info.heredoc === true;
-    return preApproved(sub, lead, { cont, gitWord, globals, subWord, args, stdinOk }, root);
+    return preApproved(sub, lead, { cont, gitWord, globals, subWord, args, stdinOk, dir: ctx.dir || root }, root);
   }
   return otherGit(sub, args);
 }
@@ -351,15 +400,19 @@ function gitCheck(text, root, ctx = {}) {
 function preApproved(sub, lead, c, root) {
   if (!c.gitWord.plain || c.gitWord.text !== "git" || !c.subWord.plain) return `${lead} not spelled as plain lower-case git ${sub}; spell it plainly`;
   if (c.cont) return `${lead} continued with a backslash-newline; put it on one line`;
+  // the directory git runs in: the shell's (tracked through cd by gitcheck), moved by -C, which gitCheck has held to
+  // this work tree
+  let dir = c.dir;
   for (const { g, v } of c.globals) {
-    if (GLOBAL_OK.has(g) || (g === "-c" && C_KEYS_OK.test(v)) || (g === "-C" && v && !outsideRoot(v, root))) continue;
+    if (g === "-C" && v) dir = path.resolve(dir, v);
+    if (GLOBAL_OK.has(g) || (g === "-c" && C_KEYS_OK.test(v)) || (g === "-C" && v)) continue;
     return `${lead} with the global option ${g}, which is not on its short list`;
   }
   const spec = FLAGS[sub];
   const countFlag = (t) => /^-\d+$/.test(t) && (sub === "log" || sub === "show");
   const optional = new Set(sub === "status" ? ["-u"] : ["-U", "-M", "-C"]); // -U3, -M50, -uno: an attached value may follow
   const pathOk = (t) => {
-    if (outsideRoot(t, root)) return `${lead} with the path ${t}, outside the repository; give a path inside it`;
+    if (outsideRoot(path.resolve(dir, t), root)) return `${lead} with the path ${t}, outside the repository; give a path inside it`;
     if (namesEnv(t) && sub !== "status") return `${lead} that names ${t}`;
     return "";
   };
@@ -403,7 +456,7 @@ function preApproved(sub, lead, c, root) {
         continue;
       }
       // the one value here that is a path; the others are patterns, dates and formats
-      if (name === "--relative" && value !== null && (namesEnv(value) || outsideRoot(value, root))) return `${lead} with ${t}, which names an env file or leaves the repository`;
+      if (name === "--relative" && value !== null && (namesEnv(value) || outsideRoot(path.resolve(dir, value), root))) return `${lead} with ${t}, which names an env file or leaves the repository`;
       // --ignore-rev takes a revision, attached after = or as the next word (which is then not read as a flag)
       if (name === "--ignore-rev" && value === null) {
         k++;
@@ -514,4 +567,4 @@ function otherGit(sub, args) {
   return "";
 }
 
-module.exports = { gitCheck, lexWords, plainGate, PRE_APPROVED };
+module.exports = { gitCheck, lexWords, plainGate, inWorkTree, commandWords, PRE_APPROVED };

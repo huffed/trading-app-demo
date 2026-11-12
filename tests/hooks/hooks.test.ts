@@ -7,7 +7,8 @@
  * mirroring on) in ./mirror-cases.ts, and rule 8's (raw host commands) in ./host-cases.ts.
  */
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -24,7 +25,14 @@ import { GIT_ENV_BLOCKED } from "./git-env-cases";
 import { HOST_ALLOWED, HOST_BLOCKED } from "./host-cases";
 import { MIRROR_ALLOWED, MIRROR_BLOCKED } from "./mirror-cases";
 import { MODULE_FLAG_ALLOWED, MODULE_FLAG_BLOCKED } from "./module-flag-cases";
-import { GIT_MULTI_ALLOWED, GIT_MULTI_BLOCKED, RULE1_BLOCKED } from "./rule1-cases";
+import {
+  GIT_CD_BLOCKED,
+  GIT_CWD_ALLOWED,
+  GIT_CWD_BLOCKED,
+  GIT_MULTI_ALLOWED,
+  GIT_MULTI_BLOCKED,
+  RULE1_BLOCKED,
+} from "./rule1-cases";
 
 const ROOT = resolve(__dirname, "..", "..");
 const HOOKS = join(ROOT, ".claude", "hooks");
@@ -197,6 +205,47 @@ describe("guard-bash.sh rule 1d (the git forms that print an ignored file such a
       expect(runHook("guard-bash.sh", bash(cmd)).status).toBe(0);
     });
   }
+  for (const cmd of GIT_CD_BLOCKED) {
+    it(`blocks after a cd out of the work tree: ${firstLine(cmd)}`, () => {
+      const r = runHook("guard-bash.sh", bash(cmd));
+      expect(r.status).toBe(2);
+      expect(r.stderr).toContain("git can print an ignored file");
+    });
+  }
+  // the shell's directory persists between calls and comes in the payload's cwd
+  const fromDir = (cmd: string, dir: string): unknown => ({
+    tool_name: "Bash",
+    tool_input: { command: cmd },
+    cwd: resolve(ROOT, dir),
+  });
+  for (const [cmd, dir] of GIT_CWD_BLOCKED) {
+    it(`blocks from ${dir}: ${cmd}`, () => {
+      const r = runHook("guard-bash.sh", fromDir(cmd, dir));
+      expect(r.status).toBe(2);
+      expect(r.stderr).toContain("outside the repository's work tree");
+    });
+  }
+  for (const [cmd, dir] of GIT_CWD_ALLOWED) {
+    it(`allows from ${dir}: ${cmd}`, () => {
+      expect(runHook("guard-bash.sh", fromDir(cmd, dir)).status).toBe(0);
+    });
+  }
+  it("counts .git and a nested worktree as outside the work tree", () => {
+    const requireCjs = createRequire(join(ROOT, "package.json"));
+    const { inWorkTree } = requireCjs(join(HOOKS, "lib", "git-check.cjs")) as {
+      inWorkTree: (dir: string, root: string) => boolean;
+    };
+    const top = mkdtempSync(join(tmpdir(), "worktree-"));
+    for (const d of ["docs", ".git", "nested/inner"]) mkdirSync(join(top, d), { recursive: true });
+    writeFileSync(join(top, "nested", ".git"), "gitdir: elsewhere\n");
+    expect(inWorkTree(top, top)).toBe(true);
+    expect(inWorkTree(join(top, "docs"), top)).toBe(true);
+    expect(inWorkTree(join(top, ".git"), top)).toBe(false);
+    expect(inWorkTree(join(top, "nested"), top)).toBe(false);
+    expect(inWorkTree(join(top, "nested", "inner"), top)).toBe(false);
+    expect(inWorkTree(join(top, "missing"), top)).toBe(false);
+    expect(inWorkTree(tmpdir(), top)).toBe(false);
+  });
   for (const [cmd, reason] of GIT_MULTI_BLOCKED) {
     it(`blocks across commands: ${firstLine(cmd)}`, () => {
       const r = runHook("guard-bash.sh", bash(cmd));
