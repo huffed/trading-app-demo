@@ -112,7 +112,16 @@ describe("backup.sh, a good night", () => {
     const dumps = logOf(backup(prepare(URL_LINE, [])).root, "pg_dump.log");
     expect(dumps).toContain("--schema=public user=backup_ro.ref host=pooler.test");
     expect(dumps).toContain("--data-only --table=auth.users --table=auth.identities");
-    expect(dumps).toContain("ssl=verify-full ca=supabase-prod-ca-2021.crt password=set");
+  });
+
+  it("verifies the server on both dumps against the installed CA, with GSSAPI off", () => {
+    const run = backup(prepare(URL_LINE, []));
+    const lines = logOf(run.root, "pg_dump.log").trim().split("\n");
+    const tls = `ssl=verify-full ca=${join(run.root, "lib", "supabase-prod-ca-2021.crt")} gss=disable`;
+    expect(lines).toHaveLength(2);
+    for (const line of lines) {
+      expect(line).toContain(tls);
+    }
   });
 
   it("prunes only the nights past the 30-day retention", () => {
@@ -214,11 +223,20 @@ describe("backup.sh, a bad night", () => {
   it("a missing CA certificate dumps nothing, fails the night and still archives the rest", () => {
     const run = backup(prepare(URL_LINE, [daysAgo(40)], false));
     expect(run.status).toBe(1);
-    expect(run.output).toContain("CA certificate is missing");
+    expect(run.output).toContain("CA certificate is missing or unreadable");
     expect(logOf(run.root, "pg_dump.log")).toBe("");
     expect(logOf(run.root, "box.log")).toBe("");
     expect(uploaded(run.root)).toContain("env.tar.age");
+    expect(uploaded(run.root)).not.toContain("OK");
+    expect(stamped(run.root)).toBe(false);
     expect(logOf(run.root, "curl.log")).toContain("Priority: urgent");
+    expect(logOf(run.root, "curl.log")).toContain("database-ca");
+  });
+
+  it("a missing CA and a missing connection line are both reported on the same night", () => {
+    const run = backup(prepare("", [daysAgo(40)], false));
+    expect(run.status).toBe(1);
+    expect(logOf(run.root, "curl.log")).toContain("database-url database-ca");
   });
 
   it("a missing connection line is a failed night that still archives the rest", () => {

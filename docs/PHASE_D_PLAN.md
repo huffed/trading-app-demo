@@ -114,6 +114,7 @@ A count above 0 means reading those lines in your own terminal, deciding whether
 
 **Moved to the next window, 14 and 15 November (operator, 2026-11-06):**
 
+- **`PGSSLMODE=verify-full` for the backup job (D-35's first item),** before the sudoers narrowing, which may refuse its `sudo -n install`: `docs/runbooks/d6-backups.md`, `verify-full`.
 - **Sudoers (D-23).** The PR is written after D.6 shows what the backup job needs, with a decision entry. It keeps `systemctl disable --now` and `enable --now quanttrader`, which the switch and resume use, checks `sudo -n -l` for them, and runs with a second root shell open and `visudo -c`.
 - **Drill (b), the throwaway VPS,** if D.6 is clean. It is the real disaster-recovery proof, and it costs cents.
 

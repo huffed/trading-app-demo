@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
 # Fake pg_dump for tests/ops/backup-script.test.ts: records its arguments and the libpq environment.
-printf '%s user=%s host=%s ssl=%s ca=%s password=%s\n' "$*" "$PGUSER" "$PGHOST" "$PGSSLMODE" "${PGSSLROOTCERT##*/}" "${PGPASSWORD:+set}" >> "$FAKE_HOST/pg_dump.log"
+printf '%s user=%s host=%s ssl=%s ca=%s gss=%s password=%s\n' "$*" "$PGUSER" "$PGHOST" "$PGSSLMODE" "$PGSSLROOTCERT" "$PGGSSENCMODE" "${PGPASSWORD:+set}" >> "$FAKE_HOST/pg_dump.log"
 [ -e "$FAKE_HOST/fail-pg_dump" ] && exit 1
 echo dump
