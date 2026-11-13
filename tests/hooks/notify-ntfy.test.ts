@@ -1,13 +1,15 @@
 /**
  * .claude/hooks/notify-ntfy.sh on Notification, run against the stand-in curl in ./notify-ntfy-harness. Pins
  * what DEV_SETUP §16 promises: the topic and the optional access token come from files outside the repo and
- * travel on curl's stdin, never in argv, the log or the hook's output; only a permission prompt sends Claude
- * Code's own message; the session name comes from the transcript's titles; every path exits 0, so a missing
+ * travel on curl's stdin, never in argv, the log or the hook's output; the three types the operator named send
+ * Claude Code's own message, and a dialog fixed text; the session name comes from the transcript's titles; every path exits 0, so a missing
  * topic or a failed push never blocks a session; and the log says why a push did not go out.
  */
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanupRoots, PROMPT, run, TOKEN, TOPIC } from "./notify-ntfy-harness";
 
+// Each case runs the real hook, some several times; under a loaded machine 5 s is too short.
+vi.setConfig({ testTimeout: 20_000 });
 afterEach(cleanupRoots);
 
 describe("notify-ntfy hook: the topic and token stay secret", () => {

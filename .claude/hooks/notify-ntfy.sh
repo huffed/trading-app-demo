@@ -8,9 +8,9 @@
 # - Stop, at the end of every turn: it pushes only when the turn's text has a line reading BLOCKED ON YOU
 #   (CLAUDE.md) with numbered questions under it, with the number of questions and never their text, once
 #   per set of questions in a session, also while background agents run. It reads the turn's last text,
-#   and when that has no such section, the turn's earlier text from the transcript, so questions written
-#   before the turn's last tool call still go out. A BLOCKED ON YOU line with no numbered question it can
-#   read is said in the session, not dropped.
+#   and when that yields no question, the turn's earlier texts from the transcript, newest first, so
+#   questions written before the turn's last tool call still go out. A BLOCKED ON YOU line with no numbered
+#   question it can read is said in the session, not dropped.
 #
 # The ntfy topic is read from a file outside the repo (QT_NTFY_TOPIC_FILE, default
 # ~/.config/quanttrader/ntfy-topic, one line), and the access token a reserved topic needs from an
@@ -89,7 +89,7 @@ blocked_section() {
       if ((c == "`" || c == "~") && n >= 3 && (c == "~" || index(substr(line, n + 1), "`") == 0)) {
         fch = c; flen = n; next
       }
-      if (tolower(line) ~ /^[>#*_ -]*blocked on you/) seen = 1
+      if (tolower(line) ~ /^[>#*_ -]*blocked on you([^a-z]|$)/) seen = 1
       if ($0 ~ /^[#*_[:space:]]*BLOCKED ON YOU[*_:[:space:]]*$/) { on = 1; next }
       if (on && $0 ~ /^(#+[[:space:]]|[*_]*Next action|[#*_[:space:]]*READY TO MERGE)/) on = 0
       if (on && $0 ~ /^[*_]*[0-9]+[.)][*_]* /) print "Q " $0
@@ -97,18 +97,18 @@ blocked_section() {
     END { if (seen) print "SEEN" }'
 }
 
-# The turn's earlier text from the transcript: the latest assistant text since the turn's first record (a user
-# record that is not a tool result) with a line that reads BLOCKED ON YOU. Empty when the turn does not start in
-# the transcript's last 4 MB, so an older turn's questions are never taken for this one's. A line that is not
-# JSON (one being written as Stop runs) is skipped, not fatal.
-earlier_turn_text() {
+# The turn's earlier texts from the transcript, newest first and each ended by a NUL: the assistant texts since
+# the turn's first record (a user record that is not a tool result) with a line that reads BLOCKED ON YOU. None
+# when the turn does not start in the transcript's last 4 MB, so an older turn's questions are never taken for
+# this one's. A line that is not JSON (one being written as Stop runs) is skipped, not fatal.
+earlier_turn_texts() {
   [ -n "$transcript" ] && [ -f "$transcript" ] || return 0
   # a tail that starts inside a record drops that partial first line
   if [ "$(wc -c < "$transcript")" -gt 4000000 ]; then
     tail -c 4000000 "$transcript" 2> /dev/null | sed 1d
   else
     cat "$transcript"
-  fi | jq -Rnr '
+  fi | jq -Rnj '
     [inputs | fromjson? | objects]
     | (map(.type == "user"
       and (((.message.content | type) == "string")
@@ -117,7 +117,7 @@ earlier_turn_text() {
     | if $start == null then empty else
         .[$start + 1:]
         | map(select(.type == "assistant") | .message.content[]? | select(.type == "text") | .text)
-        | map(select(test("(^|\n)[#*_ \t]*BLOCKED ON YOU[*_: \t]*(\n|$)"))) | last // empty
+        | map(select(test("(^|\n)[#*_ \t]*BLOCKED ON YOU[*_: \t]*(\n|$)"))) | reverse | .[] | ., "\u0000"
       end' 2> /dev/null
 }
 
@@ -127,9 +127,15 @@ if [ "$event" = Stop ]; then
   mark_file="$(dirname "$LOG")/blocked-${sid:0:8}"
   parsed=$(field last_assistant_message | blocked_section)
   earlier=""
-  if [ -z "$parsed" ]; then
-    parsed=$(earlier_turn_text | blocked_section)
-    [ -z "$parsed" ] || earlier=" (written before the turn's last tool call)"
+  # no question in the last text (none at all, or only a line that looks like the heading): the earlier texts
+  if ! printf '%s\n' "$parsed" | grep -q '^Q '; then
+    while IFS= read -r -d '' text; do
+      candidate=$(printf '%s\n' "$text" | blocked_section)
+      if printf '%s\n' "$candidate" | grep -q '^Q '; then
+        parsed=$candidate earlier=" (written before the turn's last tool call)"
+        break
+      fi
+    done < <(earlier_turn_texts)
   fi
   [ -n "$parsed" ] || { rm -f "$mark_file" 2> /dev/null; exit 0; }
   questions_text=$(printf '%s\n' "$parsed" | sed -n 's/^Q //p')
