@@ -7,7 +7,8 @@
 # and scan ticks to log http=200 (≤ 25 min), alerts and writes a RESUME line with the mirroring state
 # of the saved algorithms. What the switch paused stays paused — un-pausing it is the operator's deliberate act
 # (scripts/ops/unpause.sh). Safe to re-run: on an engine that was already running, with its crontab and no
-# kill-switch engagement open (as after make unpause), active algorithms are normal and only reported.
+# kill-switch engagement open (no engagement marker, no saved list, and no KILL line after the last UNPAUSE line in
+# the ledger, as after make unpause), active algorithms are normal and only reported.
 # Exit status is non-zero when any step failed.
 set -uo pipefail
 trap '' HUP INT PIPE
@@ -85,7 +86,7 @@ elif [ "$active_n" = 0 ]; then
     if crontab "$STATE/crontab.disabled"; then
       crons_n=$(crontab -l | grep -c '^[0-9*]' || true); log "crontab restored ($crons_n entries)"
       # a switch could not save its copy since the last one it saved, so the one restored is older (DEBT D-35)
-      if [ -e "$STATE/crontab.unsaved" ]; then
+      if [ -e "$STATE/crontab.unsaved" ] && ! cmp -s "$STATE/crontab.disabled" "$APP/ops/crontab"; then
         errors+=("older-crontab"); log "the last kill switch could not save its crontab copy, so the copy restored is an older one: compare crontab -l with ops/crontab"
       fi
     else

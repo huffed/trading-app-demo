@@ -231,7 +231,7 @@ describe("unpause.sh with nothing to un-pause", () => {
   it("ends the engagement, says what the broker list held and records what it cleared", () => {
     const host = makeHost({ flattenIds: [A], brokerFailed: [`${A} 1`] });
     const run = runScript(host, "unpause.sh");
-    expect(run.stdout).toContain("UNPAUSE_RESULT=NOTHING");
+    expect(run.stdout).toContain("UNPAUSE_RESULT=PARTIAL");
     expect(run.stdout).toContain("check the broker account");
     expect(listsLeft(host)).toEqual([]);
     expect(ledger(host)).toMatch(

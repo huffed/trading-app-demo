@@ -186,7 +186,11 @@ describe("the second review's cases", () => {
     runScript(host, "kill-switch.sh", ["test"]);
     runScript(host, "resume.sh");
     runScript(host, "unpause.sh");
-    expect(runScript(host, "resume.sh").stdout).toContain("RESUME_RESULT=OK");
+    const again = runScript(host, "resume.sh");
+    expect(again.stdout).toContain("nothing to resume");
+    expect(ledger(host)).toMatch(
+      / RESUME .*active_algorithms=1 before=active engaged=0 .*errors=none\n$/
+    );
   });
 
   it("says how many of the engagement's targets stay paused when there is nothing to un-pause", () => {
