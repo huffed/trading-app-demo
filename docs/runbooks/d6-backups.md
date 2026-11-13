@@ -124,7 +124,7 @@ The job connected with `PGSSLMODE=require` from 2026-11-07: encrypted, but nothi
 
 `80:70:25:AD:50:D4:ED:21:9D:2C:9C:7D:29:9C:00:4F:82:4E:B0:0C:F7:F6:5A:FE:F6:07:D0:7B:72:E6:CA:FA`
 
-The session copied it from the operator's `~/Downloads/prod-ca-2021.crt` (byte-identical, checked with `cmp`). `backup.sh` reads its installed copy and refuses to dump without it. This comes before the sudoers narrowing (D-23) in the same window, which may refuse step 2's `sudo -n install`. After the PR merges, from a workstation checkout of `origin/dev`, as `ops`:
+The session copied it from the operator's `~/Downloads/prod-ca-2021.crt` (byte-identical, checked with `cmp`). `backup.sh` reads its installed copy and refuses to dump without it. This comes before the sudoers narrowing (D-23), which may refuse step 2's `sudo -n install`. Sudoers is in the same window only if its PR is review-clean by Saturday 09:00 UK (`docs/PHASE_D_PLAN.md`). After the PR merges, from a workstation checkout of `origin/dev`, as `ops`:
 
 ```bash
 # 1. Both files to the host.
