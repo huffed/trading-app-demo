@@ -30,6 +30,7 @@ TOKEN_FILE=${QT_NTFY_TOKEN_FILE:-$HOME/.config/quanttrader/ntfy-token}
 LOG=${QT_NOTIFY_LOG:-$HOME/.local/state/quanttrader/notify.log}
 SERVER=https://ntfy.sh
 TITLE_SCAN_BYTES=8000000
+TURN_SCAN_BYTES=8000000
 
 input=$(cat)
 field() { printf '%s' "$input" | jq -r --arg k "$1" '.[$k] // empty | tostring' 2> /dev/null; }
@@ -98,26 +99,31 @@ blocked_section() {
 }
 
 # The turn's earlier texts from the transcript, newest first and each ended by a NUL: the assistant texts since
-# the turn's first record (a user record that is not a tool result) with a line that reads BLOCKED ON YOU. None
-# when the turn does not start in the transcript's last 4 MB, so an older turn's questions are never taken for
-# this one's. A line that is not JSON (one being written as Stop runs) is skipped, not fatal.
+# the turn's first record with a line that starts with the heading in any form blocked_section reports. The turn's
+# first record is a user record that is neither a tool result nor a skill's injected text (isMeta). None when the
+# turn does not start in the transcript's last 8 MB (the largest turn a review measured on 2026-11-13 was
+# 3.96 MB, D-45), so an older turn's questions are never taken for this one's; and nothing is parsed unless a
+# plain grep finds the words first, which keeps a turn end without questions cheap. A line that is not JSON (one
+# being written as Stop runs) is skipped, not fatal.
 earlier_turn_texts() {
   [ -n "$transcript" ] && [ -f "$transcript" ] || return 0
+  tail -c "$TURN_SCAN_BYTES" "$transcript" 2> /dev/null | grep -qi 'blocked on you' || return 0
   # a tail that starts inside a record drops that partial first line
-  if [ "$(wc -c < "$transcript")" -gt 4000000 ]; then
-    tail -c 4000000 "$transcript" 2> /dev/null | sed 1d
+  if [ "$(wc -c < "$transcript")" -gt "$TURN_SCAN_BYTES" ]; then
+    tail -c "$TURN_SCAN_BYTES" "$transcript" 2> /dev/null | sed 1d
   else
     cat "$transcript"
   fi | jq -Rnj '
     [inputs | fromjson? | objects]
-    | (map(.type == "user"
+    | (map(.type == "user" and (.isMeta != true)
       and (((.message.content | type) == "string")
         or ([.message.content[]?.type] | index("tool_result") | not)))
      | indices(true) | last) as $start
     | if $start == null then empty else
         .[$start + 1:]
         | map(select(.type == "assistant") | .message.content[]? | select(.type == "text") | .text)
-        | map(select(test("(^|\n)[#*_ \t]*BLOCKED ON YOU[*_: \t]*(\n|$)"))) | reverse | .[] | ., "\u0000"
+        | map(select(ascii_downcase | test("(^|\n)[>#*_ \t-]*blocked on you([^a-z]|$)")))
+        | reverse | .[] | ., "\u0000"
       end' 2> /dev/null
 }
 
@@ -127,7 +133,8 @@ if [ "$event" = Stop ]; then
   mark_file="$(dirname "$LOG")/blocked-${sid:0:8}"
   parsed=$(field last_assistant_message | blocked_section)
   earlier=""
-  # no question in the last text (none at all, or only a line that looks like the heading): the earlier texts
+  # no question in the last text (none at all, or only a line that looks like the heading): the earlier texts,
+  # newest first; one that only looks like the heading is remembered, so it is said rather than dropped
   if ! printf '%s\n' "$parsed" | grep -q '^Q '; then
     while IFS= read -r -d '' text; do
       candidate=$(printf '%s\n' "$text" | blocked_section)
@@ -135,6 +142,7 @@ if [ "$event" = Stop ]; then
         parsed=$candidate earlier=" (written before the turn's last tool call)"
         break
       fi
+      [ -z "$candidate" ] || [ -n "$parsed" ] || parsed=SEEN
     done < <(earlier_turn_texts)
   fi
   [ -n "$parsed" ] || { rm -f "$mark_file" 2> /dev/null; exit 0; }

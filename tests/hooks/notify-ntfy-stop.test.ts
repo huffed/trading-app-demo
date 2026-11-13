@@ -223,6 +223,33 @@ describe("notify-ntfy hook: questions written before the turn's last tool call",
   });
 });
 
+describe("notify-ntfy hook: the fallback's harder cases", () => {
+  it("says so for an earlier section it cannot read, rather than dropping it", () => {
+    const forms = [
+      "**BLOCKED ON YOU** (2 questions)\n1. A\n2. B",
+      "**Blocked on you**\n1. A",
+      "**BLOCKED ON YOU**\n- 1. A",
+    ];
+    for (const form of forms) {
+      const transcript = turn(prompt, said(form), toolCall, toolResult, said("Review started."));
+      const r = run({ ...STOP, last_assistant_message: "Review started." }, { transcript });
+      expect(r.curl).toBe("");
+      expect(r.stdout).toContain("not sent: a BLOCKED ON YOU line with no numbered question");
+    }
+  });
+
+  it("does not take a skill's injected text for the start of the turn", () => {
+    const skill = {
+      type: "user",
+      isMeta: true,
+      message: { role: "user", content: "Base directory for this skill: example" },
+    };
+    const transcript = turn(prompt, said(BLOCKED), toolCall, toolResult, skill, said("Done."));
+    const r = run({ ...STOP, last_assistant_message: "Done." }, { transcript });
+    expect(r.curl).toContain("BLOCKED ON YOU: 2 question(s)]");
+  });
+});
+
 describe("notify-ntfy hook: heading forms and fences it reads with care", () => {
   it("says so for a heading in another form, rather than dropping it", () => {
     for (const heading of ["> **BLOCKED ON YOU**", "- **BLOCKED ON YOU**", "**Blocked on you**"]) {
