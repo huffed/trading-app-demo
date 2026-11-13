@@ -173,6 +173,7 @@ Not Phase E work as such, but a gate it must not pass over. Each of these is mir
 - **P10:** the news veto.
 - **P19:** D-26, D-29 and D-33.
 - **D-25, both halves, D-27 and D-28:** a failed broker close must be seen, a re-run of the switch must flatten, and resume must not read OK with algorithms active. The script fixes are on #324; the engine half of D-25 is P11.
+- **D-35, a lost flatten response (independent check of #324, 2026-11-12):** the switch saves broker failures only from a 200 body it can parse, so a timed-out flatten, a resume and a second run can end OK with a broker position still open. It goes in the D-35 scripts PR (operator, 2026-11-13).
 - **D-19, before real capital:** 16 raw `fetch()` calls have no outbound timeout.
-- **No live 10% max-loss halt (audit A16):** FTMO's max loss fails the account, and only a UI gauge watches it. Its DEBT row follows after the window, when #323 and #324 have merged.
+- **D-36, no live 10% max-loss halt (audit A16):** FTMO's max loss fails the account, and only a UI gauge watches it. It blocks mirroring (operator, 2026-11-13).
 - **P6, a decision either way:** FTMO's day is CE(S)T and every boundary here is UTC, so the operator either moves it or accepts the gap in writing.
