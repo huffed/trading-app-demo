@@ -115,7 +115,13 @@ export function run(
   const transcript = join(root, "session.jsonl");
   if (opts.transcript) writeFileSync(transcript, opts.transcript.map((l) => `${l}\n`).join(""));
   const input = opts.rawInput ?? JSON.stringify({ transcript_path: transcript, ...payload });
-  const result = spawnSync("bash", [HOOK], { input, encoding: "utf8", env: hookEnv(root, opts) });
+  // a hook that hangs fails its test: spawnSync blocks vitest's own timeout
+  const result = spawnSync("bash", [HOOK], {
+    input,
+    encoding: "utf8",
+    env: hookEnv(root, opts),
+    timeout: 10_000,
+  });
   const read = (f: string) =>
     existsSync(join(root, f)) ? readFileSync(join(root, f), "utf8") : "";
   return {
