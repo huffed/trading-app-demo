@@ -40,6 +40,8 @@ describe("the engagement marker", () => {
     failCall(host, "list-active");
     writeTicks(host);
     runScript(host, "kill-switch.sh", ["test"]);
+    // the KILL line would open the engagement by itself; without it, only the marker does
+    writeLedger(host, []);
     clearFail(host, "list-active");
     runScript(host, "resume.sh");
     const second = runScript(host, "resume.sh");
@@ -104,8 +106,12 @@ describe("kill-switch.sh, failures on top of failures", () => {
 });
 
 describe("resume.sh after a copy that could not be saved", () => {
-  it("says the crontab it restored is an older copy", () => {
-    const host = makeHost({ active: [A], savedCrontab: "*/5 * * * * manage\n" });
+  it("says the crontab it restored is an older copy, when ops/crontab is there and differs", () => {
+    const host = makeHost({
+      active: [A],
+      savedCrontab: "*/5 * * * * manage\n",
+      opsCrontab: "*/5 * * * * manage\n*/15 * * * * scan\n",
+    });
     breakSave(host, "crontab.disabled");
     writeTicks(host);
     runScript(host, "kill-switch.sh", ["test"]);

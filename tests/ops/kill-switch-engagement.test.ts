@@ -135,9 +135,9 @@ describe("kill-switch.sh, a flatten whose answer was lost", () => {
 
 describe("kill-switch.sh, earlier broker failures and untargeted positions", () => {
   it("counts earlier broker failures in positions, and lost answers apart", () => {
-    const host = makeHost({ active: [A], brokerFailed: [`${A} 2`, `${B} 1`, `${C} ?`] });
+    const host = makeHost({ active: [A], brokerFailed: [`${A} 5`, `${B} 1`, `${C} ?`] });
     const run = runScript(host, "kill-switch.sh", ["test"]);
-    expect(run.stdout).toContain("broker-failed-earlier:3");
+    expect(run.stdout).toContain("broker-failed-earlier:6");
     expect(run.stdout).toContain("broker-unknown-earlier:1");
     expect(run.stdout).toContain(`(${A} ${B} ${C})`);
   });

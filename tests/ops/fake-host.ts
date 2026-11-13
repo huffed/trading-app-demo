@@ -23,7 +23,7 @@ export interface HostSeed {
   open?: string[];
   saved?: string[];
   crontab?: boolean;
-  service?: "active" | "inactive";
+  service?: "active" | "inactive" | "failed";
   mirroringOn?: boolean[];
   env?: string;
   /** The un-pause PATCH finds nothing still paused: an earlier PATCH committed. */
@@ -210,8 +210,14 @@ export function runScript(host: FakeHost, script: string, args: string[] = []): 
     FAKE_HOST: host.root,
     PATH: `${FAKES}:${process.env.PATH ?? ""}`,
   };
-  // as `git show … | ssh qt 'bash -s'` runs it: the script is bash's stdin
-  const run = spawnSync("bash", ["-s", "--", ...args], { encoding: "utf8", env, input: source });
+  // as `git show … | ssh qt 'bash -s'` runs it: the script is bash's stdin; vitest's own timeout cannot stop a
+  // synchronous spawn, so a script stuck in resume's 25-minute tick wait is killed here
+  const run = spawnSync("bash", ["-s", "--", ...args], {
+    encoding: "utf8",
+    env,
+    input: source,
+    timeout: 25_000,
+  });
   return { status: run.status, stdout: run.stdout, pid: run.pid };
 }
 

@@ -124,7 +124,7 @@ if [ -n "$current" ]; then
   else
     saved=disabled-unsaved
     rm -f "$STATE/crontab.disabled.new" 2> /dev/null
-    true >> "$STATE/crontab.unsaved" 2> /dev/null
+    true >> "$STATE/crontab.unsaved" 2> /dev/null || errors+=("mark-unsaved")
     errors+=("save-crontab")
     if [ -s "$STATE/crontab.disabled" ]; then
       copy="its copy NOT saved (full disk?): make resume would restore an OLDER copy; if it differs from ops/crontab, replace $STATE/crontab.disabled with ops/crontab first (never install the live crontab), then make resume, which reports older-crontab unless the copy then equals ops/crontab"
@@ -135,7 +135,10 @@ if [ -n "$current" ]; then
   if crontab -r; then
     crons=$saved; log "crontab disabled; $copy"
   else
-    crons=FAILED; errors+=("crontab"); log "crontab disable FAILED; $copy"
+    # the crons are still on, so resume restores nothing and the hints above do not apply
+    crons=FAILED; errors+=("crontab")
+    [ "$saved" = disabled ] || copy="its copy NOT saved either"
+    log "crontab disable FAILED, so the crons are still on: run make kill-switch again; $copy"
   fi
 else
   crons=already-empty; log "crontab already empty"
