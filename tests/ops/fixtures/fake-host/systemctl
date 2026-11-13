@@ -1,10 +1,28 @@
 #!/usr/bin/env bash
-# Fake systemctl: the service state is the file $FAKE_HOST/service. send-hup hangs up the script that
-# called it, which is what a dropped ssh session does.
+# Fake systemctl: the service state is the file $FAKE_HOST/service. send-signal holds HUP, INT or PIPE: the
+# script that called this, and this stand-in, get that signal, as a dropped ssh session or a ^C would send
+# it. The scripts run as `bash -s`, so the outermost `bash -s` ancestor is the script and a nearer one a
+# subshell of it. A script that ignores the signal passes it on ignored, so this stand-in then carries on.
+if [ -e "$FAKE_HOST/send-signal" ]; then
+  sig=$(cat "$FAKE_HOST/send-signal")
+  pid=$PPID
+  script=""
+  while [ "${pid:-1}" -gt 1 ]; do
+    case "$(ps -o args= -p "$pid" 2> /dev/null)" in
+      "bash -s"*) script=$pid ;;
+      *) [ -n "$script" ] && break ;;
+    esac
+    pid=$(ps -o ppid= -p "$pid" 2> /dev/null | tr -d ' ')
+  done
+  if [ -n "$script" ]; then
+    printf 'signalled %s %s\n' "$sig" "$script" >> "$FAKE_HOST/signals.log"
+    kill -"$sig" "$script"
+  fi
+  kill -"$sig" $$
+fi
 case "$1" in
   is-active) cat "$FAKE_HOST/service" ;;
   disable | enable)
-    [ -e "$FAKE_HOST/send-hup" ] && kill -HUP "$PPID"
     if [ "$1" = disable ]; then echo inactive > "$FAKE_HOST/service"; else echo active > "$FAKE_HOST/service"; fi
     ;;
 esac

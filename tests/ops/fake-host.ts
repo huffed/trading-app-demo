@@ -1,11 +1,13 @@
 /**
  * Runs the real scripts/ops kill-switch scripts on a throwaway fake host: their absolute paths are
  * rewritten into a temporary directory and tests/ops/fixtures/fake-host puts stand-ins for curl,
- * crontab, systemctl, sudo, python3 and id first on PATH. The fake flatten route closes open rows, as
- * the real one does, so a test sees what is left. Nothing here reaches the VPS, Supabase or ntfy.
+ * crontab, systemctl, sudo, python3 and id first on PATH. Each script is fed to `bash -s` on stdin, as
+ * the make targets stream it over ssh, so a command that read the script's stdin would show here. The
+ * fake flatten route closes open rows, as the real one does, so a test sees what is left. Nothing here
+ * reaches the VPS, Supabase or ntfy.
  */
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
@@ -21,16 +23,32 @@ export interface HostSeed {
   open?: string[];
   saved?: string[];
   crontab?: boolean;
-  service?: "active" | "inactive";
+  service?: "active" | "inactive" | "failed";
   mirroringOn?: boolean[];
   env?: string;
   /** The un-pause PATCH finds nothing still paused: an earlier PATCH committed. */
   alreadyActive?: boolean;
+  /** The engagement's flatten list, kill-switch.flatten-ids. */
+  flattenIds?: string[];
+  /** Lines of the failed-broker list: "<id> <positions>", or "<id> ?" for a lost flatten answer. */
+  brokerFailed?: string[];
+  /** Which ids the un-pause finds still paused among the engagement's other targets. */
+  stillPaused?: string[];
+  /** An earlier saved crontab, kept from an older engagement. */
+  savedCrontab?: string;
+  /** The kill switch's engagement marker, kill-switch.engaged. */
+  engaged?: boolean;
+  /** The marker of a crontab copy the switch could not save, crontab.unsaved. */
+  unsaved?: boolean;
+  /** The checkout's ops/crontab, which resume compares a restored copy with. */
+  opsCrontab?: string;
 }
 
 export interface RunResult {
   status: number | null;
   stdout: string;
+  /** The pid of the bash that ran the script, which a signal test checks was the one signalled. */
+  pid: number;
 }
 
 export const SERVICE_KEY = "service-key-value";
@@ -41,7 +59,12 @@ const FAKES = resolve(process.cwd(), "tests/ops/fixtures/fake-host");
 const CRONTAB = "*/5 * * * * manage\n*/15 * * * * scan\n";
 
 const rows = (ids: string[]): string => JSON.stringify(ids.map((id) => ({ id })));
-const LISTS = ["kill-switch.paused-ids", "kill-switch.flatten-ids", "kill-switch.broker-failed"];
+const LISTS = [
+  "kill-switch.engaged",
+  "kill-switch.paused-ids",
+  "kill-switch.flatten-ids",
+  "kill-switch.broker-failed",
+];
 
 function seedDatabase(root: string, seed: HostSeed): void {
   writeFileSync(join(root, "active.json"), rows(seed.active ?? []));
@@ -51,6 +74,23 @@ function seedDatabase(root: string, seed: HostSeed): void {
   writeFileSync(join(root, "mirroring.json"), JSON.stringify(mirroring));
   const changed = mirroring.length > 0 ? mirroring : [{ id: "x" }];
   writeFileSync(join(root, "unpause.json"), JSON.stringify(seed.alreadyActive ? [] : changed));
+  writeFileSync(join(root, "still-paused.json"), rows(seed.stillPaused ?? []));
+}
+
+function seedState(state: string, seed: HostSeed): void {
+  const lists: [string, string[] | undefined][] = [
+    ["kill-switch.paused-ids", seed.saved],
+    ["kill-switch.flatten-ids", seed.flattenIds],
+    ["kill-switch.broker-failed", seed.brokerFailed],
+  ];
+  for (const [name, list] of lists) {
+    if (list) writeFileSync(join(state, name), `${list.join("\n")}\n`);
+  }
+  if (seed.savedCrontab !== undefined) {
+    writeFileSync(join(state, "crontab.disabled"), seed.savedCrontab);
+  }
+  if (seed.engaged) writeFileSync(join(state, "kill-switch.engaged"), "");
+  if (seed.unsaved) writeFileSync(join(state, "crontab.unsaved"), "");
 }
 
 export function makeHost(seed: HostSeed = {}): FakeHost {
@@ -65,8 +105,10 @@ export function makeHost(seed: HostSeed = {}): FakeHost {
   if (seed.crontab ?? true) {
     writeFileSync(join(root, "crontab"), CRONTAB);
   }
-  if (seed.saved) {
-    writeFileSync(join(host.state, "kill-switch.paused-ids"), `${seed.saved.join("\n")}\n`);
+  seedState(host.state, seed);
+  if (seed.opsCrontab !== undefined) {
+    mkdirSync(join(root, "app", "ops"));
+    writeFileSync(join(root, "app", "ops", "crontab"), seed.opsCrontab);
   }
   return host;
 }
@@ -93,7 +135,22 @@ export function failCall(host: FakeHost, name: string, code = ""): void {
   writeFileSync(join(host.root, `fail-${name}`), code);
 }
 
-/** Touches a marker file the stand-ins read: flatten-http, keep-open-<id>, send-hup, flatten-<id>.json. */
+/** Removes a marker file that mark wrote. */
+export function unmark(host: FakeHost, name: string): void {
+  rmSync(join(host.root, name), { force: true });
+}
+
+/** Writes ledger lines, as earlier runs left them. */
+export function writeLedger(host: FakeHost, lines: string[]): void {
+  writeFileSync(join(host.logs, "deploys.log"), `${lines.join("\n")}\n`);
+}
+
+/** Lets a call that failCall broke work again, as when the database comes back. */
+export function clearFail(host: FakeHost, name: string): void {
+  rmSync(join(host.root, `fail-${name}`), { force: true });
+}
+
+/** Touches a marker file the stand-ins read: flatten-http, flatten-lost, keep-open-<id>, send-signal, flatten-<id>.json. */
 export function mark(host: FakeHost, name: string, content = ""): void {
   writeFileSync(join(host.root, name), content);
 }
@@ -110,6 +167,25 @@ export function breakLedger(host: FakeHost): void {
 /** Makes a saved list unwritable, as a full disk does. */
 export function breakSave(host: FakeHost, list: string): void {
   mkdirSync(join(host.state, `${list}.new`));
+}
+
+/** Lets a saved list be written again, as when the disk has room once more. */
+export function fixSave(host: FakeHost, list: string): void {
+  rmSync(join(host.state, `${list}.new`), { recursive: true, force: true });
+}
+
+/** Lets the ledger be written again. */
+export function fixLedger(host: FakeHost): void {
+  rmSync(join(host.logs, "deploys.log"), { recursive: true, force: true });
+}
+
+/** Whether a file is in the switch's state directory. */
+export const inState = (host: FakeHost, name: string): boolean =>
+  existsSync(join(host.state, name));
+
+/** Makes a list that is appended to unwritable: `>>` onto a directory fails. */
+export function breakAppend(host: FakeHost, list: string): void {
+  mkdirSync(join(host.state, list));
 }
 
 /** The crontab the kill switch saved, for resume to restore. */
@@ -129,16 +205,31 @@ export function runScript(host: FakeHost, script: string, args: string[] = []): 
     .replaceAll("/opt/quanttrader", join(host.root, "app"))
     .replaceAll("/var/log/quanttrader", host.logs)
     .replaceAll("/var/lib/quanttrader", host.state);
-  const path = join(host.root, script);
-  writeFileSync(path, source);
   const env: NodeJS.ProcessEnv = {
     ...process.env,
     FAKE_HOST: host.root,
     PATH: `${FAKES}:${process.env.PATH ?? ""}`,
   };
-  const run = spawnSync("bash", [path, ...args], { encoding: "utf8", env, input: "" });
-  return { status: run.status, stdout: run.stdout };
+  // as `git show … | ssh qt 'bash -s'` runs it: the script is bash's stdin; vitest's own timeout cannot stop a
+  // synchronous spawn, so a script stuck in resume's 25-minute tick wait is killed here
+  const run = spawnSync("bash", ["-s", "--", ...args], {
+    encoding: "utf8",
+    env,
+    input: source,
+    timeout: 25_000,
+  });
+  return { status: run.status, stdout: run.stdout, pid: run.pid };
 }
+
+export const savedCrontab = (host: FakeHost): string => {
+  const path = join(host.state, "crontab.disabled");
+  return existsSync(path) ? readFileSync(path, "utf8") : "";
+};
+
+export const brokerList = (host: FakeHost): string => {
+  const path = join(host.state, "kill-switch.broker-failed");
+  return existsSync(path) ? readFileSync(path, "utf8") : "";
+};
 
 const readLog = (path: string): string => (existsSync(path) ? readFileSync(path, "utf8") : "");
 

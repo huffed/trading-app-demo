@@ -24,6 +24,11 @@ case "$url" in
   *ntfy.sh/*) fail ntfy ;;
   */api/admin/flatten-algo*)
     fail flatten
+    if [ -e "$FAKE_HOST/flatten-lost" ]; then
+      # the route ran and closed the paper rows, then the answer was lost on the way back
+      PATH=${PATH#*:} python3 "$(dirname "$0")/flatten-route.py" "$FAKE_HOST" "${url##*id=}" > /dev/null
+      exit 52
+    fi
     if [ -e "$FAKE_HOST/flatten-http" ]; then
       printf 'error\n%s' "$(cat "$FAKE_HOST/flatten-http")"
       exit 0
@@ -42,6 +47,14 @@ case "$url" in
   *"/rest/v1/algorithms?status=eq.paused"*)
     fail unpause
     cat "$FAKE_HOST/unpause.json"
+    # the ids in the URL are now active, as after the real PATCH
+    ids=${url##*id=in.(}
+    ids=${ids%%)*}
+    PATH=${PATH#*:} python3 -c 'import json,sys; print(json.dumps([{"id": i} for i in sys.argv[1].split(",") if i]))' "$ids" > "$FAKE_HOST/active.json"
+    ;;
+  *"/rest/v1/algorithms?id=in."*"&status=eq.paused&select=id")
+    fail still-paused
+    cat "$FAKE_HOST/still-paused.json"
     ;;
   *"/rest/v1/algorithms?id=in."*"select=live_trading_enabled")
     fail mirroring

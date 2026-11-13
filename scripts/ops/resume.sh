@@ -6,8 +6,10 @@
 # restores the saved crontab, waits for the next manage, heartbeat
 # and scan ticks to log http=200 (≤ 25 min), alerts and writes a RESUME line with the mirroring state
 # of the saved algorithms. What the switch paused stays paused — un-pausing it is the operator's deliberate act
-# (scripts/ops/unpause.sh). Safe to re-run, though after make unpause it reports the active algorithms
-# as an error. Exit status is non-zero when any step failed.
+# (scripts/ops/unpause.sh). Safe to re-run: on an engine that was already running, with its crontab and no
+# kill-switch engagement open (no engagement marker, no saved list, and no KILL line after the last UNPAUSE line in
+# the ledger, as after make unpause), active algorithms are normal and only reported.
+# Exit status is non-zero when any step failed.
 set -uo pipefail
 trap '' HUP INT PIPE
 
@@ -24,6 +26,17 @@ count_rows() { python3 -c 'import json,sys; print(len(json.load(sys.stdin)))' 2>
 
 [ "$(id -un)" = ops ] || { echo "resume: run as ops; refusing as $(id -un)" >&2; exit 2; }
 T0=$(date -u +%FT%TZ)
+# Before anything starts: a service already running with no engagement open is a healthy engine (after make
+# unpause, or no switch at all), not D-28's failed stop. The switch marks the engagement first and only make unpause
+# ends it, so a second resume after a failed stop still sees it open, although the first resume started the service
+# (DEBT D-35).
+service_before=$(systemctl is-active quanttrader 2> /dev/null || true)
+engaged=0
+{ [ -e "$STATE/kill-switch.engaged" ] || [ -s "$STATE/kill-switch.paused-ids" ] || [ -s "$STATE/kill-switch.flatten-ids" ]; } && engaged=1
+# and the ledger, in case the marker could not be written: a KILL line after the last UNPAUSE line
+grep -E ' (KILL|UNPAUSE) ' "$LEDGER" 2> /dev/null | tail -n 1 | grep -q ' KILL ' && engaged=1
+healthy=0
+on_purpose=0
 if sudo -n systemctl enable --now quanttrader; then log "service enabled and started"; else errors+=("start-service"); log "systemctl enable --now FAILED"; fi
 code=000
 for _ in $(seq 1 45); do
@@ -64,24 +77,39 @@ if [ "$crons_n" != 0 ]; then
   # the crontab never came off, so nothing holds these back: with the service up they trade (DEBT D-28)
   if [ "$active_n" = "?" ]; then
     log "the active-algorithm check did not finish and the crontab is on: any active algorithm trades as soon as the database answers"
+  elif [ "$service_before" = active ] && [ "$engaged" = 0 ]; then
+    healthy=1; log "nothing to resume: the service was already running with the crontab on and $active_n active algorithm(s), and no kill-switch engagement is open (as after make unpause)"
   elif [ "$active_n" != 0 ]; then
-    errors+=("algorithms-active:$active_n"); log "$active_n algorithm(s) are ACTIVE with the crontab on, so they can trade. Expected after make unpause, or if no switch ran. Only if the switch ran and failed: make kill-switch, which flattens every active algorithm"
+    errors+=("algorithms-active:$active_n"); log "$active_n algorithm(s) are ACTIVE with the crontab on, so they can trade, and the service was $service_before before this resume$([ "$engaged" = 1 ] && echo ' with a kill-switch engagement open'). Only if the switch ran and failed: make kill-switch, which flattens every active algorithm"
   fi
 elif [ "$active_n" = 0 ]; then
   if [ -s "$STATE/crontab.disabled" ]; then
-    if crontab "$STATE/crontab.disabled"; then crons_n=$(crontab -l | grep -c '^[0-9*]' || true); log "crontab restored ($crons_n entries)"; else errors+=("crontab"); log "crontab restore FAILED"; fi
+    if crontab "$STATE/crontab.disabled"; then
+      crons_n=$(crontab -l | grep -c '^[0-9*]' || true); log "crontab restored ($crons_n entries)"
+      # a switch could not save its copy since the last one it saved, so the one restored is older (DEBT D-35)
+      if [ -e "$STATE/crontab.unsaved" ] && ! cmp -s "$STATE/crontab.disabled" "$APP/ops/crontab"; then
+        errors+=("older-crontab"); log "the last kill switch could not save its crontab copy, so the copy restored is an older one: compare crontab -l with ops/crontab"
+      fi
+    else
+      errors+=("crontab"); log "crontab restore FAILED"
+    fi
   else
     errors+=("no-saved-crontab"); log "no saved crontab at $STATE/crontab.disabled — install ops/crontab from the repo as ops"
   fi
 elif [ "$active_n" = "?" ]; then
   log "the crontab stays off until the active-algorithm check can run: fix the database connection, then make resume again"
+elif [ "$service_before" = active ] && [ "$engaged" = 0 ]; then
+  # an engine already running with no engagement open, as after make unpause before resume restored the crontab:
+  # these algorithms are active on purpose, and the switch would flatten them
+  on_purpose=1; errors+=("crontab-off")
+  log "$active_n algorithm(s) are active and the crontab is off, but the service was already running and no kill-switch engagement is open (as after make unpause before resume restored the crontab): do not run make kill-switch; install the crontab as ops ($STATE/crontab.disabled if it matches ops/crontab, else ops/crontab: runbook, Rollback)"
 else
   errors+=("algorithms-active:$active_n"); log "$active_n algorithm(s) are ACTIVE — the switch did not pause them; the crontab stays off: run make kill-switch again, then make resume"
 fi
 
 # the next manage, heartbeat and scan ticks after T0 must log http=200 — only if the service came up, the crons are
 # back and the check read 0: an active or unchecked algorithm is reported now, not after a 25-minute wait
-if [ "$code" = 200 ] && [ "$crons_n" != 0 ] && [ "$active_n" = 0 ]; then
+if [ "$code" = 200 ] && [ "$crons_n" != 0 ] && { [ "$active_n" = 0 ] || [ "$healthy" = 1 ]; }; then
   deadline=$(($(date +%s) + 25 * 60))
   for name in manage heartbeat scan; do
     while :; do
@@ -100,12 +128,14 @@ else
 fi
 
 service_state=$(systemctl is-active quanttrader 2> /dev/null || true)
-case "$active_n" in
-  0) if [ "$crons_n" != 0 ]; then paused_note="still paused: make unpause"; else paused_note="still paused; crontab not restored"; fi ;;
-  "?") paused_note="not checked: algorithms may be active" ;;
+case "$healthy$on_purpose:$active_n" in
+  10:*) paused_note="$active_n active: the engine was already running, no engagement open" ;;
+  01:*) paused_note="$active_n active on purpose, crontab off: install it, do not run make kill-switch" ;;
+  *:0) if [ "$crons_n" != 0 ]; then paused_note="still paused: make unpause"; else paused_note="still paused; crontab not restored"; fi ;;
+  *:"?") paused_note="not checked: algorithms may be active" ;;
   *) paused_note="$active_n ACTIVE, not paused: read the runbook before make kill-switch" ;;
 esac
-summary="RESUMED at $T0: service=$service_state crons=$crons_n active_algorithms=$active_n mirroring=$mirroring ($paused_note) errors=${errors[*]:-none}"
+summary="RESUMED at $T0: service=$service_state crons=$crons_n active_algorithms=$active_n before=${service_before:-unknown} engaged=$engaged mirroring=$mirroring ($paused_note) errors=${errors[*]:-none}"
 NTFY_TOPIC=$(envval NTFY_TOPIC); NTFY_TOKEN=$(envval NTFY_TOKEN); alert="no-topic"
 push() { # $1 priority, $2 text
   { [ -n "$NTFY_TOKEN" ] && printf 'Authorization: Bearer %s\n' "$NTFY_TOKEN" || printf 'X-Unused: 1\n'; } \
@@ -115,7 +145,7 @@ if [ -n "$NTFY_TOPIC" ]; then
   prio=default; [ ${#errors[@]} -eq 0 ] || prio=high
   if push "$prio" "$summary"; then alert=sent; else alert=FAILED; errors+=("alert"); fi
 fi
-if ! printf '%s RESUME service=%s crons=%s active_algorithms=%s mirroring=%s alert=%s errors=%s\n' "$(date -u +%FT%TZ)" "$service_state" "$crons_n" "$active_n" "$mirroring" "$alert" "${errors[*]:-none}" >> "$LEDGER" 2> /dev/null; then
+if ! printf '%s RESUME service=%s crons=%s active_algorithms=%s before=%s engaged=%s mirroring=%s alert=%s errors=%s\n' "$(date -u +%FT%TZ)" "$service_state" "$crons_n" "$active_n" "${service_before:-unknown}" "$engaged" "$mirroring" "$alert" "${errors[*]:-none}" >> "$LEDGER" 2> /dev/null; then
   errors+=("ledger"); log "ledger write FAILED"
   # the first push said errors as they stood before this one; without a ledger line this is the only record
   [ -z "$NTFY_TOPIC" ] || push high "RESUME: the ledger line was NOT written. errors=${errors[*]}" || log "the second push FAILED"
