@@ -202,6 +202,7 @@ describe("unpause.sh, what stays paused and what it clears", () => {
     const host = makeHost({ saved: [A], brokerFailed: [`${A} 1`, `${B} ?`], mirroringOn: [false] });
     const run = runScript(host, "unpause.sh");
     expect(ledger(host)).toContain("broker_failed_cleared=1 broker_unknown_cleared=1 ");
+    expect(ledger(host)).toContain(`broker_ids=${A.slice(0, 8)},${B.slice(0, 8)} `);
     expect(run.stdout).toContain("check the broker account");
     expect(listsLeft(host)).toEqual([]);
   });
@@ -234,7 +235,7 @@ describe("unpause.sh with nothing to un-pause", () => {
     expect(run.stdout).toContain("check the broker account");
     expect(listsLeft(host)).toEqual([]);
     expect(ledger(host)).toMatch(
-      / UNPAUSE result=nothing cleared=kill-switch.flatten-ids,kill-switch.broker-failed broker_failed_cleared=1 broker_unknown_cleared=0\n$/
+      / UNPAUSE result=nothing cleared=kill-switch.flatten-ids,kill-switch.broker-failed left_paused=0 broker_failed_cleared=1 broker_unknown_cleared=0 broker_ids=11111111\n$/
     );
   });
 
@@ -249,23 +250,26 @@ describe("each script carries on through a dropped session's signals", () => {
   it.each(["HUP", "INT", "PIPE"])("kill-switch.sh finishes after SIG%s", (signal) => {
     const host = makeHost({ active: [A] });
     mark(host, "send-signal", signal);
-    expect(runScript(host, "kill-switch.sh", ["test"]).stdout).toContain("KILL_RESULT=OK");
+    const run = runScript(host, "kill-switch.sh", ["test"]);
+    expect(run.stdout).toContain("KILL_RESULT=OK");
     expect(ledger(host)).toContain(" KILL reason=test");
-    expect(hostLog(host, "signals.log")).toMatch(new RegExp(`^signalled ${signal} [0-9]+$`, "m"));
+    expect(hostLog(host, "signals.log")).toContain(`signalled ${signal} ${String(run.pid)}\n`);
   });
 
   it.each(["HUP", "INT", "PIPE"])("resume.sh finishes after SIG%s", (signal) => {
     const host = makeHost({ crontab: true });
     writeTicks(host);
     mark(host, "send-signal", signal);
-    expect(runScript(host, "resume.sh").stdout).toContain("RESUME_RESULT=OK");
-    expect(hostLog(host, "signals.log")).toMatch(new RegExp(`^signalled ${signal} [0-9]+$`, "m"));
+    const run = runScript(host, "resume.sh");
+    expect(run.stdout).toContain("RESUME_RESULT=OK");
+    expect(hostLog(host, "signals.log")).toContain(`signalled ${signal} ${String(run.pid)}\n`);
   });
 
   it.each(["HUP", "INT", "PIPE"])("unpause.sh finishes after SIG%s", (signal) => {
     const host = makeHost({ saved: [A], mirroringOn: [false] });
     mark(host, "send-signal", signal);
-    expect(runScript(host, "unpause.sh").stdout).toContain("UNPAUSE_RESULT=OK");
-    expect(hostLog(host, "signals.log")).toMatch(new RegExp(`^signalled ${signal} [0-9]+$`, "m"));
+    const run = runScript(host, "unpause.sh");
+    expect(run.stdout).toContain("UNPAUSE_RESULT=OK");
+    expect(hostLog(host, "signals.log")).toContain(`signalled ${signal} ${String(run.pid)}\n`);
   });
 });

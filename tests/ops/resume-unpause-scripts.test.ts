@@ -121,7 +121,7 @@ describe("unpause.sh", () => {
     const run = runScript(host, "unpause.sh");
     expect(run.stdout).toContain("UNPAUSE_RESULT=OK");
     expect(ledger(host)).toMatch(
-      / UNPAUSE algorithms=2 of 2 saved left_paused=0 broker_failed_cleared=0 broker_unknown_cleared=0 mirroring=1\/2\n$/
+      / UNPAUSE algorithms=2 of 2 saved left_paused=0 broker_failed_cleared=0 broker_unknown_cleared=0 broker_ids=none mirroring=1\/2\n$/
     );
     expect(listsLeft(host)).toEqual([]);
   });

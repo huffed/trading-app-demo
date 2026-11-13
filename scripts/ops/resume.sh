@@ -32,6 +32,8 @@ T0=$(date -u +%FT%TZ)
 service_before=$(systemctl is-active quanttrader 2> /dev/null || true)
 engaged=0
 { [ -e "$STATE/kill-switch.engaged" ] || [ -s "$STATE/kill-switch.paused-ids" ] || [ -s "$STATE/kill-switch.flatten-ids" ]; } && engaged=1
+# and the ledger, in case the marker could not be written: a KILL line after the last UNPAUSE line
+grep -E ' (KILL|UNPAUSE) ' "$LEDGER" 2> /dev/null | tail -n 1 | grep -q ' KILL ' && engaged=1
 healthy=0
 if sudo -n systemctl enable --now quanttrader; then log "service enabled and started"; else errors+=("start-service"); log "systemctl enable --now FAILED"; fi
 code=000
@@ -82,8 +84,8 @@ elif [ "$active_n" = 0 ]; then
   if [ -s "$STATE/crontab.disabled" ]; then
     if crontab "$STATE/crontab.disabled"; then
       crons_n=$(crontab -l | grep -c '^[0-9*]' || true); log "crontab restored ($crons_n entries)"
-      # the last switch could not save its copy, so the one restored is older (DEBT D-35)
-      if tail -n 200 "$LEDGER" 2> /dev/null | grep ' KILL ' | tail -n 1 | grep -q 'save-crontab'; then
+      # a switch could not save its copy since the last one it saved, so the one restored is older (DEBT D-35)
+      if [ -e "$STATE/crontab.unsaved" ]; then
         errors+=("older-crontab"); log "the last kill switch could not save its crontab copy, so the copy restored is an older one: compare crontab -l with ops/crontab"
       fi
     else
@@ -125,7 +127,7 @@ case "$healthy:$active_n" in
   *:"?") paused_note="not checked: algorithms may be active" ;;
   *) paused_note="$active_n ACTIVE, not paused: read the runbook before make kill-switch" ;;
 esac
-summary="RESUMED at $T0: service=$service_state crons=$crons_n active_algorithms=$active_n mirroring=$mirroring ($paused_note) errors=${errors[*]:-none}"
+summary="RESUMED at $T0: service=$service_state crons=$crons_n active_algorithms=$active_n before=${service_before:-unknown} engaged=$engaged mirroring=$mirroring ($paused_note) errors=${errors[*]:-none}"
 NTFY_TOPIC=$(envval NTFY_TOPIC); NTFY_TOKEN=$(envval NTFY_TOKEN); alert="no-topic"
 push() { # $1 priority, $2 text
   { [ -n "$NTFY_TOKEN" ] && printf 'Authorization: Bearer %s\n' "$NTFY_TOKEN" || printf 'X-Unused: 1\n'; } \
