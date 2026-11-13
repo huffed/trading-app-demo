@@ -1,0 +1,56 @@
+# 0013 — Working with the operator: blocks visible on the phone, questions at the end, merges by the operator
+
+**Date:** 2026-11-13 · **Status:** active; the Stop push, the dialog types and the review-clean thresholds are proposed until the operator answers on #338 · **Number:** 0012 is kept for the live-table decision the operator queued on 2026-11-07.
+
+## Decision
+
+- **Waits reach the phone.** One hook script pushes to the operator's ntfy topic, with the access token if the topic is reserved (`docs/DEV_SETUP.md` §16). On Notification it pushes permission prompts, idle waits and requests for input. On Stop it pushes a turn whose text has the **BLOCKED ON YOU** line with numbered questions under it, read from the turn's last text and, failing that, from its earlier text in the transcript, at once and once per set of numbered lines, because Claude Code holds the idle push back while a background agent runs; a BLOCKED ON YOU line it cannot read is said in the session. The three types the operator named send Claude Code's message, a dialog sends fixed text, and the Stop push sends the number of questions, never their text; every push also carries the session name, cut to 60 characters. Sessions start with `caffeinate -is claude`.
+- **Questions only at the end of a turn,** under a line that reads **BLOCKED ON YOU**, one per numbered line, each with a recommended answer; what the session carries on with meanwhile is said above them and started before them, so they are the turn's last text. Later turns repeat them while they are open. A turn ends with READY TO MERGE, then BLOCKED ON YOU, each only when it has items, then, when the session's work is outstanding, a `Next action:` line that names the next action and who starts it.
+- **Order.** The operator's queue order stands; the session's own findings go to the end as proposals. A claim about how a tool behaves says what was run to check it.
+- **Merges.** The session no longer merges on its own. A review-clean, green PR goes on the **READY TO MERGE** list, and the operator says "merge the queue". The session then merges each listed PR in order. Because `protect-dev` requires an up-to-date branch, each merge is `gh pr merge <n> --squash --match-head-commit <sha>`, and a PR behind `dev` is first rebased with `gh pr update-branch <n> --rebase` and merged once CI is green at the new head; a PR whose rebase conflicts leaves the list until it is resolved and reviewed again. This replaces "then merge it yourself" (operator, 2026-10-30).
+- **Review rounds.** A docs PR with no runnable command gets one review round. It is clean when that review reports no Critical or High, and Medium and Low findings are fixed in the same push; a Critical or High is fixed and gets one more review under the same rule. Runbooks, plans with host commands, code and tooling keep the review loop, which ends at a review of the whole PR with no Critical, High or Medium. Reviews label every finding.
+
+## Why
+
+The session's retrospective of Parts A and B (2026-11-12; a private document outside this repo) counted 179.5 of 364.7 tracked hours as waiting on the operator. Part of that wait the operator could not see:
+- permission prompts left open for 46.2 h (stalls S1 and S3–S7);
+- questions inside long reports;
+- a fix promised at a hand-off that waited 75 h with nothing scheduled (E32).
+
+Docs-only PRs took 20 review rounds, and their first reviews found no Critical and six Highs, all of them wording.
+
+## Alternatives considered
+
+- **A `systemMessage` from the hook when a push fails, so the session shows it:** not possible. The hooks reference says a Notification hook's `systemMessage` is discarded, and its exit code ignored.
+- **A push from the Stop hook at every turn end:** rejected; most turns need nothing. The Stop hook pushes only a turn with the BLOCKED ON YOU line.
+- **The session reading the hook's log before a BLOCKED ON YOU turn ends** (this PR's first fix): replaced. A turn's idle push fires after the turn, so the read saw an earlier push, and the idle push never comes while a background agent runs (review of 2026-11-13).
+- **The session merging after review, the old rule:** rejected by the operator.
+- **The session name from the status-line input, where Claude Code documents it:** hooks do not receive it, so the hook reads the transcript's title records and falls back to the folder name.
+
+## Consequences
+
+- A sleeping Mac sends nothing.
+  - `caffeinate -s` holds only on AC power.
+  - On battery the Mac still sleeps: all 349 sleeps since 6 November in `pmset -g log` were on battery, with a `caffeinate -dis` running; the log does not show why.
+- A prompt answered within about 6 s sends nothing, by Claude Code's design. The idle push waits for background agents; the Stop push does not.
+- A turn that ends with questions and no background agent running sends two pushes: the Stop push at once and the idle push about 60 s later (`notify.log`, 2026-11-13: each of the nine idle waits came 62 to 64 s after a Stop line).
+- Questions reach the phone only when the turn ends, so meanwhile work in the foreground holds them back; a session with questions puts longer work in background agents.
+- Nothing is sent until the topic file exists. A reserved topic also needs the token file, and without it ntfy refuses the push; the log line then names the token file.
+- The session name depends on Claude Code's internal transcript format.
+- `docs/DEBT.md` D-42 to D-45: nothing stops a pre-approved `git diff --no-index` printing the secret files; nothing stops a session merging; a failed Notification push is only logged; the session name and the earlier-text fallback read Claude Code's internal transcript format.
+- The hook needs jq; without it nothing is sent, and on Stop it says so.
+
+## Evidence
+
+- **A real permission prompt, logged by a temporary hook on 2026-11-12 at 23:57.**
+  - Payload keys: `cwd`, `hook_event_name`, `message`, `notification_type`, `prompt_id`, `scratchpad_dir`, `session_id`, `transcript_path`.
+  - Message: "Claude needs your permission". There is no session name.
+- **The Claude Code hooks reference,** read 2026-11-13: the notification types and their timing; a Notification hook's exit code and stderr are ignored and its `systemMessage` is discarded; Stop runs when the main agent has finished responding, its input carries `last_assistant_message` and `background_tasks`, and the page does not say whether a Stop hook's `systemMessage` is shown.
+- **The Stop push, run for real on 2026-11-13 at 09:51Z** at the end of a turn with a BLOCKED ON YOU line and no topic file: the log has `blocked_on_you … not sent: no topic`, and the transcript has the hook's notice as a `hook_system_message` attachment. A review agent launched at 09:41:41Z was still running then (its report came after that turn), so Stop runs while a background agent does.
+- **curl 8.7.1 on the workstation, checked offline with `--libcurl` on 2026-11-13.** `--data-binary` with a body starting with `@` exits 26 and sends nothing, `--data-raw` sends the same body as text, and a `header =` line in the stdin config is sent.
+- **gh 2.90.0,** `--help` read on 2026-11-13: `gh pr update-branch` takes `--rebase`, and `gh pr merge` takes `--squash` and `--match-head-commit SHA`.
+- **`protect-dev`,** read with `gh api` on 2026-11-13: its required-checks rule has `strict_required_status_checks_policy: true`, so a PR must be up to date with `dev` to merge.
+- **`pmset -g log`,** read 2026-11-13. Every sleep since 6 November was on battery. One was a "Low Power Sleep" at 1% charge on 6 November at 21:39, lasting 46,565 s.
+- **The operator's order of 2026-11-13** adopted the review rounds and the turn-ending rule: "Adopt your B9g items 1, 3 and 4 now: one review round for docs without runnable commands, E0 tests before the verdict, and the turn-ending rule."
+- **Idle waits reach the hook:** `~/.local/state/quanttrader/notify.log` has nine `idle_prompt` lines on 2026-11-13, the first at 13:04:14Z, each 62 to 64 s after a `blocked_on_you` line, all "not sent" because no topic file exists yet.
+- **Phone test:** pending; the operator confirms that a test prompt arrives within a minute, an idle wait of about 70 s with no background agent running, and a turn that ends with questions while a background agent runs; and the operator says whether "Phone push for BLOCKED ON YOU: not sent …" hook messages showed in the terminal while there was no topic file.

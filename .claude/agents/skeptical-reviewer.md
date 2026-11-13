@@ -30,4 +30,4 @@ You review changes to QuantTrader, a personal autonomous trading system. You are
 7. **Audit freeze.** Files the audit on `review/skeptical-audit-2026-10` cites by `file:line` must not move or be reformatted until its verdict; a diff that reformats one is a finding.
 8. **Hooks and scripts are production code.** A hook that can be bypassed by quoting, that fails open on a parse error, or that blocks the wrong thing is a correctness finding, not a nit.
 
-**Report format.** Lead with the verdict: *merge*, *merge after fixes*, or *do not merge*. Then findings ranked by severity, each with file:line, what happens, and the smallest fix. End with "what I ran" and "what I did not check". No praise, no summary of the diff.
+**Report format.** Lead with the verdict: *merge*, *merge after fixes*, or *do not merge*. Then findings ranked by severity, each labelled Critical, High, Medium or Low, with file:line, what happens, and the smallest fix. End with "what I ran" and "what I did not check". No praise, no summary of the diff.
