@@ -24,7 +24,7 @@ describe("notify-ntfy hook: the topic and token stay secret", () => {
     expect(argv).not.toContain(TOPIC);
     expect(argv).toContain("[Title: Claude: permission needed]");
     expect(argv).toContain("[Priority: high]");
-    expect(argv).toContain("[--max-time] [10]");
+    expect(argv).toContain("[--connect-timeout] [3] [--max-time] [6]");
     expect(argv).toContain("[--data-raw] [Repository tooling\nClaude needs your permission]");
     expect(r.log).toMatch(/permission_prompt \[Repository tooling\] sent\n$/);
     expect(r.log).not.toContain(TOPIC);
@@ -82,12 +82,19 @@ describe("notify-ntfy hook: what the push says", () => {
     }
   });
 
-  it("sends Claude Code's own message only for a permission prompt", () => {
-    const idle = run({ ...PROMPT, notification_type: "idle_prompt", message: "Anything at all" });
-    expect(idle.curl).toContain("The session is waiting for your input]");
-    expect(idle.curl).not.toContain("Anything at all");
-    const agent = run({ ...PROMPT, notification_type: "agent_needs_input", message: "Anything" });
-    expect(agent.curl).toContain("A background session is waiting for your input]");
+  it("sends Claude Code's message for the three types the operator named", () => {
+    for (const type of ["permission_prompt", "idle_prompt", "agent_needs_input"]) {
+      const r = run({ ...PROMPT, notification_type: type, message: "Claude is waiting" });
+      expect(r.curl).toContain("\nClaude is waiting]");
+    }
+  });
+
+  it("cuts the session name to 60 characters and strips control characters", () => {
+    const title = "x".repeat(70);
+    const r = run(PROMPT, {
+      transcript: [JSON.stringify({ type: "ai-title", aiTitle: `a\u0007b${title}` })],
+    });
+    expect(r.curl).toContain(`[ab${"x".repeat(58)}\nClaude needs your permission]`);
   });
 
   it("sends nothing for a notification type it does not know", () => {

@@ -4,8 +4,8 @@
 
 ## Decision
 
-- **Waits reach the phone.** One hook script pushes to the operator's ntfy topic, with the access token if the topic is reserved (`docs/DEV_SETUP.md` §16). On Notification it pushes permission prompts, idle waits and requests for input. On Stop it pushes a turn whose last message has the **BLOCKED ON YOU** line with numbered questions under it, at once and once per set of numbered lines, because Claude Code holds the idle push back while a background agent runs. Only a permission prompt's own message is sent; every other push carries fixed text and never the questions. Sessions start with `caffeinate -is claude`.
-- **Questions only at the end of a turn,** under a line that reads **BLOCKED ON YOU**, numbered, each with a recommended answer, together with what the session carries on with meanwhile; later turns repeat them while they are open. A turn ends with READY TO MERGE, then BLOCKED ON YOU, each only when it has items, then a `Next action:` line that names the next action and who starts it.
+- **Waits reach the phone.** One hook script pushes to the operator's ntfy topic, with the access token if the topic is reserved (`docs/DEV_SETUP.md` §16). On Notification it pushes permission prompts, idle waits and requests for input. On Stop it pushes a turn whose last text, after its last tool call, has the **BLOCKED ON YOU** line with numbered questions under it, at once and once per set of numbered lines, because Claude Code holds the idle push back while a background agent runs; a BLOCKED ON YOU line it cannot read is said in the session. The three types the operator named send Claude Code's message, a dialog sends fixed text, and the Stop push sends the number of questions, never their text; every push also carries the session name, cut to 60 characters. Sessions start with `caffeinate -is claude`.
+- **Questions only at the end of a turn,** under a line that reads **BLOCKED ON YOU**, one per numbered line, each with a recommended answer; what the session carries on with meanwhile is said above them and started before them, so they are the turn's last text. Later turns repeat them while they are open. A turn ends with READY TO MERGE, then BLOCKED ON YOU, each only when it has items, then, when the session's work is outstanding, a `Next action:` line that names the next action and who starts it.
 - **Order.** The operator's queue order stands; the session's own findings go to the end as proposals. A claim about how a tool behaves says what was run to check it.
 - **Merges.** The session no longer merges on its own. A review-clean, green PR goes on the **READY TO MERGE** list, and the operator says "merge the queue". The session then merges each listed PR in order. Because `protect-dev` requires an up-to-date branch, each merge is `gh pr merge <n> --squash --match-head-commit <sha>`, and a PR behind `dev` is first rebased with `gh pr update-branch <n> --rebase` and merged once CI is green at the new head; a PR whose rebase conflicts leaves the list until it is resolved and reviewed again. This replaces "then merge it yourself" (operator, 2026-10-30).
 - **Review rounds.** A docs PR with no runnable command gets one review round. It is clean when that review reports no Critical or High, and Medium and Low findings are fixed in the same push; a Critical or High is fixed and gets one more review under the same rule. Runbooks, plans with host commands, code and tooling keep the review loop, which ends at a review of the whole PR with no Critical, High or Medium. Reviews label every finding.
@@ -31,10 +31,12 @@ Docs-only PRs took 20 review rounds, and their first reviews found no Critical a
 
 - A sleeping Mac sends nothing.
   - `caffeinate -s` holds only on AC power.
-  - A closed lid on battery, or a flat battery, still sleeps the Mac.
+  - On battery the Mac still sleeps: all 349 sleeps since 6 November in `pmset -g log` were on battery, with a `caffeinate -dis` running; the log does not show why.
 - A prompt answered within about 6 s sends nothing, by Claude Code's design. The idle push waits for background agents; the Stop push does not.
 - Nothing is sent until the topic file exists. A reserved topic also needs the token file, and without it ntfy refuses the push; the log line then names the token file.
 - The session name depends on Claude Code's internal transcript format.
+- Not yet in `docs/DEBT.md`, which #339 edits at the same place: nothing enforces that the session does not merge or that no session reads `~/.config/quanttrader/` (the operator decides on the ask and deny rules); a Notification push that fails is only logged; the session name depends on that internal format. Their rows follow #339's merge.
+- The hook needs jq; without it nothing is sent, and on Stop it says so.
 
 ## Evidence
 
@@ -47,4 +49,5 @@ Docs-only PRs took 20 review rounds, and their first reviews found no Critical a
 - **gh 2.90.0,** `--help` read on 2026-11-13: `gh pr update-branch` takes `--rebase`, and `gh pr merge` takes `--squash` and `--match-head-commit SHA`.
 - **`protect-dev`,** read with `gh api` on 2026-11-13: its required-checks rule has `strict_required_status_checks_policy: true`, so a PR must be up to date with `dev` to merge.
 - **`pmset -g log`,** read 2026-11-13. Every sleep since 6 November was on battery. One was a "Low Power Sleep" at 1% charge on 6 November at 21:39, lasting 46,565 s.
-- **Phone test:** pending; the operator confirms that a test prompt arrives within a minute.
+- **The operator's order of 2026-11-13** adopted the review rounds and the turn-ending rule: "Adopt your B9g items 1, 3 and 4 now: one review round for docs without runnable commands, E0 tests before the verdict, and the turn-ending rule."
+- **Phone test:** pending; the operator confirms that a test prompt arrives within a minute, and an idle wait of about 70 s with no background agent running, which no log line has shown reaching the hook yet.

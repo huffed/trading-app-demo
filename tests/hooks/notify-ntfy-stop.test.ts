@@ -57,13 +57,41 @@ describe("notify-ntfy hook: a turn that ends with BLOCKED ON YOU", () => {
     const fenced = ["Example:", "```", "**BLOCKED ON YOU**", "1. A question", "```"].join("\n");
     expect(run({ ...STOP, last_assistant_message: fenced }).curl).toBe("");
   });
+});
 
-  it("pushes nothing for the heading with no numbered question under it", () => {
-    for (const tail of ["None.", "", "Nothing this turn.\n\nNext action: mine."]) {
-      const r = run({ ...STOP, last_assistant_message: `**BLOCKED ON YOU**\n${tail}` });
+describe("notify-ntfy hook: repeats, failures and questions it cannot read", () => {
+  it("says so, and pushes nothing, for a heading with no numbered question it can read", () => {
+    const heading = "**BLOCKED ON YOU**";
+    for (const message of [
+      `${heading}\nNone.`,
+      `${heading}\n 1. Indented, which is not at the start of a line`,
+      `${heading}\n- 1. A bullet`,
+      "**BLOCKED ON YOU** (2)\n1. Text after the heading",
+    ]) {
+      const r = run({ ...STOP, last_assistant_message: message });
       expect(r.curl).toBe("");
-      expect(r.log).toBe("");
+      expect(r.log).toContain("not sent: a BLOCKED ON YOU line with no numbered question");
+      expect(r.stdout).toContain('"systemMessage":"Phone push for BLOCKED ON YOU: not sent');
     }
+  });
+
+  it("keeps counting past a line that starts with #339, and skips ~~~ blocks", () => {
+    const hashed = "**BLOCKED ON YOU**\n1. Merge order.\n#339 has to merge first.\n2. Start C.";
+    expect(run({ ...STOP, last_assistant_message: hashed }).curl).toContain(
+      "BLOCKED ON YOU: 2 question(s)]"
+    );
+    const tilde = "~~~\n**BLOCKED ON YOU**\n1. An example\n~~~";
+    expect(run({ ...STOP, last_assistant_message: tilde }).curl).toBe("");
+    const inline = "```x``` is inline code\n**BLOCKED ON YOU**\n1. A question";
+    expect(run({ ...STOP, last_assistant_message: inline }).curl).toContain(
+      "BLOCKED ON YOU: 1 question(s)]"
+    );
+  });
+
+  it("without jq, sends nothing and says so", () => {
+    const r = run({ ...STOP, last_assistant_message: BLOCKED }, { withoutJq: true });
+    expect(r.curl).toBe("");
+    expect(r.stdout).toContain('{"systemMessage":"Phone push: not sent, jq not found"}');
   });
 
   it("pushes the same questions once, and changed ones again", () => {

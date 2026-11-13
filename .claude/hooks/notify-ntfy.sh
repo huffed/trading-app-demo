@@ -3,12 +3,12 @@
 # them is visible away from the screen. settings.json runs it on two events:
 # - Notification, for the types its matcher lists: a permission prompt left about 6 s, an idle wait of about
 #   60 s, a background session's or a dialog's question. Claude Code never sends the idle wait while a
-#   background agent runs. Only the permission prompt's message is sent as Claude Code wrote it (a generic
-#   sentence, seen 2026-11-12); every other type sends fixed text, because a dialog's text can come from an
-#   MCP server.
-# - Stop, at the end of every turn: it pushes only when the turn's last message has a line reading
-#   BLOCKED ON YOU (CLAUDE.md) with at least one numbered question under it, with the number of questions
-#   and never their text, once per set of questions in a session, also while background agents run.
+#   background agent runs. The permission prompt, idle wait and background session send Claude Code's
+#   message, as the operator asked; a dialog sends fixed text, because its text can come from an MCP server.
+# - Stop, at the end of every turn: it pushes only when the turn's last text (after its last tool call) has
+#   a line reading BLOCKED ON YOU (CLAUDE.md) with numbered questions under it, with the number of
+#   questions and never their text, once per set of questions in a session, also while background agents
+#   run. A BLOCKED ON YOU line with no numbered question it can read is said in the session, not dropped.
 #
 # The ntfy topic is read from a file outside the repo (QT_NTFY_TOPIC_FILE, default
 # ~/.config/quanttrader/ntfy-topic, one line), and the access token a reserved topic needs from an
@@ -17,9 +17,10 @@
 # it reading a ~/.curlrc. The session name is the latest custom-title (/rename), else the latest
 # ai-title, in the transcript's last 8 MB, else the folder name and the session id's first 8 characters.
 #
-# It never blocks or fails the session: every path exits 0. Each push it tries writes one line to
-# ~/.local/state/quanttrader/notify.log (QT_NOTIFY_LOG). Claude Code discards a Notification hook's
-# systemMessage (hooks reference, read 2026-11-13); on Stop, a push that did not go out also prints one.
+# It never blocks or fails the session: every path exits 0, and curl gives up after 6 s. Each push it tries
+# writes one line to ~/.local/state/quanttrader/notify.log (QT_NOTIFY_LOG). Claude Code discards a
+# Notification hook's systemMessage (hooks reference, read 2026-11-13); on Stop, a push that did not go
+# out also prints one, which the operator sees. It needs jq, and says so when jq is missing.
 set -uo pipefail
 TOPIC_FILE=${QT_NTFY_TOPIC_FILE:-$HOME/.config/quanttrader/ntfy-topic}
 TOKEN_FILE=${QT_NTFY_TOKEN_FILE:-$HOME/.config/quanttrader/ntfy-token}
@@ -50,6 +51,12 @@ not_sent() {
   exit 0
 }
 
+command -v jq > /dev/null 2>&1 || {
+  log "not sent: jq not found"
+  printf '%s\n' '{"systemMessage":"Phone push: not sent, jq not found"}'
+  exit 0
+}
+
 # Unreadable input, or another event, cannot say which push it is: sending one at every turn end would be noise.
 case "$event" in
   Notification | Stop) ;;
@@ -57,22 +64,27 @@ case "$event" in
 esac
 
 if [ "$event" = Stop ]; then
-  # The questions are the numbered lines ("1. ", "**1. **", "1) ") after a line that reads BLOCKED ON YOU,
-  # with any heading or bold marks, up to the next heading, READY TO MERGE or Next action line. Code blocks
-  # are skipped, so a message that shows the heading in an example pushes nothing.
-  questions_text=$(field last_assistant_message | awk '
-    /^[[:space:]]*```/ { fence = !fence; next }
+  # The questions are the numbered lines ("1. ", "**1. **", "1) ") at the start of a line after a line that
+  # reads BLOCKED ON YOU, with any heading or bold marks, up to the next heading ("# " to "###### "),
+  # READY TO MERGE or Next action line. Fenced code (``` or ~~~ on a line of its own) is skipped, so an
+  # example pushes nothing. A line that starts with the heading but yields no question is a format the hook
+  # cannot read, and is said rather than dropped.
+  parsed=$(field last_assistant_message | awk '
+    /^[[:space:]]*(```|~~~)[A-Za-z0-9_+-]*[[:space:]]*$/ { fence = !fence; next }
     fence { next }
+    /^[#*_[:space:]]*BLOCKED ON YOU/ { seen = 1 }
     /^[#*_[:space:]]*BLOCKED ON YOU[*_:[:space:]]*$/ { on = 1; next }
-    on && /^(#|[*_]*Next action|[#*_[:space:]]*READY TO MERGE)/ { on = 0 }
-    on && /^[*_]*[0-9]+[.)][*_]* / { print }')
-  [ -n "$questions_text" ] || exit 0
-  questions=$(printf '%s\n' "$questions_text" | wc -l | tr -d ' ')
+    on && /^(#+[[:space:]]|[*_]*Next action|[#*_[:space:]]*READY TO MERGE)/ { on = 0 }
+    on && /^[*_]*[0-9]+[.)][*_]* / { print "Q " $0 }
+    END { if (seen) print "SEEN" }')
+  [ -n "$parsed" ] || exit 0
+  questions_text=$(printf '%s\n' "$parsed" | sed -n 's/^Q //p')
+  questions=$(printf '%s' "$questions_text" | grep -c . || true)
   # once per set of questions, by the numbered lines alone: a later turn that repeats them, with other words
   # around them, does not push again
   mark_file="$(dirname "$LOG")/blocked-${sid:0:8}"
   digest=$(printf '%s' "$questions_text" | cksum | tr -d ' ')
-  [ "$(cat "$mark_file" 2> /dev/null)" = "$digest" ] && exit 0
+  [ "$questions" != 0 ] && [ "$(cat "$mark_file" 2> /dev/null)" = "$digest" ] && exit 0
   type=blocked_on_you
   message="BLOCKED ON YOU: $questions question(s)"
 fi
@@ -83,6 +95,10 @@ if [ -n "$transcript" ] && [ -f "$transcript" ]; then
   [ -n "$name" ] || name=$(printf '%s\n' "$titles" | tail -n 1 | jq -r '.aiTitle // empty' 2> /dev/null)
 fi
 [ -n "$name" ] || name="$(basename "${cwd:-$PWD}") ${sid:0:8}"
+# an AI title is generated from the conversation, so it is cut short and stripped of control characters
+name=$(printf '%s' "$name" | tr -d '\000-\037\177' | cut -c1-60)
+[ "$type" != blocked_on_you ] || [ "$questions" != 0 ] \
+  || not_sent "not sent: a BLOCKED ON YOU line with no numbered question (1. at the start of a line) under it"
 
 # The first line of a file, with surrounding spaces and a CR removed; empty if it is unreadable.
 first_line() {
@@ -95,9 +111,9 @@ first_line() {
 
 case "$type" in
   permission_prompt) title="Claude: permission needed" priority=high ;;
-  idle_prompt) title="Claude: waiting for you" priority=default message="The session is waiting for your input" ;;
+  idle_prompt) title="Claude: waiting for you" priority=default ;;
   elicitation_dialog | elicitation_url_dialog) title="Claude: question for you" priority=high message="A dialog in the session asks you something" ;;
-  agent_needs_input) title="Claude: a background session needs you" priority=high message="A background session is waiting for your input" ;;
+  agent_needs_input) title="Claude: a background session needs you" priority=high ;;
   blocked_on_you) title="Claude: questions for you" priority=high ;;
   *) not_sent "not sent: notification type ${type:-none} is not one this hook sends" ;;
 esac
@@ -114,7 +130,7 @@ config=$(printf 'url = "%s/%s"' "$SERVER" "$topic")
 [ -z "$token" ] || config+=$(printf '\nheader = "Authorization: Bearer %s"' "$token")
 body=$(printf '%s\n%s' "$name" "${message:-(no message)}")
 code=$(printf '%s\n' "$config" \
-  | curl -q -fsS --max-time 10 --config - -H "Title: $title" -H "Priority: $priority" -H "Tags: bell" \
+  | curl -q -fsS --connect-timeout 3 --max-time 6 --config - -H "Title: $title" -H "Priority: $priority" -H "Tags: bell" \
     --data-raw "$body" -o /dev/null -w '%{http_code}' 2> /dev/null)
 rc=$?
 [[ $code =~ ^[0-9]{3}$ ]] || code=none
