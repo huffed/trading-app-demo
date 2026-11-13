@@ -123,8 +123,9 @@ A count above 0 means reading those lines in your own terminal, deciding whether
 This replaces the list above.
 - Every host command below is written in its plain form, which prompts (#333); D-37 lists spellings that still get past the text check, and none is used here. Each runs only when the operator asks. Each step gets a ledger row in `docs/decisions/deploys.md` in the next PR.
 - Nothing starts before Friday 22:00 UK. Anything unfinished by Sunday 18:00 UK waits a week.
-- Sudoers (D-23) and the D-35 scripts run only if their PRs are review-clean by Saturday 09:00 UK. Neither PR existed on 2026-11-13. If one is ready in time, a follow-up commit adds its step here: sudoers after steps 4 and 5, because a narrowed sudoers may refuse step 4's `sudo -n install` and step 5's `sudo -n rm -f`; the D-35 scripts with a paper re-test of the kill switch (D-35). Otherwise both go to the next window.
-- Drill (b) is not in this window (operator, 2026-11-13), and neither is D-38's fix, which is a proposal.
+- Sudoers (D-23) and the D-35 scripts run only if their PRs are review-clean by Saturday 09:00 UK. Neither PR existed on 2026-11-13. If one is ready in time, it carries its own step in this section, reviewed with it by that cutoff: sudoers after steps 4 and 5, because a narrowed sudoers may refuse step 4's `sudo -n install` and step 5's `sudo -n rm -f`, and it must leave step 4's rollback (`sudo -n install`) possible until Sunday's night has run; the D-35 scripts with a paper re-test of the kill switch (D-35). Otherwise both go to the next window.
+- Drill (b) is not in this window (operator, 2026-11-13), and neither is D-38's fix, which is a proposal. The window's ledger PR moves D-23's and D-38's targets in `docs/DEBT.md` to what happened.
+- Run every workstation command from the repo root: `make deploy` and the runbook's `scp` need it. The checks below give the same answer from any directory.
 - Off the host: the operator makes the second offline copy of the age key this weekend and tells the session (D-40).
 
 | # | When | Step | Changes on the host | Rollback |
@@ -147,12 +148,13 @@ Anything else: stop and tell the session.
 
 ```bash
 git fetch origin && git rev-parse --short=12 origin/dev
-git diff --stat 2a7d7f7210de origin/dev -- ':(top)' ':(top,exclude)docs' ':(top,exclude)tests' ':(top,exclude).claude' ':(top,exclude).github' ':(top,exclude)ops' ':(top,exclude)scripts/ops' ':(top,exclude)*.md' ':(top,exclude)*.example' ':(top,exclude)Makefile'
+git diff --stat 2a7d7f7210de <the commit the first command printed> -- ':(top)' ':(top,exclude)docs' ':(top,exclude)tests' ':(top,exclude).claude' ':(top,exclude).github' ':(top,exclude)ops' ':(top,exclude)scripts/ops' ':(top,exclude)*.md' ':(top,exclude)*.example' ':(top,exclude)Makefile'
 make deploy REF=<the commit the first command printed>
 ```
 
 **Step 3, in the console, then on the workstation.**
-- Before leaving the console: the firewall shows as applied to `quanttrader-prod`; inbound 22/tcp and 41641/udp; outbound left at allow-all, as `docs/runbooks/harden-vps-ssh.md` §1.4 says. §1.4 suggests limiting 22/tcp to your home or office addresses; the kill switch needs SSH from wherever you will run it, so choose the sources with that in mind. Note the sources and the outbound setting for the ledger row.
+- Before leaving the console: the firewall shows as applied to `quanttrader-prod`; inbound 22/tcp and 41641/udp; outbound left at allow-all, as `docs/runbooks/harden-vps-ssh.md` §1.4 says. §1.4 suggests limiting 22/tcp to your home or office addresses; the kill switch needs SSH from wherever you will run it, so choose the sources with that in mind. For the ledger row, note the kind of source (anywhere, or how many addresses) and the outbound setting, never the addresses themselves: the repo is public, and `docs/DEV_SETUP.md` keeps host-identifying details out of it.
+- If 22/tcp is limited and your address changes, `make kill-switch` cannot connect. The ways back: detach the firewall in the console, or run the switch on the host from the Hetzner console as `docs/runbooks/kill-switch.md` describes.
 - Then end the shared connection, which can outlive a rule that drops SSH, and check on a new one. `ssh -O exit` prints an error and exits 255 when there is no shared connection; that is expected.
 - Pass: `make status` answers; its scan, manage and heartbeat ticks are later than the attach and show `http=200`, so the app still reaches the database; and the dashboard opens over the tailnet. The result goes in the ledger row.
 - The console read is the only check of the 41641/udp rule: the dashboard also opens through Tailscale's relays when that rule is wrong.
@@ -171,7 +173,7 @@ git fetch -q origin && git status --short -- ':(top)scripts/ops' ':(top)ops' && 
 **Step 5, after steps 2 and 4, read first, then remove only what the read shows.**
 - Six files are from the D.6 install of 7 November (`docs/decisions/deploys.md` counts six copies): the five its `scp` sent, `/tmp/quanttrader` being the logrotate file, and `/tmp/d6-apt.log`, the output of its `apt-get install`. Step 4 copies `/tmp/backup.sh` again and adds `/tmp/prod-ca-2021.crt`.
 - Each deploy leaves its host script as `/tmp/qt-deploy-<stamp>.sh` (`scripts/ops/deploy-driver.sh:109`), a copy of `scripts/ops/deploy.sh`; step 2 adds one. They go too, once no deploy is running.
-- Expect the owner `ops` and the dates of 7 November and of step 4. A file the read shows as owned by root needs `sudo -n rm -f`.
+- Expect the owner `ops` and the dates of 7 November and of steps 2 and 4. A file the read shows as owned by root fails the `rm -f` with "Operation not permitted"; remove it with `ssh qt 'sudo -n rm -f <that file>'`.
 - Leave `/tmp/quanttrader-m1-band.state`: it is the M1 band check's live state (D-38).
 - Use the second command if step 4 finished, the third if it stopped: then `/tmp/backup.sh` and `/tmp/prod-ca-2021.crt` are what it stopped on, and they stay.
 
@@ -197,6 +199,7 @@ ssh qt '[ "$(crontab -l | grep -c "^[0-9*]")" = 12 ] && crontab -l | cmp -s - /o
 - Expect a new `backup.log`, owned `ops ops` with mode 0644 (`create 0644 ops ops`), holding only the 15 November night (`OK nightly/2026-11-15`), or empty if read before 02:22 UTC.
 - Expect logrotate's status line for `backup.log` dated 2026-11-15. The timer's LAST column must show Sunday.
 - If `backup.log.1` is not there, the status line shows when logrotate first saw the file. Report it and change nothing.
+- If the 15 November night logged `FAILED`, it is the first scheduled night under `verify-full`: follow that runbook section's rollback and tell the session.
 
 ```bash
 ssh qt 'systemctl list-timers logrotate.timer --no-pager | sed -n 2p; ls -l --time-style=+%FT%T /var/log/quanttrader/backup.log*; grep backup.log /var/lib/logrotate/status'
