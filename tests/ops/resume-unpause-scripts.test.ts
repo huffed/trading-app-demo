@@ -34,7 +34,7 @@ describe("resume.sh", () => {
     const run = runScript(host, "resume.sh");
     expect(run.stdout).toContain("RESUME_RESULT=OK");
     expect(ledger(host)).toMatch(
-      / RESUME service=active crons=2 active_algorithms=0 mirroring=1\/2 alert=sent errors=none\n$/
+      / RESUME service=active crons=2 active_algorithms=0 before=active engaged=1 mirroring=1\/2 alert=sent errors=none\n$/
     );
     expect(savedIds(host)).toEqual([A, B]);
     expect(curlCalls(host).filter((c) => c.startsWith("PATCH"))).toEqual([]);

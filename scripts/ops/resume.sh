@@ -25,11 +25,13 @@ count_rows() { python3 -c 'import json,sys; print(len(json.load(sys.stdin)))' 2>
 
 [ "$(id -un)" = ops ] || { echo "resume: run as ops; refusing as $(id -un)" >&2; exit 2; }
 T0=$(date -u +%FT%TZ)
-# Before anything starts: the switch stops the service, so one already running with no engagement open is a
-# healthy engine (after make unpause, or no switch at all), not D-28's failed stop (DEBT D-35).
+# Before anything starts: a service already running with no engagement open is a healthy engine (after make
+# unpause, or no switch at all), not D-28's failed stop. The switch marks the engagement first and only make unpause
+# ends it, so a second resume after a failed stop still sees it open, although the first resume started the service
+# (DEBT D-35).
 service_before=$(systemctl is-active quanttrader 2> /dev/null || true)
 engaged=0
-{ [ -s "$STATE/kill-switch.paused-ids" ] || [ -s "$STATE/kill-switch.flatten-ids" ]; } && engaged=1
+{ [ -e "$STATE/kill-switch.engaged" ] || [ -s "$STATE/kill-switch.paused-ids" ] || [ -s "$STATE/kill-switch.flatten-ids" ]; } && engaged=1
 healthy=0
 if sudo -n systemctl enable --now quanttrader; then log "service enabled and started"; else errors+=("start-service"); log "systemctl enable --now FAILED"; fi
 code=000
@@ -78,7 +80,15 @@ if [ "$crons_n" != 0 ]; then
   fi
 elif [ "$active_n" = 0 ]; then
   if [ -s "$STATE/crontab.disabled" ]; then
-    if crontab "$STATE/crontab.disabled"; then crons_n=$(crontab -l | grep -c '^[0-9*]' || true); log "crontab restored ($crons_n entries)"; else errors+=("crontab"); log "crontab restore FAILED"; fi
+    if crontab "$STATE/crontab.disabled"; then
+      crons_n=$(crontab -l | grep -c '^[0-9*]' || true); log "crontab restored ($crons_n entries)"
+      # the last switch could not save its copy, so the one restored is older (DEBT D-35)
+      if tail -n 200 "$LEDGER" 2> /dev/null | grep ' KILL ' | tail -n 1 | grep -q 'save-crontab'; then
+        errors+=("older-crontab"); log "the last kill switch could not save its crontab copy, so the copy restored is an older one: compare crontab -l with ops/crontab"
+      fi
+    else
+      errors+=("crontab"); log "crontab restore FAILED"
+    fi
   else
     errors+=("no-saved-crontab"); log "no saved crontab at $STATE/crontab.disabled — install ops/crontab from the repo as ops"
   fi
@@ -125,7 +135,7 @@ if [ -n "$NTFY_TOPIC" ]; then
   prio=default; [ ${#errors[@]} -eq 0 ] || prio=high
   if push "$prio" "$summary"; then alert=sent; else alert=FAILED; errors+=("alert"); fi
 fi
-if ! printf '%s RESUME service=%s crons=%s active_algorithms=%s mirroring=%s alert=%s errors=%s\n' "$(date -u +%FT%TZ)" "$service_state" "$crons_n" "$active_n" "$mirroring" "$alert" "${errors[*]:-none}" >> "$LEDGER" 2> /dev/null; then
+if ! printf '%s RESUME service=%s crons=%s active_algorithms=%s before=%s engaged=%s mirroring=%s alert=%s errors=%s\n' "$(date -u +%FT%TZ)" "$service_state" "$crons_n" "$active_n" "${service_before:-unknown}" "$engaged" "$mirroring" "$alert" "${errors[*]:-none}" >> "$LEDGER" 2> /dev/null; then
   errors+=("ledger"); log "ledger write FAILED"
   # the first push said errors as they stood before this one; without a ledger line this is the only record
   [ -z "$NTFY_TOPIC" ] || push high "RESUME: the ledger line was NOT written. errors=${errors[*]}" || log "the second push FAILED"

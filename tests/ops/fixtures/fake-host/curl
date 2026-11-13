@@ -24,6 +24,11 @@ case "$url" in
   *ntfy.sh/*) fail ntfy ;;
   */api/admin/flatten-algo*)
     fail flatten
+    if [ -e "$FAKE_HOST/flatten-lost" ]; then
+      # the route ran and closed the paper rows, then the answer was lost on the way back
+      PATH=${PATH#*:} python3 "$(dirname "$0")/flatten-route.py" "$FAKE_HOST" "${url##*id=}" > /dev/null
+      exit 52
+    fi
     if [ -e "$FAKE_HOST/flatten-http" ]; then
       printf 'error\n%s' "$(cat "$FAKE_HOST/flatten-http")"
       exit 0
