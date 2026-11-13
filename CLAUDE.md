@@ -43,3 +43,19 @@ pnpm only. Node is pinned by `.nvmrc`. `pnpm build` and `make check` before ever
 - shadcn/ui here is the **base-nova** style over `@base-ui/react`: composition is `render={<Link />}`, never Radix `asChild`.
 - Skills: `/validate` (run the validation harness), `/parity-check` (live-vs-backtest parity), `/regime-report`, `/ftmo-rules` (FTMO 2-Step Swing rules and R conventions). Agents: `skeptical-reviewer` (read-only review in a fresh context) and `backtest-runner`.
 - No session acts on a broker account — places, modifies or closes orders, or changes account settings — except `make kill-switch`, which may flatten mirrored positions, and, once mirroring is on, `make resume` and `make unpause`, which together let the engine trade again; read-only broker access is allowed, and `REDEPLOY=1` without `APPLY=1` on `scripts/canonical/metaapi-connection-doctor.ts` is infrastructure: it prompts every time, is never pre-approved, gets a ledger row, and does not run while mirroring is on until an incident runbook exists (decision 0010). No session writes to the live tables except through `make kill-switch`, `make resume` and `make unpause`, each of which prompts every time, is never pre-approved, prints the mirroring state and writes a ledger row (`docs/runbooks/kill-switch.md`, decision 0010); like every host command, they run only when the operator asks. Otherwise the VPS is inspected read-only.
+
+## Working with the operator
+
+Decision 0013. The operator can only answer what they can see is blocked.
+
+- **Questions go at the end of a turn only,** under the heading **BLOCKED ON YOU**, numbered, each with a recommended answer. The same message says what the session carries on with meanwhile, and the session does it.
+- **No turn ends with the session's own work outstanding** unless its last line names the next action and who starts it.
+- **The operator's queue order stands.** The session's own findings go to the end of the queue as proposals.
+- **Every claim about how a tool behaves says what was run to check it.**
+- **Merges.** The session does not run `gh pr merge` on its own. A PR that is review-clean and green goes on the **READY TO MERGE** list at the end of the turn, with its number and head commit, and the session moves on to the next independent item. When the operator says "merge the queue", the session merges each listed PR in order, after checking that it is still green at the same head.
+- **Review rounds.**
+  - A docs PR with no runnable command (DEBT rows, decisions, ledger text) gets one fresh review. It is review-clean when that review reports no High; Medium and Low findings are fixed in the same push, with no further round.
+  - Runbooks, plans with host commands, code and tooling keep the review loop until a review is clean.
+- **Being visible.**
+  - Sessions start with `caffeinate -is claude`.
+  - The Notification hook pushes each permission prompt and each idle wait to the operator's phone (`docs/DEV_SETUP.md` §16).
