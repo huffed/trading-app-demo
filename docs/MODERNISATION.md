@@ -1,6 +1,6 @@
 # Phase E — the modernisation plan (skeleton)
 
-**Status: plan only, drafted 2026-11-06.** No code changes, no renames applied, the whole-tree Prettier PR stays held. Part 1 is written in full because it is structure: it changes where code lives and how it reads, not what it does. Part 2 is placeholders, because what those items should do depends on what the audit finds. Writing them now would be guessing, and every one says what the guess would be. Nothing in this file starts before the audit verdict except the one item marked otherwise, because the `src/` files cited by line on `review/skeptical-audit-2026-10` must not move or be reformatted until then.
+**Status: plan only, drafted 2026-11-06.** No code changes, no renames applied, the whole-tree Prettier PR stays held. Part 1 is written in full because it is structure: it changes where code lives and how it reads, not what it does. Part 2 is placeholders, because what those items should do depends on what the audit finds. Writing them now would be guessing, and every one says what the guess would be. Nothing in this file starts before the audit verdict except the two items marked otherwise, E0 and E13, because the `src/` files cited by line on `review/skeptical-audit-2026-10` must not move or be reformatted until then.
 
 `docs/DEBT.md` is the register and carries the evidence; this file is the order of work. `DEBT.md`'s reference to `MODERNISATION.md` §4 means E4, and its "one engine, two adapters" is decision P2.
 
@@ -19,13 +19,14 @@ In this order. The live-path test goes first because every later item proves its
 
 ### E0. The live-path test (D-05) — not blocked by the verdict
 
-**Not blocked by the verdict** (operator, 2026-11-13; decision 0014). E0's PRs may land before `review/VERDICT.md`, under four conditions:
-- they add or change test files only, in `tests/`, with no non-test line;
-- they change nothing under a fenced path;
-- they use fixtures and stubs only, and pinned data, never the live tables, a broker or the network;
-- a known defect they expose is an `it.fails` that points at the audit or a DEBT id.
+**Not blocked by the verdict** (operator, 2026-11-13; decision 0014). E0's PRs may land before `review/VERDICT.md`, under the four conditions of decision 0014, copied here:
 
-Tests only, in `tests/characterisation/`, no production change. The rules above rest on this test, because the golden replay cannot see the live engine. Entry points: `scan/engine.ts` `scanAlgorithm`, `scan/manage.ts` `manageActiveAlgorithms`, and `api/cron/scan-active-algorithms/route.ts`, where `applyPortfolioHalts` runs the portfolio halt. One scenario per path with the database, price feed and broker stubbed: an entry, a stop, a target, a stagnant exit, each halt and a flatten, pinning the size, the rows written and the activity events. The database stub checks each column against the accepted list parsed from the migrations, the way `tests/contracts/db-check-constraints.test.ts` does, with its `checkListFor` exported for this. A stub that accepts everything would pin `daily_loss_halt` as closing a row: `paper_positions.exit_reason` refuses it, while `activity_log.event_type` accepts it. Proof: tests pass against unchanged code.
+1. They add new test files under `tests/characterisation/` and helper modules under `tests/`. An existing test file changes only to import a helper moved out of it: no existing assertion or `it.fails` marker changes, and nothing under `tests/golden/` or `tests/hooks/` changes. Outside `tests/`, the only lines they change are the docs the PR affects: `docs/DEBT.md`, the count of `it.fails` cases in `docs/DEV_SETUP.md` §13, and `docs/MODERNISATION.md`.
+2. They change nothing under a fenced path (`.claude/hooks/live-paths.txt`).
+3. They use fixtures and stubs only, and pinned data, never the live tables, a broker or the network. Each E0 test file stubs `fetch` to throw and mocks the broker adapter as a module, so that a missed mock fails the test instead of reaching out.
+4. A known defect they expose is an `it.fails` that points at the audit or a DEBT id, and nothing is fixed. Its assertion is that the defect is absent, not which fix removes it. Where a Part 2 item decides the fix, the test's name gives that item.
+
+Tests only, in `tests/characterisation/`, no production change. The rules above rest on this test, because the golden replay cannot see the live engine. Entry points: `scan/engine.ts` `scanAlgorithm`, `scan/manage.ts` `manageActiveAlgorithms`, and `api/cron/scan-active-algorithms/route.ts`, where `applyPortfolioHalts` runs the portfolio halt. One scenario per path with the database, price feed and broker stubbed: an entry, a stop, a target, a stagnant exit, each halt and a flatten, pinning the size, the rows written and the activity events. The database stub checks each column against the accepted list parsed from the migrations, the way `tests/contracts/db-check-constraints.test.ts` does, with its `checkListFor` moved to a helper module beside it that both tests import, so that no test imports a test file. A stub that accepts everything would pin `daily_loss_halt` as closing a row: `paper_positions.exit_reason` refuses it, while `activity_log.event_type` accepts it. Proof: tests pass against unchanged code.
 
 ### E1. Whole-tree Prettier, with a blame-ignore file
 
