@@ -17,6 +17,8 @@ Format: `NNNN-short-slug.md` with the fields **Date · Status (active / supersed
 | [0009](0009-alerts-and-rotation.md) | The host alerts on its own (OnFailure, deploy result, daily summary via ntfy), weekly log rotation, nightly gate on dev | active |
 | [0010](0010-live-table-rule.md) | A MetaApi redeploy without `APPLY=1` is infrastructure, prompted, with a ledger row. The live-table rule: `make kill-switch`, `make resume` and `make unpause` are the only session path that writes the live tables; they prompt every time, no committed make rule can pre-approve them, they write a ledger row; the kill switch may flatten mirrored positions, and once mirroring is on resume and unpause count as acting on the broker account; read-only broker access is allowed | active, amends 0008 |
 | [0011](0011-backups-and-restore-drill.md) | Nightly age-encrypted backups to the Storage Box through a read-only role, 30 nights, a drilled restore | active; restore drilled 2026-11-07 to 11-10 |
+| 0012 | Kept for the live-table decision the operator queued on 2026-11-07 | not written |
+| [0013](0013-working-with-the-operator.md) | A session's waits reach the operator's phone; questions only at the end of a turn; the operator merges; one review round for plain docs | active |
 | [0014](0014-e0-tests-before-the-verdict.md) | E0's live-path tests may land before the audit verdict: tests only, nothing fenced, no live data | active |
 | [deploys](deploys.md) | Ledger: one row per deploy and per host change | running |
 
