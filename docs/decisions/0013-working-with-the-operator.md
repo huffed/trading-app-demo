@@ -33,6 +33,7 @@ Docs-only PRs took 20 review rounds, and their first reviews found no Critical a
   - `caffeinate -s` holds only on AC power.
   - On battery the Mac still sleeps: all 349 sleeps since 6 November in `pmset -g log` were on battery, with a `caffeinate -dis` running; the log does not show why.
 - A prompt answered within about 6 s sends nothing, by Claude Code's design. The idle push waits for background agents; the Stop push does not.
+- A turn that ends with questions and no background agent running sends two pushes: the Stop push at once and the idle push about 60 s later (`notify.log`, 2026-11-13: each of the nine idle waits came 62 to 64 s after a Stop line).
 - Questions reach the phone only when the turn ends, so meanwhile work in the foreground holds them back; a session with questions puts longer work in background agents.
 - Nothing is sent until the topic file exists. A reserved topic also needs the token file, and without it ntfy refuses the push; the log line then names the token file.
 - The session name depends on Claude Code's internal transcript format.
@@ -51,4 +52,5 @@ Docs-only PRs took 20 review rounds, and their first reviews found no Critical a
 - **`protect-dev`,** read with `gh api` on 2026-11-13: its required-checks rule has `strict_required_status_checks_policy: true`, so a PR must be up to date with `dev` to merge.
 - **`pmset -g log`,** read 2026-11-13. Every sleep since 6 November was on battery. One was a "Low Power Sleep" at 1% charge on 6 November at 21:39, lasting 46,565 s.
 - **The operator's order of 2026-11-13** adopted the review rounds and the turn-ending rule: "Adopt your B9g items 1, 3 and 4 now: one review round for docs without runnable commands, E0 tests before the verdict, and the turn-ending rule."
-- **Phone test:** pending; the operator confirms that a test prompt arrives within a minute, an idle wait of about 70 s with no background agent running, which no log line has shown reaching the hook yet, and a turn that ends with questions while a background agent runs; and the operator says whether "Phone push for BLOCKED ON YOU: not sent …" hook messages showed in the terminal while there was no topic file.
+- **Idle waits reach the hook:** `~/.local/state/quanttrader/notify.log` has nine `idle_prompt` lines on 2026-11-13, the first at 13:04:14Z, each 62 to 64 s after a `blocked_on_you` line, all "not sent" because no topic file exists yet.
+- **Phone test:** pending; the operator confirms that a test prompt arrives within a minute, an idle wait of about 70 s with no background agent running, and a turn that ends with questions while a background agent runs; and the operator says whether "Phone push for BLOCKED ON YOU: not sent …" hook messages showed in the terminal while there was no topic file.
