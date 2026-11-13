@@ -129,11 +129,11 @@ This replaces the list above.
 
 | # | When | Step | Changes on the host | Rollback |
 |---|---|---|---|---|
-| 1 | Sat | Pre-flight: `make status`, the nights since 10 November (`make logs LOG=backup N=50`) and the daily summaries (`make logs LOG=ops-health N=8`); pass criteria below | Nothing | None needed |
+| 1 | Sat | Pre-flight: `make status`, the nights since 10 November (`make logs LOG=backup N=80`) and the daily summaries (`make logs LOG=ops-health N=8`); pass criteria below | Nothing | None needed |
 | 2 | Sat | `make deploy REF=<commit>` of the `dev` commit the check below printed | Checkout, install, build, one restart, commit records, `main`. The installed backup script does not change here. | `make deploy REF=2a7d7f7210de` |
 | 3 | Sat | 9b, the firewall: the operator adds the Hetzner firewall (22/tcp, 41641/udp) in the Cloud console, then checks it as below | Nothing on the host; the firewall sits outside it | Detach the firewall in the console |
 | 4 | Sat | `PGSSLMODE=verify-full` for the backup job: `docs/runbooks/d6-backups.md`, section "`verify-full`", run from a workstation checkout of `origin/dev` that the check below shows clean | The installed `backup.sh` and the CA file under `/usr/local/lib/quanttrader/`; one night run by hand | The runbook's rollback |
-| 5 | Sat or Sun, after steps 2 and 4, before any sudoers change | Clean-ups: the files the D.6 install and step 4 left in `/tmp`, and the kill switch's saved crontab from the 7 November re-test | Up to seven files in `/tmp` and one in `/var/lib/quanttrader/` removed | None needed: each is a copy of a file in the repo, the install's apt output, or the re-test's 11-entry crontab |
+| 5 | Sat or Sun, after steps 2 and 4, before any sudoers change | Clean-ups: the files the D.6 install and step 4 left in `/tmp`, and the kill switch's saved crontab from the 7 November re-test | Up to seven files and the deploy driver's copies in `/tmp`, and one file in `/var/lib/quanttrader/`, removed | None needed: each is a copy of a file in the repo, the install's apt output, or the re-test's 11-entry crontab |
 | 6 | Sun, after the logrotate timer's run | Rotation check: `backup.log`'s first weekly rotation | Read-only | None needed |
 
 **Step 1 passes when:**
@@ -155,28 +155,30 @@ make deploy REF=<the commit the first command printed>
 - Before leaving the console: the firewall shows as applied to `quanttrader-prod`; inbound 22/tcp and 41641/udp; outbound left at allow-all, as `docs/runbooks/harden-vps-ssh.md` §1.4 says. §1.4 suggests limiting 22/tcp to your home or office addresses; the kill switch needs SSH from wherever you will run it, so choose the sources with that in mind. Note the sources and the outbound setting for the ledger row.
 - Then end the shared connection, which can outlive a rule that drops SSH, and check on a new one. `ssh -O exit` prints an error and exits 255 when there is no shared connection; that is expected.
 - Pass: `make status` answers; its scan, manage and heartbeat ticks are later than the attach and show `http=200`, so the app still reaches the database; and the dashboard opens over the tailnet. The result goes in the ledger row.
+- The console read is the only check of the 41641/udp rule: the dashboard also opens through Tailscale's relays when that rule is wrong.
 
 ```bash
 ssh -O exit -o ControlPath=~/.ssh/qt-make-%C qt
 make status
 ```
 
-**Step 4, first, on the workstation.** It prints `CLEAN` with nothing above it when the checkout is clean and its `scripts/ops/` and `ops/` equal `origin/dev`, so the runbook's `scp` sends the reviewed `backup.sh` and certificate. Anything else: stop.
+**Step 4, first, on the workstation.** It prints `CLEAN` with nothing above it when the checkout's `scripts/ops/` and `ops/` have no local change and equal `origin/dev`, counted from the top of the repo whatever the current directory, so the runbook's `scp` sends the reviewed `backup.sh` and certificate. Step 2 leaves its ledger row uncommitted in `docs/decisions/deploys.md`, which this check does not read. Anything else: stop.
 
 ```bash
-git fetch origin && git status --short && git diff --quiet origin/dev -- scripts/ops ops && echo CLEAN
+git fetch -q origin && git status --short -- ':(top)scripts/ops' ':(top)ops' && git diff --quiet origin/dev -- ':(top)scripts/ops' ':(top)ops' && echo CLEAN
 ```
 
 **Step 5, after steps 2 and 4, read first, then remove only what the read shows.**
 - Six files are from the D.6 install of 7 November (`docs/decisions/deploys.md` counts six copies): the five its `scp` sent, `/tmp/quanttrader` being the logrotate file, and `/tmp/d6-apt.log`, the output of its `apt-get install`. Step 4 copies `/tmp/backup.sh` again and adds `/tmp/prod-ca-2021.crt`.
+- Each deploy leaves its host script as `/tmp/qt-deploy-<stamp>.sh` (`scripts/ops/deploy-driver.sh:109`), a copy of `scripts/ops/deploy.sh`; step 2 adds one. They go too, once no deploy is running.
 - Expect the owner `ops` and the dates of 7 November and of step 4. A file the read shows as owned by root needs `sudo -n rm -f`.
 - Leave `/tmp/quanttrader-m1-band.state`: it is the M1 band check's live state (D-38).
 - Use the second command if step 4 finished, the third if it stopped: then `/tmp/backup.sh` and `/tmp/prod-ca-2021.crt` are what it stopped on, and they stay.
 
 ```bash
-ssh qt 'ls -l /tmp/age-recipient.txt /tmp/crontab /tmp/d6-apt.log /tmp/ops-health.sh /tmp/quanttrader /tmp/backup.sh /tmp/prod-ca-2021.crt'
-ssh qt 'rm -f /tmp/age-recipient.txt /tmp/crontab /tmp/d6-apt.log /tmp/ops-health.sh /tmp/quanttrader /tmp/backup.sh /tmp/prod-ca-2021.crt'
-ssh qt 'rm -f /tmp/age-recipient.txt /tmp/crontab /tmp/d6-apt.log /tmp/ops-health.sh /tmp/quanttrader'
+ssh qt 'ls -l /tmp/age-recipient.txt /tmp/crontab /tmp/d6-apt.log /tmp/ops-health.sh /tmp/quanttrader /tmp/backup.sh /tmp/prod-ca-2021.crt /tmp/qt-deploy-*.sh'
+ssh qt 'rm -f /tmp/age-recipient.txt /tmp/crontab /tmp/d6-apt.log /tmp/ops-health.sh /tmp/quanttrader /tmp/backup.sh /tmp/prod-ca-2021.crt /tmp/qt-deploy-*.sh'
+ssh qt 'rm -f /tmp/age-recipient.txt /tmp/crontab /tmp/d6-apt.log /tmp/ops-health.sh /tmp/quanttrader /tmp/qt-deploy-*.sh'
 ```
 
 **The saved crontab.** `/var/lib/quanttrader/crontab.disabled` is the kill switch's copy from the 7 November re-test, the crontab of 11 entries the host had then (`docs/decisions/deploys.md`). Today it changes nothing:
