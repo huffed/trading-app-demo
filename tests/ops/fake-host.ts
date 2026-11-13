@@ -38,6 +38,10 @@ export interface HostSeed {
   savedCrontab?: string;
   /** The kill switch's engagement marker, kill-switch.engaged. */
   engaged?: boolean;
+  /** The marker of a crontab copy the switch could not save, crontab.unsaved. */
+  unsaved?: boolean;
+  /** The checkout's ops/crontab, which resume compares a restored copy with. */
+  opsCrontab?: string;
 }
 
 export interface RunResult {
@@ -86,6 +90,7 @@ function seedState(state: string, seed: HostSeed): void {
     writeFileSync(join(state, "crontab.disabled"), seed.savedCrontab);
   }
   if (seed.engaged) writeFileSync(join(state, "kill-switch.engaged"), "");
+  if (seed.unsaved) writeFileSync(join(state, "crontab.unsaved"), "");
 }
 
 export function makeHost(seed: HostSeed = {}): FakeHost {
@@ -101,6 +106,10 @@ export function makeHost(seed: HostSeed = {}): FakeHost {
     writeFileSync(join(root, "crontab"), CRONTAB);
   }
   seedState(host.state, seed);
+  if (seed.opsCrontab !== undefined) {
+    mkdirSync(join(root, "app", "ops"));
+    writeFileSync(join(root, "app", "ops", "crontab"), seed.opsCrontab);
+  }
   return host;
 }
 
@@ -159,6 +168,20 @@ export function breakLedger(host: FakeHost): void {
 export function breakSave(host: FakeHost, list: string): void {
   mkdirSync(join(host.state, `${list}.new`));
 }
+
+/** Lets a saved list be written again, as when the disk has room once more. */
+export function fixSave(host: FakeHost, list: string): void {
+  rmSync(join(host.state, `${list}.new`), { recursive: true, force: true });
+}
+
+/** Lets the ledger be written again. */
+export function fixLedger(host: FakeHost): void {
+  rmSync(join(host.logs, "deploys.log"), { recursive: true, force: true });
+}
+
+/** Whether a file is in the switch's state directory. */
+export const inState = (host: FakeHost, name: string): boolean =>
+  existsSync(join(host.state, name));
 
 /** Makes a list that is appended to unwritable: `>>` onto a directory fails. */
 export function breakAppend(host: FakeHost, list: string): void {

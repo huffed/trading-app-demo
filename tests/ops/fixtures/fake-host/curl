@@ -47,6 +47,10 @@ case "$url" in
   *"/rest/v1/algorithms?status=eq.paused"*)
     fail unpause
     cat "$FAKE_HOST/unpause.json"
+    # the ids in the URL are now active, as after the real PATCH
+    ids=${url##*id=in.(}
+    ids=${ids%%)*}
+    PATH=${PATH#*:} python3 -c 'import json,sys; print(json.dumps([{"id": i} for i in sys.argv[1].split(",") if i]))' "$ids" > "$FAKE_HOST/active.json"
     ;;
   *"/rest/v1/algorithms?id=in."*"&status=eq.paused&select=id")
     fail still-paused

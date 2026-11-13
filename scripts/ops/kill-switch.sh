@@ -108,7 +108,7 @@ mkdir -p "$STATE" 2> /dev/null || true
 # The engagement is marked first, before anything can fail: an empty file needs no data blocks, so it is there even
 # on a full disk. resume.sh reads it so that a running engine the switch could not stop is never taken for a healthy
 # one, and only make unpause removes it (DEBT D-35).
-: >> "$STATE/kill-switch.engaged" 2> /dev/null || errors+=("mark-engaged")
+true >> "$STATE/kill-switch.engaged" 2> /dev/null || errors+=("mark-engaged")
 log "engaged by $REASON at $T0 on $(hostname)"
 
 # 1. no new ticks: disable the crontab (idempotent — an empty crontab keeps the saved copy). The copy is written
@@ -124,10 +124,10 @@ if [ -n "$current" ]; then
   else
     saved=disabled-unsaved
     rm -f "$STATE/crontab.disabled.new" 2> /dev/null
-    : >> "$STATE/crontab.unsaved" 2> /dev/null
+    true >> "$STATE/crontab.unsaved" 2> /dev/null
     errors+=("save-crontab")
     if [ -s "$STATE/crontab.disabled" ]; then
-      copy="its copy NOT saved (full disk?): make resume would restore an OLDER copy; if it differs from ops/crontab, replace $STATE/crontab.disabled with ops/crontab first (never install the live crontab), then make resume"
+      copy="its copy NOT saved (full disk?): make resume would restore an OLDER copy; if it differs from ops/crontab, replace $STATE/crontab.disabled with ops/crontab first (never install the live crontab), then make resume, which reports older-crontab unless the copy then equals ops/crontab"
     else
       copy="its copy NOT saved (full disk?) and there is none: run make resume, and once it reports no-saved-crontab, install ops/crontab as ops (runbook, Rollback); make deploy does not see this stop, so do not deploy until then"
     fi
