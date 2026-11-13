@@ -111,6 +111,13 @@ describe("notify-ntfy hook: repeats, failures and questions it cannot read", () 
     expect(pushes(third.curl)).toBe(2);
   });
 
+  it("pushes the same set again once a turn without questions has come between", () => {
+    const first = run({ ...STOP, last_assistant_message: BLOCKED });
+    run({ ...STOP, last_assistant_message: "Done." }, { root: first.root });
+    const again = run({ ...STOP, last_assistant_message: BLOCKED }, { root: first.root });
+    expect(pushes(again.curl)).toBe(2);
+  });
+
   it("says in the session when the push did not go out, and tries again next turn", () => {
     const missing = run({ ...STOP, last_assistant_message: BLOCKED }, { topic: null });
     expect(missing.stdout).toContain(
@@ -176,6 +183,16 @@ describe("notify-ntfy hook: questions written before the turn's last tool call",
     const r = run({ ...STOP, last_assistant_message: "Started the review." }, { transcript });
     expect(r.curl).toContain("BLOCKED ON YOU: 2 question(s)]");
     expect(r.log).toContain("sent (written before the turn's last tool call)");
+  });
+
+  it("finds them past a later line that only mentions the heading, and past a broken line", () => {
+    const later = "Review agent started; the two questions under BLOCKED ON YOU above stand.";
+    const transcript = [
+      ...turn(prompt, said(BLOCKED), toolCall, toolResult, said(later)),
+      '{"type":"assistant","message":{"content":[{"type":"te',
+    ];
+    const r = run({ ...STOP, last_assistant_message: later }, { transcript });
+    expect(r.curl).toContain("BLOCKED ON YOU: 2 question(s)]");
   });
 
   it("never takes an earlier turn's questions for this one's", () => {

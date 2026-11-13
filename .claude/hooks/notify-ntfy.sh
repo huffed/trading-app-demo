@@ -22,7 +22,8 @@
 # It never blocks or fails the session: every path exits 0, and curl gives up after 6 s. Each push it tries
 # writes one line to ~/.local/state/quanttrader/notify.log (QT_NOTIFY_LOG). Claude Code discards a
 # Notification hook's systemMessage (hooks reference, read 2026-11-13); on Stop, a push that did not go
-# out also prints one, which the operator sees. It needs jq, and says so when jq is missing.
+# out also prints one, which the transcript records as a hook message (its display on screen is not yet
+# confirmed). It needs jq, and says so when jq is missing.
 set -uo pipefail
 TOPIC_FILE=${QT_NTFY_TOPIC_FILE:-$HOME/.config/quanttrader/ntfy-topic}
 TOKEN_FILE=${QT_NTFY_TOKEN_FILE:-$HOME/.config/quanttrader/ntfy-token}
@@ -97,8 +98,9 @@ blocked_section() {
 }
 
 # The turn's earlier text from the transcript: the latest assistant text since the turn's first record (a user
-# record that is not a tool result) that mentions BLOCKED ON YOU. Empty when the turn does not start in the
-# transcript's last 4 MB, so an older turn's questions are never taken for this one's.
+# record that is not a tool result) with a line that reads BLOCKED ON YOU. Empty when the turn does not start in
+# the transcript's last 4 MB, so an older turn's questions are never taken for this one's. A line that is not
+# JSON (one being written as Stop runs) is skipped, not fatal.
 earlier_turn_text() {
   [ -n "$transcript" ] && [ -f "$transcript" ] || return 0
   # a tail that starts inside a record drops that partial first line
@@ -106,31 +108,33 @@ earlier_turn_text() {
     tail -c 4000000 "$transcript" 2> /dev/null | sed 1d
   else
     cat "$transcript"
-  fi | jq -rs '
-    (map(.type == "user"
+  fi | jq -Rnr '
+    [inputs | fromjson? | objects]
+    | (map(.type == "user"
       and (((.message.content | type) == "string")
         or ([.message.content[]?.type] | index("tool_result") | not)))
      | indices(true) | last) as $start
     | if $start == null then empty else
         .[$start + 1:]
         | map(select(.type == "assistant") | .message.content[]? | select(.type == "text") | .text)
-        | map(select(test("BLOCKED ON YOU"; "i"))) | last // empty
+        | map(select(test("(^|\n)[#*_ \t]*BLOCKED ON YOU[*_: \t]*(\n|$)"))) | last // empty
       end' 2> /dev/null
 }
 
 if [ "$event" = Stop ]; then
+  # once per set of questions while it stays open: a turn without questions clears the mark, so the same set asked
+  # again later pushes again
+  mark_file="$(dirname "$LOG")/blocked-${sid:0:8}"
   parsed=$(field last_assistant_message | blocked_section)
   earlier=""
   if [ -z "$parsed" ]; then
     parsed=$(earlier_turn_text | blocked_section)
     [ -z "$parsed" ] || earlier=" (written before the turn's last tool call)"
   fi
-  [ -n "$parsed" ] || exit 0
+  [ -n "$parsed" ] || { rm -f "$mark_file" 2> /dev/null; exit 0; }
   questions_text=$(printf '%s\n' "$parsed" | sed -n 's/^Q //p')
   questions=$(printf '%s' "$questions_text" | grep -c . || true)
-  # once per set of questions, by the numbered lines alone: a later turn that repeats them, with other words
-  # around them, does not push again
-  mark_file="$(dirname "$LOG")/blocked-${sid:0:8}"
+  # by the numbered lines alone: a later turn that repeats them, with other words around them, does not push again
   digest=$(printf '%s' "$questions_text" | cksum | tr -d ' ')
   [ "$questions" != 0 ] && [ "$(cat "$mark_file" 2> /dev/null)" = "$digest" ] && exit 0
   type=blocked_on_you
