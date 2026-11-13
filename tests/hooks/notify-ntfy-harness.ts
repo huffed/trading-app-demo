@@ -11,6 +11,7 @@ import {
   mkdtempSync,
   readFileSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -54,6 +55,8 @@ export interface RunOptions {
   root?: string;
   /** Stdin as given, instead of the payload as JSON. */
   rawInput?: string;
+  /** PATH holds only the tools the hook uses, without jq. */
+  withoutJq?: boolean;
 }
 
 function newRoot(): string {
@@ -65,10 +68,32 @@ function newRoot(): string {
   return root;
 }
 
+const HOOK_TOOLS = ["awk", "basename", "cat", "cksum", "cut", "date", "dirname", "grep", "head"];
+const MORE_TOOLS = ["bash", "mkdir", "sed", "tail", "tr", "wc"];
+
+/** A bin directory with links to the tools the hook uses, jq left out, beside the fake curl. */
+function binWithoutJq(root: string): string {
+  const dir = join(root, "nojq");
+  if (!existsSync(dir)) {
+    mkdirSync(dir);
+    for (const tool of [...HOOK_TOOLS, ...MORE_TOOLS]) {
+      const found = spawnSync("bash", ["-c", `command -v ${tool}`], {
+        encoding: "utf8",
+      }).stdout.trim();
+      symlinkSync(found, join(dir, tool));
+    }
+    symlinkSync(join(root, "bin", "curl"), join(dir, "curl"));
+  }
+  return dir;
+}
+
 function hookEnv(root: string, opts: RunOptions): NodeJS.ProcessEnv {
+  const path = opts.withoutJq
+    ? binWithoutJq(root)
+    : `${join(root, "bin")}:${process.env.PATH ?? ""}`;
   return {
     ...process.env,
-    PATH: `${join(root, "bin")}:${process.env.PATH ?? ""}`,
+    PATH: path,
     HOME: root,
     FAKE_CURL_LOG: join(root, "curl.log"),
     FAKE_CURL_EXIT: String(opts.curlExit ?? 0),
