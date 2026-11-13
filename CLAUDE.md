@@ -48,15 +48,15 @@ pnpm only. Node is pinned by `.nvmrc`. `pnpm build` and `make check` before ever
 
 Decision 0013. The operator can only answer what they can see is blocked.
 
-- **Questions go at the end of a turn only,** under the heading **BLOCKED ON YOU**, numbered, each with a recommended answer. The same message says what the session carries on with meanwhile, and the session does it.
-- **No turn ends with the session's own work outstanding** unless its last line names the next action and who starts it.
-- **The operator's queue order stands.** The session's own findings go to the end of the queue as proposals.
+- **Questions go at the end of a turn only,** under a line that reads exactly **BLOCKED ON YOU**, numbered, each with a recommended answer. The same message says what the session carries on with meanwhile, and the session does it. While questions are open, every later turn repeats them; the phone gets each set once.
+- **A turn ends in this order:** READY TO MERGE, then BLOCKED ON YOU, then a last line that names the next action and who starts it. No turn ends with the session's own work outstanding without that line.
+- **The operator's queue order stands.** The session's own findings go to the end of the queue as proposals. Several independent PRs may be open at once (decision 0002); one that depends on another waits for it to merge.
 - **Every claim about how a tool behaves says what was run to check it.**
-- **Merges.** The session does not run `gh pr merge` on its own. A PR that is review-clean and green goes on the **READY TO MERGE** list at the end of the turn, with its number and head commit, and the session moves on to the next independent item. When the operator says "merge the queue", the session merges each listed PR in order, after checking that it is still green at the listed head. `protect-dev` requires a branch to be up to date with `dev`, so once one PR merges the next is rebased onto `dev`. It is merged when the rebase applied without a conflict and CI is green at the new head; otherwise it goes back on the list with the reason.
-- **Review rounds.**
-  - A docs PR with no runnable command (DEBT rows, decisions, ledger text) gets one fresh review. It is review-clean when that review reports no Critical or High; Medium and Low findings are fixed in the same push, with no further round. A Critical or High is fixed, and the fix gets one more fresh review under the same rule.
-  - Runbooks, plans with host commands, code and tooling keep the review loop until a review is clean.
-- **Being visible.**
-  - Sessions start with `caffeinate -is claude`.
-  - The Notification hook pushes a permission prompt left unanswered for about 6 s, and an idle wait of about 60 s, to the operator's phone; `docs/DEV_SETUP.md` §16 lists what it misses.
-  - Claude Code discards anything that hook prints. So before a turn ends with BLOCKED ON YOU, the session reads the last line of `~/.local/state/quanttrader/notify.log` and says so in the turn if the last push was not sent.
+- **Merges.** The session does not run `gh pr merge` on its own. A PR that is review-clean and green goes on the **READY TO MERGE** list at the end of the turn, with its number and head commit, and the session moves on to the next independent item. When the operator says "merge the queue", the session merges each listed PR in order, after checking that it is still green at the listed head. A PR that is behind `dev` (`protect-dev` requires an up-to-date branch) is first rebased with `gh pr update-branch <n> --rebase`, and merged once CI is green at the new head. A PR whose rebase conflicts leaves the list until the conflict is resolved and the PR is reviewed again.
+- **Review rounds.** Each review labels its findings Critical, High, Medium or Low (`.claude/agents/skeptical-reviewer.md`) and reads the whole PR.
+  - A docs PR with no runnable command (DEBT rows, decisions, ledger text) gets one fresh review. It is review-clean when that review reports no Critical or High; Medium and Low findings are fixed in the same push, with no further round. A Critical or High is fixed, with the Medium and Low, and the PR gets one more fresh review under the same rule.
+  - Runbooks, plans with host commands, code and tooling keep the review loop: each round's findings are fixed, then a fresh review reads the whole PR again. The loop ends at a review with no Critical, High or Medium; its Lows are fixed or answered in the PR in the same push.
+- **Being visible.** The operator starts sessions with `caffeinate -is claude`. Two pushes reach the operator's phone (`docs/DEV_SETUP.md` §16):
+  - the Notification hook's, for a permission prompt left about 6 s and an idle wait of about 60 s; Claude Code holds the idle one back while a background agent runs;
+  - the Stop hook's, at once, for a turn whose last message has the BLOCKED ON YOU line, also while background agents run.
+  - A push that does not go out is logged in `~/.local/state/quanttrader/notify.log`; on Stop it also leaves a hook message in the session. No session reads `~/.config/quanttrader/`: a failed push is reported, not investigated.
