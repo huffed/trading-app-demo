@@ -4,15 +4,15 @@
 
 ## Decision
 
-- **Waits reach the phone.** A Notification hook pushes permission prompts, idle waits and requests for input to the operator's ntfy topic (`docs/DEV_SETUP.md` §16). Sessions start with `caffeinate -is claude`.
+- **Waits reach the phone.** A Notification hook pushes permission prompts, idle waits and requests for input to the operator's ntfy topic, with the access token if the topic is reserved (`docs/DEV_SETUP.md` §16). Claude Code discards what the hook prints, so a session reads the hook's log before it ends a turn with **BLOCKED ON YOU** and says if the last push was not sent. Sessions start with `caffeinate -is claude`.
 - **Questions only at the end of a turn,** under **BLOCKED ON YOU**, numbered, each with a recommended answer, together with what the session carries on with meanwhile. No turn ends with the session's own work outstanding unless its last line names the next action and who starts it.
 - **Order.** The operator's queue order stands; the session's own findings go to the end as proposals. A claim about how a tool behaves says what was run to check it.
-- **Merges.** The session no longer merges. A review-clean, green PR goes on the **READY TO MERGE** list, and the operator says "merge the queue". This replaces "then merge it yourself" (operator, 2026-10-30).
-- **Review rounds.** A docs PR with no runnable command gets one review round. It is clean when that review reports no High, and Medium and Low findings are fixed in the same push. Runbooks, plans with host commands, code and tooling keep the review loop.
+- **Merges.** The session no longer merges on its own. A review-clean, green PR goes on the **READY TO MERGE** list, and the operator says "merge the queue". The session then merges each listed PR in order. Because `protect-dev` requires an up-to-date branch, each PR after the first is rebased onto `dev` and merged only if the rebase applied without a conflict and CI is green at the new head; otherwise it goes back on the list with the reason. This replaces "then merge it yourself" (operator, 2026-10-30).
+- **Review rounds.** A docs PR with no runnable command gets one review round. It is clean when that review reports no Critical or High, and Medium and Low findings are fixed in the same push; a Critical or High is fixed and gets one more review under the same rule. Runbooks, plans with host commands, code and tooling keep the review loop.
 
 ## Why
 
-The retrospective of 2026-11-12 counted 179.5 of 364.7 tracked hours as waiting on the operator. Part of that wait the operator could not see:
+The session's retrospective of Parts A and B (2026-11-12; a private document outside this repo) counted 179.5 of 364.7 tracked hours as waiting on the operator. Part of that wait the operator could not see:
 - permission prompts left open for 46.2 h (stalls S1 and S3–S7);
 - questions inside long reports;
 - a fix promised at a hand-off that waited 75 h with nothing scheduled (E32).
@@ -21,6 +21,7 @@ Docs-only PRs took 20 review rounds, and their first reviews found no Critical a
 
 ## Alternatives considered
 
+- **A `systemMessage` from the hook when a push fails, so the session shows it:** not possible. The hooks reference says a Notification hook's `systemMessage` is discarded, and its exit code ignored.
 - **A push from the Stop hook at every turn end:** rejected. It fires on turns that need nothing, whereas `idle_prompt` fires only when the session sits idle.
 - **The session merging after review, the old rule:** rejected by the operator.
 - **The session name from the status-line input, where Claude Code documents it:** hooks do not receive it, so the hook reads the transcript's title records and falls back to the folder name.
@@ -31,6 +32,7 @@ Docs-only PRs took 20 review rounds, and their first reviews found no Critical a
   - `caffeinate -s` holds only on AC power.
   - A closed lid on battery, or a flat battery, still sleeps the Mac.
 - A prompt answered within about 6 s sends nothing, by Claude Code's design.
+- Nothing is sent until the topic file exists. A reserved topic also needs the token file, and without it ntfy refuses the push; the log line then names the token file.
 - The session name depends on Claude Code's internal transcript format.
 
 ## Evidence
@@ -38,6 +40,8 @@ Docs-only PRs took 20 review rounds, and their first reviews found no Critical a
 - **A real permission prompt, logged by a temporary hook on 2026-11-12 at 23:57.**
   - Payload keys: `cwd`, `hook_event_name`, `message`, `notification_type`, `prompt_id`, `scratchpad_dir`, `session_id`, `transcript_path`.
   - Message: "Claude needs your permission". There is no session name.
-- **The Claude Code hooks reference:** notification types and their timing, read 2026-11-13.
+- **The Claude Code hooks reference,** read 2026-11-13: the notification types and their timing; a Notification hook's exit code and stderr are ignored and its `systemMessage` is discarded.
+- **curl 8.7.1 on the workstation, checked offline with `--libcurl` on 2026-11-13.** `--data-binary` with a body starting with `@` exits 26 and sends nothing, `--data-raw` sends the same body as text, and a `header =` line in the stdin config is sent.
+- **`protect-dev`,** read with `gh api` on 2026-11-13: its required-checks rule has `strict_required_status_checks_policy: true`, so a PR must be up to date with `dev` to merge.
 - **`pmset -g log`,** read 2026-11-13. Every sleep since 6 November was on battery. One was a "Low Power Sleep" at 1% charge on 6 November at 21:39, lasting 46,565 s.
 - **Phone test:** pending; the operator confirms that a test prompt arrives within a minute.

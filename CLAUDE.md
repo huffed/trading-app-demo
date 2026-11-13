@@ -52,10 +52,11 @@ Decision 0013. The operator can only answer what they can see is blocked.
 - **No turn ends with the session's own work outstanding** unless its last line names the next action and who starts it.
 - **The operator's queue order stands.** The session's own findings go to the end of the queue as proposals.
 - **Every claim about how a tool behaves says what was run to check it.**
-- **Merges.** The session does not run `gh pr merge` on its own. A PR that is review-clean and green goes on the **READY TO MERGE** list at the end of the turn, with its number and head commit, and the session moves on to the next independent item. When the operator says "merge the queue", the session merges each listed PR in order, after checking that it is still green at the same head.
+- **Merges.** The session does not run `gh pr merge` on its own. A PR that is review-clean and green goes on the **READY TO MERGE** list at the end of the turn, with its number and head commit, and the session moves on to the next independent item. When the operator says "merge the queue", the session merges each listed PR in order, after checking that it is still green at the listed head. `protect-dev` requires a branch to be up to date with `dev`, so once one PR merges the next is rebased onto `dev`. It is merged when the rebase applied without a conflict and CI is green at the new head; otherwise it goes back on the list with the reason.
 - **Review rounds.**
-  - A docs PR with no runnable command (DEBT rows, decisions, ledger text) gets one fresh review. It is review-clean when that review reports no High; Medium and Low findings are fixed in the same push, with no further round.
+  - A docs PR with no runnable command (DEBT rows, decisions, ledger text) gets one fresh review. It is review-clean when that review reports no Critical or High; Medium and Low findings are fixed in the same push, with no further round. A Critical or High is fixed, and the fix gets one more fresh review under the same rule.
   - Runbooks, plans with host commands, code and tooling keep the review loop until a review is clean.
 - **Being visible.**
   - Sessions start with `caffeinate -is claude`.
-  - The Notification hook pushes each permission prompt and each idle wait to the operator's phone (`docs/DEV_SETUP.md` §16).
+  - The Notification hook pushes a permission prompt left unanswered for about 6 s, and an idle wait of about 60 s, to the operator's phone; `docs/DEV_SETUP.md` §16 lists what it misses.
+  - Claude Code discards anything that hook prints. So before a turn ends with BLOCKED ON YOU, the session reads the last line of `~/.local/state/quanttrader/notify.log` and says so in the turn if the last push was not sent.
