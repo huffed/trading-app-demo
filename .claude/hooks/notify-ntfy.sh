@@ -2,10 +2,13 @@
 # notify-ntfy.sh — pushes "Claude needs you" to the operator's phone through ntfy, so a session waiting on
 # them is visible away from the screen. settings.json runs it on two events:
 # - Notification, for the types its matcher lists: a permission prompt left about 6 s, an idle wait of about
-#   60 s, a dialog. Claude Code never sends the idle wait while a background agent runs.
+#   60 s, a background session's or a dialog's question. Claude Code never sends the idle wait while a
+#   background agent runs. Only the permission prompt's message is sent as Claude Code wrote it (a generic
+#   sentence, seen 2026-11-12); every other type sends fixed text, because a dialog's text can come from an
+#   MCP server.
 # - Stop, at the end of every turn: it pushes only when the turn's last message has a line reading
-#   BLOCKED ON YOU (CLAUDE.md), with the number of questions and never their text, once per set of
-#   questions in a session, also while background agents run.
+#   BLOCKED ON YOU (CLAUDE.md) with at least one numbered question under it, with the number of questions
+#   and never their text, once per set of questions in a session, also while background agents run.
 #
 # The ntfy topic is read from a file outside the repo (QT_NTFY_TOPIC_FILE, default
 # ~/.config/quanttrader/ntfy-topic, one line), and the access token a reserved topic needs from an
@@ -54,17 +57,21 @@ case "$event" in
 esac
 
 if [ "$event" = Stop ]; then
-  # The questions start at a line that reads BLOCKED ON YOU, with any heading or bold marks, and run to the
-  # next heading, bold line or "Next action" line; each numbered line there is one question.
-  section=$(field last_assistant_message | awk '
-    /^[#*[:space:]]*BLOCKED ON YOU[*:[:space:]]*$/ { on = 1; print "BLOCKED ON YOU"; next }
-    on && /^(#|\*\*|Next action)/ { on = 0 }
-    on')
-  [ -n "$section" ] || exit 0
-  questions=$(printf '%s\n' "$section" | grep -c -E '^[0-9]+\. ' || true)
-  # once per set of questions: a later turn that repeats them does not push again
+  # The questions are the numbered lines ("1. ", "**1. **", "1) ") after a line that reads BLOCKED ON YOU,
+  # with any heading or bold marks, up to the next heading, READY TO MERGE or Next action line. Code blocks
+  # are skipped, so a message that shows the heading in an example pushes nothing.
+  questions_text=$(field last_assistant_message | awk '
+    /^[[:space:]]*```/ { fence = !fence; next }
+    fence { next }
+    /^[#*_[:space:]]*BLOCKED ON YOU[*_:[:space:]]*$/ { on = 1; next }
+    on && /^(#|[*_]*Next action|[#*_[:space:]]*READY TO MERGE)/ { on = 0 }
+    on && /^[*_]*[0-9]+[.)][*_]* / { print }')
+  [ -n "$questions_text" ] || exit 0
+  questions=$(printf '%s\n' "$questions_text" | wc -l | tr -d ' ')
+  # once per set of questions, by the numbered lines alone: a later turn that repeats them, with other words
+  # around them, does not push again
   mark_file="$(dirname "$LOG")/blocked-${sid:0:8}"
-  digest=$(printf '%s' "$section" | cksum | tr -d ' ')
+  digest=$(printf '%s' "$questions_text" | cksum | tr -d ' ')
   [ "$(cat "$mark_file" 2> /dev/null)" = "$digest" ] && exit 0
   type=blocked_on_you
   message="BLOCKED ON YOU: $questions question(s)"
@@ -88,11 +95,11 @@ first_line() {
 
 case "$type" in
   permission_prompt) title="Claude: permission needed" priority=high ;;
-  idle_prompt) title="Claude: waiting for you" priority=default ;;
-  elicitation_dialog | elicitation_url_dialog) title="Claude: question for you" priority=high ;;
-  agent_needs_input) title="Claude: a background session needs you" priority=high ;;
+  idle_prompt) title="Claude: waiting for you" priority=default message="The session is waiting for your input" ;;
+  elicitation_dialog | elicitation_url_dialog) title="Claude: question for you" priority=high message="A dialog in the session asks you something" ;;
+  agent_needs_input) title="Claude: a background session needs you" priority=high message="A background session is waiting for your input" ;;
   blocked_on_you) title="Claude: questions for you" priority=high ;;
-  *) title="Claude: ${type:-notification}" priority=default ;;
+  *) not_sent "not sent: notification type ${type:-none} is not one this hook sends" ;;
 esac
 
 topic=$(first_line "$TOPIC_FILE")
