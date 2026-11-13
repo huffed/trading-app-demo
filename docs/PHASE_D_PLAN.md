@@ -118,6 +118,58 @@ A count above 0 means reading those lines in your own terminal, deciding whether
 - **Sudoers (D-23).** The PR is written after D.6 shows what the backup job needs, with a decision entry. It keeps `systemctl disable --now` and `enable --now quanttrader`, which the switch and resume use, checks `sudo -n -l` for them, and runs with a second root shell open and `visudo -c`.
 - **Drill (b), the throwaway VPS,** if D.6 is clean. It is the real disaster-recovery proof, and it costs cents.
 
+## Window of 14 and 15 November 2026 (operator, 2026-11-13)
+
+This replaces the list above.
+- Every host command prompts (#333) and runs only when the operator asks. Each step gets a ledger row in `docs/decisions/deploys.md` in the next PR.
+- Nothing starts before Friday 22:00 UK. Anything unfinished by Sunday 18:00 UK waits a week.
+- Sudoers (D-23) and the D-35 scripts run only if their PRs are reviewed by Saturday 09:00 UK. Neither PR existed when this plan was written, so both are planned for the next window.
+- Drill (b) is not in this window.
+
+| # | When | Step | Changes on the host | Rollback |
+|---|---|---|---|---|
+| 1 | Sat | Pre-flight: `make status`, the nights since 10 November (`make logs LOG=backup N=40`) and the daily summaries (`make logs LOG=ops-health N=6`) | Nothing | None needed |
+| 2 | Sat | `make deploy` of `dev`, after the check below | Checkout, install, build, one restart, commit records, `main`. The installed backup script does not change here. | `make deploy REF=2a7d7f7210de` |
+| 3 | Sat | 9b, the firewall: the operator adds the Hetzner firewall (22/tcp, 41641/udp) in the Cloud console | Nothing on the host; the firewall sits outside it | Detach the firewall in the console |
+| 4 | Sat | `PGSSLMODE=verify-full` for the backup job: `docs/runbooks/d6-backups.md`, section "`verify-full`", run from a workstation checkout of `origin/dev` | The installed `backup.sh` and the CA file under `/usr/local/lib/quanttrader/`; one night run by hand | The runbook's rollback |
+| 5 | Sat or Sun | Clean-ups: the copies the D.6 install and step 4 left in `/tmp`, and the kill switch's saved crontab from the 7 November re-test | Up to seven files in `/tmp` and one in `/var/lib/quanttrader/` removed | None needed: each is a copy of a file in the repo or of the live crontab |
+| 6 | Sun, after the logrotate timer's run | Rotation check: `backup.log`'s first weekly rotation | Read-only | None needed |
+
+**Step 2, before the deploy, on the workstation.** An empty result means no app file changes; on 2026-11-13 it was empty for `dev` at `a6ba8de`. If it is not empty, stop: the deploy then changes the app, and that is a different step.
+
+```bash
+git fetch origin && git diff --stat 2a7d7f7210de origin/dev -- src supabase package.json pnpm-lock.yaml
+```
+
+**Step 5, read first, then remove only what the read shows.**
+- `/tmp/backup.sh` and `/tmp/prod-ca-2021.crt` are step 4's copies. The other five are from the D.6 install of 7 November (`/tmp/quanttrader` is the logrotate file).
+- A file the read shows as owned by root needs `sudo -n rm -f`.
+- Leave `/tmp/quanttrader-m1-band.state`: it is the M1 band check's live state (D-38).
+
+```bash
+ssh qt 'ls -l /tmp/age-recipient.txt /tmp/backup.sh /tmp/crontab /tmp/d6-apt.log /tmp/ops-health.sh /tmp/quanttrader /tmp/prod-ca-2021.crt'
+ssh qt 'rm -f /tmp/age-recipient.txt /tmp/backup.sh /tmp/crontab /tmp/d6-apt.log /tmp/ops-health.sh /tmp/quanttrader /tmp/prod-ca-2021.crt'
+```
+
+**The saved crontab.** `/var/lib/quanttrader/crontab.disabled` is the kill switch's copy from the 7 November re-test. Today it changes nothing:
+- the switch overwrites it whenever the live crontab is non-empty (`scripts/ops/kill-switch.sh:97-100`);
+- `deploy.sh` reads the switch as engaged only when the copy exists and the crontab is empty (`scripts/ops/deploy.sh:95`).
+
+But `make resume` restores from it (`scripts/ops/resume.sh:71`). If the crontab were ever emptied by anything but the switch, a resume would install the 7 November copy. Remove it only if the first command prints `12` and `SAME`; otherwise stop and tell the session.
+
+```bash
+ssh qt 'crontab -l | grep -c "^[0-9*]"; crontab -l | diff - /opt/quanttrader/ops/crontab && echo SAME'
+ssh qt 'rm -f /var/lib/quanttrader/crontab.disabled'
+```
+
+**Step 6.** Run it after the logrotate timer has run on Sunday; the 10 November read showed that timer at 00:42 to 00:46 UTC.
+- Expect `backup.log.1` dated 15 November.
+- If it is not there, the status line shows when logrotate first saw the file. Report it and change nothing.
+
+```bash
+ssh qt 'systemctl list-timers logrotate.timer --no-pager | sed -n 2p; ls -l --time-style=+%FT%T /var/log/quanttrader/backup.log*; grep backup.log /var/lib/logrotate/status'
+```
+
 ## Check-in questions before any VPS change
 
 1. D.1 as designed, including the first deploy of current `dev` and the pending reboot in the same window — which window?
