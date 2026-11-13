@@ -138,7 +138,7 @@ describe("notify-ntfy hook: a push that does not go out never blocks", () => {
     expect(r.status).toBe(0);
     expect(r.stdout).toBe("");
     expect(r.curl).toBe("");
-    expect(r.log).toContain("not sent: no topic in");
+    expect(r.log).toContain("not sent: no topic file (docs/DEV_SETUP.md §16)");
   });
 
   it("sends nothing when the topic file holds anything but a plain topic, and never repeats it", () => {

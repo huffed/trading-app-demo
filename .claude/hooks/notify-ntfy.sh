@@ -5,10 +5,12 @@
 #   60 s, a background session's or a dialog's question. Claude Code never sends the idle wait while a
 #   background agent runs. The permission prompt, idle wait and background session send Claude Code's
 #   message, as the operator asked; a dialog sends fixed text, because its text can come from an MCP server.
-# - Stop, at the end of every turn: it pushes only when the turn's last text (after its last tool call) has
-#   a line reading BLOCKED ON YOU (CLAUDE.md) with numbered questions under it, with the number of
-#   questions and never their text, once per set of questions in a session, also while background agents
-#   run. A BLOCKED ON YOU line with no numbered question it can read is said in the session, not dropped.
+# - Stop, at the end of every turn: it pushes only when the turn's text has a line reading BLOCKED ON YOU
+#   (CLAUDE.md) with numbered questions under it, with the number of questions and never their text, once
+#   per set of questions in a session, also while background agents run. It reads the turn's last text,
+#   and when that has no such section, the turn's earlier text from the transcript, so questions written
+#   before the turn's last tool call still go out. A BLOCKED ON YOU line with no numbered question it can
+#   read is said in the session, not dropped.
 #
 # The ntfy topic is read from a file outside the repo (QT_NTFY_TOPIC_FILE, default
 # ~/.config/quanttrader/ntfy-topic, one line), and the access token a reserved topic needs from an
@@ -53,7 +55,8 @@ not_sent() {
 
 command -v jq > /dev/null 2>&1 || {
   log "not sent: jq not found"
-  printf '%s\n' '{"systemMessage":"Phone push: not sent, jq not found"}'
+  # said in the session only on a turn that has questions, not at every turn end
+  case "$input" in *"BLOCKED ON YOU"*) printf '%s\n' '{"systemMessage":"Phone push: not sent, jq not found"}' ;; esac
   exit 0
 }
 
@@ -63,20 +66,65 @@ case "$event" in
   *) not_sent "not sent: the hook input is not a Notification or Stop event${event:+ ($event)}" ;;
 esac
 
+# The BLOCKED ON YOU section of a text on stdin: "Q <line>" per numbered question at the start of a line
+# ("1. ", "**1. **", "1) ") after a line that reads BLOCKED ON YOU, with any heading or bold marks, up to the
+# next heading ("# " to "###### "), READY TO MERGE or Next action line; then "SEEN" if any line starts with
+# the heading in another form (another case, after > or -, text after it), so that form is said, not dropped.
+# Fenced code is skipped: a fence is three or more backticks (with no backtick after them) or tildes, and
+# closes on the same character, at least as long, alone on its line.
+blocked_section() {
+  awk '
+    # how many times ch repeats at the start of str; an empty line has no first character, so 0
+    function run(str, ch,   n) { n = 0; if (ch == "") return 0; while (n < length(str) && substr(str, n + 1, 1) == ch) n++; return n }
+    {
+      line = $0
+      sub(/^[ \t]+/, "", line)
+      c = substr(line, 1, 1)
+      n = run(line, c)
+      if (fch != "") {
+        if (c == fch && n >= flen && substr(line, n + 1) ~ /^[ \t]*$/) fch = ""
+        next
+      }
+      if ((c == "`" || c == "~") && n >= 3 && (c == "~" || index(substr(line, n + 1), "`") == 0)) {
+        fch = c; flen = n; next
+      }
+      if (tolower(line) ~ /^[>#*_ -]*blocked on you/) seen = 1
+      if ($0 ~ /^[#*_[:space:]]*BLOCKED ON YOU[*_:[:space:]]*$/) { on = 1; next }
+      if (on && $0 ~ /^(#+[[:space:]]|[*_]*Next action|[#*_[:space:]]*READY TO MERGE)/) on = 0
+      if (on && $0 ~ /^[*_]*[0-9]+[.)][*_]* /) print "Q " $0
+    }
+    END { if (seen) print "SEEN" }'
+}
+
+# The turn's earlier text from the transcript: the latest assistant text since the turn's first record (a user
+# record that is not a tool result) that mentions BLOCKED ON YOU. Empty when the turn does not start in the
+# transcript's last 4 MB, so an older turn's questions are never taken for this one's.
+earlier_turn_text() {
+  [ -n "$transcript" ] && [ -f "$transcript" ] || return 0
+  # a tail that starts inside a record drops that partial first line
+  if [ "$(wc -c < "$transcript")" -gt 4000000 ]; then
+    tail -c 4000000 "$transcript" 2> /dev/null | sed 1d
+  else
+    cat "$transcript"
+  fi | jq -rs '
+    (map(.type == "user"
+      and (((.message.content | type) == "string")
+        or ([.message.content[]?.type] | index("tool_result") | not)))
+     | indices(true) | last) as $start
+    | if $start == null then empty else
+        .[$start + 1:]
+        | map(select(.type == "assistant") | .message.content[]? | select(.type == "text") | .text)
+        | map(select(test("BLOCKED ON YOU"; "i"))) | last // empty
+      end' 2> /dev/null
+}
+
 if [ "$event" = Stop ]; then
-  # The questions are the numbered lines ("1. ", "**1. **", "1) ") at the start of a line after a line that
-  # reads BLOCKED ON YOU, with any heading or bold marks, up to the next heading ("# " to "###### "),
-  # READY TO MERGE or Next action line. Fenced code (``` or ~~~ on a line of its own) is skipped, so an
-  # example pushes nothing. A line that starts with the heading but yields no question is a format the hook
-  # cannot read, and is said rather than dropped.
-  parsed=$(field last_assistant_message | awk '
-    /^[[:space:]]*(```|~~~)[A-Za-z0-9_+-]*[[:space:]]*$/ { fence = !fence; next }
-    fence { next }
-    /^[#*_[:space:]]*BLOCKED ON YOU/ { seen = 1 }
-    /^[#*_[:space:]]*BLOCKED ON YOU[*_:[:space:]]*$/ { on = 1; next }
-    on && /^(#+[[:space:]]|[*_]*Next action|[#*_[:space:]]*READY TO MERGE)/ { on = 0 }
-    on && /^[*_]*[0-9]+[.)][*_]* / { print "Q " $0 }
-    END { if (seen) print "SEEN" }')
+  parsed=$(field last_assistant_message | blocked_section)
+  earlier=""
+  if [ -z "$parsed" ]; then
+    parsed=$(earlier_turn_text | blocked_section)
+    [ -z "$parsed" ] || earlier=" (written before the turn's last tool call)"
+  fi
   [ -n "$parsed" ] || exit 0
   questions_text=$(printf '%s\n' "$parsed" | sed -n 's/^Q //p')
   questions=$(printf '%s' "$questions_text" | grep -c . || true)
@@ -92,7 +140,7 @@ fi
 if [ -n "$transcript" ] && [ -f "$transcript" ]; then
   titles=$(tail -c "$TITLE_SCAN_BYTES" "$transcript" 2> /dev/null | grep -E '"type":"(custom-title|ai-title)"' 2> /dev/null)
   name=$(printf '%s\n' "$titles" | grep -F '"type":"custom-title"' | tail -n 1 | jq -r '.customTitle // empty' 2> /dev/null)
-  [ -n "$name" ] || name=$(printf '%s\n' "$titles" | tail -n 1 | jq -r '.aiTitle // empty' 2> /dev/null)
+  [ -n "$name" ] || name=$(printf '%s\n' "$titles" | grep -F '"type":"ai-title"' | tail -n 1 | jq -r '.aiTitle // empty' 2> /dev/null)
 fi
 [ -n "$name" ] || name="$(basename "${cwd:-$PWD}") ${sid:0:8}"
 # an AI title is generated from the conversation, so it is cut short and stripped of control characters
@@ -119,7 +167,7 @@ case "$type" in
 esac
 
 topic=$(first_line "$TOPIC_FILE")
-[ -n "$topic" ] || not_sent "not sent: no topic in $TOPIC_FILE"
+[ -n "$topic" ] || not_sent "not sent: no topic file (docs/DEV_SETUP.md §16)"
 [[ $topic =~ ^[A-Za-z0-9_-]{1,64}$ ]] \
   || not_sent "not sent: the topic file's first line is not a plain ntfy topic (letters, digits, - and _)"
 token=$(first_line "$TOKEN_FILE")
@@ -135,12 +183,12 @@ code=$(printf '%s\n' "$config" \
 rc=$?
 [[ $code =~ ^[0-9]{3}$ ]] || code=none
 if [ "$rc" -eq 0 ]; then
-  log "sent"
+  log "sent${earlier:-}"
   [ "$event" = Stop ] && printf '%s' "$digest" > "$mark_file" 2> /dev/null
   exit 0
 fi
 hint=""
 if [ -z "$token" ] && [[ $code == 401 || $code == 403 ]]; then
-  hint="; a reserved topic needs the token file $TOKEN_FILE"
+  hint="; a reserved topic needs the token file (docs/DEV_SETUP.md §16)"
 fi
 not_sent "push FAILED (curl exit $rc, HTTP $code)$hint"
