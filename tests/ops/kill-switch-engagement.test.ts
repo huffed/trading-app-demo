@@ -53,7 +53,7 @@ describe("kill-switch.sh, the crontab when its copy cannot be saved", () => {
     breakSave(host, "crontab.disabled");
     const run = runScript(host, "kill-switch.sh", ["test"]);
     expect(crontabGone(host.root)).toBe(true);
-    expect(run.stdout).toContain("install ops/crontab from the repo");
+    expect(run.stdout).toContain("once it reports no-saved-crontab, install ops/crontab as ops");
   });
 
   it("replaces an older copy whole when the save works", () => {
@@ -251,6 +251,7 @@ describe("each script carries on through a dropped session's signals", () => {
     mark(host, "send-signal", signal);
     expect(runScript(host, "kill-switch.sh", ["test"]).stdout).toContain("KILL_RESULT=OK");
     expect(ledger(host)).toContain(" KILL reason=test");
+    expect(hostLog(host, "signals.log")).toMatch(new RegExp(`^signalled ${signal} [0-9]+$`, "m"));
   });
 
   it.each(["HUP", "INT", "PIPE"])("resume.sh finishes after SIG%s", (signal) => {
@@ -258,11 +259,13 @@ describe("each script carries on through a dropped session's signals", () => {
     writeTicks(host);
     mark(host, "send-signal", signal);
     expect(runScript(host, "resume.sh").stdout).toContain("RESUME_RESULT=OK");
+    expect(hostLog(host, "signals.log")).toMatch(new RegExp(`^signalled ${signal} [0-9]+$`, "m"));
   });
 
   it.each(["HUP", "INT", "PIPE"])("unpause.sh finishes after SIG%s", (signal) => {
     const host = makeHost({ saved: [A], mirroringOn: [false] });
     mark(host, "send-signal", signal);
     expect(runScript(host, "unpause.sh").stdout).toContain("UNPAUSE_RESULT=OK");
+    expect(hostLog(host, "signals.log")).toMatch(new RegExp(`^signalled ${signal} [0-9]+$`, "m"));
   });
 });

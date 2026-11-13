@@ -14,7 +14,10 @@ if [ -e "$FAKE_HOST/send-signal" ]; then
     esac
     pid=$(ps -o ppid= -p "$pid" 2> /dev/null | tr -d ' ')
   done
-  [ -n "$script" ] && kill -"$sig" "$script"
+  if [ -n "$script" ]; then
+    printf 'signalled %s %s\n' "$sig" "$script" >> "$FAKE_HOST/signals.log"
+    kill -"$sig" "$script"
+  fi
   kill -"$sig" $$
 fi
 case "$1" in

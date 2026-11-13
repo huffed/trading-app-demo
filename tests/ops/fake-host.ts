@@ -7,7 +7,7 @@
  * reaches the VPS, Supabase or ntfy.
  */
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
@@ -36,6 +36,8 @@ export interface HostSeed {
   stillPaused?: string[];
   /** An earlier saved crontab, kept from an older engagement. */
   savedCrontab?: string;
+  /** The kill switch's engagement marker, kill-switch.engaged. */
+  engaged?: boolean;
 }
 
 export interface RunResult {
@@ -51,7 +53,12 @@ const FAKES = resolve(process.cwd(), "tests/ops/fixtures/fake-host");
 const CRONTAB = "*/5 * * * * manage\n*/15 * * * * scan\n";
 
 const rows = (ids: string[]): string => JSON.stringify(ids.map((id) => ({ id })));
-const LISTS = ["kill-switch.paused-ids", "kill-switch.flatten-ids", "kill-switch.broker-failed"];
+const LISTS = [
+  "kill-switch.engaged",
+  "kill-switch.paused-ids",
+  "kill-switch.flatten-ids",
+  "kill-switch.broker-failed",
+];
 
 function seedDatabase(root: string, seed: HostSeed): void {
   writeFileSync(join(root, "active.json"), rows(seed.active ?? []));
@@ -76,6 +83,7 @@ function seedState(state: string, seed: HostSeed): void {
   if (seed.savedCrontab !== undefined) {
     writeFileSync(join(state, "crontab.disabled"), seed.savedCrontab);
   }
+  if (seed.engaged) writeFileSync(join(state, "kill-switch.engaged"), "");
 }
 
 export function makeHost(seed: HostSeed = {}): FakeHost {
@@ -116,7 +124,12 @@ export function failCall(host: FakeHost, name: string, code = ""): void {
   writeFileSync(join(host.root, `fail-${name}`), code);
 }
 
-/** Touches a marker file the stand-ins read: flatten-http, keep-open-<id>, send-signal, flatten-<id>.json. */
+/** Lets a call that failCall broke work again, as when the database comes back. */
+export function clearFail(host: FakeHost, name: string): void {
+  rmSync(join(host.root, `fail-${name}`), { force: true });
+}
+
+/** Touches a marker file the stand-ins read: flatten-http, flatten-lost, keep-open-<id>, send-signal, flatten-<id>.json. */
 export function mark(host: FakeHost, name: string, content = ""): void {
   writeFileSync(join(host.root, name), content);
 }
