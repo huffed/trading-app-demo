@@ -63,7 +63,7 @@ Approved 2026-10-31 (questions 2 and 3) and designed in `docs/decisions/0007-nod
 ## D.6 Backups with a tested restore — designed in decision 0011 and `docs/runbooks/d6-backups.md`; installed 2026-11-07, restore drilled 2026-11-07 to 11-10 (ledger row `2026-11-07T16:42Z`)
 
 - **Recorded 2026-11-06:** Supabase Pro, daily backups, 7-day retention, backups listed 26 October to 2 November, read 2 November 2026. Storage Box `u708205`, Falkenstein, SSH only, external reachability off, daily snapshots on; sub-account `u708205-sub1`, base directory `quanttrader`.
-- The list below is the original plan. Decision 0011 replaces its table list (whole `public` plus two `auth` tables) and its `tests/contracts/` check (row counts). Drill (b), the throwaway VPS, is not done; the operator scheduled it for the next window, if D.6 is clean.
+- The list below is the original plan. Decision 0011 replaces its table list (whole `public` plus two `auth` tables) and its `tests/contracts/` check (row counts). Drill (b), the throwaway VPS, is not done; the operator scheduled it for 14–15 November if D.6 was clean, then took it out of that window on 2026-11-13 (window section below).
 
 - **Data:** Supabase Pro daily backups — confirm retention in the dashboard (operator). Add an independent nightly `pg_dump` of the operational tables (`algorithms`, `paper_positions`, `activity_log`, `llm_decisions`, `broker_connections` encrypted at rest with `age`) to a destination outside the VPS. Options: Hetzner Storage Box (~€3.5/month) or Hetzner Object Storage; budget within the £150 ceiling. `price_cache` is excluded (rebuildable from pins).
 - **Host:** everything that is not data lives in the repo after D.1/D.2 (`ops/`), except `.env.local`, which the operator holds; the deploy key is regenerable.
@@ -73,7 +73,7 @@ Approved 2026-10-31 (questions 2 and 3) and designed in `docs/decisions/0007-nod
 
 - **Hetzner Cloud firewall** (console or `hcloud` with an API token the operator creates): inbound 22/tcp and Tailscale's 41641/udp only. Second layer under ufw.
 - **`main`:** absent on the remote (verified 2026-10-31; the local `main` is an old ancestor of `dev`). Approved (question 5): the first `make deploy` creates it as the production pointer and every verified deploy moves it (decision 0005).
-- **sudoers narrowing:** the next window, after D.6 (D-23, and the window section below).
+- **sudoers narrowing:** after D.6; in the 14–15 November window only if its PR is review-clean by Saturday 09:00 UK, otherwise the window after (D-23, and the window section below).
 
 ## Window of 7 and 8 November 2026 (approved by the operator 2026-11-06)
 
@@ -121,29 +121,47 @@ A count above 0 means reading those lines in your own terminal, deciding whether
 ## Window of 14 and 15 November 2026 (operator, 2026-11-13)
 
 This replaces the list above.
-- Every host command prompts (#333) and runs only when the operator asks. Each step gets a ledger row in `docs/decisions/deploys.md` in the next PR.
+- Every host command below is written in its plain form, which prompts (#333); D-37 lists spellings that still get past the text check, and none is used here. Each runs only when the operator asks. Each step gets a ledger row in `docs/decisions/deploys.md` in the next PR.
 - Nothing starts before Friday 22:00 UK. Anything unfinished by Sunday 18:00 UK waits a week.
-- Sudoers (D-23) and the D-35 scripts run only if their PRs are reviewed by Saturday 09:00 UK. Neither PR existed when this plan was written, so both are planned for the next window.
-- Drill (b) is not in this window.
+- Sudoers (D-23) and the D-35 scripts run only if their PRs are review-clean by Saturday 09:00 UK. Neither PR existed on 2026-11-13. If one is ready in time, a follow-up commit adds its step here: sudoers after step 4, whose `sudo -n install` it may refuse; the D-35 scripts with a paper re-test of the kill switch (D-35). Otherwise both go to the next window.
+- Drill (b) is not in this window (operator, 2026-11-13).
+- Off the host: the operator makes the second offline copy of the age key this weekend and tells the session (D-40).
 
 | # | When | Step | Changes on the host | Rollback |
 |---|---|---|---|---|
-| 1 | Sat | Pre-flight: `make status`, the nights since 10 November (`make logs LOG=backup N=40`) and the daily summaries (`make logs LOG=ops-health N=6`) | Nothing | None needed |
-| 2 | Sat | `make deploy` of `dev`, after the check below | Checkout, install, build, one restart, commit records, `main`. The installed backup script does not change here. | `make deploy REF=2a7d7f7210de` |
-| 3 | Sat | 9b, the firewall: the operator adds the Hetzner firewall (22/tcp, 41641/udp) in the Cloud console | Nothing on the host; the firewall sits outside it | Detach the firewall in the console |
+| 1 | Sat | Pre-flight: `make status`, the nights since 10 November (`make logs LOG=backup N=50`) and the daily summaries (`make logs LOG=ops-health N=8`); pass criteria below | Nothing | None needed |
+| 2 | Sat | `make deploy REF=<commit>` of the `dev` commit the check below printed | Checkout, install, build, one restart, commit records, `main`. The installed backup script does not change here. | `make deploy REF=2a7d7f7210de` |
+| 3 | Sat | 9b, the firewall: the operator adds the Hetzner firewall (22/tcp, 41641/udp) in the Cloud console, then checks it as below | Nothing on the host; the firewall sits outside it | Detach the firewall in the console |
 | 4 | Sat | `PGSSLMODE=verify-full` for the backup job: `docs/runbooks/d6-backups.md`, section "`verify-full`", run from a workstation checkout of `origin/dev` | The installed `backup.sh` and the CA file under `/usr/local/lib/quanttrader/`; one night run by hand | The runbook's rollback |
-| 5 | Sat or Sun | Clean-ups: the copies the D.6 install and step 4 left in `/tmp`, and the kill switch's saved crontab from the 7 November re-test | Up to seven files in `/tmp` and one in `/var/lib/quanttrader/` removed | None needed: each is a copy of a file in the repo or of the live crontab |
+| 5 | Sat or Sun, after steps 2 and 4 | Clean-ups: the files the D.6 install and step 4 left in `/tmp`, and the kill switch's saved crontab from the 7 November re-test | Up to seven files in `/tmp` and one in `/var/lib/quanttrader/` removed | None needed: each is a copy of a file in the repo, the install's apt output, or the re-test's 11-entry crontab |
 | 6 | Sun, after the logrotate timer's run | Rotation check: `backup.log`'s first weekly rotation | Read-only | None needed |
 
-**Step 2, before the deploy, on the workstation.** An empty result means no app file changes; on 2026-11-13 it was empty for `dev` at `a6ba8de`. If it is not empty, stop: the deploy then changes the app, and that is a different step.
+**Step 2, before the deploy, on the workstation.** The first command prints the commit to deploy; the second lists every file that commit changes since the live `2a7d7f7210de` outside the docs, the tests, the Claude Code and CI config, the host's ops files and scripts (reviewed with their own steps), Markdown, `*.example` and the workstation's Makefile. An empty list means the deploy changes no app, engine or cron file; on 2026-11-13 it was empty for `dev` at `a6ba8de`. If it is not empty, stop and tell the session: the deploy may change the app, and that is a different step. Then deploy exactly that commit, so a merge after the check is not deployed unchecked.
 
 ```bash
-git fetch origin && git diff --stat 2a7d7f7210de origin/dev -- src supabase package.json pnpm-lock.yaml
+git fetch origin && git rev-parse --short=12 origin/dev
+git diff --stat 2a7d7f7210de origin/dev -- . ':(exclude)docs' ':(exclude)tests' ':(exclude).claude' ':(exclude).github' ':(exclude)ops' ':(exclude)scripts/ops' ':(exclude)*.md' ':(exclude)*.example' ':(exclude)Makefile'
+make deploy REF=<the commit the first command printed>
 ```
 
-**Step 5, read first, then remove only what the read shows.**
-- `/tmp/backup.sh` and `/tmp/prod-ca-2021.crt` are step 4's copies. The other five are from the D.6 install of 7 November (`/tmp/quanttrader` is the logrotate file).
-- A file the read shows as owned by root needs `sudo -n rm -f`.
+**Step 3, after attaching the firewall.** A shared connection opened before the firewall can outlive a rule that drops SSH, so end it first, then check on a new connection. Pass: `make status` answers, and the dashboard opens over the tailnet. The result goes in the ledger row.
+
+```bash
+ssh -O exit -o ControlPath=~/.ssh/qt-make-%C qt
+make status
+```
+
+**Step 1 passes when:**
+- `make status` shows the service `active (enabled)`, the checkout, the live and the verified commit all `2a7d7f7210de`, `ops 12 entries; root 0 entries`, and an `http=200` scan, manage and heartbeat tick;
+- the backup log has an `OK nightly/<date>` line for each night from 11 to 14 November and no `FAILED`;
+- the latest daily summary shows `held-by-kill-switch=0`, `crons=12` and a `backup=` of the night before.
+
+Anything else: stop and tell the session.
+
+**Step 5, after steps 2 and 4, read first, then remove only what the read shows.**
+- Six files are from the D.6 install of 7 November (`docs/decisions/deploys.md` counts six copies): the five its `scp` sent, `/tmp/quanttrader` being the logrotate file, and `/tmp/d6-apt.log`, the output of its `apt-get install`. Step 4 copies `/tmp/backup.sh` again and adds `/tmp/prod-ca-2021.crt`.
+- Expect the owner `ops` and the dates of 7 November and of step 4. A file the read shows as owned by root needs `sudo -n rm -f`.
+- If step 4 stopped, keep `/tmp/backup.sh` and `/tmp/prod-ca-2021.crt`: they are what it stopped on.
 - Leave `/tmp/quanttrader-m1-band.state`: it is the M1 band check's live state (D-38).
 
 ```bash
@@ -151,20 +169,20 @@ ssh qt 'ls -l /tmp/age-recipient.txt /tmp/backup.sh /tmp/crontab /tmp/d6-apt.log
 ssh qt 'rm -f /tmp/age-recipient.txt /tmp/backup.sh /tmp/crontab /tmp/d6-apt.log /tmp/ops-health.sh /tmp/quanttrader /tmp/prod-ca-2021.crt'
 ```
 
-**The saved crontab.** `/var/lib/quanttrader/crontab.disabled` is the kill switch's copy from the 7 November re-test. Today it changes nothing:
+**The saved crontab.** `/var/lib/quanttrader/crontab.disabled` is the kill switch's copy from the 7 November re-test, the crontab of 11 entries the host had then (`docs/decisions/deploys.md`). Today it changes nothing:
 - the switch overwrites it whenever the live crontab is non-empty (`scripts/ops/kill-switch.sh:97-100`);
 - `deploy.sh` reads the switch as engaged only when the copy exists and the crontab is empty (`scripts/ops/deploy.sh:95`).
 
-But `make resume` restores from it (`scripts/ops/resume.sh:71`). If the crontab were ever emptied by anything but the switch, a resume would install the 7 November copy. Remove it only if the first command prints `12` and `SAME`; otherwise stop and tell the session.
+But `make resume` restores from it when no algorithm is active (`scripts/ops/resume.sh:70-72`). If the crontab were ever emptied by anything but the switch, a resume would install the 7 November copy. Remove it only if the first command prints `12` and `SAME`; otherwise stop and tell the session. Both need step 2: before it, the checkout's `ops/crontab` is the 11-entry file of `2a7d7f7`, so the check stops, safely.
 
 ```bash
 ssh qt 'crontab -l | grep -c "^[0-9*]"; crontab -l | diff - /opt/quanttrader/ops/crontab && echo SAME'
 ssh qt 'rm -f /var/lib/quanttrader/crontab.disabled'
 ```
 
-**Step 6.** Run it after the logrotate timer has run on Sunday; the 10 November read showed that timer at 00:42 to 00:46 UTC.
-- Expect `backup.log.1` dated 15 November.
-- If it is not there, the status line shows when logrotate first saw the file. Report it and change nothing.
+**Step 6.** Run it after the logrotate timer has run on Sunday. Its time varies: the ledger shows runs from about 00:00 to 00:46 UTC, and the command's first line shows the last run.
+- Expect `backup.log.1`, whose time is its last write before the rotation (Saturday 14 November, step 4's run by hand or the 02:22 UTC night), because a rename keeps the time; a new, empty `backup.log` (`create 0644 ops ops`); and logrotate's status line for `backup.log` dated 2026-11-15. The timer's LAST column must show Sunday.
+- If `backup.log.1` is not there, the status line shows when logrotate first saw the file. Report it and change nothing.
 
 ```bash
 ssh qt 'systemctl list-timers logrotate.timer --no-pager | sed -n 2p; ls -l --time-style=+%FT%T /var/log/quanttrader/backup.log*; grep backup.log /var/lib/logrotate/status'

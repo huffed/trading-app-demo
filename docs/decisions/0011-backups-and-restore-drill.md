@@ -43,7 +43,7 @@ The approval of 2026-10-31 asked for host config, env files encrypted at rest wi
 - Egress: the dump goes through the pooler, which counts as egress. At the database's 335 MB, 31 nights is at most about 10 GB a month against Pro's 250 GB, so about 4%, with overage at $0.09 per GB (Supabase's docs, read 2026-11-06). This is recorded because the project hit an egress quota on the free tier in October.
 - A 30-day silent outage followed by one good night would prune the older nights. The daily summary alarms on the second day and the box keeps its own snapshots, so that is accepted.
 - This repo is public, and `DEV_SETUP.md` says nothing host-identifying goes in it. The Storage Box name and sub-account are written in on the operator's instruction of 2026-11-06, as a recorded exception: the box accepts only Hetzner hosts and only this key.
-- The plan's second drill, a throwaway VPS provisioned from `ops/`, is not part of this decision and has not been run. It proves the host can be rebuilt, not that a backup restores. The operator scheduled it for the next window, 14 and 15 November, if D.6 is clean (2026-11-06).
+- The plan's second drill, a throwaway VPS provisioned from `ops/`, is not part of this decision and has not been run. It proves the host can be rebuilt, not that a backup restores. The operator scheduled it for the next window, 14 and 15 November, if D.6 is clean (2026-11-06), then took it out of that window (2026-11-13); it is not scheduled.
 
 ## Evidence
 
