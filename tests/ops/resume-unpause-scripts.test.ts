@@ -41,7 +41,8 @@ describe("resume.sh", () => {
   });
 
   it("keeps the crontab off while an algorithm is active", () => {
-    const host = makeHost({ active: [A], crontab: false });
+    // as the switch leaves it: the service stopped (a running one with no engagement open is resume.sh's crontab-off)
+    const host = makeHost({ active: [A], crontab: false, service: "inactive" });
     saveCrontab(host);
     const run = runScript(host, "resume.sh");
     expect(run.stdout).toContain("RESUME_RESULT=PARTIAL");

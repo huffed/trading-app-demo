@@ -36,6 +36,7 @@ engaged=0
 # and the ledger, in case the marker could not be written: a KILL line after the last UNPAUSE line
 grep -E ' (KILL|UNPAUSE) ' "$LEDGER" 2> /dev/null | tail -n 1 | grep -q ' KILL ' && engaged=1
 healthy=0
+on_purpose=0
 if sudo -n systemctl enable --now quanttrader; then log "service enabled and started"; else errors+=("start-service"); log "systemctl enable --now FAILED"; fi
 code=000
 for _ in $(seq 1 45); do
@@ -97,6 +98,11 @@ elif [ "$active_n" = 0 ]; then
   fi
 elif [ "$active_n" = "?" ]; then
   log "the crontab stays off until the active-algorithm check can run: fix the database connection, then make resume again"
+elif [ "$service_before" = active ] && [ "$engaged" = 0 ]; then
+  # an engine already running with no engagement open, as after make unpause before resume restored the crontab:
+  # these algorithms are active on purpose, and the switch would flatten them
+  on_purpose=1; errors+=("crontab-off")
+  log "$active_n algorithm(s) are active and the crontab is off, but the service was already running and no kill-switch engagement is open (as after make unpause before resume restored the crontab): do not run make kill-switch; install the crontab as ops ($STATE/crontab.disabled if it matches ops/crontab, else ops/crontab: runbook, Rollback)"
 else
   errors+=("algorithms-active:$active_n"); log "$active_n algorithm(s) are ACTIVE — the switch did not pause them; the crontab stays off: run make kill-switch again, then make resume"
 fi
@@ -122,8 +128,9 @@ else
 fi
 
 service_state=$(systemctl is-active quanttrader 2> /dev/null || true)
-case "$healthy:$active_n" in
-  1:*) paused_note="$active_n active: the engine was already running, no engagement open" ;;
+case "$healthy$on_purpose:$active_n" in
+  10:*) paused_note="$active_n active: the engine was already running, no engagement open" ;;
+  01:*) paused_note="$active_n active on purpose, crontab off: install it, do not run make kill-switch" ;;
   *:0) if [ "$crons_n" != 0 ]; then paused_note="still paused: make unpause"; else paused_note="still paused; crontab not restored"; fi ;;
   *:"?") paused_note="not checked: algorithms may be active" ;;
   *) paused_note="$active_n ACTIVE, not paused: read the runbook before make kill-switch" ;;
