@@ -17,7 +17,13 @@
 
 In this order. The live-path test goes first because every later item proves itself with it, formatting next so later diffs are readable, the other characterisation tests before anything moves money-path code, and names before structure.
 
-### E0. The live-path test (D-05)
+### E0. The live-path test (D-05) — not blocked by the verdict
+
+**Not blocked by the verdict** (operator, 2026-11-13; decision 0014). E0's PRs may land before `review/VERDICT.md`, under four conditions:
+- they add or change test files only, in `tests/`, with no non-test line;
+- they change nothing under a fenced path;
+- they use fixtures and stubs only, and pinned data, never the live tables, a broker or the network;
+- a known defect they expose is an `it.fails` that points at the audit or a DEBT id.
 
 Tests only, in `tests/characterisation/`, no production change. The rules above rest on this test, because the golden replay cannot see the live engine. Entry points: `scan/engine.ts` `scanAlgorithm`, `scan/manage.ts` `manageActiveAlgorithms`, and `api/cron/scan-active-algorithms/route.ts`, where `applyPortfolioHalts` runs the portfolio halt. One scenario per path with the database, price feed and broker stubbed: an entry, a stop, a target, a stagnant exit, each halt and a flatten, pinning the size, the rows written and the activity events. The database stub checks each column against the accepted list parsed from the migrations, the way `tests/contracts/db-check-constraints.test.ts` does, with its `checkListFor` exported for this. A stub that accepts everything would pin `daily_loss_halt` as closing a row: `paper_positions.exit_reason` refuses it, while `activity_log.event_type` accepts it. Proof: tests pass against unchanged code.
 
