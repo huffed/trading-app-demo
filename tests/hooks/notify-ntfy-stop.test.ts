@@ -6,9 +6,11 @@
  */
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanupRoots, run, TOPIC } from "./notify-ntfy-harness";
 
+// Each case runs the real hook, some several times; under a loaded machine 5 s is too short.
+vi.setConfig({ testTimeout: 20_000 });
 afterEach(cleanupRoots);
 
 const BLOCKED = [
@@ -193,6 +195,26 @@ describe("notify-ntfy hook: questions written before the turn's last tool call",
     ];
     const r = run({ ...STOP, last_assistant_message: later }, { transcript });
     expect(r.curl).toContain("BLOCKED ON YOU: 2 question(s)]");
+  });
+
+  it("finds them when the last text starts with Blocked on you, or holds a fenced example", () => {
+    for (const later of [
+      "Blocked on you for the two questions above; the review runs meanwhile.",
+      ["For example:", "```", "**BLOCKED ON YOU**", "1. An example", "```"].join("\n"),
+    ]) {
+      const transcript = turn(prompt, said(BLOCKED), toolCall, toolResult, said(later));
+      const r = run({ ...STOP, last_assistant_message: later }, { transcript });
+      expect(r.curl).toContain("BLOCKED ON YOU: 2 question(s)]");
+    }
+  });
+
+  it("does not take Blocked on your answer for the heading", () => {
+    const r = run({
+      ...STOP,
+      last_assistant_message: "Blocked on your answer to the window plan.",
+    });
+    expect(r.stdout).toBe("");
+    expect(r.log).toBe("");
   });
 
   it("never takes an earlier turn's questions for this one's", () => {
