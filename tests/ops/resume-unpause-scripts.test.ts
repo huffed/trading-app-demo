@@ -3,8 +3,8 @@
  * service and the crons back and leaves the algorithms paused; un-pause is the operator's act and ends
  * the engagement. Pins D-24 (the ledger) and the mirroring state decision 0010 asks for.
  */
-import { existsSync, readFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import {
   breakLedger,
@@ -14,7 +14,6 @@ import {
   ledger,
   listsLeft,
   makeHost,
-  mark,
   runScript,
   saveCrontab,
   savedIds,
@@ -61,13 +60,6 @@ describe("resume.sh", () => {
     expect(existsSync(join(host.root, "crontab"))).toBe(false);
   });
 
-  it("finishes after a dropped ssh session", () => {
-    const host = makeHost({ crontab: true });
-    writeTicks(host);
-    mark(host, "send-hup");
-    expect(runScript(host, "resume.sh").stdout).toContain("RESUME_RESULT=OK");
-  });
-
   it("a failed ledger append is an error, and a second push says so", () => {
     const host = makeHost({ crontab: true });
     writeTicks(host);
@@ -81,7 +73,7 @@ describe("resume.sh", () => {
 
 describe("resume.sh with the crontab already installed (D-28)", () => {
   it("reports an error while algorithms are active and the crontab is installed (D-28)", () => {
-    const host = makeHost({ active: [A], crontab: true });
+    const host = makeHost({ active: [A], crontab: true, service: "inactive" });
     writeTicks(host);
     const run = runScript(host, "resume.sh");
     expect(run.status).toBe(1);
@@ -95,7 +87,7 @@ describe("resume.sh with the crontab already installed (D-28)", () => {
   });
 
   it("stops nothing and does not wait for ticks when it finds them active (D-28)", () => {
-    const host = makeHost({ active: [A], crontab: true });
+    const host = makeHost({ active: [A], crontab: true, service: "inactive" });
     writeTicks(host);
     const run = runScript(host, "resume.sh");
     expect(run.stdout).toContain("tick verification skipped");
@@ -128,7 +120,9 @@ describe("unpause.sh", () => {
     const host = makeHost({ saved: [A, B], mirroringOn: [false, true] });
     const run = runScript(host, "unpause.sh");
     expect(run.stdout).toContain("UNPAUSE_RESULT=OK");
-    expect(ledger(host)).toMatch(/ UNPAUSE algorithms=2 of 2 saved mirroring=1\/2\n$/);
+    expect(ledger(host)).toMatch(
+      / UNPAUSE algorithms=2 of 2 saved left_paused=0 broker_failed_cleared=0 broker_unknown_cleared=0 mirroring=1\/2\n$/
+    );
     expect(listsLeft(host)).toEqual([]);
   });
 
@@ -145,7 +139,9 @@ describe("unpause.sh", () => {
   it("records the mirroring state of the saved ids when the rows were already active", () => {
     const host = makeHost({ saved: [A], mirroringOn: [true], alreadyActive: true });
     runScript(host, "unpause.sh");
-    expect(ledger(host)).toMatch(/ UNPAUSE algorithms=0 of 1 saved mirroring=1\/1\n$/);
+    expect(ledger(host)).toMatch(
+      / UNPAUSE algorithms=0 of 1 saved left_paused=0 .* mirroring=1\/1\n$/
+    );
   });
 
   it("writes result=unknown and keeps the list when the PATCH fails, because it may have committed", () => {
@@ -174,10 +170,5 @@ describe("unpause.sh", () => {
     const run = runScript(host, "unpause.sh");
     expect(run.status).toBe(1);
     expect(ledger(host)).toBe("");
-  });
-
-  it("ignores a dropped ssh session, as the other two do", () => {
-    const source = readFileSync(resolve(process.cwd(), "scripts/ops/unpause.sh"), "utf8");
-    expect(source).toContain("trap '' HUP INT PIPE");
   });
 });

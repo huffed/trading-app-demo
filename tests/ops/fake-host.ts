@@ -1,8 +1,10 @@
 /**
  * Runs the real scripts/ops kill-switch scripts on a throwaway fake host: their absolute paths are
  * rewritten into a temporary directory and tests/ops/fixtures/fake-host puts stand-ins for curl,
- * crontab, systemctl, sudo, python3 and id first on PATH. The fake flatten route closes open rows, as
- * the real one does, so a test sees what is left. Nothing here reaches the VPS, Supabase or ntfy.
+ * crontab, systemctl, sudo, python3 and id first on PATH. Each script is fed to `bash -s` on stdin, as
+ * the make targets stream it over ssh, so a command that read the script's stdin would show here. The
+ * fake flatten route closes open rows, as the real one does, so a test sees what is left. Nothing here
+ * reaches the VPS, Supabase or ntfy.
  */
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
@@ -26,6 +28,14 @@ export interface HostSeed {
   env?: string;
   /** The un-pause PATCH finds nothing still paused: an earlier PATCH committed. */
   alreadyActive?: boolean;
+  /** The engagement's flatten list, kill-switch.flatten-ids. */
+  flattenIds?: string[];
+  /** Lines of the failed-broker list: "<id> <positions>", or "<id> ?" for a lost flatten answer. */
+  brokerFailed?: string[];
+  /** Which ids the un-pause finds still paused among the engagement's other targets. */
+  stillPaused?: string[];
+  /** An earlier saved crontab, kept from an older engagement. */
+  savedCrontab?: string;
 }
 
 export interface RunResult {
@@ -51,6 +61,21 @@ function seedDatabase(root: string, seed: HostSeed): void {
   writeFileSync(join(root, "mirroring.json"), JSON.stringify(mirroring));
   const changed = mirroring.length > 0 ? mirroring : [{ id: "x" }];
   writeFileSync(join(root, "unpause.json"), JSON.stringify(seed.alreadyActive ? [] : changed));
+  writeFileSync(join(root, "still-paused.json"), rows(seed.stillPaused ?? []));
+}
+
+function seedState(state: string, seed: HostSeed): void {
+  const lists: [string, string[] | undefined][] = [
+    ["kill-switch.paused-ids", seed.saved],
+    ["kill-switch.flatten-ids", seed.flattenIds],
+    ["kill-switch.broker-failed", seed.brokerFailed],
+  ];
+  for (const [name, list] of lists) {
+    if (list) writeFileSync(join(state, name), `${list.join("\n")}\n`);
+  }
+  if (seed.savedCrontab !== undefined) {
+    writeFileSync(join(state, "crontab.disabled"), seed.savedCrontab);
+  }
 }
 
 export function makeHost(seed: HostSeed = {}): FakeHost {
@@ -65,9 +90,7 @@ export function makeHost(seed: HostSeed = {}): FakeHost {
   if (seed.crontab ?? true) {
     writeFileSync(join(root, "crontab"), CRONTAB);
   }
-  if (seed.saved) {
-    writeFileSync(join(host.state, "kill-switch.paused-ids"), `${seed.saved.join("\n")}\n`);
-  }
+  seedState(host.state, seed);
   return host;
 }
 
@@ -93,7 +116,7 @@ export function failCall(host: FakeHost, name: string, code = ""): void {
   writeFileSync(join(host.root, `fail-${name}`), code);
 }
 
-/** Touches a marker file the stand-ins read: flatten-http, keep-open-<id>, send-hup, flatten-<id>.json. */
+/** Touches a marker file the stand-ins read: flatten-http, keep-open-<id>, send-signal, flatten-<id>.json. */
 export function mark(host: FakeHost, name: string, content = ""): void {
   writeFileSync(join(host.root, name), content);
 }
@@ -110,6 +133,11 @@ export function breakLedger(host: FakeHost): void {
 /** Makes a saved list unwritable, as a full disk does. */
 export function breakSave(host: FakeHost, list: string): void {
   mkdirSync(join(host.state, `${list}.new`));
+}
+
+/** Makes a list that is appended to unwritable: `>>` onto a directory fails. */
+export function breakAppend(host: FakeHost, list: string): void {
+  mkdirSync(join(host.state, list));
 }
 
 /** The crontab the kill switch saved, for resume to restore. */
@@ -129,16 +157,25 @@ export function runScript(host: FakeHost, script: string, args: string[] = []): 
     .replaceAll("/opt/quanttrader", join(host.root, "app"))
     .replaceAll("/var/log/quanttrader", host.logs)
     .replaceAll("/var/lib/quanttrader", host.state);
-  const path = join(host.root, script);
-  writeFileSync(path, source);
   const env: NodeJS.ProcessEnv = {
     ...process.env,
     FAKE_HOST: host.root,
     PATH: `${FAKES}:${process.env.PATH ?? ""}`,
   };
-  const run = spawnSync("bash", [path, ...args], { encoding: "utf8", env, input: "" });
+  // as `git show … | ssh qt 'bash -s'` runs it: the script is bash's stdin
+  const run = spawnSync("bash", ["-s", "--", ...args], { encoding: "utf8", env, input: source });
   return { status: run.status, stdout: run.stdout };
 }
+
+export const savedCrontab = (host: FakeHost): string => {
+  const path = join(host.state, "crontab.disabled");
+  return existsSync(path) ? readFileSync(path, "utf8") : "";
+};
+
+export const brokerList = (host: FakeHost): string => {
+  const path = join(host.state, "kill-switch.broker-failed");
+  return existsSync(path) ? readFileSync(path, "utf8") : "";
+};
 
 const readLog = (path: string): string => (existsSync(path) ? readFileSync(path, "utf8") : "");
 
