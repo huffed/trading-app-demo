@@ -43,6 +43,10 @@ case "$url" in
     fail unpause
     cat "$FAKE_HOST/unpause.json"
     ;;
+  *"/rest/v1/algorithms?id=in."*"&status=eq.paused&select=id")
+    fail still-paused
+    cat "$FAKE_HOST/still-paused.json"
+    ;;
   *"/rest/v1/algorithms?id=in."*"select=live_trading_enabled")
     fail mirroring
     cat "$FAKE_HOST/mirroring.json"

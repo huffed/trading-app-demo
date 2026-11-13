@@ -7,7 +7,8 @@
 #
 # Order — every step attempted even if an earlier one failed (fail closed), nothing here waits on
 # the database or the app before the schedulers are gone:
-#   1. disable the crontab (saved to /var/lib/quanttrader/crontab.disabled) — no new ticks;
+#   1. disable the crontab (saved to /var/lib/quanttrader/crontab.disabled; removed even when that copy
+#      cannot be written, because no new tick matters more than an exact restore) — no new ticks;
 #   2. pause every ACTIVE algorithm (Supabase REST, service role read from .env.local on the host);
 #      the ids are saved for `make unpause`, and while the crontab is already empty (the same
 #      engagement) they are merged with the ids a previous run saved;
@@ -15,11 +16,14 @@
 #      (kill-switch.flatten-ids, kept until `make unpause`), through the app's own
 #      /api/admin/flatten-algo route on loopback — paper rows, and the broker side of any position
 #      that carries a broker_position_id; a broker position that did not close is an error even though
-#      the route answers 200, in this run and in every later run until `make unpause`; after the app
-#      stops answering (connection refused / timeout) the remaining ids are skipped, not waited on;
+#      the route answers 200, in this run and in every later run until `make unpause`; so is a flatten
+#      whose answer was lost after it may have run (a timeout, a dropped reply, a 5xx, an unreadable 200),
+#      recorded as unknown; after the app stops answering (connection refused / timeout) the remaining
+#      ids are skipped, not waited on;
 #   4. stop AND disable the service (a reboot must not bring trading back);
 #   5. count every open position, split into those the switch targeted (open_after) and those it did
-#      not (open_untargeted, for example an algorithm alpha-decay paused), both errors; read their
+#      not (open_untargeted, for example an algorithm alpha-decay paused, whose ids it prints), both
+#      errors; read their
 #      mirroring state, alert (ntfy, urgent) and write a KILL line to /var/log/quanttrader/deploys.log
 #      that says exactly what succeeded and what did not.
 # Signals from a dropped ssh session are ignored, and every line is also appended to
@@ -68,12 +72,18 @@ def stuck(x):
     return s.startswith("broker-failed:") or (s=="paper-only" and x.get("broker_position_id"))
 print(len(r), sum(1 for x in r if stuck(x)))' 2> /dev/null
 }
-open_split() { # $1 target ids, stdin rows with algorithm_id → "<on a target> <on anything else>"
+open_split() { # $1 target ids, stdin rows with algorithm_id → "<on a target> <on anything else> [their algorithm ids]"
   python3 -c 'import json,sys
 t=set(sys.argv[1].split())
 r=json.load(sys.stdin)
 on=sum(1 for x in r if x["algorithm_id"] in t)
-print(on, len(r)-on)' "$1" 2> /dev/null
+print(on, len(r)-on, *sorted({x["algorithm_id"] for x in r if x["algorithm_id"] not in t}))' "$1" 2> /dev/null
+}
+# A flatten whose answer was lost may have closed paper rows whose broker close failed: the route closes the
+# paper row whatever the broker answered. So the id goes on the broker list as unknown (DEBT D-35).
+lost() { # $1 id
+  printf '%s ?\n' "$1" >> "$BROKER_FILE" 2> /dev/null || errors+=("save-broker-failed")
+  log "flatten for ${1:0:8}: its answer was lost after the route may have run; any broker close that failed is unknown, recorded in $BROKER_FILE"
 }
 mirroring_of() { # $1 comma list of ids → "<on>/<total>" algorithms with live_trading_enabled, "?" when unreadable
   local body
@@ -94,13 +104,27 @@ push() { # $1 text
 mkdir -p "$STATE" 2> /dev/null || true
 log "engaged by $REASON at $T0 on $(hostname)"
 
-# 1. no new ticks: disable the crontab (idempotent — an empty crontab keeps the saved copy)
+# 1. no new ticks: disable the crontab (idempotent — an empty crontab keeps the saved copy). The copy is written
+# beside the old one and moved over it, so a full disk never truncates an earlier copy, and the crontab goes even
+# when the copy fails: ops/crontab is in the repo (DEBT D-35).
 current=$(crontab -l 2> /dev/null || true)
 if [ -n "$current" ]; then
-  if printf '%s\n' "$current" > "$STATE/crontab.disabled" && crontab -r; then
-    crons=disabled; log "crontab disabled ($(grep -c '^[0-9*]' <<< "$current") entries saved to $STATE/crontab.disabled)"
+  if printf '%s\n' "$current" > "$STATE/crontab.disabled.new" 2> /dev/null && mv "$STATE/crontab.disabled.new" "$STATE/crontab.disabled" 2> /dev/null; then
+    saved=disabled; copy="$(grep -c '^[0-9*]' <<< "$current") entries saved to $STATE/crontab.disabled"
   else
-    crons=FAILED; errors+=("crontab"); log "crontab disable FAILED"
+    saved=disabled-unsaved
+    rm -f "$STATE/crontab.disabled.new" 2> /dev/null
+    errors+=("save-crontab")
+    if [ -s "$STATE/crontab.disabled" ]; then
+      copy="its copy NOT saved (full disk?): make resume would restore an OLDER copy, so compare $STATE/crontab.disabled with ops/crontab first"
+    else
+      copy="its copy NOT saved (full disk?) and there is none: before make resume, install ops/crontab from the repo as ops"
+    fi
+  fi
+  if crontab -r; then
+    crons=$saved; log "crontab disabled; $copy"
+  else
+    crons=FAILED; errors+=("crontab"); log "crontab disable FAILED; $copy"
   fi
 else
   crons=already-empty; log "crontab already empty"
@@ -145,7 +169,13 @@ if [ -n "$targets" ]; then
 fi
 
 # 3. flatten the positions of those algorithms through the app (paper rows + any broker side)
-earlier=$(grep -c . "$BROKER_FILE" 2> /dev/null || true)
+# the broker list from earlier runs: "<id> <positions not closed>", or "<id> ?" when a flatten's answer was lost
+earlier_n=0; earlier_unknown=0; earlier_ids=""
+if [ -f "$BROKER_FILE" ]; then
+  earlier_n=$(awk '$2 ~ /^[0-9]+$/ {n += $2} END {print n + 0}' "$BROKER_FILE" 2> /dev/null)
+  earlier_unknown=$(awk '$2 == "?" {print $1}' "$BROKER_FILE" 2> /dev/null | sort -u | grep -c . || true)
+  earlier_ids=$(awk '{print $1}' "$BROKER_FILE" 2> /dev/null | sort -u | paste -sd' ' - || true)
+fi
 CRON_SECRET=$(envval CRON_SECRET)
 if [ -z "$targets" ]; then
   flattened=SKIPPED; log "no algorithm ids to flatten (nothing active and nothing saved${errors:+; see errors})"
@@ -170,12 +200,15 @@ else
           fi
         else
           nfail=$((nfail + 1)); errors+=("flatten:${id:0:8}:unreadable"); log "flatten for ${id:0:8} answered 200 with an unreadable body"
+          lost "$id"
         fi
       else
         nfail=$((nfail + 1)); errors+=("flatten:${id:0:8}:http$code"); log "flatten for ${id:0:8} answered $code"
+        case "$code" in 5*) lost "$id" ;; esac # a 4xx refused before the route ran
       fi
     else
       rc=$?; nfail=$((nfail + 1)); errors+=("flatten:${id:0:8}:curl$rc"); log "flatten for ${id:0:8} failed (curl $rc)"
+      [ "$rc" = 7 ] || lost "$id" # a refused connection never reached the route; a timeout or a dropped reply may have
       case "$rc" in 7 | 28) skipped=1; log "the app is not answering; skipping the remaining ids" ;; esac
     fi
   done <<< "$targets"
@@ -197,8 +230,10 @@ fi
 service_state=$(systemctl is-active quanttrader 2> /dev/null || true)
 
 # 5. what is still open, then alert and record
-if [ "${earlier:-0}" != 0 ]; then
-  errors+=("broker-failed-earlier:$earlier"); log "$earlier broker position(s) an earlier run could not close may still be open: check the broker account; make unpause clears this"
+if [ "${earlier_n:-0}" != 0 ] || [ "${earlier_unknown:-0}" != 0 ]; then
+  [ "${earlier_n:-0}" = 0 ] || errors+=("broker-failed-earlier:$earlier_n")
+  [ "${earlier_unknown:-0}" = 0 ] || errors+=("broker-unknown-earlier:$earlier_unknown")
+  log "earlier runs could not close ${earlier_n:-0} broker position(s) and lost the flatten answer for ${earlier_unknown:-0} algorithm(s) ($earlier_ids): they may still be open, so check the broker account; make unpause clears this list and says what it held"
 fi
 mirroring=n/a
 if [ -n "$SB_URL" ] && [ -n "$SB_KEY" ]; then
@@ -207,9 +242,9 @@ if [ -n "$SB_URL" ] && [ -n "$SB_KEY" ]; then
     log "mirroring state of those algorithms (live_trading_enabled on/total): $mirroring"
   fi
   if body=$(sb_get "paper_positions?status=eq.open&select=algorithm_id") && counts=$(open_split "$targets" <<< "$body") && [ -n "$counts" ]; then
-    read -r open_after open_untargeted <<< "$counts"
+    read -r open_after open_untargeted untargeted_ids <<< "$counts"
     [ "$open_after" = 0 ] || { errors+=("open-after:$open_after"); log "$open_after position(s) still open on the targeted algorithms — resume, then run the switch again"; }
-    [ "$open_untargeted" = 0 ] || { errors+=("open-untargeted:$open_untargeted"); log "$open_untargeted open position(s) on algorithms the switch did not target, and nothing manages a paused algorithm's position — resume, then close them through the flatten route for that algorithm"; }
+    [ "$open_untargeted" = 0 ] || { errors+=("open-untargeted:$open_untargeted"); log "$open_untargeted open position(s) on algorithms the switch did not target ($untargeted_ids), and nothing manages a paused algorithm's position — resume, then close them through the flatten route for each of those algorithms"; }
   else
     errors+=("open-after-check"); log "could not count open positions (database unreachable?)"
   fi
