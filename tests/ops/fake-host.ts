@@ -43,6 +43,8 @@ export interface HostSeed {
 export interface RunResult {
   status: number | null;
   stdout: string;
+  /** The pid of the bash that ran the script, which a signal test checks was the one signalled. */
+  pid: number;
 }
 
 export const SERVICE_KEY = "service-key-value";
@@ -124,6 +126,16 @@ export function failCall(host: FakeHost, name: string, code = ""): void {
   writeFileSync(join(host.root, `fail-${name}`), code);
 }
 
+/** Removes a marker file that mark wrote. */
+export function unmark(host: FakeHost, name: string): void {
+  rmSync(join(host.root, name), { force: true });
+}
+
+/** Writes ledger lines, as earlier runs left them. */
+export function writeLedger(host: FakeHost, lines: string[]): void {
+  writeFileSync(join(host.logs, "deploys.log"), `${lines.join("\n")}\n`);
+}
+
 /** Lets a call that failCall broke work again, as when the database comes back. */
 export function clearFail(host: FakeHost, name: string): void {
   rmSync(join(host.root, `fail-${name}`), { force: true });
@@ -177,7 +189,7 @@ export function runScript(host: FakeHost, script: string, args: string[] = []): 
   };
   // as `git show … | ssh qt 'bash -s'` runs it: the script is bash's stdin
   const run = spawnSync("bash", ["-s", "--", ...args], { encoding: "utf8", env, input: source });
-  return { status: run.status, stdout: run.stdout };
+  return { status: run.status, stdout: run.stdout, pid: run.pid };
 }
 
 export const savedCrontab = (host: FakeHost): string => {

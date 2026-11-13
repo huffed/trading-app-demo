@@ -22,6 +22,8 @@ import {
   runScript,
   savedIds,
   SERVICE_KEY,
+  unmark,
+  writeLedger,
   writeTicks,
 } from "./fake-host";
 
@@ -91,8 +93,11 @@ describe("kill-switch.sh, failures on top of failures", () => {
     runScript(host, "kill-switch.sh", ["first"]);
     expect(brokerList(host)).toBe(`${A} ?\n`);
     runScript(host, "resume.sh");
+    // the route closed the paper rows the first time, so a second flatten finds nothing to answer about
+    unmark(host, "flatten-lost");
+    unmark(host, `flatten-${A}.json`);
     const again = runScript(host, "kill-switch.sh", ["second"]);
-    expect(again.stdout).toContain("broker-unknown-earlier:1");
+    expect(again.stdout).toContain("KILL_ERRORS=broker-unknown-earlier:1\n");
     expect(again.stdout).toContain("KILL_RESULT=PARTIAL");
     expect(ledger(host).trim().split("\n").at(-1)).toContain("open_after=0 ");
   });
@@ -140,5 +145,61 @@ describe("unpause.sh when a read or the ledger fails", () => {
     expect(argv).not.toContain(SERVICE_KEY);
     expect(argv).not.toContain(CRON_SECRET);
     expect(hostLog(host, "curl-stdin.log")).toContain(SERVICE_KEY);
+  });
+});
+
+describe("the second review's cases", () => {
+  it("says the restored copy is older after a failed save, also when a second run followed", () => {
+    const host = makeHost({ active: [A], savedCrontab: "*/5 * * * * manage\n" });
+    breakSave(host, "crontab.disabled");
+    writeTicks(host);
+    runScript(host, "kill-switch.sh", ["first"]);
+    runScript(host, "kill-switch.sh", ["second"]);
+    expect(runScript(host, "resume.sh").stdout).toContain("RESUME_ERRORS=older-crontab");
+  });
+
+  it("counts a broker line with no number as unknown, in the switch and in un-pause", () => {
+    const host = makeHost({ active: [A], brokerFailed: [A] });
+    expect(runScript(host, "kill-switch.sh", ["test"]).stdout).toContain(
+      "broker-unknown-earlier:1"
+    );
+    const idle = makeHost({ flattenIds: [A], brokerFailed: [A] });
+    runScript(idle, "unpause.sh");
+    expect(ledger(idle)).toContain("broker_unknown_cleared=1 ");
+  });
+
+  it("reads a KILL line after the last UNPAUSE line as an open engagement, and not once un-paused", () => {
+    const host = makeHost({ active: [A], crontab: true });
+    writeTicks(host);
+    writeLedger(host, ["2026-11-13T10:00:00Z KILL reason=test crons=FAILED"]);
+    expect(runScript(host, "resume.sh").stdout).toContain("RESUME_ERRORS=algorithms-active:1");
+    writeLedger(host, [
+      "2026-11-13T10:00:00Z KILL reason=test",
+      "2026-11-13T11:00:00Z UNPAUSE algorithms=1",
+    ]);
+    expect(runScript(host, "resume.sh").stdout).toContain("nothing to resume");
+  });
+
+  it("after switch, resume and un-pause, a further resume reads the engine as healthy", () => {
+    const host = makeHost({ active: [A], mirroringOn: [false] });
+    writeTicks(host);
+    runScript(host, "kill-switch.sh", ["test"]);
+    runScript(host, "resume.sh");
+    runScript(host, "unpause.sh");
+    expect(runScript(host, "resume.sh").stdout).toContain("RESUME_RESULT=OK");
+  });
+
+  it("says how many of the engagement's targets stay paused when there is nothing to un-pause", () => {
+    const host = makeHost({ flattenIds: [A], stillPaused: [A] });
+    const run = runScript(host, "unpause.sh");
+    expect(ledger(host)).toContain(" left_paused=1 ");
+    expect(run.stdout).toContain(`stay paused (${A})`);
+  });
+
+  it("reports an engagement marker it could not write", () => {
+    const host = makeHost({ active: [A] });
+    breakAppend(host, "kill-switch.engaged");
+    runScript(host, "kill-switch.sh", ["test"]);
+    expect(ledger(host)).toContain("mark-engaged");
   });
 });

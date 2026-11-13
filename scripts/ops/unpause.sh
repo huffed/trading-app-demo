@@ -30,7 +30,7 @@ print("%d/%d" % (sum(1 for x in r if x.get("live_trading_enabled")), len(r)))' <
 # Ends the engagement. With keep-broker the failed-broker list stays: its contents are not in the ledger yet, and
 # it is the only reminder of broker positions that may still be open.
 end_engagement() {
-  rm -f "$STATE/kill-switch.paused-ids" "$STATE/kill-switch.flatten-ids" "$STATE/kill-switch.engaged"
+  rm -f "$STATE/kill-switch.paused-ids" "$STATE/kill-switch.flatten-ids" "$STATE/kill-switch.engaged" "$STATE/crontab.unsaved"
   [ "${1:-}" = keep-broker ] || rm -f "$STATE/kill-switch.broker-failed"
 }
 # The failed-broker list: "<id> <positions not closed>", or "<id> ?" when a flatten's answer was lost (kill-switch.sh).
@@ -38,11 +38,22 @@ BROKER_FILE=$STATE/kill-switch.broker-failed
 broker_n=0; broker_unknown=0
 if [ -f "$BROKER_FILE" ]; then
   broker_n=$(awk '$2 ~ /^[0-9]+$/ {n += $2} END {print n + 0}' "$BROKER_FILE" 2> /dev/null)
-  broker_unknown=$(awk '$2 == "?" {print $1}' "$BROKER_FILE" 2> /dev/null | sort -u | grep -c . || true)
+  broker_unknown=$(awk 'NF && $2 !~ /^[0-9]+$/ {print $1}' "$BROKER_FILE" 2> /dev/null | sort -u | grep -c . || true)
 fi
-warn_broker() { # said before end_engagement removes the list, which until then reminded every kill-switch run
+# the failed-broker list's ids, short, for the ledger line, which outlives the rotated kill-switch.log
+broker_ids=$(awk 'NF {print substr($1, 1, 8)}' "$BROKER_FILE" 2> /dev/null | sort -u | paste -sd, - || true)
+warn_broker() { # $1 gone or kept: whether the list goes now, which until then reminded every kill-switch run
   [ "${broker_n:-0}" = 0 ] && [ "${broker_unknown:-0}" = 0 ] && return 0
-  log "the failed-broker list held ${broker_n:-0} broker position(s) the switch could not close and ${broker_unknown:-0} algorithm(s) whose flatten answer was lost ($(awk '{print $1}' "$BROKER_FILE" 2> /dev/null | sort -u | paste -sd' ' -)): they may still be open, so check the broker account; this list now goes and no later run will remind you"
+  local after="this list now goes and no later run will remind you"
+  [ "$1" = kept ] && after="the list is kept, because the ledger line that records it was not written"
+  log "the failed-broker list held ${broker_n:-0} broker position(s) the switch could not close and ${broker_unknown:-0} algorithm(s) whose flatten answer was unknown ($(awk '{print $1}' "$BROKER_FILE" 2> /dev/null | sort -u | paste -sd' ' -)): they may still be open, so check the broker account; $after"
+}
+report_left_paused() {
+  case "$left_paused" in
+    0) ;;
+    "?") log "could not read whether the engagement's other targets are still paused: check the algorithms page" ;;
+    *) log "$left_paused algorithm(s) this engagement also targeted stay paused ($left_ids): an earlier engagement paused them and a fresh one did not save them; activate them in the app if they should trade" ;;
+  esac
 }
 still_paused() { # $1 comma list of ids → "<how many are paused> <their ids, comma list>", "?" when unreadable
   local body
@@ -59,12 +70,21 @@ print(len(r), ",".join(r))' <<< "$body" 2> /dev/null || echo "?"
 if ! [ -s "$STATE/kill-switch.paused-ids" ]; then
   # nothing to wake, but an engagement's other lists may remain: say what goes, and record it when anything did
   left=$(for f in kill-switch.engaged kill-switch.flatten-ids kill-switch.broker-failed; do [ -e "$STATE/$f" ] && echo "$f"; done | paste -sd, - || true)
-  warn_broker
   log "nothing to un-pause: $STATE/kill-switch.paused-ids is missing or empty${left:+; clearing $left}"
-  # the ledger line first: when it cannot be written, the failed-broker list stays
-  if [ -n "$left" ] && ! printf '%s UNPAUSE result=nothing cleared=%s broker_failed_cleared=%s broker_unknown_cleared=%s\n' "$(date -u +%FT%TZ)" "$left" "${broker_n:-0}" "${broker_unknown:-0}" >> "$LEDGER" 2> /dev/null; then
-    end_engagement keep-broker; log "ledger write FAILED; the failed-broker list is kept"; echo "UNPAUSE_RESULT=PARTIAL"; exit 1
+  # the engagement's targets wake with nothing here: say how many stay paused (DEBT D-35)
+  left_paused=0; left_ids=""
+  targets=$(grep -E '^[0-9a-f-]{36}$' "$STATE/kill-switch.flatten-ids" 2> /dev/null | sort -u | paste -sd, - || true)
+  if [ -n "$targets" ]; then
+    SB_URL=$(envval NEXT_PUBLIC_SUPABASE_URL); SB_KEY=$(envval SUPABASE_SERVICE_ROLE_KEY)
+    if [ -n "$SB_URL" ] && [ -n "$SB_KEY" ]; then read -r left_paused left_ids <<< "$(still_paused "$targets")"; else left_paused="?"; fi
+    unset SB_KEY
+    report_left_paused
   fi
+  # the ledger line first: when it cannot be written, the failed-broker list stays
+  if [ -n "$left" ] && ! printf '%s UNPAUSE result=nothing cleared=%s left_paused=%s broker_failed_cleared=%s broker_unknown_cleared=%s broker_ids=%s\n' "$(date -u +%FT%TZ)" "$left" "$left_paused" "${broker_n:-0}" "${broker_unknown:-0}" "${broker_ids:-none}" >> "$LEDGER" 2> /dev/null; then
+    warn_broker kept; end_engagement keep-broker; log "ledger write FAILED"; echo "UNPAUSE_RESULT=PARTIAL"; exit 1
+  fi
+  warn_broker gone
   end_engagement
   echo "UNPAUSE_RESULT=NOTHING"; exit 0
 fi
@@ -82,20 +102,15 @@ if body=$(printf 'apikey: %s\nAuthorization: Bearer %s\nContent-Type: applicatio
   [ -z "$others" ] || read -r left_paused left_ids <<< "$(still_paused "$others")"
   unset SB_KEY
   n=$(python3 -c 'import json,sys; print(len(json.load(sys.stdin)))' <<< "$body" 2> /dev/null || echo "?")
-  warn_broker
   result=OK
   # the ledger line first: when it cannot be written, the failed-broker list stays
-  if printf '%s UNPAUSE algorithms=%s of %s saved left_paused=%s broker_failed_cleared=%s broker_unknown_cleared=%s mirroring=%s\n' "$(date -u +%FT%TZ)" "$n" "$(grep -c . <<< "$ids")" "$left_paused" "${broker_n:-0}" "${broker_unknown:-0}" "$mirroring" >> "$LEDGER" 2> /dev/null; then
-    end_engagement
+  if printf '%s UNPAUSE algorithms=%s of %s saved left_paused=%s broker_failed_cleared=%s broker_unknown_cleared=%s broker_ids=%s mirroring=%s\n' "$(date -u +%FT%TZ)" "$n" "$(grep -c . <<< "$ids")" "$left_paused" "${broker_n:-0}" "${broker_unknown:-0}" "${broker_ids:-none}" "$mirroring" >> "$LEDGER" 2> /dev/null; then
+    warn_broker gone; end_engagement
   else
-    end_engagement keep-broker; result=PARTIAL; log "ledger write FAILED; the failed-broker list is kept"
+    warn_broker kept; end_engagement keep-broker; result=PARTIAL; log "ledger write FAILED"
   fi
   log "re-activated $n of the $(grep -c . <<< "$ids") algorithm(s) the kill switch had saved (the rest were already active, or are gone); live_trading_enabled on/total: $mirroring"
-  case "$left_paused" in
-    0) ;;
-    "?") log "could not read whether the engagement's other targets are still paused: check the algorithms page" ;;
-    *) log "$left_paused algorithm(s) this engagement also targeted stay paused ($left_ids): an earlier engagement paused them and a fresh one did not save them; activate them in the app if they should trade" ;;
-  esac
+  report_left_paused
   echo "UNPAUSE_RESULT=$result"
   [ "$result" = OK ] || exit 1
 else

@@ -82,8 +82,11 @@ print(on, len(r)-on, *sorted({x["algorithm_id"] for x in r if x["algorithm_id"] 
 # A flatten whose answer was lost may have closed paper rows whose broker close failed: the route closes the
 # paper row whatever the broker answered. So the id goes on the broker list as unknown (DEBT D-35).
 lost() { # $1 id
-  printf '%s ?\n' "$1" >> "$BROKER_FILE" 2> /dev/null || errors+=("save-broker-failed")
-  log "flatten for ${1:0:8}: its answer was lost after the route may have run; any broker close that failed is unknown, recorded in $BROKER_FILE"
+  if printf '%s ?\n' "$1" >> "$BROKER_FILE" 2> /dev/null; then
+    log "flatten for ${1:0:8}: its answer was lost after the route may have run; any broker close that failed is unknown, recorded in $BROKER_FILE"
+  else
+    errors+=("save-broker-failed"); log "flatten for ${1:0:8}: its answer was lost, and recording that in $BROKER_FILE FAILED: check the broker account"
+  fi
 }
 mirroring_of() { # $1 comma list of ids → "<on>/<total>" algorithms with live_trading_enabled, "?" when unreadable
   local body
@@ -113,11 +116,15 @@ log "engaged by $REASON at $T0 on $(hostname)"
 # when the copy fails: ops/crontab is in the repo (DEBT D-35).
 current=$(crontab -l 2> /dev/null || true)
 if [ -n "$current" ]; then
+  # crontab.unsaved says the saved copy is not this crontab, for resume, until a later copy is saved; an empty
+  # file needs no data blocks
   if printf '%s\n' "$current" > "$STATE/crontab.disabled.new" 2> /dev/null && mv "$STATE/crontab.disabled.new" "$STATE/crontab.disabled" 2> /dev/null; then
     saved=disabled; copy="$(grep -c '^[0-9*]' <<< "$current") entries saved to $STATE/crontab.disabled"
+    rm -f "$STATE/crontab.unsaved" 2> /dev/null
   else
     saved=disabled-unsaved
     rm -f "$STATE/crontab.disabled.new" 2> /dev/null
+    : >> "$STATE/crontab.unsaved" 2> /dev/null
     errors+=("save-crontab")
     if [ -s "$STATE/crontab.disabled" ]; then
       copy="its copy NOT saved (full disk?): make resume would restore an OLDER copy; if it differs from ops/crontab, replace $STATE/crontab.disabled with ops/crontab first (never install the live crontab), then make resume"
@@ -173,11 +180,12 @@ if [ -n "$targets" ]; then
 fi
 
 # 3. flatten the positions of those algorithms through the app (paper rows + any broker side)
-# the broker list from earlier runs: "<id> <positions not closed>", or "<id> ?" when a flatten's answer was lost
+# the broker list from earlier runs: "<id> <positions not closed>", or "<id> ?" when a flatten's answer was lost; a
+# line whose count is not a number (a short write on a full disk) counts as unknown
 earlier_n=0; earlier_unknown=0; earlier_ids=""
 if [ -f "$BROKER_FILE" ]; then
   earlier_n=$(awk '$2 ~ /^[0-9]+$/ {n += $2} END {print n + 0}' "$BROKER_FILE" 2> /dev/null)
-  earlier_unknown=$(awk '$2 == "?" {print $1}' "$BROKER_FILE" 2> /dev/null | sort -u | grep -c . || true)
+  earlier_unknown=$(awk 'NF && $2 !~ /^[0-9]+$/ {print $1}' "$BROKER_FILE" 2> /dev/null | sort -u | grep -c . || true)
   earlier_ids=$(awk '{print $1}' "$BROKER_FILE" 2> /dev/null | sort -u | paste -sd' ' - || true)
 fi
 CRON_SECRET=$(envval CRON_SECRET)
