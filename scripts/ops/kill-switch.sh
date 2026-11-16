@@ -107,8 +107,14 @@ push() { # $1 text
 mkdir -p "$STATE" 2> /dev/null || true
 # The engagement is marked first, before anything can fail: an empty file needs no data blocks, so it is there even
 # on a full disk. resume.sh reads it so that a running engine the switch could not stop is never taken for a healthy
-# one, and only make unpause removes it (DEBT D-35). A kill-switch.woken left by an un-pause that could not record its
-# wake goes: this run's KILL line now says whether the pause took.
+# one, and only make unpause removes it (DEBT D-35). A marker with no KILL line after the last UNPAUSE line that ended
+# an engagement means an earlier run left no line, so what it paused is recorded nowhere: un-pause reads the error as
+# it reads save-ids. A kill-switch.woken left by an un-pause that could not record its wake goes: this run's KILL line
+# now says whether the pause took.
+if [ -e "$STATE/kill-switch.engaged" ] && ! grep -E ' (KILL|UNPAUSE) ' "$LEDGER" 2> /dev/null \
+  | awk '/ UNPAUSE / {if ($0 !~ / result=unknown /) k = 0; next} {k = 1} END {exit !k}'; then
+  errors+=("earlier-run-unrecorded")
+fi
 rm -f "$STATE/kill-switch.woken" 2> /dev/null
 true >> "$STATE/kill-switch.engaged" 2> /dev/null || errors+=("mark-engaged")
 log "engaged by $REASON at $T0 on $(hostname)"

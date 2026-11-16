@@ -8,11 +8,13 @@
  */
 import { spawnSync } from "node:child_process";
 import {
+  accessSync,
+  chmodSync,
+  constants,
   existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
-  renameSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
@@ -167,11 +169,19 @@ export function setActive(host: FakeHost, ids: string[]): void {
   writeFileSync(join(host.root, "active.json"), rows(ids));
 }
 
-/** Makes the ledger unwritable: `>>` onto a directory fails. Lines already written are kept for fixLedger. */
+/** Makes the ledger unwritable but still readable, as a full disk does: `>>` onto a read-only file fails. */
 export function breakLedger(host: FakeHost): void {
   const path = join(host.logs, "deploys.log");
-  if (existsSync(path)) renameSync(path, `${path}.kept`);
-  mkdirSync(path);
+  if (!existsSync(path)) writeFileSync(path, "");
+  chmodSync(path, 0o444);
+  let writable = true;
+  try {
+    accessSync(path, constants.W_OK);
+  } catch {
+    writable = false;
+  }
+  // root writes a read-only file, so the break would not happen
+  if (writable) throw new Error("breakLedger: the ledger is still writable (running as root?)");
 }
 
 /** Makes a saved list unwritable, as a full disk does. */
@@ -184,11 +194,9 @@ export function fixSave(host: FakeHost, list: string): void {
   rmSync(join(host.state, `${list}.new`), { recursive: true, force: true });
 }
 
-/** Lets the ledger be written again, with the lines it held before breakLedger. */
+/** Lets the ledger be written again. */
 export function fixLedger(host: FakeHost): void {
-  const path = join(host.logs, "deploys.log");
-  rmSync(path, { recursive: true, force: true });
-  if (existsSync(`${path}.kept`)) renameSync(`${path}.kept`, path);
+  chmodSync(join(host.logs, "deploys.log"), 0o644);
 }
 
 /** Whether a file is in the switch's state directory. */
