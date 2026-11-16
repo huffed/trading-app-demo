@@ -191,7 +191,9 @@ describe("unpause.sh, what stays paused and what it clears", () => {
     });
     const run = runScript(host, "unpause.sh");
     expect(run.stdout).toContain("UNPAUSE_RESULT=OK");
-    expect(ledger(host)).toContain("algorithms=1 of 1 saved mirroring=0/1 left_paused=1 ");
+    expect(ledger(host)).toContain(
+      "algorithms=1 of 1 saved mirroring=0/1 broker_failed_cleared=0 broker_unknown_cleared=0 left_paused=1 "
+    );
     expect(run.stdout).toContain(`stay paused (${A})`);
     expect(curlCalls(host).join("\n")).toContain(
       `algorithms?id=in.(${A})&status=eq.paused&select=id`
@@ -235,7 +237,7 @@ describe("unpause.sh with nothing to un-pause", () => {
     expect(run.stdout).toContain("check the broker account");
     expect(listsLeft(host)).toEqual([]);
     expect(ledger(host)).toMatch(
-      / UNPAUSE result=nothing cleared=kill-switch.flatten-ids,kill-switch.broker-failed left_paused=0 unrecorded_saved=0 broker_failed_cleared=1 broker_unknown_cleared=0 broker_ids=11111111 mirroring=n\/a\n$/
+      / UNPAUSE result=nothing broker_failed_cleared=1 broker_unknown_cleared=0 cleared=kill-switch.flatten-ids,kill-switch.broker-failed left_paused=0 broker_ids=11111111 mirroring=n\/a\n$/
     );
   });
 

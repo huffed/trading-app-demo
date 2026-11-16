@@ -9,7 +9,9 @@
 # the last UNPAUSE line, when the switch could create no file) ends the same way. A broker position on that list may
 # still be open, so it says so before the list goes, also when there is nothing to un-pause. When the PATCH fails it may
 # still have committed (a timeout after the commit), so it writes an UNPAUSE result=unknown line and keeps
-# them all. Exit status is non-zero on either failure.
+# them all. After a switch whose last run could not confirm its pause (its KILL line says paused=FAILED or unknown), it
+# ends nothing when no list remains, or when none of the saved ids was still paused: the algorithms may be active.
+# Exit status is non-zero on any failure.
 set -uo pipefail
 trap '' HUP INT PIPE
 APP=/opt/quanttrader
@@ -30,31 +32,31 @@ print("%d/%d" % (sum(1 for x in r if x.get("live_trading_enabled")), len(r)))' <
 }
 # Ends the engagement. With keep-records, used when the ledger line was not written, the failed-broker list and the
 # engagement marker stay: the broker list is the only reminder of broker positions that may still be open, and the
-# marker lets the next un-pause end the engagement in the ledger, which resume reads. When this run woke the saved ids,
-# they leave the flatten list, because the switch flattens every id on it whatever its status; the targets still paused
-# stay on it, for a later switch and the next un-pause's count. The saved list becomes kill-switch.paused-ids.unrecorded,
-# which nothing wakes, so the next un-pause records the wake this one could not. When the flatten list cannot be
-# rewritten (a full disk) it is set aside whole as kill-switch.flatten-ids.kept, which the switch does not read; a
-# rename needs no free block, and when even that fails the list goes, and with it only a count.
-set_aside() { # $1 file: appended to, or renamed to, $1.kept or $1.unrecorded ($2), else removed
-  { cat "$1" >> "$1.$2" 2> /dev/null && rm -f "$1"; } || mv -f "$1" "$1.$2" 2> /dev/null || rm -f "$1"
+# marker lets the next un-pause end the engagement in the ledger, which resume reads. The ids this run saved leave the
+# flatten list, because the switch flattens every id on it whatever its status; the other targets stay on it, for a
+# later switch and the next un-pause's count. When the flatten list cannot be rewritten (a full disk) it is set aside
+# whole as kill-switch.flatten-ids.kept, which the switch does not read; a rename needs no free block, and when even
+# that fails the list goes, and with it only a count. The saved list goes: what this run woke is in kill-switch.log and
+# its output, not in the ledger (DEBT D-35).
+set_aside() { # $1 file: appended to, or renamed to, $1.kept, else removed
+  { cat "$1" >> "$1.kept" 2> /dev/null && rm -f "$1"; } || mv -f "$1" "$1.kept" 2> /dev/null || rm -f "$1"
 }
 end_engagement() {
   local f=$STATE/kill-switch.flatten-ids saved=$STATE/kill-switch.paused-ids
   rm -f "$STATE/crontab.unsaved"
   if [ "${1:-}" != keep-records ]; then
-    rm -f "$saved" "$saved.unrecorded" "$f" "$f.kept" "$STATE/kill-switch.broker-failed" "$STATE/kill-switch.engaged"
+    rm -f "$saved" "$f" "$f.kept" "$STATE/kill-switch.broker-failed" "$STATE/kill-switch.engaged"
     return 0
   fi
   [ -s "$saved" ] || return 0
   if [ -e "$f" ]; then
     if comm -23 <(sort -u "$f") <(sort -u "$saved") > "$f.new" 2> /dev/null; then
-      if [ ! -s "$f.new" ]; then rm -f "$f.new" "$f"; elif ! mv -f "$f.new" "$f" 2> /dev/null; then rm -f "$f.new"; set_aside "$f" kept; fi
+      if [ ! -s "$f.new" ]; then rm -f "$f.new" "$f"; elif ! mv -f "$f.new" "$f" 2> /dev/null; then rm -f "$f.new"; set_aside "$f"; fi
     else
-      rm -f "$f.new"; set_aside "$f" kept
+      rm -f "$f.new"; set_aside "$f"
     fi
   fi
-  set_aside "$saved" unrecorded
+  rm -f "$saved"
 }
 # the engagement's targets: the flatten list, and one an un-pause set aside whole
 targets_of() { cat "$STATE/kill-switch.flatten-ids" "$STATE/kill-switch.flatten-ids.kept" 2> /dev/null | grep -E '^[0-9a-f-]{36}$' | sort -u; }
@@ -75,6 +77,12 @@ warn_broker() { # $1 gone or kept: whether the list goes now, which until then r
 }
 # why left_paused is "?", unless a later check says otherwise
 unknown_why="could not read whether the engagement's other targets are still paused"
+# the switch's last run could not confirm its pause: its list failed, its PATCH failed, or the database could not be read
+switch_did_not_pause() { tail -n 1 <<< "$kill_lines" | grep -qE ' paused=(FAILED|unknown) '; }
+not_paused_fail() { # $1 what this run found
+  log "$1, and the kill switch's last run could not confirm its pause (its KILL line says paused=FAILED or unknown), so algorithms may still be active: run make kill-switch again, then make resume; if you activated them yourself, pause them in the app and run make unpause again; this run ends nothing"
+  echo "UNPAUSE_RESULT=FAIL"; exit 1
+}
 # a flatten list the switch could not save does not hold this engagement's targets, so none of them can be counted
 unknown_if_unsaved() {
   grep -qE '[= ]save-targets( |$)' <<< "$kill_lines" || return 0
@@ -107,18 +115,13 @@ if ! [ -s "$STATE/kill-switch.paused-ids" ]; then
   # last UNPAUSE line, when the switch could create no file (resume reads that line too). Say what goes, and record it
   # when anything did, so the engagement ends.
   # a switch whose last run could not pause left its algorithms active with no list of them: ending its engagement here
-  # would let resume take them for algorithms un-paused on purpose; an earlier un-pause that woke a list is recorded
-  if [ ! -s "$STATE/kill-switch.paused-ids.unrecorded" ] && tail -n 1 <<< "$kill_lines" | grep -qE ' paused=(FAILED|unknown) '; then
-    log "the kill switch's last run could not pause (its KILL line says paused=FAILED or unknown) and no list of what it paused remains, so algorithms may still be active: run make kill-switch again, then make resume; this run ends nothing"
-    echo "UNPAUSE_RESULT=FAIL"; exit 1
-  fi
+  # would let resume take them for algorithms un-paused on purpose
+  switch_did_not_pause && not_paused_fail "no list of what the kill switch paused remains"
   left=$({
-    for f in kill-switch.engaged kill-switch.flatten-ids kill-switch.flatten-ids.kept kill-switch.paused-ids.unrecorded kill-switch.broker-failed; do [ -e "$STATE/$f" ] && echo "$f"; done
+    for f in kill-switch.engaged kill-switch.flatten-ids kill-switch.flatten-ids.kept kill-switch.broker-failed; do [ -e "$STATE/$f" ] && echo "$f"; done
     [ -z "$kill_lines" ] || echo ledger-kill
   } | paste -sd, - || true)
   log "nothing to un-pause: $STATE/kill-switch.paused-ids is missing or empty${left:+; clearing $left}"
-  unrecorded=$(grep -E '^[0-9a-f-]{36}$' "$STATE/kill-switch.paused-ids.unrecorded" 2> /dev/null | sort -u | grep -c . || true)
-  [ "$unrecorded" = 0 ] || log "an earlier make unpause re-activated up to $unrecorded saved algorithm(s) but could not write its ledger line (kill-switch.log has its count): this run records it as unrecorded_saved"
   # the engagement's targets wake with nothing here: say how many stay paused (DEBT D-35)
   left_paused=0; left_ids=""
   targets=$(targets_of | paste -sd, - || true)
@@ -135,7 +138,8 @@ if ! [ -s "$STATE/kill-switch.paused-ids" ]; then
     log "no list of what the kill switch paused remains (its KILL line names save-ids or save-targets, or is missing): check the algorithms page for algorithms it left paused"
   fi
   # the ledger line first: when it cannot be written, the failed-broker list stays
-  if [ -n "$left" ] && ! printf '%s UNPAUSE result=nothing cleared=%s left_paused=%s unrecorded_saved=%s broker_failed_cleared=%s broker_unknown_cleared=%s broker_ids=%s mirroring=n/a\n' "$(date -u +%FT%TZ)" "$left" "$left_paused" "$unrecorded" "${broker_n:-0}" "${broker_unknown:-0}" "${broker_ids:-none}" >> "$LEDGER" 2> /dev/null; then
+  # the broker counts first, as the daily summary shows the ledger's last line cut at 120 characters
+  if [ -n "$left" ] && ! printf '%s UNPAUSE result=nothing broker_failed_cleared=%s broker_unknown_cleared=%s cleared=%s left_paused=%s broker_ids=%s mirroring=n/a\n' "$(date -u +%FT%TZ)" "${broker_n:-0}" "${broker_unknown:-0}" "$left" "$left_paused" "${broker_ids:-none}" >> "$LEDGER" 2> /dev/null; then
     warn_broker kept; end_engagement keep-records; log "ledger write FAILED: the engagement stays open; run make unpause again once the ledger can be written"; echo "UNPAUSE_RESULT=PARTIAL"; exit 1
   fi
   warn_broker gone
@@ -160,10 +164,13 @@ if body=$(printf 'apikey: %s\nAuthorization: Bearer %s\nContent-Type: applicatio
   unknown_if_unsaved
   unset SB_KEY
   n=$(python3 -c 'import json,sys; print(len(json.load(sys.stdin)))' <<< "$body" 2> /dev/null || echo "?")
+  # none of them was still paused after a switch that could not confirm its pause: its PATCH most likely did not commit
+  [ "$n" != 0 ] || ! switch_did_not_pause || not_paused_fail "none of the $(grep -c . <<< "$ids") saved algorithm(s) was still paused"
   result=OK
   # the ledger line first: when it cannot be written, the failed-broker list stays
-  # the fields dev's line had come first, as the daily summary shows the ledger's last line cut at 120 characters
-  if printf '%s UNPAUSE algorithms=%s of %s saved mirroring=%s left_paused=%s broker_failed_cleared=%s broker_unknown_cleared=%s broker_ids=%s\n' "$(date -u +%FT%TZ)" "$n" "$(grep -c . <<< "$ids")" "$mirroring" "$left_paused" "${broker_n:-0}" "${broker_unknown:-0}" "${broker_ids:-none}" >> "$LEDGER" 2> /dev/null; then
+  # the fields dev's line had, then the broker counts, come first, as the daily summary shows the ledger's last line cut
+  # at 120 characters
+  if printf '%s UNPAUSE algorithms=%s of %s saved mirroring=%s broker_failed_cleared=%s broker_unknown_cleared=%s left_paused=%s broker_ids=%s\n' "$(date -u +%FT%TZ)" "$n" "$(grep -c . <<< "$ids")" "$mirroring" "${broker_n:-0}" "${broker_unknown:-0}" "$left_paused" "${broker_ids:-none}" >> "$LEDGER" 2> /dev/null; then
     warn_broker gone; end_engagement
     { [ "${broker_n:-0}" = 0 ] && [ "${broker_unknown:-0}" = 0 ]; } || result=PARTIAL
   else

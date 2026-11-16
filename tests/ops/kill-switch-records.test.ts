@@ -1,11 +1,11 @@
 /**
  * Un-pause and resume keep their records straight, on the fake host in ./fake-host: un-pause keeps the engagement
  * marker and the failed-broker list when its ledger line cannot be written, so the next un-pause ends the
- * engagement in the ledger, records the wake it could not, and takes the ids it woke off the flatten list, so a later
- * switch does not flatten them but still flattens the targets still paused, and resume says to run un-pause again;
- * un-pause ends nothing after a switch that could not pause; a result=unknown line ends no engagement; a flatten
- * list the switch could not save leaves left_paused=?; crontab.unsaved goes once a copy is saved again or the engagement ends; a restored
- * copy that matches ops/crontab is not called older; a switch that saved no list leaves left_paused=?, and one that
+ * engagement in the ledger, and takes the ids it saved off the flatten list, so a later switch does not flatten them
+ * but still flattens the other targets; un-pause ends nothing after a switch that could not pause, whether no list
+ * remains or none of the saved ids was still paused, also after an un-pause that kept its records; a result=unknown
+ * line ends no engagement; a flatten list the switch could not save leaves left_paused=?; crontab.unsaved goes once a
+ * copy is saved again or the engagement ends; a restored copy that matches ops/crontab is not called older; a switch that saved no list leaves left_paused=?, and one that
  * found nothing to pause leaves 0; an engagement only the ledger records ends; the crontab hint when the crontab
  * stays on; a failed service; and resume on an engine already running with the crontab off.
  */
@@ -55,12 +55,12 @@ describe("unpause.sh when its ledger line fails", () => {
     writeLedger(host, ["2026-11-13T10:00:00Z KILL reason=test"]);
     runScript(host, "unpause.sh");
     expect(ledger(host)).toContain(
-      "UNPAUSE result=nothing cleared=kill-switch.engaged,kill-switch.paused-ids.unrecorded,kill-switch.broker-failed,ledger-kill left_paused=0 unrecorded_saved=1 "
+      " cleared=kill-switch.engaged,kill-switch.broker-failed,ledger-kill left_paused=0 "
     );
     expect(runScript(host, "resume.sh").stdout).toContain("nothing to resume");
   });
 
-  it("keeps the ids it woke as unrecorded, and the next run records them and counts the targets still paused", () => {
+  it("takes the ids it saved off the flatten list, and the next run counts the targets still paused", () => {
     const host = makeHost({
       saved: [A],
       flattenIds: [A, B],
@@ -71,14 +71,11 @@ describe("unpause.sh when its ledger line fails", () => {
     const first = runScript(host, "unpause.sh");
     expect(first.stdout).toContain("run make unpause again once the ledger can be written");
     expect(inState(host, "kill-switch.paused-ids")).toBe(false);
-    expect(inState(host, "kill-switch.paused-ids.unrecorded")).toBe(true);
+    expect(inState(host, "kill-switch.flatten-ids")).toBe(true);
     fixLedger(host);
     const second = runScript(host, "unpause.sh");
-    expect(ledger(host)).toContain(
-      " cleared=kill-switch.flatten-ids,kill-switch.paused-ids.unrecorded left_paused=1 unrecorded_saved=1 "
-    );
+    expect(ledger(host)).toContain(" cleared=kill-switch.flatten-ids left_paused=1 ");
     expect(second.stdout).toContain("UNPAUSE_RESULT=PARTIAL");
-    expect(inState(host, "kill-switch.paused-ids.unrecorded")).toBe(false);
   });
 });
 
@@ -118,7 +115,7 @@ describe("after an un-pause whose ledger line failed", () => {
     expect(flattened).toContain(`POST http://127.0.0.1:3000/api/admin/flatten-algo?id=${B}`);
   });
 
-  it("resume says to run make unpause again, not the switch", () => {
+  it("does not let a later switch that could not pause be ended by un-pause", () => {
     const host = makeHost({
       active: [A],
       saved: [A],
@@ -129,11 +126,14 @@ describe("after an un-pause whose ledger line failed", () => {
     breakLedger(host);
     runScript(host, "unpause.sh");
     fixLedger(host);
-    const run = runScript(host, "resume.sh");
-    expect(run.stdout).toContain("RESUME_ERRORS=algorithms-active:1");
-    expect(run.stdout).toContain(
-      "if it woke these, run make unpause again once the ledger can be written, not the switch"
-    );
+    failCall(host, "list-active");
+    runScript(host, "kill-switch.sh", ["test"]);
+    clearFail(host, "list-active");
+    expect(runScript(host, "resume.sh").stdout).toContain("RESUME_ERRORS=algorithms-active:1");
+    expect(runScript(host, "unpause.sh").stdout).toContain("UNPAUSE_RESULT=FAIL");
+    const again = runScript(host, "resume.sh");
+    expect(again.stdout).toContain("RESUME_ERRORS=algorithms-active:1");
+    expect(again.stdout).not.toContain("crontab-off");
   });
 });
 
@@ -201,7 +201,9 @@ describe("unpause.sh after a switch that could not save its flatten list", () =>
       "2026-11-13T10:00:00Z KILL reason=test paused=1 errors=save-ids save-targets",
     ]);
     const run = runScript(host, "unpause.sh");
-    expect(ledger(host)).toContain(" UNPAUSE algorithms=1 of 1 saved mirroring=0/1 left_paused=? ");
+    expect(ledger(host)).toContain(
+      " saved mirroring=0/1 broker_failed_cleared=0 broker_unknown_cleared=0 left_paused=? "
+    );
     expect(run.stdout).toContain("the kill switch could not save its flatten list");
   });
 
@@ -212,7 +214,9 @@ describe("unpause.sh after a switch that could not save its flatten list", () =>
       "2026-11-13T11:00:00Z UNPAUSE result=unknown algorithms=? of 1 saved mirroring=0/1",
     ]);
     runScript(host, "unpause.sh");
-    expect(ledger(host)).toContain(" UNPAUSE algorithms=1 of 1 saved mirroring=0/1 left_paused=? ");
+    expect(ledger(host)).toMatch(
+      / UNPAUSE algorithms=1 of 1 saved mirroring=0\/1 .* left_paused=\? /
+    );
   });
 });
 
@@ -231,6 +235,16 @@ describe("unpause.sh after a switch that could not pause", () => {
     expect(again.stdout).toContain("RESUME_ERRORS=algorithms-active:1");
     expect(again.stdout).not.toContain("crontab-off");
   });
+
+  it("ends nothing when none of its saved ids was still paused, as when its PATCH did not commit", () => {
+    const host = makeHost({ saved: [A, B], flattenIds: [A, B], alreadyActive: true });
+    writeLedger(host, ["2026-11-13T10:00:00Z KILL reason=test paused=unknown errors=pause"]);
+    const run = runScript(host, "unpause.sh");
+    expect(run.stdout).toContain("UNPAUSE_RESULT=FAIL");
+    expect(run.stdout).toContain("none of the 2 saved algorithm(s) was still paused");
+    expect(inState(host, "kill-switch.paused-ids")).toBe(true);
+    expect(ledger(host)).not.toContain(" UNPAUSE ");
+  });
 });
 
 describe("an engagement only the ledger records", () => {
@@ -243,7 +257,7 @@ describe("an engagement only the ledger records", () => {
     const run = runScript(host, "unpause.sh");
     expect(run.stdout).toContain("UNPAUSE_RESULT=PARTIAL");
     expect(run.stdout).toContain("no list of what the kill switch paused remains");
-    expect(ledger(host)).toContain(" UNPAUSE result=nothing cleared=ledger-kill left_paused=? ");
+    expect(ledger(host)).toContain(" cleared=ledger-kill left_paused=? ");
     expect(runScript(host, "resume.sh").stdout).toContain("nothing to resume");
   });
 });
@@ -286,11 +300,9 @@ describe("resume.sh on the service's other states", () => {
   });
 
   it("reads a list an un-pause set aside, or a KILL line before a result=unknown one, as an engagement open", () => {
-    for (const name of ["kill-switch.paused-ids.unrecorded", "kill-switch.flatten-ids.kept"]) {
-      const host = makeHost({ active: [A] });
-      writeFileSync(join(host.state, name), `${A}\n`);
-      expect(runScript(host, "resume.sh").stdout).toContain("RESUME_ERRORS=algorithms-active:1");
-    }
+    const kept = makeHost({ active: [A] });
+    writeFileSync(join(kept.state, "kill-switch.flatten-ids.kept"), `${A}\n`);
+    expect(runScript(kept, "resume.sh").stdout).toContain("RESUME_ERRORS=algorithms-active:1");
     const host = makeHost({ active: [A] });
     writeLedger(host, [
       "2026-11-13T10:00:00Z KILL reason=test paused=1 errors=none",

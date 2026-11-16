@@ -55,7 +55,7 @@ describe("the engagement marker", () => {
     expect(runScript(host, "resume.sh").stdout).toContain("RESUME_ERRORS=algorithms-active:1");
     // no list says what the switch paused, so un-pause cannot say they are all awake
     expect(runScript(host, "unpause.sh").stdout).toContain("UNPAUSE_RESULT=PARTIAL");
-    expect(ledger(host)).toContain("UNPAUSE result=nothing cleared=kill-switch.engaged ");
+    expect(ledger(host)).toMatch(/ UNPAUSE result=nothing .*cleared=kill-switch.engaged /);
     expect(listsLeft(host)).toEqual([]);
   });
 

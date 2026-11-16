@@ -122,7 +122,7 @@ describe("unpause.sh", () => {
     const run = runScript(host, "unpause.sh");
     expect(run.stdout).toContain("UNPAUSE_RESULT=OK");
     expect(ledger(host)).toMatch(
-      / UNPAUSE algorithms=2 of 2 saved mirroring=1\/2 left_paused=0 broker_failed_cleared=0 broker_unknown_cleared=0 broker_ids=none\n$/
+      / UNPAUSE algorithms=2 of 2 saved mirroring=1\/2 broker_failed_cleared=0 broker_unknown_cleared=0 left_paused=0 broker_ids=none\n$/
     );
     expect(listsLeft(host)).toEqual([]);
   });
@@ -140,7 +140,9 @@ describe("unpause.sh", () => {
   it("records the mirroring state of the saved ids when the rows were already active", () => {
     const host = makeHost({ saved: [A], mirroringOn: [true], alreadyActive: true });
     runScript(host, "unpause.sh");
-    expect(ledger(host)).toMatch(/ UNPAUSE algorithms=0 of 1 saved mirroring=1\/1 left_paused=0 /);
+    expect(ledger(host)).toMatch(
+      / UNPAUSE algorithms=0 of 1 saved mirroring=1\/1 .* left_paused=0 /
+    );
   });
 
   it("writes result=unknown and keeps the list when the PATCH fails, because it may have committed", () => {
