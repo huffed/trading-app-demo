@@ -107,7 +107,9 @@ push() { # $1 text
 mkdir -p "$STATE" 2> /dev/null || true
 # The engagement is marked first, before anything can fail: an empty file needs no data blocks, so it is there even
 # on a full disk. resume.sh reads it so that a running engine the switch could not stop is never taken for a healthy
-# one, and only make unpause removes it (DEBT D-35).
+# one, and only make unpause removes it (DEBT D-35). A kill-switch.woken left by an un-pause that could not record its
+# wake goes: this run's KILL line now says whether the pause took.
+rm -f "$STATE/kill-switch.woken" 2> /dev/null
 true >> "$STATE/kill-switch.engaged" 2> /dev/null || errors+=("mark-engaged")
 log "engaged by $REASON at $T0 on $(hostname)"
 

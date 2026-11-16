@@ -7,7 +7,15 @@
  * reaches the VPS, Supabase or ntfy.
  */
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
@@ -159,9 +167,11 @@ export function setActive(host: FakeHost, ids: string[]): void {
   writeFileSync(join(host.root, "active.json"), rows(ids));
 }
 
-/** Makes the ledger unwritable: `>>` onto a directory fails. */
+/** Makes the ledger unwritable: `>>` onto a directory fails. Lines already written are kept for fixLedger. */
 export function breakLedger(host: FakeHost): void {
-  mkdirSync(join(host.logs, "deploys.log"));
+  const path = join(host.logs, "deploys.log");
+  if (existsSync(path)) renameSync(path, `${path}.kept`);
+  mkdirSync(path);
 }
 
 /** Makes a saved list unwritable, as a full disk does. */
@@ -174,9 +184,11 @@ export function fixSave(host: FakeHost, list: string): void {
   rmSync(join(host.state, `${list}.new`), { recursive: true, force: true });
 }
 
-/** Lets the ledger be written again. */
+/** Lets the ledger be written again, with the lines it held before breakLedger. */
 export function fixLedger(host: FakeHost): void {
-  rmSync(join(host.logs, "deploys.log"), { recursive: true, force: true });
+  const path = join(host.logs, "deploys.log");
+  rmSync(path, { recursive: true, force: true });
+  if (existsSync(`${path}.kept`)) renameSync(`${path}.kept`, path);
 }
 
 /** Whether a file is in the switch's state directory. */

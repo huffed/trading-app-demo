@@ -49,14 +49,12 @@ describe("the engagement marker", () => {
     expect(ledger(host)).toMatch(/ RESUME .*errors=algorithms-active:2 before=active engaged=1\n$/);
   });
 
-  it("opens the engagement on its own, and un-pause with nothing to wake records and removes it", () => {
+  it("opens the engagement on its own, and un-pause will not end it with no KILL line to say the switch paused", () => {
     const host = makeHost({ active: [A], crontab: true, engaged: true });
     writeTicks(host);
     expect(runScript(host, "resume.sh").stdout).toContain("RESUME_ERRORS=algorithms-active:1");
-    // no list says what the switch paused, so un-pause cannot say they are all awake
-    expect(runScript(host, "unpause.sh").stdout).toContain("UNPAUSE_RESULT=PARTIAL");
-    expect(ledger(host)).toMatch(/ UNPAUSE result=nothing .*cleared=kill-switch.engaged /);
-    expect(listsLeft(host)).toEqual([]);
+    expect(runScript(host, "unpause.sh").stdout).toContain("UNPAUSE_RESULT=FAIL");
+    expect(listsLeft(host)).toEqual(["kill-switch.engaged"]);
   });
 
   it("is also opened by the flatten list alone", () => {
