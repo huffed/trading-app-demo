@@ -235,7 +235,33 @@ describe("notify-ntfy hook: the fallback's harder cases", () => {
       const r = run({ ...STOP, last_assistant_message: "Review started." }, { transcript });
       expect(r.curl).toBe("");
       expect(r.stdout).toContain("not sent: a BLOCKED ON YOU line with no numbered question");
+      expect(r.log).toContain("under it (written before the turn's last tool call)");
     }
+  });
+
+  it("reads a transcript where the words come long before its end", () => {
+    // grep stops at its first match, an earlier turn's, with most of 1 MB still to read: a pipe from tail would
+    // fail under pipefail exactly then
+    const output = (size: number) => ({
+      type: "user",
+      message: {
+        role: "user",
+        content: [{ type: "tool_result", tool_use_id: "t1", content: "x".repeat(size) }],
+      },
+    });
+    const transcript = turn(
+      prompt,
+      said(BLOCKED),
+      toolCall,
+      output(800_000),
+      prompt,
+      said(BLOCKED),
+      toolCall,
+      output(200_000),
+      said("Review started.")
+    );
+    const r = run({ ...STOP, last_assistant_message: "Review started." }, { transcript });
+    expect(r.curl).toContain("BLOCKED ON YOU: 2 question(s)]");
   });
 
   it("does not take a skill's injected text for the start of the turn", () => {

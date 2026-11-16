@@ -101,13 +101,17 @@ blocked_section() {
 # The turn's earlier texts from the transcript, newest first and each ended by a NUL: the assistant texts since
 # the turn's first record with a line that starts with the heading in any form blocked_section reports. The turn's
 # first record is a user record that is neither a tool result nor a skill's injected text (isMeta). None when the
-# turn does not start in the transcript's last 8 MB (the largest turn a review measured on 2026-11-13 was
-# 3.96 MB, D-45), so an older turn's questions are never taken for this one's; and nothing is parsed unless a
-# plain grep finds the words first, which keeps a turn end without questions cheap. A line that is not JSON (one
-# being written as Stop runs) is skipped, not fatal.
+# turn does not start in the transcript's last 8 MB (the largest turn in the authoring session's transcript was
+# 4.85 MB on 2026-11-16, D-45), so an older turn's questions are never taken for this one's; and nothing is parsed
+# unless a plain grep finds the words there first. A session that repeats its open questions every turn nearly
+# always has them there, so most turn ends without a question in the last text parse it (about 1 s, D-45). A line
+# that is not JSON (one being written as Stop runs) is skipped, not fatal. A compaction during the turn starts it
+# over here, because its summary is a user record (D-45).
 earlier_turn_texts() {
   [ -n "$transcript" ] && [ -f "$transcript" ] || return 0
-  tail -c "$TURN_SCAN_BYTES" "$transcript" 2> /dev/null | grep -qi 'blocked on you' || return 0
+  # not a pipe: grep -q stops at the first match, and under pipefail the tail it leaves writing would fail this
+  # test exactly when the words are there
+  grep -qi 'blocked on you' <(tail -c "$TURN_SCAN_BYTES" "$transcript" 2> /dev/null) || return 0
   # a tail that starts inside a record drops that partial first line
   if [ "$(wc -c < "$transcript")" -gt "$TURN_SCAN_BYTES" ]; then
     tail -c "$TURN_SCAN_BYTES" "$transcript" 2> /dev/null | sed 1d
@@ -124,7 +128,7 @@ earlier_turn_texts() {
         | map(select(.type == "assistant") | .message.content[]? | select(.type == "text") | .text)
         | map(select(ascii_downcase | test("(^|\n)[>#*_ \t-]*blocked on you([^a-z]|$)")))
         | reverse | .[] | ., "\u0000"
-      end' 2> /dev/null
+      end' 2> /dev/null || type=blocked_on_you log "the fallback could not read the transcript (jq failed)"
 }
 
 if [ "$event" = Stop ]; then
@@ -135,14 +139,16 @@ if [ "$event" = Stop ]; then
   earlier=""
   # no question in the last text (none at all, or only a line that looks like the heading): the earlier texts,
   # newest first; one that only looks like the heading is remembered, so it is said rather than dropped
-  if ! printf '%s\n' "$parsed" | grep -q '^Q '; then
+  if [[ $'\n'$parsed != *$'\nQ '* ]]; then
     while IFS= read -r -d '' text; do
       candidate=$(printf '%s\n' "$text" | blocked_section)
-      if printf '%s\n' "$candidate" | grep -q '^Q '; then
+      if [[ $'\n'$candidate == *$'\nQ '* ]]; then
         parsed=$candidate earlier=" (written before the turn's last tool call)"
         break
       fi
-      [ -z "$candidate" ] || [ -n "$parsed" ] || parsed=SEEN
+      if [ -n "$candidate" ] && [ -z "$parsed" ]; then
+        parsed=SEEN earlier=" (written before the turn's last tool call)"
+      fi
     done < <(earlier_turn_texts)
   fi
   [ -n "$parsed" ] || { rm -f "$mark_file" 2> /dev/null; exit 0; }
@@ -164,7 +170,7 @@ fi
 # an AI title is generated from the conversation, so it is cut short and stripped of control characters
 name=$(printf '%s' "$name" | tr -d '\000-\037\177' | cut -c1-60)
 [ "$type" != blocked_on_you ] || [ "$questions" != 0 ] \
-  || not_sent "not sent: a BLOCKED ON YOU line with no numbered question (1. at the start of a line) under it"
+  || not_sent "not sent: a BLOCKED ON YOU line with no numbered question (1. at the start of a line) under it${earlier:-}"
 
 # The first line of a file, with surrounding spaces and a CR removed; empty if it is unreadable.
 first_line() {
@@ -209,4 +215,4 @@ hint=""
 if [ -z "$token" ] && [[ $code == 401 || $code == 403 ]]; then
   hint="; a reserved topic needs the token file (docs/DEV_SETUP.md §16)"
 fi
-not_sent "push FAILED (curl exit $rc, HTTP $code)$hint"
+not_sent "push FAILED (curl exit $rc, HTTP $code)$hint${earlier:-}"
