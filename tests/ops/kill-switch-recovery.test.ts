@@ -46,9 +46,7 @@ describe("the engagement marker", () => {
     runScript(host, "resume.sh");
     const second = runScript(host, "resume.sh");
     expect(second.stdout).toContain("RESUME_RESULT=PARTIAL");
-    expect(ledger(host)).toMatch(
-      / RESUME .* before=active engaged=1 .*errors=algorithms-active:2\n$/
-    );
+    expect(ledger(host)).toMatch(/ RESUME .*errors=algorithms-active:2 before=active engaged=1\n$/);
   });
 
   it("opens the engagement on its own, and un-pause with nothing to wake records and removes it", () => {
@@ -196,7 +194,7 @@ describe("the second review's cases", () => {
     const again = runScript(host, "resume.sh");
     expect(again.stdout).toContain("nothing to resume");
     expect(ledger(host)).toMatch(
-      / RESUME .*active_algorithms=1 before=active engaged=0 .*errors=none\n$/
+      / RESUME .*active_algorithms=1 .*errors=none before=active engaged=0\n$/
     );
   });
 

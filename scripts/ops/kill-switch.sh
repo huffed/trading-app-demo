@@ -152,7 +152,8 @@ ids=""
 # D-27). The flatten list holds every id this engagement targeted and only make unpause clears it. The
 # un-pause list is narrower: a fresh engagement replaces it, so an un-pause never wakes algorithms that
 # were paused on purpose after the last one, and it keeps old ids only while the crontab is still empty. An un-pause
-# that could not write its ledger line sets the flatten list aside (kill-switch.flatten-ids.kept), which is not read here.
+# that could not write its ledger line takes the ids it woke off the flatten list, or sets the list aside whole
+# (kill-switch.flatten-ids.kept), and renames the un-pause list (kill-switch.paused-ids.unrecorded); neither is read here.
 saved_ids=$(cat "$IDS_FILE" "$TARGETS_FILE" 2> /dev/null | valid_ids | sort -u || true)
 keep_ids=""
 [ "$crons" = already-empty ] && keep_ids=$(cat "$IDS_FILE" 2> /dev/null | valid_ids || true)

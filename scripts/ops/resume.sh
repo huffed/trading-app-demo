@@ -7,8 +7,9 @@
 # and scan ticks to log http=200 (≤ 25 min), alerts and writes a RESUME line with the mirroring state
 # of the saved algorithms. What the switch paused stays paused — un-pausing it is the operator's deliberate act
 # (scripts/ops/unpause.sh). Safe to re-run: on an engine that was already running, with its crontab and no
-# kill-switch engagement open (no engagement marker, no saved list, and no KILL line after the last UNPAUSE line in
-# the ledger, as after make unpause), active algorithms are normal and only reported.
+# kill-switch engagement open (no engagement marker, no saved list, no list an un-pause set aside, and no KILL line
+# after the last UNPAUSE line in the ledger that ended one, as after make unpause), active algorithms are normal and
+# only reported.
 # Exit status is non-zero when any step failed.
 set -uo pipefail
 trap '' HUP INT PIPE
@@ -32,14 +33,16 @@ T0=$(date -u +%FT%TZ)
 # (DEBT D-35).
 service_before=$(systemctl is-active quanttrader 2> /dev/null || true)
 engaged=0
-{ [ -e "$STATE/kill-switch.engaged" ] || [ -s "$STATE/kill-switch.paused-ids" ] || [ -s "$STATE/kill-switch.flatten-ids" ] || [ -e "$STATE/kill-switch.flatten-ids.kept" ]; } && engaged=1
-# and the ledger, in case the marker could not be written: a KILL line after the last UNPAUSE line
-grep -E ' (KILL|UNPAUSE) ' "$LEDGER" 2> /dev/null | tail -n 1 | grep -q ' KILL ' && engaged=1
+for f in kill-switch.engaged kill-switch.paused-ids.unrecorded kill-switch.flatten-ids.kept; do [ -e "$STATE/$f" ] && engaged=1; done
+{ [ -s "$STATE/kill-switch.paused-ids" ] || [ -s "$STATE/kill-switch.flatten-ids" ]; } && engaged=1
+# and the ledger, in case the marker could not be written: a KILL line after the last UNPAUSE line that ended an
+# engagement (a result=unknown line, a PATCH that failed, ends nothing)
+grep -E ' (KILL|UNPAUSE) ' "$LEDGER" 2> /dev/null | grep -v ' UNPAUSE result=unknown ' | tail -n 1 | grep -q ' KILL ' && engaged=1
 healthy=0
 on_purpose=0
 # an un-pause that woke the algorithms but could not record it leaves the engagement open, so they read as the switch's
 unrecorded=""
-[ ! -e "$STATE/kill-switch.flatten-ids.kept" ] || unrecorded='; a make unpause could not write its ledger line (kill-switch.flatten-ids.kept is there): if it woke these, run make unpause again once the ledger can be written, not the switch'
+[ ! -e "$STATE/kill-switch.paused-ids.unrecorded" ] || unrecorded='; a make unpause could not write its ledger line (kill-switch.paused-ids.unrecorded is there): if it woke these, run make unpause again once the ledger can be written, not the switch'
 if sudo -n systemctl enable --now quanttrader; then log "service enabled and started"; else errors+=("start-service"); log "systemctl enable --now FAILED"; fi
 code=000
 for _ in $(seq 1 45); do
@@ -148,7 +151,8 @@ if [ -n "$NTFY_TOPIC" ]; then
   prio=default; [ ${#errors[@]} -eq 0 ] || prio=high
   if push "$prio" "$summary"; then alert=sent; else alert=FAILED; errors+=("alert"); fi
 fi
-if ! printf '%s RESUME service=%s crons=%s active_algorithms=%s before=%s engaged=%s mirroring=%s alert=%s errors=%s\n' "$(date -u +%FT%TZ)" "$service_state" "$crons_n" "$active_n" "${service_before:-unknown}" "$engaged" "$mirroring" "$alert" "${errors[*]:-none}" >> "$LEDGER" 2> /dev/null; then
+# the fields dev's line had come first, as the daily summary shows the ledger's last line cut at 120 characters
+if ! printf '%s RESUME service=%s crons=%s active_algorithms=%s mirroring=%s alert=%s errors=%s before=%s engaged=%s\n' "$(date -u +%FT%TZ)" "$service_state" "$crons_n" "$active_n" "$mirroring" "$alert" "${errors[*]:-none}" "${service_before:-unknown}" "$engaged" >> "$LEDGER" 2> /dev/null; then
   errors+=("ledger"); log "ledger write FAILED"
   # the first push said errors as they stood before this one; without a ledger line this is the only record
   [ -z "$NTFY_TOPIC" ] || push high "RESUME: the ledger line was NOT written. errors=${errors[*]}" || log "the second push FAILED"
