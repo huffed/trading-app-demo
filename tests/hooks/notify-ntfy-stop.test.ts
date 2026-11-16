@@ -64,15 +64,20 @@ describe("notify-ntfy hook: a turn that ends with BLOCKED ON YOU", () => {
 describe("notify-ntfy hook: repeats, failures and questions it cannot read", () => {
   it("says so, and pushes nothing, for a heading with no numbered question it can read", () => {
     const heading = "**BLOCKED ON YOU**";
-    for (const message of [
-      `${heading}\nNone.`,
-      `${heading}\n 1. Indented, which is not at the start of a line`,
-      `${heading}\n- 1. A bullet`,
-      "**BLOCKED ON YOU** (2)\n1. Text after the heading",
-    ]) {
+    const noQuestion = "not sent: a BLOCKED ON YOU line with no numbered question";
+    const forms: [string, string][] = [
+      [`${heading}\nNone.`, noQuestion],
+      [`${heading}\n 1. Indented, which is not at the start of a line`, noQuestion],
+      [`${heading}\n- 1. A bullet`, noQuestion],
+      [
+        "**BLOCKED ON YOU** (2)\n1. Text after the heading",
+        "not sent: a line starts with BLOCKED ON YOU in another form",
+      ],
+    ];
+    for (const [message, reason] of forms) {
       const r = run({ ...STOP, last_assistant_message: message });
       expect(r.curl).toBe("");
-      expect(r.log).toContain("not sent: a BLOCKED ON YOU line with no numbered question");
+      expect(r.log).toContain(reason);
       expect(r.stdout).toContain('"systemMessage":"Phone push for BLOCKED ON YOU: not sent');
     }
   });
@@ -178,6 +183,13 @@ const toolResult = {
   type: "user",
   message: { role: "user", content: [{ type: "tool_result", tool_use_id: "t1", content: "ok" }] },
 };
+const output = (size: number) => ({
+  type: "user",
+  message: {
+    role: "user",
+    content: [{ type: "tool_result", tool_use_id: "t1", content: "x".repeat(size) }],
+  },
+});
 
 describe("notify-ntfy hook: questions written before the turn's last tool call", () => {
   it("pushes them from the turn's earlier text in the transcript", () => {
@@ -225,30 +237,23 @@ describe("notify-ntfy hook: questions written before the turn's last tool call",
 
 describe("notify-ntfy hook: the fallback's harder cases", () => {
   it("says so for an earlier section it cannot read, rather than dropping it", () => {
-    const forms = [
-      "**BLOCKED ON YOU** (2 questions)\n1. A\n2. B",
-      "**Blocked on you**\n1. A",
-      "**BLOCKED ON YOU**\n- 1. A",
+    const forms: [string, string][] = [
+      ["**BLOCKED ON YOU** (2 questions)\n1. A\n2. B", "in another form"],
+      ["**Blocked on you**\n1. A", "in another form"],
+      ["**BLOCKED ON YOU**\n- 1. A", "with no numbered question"],
     ];
-    for (const form of forms) {
+    for (const [form, reason] of forms) {
       const transcript = turn(prompt, said(form), toolCall, toolResult, said("Review started."));
       const r = run({ ...STOP, last_assistant_message: "Review started." }, { transcript });
       expect(r.curl).toBe("");
-      expect(r.stdout).toContain("not sent: a BLOCKED ON YOU line with no numbered question");
-      expect(r.log).toContain("under it (written before the turn's last tool call)");
+      expect(r.stdout).toContain(reason);
+      expect(r.log).toContain("(written before the turn's last tool call)");
     }
   });
 
   it("reads a transcript where the words come long before its end", () => {
     // grep stops at its first match, an earlier turn's, with most of 1 MB still to read: a pipe from tail would
     // fail under pipefail exactly then
-    const output = (size: number) => ({
-      type: "user",
-      message: {
-        role: "user",
-        content: [{ type: "tool_result", tool_use_id: "t1", content: "x".repeat(size) }],
-      },
-    });
     const transcript = turn(
       prompt,
       said(BLOCKED),
@@ -281,7 +286,7 @@ describe("notify-ntfy hook: heading forms and fences it reads with care", () => 
     for (const heading of ["> **BLOCKED ON YOU**", "- **BLOCKED ON YOU**", "**Blocked on you**"]) {
       const r = run({ ...STOP, last_assistant_message: `${heading}\n1. A question` });
       expect(r.curl).toBe("");
-      expect(r.stdout).toContain("not sent: a BLOCKED ON YOU line with no numbered question");
+      expect(r.stdout).toContain("not sent: a line starts with BLOCKED ON YOU in another form");
     }
   });
 
@@ -294,5 +299,38 @@ describe("notify-ntfy hook: heading forms and fences it reads with care", () => 
     expect(run({ ...STOP, last_assistant_message: tildes }).curl).toContain(
       "BLOCKED ON YOU: 1 question(s)]"
     );
+  });
+});
+
+describe("notify-ntfy hook: a transcript over 8 MB", () => {
+  it("reads the turn when it starts in the last 8 MB", () => {
+    const transcript = turn(
+      prompt,
+      said("Earlier."),
+      toolCall,
+      output(8_500_000),
+      prompt,
+      said(BLOCKED),
+      toolCall,
+      toolResult,
+      said("Review started.")
+    );
+    const r = run({ ...STOP, last_assistant_message: "Review started." }, { transcript });
+    expect(r.curl).toContain("BLOCKED ON YOU: 2 question(s)]");
+  });
+
+  it("reads nothing of a turn that starts before them", () => {
+    const transcript = turn(
+      prompt,
+      toolCall,
+      output(8_500_000),
+      said(BLOCKED),
+      toolCall,
+      toolResult,
+      said("Review started.")
+    );
+    const r = run({ ...STOP, last_assistant_message: "Review started." }, { transcript });
+    expect(r.curl).toBe("");
+    expect(r.log).toBe("");
   });
 });

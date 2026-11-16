@@ -10,7 +10,8 @@
 #   per set of questions in a session, also while background agents run. It reads the turn's last text,
 #   and when that yields no question, the turn's earlier texts from the transcript, newest first, so
 #   questions written before the turn's last tool call still go out. A BLOCKED ON YOU line with no numbered
-#   question it can read is said in the session, not dropped.
+#   question it can read is said in the log and in a hook message for the operator, not dropped; the session
+#   itself never sees a hook message (D-44).
 #
 # The ntfy topic is read from a file outside the repo (QT_NTFY_TOPIC_FILE, default
 # ~/.config/quanttrader/ntfy-topic, one line), and the access token a reserved topic needs from an
@@ -36,7 +37,8 @@ input=$(cat)
 field() { printf '%s' "$input" | jq -r --arg k "$1" '.[$k] // empty | tostring' 2> /dev/null; }
 event=$(field hook_event_name)
 type=$(field notification_type)
-message=$(field message)
+# Claude Code's message, cut to 500 characters so that a long one still goes out as a short push
+message=$(printf '%s' "$input" | jq -r '.message // empty | tostring | .[0:500]' 2> /dev/null)
 transcript=$(field transcript_path)
 cwd=$(field cwd)
 sid=$(field session_id)
@@ -48,7 +50,7 @@ log() {
 }
 
 # A push that did not go out: one log line that never holds the topic or the token, and on Stop the same
-# text in the session.
+# text as a hook message for the operator.
 not_sent() {
   log "$1"
   [ "$event" = Stop ] && jq -cn --arg m "Phone push for BLOCKED ON YOU: $1" '{systemMessage: $m}' 2> /dev/null
@@ -57,7 +59,7 @@ not_sent() {
 
 command -v jq > /dev/null 2>&1 || {
   log "not sent: jq not found"
-  # said in the session only on a turn that has questions, not at every turn end
+  # said to the operator only on a turn that has questions, not at every turn end
   case "$input" in *"BLOCKED ON YOU"*) printf '%s\n' '{"systemMessage":"Phone push: not sent, jq not found"}' ;; esac
   exit 0
 }
@@ -70,8 +72,9 @@ esac
 
 # The BLOCKED ON YOU section of a text on stdin: "Q <line>" per numbered question at the start of a line
 # ("1. ", "**1. **", "1) ") after a line that reads BLOCKED ON YOU, with any heading or bold marks, up to the
-# next heading ("# " to "###### "), READY TO MERGE or Next action line; then "SEEN" if any line starts with
-# the heading in another form (another case, after > or -, text after it), so that form is said, not dropped.
+# next heading ("# " to "###### "), READY TO MERGE or Next action line; then "SEEN heading" if a line reads
+# BLOCKED ON YOU, else "SEEN" if any line starts with the heading in another form (another case, after > or -,
+# text after it), so that a section with no question it can read is said, not dropped, with which it was.
 # Fenced code is skipped: a fence is three or more backticks (with no backtick after them) or tildes, and
 # closes on the same character, at least as long, alone on its line.
 blocked_section() {
@@ -91,11 +94,11 @@ blocked_section() {
         fch = c; flen = n; next
       }
       if (tolower(line) ~ /^[>#*_ -]*blocked on you([^a-z]|$)/) seen = 1
-      if ($0 ~ /^[#*_[:space:]]*BLOCKED ON YOU[*_:[:space:]]*$/) { on = 1; next }
+      if ($0 ~ /^[#*_[:space:]]*BLOCKED ON YOU[*_:[:space:]]*$/) { on = 1; exact = 1; next }
       if (on && $0 ~ /^(#+[[:space:]]|[*_]*Next action|[#*_[:space:]]*READY TO MERGE)/) on = 0
       if (on && $0 ~ /^[*_]*[0-9]+[.)][*_]* /) print "Q " $0
     }
-    END { if (seen) print "SEEN" }'
+    END { if (exact) print "SEEN heading"; else if (seen) print "SEEN" }'
 }
 
 # The turn's earlier texts from the transcript, newest first and each ended by a NUL: the assistant texts since
@@ -128,7 +131,10 @@ earlier_turn_texts() {
         | map(select(.type == "assistant") | .message.content[]? | select(.type == "text") | .text)
         | map(select(ascii_downcase | test("(^|\n)[>#*_ \t-]*blocked on you([^a-z]|$)")))
         | reverse | .[] | ., "\u0000"
-      end' 2> /dev/null || type=blocked_on_you log "the fallback could not read the transcript (jq failed)"
+      end' 2> /dev/null
+  local rc=$?
+  # 141: the reader stopped at a text with questions, so the rest of jq's output had nowhere to go
+  [ "$rc" = 0 ] || [ "$rc" = 141 ] || type=blocked_on_you log "the fallback could not read the transcript (jq failed)"
 }
 
 if [ "$event" = Stop ]; then
@@ -147,7 +153,7 @@ if [ "$event" = Stop ]; then
         break
       fi
       if [ -n "$candidate" ] && [ -z "$parsed" ]; then
-        parsed=SEEN earlier=" (written before the turn's last tool call)"
+        parsed=$candidate earlier=" (written before the turn's last tool call)"
       fi
     done < <(earlier_turn_texts)
   fi
@@ -169,8 +175,12 @@ fi
 [ -n "$name" ] || name="$(basename "${cwd:-$PWD}") ${sid:0:8}"
 # an AI title is generated from the conversation, so it is cut short and stripped of control characters
 name=$(printf '%s' "$name" | tr -d '\000-\037\177' | cut -c1-60)
-[ "$type" != blocked_on_you ] || [ "$questions" != 0 ] \
-  || not_sent "not sent: a BLOCKED ON YOU line with no numbered question (1. at the start of a line) under it${earlier:-}"
+if [ "$type" = blocked_on_you ] && [ "$questions" = 0 ]; then
+  case "$parsed" in
+    *"SEEN heading"*) not_sent "not sent: a BLOCKED ON YOU line with no numbered question (1. at the start of a line) under it${earlier:-}" ;;
+    *) not_sent "not sent: a line starts with BLOCKED ON YOU in another form (another case, text after it, or after > or -), so no question was read${earlier:-}" ;;
+  esac
+fi
 
 # The first line of a file, with surrounding spaces and a CR removed; empty if it is unreadable.
 first_line() {

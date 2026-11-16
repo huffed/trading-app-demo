@@ -64,6 +64,12 @@ describe("notify-ntfy hook: what the push says", () => {
     expect(r.curl).toContain("[Priority: default]");
   });
 
+  it("cuts Claude Code's message to 500 characters", () => {
+    const r = run({ ...PROMPT, notification_type: "idle_prompt", message: "x".repeat(5000) });
+    expect(r.curl).toContain(`${"x".repeat(500)}]`);
+    expect(r.curl).not.toContain("x".repeat(501));
+  });
+
   it("sends a background session's request for input at high priority", () => {
     const r = run({ ...PROMPT, notification_type: "agent_needs_input", message: "Waiting" });
     expect(r.curl).toContain("[Title: Claude: a background session needs you]");
