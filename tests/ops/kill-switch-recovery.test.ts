@@ -55,7 +55,8 @@ describe("the engagement marker", () => {
     const host = makeHost({ active: [A], crontab: true, engaged: true });
     writeTicks(host);
     expect(runScript(host, "resume.sh").stdout).toContain("RESUME_ERRORS=algorithms-active:1");
-    expect(runScript(host, "unpause.sh").stdout).toContain("UNPAUSE_RESULT=NOTHING");
+    // no list says what the switch paused, so un-pause cannot say they are all awake
+    expect(runScript(host, "unpause.sh").stdout).toContain("UNPAUSE_RESULT=PARTIAL");
     expect(ledger(host)).toContain("UNPAUSE result=nothing cleared=kill-switch.engaged ");
     expect(listsLeft(host)).toEqual([]);
   });
@@ -202,6 +203,7 @@ describe("the second review's cases", () => {
   it("says how many of the engagement's targets stay paused when there is nothing to un-pause", () => {
     const host = makeHost({ flattenIds: [A], stillPaused: [A] });
     const run = runScript(host, "unpause.sh");
+    expect(run.stdout).toContain("UNPAUSE_RESULT=PARTIAL");
     expect(ledger(host)).toContain(" left_paused=1 ");
     expect(run.stdout).toContain(`stay paused (${A})`);
   });

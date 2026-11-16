@@ -32,11 +32,14 @@ T0=$(date -u +%FT%TZ)
 # (DEBT D-35).
 service_before=$(systemctl is-active quanttrader 2> /dev/null || true)
 engaged=0
-{ [ -e "$STATE/kill-switch.engaged" ] || [ -s "$STATE/kill-switch.paused-ids" ] || [ -s "$STATE/kill-switch.flatten-ids" ]; } && engaged=1
+{ [ -e "$STATE/kill-switch.engaged" ] || [ -s "$STATE/kill-switch.paused-ids" ] || [ -s "$STATE/kill-switch.flatten-ids" ] || [ -e "$STATE/kill-switch.flatten-ids.kept" ]; } && engaged=1
 # and the ledger, in case the marker could not be written: a KILL line after the last UNPAUSE line
 grep -E ' (KILL|UNPAUSE) ' "$LEDGER" 2> /dev/null | tail -n 1 | grep -q ' KILL ' && engaged=1
 healthy=0
 on_purpose=0
+# an un-pause that woke the algorithms but could not record it leaves the engagement open, so they read as the switch's
+unrecorded=""
+[ ! -e "$STATE/kill-switch.flatten-ids.kept" ] || unrecorded='; a make unpause could not write its ledger line (kill-switch.flatten-ids.kept is there): if it woke these, run make unpause again once the ledger can be written, not the switch'
 if sudo -n systemctl enable --now quanttrader; then log "service enabled and started"; else errors+=("start-service"); log "systemctl enable --now FAILED"; fi
 code=000
 for _ in $(seq 1 45); do
@@ -80,7 +83,7 @@ if [ "$crons_n" != 0 ]; then
   elif [ "$service_before" = active ] && [ "$engaged" = 0 ]; then
     healthy=1; log "nothing to resume: the service was already running with the crontab on and $active_n active algorithm(s), and no kill-switch engagement is open (as after make unpause)"
   elif [ "$active_n" != 0 ]; then
-    errors+=("algorithms-active:$active_n"); log "$active_n algorithm(s) are ACTIVE with the crontab on, so they can trade, and the service was $service_before before this resume$([ "$engaged" = 1 ] && echo ' with a kill-switch engagement open'). Only if the switch ran and failed: make kill-switch, which flattens every active algorithm"
+    errors+=("algorithms-active:$active_n"); log "$active_n algorithm(s) are ACTIVE with the crontab on, so they can trade, and the service was $service_before before this resume$([ "$engaged" = 1 ] && echo ' with a kill-switch engagement open'). Only if the switch ran and failed: make kill-switch, which flattens every active algorithm$unrecorded"
   fi
 elif [ "$active_n" = 0 ]; then
   if [ -s "$STATE/crontab.disabled" ]; then
@@ -104,7 +107,7 @@ elif [ "$service_before" = active ] && [ "$engaged" = 0 ]; then
   on_purpose=1; errors+=("crontab-off")
   log "$active_n algorithm(s) are active and the crontab is off, but the service was already running and no kill-switch engagement is open (as after make unpause before resume restored the crontab): do not run make kill-switch; install the crontab as ops ($STATE/crontab.disabled if it matches ops/crontab, else ops/crontab: runbook, Rollback)"
 else
-  errors+=("algorithms-active:$active_n"); log "$active_n algorithm(s) are ACTIVE — the switch did not pause them; the crontab stays off: run make kill-switch again, then make resume"
+  errors+=("algorithms-active:$active_n"); log "$active_n algorithm(s) are ACTIVE — the switch did not pause them; the crontab stays off: run make kill-switch again, then make resume$unrecorded"
 fi
 
 # the next manage, heartbeat and scan ticks after T0 must log http=200 — only if the service came up, the crons are

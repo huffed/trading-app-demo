@@ -56,7 +56,7 @@ envval() { grep -E "^$1=" "$ENV_FILE" 2> /dev/null | head -n 1 | cut -d= -f2- | 
 ids_from_json() { python3 -c 'import json,sys; print("\n".join(r["id"] for r in json.load(sys.stdin)))' 2> /dev/null; }
 valid_ids() { grep -E '^[0-9a-f-]{36}$'; }
 save_ids() { # $1 file, ids on stdin: replaced whole or not at all, so a full disk cannot empty a saved list
-  valid_ids | sort -u > "$1.new" && mv "$1.new" "$1"
+  valid_ids | sort -u > "$1.new" && mv -f "$1.new" "$1"
 }
 sb_get() { # $1 path+query → body on stdout; needs SB_URL/SB_KEY
   printf 'apikey: %s\nAuthorization: Bearer %s\n' "$SB_KEY" "$SB_KEY" | curl -fsS --max-time 15 -H @- "$SB_URL/rest/v1/$1"
@@ -118,7 +118,7 @@ current=$(crontab -l 2> /dev/null || true)
 if [ -n "$current" ]; then
   # crontab.unsaved says the saved copy is not this crontab, for resume, until a later copy is saved; an empty
   # file needs no data blocks
-  if printf '%s\n' "$current" > "$STATE/crontab.disabled.new" 2> /dev/null && mv "$STATE/crontab.disabled.new" "$STATE/crontab.disabled" 2> /dev/null; then
+  if printf '%s\n' "$current" > "$STATE/crontab.disabled.new" 2> /dev/null && mv -f "$STATE/crontab.disabled.new" "$STATE/crontab.disabled" 2> /dev/null; then
     saved=disabled; copy="$(grep -c '^[0-9*]' <<< "$current") entries saved to $STATE/crontab.disabled"
     rm -f "$STATE/crontab.unsaved" 2> /dev/null
   else
@@ -151,7 +151,8 @@ ids=""
 # Two lists, because a crontab that is back does not end an engagement: make resume restores it (DEBT
 # D-27). The flatten list holds every id this engagement targeted and only make unpause clears it. The
 # un-pause list is narrower: a fresh engagement replaces it, so an un-pause never wakes algorithms that
-# were paused on purpose after the last one, and it keeps old ids only while the crontab is still empty.
+# were paused on purpose after the last one, and it keeps old ids only while the crontab is still empty. An un-pause
+# that could not write its ledger line sets the flatten list aside (kill-switch.flatten-ids.kept), which is not read here.
 saved_ids=$(cat "$IDS_FILE" "$TARGETS_FILE" 2> /dev/null | valid_ids | sort -u || true)
 keep_ids=""
 [ "$crons" = already-empty ] && keep_ids=$(cat "$IDS_FILE" 2> /dev/null | valid_ids || true)

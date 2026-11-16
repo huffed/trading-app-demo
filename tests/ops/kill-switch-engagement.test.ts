@@ -48,7 +48,7 @@ describe("kill-switch.sh, the crontab when its copy cannot be saved", () => {
     expect(run.stdout).toContain("make resume would restore an OLDER copy");
   });
 
-  it("with no older copy, says to install ops/crontab before resuming", () => {
+  it("with no older copy, says to install ops/crontab once resume reports no-saved-crontab", () => {
     const host = makeHost({ active: [A] });
     breakSave(host, "crontab.disabled");
     const run = runScript(host, "kill-switch.sh", ["test"]);
