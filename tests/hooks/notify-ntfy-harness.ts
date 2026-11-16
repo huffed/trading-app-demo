@@ -1,7 +1,8 @@
 /**
  * Runs .claude/hooks/notify-ntfy.sh for real against a stand-in curl that records its arguments and stdin
  * and answers the way ntfy does, naming the topic. Nothing reaches ntfy. Shared by notify-ntfy.test.ts
- * (the Notification pushes) and notify-ntfy-stop.test.ts (the Stop push and settings.json).
+ * (the Notification pushes), notify-ntfy-stop.test.ts (the Stop push and settings.json) and
+ * notify-ntfy-turns.test.ts (where the fallback starts the turn).
  */
 import { spawnSync } from "node:child_process";
 import {
@@ -140,3 +141,45 @@ export const PROMPT = {
   session_id: "16c30c82-8ba1-4fd3",
   cwd: "/work/demo-1",
 };
+
+// The Stop payload and a turn that ends with questions.
+export const BLOCKED = [
+  "Two PRs are ready.",
+  "",
+  "**BLOCKED ON YOU**",
+  "1. **The topic file.** Run the command in a terminal; the secret word is hunter2.",
+  "2. **Start C.** Say it when you are at the keyboard.",
+  "",
+  "Next action: mine.",
+].join("\n");
+export const STOP = {
+  hook_event_name: "Stop",
+  session_id: "16c30c82-8ba1-4fd3",
+  cwd: "/work/demo-1",
+};
+
+// Transcript records, in the shape Claude Code writes them.
+export const turn = (...records: object[]): string[] => records.map((r) => JSON.stringify(r));
+export const prompt = { type: "user", message: { role: "user", content: "Carry on" } };
+export const said = (text: string): object => ({
+  type: "assistant",
+  message: { role: "assistant", content: [{ type: "text", text }] },
+});
+export const toolCall = {
+  type: "assistant",
+  message: {
+    role: "assistant",
+    content: [{ type: "tool_use", id: "t1", name: "Bash", input: {} }],
+  },
+};
+export const toolResult = {
+  type: "user",
+  message: { role: "user", content: [{ type: "tool_result", tool_use_id: "t1", content: "ok" }] },
+};
+export const output = (size: number): object => ({
+  type: "user",
+  message: {
+    role: "user",
+    content: [{ type: "tool_result", tool_use_id: "t1", content: "x".repeat(size) }],
+  },
+});

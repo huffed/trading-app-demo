@@ -7,22 +7,24 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanupRoots, run, TOPIC } from "./notify-ntfy-harness";
+import {
+  BLOCKED,
+  cleanupRoots,
+  output,
+  prompt,
+  run,
+  said,
+  STOP,
+  TOPIC,
+  toolCall,
+  toolResult,
+  turn,
+} from "./notify-ntfy-harness";
 
 // Each case runs the real hook, some several times; under a loaded machine 5 s is too short.
 vi.setConfig({ testTimeout: 20_000 });
 afterEach(cleanupRoots);
 
-const BLOCKED = [
-  "Two PRs are ready.",
-  "",
-  "**BLOCKED ON YOU**",
-  "1. **The topic file.** Run the command in a terminal; the secret word is hunter2.",
-  "2. **Start C.** Say it when you are at the keyboard.",
-  "",
-  "Next action: mine.",
-].join("\n");
-const STOP = { hook_event_name: "Stop", session_id: "16c30c82-8ba1-4fd3", cwd: "/work/demo-1" };
 const pushes = (curl: string): number => curl.split("ARGV:").length - 1;
 
 describe("notify-ntfy hook: a turn that ends with BLOCKED ON YOU", () => {
@@ -125,7 +127,7 @@ describe("notify-ntfy hook: repeats, failures and questions it cannot read", () 
     expect(pushes(again.curl)).toBe(2);
   });
 
-  it("says in the session when the push did not go out, and tries again next turn", () => {
+  it("leaves a hook message for the operator when the push did not go out, and tries again next turn", () => {
     const missing = run({ ...STOP, last_assistant_message: BLOCKED }, { topic: null });
     expect(missing.stdout).toContain(
       '"systemMessage":"Phone push for BLOCKED ON YOU: not sent: no topic'
@@ -164,31 +166,6 @@ describe("notify-ntfy hook: settings.json runs it", () => {
   it("at every Stop, from the project's hook directory", () => {
     expect(commands("Stop")).toContain('"${CLAUDE_PROJECT_DIR}"/.claude/hooks/notify-ntfy.sh');
   });
-});
-
-const turn = (...records: object[]): string[] => records.map((r) => JSON.stringify(r));
-const prompt = { type: "user", message: { role: "user", content: "Carry on" } };
-const said = (text: string) => ({
-  type: "assistant",
-  message: { role: "assistant", content: [{ type: "text", text }] },
-});
-const toolCall = {
-  type: "assistant",
-  message: {
-    role: "assistant",
-    content: [{ type: "tool_use", id: "t1", name: "Bash", input: {} }],
-  },
-};
-const toolResult = {
-  type: "user",
-  message: { role: "user", content: [{ type: "tool_result", tool_use_id: "t1", content: "ok" }] },
-};
-const output = (size: number) => ({
-  type: "user",
-  message: {
-    role: "user",
-    content: [{ type: "tool_result", tool_use_id: "t1", content: "x".repeat(size) }],
-  },
 });
 
 describe("notify-ntfy hook: questions written before the turn's last tool call", () => {
@@ -299,38 +276,5 @@ describe("notify-ntfy hook: heading forms and fences it reads with care", () => 
     expect(run({ ...STOP, last_assistant_message: tildes }).curl).toContain(
       "BLOCKED ON YOU: 1 question(s)]"
     );
-  });
-});
-
-describe("notify-ntfy hook: a transcript over 8 MB", () => {
-  it("reads the turn when it starts in the last 8 MB", () => {
-    const transcript = turn(
-      prompt,
-      said("Earlier."),
-      toolCall,
-      output(8_500_000),
-      prompt,
-      said(BLOCKED),
-      toolCall,
-      toolResult,
-      said("Review started.")
-    );
-    const r = run({ ...STOP, last_assistant_message: "Review started." }, { transcript });
-    expect(r.curl).toContain("BLOCKED ON YOU: 2 question(s)]");
-  });
-
-  it("reads nothing of a turn that starts before them", () => {
-    const transcript = turn(
-      prompt,
-      toolCall,
-      output(8_500_000),
-      said(BLOCKED),
-      toolCall,
-      toolResult,
-      said("Review started.")
-    );
-    const r = run({ ...STOP, last_assistant_message: "Review started." }, { transcript });
-    expect(r.curl).toBe("");
-    expect(r.log).toBe("");
   });
 });
