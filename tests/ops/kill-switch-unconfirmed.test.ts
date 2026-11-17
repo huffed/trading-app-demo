@@ -128,6 +128,30 @@ describe("unpause.sh after a last run that could not read the active algorithms"
     expect(again.stdout).toContain("RESUME_ERRORS=algorithms-active:1");
     expect(again.stdout).not.toContain("crontab-off");
   });
+
+  it("nor after one whose list failed before a PATCH it could not confirm", () => {
+    const host = makeHost({ saved: [A, B], flattenIds: [A, B], engaged: true });
+    writeLedger(host, [
+      "2026-11-13T10:00:00Z KILL reason=test paused=2 errors=",
+      "2026-11-13T12:00:00Z KILL reason=test paused=unknown errors=save-ids pause",
+    ]);
+    const run = runScript(host, "unpause.sh");
+    expect(run.stdout).toContain("UNPAUSE_RESULT=FAIL");
+    expect(run.stdout).toContain("the saved list is an earlier run's");
+    expect(ledger(host)).not.toContain(" UNPAUSE ");
+  });
+
+  it("does not carry an earlier engagement's UNPAUSE result=unknown into this one", () => {
+    const host = makeHost({ saved: [A], flattenIds: [A], alreadyActive: true, engaged: true });
+    writeLedger(host, [
+      "2026-11-10T10:00:00Z KILL reason=test paused=1 errors=",
+      "2026-11-10T11:00:00Z UNPAUSE result=unknown algorithms=? of 1 saved mirroring=n/a",
+      "2026-11-10T12:00:00Z UNPAUSE algorithms=0 of 1 saved mirroring=0/1",
+    ]);
+    // this engagement's switch left its marker and no KILL line, and none of its saved ids is paused
+    expect(runScript(host, "unpause.sh").stdout).toContain("UNPAUSE_RESULT=FAIL");
+    expect(inState(host, "kill-switch.engaged")).toBe(true);
+  });
 });
 
 describe("kill-switch.sh after an earlier run that left no KILL line", () => {

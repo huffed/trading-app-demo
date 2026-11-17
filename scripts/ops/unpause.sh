@@ -11,8 +11,9 @@
 # still have committed (a timeout after the commit), so it writes an UNPAUSE result=unknown line and keeps
 # them all. After a switch whose last run could not confirm its pause (its KILL line says paused=FAILED or unknown, or it
 # left its marker and no KILL line), it ends nothing when no list remains, or when none of the saved ids was still
-# paused: the algorithms may be active. After a last run that could not read the active algorithms (paused=FAILED) it
-# ends nothing either: that run saved no list, so the one left is an earlier run's.
+# paused: the algorithms may be active. After a last run that saved no list it ends nothing either: one that could not
+# read the active algorithms (paused=FAILED), or whose list failed (save-ids) before a PATCH it could not confirm
+# (paused=unknown), leaves an earlier run's list.
 # Exit status is non-zero on any failure.
 set -uo pipefail
 trap '' HUP INT PIPE
@@ -90,8 +91,9 @@ switch_did_not_pause() {
   if [ -z "$kill_lines" ]; then [ -e "$STATE/kill-switch.engaged" ]; return; fi
   tail -n 1 <<< "$kill_lines" | grep -qE ' paused=(FAILED|unknown) '
 }
-# the switch's last run could not read the active algorithms, so it saved no list: a list left is an earlier run's
-switch_saved_none() { tail -n 1 <<< "$kill_lines" | grep -qE ' paused=FAILED '; }
+# the switch's last run saved no list, so a list left is an earlier run's: it could not read the active algorithms, or
+# its list failed before a PATCH it could not confirm (a confirmed one leaves them all paused, and the list counts none)
+switch_saved_none() { tail -n 1 <<< "$kill_lines" | grep -qE ' paused=FAILED | paused=unknown .*[= ]save-ids( |$)'; }
 not_paused_fail() { # $1 what this run found; $2 "app" when the saved list remains, so a pause in the app also works
   local way="run make kill-switch again, then make resume, then make unpause (the switch pauses what is active)"
   [ "${2:-}" != app ] || way="$way; if you activated them yourself, pause them in the app and run make unpause again"
@@ -130,7 +132,7 @@ print(len(r), ",".join(r))' <<< "$body" 2> /dev/null || echo "?"
 # ends nothing), which say what a switch could not do
 kill_lines=$(grep -E ' (KILL|UNPAUSE) ' "$LEDGER" 2> /dev/null | awk '/ UNPAUSE / {if ($0 !~ / result=unknown /) k = ""; next} {k = k $0 "\n"} END {printf "%s", k}' || true)
 # 1 when an UNPAUSE result=unknown line follows the last KILL line: an un-pause's PATCH may have committed since
-unpause_unknown=$(grep -E ' (KILL|UNPAUSE) ' "$LEDGER" 2> /dev/null | awk '/ KILL / {u = 0} / UNPAUSE result=unknown / {u = 1} END {print u + 0}' || true)
+unpause_unknown=$(grep -E ' (KILL|UNPAUSE) ' "$LEDGER" 2> /dev/null | awk '/ KILL / {u = 0} / UNPAUSE / {u = ($0 ~ / result=unknown /)} END {print u + 0}' || true)
 if ! [ -s "$STATE/kill-switch.paused-ids" ]; then
   # nothing to wake, but an engagement may remain: in its other lists, or only in the ledger as a KILL line after the
   # last UNPAUSE line, when the switch could create no file (resume reads that line too). Say what goes, and record it
@@ -173,7 +175,7 @@ fi
 ids=$(grep -E '^[0-9a-f-]{36}$' "$STATE/kill-switch.paused-ids")
 [ -n "$ids" ] || { log "the saved id list holds no valid ids"; echo "UNPAUSE_RESULT=FAIL"; exit 1; }
 # what the last run should have paused is in no list, and may be active: a pause in the app changes no KILL line
-! switch_saved_none || not_paused_fail "the saved list is an earlier run's, since the last run could not read the active algorithms and saved none"
+! switch_saved_none || not_paused_fail "the saved list is an earlier run's, since the last run saved none (it could not read the active algorithms, or could not write the list)"
 SB_URL=$(envval NEXT_PUBLIC_SUPABASE_URL); SB_KEY=$(envval SUPABASE_SERVICE_ROLE_KEY)
 [ -n "$SB_URL" ] && [ -n "$SB_KEY" ] || { log "Supabase URL/service key not found in $ENV_FILE"; echo "UNPAUSE_RESULT=FAIL"; exit 1; }
 list=$(paste -sd, - <<< "$ids")
