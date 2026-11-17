@@ -1,6 +1,6 @@
 # 0013 — Working with the operator: blocks visible on the phone, questions at the end, merges by the operator
 
-**Date:** 2026-11-13 · **Status:** active; the Stop push, the dialog types and the review-clean thresholds are proposed until the operator answers on #338 · **Number:** 0012 is kept for the live-table decision the operator queued on 2026-11-07.
+**Date:** 2026-11-13 · **Status:** active; the operator adopted the pushes and the docs rule on 2026-11-17 and rewrote the review loop for code, tooling and runbooks · **Number:** 0012 is kept for the live-table decision the operator queued on 2026-11-07.
 
 ## Decision
 
@@ -8,7 +8,8 @@
 - **Questions only at the end of a turn,** under a line that reads **BLOCKED ON YOU**, one per numbered line, each with a recommended answer; what the session carries on with meanwhile is said above them and started before them, so they are the turn's last text. Later turns repeat them while they are open. A turn ends with READY TO MERGE, then BLOCKED ON YOU, each only when it has items, then, when the session's work is outstanding, a `Next action:` line that names the next action and who starts it.
 - **Order.** The operator's queue order stands; the session's own findings go to the end as proposals. A claim about how a tool behaves says what was run to check it.
 - **Merges.** The session no longer merges on its own. A review-clean, green PR goes on the **READY TO MERGE** list, and the operator says "merge the queue". The session then merges each listed PR in order. Because `protect-dev` requires an up-to-date branch, each merge is `gh pr merge <n> --squash --match-head-commit <sha>`, and a PR behind `dev` is first rebased with `gh pr update-branch <n> --rebase` and merged once CI is green at the new head; a PR whose rebase conflicts leaves the list until it is resolved and reviewed again. This replaces "then merge it yourself" (operator, 2026-10-30).
-- **Review rounds.** A docs PR with no runnable command gets one review round. It is clean when that review reports no Critical or High, and Medium and Low findings are fixed in the same push; a Critical or High is fixed and gets one more review under the same rule. Runbooks, plans with host commands, code and tooling keep the review loop, which ends at a review of the whole PR with no Critical, High or Medium. Reviews label every finding.
+- **Review rounds.** Reviews label every finding Critical, High, Medium or Low. A docs PR with no runnable command gets one review round. It is clean when that review reports no Critical or High, and Medium and Low findings are fixed in the same push; a Critical or High is fixed and gets one more review under the same rule. Code, tooling, runbooks and plans with host commands get at most three rounds: the first reads the whole PR, each later one only the diff since the last reviewed commit, and confirms the earlier findings are closed. The loop ends at a review with no Critical or High. A Medium is fixed in that push when a single failure reaches it or it is inside the PR's stated scope, and otherwise goes to `docs/DEBT.md` with the PR number; a Low is fixed when the fix is one line, and otherwise goes to `docs/DEBT.md`. If round 3 still has a Critical or High, the session stops and brings the finding to the operator with the options: cut scope, ship with it recorded, or redesign. Once a PR is review-clean, a rebase or a later edit gets one review of that diff only.
+- **The hook is frozen.** It gains no behaviour unless the operator asks (2026-11-17).
 
 ## Why
 
@@ -19,12 +20,15 @@ The session's retrospective of Parts A and B (2026-11-12; a private document out
 
 Docs-only PRs took 20 review rounds, and their first reviews found no Critical and six Highs, all of them wording.
 
+The review loop for code and tooling as first proposed here ended only at a whole-PR review with no Medium. The operator rewrote it on 2026-11-17: "#336 took 6 rounds, #342 is past 8, and #338 is 13 commits and 1,100 lines for a push hook. A fresh whole-PR review always finds another Medium, so 'no Medium' never ends."
+
 ## Alternatives considered
 
 - **A `systemMessage` from the hook when a push fails, so the session shows it:** not possible. The hooks reference says a Notification hook's `systemMessage` is discarded, and its exit code ignored.
 - **A push from the Stop hook at every turn end:** rejected; most turns need nothing. The Stop hook pushes only a turn with the BLOCKED ON YOU line.
 - **The session reading the hook's log before a BLOCKED ON YOU turn ends** (this PR's first fix): replaced. A turn's idle push fires after the turn, so the read saw an earlier push, and the idle push never comes while a background agent runs (review of 2026-11-13).
 - **The session merging after review, the old rule:** rejected by the operator.
+- **A code and tooling loop that ends only at a whole-PR review with no Medium** (this PR's proposal): replaced by the operator's rule above, on 2026-11-17.
 - **The session name from the status-line input, where Claude Code documents it:** hooks do not receive it, so the hook reads the transcript's title records and falls back to the folder name.
 
 ## Consequences
@@ -37,7 +41,8 @@ Docs-only PRs took 20 review rounds, and their first reviews found no Critical a
 - Questions reach the phone only when the turn ends, so meanwhile work in the foreground holds them back; a session with questions puts longer work in background agents.
 - Nothing is sent until the topic file exists. A reserved topic also needs the token file, and without it ntfy refuses the push; the log line then names the token file.
 - The session name depends on Claude Code's internal transcript format.
-- `docs/DEBT.md` D-42 to D-45: nothing stops a pre-approved `git diff --no-index` printing the secret files; nothing stops a session merging; a failed Notification push is only logged; the session name and the earlier-text fallback read Claude Code's internal transcript format.
+- `docs/DEBT.md` D-42 to D-45: a `Read` deny on `~/.config/quanttrader/**` does not stop a pre-approved `git diff --no-index` or a script printing the secret files; a merge spelled other than `gh pr merge` does not prompt; a failed Notification push is only logged; the session name and the earlier-text fallback read Claude Code's internal transcript format.
+- The `ask` and `deny` rules and the hook reach a session only from the checkout it was started in.
 - The hook needs jq; without it nothing is sent, and on Stop it says so.
 
 ## Evidence
@@ -51,6 +56,7 @@ Docs-only PRs took 20 review rounds, and their first reviews found no Critical a
 - **gh 2.90.0,** `--help` read on 2026-11-13: `gh pr update-branch` takes `--rebase`, and `gh pr merge` takes `--squash` and `--match-head-commit SHA`.
 - **`protect-dev`,** read with `gh api` on 2026-11-13: its required-checks rule has `strict_required_status_checks_policy: true`, so a PR must be up to date with `dev` to merge.
 - **`pmset -g log`,** read 2026-11-13. Every sleep since 6 November was on battery. One was a "Low Power Sleep" at 1% charge on 6 November at 21:39, lasting 46,565 s.
+- **The operator's answers of 2026-11-17:** keep all three pushes the operator had not named (the Stop push, the background-session push and the dialog push), then freeze the hook; adopt the docs rule as written and replace the code, tooling and runbook loop with the rule above; read decision 0002 as letting independent PRs be open at once and say so in the Git rule; add the `gh pr merge` ask rule and the `Read` deny on `~/.config/quanttrader/**`.
 - **The operator's order of 2026-11-13** adopted the review rounds and the turn-ending rule: "Adopt your B9g items 1, 3 and 4 now: one review round for docs without runnable commands, E0 tests before the verdict, and the turn-ending rule."
 - **Idle waits reach the hook:** `~/.local/state/quanttrader/notify.log` has thirteen `idle_prompt` lines from 2026-11-13T13:04:14Z to 2026-11-16T15:03Z (read 2026-11-16), each 62 to 66 s after a `blocked_on_you` line, all "not sent" because no topic file exists yet.
 - **Phone test:** pending; the operator confirms that a test prompt arrives within a minute, an idle wait of about 70 s with no background agent running, and a turn that ends with questions while a background agent runs; and the operator says whether "Phone push for BLOCKED ON YOU: not sent …" hook messages showed in the terminal while there was no topic file.

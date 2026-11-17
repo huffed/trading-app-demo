@@ -76,11 +76,14 @@
       "Bash(pnpm remove *)",
       "Edit(/.claude/**)",
       "Edit(/.husky/**)",
-      "Edit(/.github/workflows/**)"
+      "Edit(/.github/workflows/**)",
+      "Bash(gh pr merge)",
+      "Bash(gh pr merge *)"
     ],
     "deny": [
       "Read(.env*)",
       "Read(!.env.example)",
+      "Read(~/.config/quanttrader/**)",
       "Edit(.env*)",
       "Edit(!.env.example)",
       "Edit(/scripts/canonical/data/**)",
