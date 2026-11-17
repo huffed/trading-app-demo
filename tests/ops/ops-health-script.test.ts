@@ -133,6 +133,7 @@ describe("ops-health.sh, the paused-pairs count", () => {
     );
     expect(call).toContain("password=set");
     expect(call).toContain("where w.auto_paused and a.status = 'active'");
+    expect(call).toContain("-X -q -A -t -v ON_ERROR_STOP=1 -c ");
   });
 
   it("keeps the database password out of psql's arguments, the output and the push", () => {

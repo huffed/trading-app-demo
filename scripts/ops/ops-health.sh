@@ -51,19 +51,20 @@ fi
 # Watchlist pairs the pair-quality evaluator auto-paused on an active algorithm (src/lib/scan/pair-quality.ts: at least
 # 8 closed trades and a win rate at or below 30%). The scan skips them without a word (src/lib/scan/engine.ts:85), so
 # above zero needs a hand. Read through the backups' read-only role (decision 0011), the server verified as backup.sh
-# does; the password reaches psql through its environment only. A read that fails is "?", never 0.
+# does; the password reaches psql through its environment only. A read that fails, or takes over 60 s (a lock, a
+# stalled pooler), is "?", never 0, and its cause goes to ops-health.log on stderr.
 paused_pairs="?"
 paused_list=$(
   url=$(envval BACKUP_DATABASE_URL)
   ca=/usr/local/lib/quanttrader/supabase-prod-ca-2021.crt
-  { [ -n "$url" ] && [ -r "$ca" ]; } || exit 2
+  { [ -n "$url" ] && [ -r "$ca" ]; } || { echo "ops-health: paused pairs: no BACKUP_DATABASE_URL or no readable CA certificate" >&2; exit 2; }
   parts=$(python3 -c 'import sys
 from urllib.parse import urlsplit, unquote
 u = urlsplit(sys.stdin.read().strip())
 print("\x1f".join([u.hostname, str(u.port or 5432), unquote(u.username), unquote(u.password), u.path.lstrip("/") or "postgres"]))' <<< "$url" 2> /dev/null) || exit 2
   IFS=$'\x1f' read -r PGHOST PGPORT PGUSER PGPASSWORD PGDATABASE <<< "$parts"
   export PGHOST PGPORT PGUSER PGPASSWORD PGDATABASE PGSSLMODE=verify-full PGSSLROOTCERT=$ca PGGSSENCMODE=disable PGCONNECT_TIMEOUT=20
-  psql -X -q -A -t -v ON_ERROR_STOP=1 -c "select a.name || ' / ' || w.ticker || ' since ' || coalesce(to_char(w.auto_paused_at, 'YYYY-MM-DD'), '?') from public.algorithm_watchlist w join public.algorithms a on a.id = w.algorithm_id where w.auto_paused and a.status = 'active' order by a.name, w.ticker" 2> /dev/null
+  timeout 60 psql -X -q -A -t -v ON_ERROR_STOP=1 -c "select a.name || ' / ' || w.ticker || ' since ' || coalesce(to_char(w.auto_paused_at, 'YYYY-MM-DD'), '?') from public.algorithm_watchlist w join public.algorithms a on a.id = w.algorithm_id where w.auto_paused and a.status = 'active' order by a.name, w.ticker"
 ) && paused_pairs=$(grep -c . <<< "$paused_list")
 paused_detail=""
 if [ "$paused_pairs" = "?" ]; then
