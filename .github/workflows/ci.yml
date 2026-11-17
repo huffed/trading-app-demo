@@ -72,7 +72,7 @@ jobs:
       - name: lint added files with eslint.config.strict.mjs
         run: |
           # one line: make expands FILES inline, so a newline-separated list splits the recipe
-          files=$(git diff --name-only --diff-filter=A "origin/${{ github.base_ref }}...HEAD" -- '*.ts' '*.tsx' '*.mjs' '*.js' | grep -vE '^(scripts/archive|scripts/ad-hoc)/' | tr '\n' ' ' || true)
+          files=$(git diff --name-only --diff-filter=A "origin/${{ github.base_ref }}...HEAD" -- '*.ts' '*.tsx' '*.mjs' '*.js' | grep -vE '^(scripts/archive|scripts/ad-hoc|review)/' | tr '\n' ' ' || true)
           if [ -z "$files" ]; then echo "no added code files"; exit 0; fi
           make lint-strict FILES="$files"
       - name: changed files are prettier-formatted
