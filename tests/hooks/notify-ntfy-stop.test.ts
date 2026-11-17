@@ -1,0 +1,280 @@
+/**
+ * .claude/hooks/notify-ntfy.sh on Stop, run against the stand-in curl in ./notify-ntfy-harness: a turn that
+ * ends with BLOCKED ON YOU and numbered questions pushes once, with the number of questions and never their
+ * text; a push that did not go out leaves a hook message and is tried again. And settings.json runs the hook
+ * on both events.
+ */
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  BLOCKED,
+  cleanupRoots,
+  output,
+  prompt,
+  run,
+  said,
+  STOP,
+  TOPIC,
+  toolCall,
+  toolResult,
+  turn,
+} from "./notify-ntfy-harness";
+
+// Each case runs the real hook, some several times; under a loaded machine 5 s is too short.
+vi.setConfig({ testTimeout: 20_000 });
+afterEach(cleanupRoots);
+
+const pushes = (curl: string): number => curl.split("ARGV:").length - 1;
+
+describe("notify-ntfy hook: a turn that ends with BLOCKED ON YOU", () => {
+  it("pushes the number of questions, never their text", () => {
+    const r = run({ ...STOP, last_assistant_message: BLOCKED });
+    expect(r.status).toBe(0);
+    expect(r.curl).toContain("[Title: Claude: questions for you]");
+    expect(r.curl).toContain("[Priority: high]");
+    expect(r.curl).toContain("[demo-1 16c30c82\nBLOCKED ON YOU: 2 question(s)]");
+    expect(r.curl).not.toContain("hunter2");
+    expect(r.log).toMatch(/blocked_on_you \[demo-1 16c30c82\] sent\n$/);
+  });
+
+  it("does nothing on a turn without the heading line, even one that names it", () => {
+    const text = "The rule puts questions under BLOCKED ON YOU at the end.\n1. A list item.";
+    for (const message of [text, ""]) {
+      const r = run({ ...STOP, last_assistant_message: message });
+      expect(r.curl).toBe("");
+      expect(r.log).toBe("");
+      expect(r.stdout).toBe("");
+    }
+  });
+
+  it("counts bold-numbered questions, and skips the heading inside a code block", () => {
+    const bold = [
+      "**BLOCKED ON YOU**",
+      "**1. Topic file.** Run it.",
+      "### Detail",
+      "**2) Start C.**",
+    ];
+    expect(run({ ...STOP, last_assistant_message: bold.join("\n") }).curl).toContain(
+      "BLOCKED ON YOU: 1 question(s)]"
+    );
+    const fenced = ["Example:", "```", "**BLOCKED ON YOU**", "1. A question", "```"].join("\n");
+    expect(run({ ...STOP, last_assistant_message: fenced }).curl).toBe("");
+  });
+});
+
+describe("notify-ntfy hook: repeats, failures and questions it cannot read", () => {
+  it("says so, and pushes nothing, for a heading with no numbered question it can read", () => {
+    const heading = "**BLOCKED ON YOU**";
+    const noQuestion = "not sent: a BLOCKED ON YOU line with no numbered question";
+    const forms: [string, string][] = [
+      [`${heading}\nNone.`, noQuestion],
+      [`${heading}\n 1. Indented, which is not at the start of a line`, noQuestion],
+      [`${heading}\n- 1. A bullet`, noQuestion],
+      [
+        "**BLOCKED ON YOU** (2)\n1. Text after the heading",
+        "not sent: a line starts with BLOCKED ON YOU in another form",
+      ],
+    ];
+    for (const [message, reason] of forms) {
+      const r = run({ ...STOP, last_assistant_message: message });
+      expect(r.curl).toBe("");
+      expect(r.log).toContain(reason);
+      expect(r.stdout).toContain('"systemMessage":"Phone push for BLOCKED ON YOU: not sent');
+    }
+  });
+
+  it("keeps counting past a line that starts with #339, and skips ~~~ blocks", () => {
+    const hashed = "**BLOCKED ON YOU**\n1. Merge order.\n#339 has to merge first.\n2. Start C.";
+    expect(run({ ...STOP, last_assistant_message: hashed }).curl).toContain(
+      "BLOCKED ON YOU: 2 question(s)]"
+    );
+    const tilde = "~~~\n**BLOCKED ON YOU**\n1. An example\n~~~";
+    expect(run({ ...STOP, last_assistant_message: tilde }).curl).toBe("");
+    const inline = "```x``` is inline code\n**BLOCKED ON YOU**\n1. A question";
+    expect(run({ ...STOP, last_assistant_message: inline }).curl).toContain(
+      "BLOCKED ON YOU: 1 question(s)]"
+    );
+  });
+
+  it("without jq, sends nothing, and says so only on a turn with questions", () => {
+    const r = run({ ...STOP, last_assistant_message: BLOCKED }, { withoutJq: true });
+    expect(r.curl).toBe("");
+    expect(r.stdout).toContain('{"systemMessage":"Phone push: not sent, jq not found"}');
+    const quiet = run({ ...STOP, last_assistant_message: "Done." }, { withoutJq: true });
+    expect(quiet.stdout).toBe("");
+  });
+
+  it("pushes the same questions once, and changed ones again", () => {
+    const first = run({ ...STOP, last_assistant_message: BLOCKED });
+    const again = run({ ...STOP, last_assistant_message: BLOCKED }, { root: first.root });
+    expect(pushes(again.curl)).toBe(1);
+    const nextAction = BLOCKED.replace("Next action: mine.", "Next: I start the rebase.");
+    const moved = run({ ...STOP, last_assistant_message: nextAction }, { root: first.root });
+    expect(pushes(moved.curl)).toBe(1);
+    const meanwhile = BLOCKED.replace("Two PRs are ready.", "Three PRs are ready.");
+    const around = run({ ...STOP, last_assistant_message: meanwhile }, { root: first.root });
+    expect(pushes(around.curl)).toBe(1);
+    const changed = `${BLOCKED}\n`.replace("Start C.", "Start C now.");
+    const third = run({ ...STOP, last_assistant_message: changed }, { root: first.root });
+    expect(pushes(third.curl)).toBe(2);
+  });
+
+  it("pushes the same set again once a turn without questions has come between", () => {
+    const first = run({ ...STOP, last_assistant_message: BLOCKED });
+    run({ ...STOP, last_assistant_message: "Done." }, { root: first.root });
+    const again = run({ ...STOP, last_assistant_message: BLOCKED }, { root: first.root });
+    expect(pushes(again.curl)).toBe(2);
+  });
+
+  it("leaves a hook message for the operator when the push did not go out, and tries again next turn", () => {
+    const missing = run({ ...STOP, last_assistant_message: BLOCKED }, { topic: null });
+    expect(missing.stdout).toContain(
+      '"systemMessage":"Phone push for BLOCKED ON YOU: not sent: no topic'
+    );
+    const refused = run(
+      { ...STOP, last_assistant_message: BLOCKED },
+      { curlExit: 22, httpCode: 403 }
+    );
+    expect(refused.stdout).toContain("push FAILED (curl exit 22, HTTP 403)");
+    expect(refused.stdout).not.toContain(TOPIC);
+    const retry = run({ ...STOP, last_assistant_message: BLOCKED }, { root: refused.root });
+    expect(pushes(retry.curl)).toBe(2);
+  });
+});
+
+describe("notify-ntfy hook: settings.json runs it", () => {
+  const settings = JSON.parse(
+    readFileSync(resolve(process.cwd(), ".claude/settings.json"), "utf8")
+  ) as { hooks: Record<string, { matcher?: string; hooks: { command: string }[] }[]> };
+  const commands = (event: string): string[] =>
+    settings.hooks[event].flatMap((group) => group.hooks.map((h) => h.command));
+
+  it("on the five notification types that wait on the operator", () => {
+    const group = settings.hooks.Notification.find((g) =>
+      g.hooks.some((h) => h.command.includes("notify-ntfy.sh"))
+    );
+    expect(group?.matcher?.split("|").sort()).toEqual([
+      "agent_needs_input",
+      "elicitation_dialog",
+      "elicitation_url_dialog",
+      "idle_prompt",
+      "permission_prompt",
+    ]);
+  });
+
+  it("at every Stop, from the project's hook directory", () => {
+    expect(commands("Stop")).toContain('"${CLAUDE_PROJECT_DIR}"/.claude/hooks/notify-ntfy.sh');
+  });
+});
+
+describe("notify-ntfy hook: questions written before the turn's last tool call", () => {
+  it("pushes them from the turn's earlier text in the transcript", () => {
+    const transcript = turn(prompt, said(BLOCKED), toolCall, toolResult);
+    const r = run({ ...STOP, last_assistant_message: "Started the review." }, { transcript });
+    expect(r.curl).toContain("BLOCKED ON YOU: 2 question(s)]");
+    expect(r.log).toContain("sent (written before the turn's last tool call)");
+  });
+
+  it("finds them past a later line that only mentions the heading, and past a broken line", () => {
+    const later = "Review agent started; the two questions under BLOCKED ON YOU above stand.";
+    const transcript = [
+      ...turn(prompt, said(BLOCKED), toolCall, toolResult, said(later)),
+      '{"type":"assistant","message":{"content":[{"type":"te',
+    ];
+    const r = run({ ...STOP, last_assistant_message: later }, { transcript });
+    expect(r.curl).toContain("BLOCKED ON YOU: 2 question(s)]");
+  });
+
+  it("finds them when the last text starts with Blocked on you, or holds a fenced example", () => {
+    for (const later of [
+      "Blocked on you for the two questions above; the review runs meanwhile.",
+      ["For example:", "```", "**BLOCKED ON YOU**", "1. An example", "```"].join("\n"),
+    ]) {
+      const transcript = turn(prompt, said(BLOCKED), toolCall, toolResult, said(later));
+      const r = run({ ...STOP, last_assistant_message: later }, { transcript });
+      expect(r.curl).toContain("BLOCKED ON YOU: 2 question(s)]");
+    }
+  });
+
+  it("does not take Blocked on your answer for the heading", () => {
+    const r = run({
+      ...STOP,
+      last_assistant_message: "Blocked on your answer to the window plan.",
+    });
+    expect(r.stdout).toBe("");
+    expect(r.log).toBe("");
+  });
+
+  it("never takes an earlier turn's questions for this one's", () => {
+    const transcript = turn(prompt, said(BLOCKED), toolCall, toolResult, prompt, said("Done."));
+    expect(run({ ...STOP, last_assistant_message: "Done." }, { transcript }).curl).toBe("");
+  });
+});
+
+describe("notify-ntfy hook: the fallback's harder cases", () => {
+  it("says so for an earlier section it cannot read, rather than dropping it", () => {
+    const forms: [string, string][] = [
+      ["**BLOCKED ON YOU** (2 questions)\n1. A\n2. B", "in another form"],
+      ["**Blocked on you**\n1. A", "in another form"],
+      ["**BLOCKED ON YOU**\n- 1. A", "with no numbered question"],
+    ];
+    for (const [form, reason] of forms) {
+      const transcript = turn(prompt, said(form), toolCall, toolResult, said("Review started."));
+      const r = run({ ...STOP, last_assistant_message: "Review started." }, { transcript });
+      expect(r.curl).toBe("");
+      expect(r.stdout).toContain(reason);
+      expect(r.log).toContain("(written before the turn's last tool call)");
+    }
+  });
+
+  it("reads a transcript where the words come long before its end", () => {
+    // grep stops at its first match, an earlier turn's, with most of 1 MB still to read: a pipe from tail would
+    // fail under pipefail exactly then
+    const transcript = turn(
+      prompt,
+      said(BLOCKED),
+      toolCall,
+      output(800_000),
+      prompt,
+      said(BLOCKED),
+      toolCall,
+      output(200_000),
+      said("Review started.")
+    );
+    const r = run({ ...STOP, last_assistant_message: "Review started." }, { transcript });
+    expect(r.curl).toContain("BLOCKED ON YOU: 2 question(s)]");
+  });
+
+  it("does not take a skill's injected text for the start of the turn", () => {
+    const skill = {
+      type: "user",
+      isMeta: true,
+      message: { role: "user", content: "Base directory for this skill: example" },
+    };
+    const transcript = turn(prompt, said(BLOCKED), toolCall, toolResult, skill, said("Done."));
+    const r = run({ ...STOP, last_assistant_message: "Done." }, { transcript });
+    expect(r.curl).toContain("BLOCKED ON YOU: 2 question(s)]");
+  });
+});
+
+describe("notify-ntfy hook: heading forms and fences it reads with care", () => {
+  it("says so for a heading in another form, rather than dropping it", () => {
+    for (const heading of ["> **BLOCKED ON YOU**", "- **BLOCKED ON YOU**", "**Blocked on you**"]) {
+      const r = run({ ...STOP, last_assistant_message: `${heading}\n1. A question` });
+      expect(r.curl).toBe("");
+      expect(r.stdout).toContain("not sent: a line starts with BLOCKED ON YOU in another form");
+    }
+  });
+
+  it("skips a longer fence and one with an info string, and closes only on its own kind", () => {
+    const inner = ["````", "```", "**BLOCKED ON YOU**", "1. Example", "```", "````"].join("\n");
+    expect(run({ ...STOP, last_assistant_message: inner }).curl).toBe("");
+    const info = ["```ts {1,3}", "**BLOCKED ON YOU**", "1. Example", "```"].join("\n");
+    expect(run({ ...STOP, last_assistant_message: info }).curl).toBe("");
+    const tildes = ["~~~", "```", "~~~", "**BLOCKED ON YOU**", "1. Real"].join("\n");
+    expect(run({ ...STOP, last_assistant_message: tildes }).curl).toContain(
+      "BLOCKED ON YOU: 1 question(s)]"
+    );
+  });
+});

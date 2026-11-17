@@ -76,11 +76,14 @@
       "Bash(pnpm remove *)",
       "Edit(/.claude/**)",
       "Edit(/.husky/**)",
-      "Edit(/.github/workflows/**)"
+      "Edit(/.github/workflows/**)",
+      "Bash(gh pr merge)",
+      "Bash(gh pr merge *)"
     ],
     "deny": [
       "Read(.env*)",
       "Read(!.env.example)",
+      "Read(~/.config/quanttrader/**)",
       "Edit(.env*)",
       "Edit(!.env.example)",
       "Edit(/scripts/canonical/data/**)",
@@ -133,6 +136,23 @@
             "type": "command",
             "command": "\"${CLAUDE_PROJECT_DIR}\"/.claude/hooks/stop-validate.sh",
             "timeout": 600
+          },
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PROJECT_DIR}\"/.claude/hooks/notify-ntfy.sh",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "matcher": "permission_prompt|idle_prompt|agent_needs_input|elicitation_dialog|elicitation_url_dialog",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PROJECT_DIR}\"/.claude/hooks/notify-ntfy.sh",
+            "timeout": 15
           }
         ]
       }
