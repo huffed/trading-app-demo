@@ -90,7 +90,7 @@ make python-lock                         # after editing pyproject.toml: uv lock
 
 **Why:** before this, "run the checks" meant remembering five pnpm scripts, and nothing ran `scripts/` at all. One name per check also lets CLAUDE.md and the hooks refer to checks without repeating their commands.
 
-**Commands:** see the cheat-sheet (§1). The targets wrap `pnpm exec …`; the pnpm scripts in `package.json` still work (`pnpm lint`, `pnpm typecheck`, `pnpm test`). `BASE=origin/dev` is the comparison point for `format`/`format-check`; override with `make format BASE=main`.
+**Commands:** see the cheat-sheet (§1). The targets wrap `pnpm exec …`; the pnpm scripts in `package.json` still work (`pnpm lint`, `pnpm typecheck`, `pnpm test`). `BASE=origin/dev` is the comparison point for `format`/`format-check`, which leave the audit's `review/` as committed; override with `make format BASE=main`.
 
 ## 7. Lint, types, format — the baseline and the target
 
@@ -114,7 +114,7 @@ make python-lock                         # after editing pyproject.toml: uv lock
 **What:** `.husky/pre-commit` (installed by `pnpm install` through the `prepare` script, which sets `core.hooksPath=.husky`). On every `git commit` it runs, in order:
 
 1. **gitleaks** on the staged changes (`gitleaks git --pre-commit --staged`) — a secret-shaped string stops the commit. The hook refuses to run at all if gitleaks is missing (`brew install gitleaks`); it never silently skips.
-2. **lint-staged** (`.lintstagedrc.mjs`): Prettier writes every staged code file; ESLint baseline runs on staged TS/JS (errors fail); the **target** config runs on files that are new in the commit; shellcheck runs on staged cron wrappers (baseline) and on staged ops scripts and hooks (target); actionlint runs when a file under `.github/workflows/` is staged (`brew install actionlint`; the commit is refused if it is missing, same as gitleaks); shellcheck also covers `.claude/hooks/*.sh` and `.husky/commit-msg`.
+2. **lint-staged** (`.lintstagedrc.mjs`): Prettier writes every staged code file; ESLint baseline runs on staged TS/JS (errors fail); the **target** config runs on files that are new in the commit; shellcheck runs on staged cron wrappers (baseline) and on staged ops scripts and hooks (target); actionlint runs when a file under `.github/workflows/` is staged (`brew install actionlint`; the commit is refused if it is missing, same as gitleaks); shellcheck also covers `.claude/hooks/*.sh` and `.husky/commit-msg`. Nothing under `review/` runs any of these: the audit's scripts are evidence, not product code, and their lines are cited; `make typecheck` and `make lint` still read them.
 3. **commit-msg** (`.husky/commit-msg`): rejects a message containing `Co-Authored-By` or "Generated with" (operator decision 2026-10-29). The committed `.claude/settings.json` also sets `attribution.commit` and `attribution.pr` to empty strings so Claude Code never adds them; the hook catches anything else. `git commit --no-verify` (and `-n`) would bypass every git hook; the committed permissions deny it and `guard-bash` refuses it in any position, and CI fails a PR whose commit messages carry an attribution line.
 
 **Why:** the brief's rule is "a change that alters trades cannot merge unless the golden file is updated on purpose, and nothing fails silently". Pre-commit is the fast local half of that: it catches formatting, lint errors and secrets in seconds, before CI spends minutes. Holding new files to the target config from their first commit is how strictness ratchets up without a big-bang rewrite.
@@ -154,7 +154,7 @@ Adding a migration = apply it to the project, `make db-types`, commit the migrat
 | Job | Runs | Fails when |
 |---|---|---|
 | `lint · typecheck · test · build` | `make install`, `make lint`, `make lint-workflows`, `make lint-shell`, `make typecheck`, `make env-check`, `make db-types-check`, `make test`, `make build` | any ESLint error or more warnings than the budget; a workflow file GitHub could not parse, a bad expression or a shellcheck error in a `run:` step; any TypeScript error (tests included); a `process.env` name missing from `.env.example`; migrations newer than the generated types; any failing test; a broken production build |
-| `target rules on files added in this PR` (PRs only) | `make lint-strict` on files added vs the base branch; `make format-check` on changed files | a **new** file breaks the target rule set; a changed file is not prettier-formatted |
+| `target rules on files added in this PR` (PRs only) | `make lint-strict` on files added vs the base branch; `make format-check` on changed files; both leave out the audit's `review/`, which the first job's typecheck and baseline lint still read | a **new** file breaks the target rule set; a changed file is not prettier-formatted |
 | `gitleaks` | the gitleaks action over the pushed history | a secret-shaped string was committed |
 
 Every job is a Makefile target, so a red job reproduces locally with the same command. The stale one-shot `ftmo-gate-reminder.yml` (a 2026-07-11 reminder that told itself to be deleted) is removed; `dead-man.yml` (production monitoring) is untouched.
