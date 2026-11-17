@@ -1,6 +1,6 @@
 # 0013 — Working with the operator: blocks visible on the phone, questions at the end, merges by the operator
 
-**Date:** 2026-11-13 · **Status:** active; the operator adopted the pushes and the docs rule on 2026-11-17 and rewrote the review loop for code, tooling and runbooks · **Number:** 0012 is kept for the live-table decision the operator queued on 2026-11-07.
+**Date:** 2026-11-13 · **Status:** active; the operator adopted the pushes and the docs rule on 2026-11-17 and rewrote the review loop for code, tooling and runbooks · **Number:** 0012 is the live-table statement decision the operator queued on 2026-11-07 and made on 2026-11-17.
 
 ## Decision
 

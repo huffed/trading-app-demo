@@ -1,6 +1,6 @@
 # Kill switch — stop all trading activity on the VPS, and how to come back
 
-`make kill-switch` is the one host command allowed in market hours (the one other exception: appending the `HEARTBEAT_PING_URL` line, `docs/runbooks/d4-alerts-and-rotation.md`). It is idempotent and fails closed: whatever is unreachable, the service ends up stopped and the crons gone. Everything it does is one line in `/var/log/quanttrader/deploys.log` and an urgent ntfy push. `make kill-switch`, `make resume` and `make unpause` are the only way a Claude session writes to the live tables besides one statement the operator authorises (CLAUDE.md, decisions 0010 and 0012): each prompts every time, is never pre-approved (`ask` rules in `.claude/settings.json`; no pre-approved make rule takes arguments, so every make command with arguments prompts whatever its spelling — the one real backstop; the Makefile and `guard-bash` also refuse a host goal beside another goal, behind a flag or behind an override, and `guard-bash` refuses the `--eval`, `-f`, `MAKEFILES=`, `MAKEFLAGS=` and stdin-makefile spellings it can see through; `tests/ops/makefile-host-targets.test.ts` checks), runs only when the operator asks for it, and writes its ledger line — the row in `docs/decisions/deploys.md` is copied from it in the next PR, and CLAUDE.md's "ledger row" means that pair. A failed append to `deploys.log` counts as an error in all three, and an un-pause whose PATCH failed writes `UNPAUSE result=unknown`, because it may have committed.
+`make kill-switch` is the one host command allowed in market hours (the one other exception: appending the `HEARTBEAT_PING_URL` line, `docs/runbooks/d4-alerts-and-rotation.md`). It is idempotent and fails closed: whatever is unreachable, the service ends up stopped and the crons gone. Everything it does is one line in `/var/log/quanttrader/deploys.log` and an urgent ntfy push. `make kill-switch`, `make resume` and `make unpause` are the only way a Claude session writes to the live tables besides one statement the operator's message in that turn authorises (CLAUDE.md, decisions 0010 and 0012): each prompts every time, is never pre-approved (`ask` rules in `.claude/settings.json`; no pre-approved make rule takes arguments, so every make command with arguments prompts whatever its spelling — the one real backstop; the Makefile and `guard-bash` also refuse a host goal beside another goal, behind a flag or behind an override, and `guard-bash` refuses the `--eval`, `-f`, `MAKEFILES=`, `MAKEFLAGS=` and stdin-makefile spellings it can see through; `tests/ops/makefile-host-targets.test.ts` checks), runs only when the operator asks for it, and writes its ledger line — the row in `docs/decisions/deploys.md` is copied from it in the next PR, and CLAUDE.md's "ledger row" means that pair. A failed append to `deploys.log` counts as an error in all three, and an un-pause whose PATCH failed writes `UNPAUSE result=unknown`, because it may have committed.
 
 ## What it does, in order (`scripts/ops/kill-switch.sh`, run on the host as `ops`)
 
@@ -58,7 +58,7 @@ Expect no open positions; the point is the sequence.
 
 ## Paper re-test with a synthetic position (D-27; window 2026-11-07/08)
 
-Run after the scripts PR is merged and `git fetch origin` has brought it to the workstation, with the market closed. Each SQL statement below runs either in the operator's Supabase SQL editor, or by the session under decision 0012 when the operator's message in that turn authorises that statement: before-values first, the ids named, `returning`, the expected row count, a stop on a mismatch, and the session's own ledger line. Otherwise a session writes to the live tables only through the three targets. The schema has no test flag, so the test uses a reserved algorithm id, which it supports cleanly: `algorithms` needs only a name and a user, `paper_positions` has no one-open-position rule, and only `updated_at` triggers fire.
+Run after the scripts PR is merged and `git fetch origin` has brought it to the workstation, with the market closed. Each write below (the updates in steps 1 and 11, the inserts in steps 2 and 6, the deletes in step 9) runs either in the operator's Supabase SQL editor, or by the session under decision 0012 when the operator's message in that turn authorises that statement: before-values first, the ids named, `returning`, the expected row count, a stop on a mismatch, and the session's own row in `docs/decisions/deploys.md`. The selects are reads, which the session may run as before. While mirroring is on, step 11's update stays the operator's (decision 0010). Otherwise a session writes to the live tables only through the three targets. The schema has no test flag, so the test uses a reserved algorithm id, which it supports cleanly: `algorithms` needs only a name and a user, `paper_positions` has no one-open-position rule, and only `updated_at` triggers fire.
 
 **The switch flattens every active algorithm and every saved id, so a real open position closes unless its algorithm is out of the active set first.** Step 1 flips those algorithms to `paused` for the length of the test and step 11 flips them back. With the market closed nothing moves, but nothing manages those positions either. If you would rather not flip them, wait until they have closed on their own. A position left alone this way is one the switch did not target, so with `r` real positions open every run below reads `open_untargeted=r` and ends `KILL_RESULT=PARTIAL` with `open-untargeted:r`, by design; with none open it ends `OK`.
 
@@ -73,12 +73,12 @@ Reserved ids: test algorithm `00000000-0000-4000-8000-00000000d027`, test positi
 select p.algorithm_id, a.status as algorithm_status, p.id as position_id, p.ticker, p.side, p.opened_at
 from public.paper_positions p join public.algorithms a on a.id = p.algorithm_id
 where p.status = 'open';
-update public.algorithms set status = 'paused' where status = 'active' and id in ('<algorithm id>');
+update public.algorithms set status = 'paused' where status = 'active' and id in ('<algorithm id>') returning id, status;
 
 -- 2. Right after a scan tick (:00, :15, :30, :45): the test algorithm, active, no broker, no watchlist.
 insert into public.algorithms (id, user_id, name, status, asset_class)
 select '00000000-0000-4000-8000-00000000d027', user_id, 'TEST kill-switch re-test, delete me', 'active', 'commodity'
-from public.algorithms where id = '6cea13b6-86fb-41f6-9f2c-6bef47541a6a';   -- INSERT 0 1
+from public.algorithms where id = '6cea13b6-86fb-41f6-9f2c-6bef47541a6a' returning id, status;   -- one row
 
 -- The gate, immediately before step 3. It must return no rows. If it returns one, pause that algorithm as in
 -- step 1, note its id, and run the gate again. Do not repeat the insert.
@@ -95,7 +95,7 @@ where p.status = 'open' and a.status = 'active';
 -- 6. The synthetic position, on the test algorithm, which is paused and saved.
 insert into public.paper_positions (id, user_id, algorithm_id, ticker, side, quantity, entry_price, notional_value, current_price, unrealized_pnl, entry_reason)
 select '00000000-0000-4000-8000-00000000d028', user_id, id, 'XAU/USD', 'long', 0.01, 1, 1, 1, 0, '{"test": "kill-switch re-test"}'::jsonb
-from public.algorithms where id = '00000000-0000-4000-8000-00000000d027';
+from public.algorithms where id = '00000000-0000-4000-8000-00000000d027' returning id, algorithm_id, status;
 ```
 
 7. `make kill-switch REASON=paper-retest-rerun` → `crons=disabled paused=0 flattened=1 open_after=0 open_untargeted=r`. This is the D-27 path: the crontab is back, nothing is active, and the switch still flattens the ids the engagement targeted. Those exclude step 1's algorithms, so the real positions stay open.
@@ -105,15 +105,15 @@ from public.algorithms where id = '00000000-0000-4000-8000-00000000d027';
 -- 9. It closed as manual, then remove every trace. activity_log's foreign keys are ON DELETE SET NULL,
 -- so its rows go first; deleting the algorithm cascades to the position.
 select id, status, exit_reason, realized_pnl from public.paper_positions where id = '00000000-0000-4000-8000-00000000d028';
-delete from public.activity_log where algorithm_id = '00000000-0000-4000-8000-00000000d027' or position_id = '00000000-0000-4000-8000-00000000d028';
-delete from public.algorithms where id = '00000000-0000-4000-8000-00000000d027';
+delete from public.activity_log where algorithm_id = '00000000-0000-4000-8000-00000000d027' or position_id = '00000000-0000-4000-8000-00000000d028' returning id;
+delete from public.algorithms where id = '00000000-0000-4000-8000-00000000d027' returning id;
 ```
 
 10. `make unpause` → `UNPAUSE_RESULT=OK`; `make logs LOG=deploys N=1` shows `algorithms=M of N saved` with M one fewer than N, because the test algorithm is gone.
 
 ```sql
 -- 11. Only the ids step 1 paused, which read active there. Never an algorithm that was already paused.
-update public.algorithms set status = 'active' where status = 'paused' and id in ('<algorithm id>');
+update public.algorithms set status = 'active' where status = 'paused' and id in ('<algorithm id>') returning id, status;
 ```
 
 12. The next scan tick shows `"scanned":5`, and every real position from step 1 is still open.
