@@ -1,6 +1,6 @@
 # 0010 — The live-table rule and the broker exception: three targets write the live tables, one may flatten the broker, and no committed make rule can pre-approve them
 
-**Date** 2026-11-01, the broker half 2026-11-02, corrected 2026-11-06, the MetaApi redeploy 2026-11-06 · **Status** active, amends 0008 · **Decided by** the operator (wording), with the enforcement added after the review of PR #317
+**Date** 2026-11-01, the broker half 2026-11-02, corrected 2026-11-06, the MetaApi redeploy 2026-11-06 · **Status** active, amends 0008; amended by 0012 (one statement the operator authorises) · **Decided by** the operator (wording), with the enforcement added after the review of PR #317
 
 ## Decision
 
