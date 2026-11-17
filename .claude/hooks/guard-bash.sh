@@ -138,7 +138,7 @@ mentions_host() {
   local t=${1//\"/}
   t=${t//\'/}; t=${t//\\/}
   t=${t//\$[0-9]/}                                  # a positional parameter is empty here: $1ssh is ssh
-  # a test with no subprocess first: most segments name no host word, and every hook has a 10 s budget
+  # a test with no subprocess first: most segments name no host word, and every hook has a time budget (settings.json)
   case "$t" in
     *[sS][sS][hH]*|*[sS][cC][pP]*|*[sS][fF][tT][pP]*|*[rR][sS][yY][nN][cC]*|*[sS][lL][oO][gG][iI][nN]*|*[mM][oO][sS][hH]*) ;;
     *) return 1 ;;

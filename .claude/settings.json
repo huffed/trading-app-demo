@@ -78,12 +78,20 @@
       "Edit(/.husky/**)",
       "Edit(/.github/workflows/**)",
       "Bash(gh pr merge)",
-      "Bash(gh pr merge *)"
+      "Bash(gh pr merge *)",
+      "Edit(/vitest.config.*)",
+      "Edit(/.lintstagedrc*)",
+      "Edit(/eslint.config*)",
+      "Edit(/.prettierrc*)",
+      "Edit(/prettier.config.*)",
+      "Edit(/Makefile)",
+      "Edit(/package.json)"
     ],
     "deny": [
       "Read(.env*)",
       "Read(!.env.example)",
       "Read(~/.config/quanttrader/**)",
+      "Edit(~/.ssh/**)",
       "Edit(.env*)",
       "Edit(!.env.example)",
       "Edit(/scripts/canonical/data/**)",
@@ -102,7 +110,8 @@
           {
             "type": "command",
             "command": "\"${CLAUDE_PROJECT_DIR}\"/.claude/hooks/guard-paths.sh",
-            "timeout": 10
+            "timeout": 60,
+            "onFailure": "block"
           }
         ]
       },
@@ -112,7 +121,8 @@
           {
             "type": "command",
             "command": "\"${CLAUDE_PROJECT_DIR}\"/.claude/hooks/guard-bash.sh",
-            "timeout": 10
+            "timeout": 60,
+            "onFailure": "block"
           }
         ]
       }

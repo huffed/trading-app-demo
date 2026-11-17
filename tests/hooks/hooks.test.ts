@@ -47,8 +47,9 @@ function runHook(name: string, payload: unknown, env: Env = {}): HookResult {
     encoding: "utf8",
     env: merged,
     cwd: ROOT,
-    // Claude Code gives each guard 10 s (.claude/settings.json, the reviewer agent's frontmatter) and does not block
-    // on one that runs longer (DEBT D-22), so a run past 10 s fails here, with status -1.
+    // Claude Code gives the two guards 60 s and refuses the call when one runs longer (onFailure: block in
+    // .claude/settings.json); the reviewer agent's allowlist hook has 10 s. A run past 10 s fails here, with status -1,
+    // so a guard slowing toward those limits shows here first (DEBT D-22).
     timeout: 10_000,
   });
   return { status: r.status ?? -1, stdout: r.stdout, stderr: r.stderr };
@@ -248,5 +249,28 @@ describe("make fence-check", () => {
     });
     expect(r.status).toBe(0);
     expect(r.stdout).toMatch(/no committed file sets/);
+  });
+});
+
+describe("settings.json: the two guard hooks refuse the call when they fail or time out", () => {
+  interface Hook {
+    command: string;
+    timeout?: number;
+    onFailure?: string;
+  }
+  const settings = JSON.parse(readFileSync(join(ROOT, ".claude", "settings.json"), "utf8")) as {
+    hooks: { PreToolUse: { hooks: Hook[] }[] };
+  };
+  const guards = settings.hooks.PreToolUse.flatMap((m) => m.hooks).filter((h) =>
+    /guard-(bash|paths)\.sh/.test(h.command)
+  );
+
+  it("registers both guards", () => {
+    expect(guards).toHaveLength(2);
+  });
+
+  it.each(guards)("$command: onFailure block, 60 s (DEBT D-22)", (h) => {
+    expect(h.onFailure).toBe("block");
+    expect(h.timeout).toBe(60);
   });
 });
