@@ -145,6 +145,19 @@ const eslintConfig = defineConfig([
     },
   },
 
+  // The audit's review/ scripts are evidence, not product code (#345): rules about style only are off there, so their
+  // warnings never spend the budget in .eslint-warning-budget; every other rule, and its errors, still applies.
+  {
+    files: ["review/**/*.ts", "review/**/*.mjs", "review/**/*.js"],
+    rules: {
+      "no-console": "off",
+      "import-x/order": "off",
+      curly: "off",
+      "max-lines-per-function": "off",
+      "no-nested-ternary": "off",
+    },
+  },
+
   // CB.E2 (Stage 0.4) — per-file `max-lines: off` overrides for legitimate
   // single-responsibility files. These are not splittable without harming
   // cohesion: portfolio-backtest is the B.1.9 validated harness (only
