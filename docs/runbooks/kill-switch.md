@@ -64,7 +64,7 @@ Run after the scripts PR is merged and `git fetch origin` has brought it to the 
 
 Before starting, `make logs LOG=ops-health N=2` must show `held-by-kill-switch=0`, and `ssh qt 'ls /var/lib/quanttrader'` (read-only) must list no `kill-switch.*` file: a leftover id file, or the flatten list an un-pause keeps when its ledger line fails, would be flattened whatever its algorithm's status, and `held-by-kill-switch` counts only the un-pause list.
 
-Reserved ids: test algorithm `00000000-0000-4000-8000-00000000d027`, test position `00000000-0000-4000-8000-00000000d028`. Allow about an hour, because each `make resume` waits up to 25 minutes for ticks. Avoid 21:30 UTC, when the M1 band check reads positions. Expect urgent pushes from the switch and a down and an up from healthchecks.io.
+Reserved ids: test algorithm `00000000-0000-4000-8000-00000000d027`, test position `00000000-0000-4000-8000-00000000d028`. Allow about an hour and a half, because each of the three `make resume` runs waits up to 25 minutes for ticks. Avoid 21:30 UTC, when the M1 band check reads positions. Expect urgent pushes from the switch and a down and an up from healthchecks.io.
 
 ```sql
 -- 1. What is open. Pause the algorithm_id of every row whose algorithm_status is active, and note exactly
