@@ -1,0 +1,17 @@
+canary-glob-list|rc=0|stdout_bytes=11|eperm_lines=0|stderr_kind=none
+canary-stat|rc=1|stdout_bytes=0|eperm_lines=1|stderr_kind=eperm
+canary-cat|rc=1|stdout_bytes=0|eperm_lines=1|stderr_kind=eperm
+canary-git-diff|rc=1|stdout_bytes=0|eperm_lines=0|stderr_kind=other
+network-curl|rc=56|stdout_bytes=0|eperm_lines=0|stderr_kind=other
+network-github|rc=0|stdout_bytes=0|eperm_lines=0|stderr_kind=none
+network-ntfy|rc=56|stdout_bytes=0|eperm_lines=0|stderr_kind=other
+main-git-config-append|rc=1|stdout_bytes=0|eperm_lines=1|stderr_kind=eperm
+main-git-hooks-append|rc=1|stdout_bytes=0|eperm_lines=1|stderr_kind=eperm
+main-git-HEAD-append|rc=0|stdout_bytes=0|eperm_lines=0|stderr_kind=none
+main-worktree-gitdir-create|rc=0|stdout_bytes=0|eperm_lines=0|stderr_kind=none
+main-checkout-file-append|rc=1|stdout_bytes=0|eperm_lines=1|stderr_kind=eperm
+main-checkout-claude-append|rc=1|stdout_bytes=0|eperm_lines=1|stderr_kind=eperm
+home-ssh-append|rc=1|stdout_bytes=0|eperm_lines=1|stderr_kind=eperm
+wt-gitignore-append|rc=0|stdout_bytes=0|eperm_lines=0|stderr_kind=none
+wt-settings-append|rc=1|stdout_bytes=0|eperm_lines=1|stderr_kind=eperm
+wt-plain-file-create|rc=0|stdout_bytes=0|eperm_lines=0|stderr_kind=none

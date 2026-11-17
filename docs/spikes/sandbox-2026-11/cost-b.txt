@@ -1,0 +1,5 @@
+pnpm-install|rc=1|secs=56.7|stdout_bytes=0|stderr_kind=none
+make-help|rc=0|secs=0.5|stdout_bytes=4177|stderr_kind=none
+make-typecheck|rc=2|secs=62.6|stdout_bytes=5830|stderr_kind=other
+make-test-ops|rc=1|secs=66.8|stdout_bytes=5848|stderr_kind=none
+make-lint|rc=2|secs=65.3|stdout_bytes=5915|stderr_kind=other

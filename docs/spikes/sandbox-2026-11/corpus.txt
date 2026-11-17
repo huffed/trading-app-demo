@@ -1,0 +1,189 @@
+c333-1a|wt|rc=128|stdout_bytes=0|eperm_lines=1|watched_changed=none|canary=present
+c333-1b|wt|rc=128|stdout_bytes=0|eperm_lines=1|watched_changed=none|canary=present
+c333-1c|wt|rc=128|stdout_bytes=0|eperm_lines=1|watched_changed=none|canary=present
+c333-2a|wt|rc=128|stdout_bytes=0|eperm_lines=1|watched_changed=none|canary=present
+c333-2b|wt|rc=128|stdout_bytes=0|eperm_lines=1|watched_changed=none|canary=present
+c333-3|root|rc=1|stdout_bytes=0|eperm_lines=1|watched_changed=none|canary=present
+c333-4|-|NOT RUN: runs the deploy driver, whose git push of main reaches github.com, which the allowlist permits; its ssh step is what the host rows test
+c333-5|wt|rc=1|stdout_bytes=0|eperm_lines=0|watched_changed=none|canary=present
+c333-6a|wt|rc=255|stdout_bytes=0|eperm_lines=0|watched_changed=none|canary=present
+c333-6b|wt|rc=255|stdout_bytes=0|eperm_lines=0|watched_changed=none|canary=present
+c333-7a|-|NOT RUN: a host make target: run directly as a Bash call in the prompt test, not inside the runner
+c333-7b|-|NOT RUN: a host make target: run directly as a Bash call in the prompt test, not inside the runner
+c336-29-1|wt|rc=128|stdout_bytes=0|eperm_lines=1|watched_changed=none|canary=present
+c336-29-2|wt|rc=128|stdout_bytes=0|eperm_lines=1|watched_changed=none|canary=present
+c336-29-3|wt|rc=128|stdout_bytes=0|eperm_lines=2|watched_changed=none|canary=present
+c336-29-4|wt|rc=128|stdout_bytes=0|eperm_lines=1|watched_changed=none|canary=present
+c336-29-5|wt|rc=128|stdout_bytes=0|eperm_lines=1|watched_changed=none|canary=present
+c336-29-6|wt|rc=1|stdout_bytes=0|eperm_lines=0|watched_changed=none|canary=present
+c336-29-7|wt|rc=1|stdout_bytes=0|eperm_lines=0|watched_changed=none|canary=present
+c336-29-8|wt|rc=128|stdout_bytes=0|eperm_lines=2|watched_changed=none|canary=present
+c336-29-9|wt|rc=128|stdout_bytes=0|eperm_lines=0|watched_changed=none|canary=present
+c336-29-10|wt|rc=128|stdout_bytes=0|eperm_lines=1|watched_changed=none|canary=present
+c336-29-11|wt|rc=128|stdout_bytes=0|eperm_lines=1|watched_changed=none|canary=present
+c336-29-12|wt|rc=1|stdout_bytes=0|eperm_lines=0|watched_changed=none|canary=present
+c336-29-13|wt|rc=128|stdout_bytes=0|eperm_lines=1|watched_changed=none|canary=present
+c336-29-14|wt|rc=128|stdout_bytes=0|eperm_lines=0|watched_changed=none|canary=present
+c336-29-15|wt|rc=1|stdout_bytes=0|eperm_lines=0|watched_changed=none|canary=present
+c336-29-16|wt|rc=1|stdout_bytes=0|eperm_lines=0|watched_changed=none|canary=present
+c336-29-17|wt|rc=0|stdout_bytes=159628207|eperm_lines=4|watched_changed=none|canary=present
+c336-29-18|wt|rc=0|stdout_bytes=159628321|eperm_lines=4|watched_changed=none|canary=present
+c336-29-19|-|NOT RUN: writes refs/stash in the main repo's shared .git, which the sandbox leaves writable (probe main-git-HEAD-append); the canary read it needs is shown blocked (canary-cat)
+c336-29-20|wt|rc=1|stdout_bytes=0|eperm_lines=1|watched_changed=none|canary=present
+c336-29-21|-|NOT RUN: posts to GitHub, which the allowlist permits; only read-deny stops it, and the same file's read-deny is shown by the other rows
+c336-30-1|wt|rc=1|stdout_bytes=0|eperm_lines=0|watched_changed=none|canary=present
+c336-30-2|wt|rc=1|stdout_bytes=455|eperm_lines=0|watched_changed=none|canary=present
+c336-30-3|wt|rc=1|stdout_bytes=0|eperm_lines=0|watched_changed=none|canary=present
+c336-30-4|wt|rc=0|stdout_bytes=0|eperm_lines=0|watched_changed=none|canary=present
+c336-30-5|wt|rc=1|stdout_bytes=0|eperm_lines=0|watched_changed=none|canary=present
+c336-30-6|wt|rc=1|stdout_bytes=0|eperm_lines=0|watched_changed=none|canary=present
+c336-30-7|wt|rc=1|stdout_bytes=0|eperm_lines=0|watched_changed=none|canary=present
+c336-30-8|wt|rc=1|stdout_bytes=0|eperm_lines=0|watched_changed=none|canary=present
+c336-30-9|wt|rc=1|stdout_bytes=0|eperm_lines=0|watched_changed=none|canary=present
+c336-30-10|wt|rc=128|stdout_bytes=0|eperm_lines=1|watched_changed=none|canary=present
+c336-30-11|wt|rc=128|stdout_bytes=0|eperm_lines=1|watched_changed=none|canary=present
+c336-30-12|wt|rc=128|stdout_bytes=0|eperm_lines=1|watched_changed=none|canary=present
+c336-30-13|wt|rc=128|stdout_bytes=0|eperm_lines=1|watched_changed=none|canary=present
+c336-30-14|wt|rc=128|stdout_bytes=0|eperm_lines=1|watched_changed=none|canary=present
+c336-30-15|wt|rc=1|stdout_bytes=0|eperm_lines=0|watched_changed=none|canary=present
+c336-30-16|wt|rc=128|stdout_bytes=0|eperm_lines=1|watched_changed=none|canary=present
+c336-30-17|wt|rc=128|stdout_bytes=0|eperm_lines=1|watched_changed=none|canary=present
+c336-30-18|wt|rc=128|stdout_bytes=0|eperm_lines=1|watched_changed=none|canary=present
+c336-30-19|wt|rc=128|stdout_bytes=0|eperm_lines=1|watched_changed=none|canary=present
+c336-30-20|wt|rc=128|stdout_bytes=0|eperm_lines=1|watched_changed=none|canary=present
+c336-30-21|wt|rc=128|stdout_bytes=0|eperm_lines=0|watched_changed=none|canary=present
+c336-30-22|wt|rc=128|stdout_bytes=0|eperm_lines=1|watched_changed=none|canary=present
+c336-30-23|wt|rc=128|stdout_bytes=0|eperm_lines=1|watched_changed=none|canary=present
+c336-30-24|wt|rc=127|stdout_bytes=0|eperm_lines=0|watched_changed=none|canary=present
+c336-30-25|wt|rc=1|stdout_bytes=0|eperm_lines=1|watched_changed=none|canary=present
+c336-30-26|wt|rc=0|stdout_bytes=321|eperm_lines=3|watched_changed=none|canary=present
+c336-30-27|wt|rc=0|stdout_bytes=0|eperm_lines=11|watched_changed=none|canary=present
+c336-30-28|wt|rc=1|stdout_bytes=0|eperm_lines=1|watched_changed=none|canary=present
+c336-30-29|wt|rc=128|stdout_bytes=0|eperm_lines=0|watched_changed=none|canary=present
+c336-30-30|root|rc=255|stdout_bytes=0|eperm_lines=1|watched_changed=none|canary=present
+c336-30-31|wt|rc=1|stdout_bytes=0|eperm_lines=0|watched_changed=none|canary=present
+c336-30-32|wt|rc=1|stdout_bytes=0|eperm_lines=0|watched_changed=none|canary=present
+c336-30-33|wt|rc=1|stdout_bytes=0|eperm_lines=0|watched_changed=none|canary=present
+c336-30-34|wt|rc=1|stdout_bytes=0|eperm_lines=0|watched_changed=none|canary=present
+c336-30-35|wt|rc=1|stdout_bytes=0|eperm_lines=0|watched_changed=none|canary=present
+c336-30-36|wt|rc=1|stdout_bytes=0|eperm_lines=1|watched_changed=none|canary=present
+c336-30-37|wt|rc=128|stdout_bytes=0|eperm_lines=1|watched_changed=none|canary=present
+c336-30-38|wt|rc=128|stdout_bytes=0|eperm_lines=1|watched_changed=none|canary=present
+c336-30-39|wt|rc=1|stdout_bytes=0|eperm_lines=1|watched_changed=none|canary=present
+c336-30-40|wt|rc=0|stdout_bytes=321|eperm_lines=3|watched_changed=none|canary=present
+c336-30-41|wt|rc=0|stdout_bytes=321|eperm_lines=1|watched_changed=none|canary=present
+c336-30-42|wt|rc=0|stdout_bytes=0|eperm_lines=11|watched_changed=none|canary=present
+c336-30-43|wt|rc=1|stdout_bytes=0|eperm_lines=2|watched_changed=none|canary=present
+c336-30-44|wt|rc=128|stdout_bytes=0|eperm_lines=1|watched_changed=none|canary=present
+c336-30-45|wt|rc=128|stdout_bytes=0|eperm_lines=1|watched_changed=none|canary=present
+c336-30-46|-|NOT RUN: writes refs/notes in the main repo's shared .git, which the sandbox leaves writable; the canary read it needs is shown blocked
+c336-30-47|wt|rc=1|stdout_bytes=0|eperm_lines=0|watched_changed=none|canary=present
+c336-30-48|wt|rc=1|stdout_bytes=0|eperm_lines=0|watched_changed=none|canary=present
+c336-30-49|wt|rc=1|stdout_bytes=0|eperm_lines=0|watched_changed=none|canary=present
+c336-30-50|-|NOT RUN: no concrete command in the review
+c336-30-51|wt|rc=1|stdout_bytes=0|eperm_lines=0|watched_changed=none|canary=present
+c336-30-52|wt|rc=1|stdout_bytes=0|eperm_lines=1|watched_changed=none|canary=present
+c336-30-53|wt|rc=2|stdout_bytes=0|eperm_lines=1|watched_changed=none|canary=present
+c336-30-54|wt|rc=1|stdout_bytes=0|eperm_lines=1|watched_changed=none|canary=present
+c336-30-55|-|NOT RUN: no concrete command in the review
+c336-30-56|-|NOT RUN: an Edit-tool write, which the Bash sandbox does not see
+c336-31-1|wt|rc=1|stdout_bytes=0|eperm_lines=0|watched_changed=none|canary=present
+c336-31-2|wt|rc=1|stdout_bytes=0|eperm_lines=0|watched_changed=none|canary=present
+c336-31-3|wt|rc=128|stdout_bytes=0|eperm_lines=1|watched_changed=none|canary=present
+c336-31-4|wt|rc=1|stdout_bytes=0|eperm_lines=0|watched_changed=none|canary=present
+c336-31-5|wt|rc=1|stdout_bytes=27|eperm_lines=0|watched_changed=none|canary=present
+c336-31-6|wt|rc=128|stdout_bytes=0|eperm_lines=1|watched_changed=none|canary=present
+c336-31-7|wt|rc=1|stdout_bytes=0|eperm_lines=0|watched_changed=none|canary=present
+c336-31-8|wt|rc=1|stdout_bytes=297|eperm_lines=1|watched_changed=none|canary=present
+c336-31-9|wt|rc=128|stdout_bytes=0|eperm_lines=1|watched_changed=none|canary=present
+c336-31-10|wt|rc=1|stdout_bytes=297|eperm_lines=1|watched_changed=none|canary=present
+c336-31-11|wt|rc=1|stdout_bytes=0|eperm_lines=0|watched_changed=none|canary=present
+c336-31-12|wt|rc=128|stdout_bytes=0|eperm_lines=1|watched_changed=none|canary=present
+c336-31-13|wt|rc=1|stdout_bytes=0|eperm_lines=0|watched_changed=none|canary=present
+c336-31-14|junk|rc=128|stdout_bytes=0|eperm_lines=1|watched_changed=none|canary=present
+c336-31-15|wt|rc=128|stdout_bytes=0|eperm_lines=1|watched_changed=none|canary=present
+c336-31-16|junk|rc=128|stdout_bytes=0|eperm_lines=0|watched_changed=none|canary=present
+c336-31-17|wt|rc=128|stdout_bytes=0|eperm_lines=1|watched_changed=none|canary=present
+c336-31-18|junk|rc=1|stdout_bytes=0|eperm_lines=1|watched_changed=none|canary=present
+c336-31-19|wt|rc=128|stdout_bytes=0|eperm_lines=1|watched_changed=none|canary=present
+c336-31-20|wt|rc=1|stdout_bytes=297|eperm_lines=1|watched_changed=none|canary=present
+c336-31-21|wt|rc=0|stdout_bytes=3425|eperm_lines=0|watched_changed=none|canary=present
+c336-31-22|wt|rc=0|stdout_bytes=3425|eperm_lines=0|watched_changed=none|canary=present
+c336-31-23|wt|rc=0|stdout_bytes=3425|eperm_lines=0|watched_changed=none|canary=present
+c336-31-24|wt|rc=1|stdout_bytes=0|eperm_lines=1|watched_changed=none|canary=present
+c336-31-25|-|NOT RUN: no concrete command in the review
+c336-31-26|-|NOT RUN: no concrete command in the review
+c336-31-27|-|NOT RUN: no concrete command in the review
+c336-31-28|-|NOT RUN: writes refs/stash in the main repo's shared .git, which the sandbox leaves writable; the canary read it needs is shown blocked
+c336-31-29|wt|rc=0|stdout_bytes=54483|eperm_lines=4|watched_changed=none|canary=present
+c336-31-30|-|NOT RUN: writes refs/stash in the main repo's shared .git, which the sandbox leaves writable; the canary read it needs is shown blocked
+c336-31-31|wt|rc=1|stdout_bytes=0|eperm_lines=3|watched_changed=none|canary=present
+c336-31-32|wt|rc=1|stdout_bytes=0|eperm_lines=0|watched_changed=none|canary=present
+c336-31-33|-|NOT RUN: no concrete command in the review
+c336-31-34|-|NOT RUN: no concrete command in the review
+c336-31-35|-|NOT RUN: no concrete command in the review
+c336-32-1|wt|rc=0|stdout_bytes=29|eperm_lines=1|watched_changed=none|canary=present
+c336-32-2|root|rc=0|stdout_bytes=370|eperm_lines=2|watched_changed=none|canary=present
+c336-32-3|wt|rc=0|stdout_bytes=5|eperm_lines=1|watched_changed=none|canary=present
+c336-32-4|root|rc=128|stdout_bytes=0|eperm_lines=0|watched_changed=none|canary=present
+c336-32-5|root|rc=1|stdout_bytes=0|eperm_lines=1|watched_changed=none|canary=present
+c336-32-6|root|rc=128|stdout_bytes=0|eperm_lines=0|watched_changed=none|canary=present
+c336-32-7|root|rc=1|stdout_bytes=0|eperm_lines=1|watched_changed=none|canary=present
+c336-32-8|wt|rc=1|stdout_bytes=6|eperm_lines=1|watched_changed=none|canary=present
+c336-32-9|wt|rc=1|stdout_bytes=2|eperm_lines=1|watched_changed=none|canary=present
+c336-32-10|wt|rc=1|stdout_bytes=4|eperm_lines=1|watched_changed=none|canary=present
+c336-32-11|wt|rc=1|stdout_bytes=8|eperm_lines=1|watched_changed=none|canary=present
+c336-32-12|wt|rc=1|stdout_bytes=4|eperm_lines=1|watched_changed=none|canary=present
+c336-32-13|wt|rc=1|stdout_bytes=4|eperm_lines=1|watched_changed=none|canary=present
+c336-32-14|wt|rc=1|stdout_bytes=4|eperm_lines=1|watched_changed=none|canary=present
+c336-32-15|wt|rc=0|stdout_bytes=1|eperm_lines=1|watched_changed=none|canary=present
+c336-32-16|wt|rc=1|stdout_bytes=0|eperm_lines=1|watched_changed=none|canary=present
+c336-32-17|wt|rc=1|stdout_bytes=0|eperm_lines=1|watched_changed=none|canary=present
+c336-32-18|wt|rc=1|stdout_bytes=3786|eperm_lines=0|watched_changed=none|canary=present
+c336-32-19|wt|rc=0|stdout_bytes=144|eperm_lines=0|watched_changed=none|canary=present
+c336-32-20|wt|rc=1|stdout_bytes=0|eperm_lines=0|watched_changed=none|canary=present
+c336-32-21|junk|rc=128|stdout_bytes=0|eperm_lines=0|watched_changed=none|canary=present
+c336-32-22|-|NOT RUN: no concrete command in the review
+c336-32-23|-|NOT RUN: no concrete command in the review
+c336-32-24|wt|rc=1|stdout_bytes=0|eperm_lines=0|watched_changed=none|canary=present
+c336-32-25|wt|rc=1|stdout_bytes=0|eperm_lines=0|watched_changed=none|canary=present
+c336-32-26|wt|rc=1|stdout_bytes=0|eperm_lines=0|watched_changed=none|canary=present
+c336-32-27|wt|rc=0|stdout_bytes=0|eperm_lines=1|watched_changed=none|canary=present
+c336-32-28|wt|rc=1|stdout_bytes=0|eperm_lines=0|watched_changed=none|canary=present
+c336-32-29|wt|rc=1|stdout_bytes=0|eperm_lines=0|watched_changed=none|canary=present
+c336-32-30|wt|rc=127|stdout_bytes=0|eperm_lines=0|watched_changed=none|canary=present
+c336-32-31|-|NOT RUN: no concrete command in the review
+c336-32-32|-|NOT RUN: no concrete command in the review
+c336-32-33|wt|rc=128|stdout_bytes=0|eperm_lines=0|watched_changed=none|canary=present
+c336-32-34|wt|rc=1|stdout_bytes=297|eperm_lines=1|watched_changed=none|canary=present
+c336-33-1|root|rc=128|stdout_bytes=0|eperm_lines=0|watched_changed=none|canary=present
+c336-33-2|root|rc=128|stdout_bytes=0|eperm_lines=0|watched_changed=none|canary=present
+c336-33-3|root|rc=1|stdout_bytes=0|eperm_lines=1|watched_changed=none|canary=present
+c336-33-4|root|rc=1|stdout_bytes=0|eperm_lines=1|watched_changed=none|canary=present
+c336-33-5|wt|rc=0|stdout_bytes=807|eperm_lines=0|watched_changed=none|canary=present
+c336-33-6|junk|rc=128|stdout_bytes=0|eperm_lines=0|watched_changed=none|canary=present
+c336-33-7|wt|rc=1|stdout_bytes=0|eperm_lines=0|watched_changed=none|canary=present
+c336-33-8|wt|rc=1|stdout_bytes=0|eperm_lines=0|watched_changed=none|canary=present
+c336-33-9|junk|rc=128|stdout_bytes=0|eperm_lines=1|watched_changed=none|canary=present
+c336-33-10|wt|rc=1|stdout_bytes=131|eperm_lines=0|watched_changed=none|canary=present
+c336-33-11|root|rc=0|stdout_bytes=0|eperm_lines=0|watched_changed=none|canary=present
+c336-33-12|wt|rc=128|stdout_bytes=0|eperm_lines=0|watched_changed=none|canary=present
+c336-33-13|wt|rc=1|stdout_bytes=0|eperm_lines=0|watched_changed=none|canary=present
+c336-33-14|wt|rc=128|stdout_bytes=0|eperm_lines=0|watched_changed=none|canary=present
+c336-33-15|wt|rc=128|stdout_bytes=0|eperm_lines=0|watched_changed=none|canary=present
+c336-33-16|wt|rc=0|stdout_bytes=4267|eperm_lines=0|watched_changed=none|canary=present
+c336-33-17|wt|rc=128|stdout_bytes=0|eperm_lines=0|watched_changed=none|canary=present
+c336-33-18|wt|rc=128|stdout_bytes=0|eperm_lines=1|watched_changed=none|canary=present
+c336-33-19|wt|rc=1|stdout_bytes=0|eperm_lines=1|watched_changed=none|canary=present
+c336-34-1|wt|rc=1|stdout_bytes=0|eperm_lines=0|watched_changed=none|canary=present
+c336-34-2|wt|rc=0|stdout_bytes=0|eperm_lines=0|watched_changed=none|canary=present
+c336-34-3|wt|rc=1|stdout_bytes=0|eperm_lines=0|watched_changed=none|canary=present
+c336-34-4|wt|rc=128|stdout_bytes=0|eperm_lines=0|watched_changed=none|canary=present
+c336-34-5|-|NOT RUN: no concrete command in the review
+c336-34-6|-|NOT RUN: no concrete command in the review
+c336-34-7|-|NOT RUN: no concrete command in the review
+c336-34-8|wt|rc=1|stdout_bytes=0|eperm_lines=0|watched_changed=none|canary=present
+c336-34-9|wt|rc=1|stdout_bytes=0|eperm_lines=0|watched_changed=none|canary=present
+c336-34-10|root|rc=128|stdout_bytes=0|eperm_lines=0|watched_changed=none|canary=present
+c336-34-11|wt|rc=1|stdout_bytes=69610|eperm_lines=0|watched_changed=none|canary=present
+c336-33-20|wt|rc=1|stdout_bytes=0|eperm_lines=1|watched_changed=none|canary=present

@@ -1,0 +1,68 @@
+{
+  "sandbox": {
+    "enabled": true,
+    "allowUnsandboxedCommands": false,
+    "failIfUnavailable": true,
+    "excludedCommands": [
+      "make status",
+      "make status *",
+      "make logs",
+      "make logs *",
+      "make deploy",
+      "make deploy *",
+      "make deploy-pointer",
+      "make deploy-pointer *",
+      "make kill-switch",
+      "make kill-switch *",
+      "make resume",
+      "make resume *",
+      "make unpause",
+      "make unpause *"
+    ],
+    "network": {
+      "allowedDomains": [
+        "github.com",
+        "api.github.com",
+        "codeload.github.com",
+        "objects.githubusercontent.com",
+        "raw.githubusercontent.com",
+        "registry.npmjs.org",
+        "fonts.googleapis.com",
+        "fonts.gstatic.com"
+      ]
+    },
+    "filesystem": {
+      "denyRead": [
+        "./.env*",
+        "./**/.env*",
+        "~/.zsh_history",
+        "~/.bash_history",
+        "~/.config/gh",
+        "~/.config/quanttrader",
+        "~/Documents/trading-app/demo-1/.env*"
+      ],
+      "allowRead": [
+        "./.env.example",
+        "./**/.env.example"
+      ],
+      "denyWrite": [
+        "./.gitignore",
+        "./.husky",
+        "./scripts/canonical/data",
+        "./tests/golden"
+      ]
+    },
+    "credentials": {
+      "files": [
+        {
+          "path": "~/.ssh",
+          "mode": "deny"
+        },
+        {
+          "path": "./.env.local",
+          "mode": "deny"
+        }
+      ]
+    }
+  }
+}

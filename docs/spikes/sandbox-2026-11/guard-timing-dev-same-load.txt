@@ -1,0 +1,21 @@
+load_before=3.98
+case|lines|median_s|max_s|exit
+xargs cat one-liner (refused)|1|2.45|2.96|2
+3-line heredoc|5|5.00|5.02|0
+10-line heredoc|12|10.14|10.52|0
+while read loop|1|4.31|5.03|0
+python3 heredoc, 3 lines|5|5.56|5.73|0
+git status|1|2.18|2.24|0
+git diff --stat|1|2.27|2.97|0
+git log --oneline -5|1|2.29|2.46|0
+make lint|1|2.23|2.34|0
+make test|1|2.29|3.04|0
+pnpm exec vitest run tests/ops|1|2.66|2.77|0
+pnpm exec tsc --noEmit|1|2.42|2.95|0
+gh pr view 341|1|2.21|2.25|0
+ls -la docs|1|2.04|2.12|0
+grep -n env src/lib/env.ts|1|2.22|2.24|0
+heredoc, 20 lines|22|16.31|18.40|0
+heredoc, 30 lines|32|21.61|23.29|0
+heredoc, 40 lines|42|30.19|31.91|0
+load_after=4.04

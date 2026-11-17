@@ -1,0 +1,11 @@
+git-status|rc=0|secs=0.2|stdout_bytes=31|stderr_kind=none
+git-commit-empty|rc=0|secs=0.2|stdout_bytes=0|stderr_kind=none
+git-remote-https|rc=0|secs=0.7|stdout_bytes=56|stderr_kind=none
+git-remote-origin|rc=0|secs=0.5|stdout_bytes=56|stderr_kind=none
+gh-auth-status|rc=1|secs=0.3|stdout_bytes=0|stderr_kind=eperm
+gh-pr-view|rc=1|secs=0.2|stdout_bytes=0|stderr_kind=eperm
+gh-api-plain|rc=0|secs=0.4|stdout_bytes=0|stderr_kind=none
+curl-ntfy|rc=56|secs=0.1|stdout_bytes=0|stderr_kind=network
+ssh-example|rc=255|secs=0.1|stdout_bytes=0|stderr_kind=network
+node-version|rc=0|secs=0.3|stdout_bytes=8|stderr_kind=none
+pnpm-version|rc=0|secs=0.8|stdout_bytes=7|stderr_kind=none

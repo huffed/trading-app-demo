@@ -1,0 +1,3 @@
+hook_wrote_outside_worktree=yes
+hook_network_example_com=200
+hook_SANDBOX_RUNTIME=unset

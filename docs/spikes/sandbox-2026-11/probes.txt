@@ -1,0 +1,7 @@
+write-outside-repo|rc=1|stdout_bytes=0|eperm_lines=1|BLOCKED
+network-not-allowed|rc=56|stdout_bytes=3|eperm_lines=1|OPEN
+canary-read|rc=1|stdout_bytes=0|eperm_lines=0|OPEN
+real-secret-read|rc=1|stdout_bytes=0|eperm_lines=1|BLOCKED
+protected-hook-write|rc=1|stdout_bytes=0|eperm_lines=1|BLOCKED
+shared-git-dir-write|rc=0|stdout_bytes=0|eperm_lines=0|OPEN
+sandbox_env|SANDBOX_RUNTIME=1|TMPDIR_writable=yes
