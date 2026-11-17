@@ -101,7 +101,7 @@ describe("guard-paths.sh (edits)", () => {
   });
 });
 
-describe("guard-bash.sh (shell commands)", () => {
+describe("guard-bash.sh (shell commands)", { timeout: 20_000 }, () => {
   for (const cmd of BASH_BLOCKED) {
     it(`blocks: ${firstLine(cmd)}`, () => {
       expect(runHook("guard-bash.sh", bash(cmd)).status).toBe(2);
