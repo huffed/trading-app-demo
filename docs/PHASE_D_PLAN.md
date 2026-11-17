@@ -63,7 +63,7 @@ Approved 2026-10-31 (questions 2 and 3) and designed in `docs/decisions/0007-nod
 ## D.6 Backups with a tested restore — designed in decision 0011 and `docs/runbooks/d6-backups.md`; installed 2026-11-07, restore drilled 2026-11-07 to 11-10 (ledger row `2026-11-07T16:42Z`)
 
 - **Recorded 2026-11-06:** Supabase Pro, daily backups, 7-day retention, backups listed 26 October to 2 November, read 2 November 2026. Storage Box `u708205`, Falkenstein, SSH only, external reachability off, daily snapshots on; sub-account `u708205-sub1`, base directory `quanttrader`.
-- The list below is the original plan. Decision 0011 replaces its table list (whole `public` plus two `auth` tables) and its `tests/contracts/` check (row counts). Drill (b), the throwaway VPS, is not done; the operator scheduled it for 14–15 November if D.6 was clean, then took it out of that window on 2026-11-13; it is not in the 21–22 November window either (window section below).
+- The list below is the original plan. Decision 0011 replaces its table list (whole `public` plus two `auth` tables) and its `tests/contracts/` check (row counts). Drill (b), the throwaway VPS, is not done; the operator scheduled it for 14–15 November if D.6 was clean, then took it out of that window on 2026-11-13; it is not in the 21–22 November window either (window section below), and it is on the before-mirroring list in `docs/MODERNISATION.md` (operator, 2026-11-17).
 
 - **Data:** Supabase Pro daily backups — confirm retention in the dashboard (operator). Add an independent nightly `pg_dump` of the operational tables (`algorithms`, `paper_positions`, `activity_log`, `llm_decisions`, `broker_connections` encrypted at rest with `age`) to a destination outside the VPS. Options: Hetzner Storage Box (~€3.5/month) or Hetzner Object Storage; budget within the £150 ceiling. `price_cache` is excluded (rebuildable from pins).
 - **Host:** everything that is not data lives in the repo after D.1/D.2 (`ops/`), except `.env.local`, which the operator holds; the deploy key is regenerable.
@@ -126,7 +126,8 @@ This replaces the list above. The window of 14 and 15 November did not run: none
 - Nothing starts before Friday 22:00 UK. Anything unfinished by Sunday 18:00 UK waits a week. Step 2 runs on Saturday, because step 6 reads Sunday's night as the first scheduled `verify-full` one. If it cannot, it waits a week; step 6 then reads the rotation only, and steps 4 and 7 run as planned. Step 3 needs only #342's merge: once #342 has merged, step 3 runs that Saturday if `make status` reads as in step 1, whatever the deploy and `verify-full` did, because from the merge on every switch run uses #342's scripts. Steps 2, 3 and 5 wait a week only if the merge cannot happen. Step 6 is read by Sunday 12:00 UK, so a rollback it calls for fits before 18:00. Step 7 is dropped if it cannot finish by 18:00.
 - Sudoers (D-23) runs only if its PR is on READY TO MERGE by Friday 20 November, 20:00 UK. No sudoers PR existed on 2026-11-17. If one is ready in time, it carries its own step in this section, reviewed with it: after step 6, because a narrowed sudoers may refuse step 2's `sudo -n install` and step 5's `sudo -n rm -f`, and it must leave step 2's `verify-full` rollback (`sudo -n install`) possible until step 6 has read Sunday's night; and before step 7. Otherwise it goes to the next window.
 - #342 is in this window only if it is on READY TO MERGE, rebased on the `dev` it will merge into, by Friday 20 November, 20:00 UK, as for sudoers. It edits DEBT rows next to ones #338 and #343 change, so its rebase may need a conflict resolved, which gets a review. Otherwise step 2 deploys `dev` and installs `verify-full` without it, step 3 is dropped, and step 5 removes the 7 November copy of the crontab (below).
-- Drill (b) is not in this window (operator, 2026-11-13), and neither is D-38's fix, which is a proposal. D-23's and D-38's targets in `docs/DEBT.md` say so; the window's ledger PR records what happened.
+- The paused-pairs count in the daily summary (operator, 2026-11-17) is in this window only if its PR is on READY TO MERGE by Friday 20 November, 20:00 UK, as for sudoers. Its install step, which that PR adds to the runbook, then runs after step 2 and before step 5. Otherwise it goes to the next window.
+- Drill (b) is not in this window (operator, 2026-11-13); it is on the before-mirroring list (operator, 2026-11-17). Neither is D-38's fix, which is a proposal. D-23's and D-38's targets in `docs/DEBT.md` say so; the window's ledger PR records what happened.
 - Run every workstation command from the root of a checkout of `origin/dev` that nothing else uses. `make deploy` refuses unless the checkout's `scripts/ops/` equals `origin/dev` (`scripts/ops/deploy-driver.sh:73-75`), the runbook's `scp` needs the root, and the main checkout holds the audit's branch until its Phase 7. So before step 1, from the main checkout's root, make one beside it and start the window's session there, with the commands below: a session started in the main checkout runs its commands there, so step 2's `git switch` would move the audit's checkout. Step 2's first command brings this checkout to `origin/dev` after the merge. The deploy driver appends its ledger rows to this checkout's `docs/decisions/deploys.md`, uncommitted, so keep the worktree until the window's ledger PR has copied them. The checks below give the same answer from any directory.
 
 ```bash
@@ -137,24 +138,27 @@ cd ../qt-window && caffeinate -is claude
 
 | # | When | Step | Changes on the host | Rollback |
 |---|---|---|---|---|
-| 1 | Sat | Pre-flight: `make status`, the nights since 10 November in `backup.log` and its rotated `backup.log.1`, and the daily summaries; the commands and pass criteria below | Nothing | None needed |
-| 2 | Sat, after step 1 passes | #342 merges ("merge the queue"); `make deploy REF=<commit>` of the `dev` commit the check below printed; then `PGSSLMODE=verify-full` for the backup job: `docs/runbooks/d6-backups.md`, section "`verify-full`", from a workstation checkout of `origin/dev` that the check below shows clean | The deploy: checkout, install, build, one restart, commit records, `main`. `verify-full`: the installed `backup.sh` and the CA file under `/usr/local/lib/quanttrader/`, and one night run by hand. The merge itself changes nothing on the host | The deploy: `make deploy REF=2a7d7f7210de`. `verify-full`: the runbook's rollback, with `a6ba8de` as its `<merge-commit>`. Neither takes #342 out of the workstation's switch; only a revert PR does |
+| 1 | Sat | Pre-flight: `make status`, the nights since 10 November in `backup.log` and its rotated `backup.log.1`, the daily summaries, and the host journal around the service's start at 06:31Z on 14 November; the commands and pass criteria below | Nothing | None needed |
+| 2 | Sat, after step 1 passes | #342 merges ("merge the queue"); `make deploy REF=<commit>` of the `dev` commit the check below printed; then the reboot for the pending kernel update, once the deploy is verified; then `PGSSLMODE=verify-full` for the backup job: `docs/runbooks/d6-backups.md`, section "`verify-full`", from a workstation checkout of `origin/dev` that the check below shows clean | The deploy: checkout, install, build, one restart, commit records, `main`. The reboot: the new kernel, every process restarted, the pending flag cleared, `/tmp` emptied (D-38). `verify-full`: the installed `backup.sh` and the CA file under `/usr/local/lib/quanttrader/`, and one night run by hand. The merge itself changes nothing on the host | The deploy: `make deploy REF=2a7d7f7210de`. `verify-full`: the runbook's rollback, with `a6ba8de` as its `<merge-commit>`. Neither takes #342 out of the workstation's switch; only a revert PR does. The reboot: none for the app; if the host does not come back, the Hetzner console (root login, set in the 7 November window's step 9a) and the previous kernel from GRUB |
 | 3 | Sat, after step 2 | The paper re-test of the kill switch: `docs/runbooks/kill-switch.md`, section "Paper re-test with a synthetic position", as #342 leaves it | The switch stops the service and removes the crontab, resume puts them back, and un-pause re-activates the algorithms; the operator's SQL adds, then deletes, one test algorithm and one test position, and may pause for the test the algorithms holding open positions | The runbook's own way back ("If a step differs") |
 | 4 | Sat, after step 3, or after step 1 if step 3 waits | 9b, the firewall: the operator adds the Hetzner firewall (22/tcp, 41641/udp) in the Cloud console, then checks it as below | Nothing on the host; the firewall sits outside it | Detach the firewall in the console |
-| 5 | Sat or Sun, after step 2 and step 3 if it runs, before any sudoers change | Clean-ups: the files the D.6 install and step 2 left in `/tmp`, and, only if step 3 did not run, the kill switch's saved crontab from 7 November | Up to seven files and the deploy driver's copies in `/tmp`, and, only if step 3 did not run, one file in `/var/lib/quanttrader/`, removed | None needed: each is a copy of a file in the repo, or the install's apt output |
+| 5 | Sat or Sun, after step 2 and step 3 if it runs, before any sudoers change | Clean-ups: the files the D.6 install and step 2 left in `/tmp`, and, only if step 3 did not run, the kill switch's saved crontab from 7 November | After the reboot, at most the two files step 2's `verify-full` copies, and, only if step 3 did not run, one file in `/var/lib/quanttrader/`, removed | None needed: each is a copy of a file in the repo, or the install's apt output |
 | 6 | Sun, after the logrotate timer's run | Rotation check: `backup.log`'s weekly rotation and the first scheduled `verify-full` night | Read-only | None needed |
 | 7 | Sun, last; dropped if it cannot finish by 18:00 | The host's ntfy topic rotated, under D-18 (operator, 2026-11-17) | One line of `/opt/quanttrader/.env.local`, edited by the operator | Until sub-step f below: the old env lines (the host's, and the workstation's if b changed it), the old secret and the old healthchecks.io integration put back |
 
 **Step 1 passes when:**
 - run after 03:00 UTC on Saturday, so the 21 November night has run;
-- `make status` shows the service `active (enabled)`, the checkout, the live and the verified commit all `2a7d7f7210de`, `ops 12 entries; root 0 entries`, `reboot: not required`, and an `http=200` scan, manage and heartbeat tick;
+- `make status` shows the service `active (enabled)`, the checkout, the live and the verified commit all `2a7d7f7210de`, `ops 12 entries; root 0 entries`, `reboot: REQUIRED (pending kernel/package update)` or `reboot: not required` (step 2 reboots), and an `http=200` scan, manage and heartbeat tick;
 - the two backup logs hold an `OK nightly/<date>` line for each night from 11 to 21 November and no `FAILED` line dated 11 November or later. `make logs` reads only the current file, which a weekly rotation on 15 or 16 November would have cut, so the second command reads both; a `No such file` for `backup.log.1` means it has not rotated;
 - the latest daily summary shows `held-by-kill-switch=0`, `crons=12` and a `backup=` of the night before.
+
+The fourth command reads the host journal around 2026-11-14 06:31Z, when the service started with no deploy and no restart counted (`make status`, 2026-11-17). What it shows goes in the ledger row. It is not a pass criterion: whatever it shows, tell the session, and the window goes on unless it shows something still failing.
 
 ```bash
 make status
 ssh qt 'grep -h -e "OK nightly" -e FAILED /var/log/quanttrader/backup.log.1 /var/log/quanttrader/backup.log'
 make logs LOG=ops-health N=8
+ssh qt 'sudo -n journalctl --since "2026-11-14 06:20" --until "2026-11-14 06:40" --no-pager -o short-iso | tail -n 120'
 ```
 
 Anything else: stop and tell the session. #342 does not merge until step 1 passes.
@@ -173,6 +177,17 @@ make deploy REF=COMMIT
 The third command must print nothing too: the deploy and its rollback both run `origin/dev`'s deploy scripts, which the second command's `scripts/ops` exclusion hides. On 2026-11-17 it printed nothing for the same three commits.
 
 `COMMIT` is the commit the first command printed.
+
+- Then the reboot, once the deploy reported a verified deploy (operator, 2026-11-17), as on 7 November (ledger row 2026-11-07T11:30:17Z): right after a scan tick (:00, :15, :30 or :45) has logged, so no tick is cut off mid-run. The service is enabled, so it starts on boot. `ssh` ends with a closed connection, which is expected; end the shared connection, then wait about two minutes before `make status`.
+- It passes when `make status` shows the service `active (enabled)` with restarts 0, `reboot: not required`, `ops 12 entries; root 0 entries`, and, about five minutes after the next tick, `http=200` scan, manage and heartbeat ticks. The ledger row records the kernel before and after.
+- The reboot empties `/tmp` (D-38): expect the M1 band check's false "first run" push, urgent while its band is OUTSIDE, and step 5 finds little to remove.
+- If the host is not back within about five minutes: log in through the Hetzner console as root and boot the previous kernel from GRUB, then stop the window and tell the session.
+
+```bash
+ssh qt 'sudo -n reboot'
+ssh -O exit -o ControlPath=~/.ssh/qt-make-%C qt
+make status
+```
 
 - Then `verify-full`. This check prints `CLEAN` with nothing above it when the checkout's `scripts/ops/` and `ops/` have no local change and equal `origin/dev`, counted from the top of the repo whatever the current directory, so the runbook's `scp` sends the reviewed `backup.sh` and certificate. The deploy leaves its ledger row uncommitted in `docs/decisions/deploys.md`, which this check does not read. Anything else: stop.
 
@@ -195,6 +210,7 @@ make status
 ```
 
 **Step 5, after step 2 and step 3 if it runs, read first, then remove only what the read shows.**
+- Step 2's reboot empties `/tmp` (D-38), so the read is expected to show `No such file` for everything but what step 2's `verify-full` copied after it. If the reboot did not happen, the rest of this list applies as written.
 - Six files are from the D.6 install of 7 November (`docs/decisions/deploys.md` counts six copies): the five its `scp` sent, `/tmp/quanttrader` being the logrotate file, and `/tmp/d6-apt.log`, the output of its `apt-get install`. Step 2's `verify-full` copies `/tmp/backup.sh` again and adds `/tmp/prod-ca-2021.crt`.
 - Each deploy leaves its host script as `/tmp/qt-deploy-<stamp>.sh` (`scripts/ops/deploy-driver.sh:109`), a copy of `scripts/ops/deploy.sh`; step 2 adds one. They go too, once no deploy is running.
 - Expect the owner `ops` and the dates of 7 November and of step 2. A file the read shows as owned by root fails the `rm -f` with "Operation not permitted"; it falls under the next bullet, and once the session has seen the listing it is removed with `ssh qt 'sudo -n rm -f <that file>'`.

@@ -184,3 +184,4 @@ Not Phase E work as such, but a gate it must not pass over. Each of these is mir
 - **D-19, before real capital:** 16 raw `fetch()` calls have no outbound timeout.
 - **D-36, no live 10% max-loss halt (audit A16):** FTMO's max loss fails the account, and only a UI gauge watches it. It blocks mirroring (operator, 2026-11-13).
 - **P6, a decision either way:** FTMO's day is CE(S)T and every boundary here is UTC, so the operator either moves it or accepts the gap in writing.
+- **D.6 drill (b), the host rebuilt from `ops/` (operator, 2026-11-17):** a throwaway VPS provisioned from `ops/`, deployed with `make deploy` and destroyed, so a lost host is known to be rebuildable before mirrored money depends on it (`docs/PHASE_D_PLAN.md`, D.6; decision 0011).
