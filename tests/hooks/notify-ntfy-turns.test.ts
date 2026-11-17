@@ -2,8 +2,8 @@
  * .claude/hooks/notify-ntfy.sh on Stop, where its fallback starts the turn in the transcript: at the last user record
  * that is not a tool result, other than an injected one (isMeta) or a compaction summary that follows a tool result.
  * An agent's report starts a turn though Claude Code marks it isMeta; a compaction summary written in a tool loop
- * does not, and one written between turns does. A turn that
- * starts before the transcript's last 8 MB is read not at all, and logged.
+ * does not, and one written between turns does. A content item that is not an object is skipped. Of a turn that
+ * starts before the transcript's last 8 MB, those 8 MB are read whole, and that is logged.
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
@@ -62,6 +62,14 @@ describe("notify-ntfy hook: where the fallback starts the turn", () => {
     const transcript = turn(prompt, said(BLOCKED), summary, said("Done."));
     expect(run({ ...STOP, last_assistant_message: "Done." }, { transcript }).curl).toBe("");
   });
+
+  it("past a content item that is not an object", () => {
+    const odd = { type: "assistant", message: { role: "assistant", content: ["x"] } };
+    const transcript = turn(prompt, said(BLOCKED), toolCall, toolResult, odd, said("Done."));
+    const r = run({ ...STOP, last_assistant_message: "Done." }, { transcript });
+    expect(r.curl).toContain("BLOCKED ON YOU: 2 question(s)]");
+    expect(r.log).not.toContain("jq failed");
+  });
 });
 
 describe("notify-ntfy hook: a transcript over 8 MB", () => {
@@ -81,7 +89,7 @@ describe("notify-ntfy hook: a transcript over 8 MB", () => {
     expect(r.curl).toContain("BLOCKED ON YOU: 2 question(s)]");
   });
 
-  it("reads nothing of a turn that starts before them, and says so", () => {
+  it("reads them whole for a turn that starts before them, and says so", () => {
     const transcript = turn(
       prompt,
       toolCall,
@@ -92,7 +100,7 @@ describe("notify-ntfy hook: a transcript over 8 MB", () => {
       said("Review started.")
     );
     const r = run({ ...STOP, last_assistant_message: "Review started." }, { transcript });
-    expect(r.curl).toBe("");
+    expect(r.curl).toContain("BLOCKED ON YOU: 2 question(s)]");
     expect(r.log).toContain("found no start of this turn in the transcript's last 8 MB");
   });
 });

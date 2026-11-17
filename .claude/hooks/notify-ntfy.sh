@@ -105,12 +105,13 @@ blocked_section() {
 # the turn's first record with a line that starts with the heading in any form blocked_section reports. The turn's
 # first record is the last user record that is not a tool result, other than an injected one (isMeta) or a
 # compaction summary that follows a tool result: a skill's text and a summary written in a tool loop do, while an
-# agent's report (isMeta) and a summary written between turns follow the assistant's text (D-45). None, and logged, when the turn does not start
-# in the transcript's last 8 MB (the largest turn in the authoring session's transcript was 4.85 MB on 2026-11-16,
-# D-45), so an older turn's questions are never taken for this one's; and nothing is parsed unless a plain grep
-# finds the words there first. A session that repeats its open questions every turn nearly always has them there,
-# so most turn ends without a question in the last text parse it (about 1 s, D-45). A line that is not JSON (one
-# being written as Stop runs) is skipped, not fatal.
+# agent's report (isMeta) and a summary written between turns follow the assistant's text (D-45). Only the
+# transcript's last 8 MB are read: when the turn starts before them, every record in them is this turn's, so they
+# are read whole and that is logged (the largest turn in the authoring session's transcript was 5.65 MB on
+# 2026-11-16, D-45). Nothing is parsed unless a plain grep finds the words there first. A session that repeats its
+# open questions every turn nearly always has them there, so most turn ends without a question in the last text
+# parse it (about 1 s, D-45). A line that is not JSON (one being written as Stop runs), and a content item that is
+# not an object, are skipped, not fatal.
 earlier_turn_texts() {
   [ -n "$transcript" ] && [ -f "$transcript" ] || return 0
   # not a pipe: grep -q stops at the first match, and under pipefail the tail it leaves writing would fail this
@@ -123,23 +124,22 @@ earlier_turn_texts() {
     cat "$transcript"
   fi | jq -Rnj '
     def result: .type == "user" and ((.message.content | type) == "array")
-      and ([.message.content[]?.type] | index("tool_result") != null);
+      and ([.message.content[]? | objects | .type] | index("tool_result") != null);
     [inputs | fromjson? | objects | select(.type == "user" or .type == "assistant")]
     | . as $r
     | ([range(length) | select($r[.].type == "user" and ($r[.] | result | not)
         and (($r[.].isMeta != true and $r[.].isCompactSummary != true)
           or . == 0 or ($r[. - 1] | result | not)))] | last) as $start
-    | if $start == null then "" | halt_error(7) else
-        .[$start + 1:]
-        | map(select(.type == "assistant") | .message.content[]? | select(.type == "text") | .text)
+    | (.[(if $start == null then 0 else $start + 1 end):]
+        | map(select(.type == "assistant") | .message.content[]? | objects | select(.type == "text") | .text | strings)
         | map(select(ascii_downcase | test("(^|\n)[>#*_ \t-]*blocked on you([^a-z]|$)")))
-        | reverse | .[] | ., "\u0000"
-      end' 2> /dev/null
+        | reverse | .[] | ., "\u0000"),
+      (if $start == null then "" | halt_error(7) else empty end)' 2> /dev/null
   local rc=$?
   # 141: the reader stopped at a text with questions, so the rest of jq's output had nowhere to go; 7: no turn start
   case "$rc" in
     0 | 141) ;;
-    7) type=blocked_on_you log "the fallback found no start of this turn in the transcript's last 8 MB, so it read none of the turn's earlier texts" ;;
+    7) type=blocked_on_you log "the fallback found no start of this turn in the transcript's last 8 MB, so it read those 8 MB whole" ;;
     *) type=blocked_on_you log "the fallback could not read the transcript (jq failed)" ;;
   esac
 }
