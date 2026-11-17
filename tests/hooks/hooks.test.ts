@@ -10,7 +10,7 @@ import { spawnSync } from "node:child_process";
 import { mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   BASH_ALLOWED,
   BASH_BLOCKED,
@@ -22,6 +22,9 @@ import {
 import { HOST_ALLOWED, HOST_BLOCKED } from "./host-cases";
 import { MIRROR_ALLOWED, MIRROR_BLOCKED } from "./mirror-cases";
 import { MODULE_FLAG_ALLOWED, MODULE_FLAG_BLOCKED } from "./module-flag-cases";
+
+// Each hook run is bounded by runHook below; a case may make two runs, or run make, on a loaded machine.
+vi.setConfig({ testTimeout: 30_000 });
 
 const ROOT = resolve(__dirname, "..", "..");
 const HOOKS = join(ROOT, ".claude", "hooks");
@@ -44,6 +47,9 @@ function runHook(name: string, payload: unknown, env: Env = {}): HookResult {
     encoding: "utf8",
     env: merged,
     cwd: ROOT,
+    // Claude Code gives each guard 10 s (.claude/settings.json, the reviewer agent's frontmatter) and does not block
+    // on one that runs longer (DEBT D-22), so a run past 10 s fails here, with status -1.
+    timeout: 10_000,
   });
   return { status: r.status ?? -1, stdout: r.stdout, stderr: r.stderr };
 }
@@ -101,7 +107,7 @@ describe("guard-paths.sh (edits)", () => {
   });
 });
 
-describe("guard-bash.sh (shell commands)", { timeout: 20_000 }, () => {
+describe("guard-bash.sh (shell commands)", () => {
   for (const cmd of BASH_BLOCKED) {
     it(`blocks: ${firstLine(cmd)}`, () => {
       expect(runHook("guard-bash.sh", bash(cmd)).status).toBe(2);
