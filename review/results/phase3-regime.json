@@ -1,0 +1,8390 @@
+{
+  "generated_at": "2026-11-17T10:51:47.131Z",
+  "corpus": {
+    "first": "2015-01-01T22:00:00.000Z",
+    "last": "2026-07-09T13:00:00.000Z",
+    "h4_bars": 17810,
+    "sessions": 2993
+  },
+  "capital": 100000,
+  "risk": 0.42,
+  "sets": {
+    "L_on": [
+      {
+        "label": "ARB rr3_lb3",
+        "side": "long",
+        "entry_conditions": [
+          {
+            "type": "pattern",
+            "pattern": "asian_range_break",
+            "direction": "bullish",
+            "timeframe": "4h"
+          },
+          {
+            "type": "pattern",
+            "pattern": "daily_bias",
+            "direction": "bullish",
+            "ma_period": 20,
+            "timeframe": "1d"
+          }
+        ]
+      },
+      {
+        "label": "Engulfing rr3_lb6",
+        "side": "long",
+        "entry_conditions": [
+          {
+            "type": "pattern",
+            "pattern": "engulfing",
+            "direction": "bullish",
+            "timeframe": "4h"
+          },
+          {
+            "type": "pattern",
+            "pattern": "daily_bias",
+            "direction": "bullish",
+            "ma_period": 20,
+            "timeframe": "1d"
+          }
+        ]
+      },
+      {
+        "label": "ARB rr25_lb3",
+        "side": "long",
+        "entry_conditions": [
+          {
+            "type": "pattern",
+            "pattern": "asian_range_break",
+            "direction": "bullish",
+            "timeframe": "4h"
+          },
+          {
+            "type": "pattern",
+            "pattern": "daily_bias",
+            "direction": "bullish",
+            "ma_period": 20,
+            "timeframe": "1d"
+          }
+        ]
+      },
+      {
+        "label": "OutsideBar v2 rr3_lb3",
+        "side": "long",
+        "entry_conditions": [
+          {
+            "type": "pattern",
+            "pattern": "outside_bar",
+            "direction": "bullish",
+            "timeframe": "4h"
+          },
+          {
+            "type": "pattern",
+            "pattern": "daily_bias",
+            "direction": "bullish",
+            "ma_period": 20,
+            "timeframe": "1d"
+          }
+        ]
+      },
+      {
+        "label": "Engulfing25 rr25_lb4",
+        "side": "long",
+        "entry_conditions": [
+          {
+            "type": "pattern",
+            "pattern": "engulfing",
+            "direction": "bullish",
+            "timeframe": "4h"
+          },
+          {
+            "type": "pattern",
+            "pattern": "daily_bias",
+            "direction": "bullish",
+            "ma_period": 20,
+            "timeframe": "1d"
+          }
+        ]
+      }
+    ],
+    "L_off": [
+      {
+        "label": "ARB rr3_lb3",
+        "side": "long",
+        "entry_conditions": [
+          {
+            "type": "pattern",
+            "pattern": "asian_range_break",
+            "direction": "bullish",
+            "timeframe": "4h"
+          }
+        ]
+      },
+      {
+        "label": "Engulfing rr3_lb6",
+        "side": "long",
+        "entry_conditions": [
+          {
+            "type": "pattern",
+            "pattern": "engulfing",
+            "direction": "bullish",
+            "timeframe": "4h"
+          }
+        ]
+      },
+      {
+        "label": "ARB rr25_lb3",
+        "side": "long",
+        "entry_conditions": [
+          {
+            "type": "pattern",
+            "pattern": "asian_range_break",
+            "direction": "bullish",
+            "timeframe": "4h"
+          }
+        ]
+      },
+      {
+        "label": "OutsideBar v2 rr3_lb3",
+        "side": "long",
+        "entry_conditions": [
+          {
+            "type": "pattern",
+            "pattern": "outside_bar",
+            "direction": "bullish",
+            "timeframe": "4h"
+          }
+        ]
+      },
+      {
+        "label": "Engulfing25 rr25_lb4",
+        "side": "long",
+        "entry_conditions": [
+          {
+            "type": "pattern",
+            "pattern": "engulfing",
+            "direction": "bullish",
+            "timeframe": "4h"
+          }
+        ]
+      }
+    ],
+    "S_on": [
+      {
+        "label": "ARB rr3_lb3 SHORT",
+        "side": "short",
+        "entry_conditions": [
+          {
+            "type": "pattern",
+            "pattern": "asian_range_break",
+            "direction": "bearish",
+            "timeframe": "4h"
+          },
+          {
+            "type": "pattern",
+            "pattern": "daily_bias",
+            "direction": "bearish",
+            "ma_period": 20,
+            "timeframe": "1d"
+          }
+        ]
+      },
+      {
+        "label": "Engulfing rr3_lb6 SHORT",
+        "side": "short",
+        "entry_conditions": [
+          {
+            "type": "pattern",
+            "pattern": "engulfing",
+            "direction": "bearish",
+            "timeframe": "4h"
+          },
+          {
+            "type": "pattern",
+            "pattern": "daily_bias",
+            "direction": "bearish",
+            "ma_period": 20,
+            "timeframe": "1d"
+          }
+        ]
+      },
+      {
+        "label": "ARB rr25_lb3 SHORT",
+        "side": "short",
+        "entry_conditions": [
+          {
+            "type": "pattern",
+            "pattern": "asian_range_break",
+            "direction": "bearish",
+            "timeframe": "4h"
+          },
+          {
+            "type": "pattern",
+            "pattern": "daily_bias",
+            "direction": "bearish",
+            "ma_period": 20,
+            "timeframe": "1d"
+          }
+        ]
+      },
+      {
+        "label": "OutsideBar v2 rr3_lb3 SHORT",
+        "side": "short",
+        "entry_conditions": [
+          {
+            "type": "pattern",
+            "pattern": "outside_bar",
+            "direction": "bearish",
+            "timeframe": "4h"
+          },
+          {
+            "type": "pattern",
+            "pattern": "daily_bias",
+            "direction": "bearish",
+            "ma_period": 20,
+            "timeframe": "1d"
+          }
+        ]
+      },
+      {
+        "label": "Engulfing25 rr25_lb4 SHORT",
+        "side": "short",
+        "entry_conditions": [
+          {
+            "type": "pattern",
+            "pattern": "engulfing",
+            "direction": "bearish",
+            "timeframe": "4h"
+          },
+          {
+            "type": "pattern",
+            "pattern": "daily_bias",
+            "direction": "bearish",
+            "ma_period": 20,
+            "timeframe": "1d"
+          }
+        ]
+      }
+    ],
+    "S_off": [
+      {
+        "label": "ARB rr3_lb3 SHORT",
+        "side": "short",
+        "entry_conditions": [
+          {
+            "type": "pattern",
+            "pattern": "asian_range_break",
+            "direction": "bearish",
+            "timeframe": "4h"
+          }
+        ]
+      },
+      {
+        "label": "Engulfing rr3_lb6 SHORT",
+        "side": "short",
+        "entry_conditions": [
+          {
+            "type": "pattern",
+            "pattern": "engulfing",
+            "direction": "bearish",
+            "timeframe": "4h"
+          }
+        ]
+      },
+      {
+        "label": "ARB rr25_lb3 SHORT",
+        "side": "short",
+        "entry_conditions": [
+          {
+            "type": "pattern",
+            "pattern": "asian_range_break",
+            "direction": "bearish",
+            "timeframe": "4h"
+          }
+        ]
+      },
+      {
+        "label": "OutsideBar v2 rr3_lb3 SHORT",
+        "side": "short",
+        "entry_conditions": [
+          {
+            "type": "pattern",
+            "pattern": "outside_bar",
+            "direction": "bearish",
+            "timeframe": "4h"
+          }
+        ]
+      },
+      {
+        "label": "Engulfing25 rr25_lb4 SHORT",
+        "side": "short",
+        "entry_conditions": [
+          {
+            "type": "pattern",
+            "pattern": "engulfing",
+            "direction": "bearish",
+            "timeframe": "4h"
+          }
+        ]
+      }
+    ],
+    "LS_on": [
+      {
+        "label": "ARB rr3_lb3",
+        "side": "long",
+        "entry_conditions": [
+          {
+            "type": "pattern",
+            "pattern": "asian_range_break",
+            "direction": "bullish",
+            "timeframe": "4h"
+          },
+          {
+            "type": "pattern",
+            "pattern": "daily_bias",
+            "direction": "bullish",
+            "ma_period": 20,
+            "timeframe": "1d"
+          }
+        ]
+      },
+      {
+        "label": "Engulfing rr3_lb6",
+        "side": "long",
+        "entry_conditions": [
+          {
+            "type": "pattern",
+            "pattern": "engulfing",
+            "direction": "bullish",
+            "timeframe": "4h"
+          },
+          {
+            "type": "pattern",
+            "pattern": "daily_bias",
+            "direction": "bullish",
+            "ma_period": 20,
+            "timeframe": "1d"
+          }
+        ]
+      },
+      {
+        "label": "ARB rr25_lb3",
+        "side": "long",
+        "entry_conditions": [
+          {
+            "type": "pattern",
+            "pattern": "asian_range_break",
+            "direction": "bullish",
+            "timeframe": "4h"
+          },
+          {
+            "type": "pattern",
+            "pattern": "daily_bias",
+            "direction": "bullish",
+            "ma_period": 20,
+            "timeframe": "1d"
+          }
+        ]
+      },
+      {
+        "label": "OutsideBar v2 rr3_lb3",
+        "side": "long",
+        "entry_conditions": [
+          {
+            "type": "pattern",
+            "pattern": "outside_bar",
+            "direction": "bullish",
+            "timeframe": "4h"
+          },
+          {
+            "type": "pattern",
+            "pattern": "daily_bias",
+            "direction": "bullish",
+            "ma_period": 20,
+            "timeframe": "1d"
+          }
+        ]
+      },
+      {
+        "label": "Engulfing25 rr25_lb4",
+        "side": "long",
+        "entry_conditions": [
+          {
+            "type": "pattern",
+            "pattern": "engulfing",
+            "direction": "bullish",
+            "timeframe": "4h"
+          },
+          {
+            "type": "pattern",
+            "pattern": "daily_bias",
+            "direction": "bullish",
+            "ma_period": 20,
+            "timeframe": "1d"
+          }
+        ]
+      },
+      {
+        "label": "ARB rr3_lb3 SHORT",
+        "side": "short",
+        "entry_conditions": [
+          {
+            "type": "pattern",
+            "pattern": "asian_range_break",
+            "direction": "bearish",
+            "timeframe": "4h"
+          },
+          {
+            "type": "pattern",
+            "pattern": "daily_bias",
+            "direction": "bearish",
+            "ma_period": 20,
+            "timeframe": "1d"
+          }
+        ]
+      },
+      {
+        "label": "Engulfing rr3_lb6 SHORT",
+        "side": "short",
+        "entry_conditions": [
+          {
+            "type": "pattern",
+            "pattern": "engulfing",
+            "direction": "bearish",
+            "timeframe": "4h"
+          },
+          {
+            "type": "pattern",
+            "pattern": "daily_bias",
+            "direction": "bearish",
+            "ma_period": 20,
+            "timeframe": "1d"
+          }
+        ]
+      },
+      {
+        "label": "ARB rr25_lb3 SHORT",
+        "side": "short",
+        "entry_conditions": [
+          {
+            "type": "pattern",
+            "pattern": "asian_range_break",
+            "direction": "bearish",
+            "timeframe": "4h"
+          },
+          {
+            "type": "pattern",
+            "pattern": "daily_bias",
+            "direction": "bearish",
+            "ma_period": 20,
+            "timeframe": "1d"
+          }
+        ]
+      },
+      {
+        "label": "OutsideBar v2 rr3_lb3 SHORT",
+        "side": "short",
+        "entry_conditions": [
+          {
+            "type": "pattern",
+            "pattern": "outside_bar",
+            "direction": "bearish",
+            "timeframe": "4h"
+          },
+          {
+            "type": "pattern",
+            "pattern": "daily_bias",
+            "direction": "bearish",
+            "ma_period": 20,
+            "timeframe": "1d"
+          }
+        ]
+      },
+      {
+        "label": "Engulfing25 rr25_lb4 SHORT",
+        "side": "short",
+        "entry_conditions": [
+          {
+            "type": "pattern",
+            "pattern": "engulfing",
+            "direction": "bearish",
+            "timeframe": "4h"
+          },
+          {
+            "type": "pattern",
+            "pattern": "daily_bias",
+            "direction": "bearish",
+            "ma_period": 20,
+            "timeframe": "1d"
+          }
+        ]
+      }
+    ]
+  },
+  "per_member": {
+    "L_on": [
+      {
+        "label": "ARB rr3_lb3",
+        "solo": 161,
+        "aware": 160
+      },
+      {
+        "label": "Engulfing rr3_lb6",
+        "solo": 120,
+        "aware": 121
+      },
+      {
+        "label": "ARB rr25_lb3",
+        "solo": 169,
+        "aware": 168
+      },
+      {
+        "label": "OutsideBar v2 rr3_lb3",
+        "solo": 213,
+        "aware": 209
+      },
+      {
+        "label": "Engulfing25 rr25_lb4",
+        "solo": 205,
+        "aware": 204
+      }
+    ],
+    "L_off": [
+      {
+        "label": "ARB rr3_lb3",
+        "solo": 215,
+        "aware": 212
+      },
+      {
+        "label": "Engulfing rr3_lb6",
+        "solo": 210,
+        "aware": 215
+      },
+      {
+        "label": "ARB rr25_lb3",
+        "solo": 239,
+        "aware": 239
+      },
+      {
+        "label": "OutsideBar v2 rr3_lb3",
+        "solo": 345,
+        "aware": 343
+      },
+      {
+        "label": "Engulfing25 rr25_lb4",
+        "solo": 360,
+        "aware": 356
+      }
+    ],
+    "S_on": [
+      {
+        "label": "ARB rr3_lb3 SHORT",
+        "solo": 93,
+        "aware": 97
+      },
+      {
+        "label": "Engulfing rr3_lb6 SHORT",
+        "solo": 89,
+        "aware": 111
+      },
+      {
+        "label": "ARB rr25_lb3 SHORT",
+        "solo": 102,
+        "aware": 109
+      },
+      {
+        "label": "OutsideBar v2 rr3_lb3 SHORT",
+        "solo": 169,
+        "aware": 166
+      },
+      {
+        "label": "Engulfing25 rr25_lb4 SHORT",
+        "solo": 171,
+        "aware": 170
+      }
+    ],
+    "S_off": [
+      {
+        "label": "ARB rr3_lb3 SHORT",
+        "solo": 175,
+        "aware": 183
+      },
+      {
+        "label": "Engulfing rr3_lb6 SHORT",
+        "solo": 162,
+        "aware": 183
+      },
+      {
+        "label": "ARB rr25_lb3 SHORT",
+        "solo": 187,
+        "aware": 203
+      },
+      {
+        "label": "OutsideBar v2 rr3_lb3 SHORT",
+        "solo": 312,
+        "aware": 312
+      },
+      {
+        "label": "Engulfing25 rr25_lb4 SHORT",
+        "solo": 381,
+        "aware": 380
+      }
+    ],
+    "LS_on": [
+      {
+        "label": "ARB rr3_lb3",
+        "solo": 161,
+        "aware": 136
+      },
+      {
+        "label": "Engulfing rr3_lb6",
+        "solo": 120,
+        "aware": 103
+      },
+      {
+        "label": "ARB rr25_lb3",
+        "solo": 169,
+        "aware": 144
+      },
+      {
+        "label": "OutsideBar v2 rr3_lb3",
+        "solo": 213,
+        "aware": 167
+      },
+      {
+        "label": "Engulfing25 rr25_lb4",
+        "solo": 205,
+        "aware": 166
+      },
+      {
+        "label": "ARB rr3_lb3 SHORT",
+        "solo": 93,
+        "aware": 83
+      },
+      {
+        "label": "Engulfing rr3_lb6 SHORT",
+        "solo": 89,
+        "aware": 93
+      },
+      {
+        "label": "ARB rr25_lb3 SHORT",
+        "solo": 102,
+        "aware": 92
+      },
+      {
+        "label": "OutsideBar v2 rr3_lb3 SHORT",
+        "solo": 169,
+        "aware": 126
+      },
+      {
+        "label": "Engulfing25 rr25_lb4 SHORT",
+        "solo": 171,
+        "aware": 141
+      }
+    ]
+  },
+  "per_member_stats": {
+    "L_on": {
+      "ARB rr3_lb3": {
+        "n": 160,
+        "wr": 34.38,
+        "mean_r": 0.349,
+        "sum_r": 55.87,
+        "pnl": 25830
+      },
+      "Engulfing rr3_lb6": {
+        "n": 121,
+        "wr": 38.84,
+        "mean_r": 0.519,
+        "sum_r": 62.82,
+        "pnl": 29659
+      },
+      "ARB rr25_lb3": {
+        "n": 168,
+        "wr": 35.12,
+        "mean_r": 0.21,
+        "sum_r": 35.24,
+        "pnl": 15496
+      },
+      "OutsideBar v2 rr3_lb3": {
+        "n": 209,
+        "wr": 31.58,
+        "mean_r": 0.235,
+        "sum_r": 49.11,
+        "pnl": 22149
+      },
+      "Engulfing25 rr25_lb4": {
+        "n": 204,
+        "wr": 42.16,
+        "mean_r": 0.454,
+        "sum_r": 92.62,
+        "pnl": 46741
+      }
+    },
+    "L_off": {
+      "ARB rr3_lb3": {
+        "n": 212,
+        "wr": 35.85,
+        "mean_r": 0.415,
+        "sum_r": 87.9,
+        "pnl": 43690
+      },
+      "Engulfing rr3_lb6": {
+        "n": 215,
+        "wr": 37.21,
+        "mean_r": 0.465,
+        "sum_r": 100.07,
+        "pnl": 51165
+      },
+      "ARB rr25_lb3": {
+        "n": 239,
+        "wr": 36.82,
+        "mean_r": 0.272,
+        "sum_r": 64.89,
+        "pnl": 30580
+      },
+      "OutsideBar v2 rr3_lb3": {
+        "n": 343,
+        "wr": 32.65,
+        "mean_r": 0.281,
+        "sum_r": 96.55,
+        "pnl": 48446
+      },
+      "Engulfing25 rr25_lb4": {
+        "n": 356,
+        "wr": 37.08,
+        "mean_r": 0.279,
+        "sum_r": 99.19,
+        "pnl": 50349
+      }
+    },
+    "S_on": {
+      "ARB rr3_lb3 SHORT": {
+        "n": 97,
+        "wr": 18.56,
+        "mean_r": -0.26,
+        "sum_r": -25.18,
+        "pnl": -10217
+      },
+      "Engulfing rr3_lb6 SHORT": {
+        "n": 111,
+        "wr": 22.52,
+        "mean_r": -0.099,
+        "sum_r": -11.04,
+        "pnl": -4776
+      },
+      "ARB rr25_lb3 SHORT": {
+        "n": 109,
+        "wr": 22.02,
+        "mean_r": -0.232,
+        "sum_r": -25.24,
+        "pnl": -10234
+      },
+      "OutsideBar v2 rr3_lb3 SHORT": {
+        "n": 166,
+        "wr": 23.49,
+        "mean_r": -0.089,
+        "sum_r": -14.78,
+        "pnl": -6394
+      },
+      "Engulfing25 rr25_lb4 SHORT": {
+        "n": 170,
+        "wr": 30.59,
+        "mean_r": 0.054,
+        "sum_r": 9.1,
+        "pnl": 3509
+      }
+    },
+    "S_off": {
+      "ARB rr3_lb3 SHORT": {
+        "n": 183,
+        "wr": 21.86,
+        "mean_r": -0.132,
+        "sum_r": -24.19,
+        "pnl": -10043
+      },
+      "Engulfing rr3_lb6 SHORT": {
+        "n": 183,
+        "wr": 21.86,
+        "mean_r": -0.137,
+        "sum_r": -25.04,
+        "pnl": -10369
+      },
+      "ARB rr25_lb3 SHORT": {
+        "n": 203,
+        "wr": 25.12,
+        "mean_r": -0.12,
+        "sum_r": -24.37,
+        "pnl": -10087
+      },
+      "OutsideBar v2 rr3_lb3 SHORT": {
+        "n": 312,
+        "wr": 23.72,
+        "mean_r": -0.076,
+        "sum_r": -23.71,
+        "pnl": -10176
+      },
+      "Engulfing25 rr25_lb4 SHORT": {
+        "n": 380,
+        "wr": 27.89,
+        "mean_r": -0.042,
+        "sum_r": -16.14,
+        "pnl": -7288
+      }
+    },
+    "LS_on": {
+      "ARB rr3_lb3": {
+        "n": 136,
+        "wr": 35.29,
+        "mean_r": 0.383,
+        "sum_r": 52.02,
+        "pnl": 23896
+      },
+      "Engulfing rr3_lb6": {
+        "n": 103,
+        "wr": 40.78,
+        "mean_r": 0.595,
+        "sum_r": 61.25,
+        "pnl": 28872
+      },
+      "ARB rr25_lb3": {
+        "n": 144,
+        "wr": 36.11,
+        "mean_r": 0.235,
+        "sum_r": 33.84,
+        "pnl": 14881
+      },
+      "OutsideBar v2 rr3_lb3": {
+        "n": 167,
+        "wr": 31.74,
+        "mean_r": 0.235,
+        "sum_r": 39.27,
+        "pnl": 17352
+      },
+      "Engulfing25 rr25_lb4": {
+        "n": 166,
+        "wr": 44.58,
+        "mean_r": 0.533,
+        "sum_r": 88.55,
+        "pnl": 44379
+      },
+      "ARB rr3_lb3 SHORT": {
+        "n": 83,
+        "wr": 20.48,
+        "mean_r": -0.165,
+        "sum_r": -13.68,
+        "pnl": -5756
+      },
+      "Engulfing rr3_lb6 SHORT": {
+        "n": 93,
+        "wr": 25.81,
+        "mean_r": 0.03,
+        "sum_r": 2.8,
+        "pnl": 943
+      },
+      "ARB rr25_lb3 SHORT": {
+        "n": 92,
+        "wr": 23.91,
+        "mean_r": -0.151,
+        "sum_r": -13.92,
+        "pnl": -5842
+      },
+      "OutsideBar v2 rr3_lb3 SHORT": {
+        "n": 126,
+        "wr": 27.78,
+        "mean_r": 0.087,
+        "sum_r": 11.02,
+        "pnl": 4377
+      },
+      "Engulfing25 rr25_lb4 SHORT": {
+        "n": 141,
+        "wr": 32.62,
+        "mean_r": 0.125,
+        "sum_r": 17.64,
+        "pnl": 7342
+      }
+    }
+  },
+  "totals": {
+    "L_on": {
+      "n": 862,
+      "wr": 36.31,
+      "mean_r": 0.343,
+      "sum_r": 295.67,
+      "pnl": 139875,
+      "pf": 1.57,
+      "max_dd_pct": 22.33,
+      "zero_months": 19,
+      "longest_gap_days": 132
+    },
+    "L_off": {
+      "n": 1365,
+      "wr": 35.75,
+      "mean_r": 0.329,
+      "sum_r": 448.6,
+      "pnl": 224231,
+      "pf": 1.55,
+      "max_dd_pct": 20.34,
+      "zero_months": 4,
+      "longest_gap_days": 60
+    },
+    "S_on": {
+      "n": 653,
+      "wr": 24.2,
+      "mean_r": -0.103,
+      "sum_r": -67.13,
+      "pnl": -28112,
+      "pf": 0.87,
+      "max_dd_pct": 62.96,
+      "zero_months": 34,
+      "longest_gap_days": 112
+    },
+    "S_off": {
+      "n": 1261,
+      "wr": 24.66,
+      "mean_r": -0.09,
+      "sum_r": -113.46,
+      "pnl": -47962,
+      "pf": 0.88,
+      "max_dd_pct": 78.3,
+      "zero_months": 4,
+      "longest_gap_days": 67
+    },
+    "LS_on": {
+      "n": 1251,
+      "wr": 33.01,
+      "mean_r": 0.223,
+      "sum_r": 278.8,
+      "pnl": 130443,
+      "pf": 1.35,
+      "max_dd_pct": 23.06,
+      "zero_months": 8,
+      "longest_gap_days": 98
+    }
+  },
+  "yearly": {
+    "L_on": {
+      "2015": {
+        "n": 57,
+        "wr": 29.82,
+        "mean_r": 0.095,
+        "sum_r": 5.43,
+        "pnl": 2166,
+        "pf": 1.13,
+        "max_dd_pct": 5.88,
+        "zero_months": 3,
+        "longest_gap_days": 53
+      },
+      "2016": {
+        "n": 97,
+        "wr": 29.9,
+        "mean_r": 0.112,
+        "sum_r": 10.83,
+        "pnl": 4392,
+        "pf": 1.15,
+        "max_dd_pct": 11.16,
+        "zero_months": 1,
+        "longest_gap_days": 54
+      },
+      "2017": {
+        "n": 73,
+        "wr": 35.62,
+        "mean_r": 0.32,
+        "sum_r": 23.33,
+        "pnl": 9975,
+        "pf": 1.48,
+        "max_dd_pct": 7.42,
+        "zero_months": 1,
+        "longest_gap_days": 44
+      },
+      "2018": {
+        "n": 72,
+        "wr": 22.22,
+        "mean_r": -0.171,
+        "sum_r": -12.28,
+        "pnl": -5545,
+        "pf": 0.77,
+        "max_dd_pct": 14.64,
+        "zero_months": 3,
+        "longest_gap_days": 132
+      },
+      "2019": {
+        "n": 84,
+        "wr": 26.19,
+        "mean_r": -0.027,
+        "sum_r": -2.29,
+        "pnl": -1130,
+        "pf": 0.96,
+        "max_dd_pct": 10.78,
+        "zero_months": 0,
+        "longest_gap_days": 30
+      },
+      "2020": {
+        "n": 69,
+        "wr": 37.68,
+        "mean_r": 0.405,
+        "sum_r": 27.97,
+        "pnl": 11899,
+        "pf": 1.65,
+        "max_dd_pct": 5.82,
+        "zero_months": 1,
+        "longest_gap_days": 58
+      },
+      "2021": {
+        "n": 35,
+        "wr": 31.43,
+        "mean_r": 0.176,
+        "sum_r": 6.16,
+        "pnl": 2688,
+        "pf": 1.25,
+        "max_dd_pct": 4.2,
+        "zero_months": 4,
+        "longest_gap_days": 96
+      },
+      "2022": {
+        "n": 56,
+        "wr": 41.07,
+        "mean_r": 0.515,
+        "sum_r": 28.85,
+        "pnl": 12935,
+        "pf": 1.88,
+        "max_dd_pct": 8.69,
+        "zero_months": 2,
+        "longest_gap_days": 64
+      },
+      "2023": {
+        "n": 80,
+        "wr": 41.25,
+        "mean_r": 0.536,
+        "sum_r": 42.92,
+        "pnl": 19886,
+        "pf": 1.95,
+        "max_dd_pct": 6.45,
+        "zero_months": 1,
+        "longest_gap_days": 55
+      },
+      "2024": {
+        "n": 77,
+        "wr": 42.86,
+        "mean_r": 0.579,
+        "sum_r": 44.58,
+        "pnl": 20978,
+        "pf": 2.01,
+        "max_dd_pct": 6.11,
+        "zero_months": 0,
+        "longest_gap_days": 31
+      },
+      "2025": {
+        "n": 123,
+        "wr": 50.41,
+        "mean_r": 0.857,
+        "sum_r": 105.43,
+        "pnl": 54087,
+        "pf": 2.84,
+        "max_dd_pct": 3.49,
+        "zero_months": 0,
+        "longest_gap_days": 42
+      },
+      "2026": {
+        "n": 39,
+        "wr": 38.46,
+        "mean_r": 0.377,
+        "sum_r": 14.72,
+        "pnl": 7544,
+        "pf": 1.62,
+        "max_dd_pct": 6.72,
+        "zero_months": 3,
+        "longest_gap_days": 91
+      },
+      "ALL": {
+        "n": 862,
+        "wr": 36.31,
+        "mean_r": 0.343,
+        "sum_r": 295.67,
+        "pnl": 139875,
+        "pf": 1.57,
+        "max_dd_pct": 22.33,
+        "zero_months": 19,
+        "longest_gap_days": 132
+      }
+    },
+    "L_off": {
+      "2015": {
+        "n": 103,
+        "wr": 28.16,
+        "mean_r": 0.03,
+        "sum_r": 3.1,
+        "pnl": 1081,
+        "pf": 1.03,
+        "max_dd_pct": 12.32,
+        "zero_months": 0,
+        "longest_gap_days": 27
+      },
+      "2016": {
+        "n": 131,
+        "wr": 28.24,
+        "mean_r": 0.059,
+        "sum_r": 7.71,
+        "pnl": 3016,
+        "pf": 1.08,
+        "max_dd_pct": 14.17,
+        "zero_months": 1,
+        "longest_gap_days": 43
+      },
+      "2017": {
+        "n": 119,
+        "wr": 35.29,
+        "mean_r": 0.313,
+        "sum_r": 37.2,
+        "pnl": 15717,
+        "pf": 1.47,
+        "max_dd_pct": 12.54,
+        "zero_months": 1,
+        "longest_gap_days": 60
+      },
+      "2018": {
+        "n": 129,
+        "wr": 28.68,
+        "mean_r": 0.062,
+        "sum_r": 8.05,
+        "pnl": 3105,
+        "pf": 1.08,
+        "max_dd_pct": 15.3,
+        "zero_months": 0,
+        "longest_gap_days": 22
+      },
+      "2019": {
+        "n": 136,
+        "wr": 30.88,
+        "mean_r": 0.142,
+        "sum_r": 19.26,
+        "pnl": 8221,
+        "pf": 1.19,
+        "max_dd_pct": 12.85,
+        "zero_months": 0,
+        "longest_gap_days": 28
+      },
+      "2020": {
+        "n": 106,
+        "wr": 44.34,
+        "mean_r": 0.662,
+        "sum_r": 70.17,
+        "pnl": 31987,
+        "pf": 2.2,
+        "max_dd_pct": 5.53,
+        "zero_months": 0,
+        "longest_gap_days": 29
+      },
+      "2021": {
+        "n": 103,
+        "wr": 28.16,
+        "mean_r": 0.068,
+        "sum_r": 6.98,
+        "pnl": 3514,
+        "pf": 1.1,
+        "max_dd_pct": 12.05,
+        "zero_months": 1,
+        "longest_gap_days": 38
+      },
+      "2022": {
+        "n": 126,
+        "wr": 29.37,
+        "mean_r": 0.106,
+        "sum_r": 13.33,
+        "pnl": 6332,
+        "pf": 1.15,
+        "max_dd_pct": 20.34,
+        "zero_months": 0,
+        "longest_gap_days": 33
+      },
+      "2023": {
+        "n": 109,
+        "wr": 43.12,
+        "mean_r": 0.606,
+        "sum_r": 66.09,
+        "pnl": 32241,
+        "pf": 2.08,
+        "max_dd_pct": 9.85,
+        "zero_months": 0,
+        "longest_gap_days": 24
+      },
+      "2024": {
+        "n": 106,
+        "wr": 50,
+        "mean_r": 0.84,
+        "sum_r": 89.05,
+        "pnl": 46535,
+        "pf": 2.69,
+        "max_dd_pct": 5.42,
+        "zero_months": 0,
+        "longest_gap_days": 24
+      },
+      "2025": {
+        "n": 125,
+        "wr": 52.8,
+        "mean_r": 0.937,
+        "sum_r": 117.13,
+        "pnl": 66759,
+        "pf": 3.06,
+        "max_dd_pct": 4.05,
+        "zero_months": 0,
+        "longest_gap_days": 34
+      },
+      "2026": {
+        "n": 72,
+        "wr": 30.56,
+        "mean_r": 0.146,
+        "sum_r": 10.54,
+        "pnl": 5722,
+        "pf": 1.21,
+        "max_dd_pct": 11.5,
+        "zero_months": 1,
+        "longest_gap_days": 27
+      },
+      "ALL": {
+        "n": 1365,
+        "wr": 35.75,
+        "mean_r": 0.329,
+        "sum_r": 448.6,
+        "pnl": 224231,
+        "pf": 1.55,
+        "max_dd_pct": 20.34,
+        "zero_months": 4,
+        "longest_gap_days": 60
+      }
+    },
+    "S_on": {
+      "2015": {
+        "n": 69,
+        "wr": 28.99,
+        "mean_r": 0.064,
+        "sum_r": 4.4,
+        "pnl": 1736,
+        "pf": 1.08,
+        "max_dd_pct": 10.84,
+        "zero_months": 1,
+        "longest_gap_days": 45
+      },
+      "2016": {
+        "n": 42,
+        "wr": 35.71,
+        "mean_r": 0.343,
+        "sum_r": 14.39,
+        "pnl": 5929,
+        "pf": 1.53,
+        "max_dd_pct": 5.65,
+        "zero_months": 4,
+        "longest_gap_days": 75
+      },
+      "2017": {
+        "n": 54,
+        "wr": 42.59,
+        "mean_r": 0.567,
+        "sum_r": 30.61,
+        "pnl": 13185,
+        "pf": 1.97,
+        "max_dd_pct": 3.55,
+        "zero_months": 2,
+        "longest_gap_days": 67
+      },
+      "2018": {
+        "n": 84,
+        "wr": 32.14,
+        "mean_r": 0.189,
+        "sum_r": 15.85,
+        "pnl": 6725,
+        "pf": 1.27,
+        "max_dd_pct": 8.77,
+        "zero_months": 2,
+        "longest_gap_days": 45
+      },
+      "2019": {
+        "n": 49,
+        "wr": 14.29,
+        "mean_r": -0.467,
+        "sum_r": -22.89,
+        "pnl": -10086,
+        "pf": 0.45,
+        "max_dd_pct": 10.21,
+        "zero_months": 4,
+        "longest_gap_days": 57
+      },
+      "2020": {
+        "n": 62,
+        "wr": 16.13,
+        "mean_r": -0.375,
+        "sum_r": -23.27,
+        "pnl": -10173,
+        "pf": 0.53,
+        "max_dd_pct": 13.01,
+        "zero_months": 3,
+        "longest_gap_days": 74
+      },
+      "2021": {
+        "n": 79,
+        "wr": 26.58,
+        "mean_r": -0.026,
+        "sum_r": -2.03,
+        "pnl": -749,
+        "pf": 0.97,
+        "max_dd_pct": 12.03,
+        "zero_months": 3,
+        "longest_gap_days": 98
+      },
+      "2022": {
+        "n": 67,
+        "wr": 22.39,
+        "mean_r": -0.175,
+        "sum_r": -11.75,
+        "pnl": -4873,
+        "pf": 0.78,
+        "max_dd_pct": 10.87,
+        "zero_months": 1,
+        "longest_gap_days": 59
+      },
+      "2023": {
+        "n": 57,
+        "wr": 10.53,
+        "mean_r": -0.603,
+        "sum_r": -34.39,
+        "pnl": -14210,
+        "pf": 0.33,
+        "max_dd_pct": 14.21,
+        "zero_months": 2,
+        "longest_gap_days": 72
+      },
+      "2024": {
+        "n": 44,
+        "wr": 4.55,
+        "mean_r": -0.798,
+        "sum_r": -35.11,
+        "pnl": -14368,
+        "pf": 0.14,
+        "max_dd_pct": 14.37,
+        "zero_months": 3,
+        "longest_gap_days": 97
+      },
+      "2025": {
+        "n": 22,
+        "wr": 18.18,
+        "mean_r": -0.3,
+        "sum_r": -6.59,
+        "pnl": -2783,
+        "pf": 0.62,
+        "max_dd_pct": 4.04,
+        "zero_months": 7,
+        "longest_gap_days": 74
+      },
+      "2026": {
+        "n": 24,
+        "wr": 33.33,
+        "mean_r": 0.152,
+        "sum_r": 3.66,
+        "pnl": 1557,
+        "pf": 1.25,
+        "max_dd_pct": 3.84,
+        "zero_months": 2,
+        "longest_gap_days": 50
+      },
+      "ALL": {
+        "n": 653,
+        "wr": 24.2,
+        "mean_r": -0.103,
+        "sum_r": -67.13,
+        "pnl": -28112,
+        "pf": 0.87,
+        "max_dd_pct": 62.96,
+        "zero_months": 34,
+        "longest_gap_days": 112
+      }
+    },
+    "S_off": {
+      "2015": {
+        "n": 157,
+        "wr": 31.21,
+        "mean_r": 0.152,
+        "sum_r": 23.82,
+        "pnl": 9789,
+        "pf": 1.21,
+        "max_dd_pct": 13.88,
+        "zero_months": 1,
+        "longest_gap_days": 36
+      },
+      "2016": {
+        "n": 120,
+        "wr": 27.5,
+        "mean_r": 0.027,
+        "sum_r": 3.22,
+        "pnl": 1104,
+        "pf": 1.03,
+        "max_dd_pct": 15.78,
+        "zero_months": 0,
+        "longest_gap_days": 33
+      },
+      "2017": {
+        "n": 131,
+        "wr": 28.24,
+        "mean_r": 0.026,
+        "sum_r": 3.39,
+        "pnl": 1131,
+        "pf": 1.03,
+        "max_dd_pct": 12.9,
+        "zero_months": 0,
+        "longest_gap_days": 17
+      },
+      "2018": {
+        "n": 111,
+        "wr": 27.03,
+        "mean_r": 0.011,
+        "sum_r": 1.21,
+        "pnl": 203,
+        "pf": 1.01,
+        "max_dd_pct": 15.5,
+        "zero_months": 0,
+        "longest_gap_days": 18
+      },
+      "2019": {
+        "n": 123,
+        "wr": 17.07,
+        "mean_r": -0.364,
+        "sum_r": -44.75,
+        "pnl": -18975,
+        "pf": 0.56,
+        "max_dd_pct": 19.38,
+        "zero_months": 1,
+        "longest_gap_days": 54
+      },
+      "2020": {
+        "n": 130,
+        "wr": 23.85,
+        "mean_r": -0.104,
+        "sum_r": -13.53,
+        "pnl": -5678,
+        "pf": 0.86,
+        "max_dd_pct": 10.59,
+        "zero_months": 0,
+        "longest_gap_days": 27
+      },
+      "2021": {
+        "n": 93,
+        "wr": 29.03,
+        "mean_r": 0.087,
+        "sum_r": 8.07,
+        "pnl": 3078,
+        "pf": 1.12,
+        "max_dd_pct": 8.68,
+        "zero_months": 0,
+        "longest_gap_days": 47
+      },
+      "2022": {
+        "n": 113,
+        "wr": 26.55,
+        "mean_r": -0.027,
+        "sum_r": -3.05,
+        "pnl": -1612,
+        "pf": 0.95,
+        "max_dd_pct": 9.52,
+        "zero_months": 0,
+        "longest_gap_days": 27
+      },
+      "2023": {
+        "n": 122,
+        "wr": 18.85,
+        "mean_r": -0.318,
+        "sum_r": -38.76,
+        "pnl": -15972,
+        "pf": 0.61,
+        "max_dd_pct": 16.19,
+        "zero_months": 0,
+        "longest_gap_days": 31
+      },
+      "2024": {
+        "n": 96,
+        "wr": 14.58,
+        "mean_r": -0.448,
+        "sum_r": -43.03,
+        "pnl": -17045,
+        "pf": 0.46,
+        "max_dd_pct": 18.12,
+        "zero_months": 0,
+        "longest_gap_days": 28
+      },
+      "2025": {
+        "n": 45,
+        "wr": 22.22,
+        "mean_r": -0.236,
+        "sum_r": -10.62,
+        "pnl": -4178,
+        "pf": 0.68,
+        "max_dd_pct": 5.97,
+        "zero_months": 1,
+        "longest_gap_days": 48
+      },
+      "2026": {
+        "n": 20,
+        "wr": 30,
+        "mean_r": 0.029,
+        "sum_r": 0.58,
+        "pnl": 193,
+        "pf": 1.04,
+        "max_dd_pct": 2.43,
+        "zero_months": 1,
+        "longest_gap_days": 39
+      },
+      "ALL": {
+        "n": 1261,
+        "wr": 24.66,
+        "mean_r": -0.09,
+        "sum_r": -113.46,
+        "pnl": -47962,
+        "pf": 0.88,
+        "max_dd_pct": 78.3,
+        "zero_months": 4,
+        "longest_gap_days": 67
+      }
+    },
+    "LS_on": {
+      "2015": {
+        "n": 99,
+        "wr": 31.31,
+        "mean_r": 0.151,
+        "sum_r": 14.9,
+        "pnl": 6095,
+        "pf": 1.21,
+        "max_dd_pct": 10.71,
+        "zero_months": 0,
+        "longest_gap_days": 45
+      },
+      "2016": {
+        "n": 129,
+        "wr": 34.11,
+        "mean_r": 0.274,
+        "sum_r": 35.38,
+        "pnl": 14767,
+        "pf": 1.41,
+        "max_dd_pct": 11.77,
+        "zero_months": 0,
+        "longest_gap_days": 29
+      },
+      "2017": {
+        "n": 110,
+        "wr": 40.91,
+        "mean_r": 0.507,
+        "sum_r": 55.74,
+        "pnl": 24002,
+        "pf": 1.84,
+        "max_dd_pct": 4.85,
+        "zero_months": 0,
+        "longest_gap_days": 35
+      },
+      "2018": {
+        "n": 152,
+        "wr": 28.95,
+        "mean_r": 0.076,
+        "sum_r": 11.49,
+        "pnl": 4696,
+        "pf": 1.1,
+        "max_dd_pct": 13.6,
+        "zero_months": 0,
+        "longest_gap_days": 18
+      },
+      "2019": {
+        "n": 101,
+        "wr": 22.77,
+        "mean_r": -0.155,
+        "sum_r": -15.7,
+        "pnl": -7022,
+        "pf": 0.8,
+        "max_dd_pct": 15.92,
+        "zero_months": 2,
+        "longest_gap_days": 41
+      },
+      "2020": {
+        "n": 111,
+        "wr": 28.83,
+        "mean_r": 0.09,
+        "sum_r": 10.01,
+        "pnl": 4063,
+        "pf": 1.12,
+        "max_dd_pct": 9.28,
+        "zero_months": 0,
+        "longest_gap_days": 27
+      },
+      "2021": {
+        "n": 61,
+        "wr": 31.15,
+        "mean_r": 0.149,
+        "sum_r": 9.09,
+        "pnl": 3977,
+        "pf": 1.22,
+        "max_dd_pct": 7.66,
+        "zero_months": 5,
+        "longest_gap_days": 98
+      },
+      "2022": {
+        "n": 93,
+        "wr": 25.81,
+        "mean_r": -0.051,
+        "sum_r": -4.7,
+        "pnl": -1942,
+        "pf": 0.94,
+        "max_dd_pct": 15.57,
+        "zero_months": 0,
+        "longest_gap_days": 37
+      },
+      "2023": {
+        "n": 105,
+        "wr": 31.43,
+        "mean_r": 0.164,
+        "sum_r": 17.27,
+        "pnl": 8751,
+        "pf": 1.28,
+        "max_dd_pct": 10.53,
+        "zero_months": 0,
+        "longest_gap_days": 27
+      },
+      "2024": {
+        "n": 83,
+        "wr": 38.55,
+        "mean_r": 0.429,
+        "sum_r": 35.59,
+        "pnl": 16714,
+        "pf": 1.73,
+        "max_dd_pct": 5.5,
+        "zero_months": 0,
+        "longest_gap_days": 31
+      },
+      "2025": {
+        "n": 148,
+        "wr": 44.59,
+        "mean_r": 0.647,
+        "sum_r": 95.7,
+        "pnl": 49230,
+        "pf": 2.31,
+        "max_dd_pct": 6.72,
+        "zero_months": 0,
+        "longest_gap_days": 42
+      },
+      "2026": {
+        "n": 59,
+        "wr": 33.9,
+        "mean_r": 0.238,
+        "sum_r": 14.02,
+        "pnl": 7112,
+        "pf": 1.4,
+        "max_dd_pct": 6.53,
+        "zero_months": 1,
+        "longest_gap_days": 23
+      },
+      "ALL": {
+        "n": 1251,
+        "wr": 33.01,
+        "mean_r": 0.223,
+        "sum_r": 278.8,
+        "pnl": 130443,
+        "pf": 1.35,
+        "max_dd_pct": 23.06,
+        "zero_months": 8,
+        "longest_gap_days": 98
+      }
+    }
+  },
+  "bias_split": {
+    "L_off": {
+      "bullish": {
+        "n": 673,
+        "wr": 37.59,
+        "mean_r": 0.391,
+        "sum_r": 262.86,
+        "pnl": 132883
+      },
+      "bearish": {
+        "n": 678,
+        "wr": 33.63,
+        "mean_r": 0.257,
+        "sum_r": 174.43,
+        "pnl": 86615
+      },
+      "neutral": {
+        "n": 14,
+        "wr": 50,
+        "mean_r": 0.809,
+        "sum_r": 11.32,
+        "pnl": 4733
+      }
+    },
+    "S_off": {
+      "bullish": {
+        "n": 835,
+        "wr": 24.19,
+        "mean_r": -0.109,
+        "sum_r": -91.29,
+        "pnl": -38975
+      },
+      "bearish": {
+        "n": 398,
+        "wr": 26.13,
+        "mean_r": -0.032,
+        "sum_r": -12.91,
+        "pnl": -5058
+      },
+      "neutral": {
+        "n": 28,
+        "wr": 17.86,
+        "mean_r": -0.331,
+        "sum_r": -9.27,
+        "pnl": -3929
+      }
+    }
+  },
+  "age_tables": {
+    "L_on (bullish runs)": {
+      "1-2": {
+        "n": 250,
+        "wr": 30.8,
+        "mean_r": 0.147,
+        "sum_r": 36.69,
+        "pnl": 15483
+      },
+      "3-5": {
+        "n": 133,
+        "wr": 43.61,
+        "mean_r": 0.604,
+        "sum_r": 80.28,
+        "pnl": 38299
+      },
+      "6-10": {
+        "n": 106,
+        "wr": 40.57,
+        "mean_r": 0.501,
+        "sum_r": 53.14,
+        "pnl": 24924
+      },
+      "11-20": {
+        "n": 177,
+        "wr": 31.07,
+        "mean_r": 0.146,
+        "sum_r": 25.77,
+        "pnl": 13506
+      },
+      "21-40": {
+        "n": 159,
+        "wr": 42.14,
+        "mean_r": 0.564,
+        "sum_r": 89.7,
+        "pnl": 41639
+      },
+      "41+": {
+        "n": 37,
+        "wr": 35.14,
+        "mean_r": 0.273,
+        "sum_r": 10.08,
+        "pnl": 6024
+      },
+      "run_total_lt15_hindsight": {
+        "n": 269,
+        "wr": 12.27,
+        "mean_r": -0.541,
+        "sum_r": -145.57,
+        "pnl": -65270
+      },
+      "run_total_ge15_hindsight": {
+        "n": 593,
+        "wr": 47.22,
+        "mean_r": 0.744,
+        "sum_r": 441.23,
+        "pnl": 205145
+      }
+    },
+    "S_on (bearish runs)": {
+      "1-2": {
+        "n": 242,
+        "wr": 26.03,
+        "mean_r": -0.026,
+        "sum_r": -6.29,
+        "pnl": -2517
+      },
+      "3-5": {
+        "n": 148,
+        "wr": 22.3,
+        "mean_r": -0.183,
+        "sum_r": -27.15,
+        "pnl": -11543
+      },
+      "6-10": {
+        "n": 103,
+        "wr": 25.24,
+        "mean_r": -0.068,
+        "sum_r": -6.96,
+        "pnl": -2813
+      },
+      "11-20": {
+        "n": 109,
+        "wr": 23.85,
+        "mean_r": -0.12,
+        "sum_r": -13.08,
+        "pnl": -5591
+      },
+      "21-40": {
+        "n": 39,
+        "wr": 20.51,
+        "mean_r": -0.231,
+        "sum_r": -9.01,
+        "pnl": -3526
+      },
+      "41+": {
+        "n": 12,
+        "wr": 16.67,
+        "mean_r": -0.386,
+        "sum_r": -4.63,
+        "pnl": -2121
+      },
+      "run_total_lt15_hindsight": {
+        "n": 323,
+        "wr": 10.22,
+        "mean_r": -0.612,
+        "sum_r": -197.59,
+        "pnl": -83854
+      },
+      "run_total_ge15_hindsight": {
+        "n": 330,
+        "wr": 37.88,
+        "mean_r": 0.395,
+        "sum_r": 130.46,
+        "pnl": 55742
+      }
+    },
+    "L_off under a BEARISH bias (what the filter removes)": {
+      "1-2": {
+        "n": 181,
+        "wr": 37.02,
+        "mean_r": 0.379,
+        "sum_r": 68.52,
+        "pnl": 33939
+      },
+      "3-5": {
+        "n": 136,
+        "wr": 33.09,
+        "mean_r": 0.219,
+        "sum_r": 29.74,
+        "pnl": 17073
+      },
+      "6-10": {
+        "n": 139,
+        "wr": 29.5,
+        "mean_r": 0.107,
+        "sum_r": 14.83,
+        "pnl": 8590
+      },
+      "11-20": {
+        "n": 157,
+        "wr": 33.12,
+        "mean_r": 0.249,
+        "sum_r": 39.02,
+        "pnl": 17416
+      },
+      "21-40": {
+        "n": 57,
+        "wr": 31.58,
+        "mean_r": 0.204,
+        "sum_r": 11.65,
+        "pnl": 5017
+      },
+      "41+": {
+        "n": 8,
+        "wr": 62.5,
+        "mean_r": 1.333,
+        "sum_r": 10.67,
+        "pnl": 4581
+      },
+      "run_total_lt15_hindsight": {
+        "n": 322,
+        "wr": 46.58,
+        "mean_r": 0.732,
+        "sum_r": 235.66,
+        "pnl": 116008
+      },
+      "run_total_ge15_hindsight": {
+        "n": 356,
+        "wr": 21.91,
+        "mean_r": -0.172,
+        "sum_r": -61.23,
+        "pnl": -29393
+      }
+    },
+    "L_off under a BULLISH bias": {
+      "1-2": {
+        "n": 102,
+        "wr": 36.27,
+        "mean_r": 0.357,
+        "sum_r": 36.43,
+        "pnl": 16195
+      },
+      "3-5": {
+        "n": 102,
+        "wr": 43.14,
+        "mean_r": 0.579,
+        "sum_r": 59.06,
+        "pnl": 29054
+      },
+      "6-10": {
+        "n": 93,
+        "wr": 35.48,
+        "mean_r": 0.307,
+        "sum_r": 28.58,
+        "pnl": 15054
+      },
+      "11-20": {
+        "n": 180,
+        "wr": 33.33,
+        "mean_r": 0.23,
+        "sum_r": 41.44,
+        "pnl": 21154
+      },
+      "21-40": {
+        "n": 158,
+        "wr": 41.77,
+        "mean_r": 0.548,
+        "sum_r": 86.6,
+        "pnl": 43889
+      },
+      "41+": {
+        "n": 38,
+        "wr": 34.21,
+        "mean_r": 0.283,
+        "sum_r": 10.75,
+        "pnl": 7537
+      },
+      "run_total_lt15_hindsight": {
+        "n": 140,
+        "wr": 11.43,
+        "mean_r": -0.572,
+        "sum_r": -80.14,
+        "pnl": -38119
+      },
+      "run_total_ge15_hindsight": {
+        "n": 533,
+        "wr": 44.47,
+        "mean_r": 0.644,
+        "sum_r": 343,
+        "pnl": 171002
+      }
+    }
+  },
+  "bias_share": {
+    "bullish": 0.561,
+    "bearish": 0.433,
+    "sessions_in_bearish_runs_ge15": 692,
+    "sessions_in_bullish_runs_ge15": 1081,
+    "sessions": 2993
+  },
+  "bias_runs_ge15": [
+    {
+      "bias": "bearish",
+      "start": "2015-02-05T22:00:00.000Z",
+      "end": "2015-03-19T21:00:00.000Z",
+      "sessions": 31,
+      "gold_ret_pct": -7.72,
+      "gold_mdd_pct": 9.11,
+      "start_i": 24,
+      "end_i": 54,
+      "L_on": {
+        "n": 0,
+        "wr": 0,
+        "mean_r": 0,
+        "sum_r": 0,
+        "pnl": 0,
+        "pf": 0,
+        "max_dd_pct": 0,
+        "zero_months": 2,
+        "longest_gap_days": null
+      },
+      "L_off": {
+        "n": 11,
+        "wr": 9.09,
+        "mean_r": -0.678,
+        "sum_r": -7.46,
+        "pnl": -3158,
+        "pf": 0.24,
+        "max_dd_pct": 3.76,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "S_on": {
+        "n": 13,
+        "wr": 38.46,
+        "mean_r": 0.44,
+        "sum_r": 5.72,
+        "pnl": 2375,
+        "pf": 1.71,
+        "max_dd_pct": 1.67,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "LS_on": {
+        "n": 13,
+        "wr": 38.46,
+        "mean_r": 0.44,
+        "sum_r": 5.72,
+        "pnl": 2375,
+        "pf": 1.71,
+        "max_dd_pct": 1.67,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "L_on_after40": {
+        "n": 16,
+        "wr": 37.5,
+        "mean_r": 0.389,
+        "sum_r": 6.22,
+        "pnl": 2579
+      }
+    },
+    {
+      "bias": "bullish",
+      "start": "2015-03-22T21:00:00.000Z",
+      "end": "2015-04-13T21:00:00.000Z",
+      "sessions": 17,
+      "gold_ret_pct": 2.35,
+      "gold_mdd_pct": 1.75,
+      "start_i": 55,
+      "end_i": 71,
+      "L_on": {
+        "n": 9,
+        "wr": 66.67,
+        "mean_r": 1.48,
+        "sum_r": 13.32,
+        "pnl": 5601,
+        "pf": 5.44,
+        "max_dd_pct": 0.84,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "L_off": {
+        "n": 1,
+        "wr": 100,
+        "mean_r": 2.974,
+        "sum_r": 2.97,
+        "pnl": 1248,
+        "pf": null,
+        "max_dd_pct": 0,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "S_on": {
+        "n": 0,
+        "wr": 0,
+        "mean_r": 0,
+        "sum_r": 0,
+        "pnl": 0,
+        "pf": 0,
+        "max_dd_pct": 0,
+        "zero_months": 1,
+        "longest_gap_days": null
+      },
+      "LS_on": {
+        "n": 0,
+        "wr": 0,
+        "mean_r": 0,
+        "sum_r": 0,
+        "pnl": 0,
+        "pf": 0,
+        "max_dd_pct": 0,
+        "zero_months": 1,
+        "longest_gap_days": null
+      },
+      "L_on_after40": {
+        "n": 8,
+        "wr": 0,
+        "mean_r": -1.015,
+        "sum_r": -8.12,
+        "pnl": -3450
+      }
+    },
+    {
+      "bias": "bearish",
+      "start": "2015-05-26T21:00:00.000Z",
+      "end": "2015-06-17T21:00:00.000Z",
+      "sessions": 17,
+      "gold_ret_pct": -1.81,
+      "gold_mdd_pct": 1.73,
+      "start_i": 102,
+      "end_i": 118,
+      "L_on": {
+        "n": 0,
+        "wr": 0,
+        "mean_r": 0,
+        "sum_r": 0,
+        "pnl": 0,
+        "pf": 0,
+        "max_dd_pct": 0,
+        "zero_months": 1,
+        "longest_gap_days": null
+      },
+      "L_off": {
+        "n": 2,
+        "wr": 0,
+        "mean_r": -1.018,
+        "sum_r": -2.04,
+        "pnl": -867,
+        "pf": 0,
+        "max_dd_pct": 0.87,
+        "zero_months": 1,
+        "longest_gap_days": null
+      },
+      "S_on": {
+        "n": 3,
+        "wr": 0,
+        "mean_r": -0.991,
+        "sum_r": -2.97,
+        "pnl": -1236,
+        "pf": 0,
+        "max_dd_pct": 1.24,
+        "zero_months": 1,
+        "longest_gap_days": null
+      },
+      "LS_on": {
+        "n": 3,
+        "wr": 0,
+        "mean_r": -0.991,
+        "sum_r": -2.97,
+        "pnl": -1236,
+        "pf": 0,
+        "max_dd_pct": 1.24,
+        "zero_months": 1,
+        "longest_gap_days": null
+      },
+      "L_on_after40": {
+        "n": 6,
+        "wr": 50,
+        "mean_r": 0.871,
+        "sum_r": 5.22,
+        "pnl": 2175
+      }
+    },
+    {
+      "bias": "bearish",
+      "start": "2015-06-23T21:00:00.000Z",
+      "end": "2015-08-09T21:00:00.000Z",
+      "sessions": 34,
+      "gold_ret_pct": -7.73,
+      "gold_mdd_pct": 8.03,
+      "start_i": 122,
+      "end_i": 155,
+      "L_on": {
+        "n": 0,
+        "wr": 0,
+        "mean_r": 0,
+        "sum_r": 0,
+        "pnl": 0,
+        "pf": 0,
+        "max_dd_pct": 0,
+        "zero_months": 2,
+        "longest_gap_days": null
+      },
+      "L_off": {
+        "n": 12,
+        "wr": 41.67,
+        "mean_r": 0.548,
+        "sum_r": 6.58,
+        "pnl": 2734,
+        "pf": 1.92,
+        "max_dd_pct": 2.97,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "S_on": {
+        "n": 14,
+        "wr": 14.29,
+        "mean_r": -0.578,
+        "sum_r": -8.09,
+        "pnl": -3322,
+        "pf": 0.38,
+        "max_dd_pct": 3.32,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "LS_on": {
+        "n": 14,
+        "wr": 14.29,
+        "mean_r": -0.578,
+        "sum_r": -8.09,
+        "pnl": -3322,
+        "pf": 0.38,
+        "max_dd_pct": 3.32,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "L_on_after40": {
+        "n": 15,
+        "wr": 33.33,
+        "mean_r": 0.238,
+        "sum_r": 3.57,
+        "pnl": 1453
+      }
+    },
+    {
+      "bias": "bullish",
+      "start": "2015-08-10T21:00:00.000Z",
+      "end": "2015-09-02T21:00:00.000Z",
+      "sessions": 19,
+      "gold_ret_pct": 3.63,
+      "gold_mdd_pct": 3.11,
+      "start_i": 156,
+      "end_i": 174,
+      "L_on": {
+        "n": 8,
+        "wr": 37.5,
+        "mean_r": 0.402,
+        "sum_r": 3.22,
+        "pnl": 1318,
+        "pf": 1.62,
+        "max_dd_pct": 2.12,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "L_off": {
+        "n": 7,
+        "wr": 28.57,
+        "mean_r": 0.066,
+        "sum_r": 0.46,
+        "pnl": 185,
+        "pf": 1.09,
+        "max_dd_pct": 2.11,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "S_on": {
+        "n": 0,
+        "wr": 0,
+        "mean_r": 0,
+        "sum_r": 0,
+        "pnl": 0,
+        "pf": 0,
+        "max_dd_pct": 0,
+        "zero_months": 1,
+        "longest_gap_days": null
+      },
+      "LS_on": {
+        "n": 8,
+        "wr": 37.5,
+        "mean_r": 0.428,
+        "sum_r": 3.42,
+        "pnl": 1428,
+        "pf": 1.67,
+        "max_dd_pct": 2.12,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "L_on_after40": {
+        "n": 23,
+        "wr": 34.78,
+        "mean_r": 0.261,
+        "sum_r": 6.01,
+        "pnl": 2497
+      }
+    },
+    {
+      "bias": "bullish",
+      "start": "2015-10-04T21:00:00.000Z",
+      "end": "2015-10-27T21:00:00.000Z",
+      "sessions": 18,
+      "gold_ret_pct": 4.77,
+      "gold_mdd_pct": 1.76,
+      "start_i": 196,
+      "end_i": 213,
+      "L_on": {
+        "n": 15,
+        "wr": 40,
+        "mean_r": 0.443,
+        "sum_r": 6.64,
+        "pnl": 2783,
+        "pf": 1.72,
+        "max_dd_pct": 3.01,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "L_off": {
+        "n": 8,
+        "wr": 37.5,
+        "mean_r": 0.296,
+        "sum_r": 2.37,
+        "pnl": 983,
+        "pf": 1.46,
+        "max_dd_pct": 2.15,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "S_on": {
+        "n": 0,
+        "wr": 0,
+        "mean_r": 0,
+        "sum_r": 0,
+        "pnl": 0,
+        "pf": 0,
+        "max_dd_pct": 0,
+        "zero_months": 1,
+        "longest_gap_days": null
+      },
+      "LS_on": {
+        "n": 15,
+        "wr": 40,
+        "mean_r": 0.444,
+        "sum_r": 6.66,
+        "pnl": 2774,
+        "pf": 1.72,
+        "max_dd_pct": 3,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "L_on_after40": {
+        "n": 7,
+        "wr": 0,
+        "mean_r": -1.003,
+        "sum_r": -7.02,
+        "pnl": -2981
+      }
+    },
+    {
+      "bias": "bearish",
+      "start": "2015-10-28T21:00:00.000Z",
+      "end": "2015-12-03T22:00:00.000Z",
+      "sessions": 27,
+      "gold_ret_pct": -8.96,
+      "gold_mdd_pct": 8.82,
+      "start_i": 214,
+      "end_i": 240,
+      "L_on": {
+        "n": 0,
+        "wr": 0,
+        "mean_r": 0,
+        "sum_r": 0,
+        "pnl": 0,
+        "pf": 0,
+        "max_dd_pct": 0,
+        "zero_months": 2,
+        "longest_gap_days": null
+      },
+      "L_off": {
+        "n": 11,
+        "wr": 27.27,
+        "mean_r": 0.024,
+        "sum_r": 0.27,
+        "pnl": 77,
+        "pf": 1.02,
+        "max_dd_pct": 2.19,
+        "zero_months": 1,
+        "longest_gap_days": null
+      },
+      "S_on": {
+        "n": 21,
+        "wr": 57.14,
+        "mean_r": 1.129,
+        "sum_r": 23.72,
+        "pnl": 9815,
+        "pf": 3.55,
+        "max_dd_pct": 1.7,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "LS_on": {
+        "n": 21,
+        "wr": 57.14,
+        "mean_r": 1.128,
+        "sum_r": 23.69,
+        "pnl": 9827,
+        "pf": 3.55,
+        "max_dd_pct": 1.71,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "L_on_after40": {
+        "n": 14,
+        "wr": 35.71,
+        "mean_r": 0.299,
+        "sum_r": 4.19,
+        "pnl": 1779
+      }
+    },
+    {
+      "bias": "bullish",
+      "start": "2016-01-04T22:00:00.000Z",
+      "end": "2016-03-13T21:00:00.000Z",
+      "sessions": 50,
+      "gold_ret_pct": 17.87,
+      "gold_mdd_pct": 3.75,
+      "start_i": 261,
+      "end_i": 310,
+      "L_on": {
+        "n": 29,
+        "wr": 51.72,
+        "mean_r": 0.93,
+        "sum_r": 26.97,
+        "pnl": 11418,
+        "pf": 2.93,
+        "max_dd_pct": 1.67,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "L_off": {
+        "n": 30,
+        "wr": 50,
+        "mean_r": 0.865,
+        "sum_r": 25.95,
+        "pnl": 10922,
+        "pf": 2.72,
+        "max_dd_pct": 1.67,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "S_on": {
+        "n": 0,
+        "wr": 0,
+        "mean_r": 0,
+        "sum_r": 0,
+        "pnl": 0,
+        "pf": 0,
+        "max_dd_pct": 0,
+        "zero_months": 3,
+        "longest_gap_days": null
+      },
+      "LS_on": {
+        "n": 29,
+        "wr": 51.72,
+        "mean_r": 0.923,
+        "sum_r": 26.77,
+        "pnl": 11333,
+        "pf": 2.9,
+        "max_dd_pct": 1.69,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "L_on_after40": {
+        "n": 18,
+        "wr": 16.67,
+        "mean_r": -0.395,
+        "sum_r": -7.12,
+        "pnl": -3069
+      }
+    },
+    {
+      "bias": "bullish",
+      "start": "2016-04-25T21:00:00.000Z",
+      "end": "2016-05-17T21:00:00.000Z",
+      "sessions": 17,
+      "gold_ret_pct": 3.79,
+      "gold_mdd_pct": 2.29,
+      "start_i": 340,
+      "end_i": 356,
+      "L_on": {
+        "n": 17,
+        "wr": 17.65,
+        "mean_r": -0.36,
+        "sum_r": -6.12,
+        "pnl": -2656,
+        "pf": 0.56,
+        "max_dd_pct": 6.01,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "L_off": {
+        "n": 12,
+        "wr": 8.33,
+        "mean_r": -0.698,
+        "sum_r": -8.38,
+        "pnl": -3627,
+        "pf": 0.23,
+        "max_dd_pct": 4.71,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "S_on": {
+        "n": 0,
+        "wr": 0,
+        "mean_r": 0,
+        "sum_r": 0,
+        "pnl": 0,
+        "pf": 0,
+        "max_dd_pct": 0,
+        "zero_months": 1,
+        "longest_gap_days": null
+      },
+      "LS_on": {
+        "n": 17,
+        "wr": 17.65,
+        "mean_r": -0.357,
+        "sum_r": -6.06,
+        "pnl": -2631,
+        "pf": 0.56,
+        "max_dd_pct": 6.02,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "L_on_after40": {
+        "n": 22,
+        "wr": 31.82,
+        "mean_r": 0.19,
+        "sum_r": 4.19,
+        "pnl": 1703
+      }
+    },
+    {
+      "bias": "bullish",
+      "start": "2016-06-26T21:00:00.000Z",
+      "end": "2016-07-19T21:00:00.000Z",
+      "sessions": 18,
+      "gold_ret_pct": 6.09,
+      "gold_mdd_pct": 2.7,
+      "start_i": 384,
+      "end_i": 401,
+      "L_on": {
+        "n": 23,
+        "wr": 21.74,
+        "mean_r": -0.182,
+        "sum_r": -4.19,
+        "pnl": -1846,
+        "pf": 0.76,
+        "max_dd_pct": 6.84,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "L_off": {
+        "n": 23,
+        "wr": 21.74,
+        "mean_r": -0.183,
+        "sum_r": -4.21,
+        "pnl": -1830,
+        "pf": 0.77,
+        "max_dd_pct": 6.93,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "S_on": {
+        "n": 0,
+        "wr": 0,
+        "mean_r": 0,
+        "sum_r": 0,
+        "pnl": 0,
+        "pf": 0,
+        "max_dd_pct": 0,
+        "zero_months": 1,
+        "longest_gap_days": null
+      },
+      "LS_on": {
+        "n": 23,
+        "wr": 21.74,
+        "mean_r": -0.19,
+        "sum_r": -4.36,
+        "pnl": -1894,
+        "pf": 0.75,
+        "max_dd_pct": 6.86,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "L_on_after40": {
+        "n": 7,
+        "wr": 0,
+        "mean_r": -1.003,
+        "sum_r": -7.02,
+        "pnl": -2964
+      }
+    },
+    {
+      "bias": "bearish",
+      "start": "2016-09-28T21:00:00.000Z",
+      "end": "2016-10-24T21:00:00.000Z",
+      "sessions": 19,
+      "gold_ret_pct": -4.7,
+      "gold_mdd_pct": 5.34,
+      "start_i": 452,
+      "end_i": 470,
+      "L_on": {
+        "n": 0,
+        "wr": 0,
+        "mean_r": 0,
+        "sum_r": 0,
+        "pnl": 0,
+        "pf": 0,
+        "max_dd_pct": 0,
+        "zero_months": 1,
+        "longest_gap_days": null
+      },
+      "L_off": {
+        "n": 6,
+        "wr": 50,
+        "mean_r": 0.888,
+        "sum_r": 5.33,
+        "pnl": 2278,
+        "pf": 2.74,
+        "max_dd_pct": 1.31,
+        "zero_months": 1,
+        "longest_gap_days": null
+      },
+      "S_on": {
+        "n": 8,
+        "wr": 25,
+        "mean_r": -0.079,
+        "sum_r": -0.63,
+        "pnl": -294,
+        "pf": 0.88,
+        "max_dd_pct": 2.55,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "LS_on": {
+        "n": 8,
+        "wr": 25,
+        "mean_r": -0.082,
+        "sum_r": -0.66,
+        "pnl": -303,
+        "pf": 0.88,
+        "max_dd_pct": 2.59,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "L_on_after40": {
+        "n": 6,
+        "wr": 66.67,
+        "mean_r": 1.471,
+        "sum_r": 8.83,
+        "pnl": 3739
+      }
+    },
+    {
+      "bias": "bearish",
+      "start": "2016-11-10T22:00:00.000Z",
+      "end": "2016-12-28T22:00:00.000Z",
+      "sessions": 34,
+      "gold_ret_pct": -10.72,
+      "gold_mdd_pct": 10.36,
+      "start_i": 483,
+      "end_i": 516,
+      "L_on": {
+        "n": 0,
+        "wr": 0,
+        "mean_r": 0,
+        "sum_r": 0,
+        "pnl": 0,
+        "pf": 0,
+        "max_dd_pct": 0,
+        "zero_months": 2,
+        "longest_gap_days": null
+      },
+      "L_off": {
+        "n": 25,
+        "wr": 0,
+        "mean_r": -0.964,
+        "sum_r": -24.11,
+        "pnl": -10396,
+        "pf": 0,
+        "max_dd_pct": 10.4,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "S_on": {
+        "n": 19,
+        "wr": 63.16,
+        "mean_r": 1.352,
+        "sum_r": 25.7,
+        "pnl": 10725,
+        "pf": 4.65,
+        "max_dd_pct": 0.85,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "LS_on": {
+        "n": 19,
+        "wr": 63.16,
+        "mean_r": 1.374,
+        "sum_r": 26.11,
+        "pnl": 11029,
+        "pf": 4.74,
+        "max_dd_pct": 0.85,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "L_on_after40": {
+        "n": 23,
+        "wr": 47.83,
+        "mean_r": 0.787,
+        "sum_r": 18.11,
+        "pnl": 7690
+      }
+    },
+    {
+      "bias": "bullish",
+      "start": "2016-12-29T22:00:00.000Z",
+      "end": "2017-01-25T22:00:00.000Z",
+      "sessions": 19,
+      "gold_ret_pct": 5.18,
+      "gold_mdd_pct": 1.46,
+      "start_i": 517,
+      "end_i": 535,
+      "L_on": {
+        "n": 14,
+        "wr": 42.86,
+        "mean_r": 0.596,
+        "sum_r": 8.35,
+        "pnl": 3546,
+        "pf": 2.05,
+        "max_dd_pct": 2.07,
+        "zero_months": 1,
+        "longest_gap_days": null
+      },
+      "L_off": {
+        "n": 14,
+        "wr": 42.86,
+        "mean_r": 0.587,
+        "sum_r": 8.22,
+        "pnl": 3464,
+        "pf": 2.02,
+        "max_dd_pct": 2.07,
+        "zero_months": 1,
+        "longest_gap_days": null
+      },
+      "S_on": {
+        "n": 0,
+        "wr": 0,
+        "mean_r": 0,
+        "sum_r": 0,
+        "pnl": 0,
+        "pf": 0,
+        "max_dd_pct": 0,
+        "zero_months": 1,
+        "longest_gap_days": null
+      },
+      "LS_on": {
+        "n": 11,
+        "wr": 54.55,
+        "mean_r": 1.034,
+        "sum_r": 11.38,
+        "pnl": 4870,
+        "pf": 3.33,
+        "max_dd_pct": 2.09,
+        "zero_months": 1,
+        "longest_gap_days": null
+      },
+      "L_on_after40": {
+        "n": 10,
+        "wr": 50,
+        "mean_r": 0.876,
+        "sum_r": 8.76,
+        "pnl": 3722
+      }
+    },
+    {
+      "bias": "bullish",
+      "start": "2017-01-30T22:00:00.000Z",
+      "end": "2017-03-01T22:00:00.000Z",
+      "sessions": 23,
+      "gold_ret_pct": 4.91,
+      "gold_mdd_pct": 1.29,
+      "start_i": 538,
+      "end_i": 560,
+      "L_on": {
+        "n": 10,
+        "wr": 50,
+        "mean_r": 0.876,
+        "sum_r": 8.76,
+        "pnl": 3722,
+        "pf": 2.71,
+        "max_dd_pct": 1.29,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "L_off": {
+        "n": 10,
+        "wr": 50,
+        "mean_r": 0.876,
+        "sum_r": 8.76,
+        "pnl": 3715,
+        "pf": 2.71,
+        "max_dd_pct": 1.29,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "S_on": {
+        "n": 0,
+        "wr": 0,
+        "mean_r": 0,
+        "sum_r": 0,
+        "pnl": 0,
+        "pf": 0,
+        "max_dd_pct": 0,
+        "zero_months": 1,
+        "longest_gap_days": null
+      },
+      "LS_on": {
+        "n": 10,
+        "wr": 50,
+        "mean_r": 0.871,
+        "sum_r": 8.71,
+        "pnl": 3709,
+        "pf": 2.7,
+        "max_dd_pct": 1.29,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "L_on_after40": {
+        "n": 8,
+        "wr": 25,
+        "mean_r": -0.137,
+        "sum_r": -1.1,
+        "pnl": -436
+      }
+    },
+    {
+      "bias": "bullish",
+      "start": "2017-03-19T21:00:00.000Z",
+      "end": "2017-04-24T21:00:00.000Z",
+      "sessions": 26,
+      "gold_ret_pct": 4,
+      "gold_mdd_pct": 1.06,
+      "start_i": 572,
+      "end_i": 597,
+      "L_on": {
+        "n": 8,
+        "wr": 25,
+        "mean_r": -0.137,
+        "sum_r": -1.1,
+        "pnl": -436,
+        "pf": 0.84,
+        "max_dd_pct": 2.35,
+        "zero_months": 1,
+        "longest_gap_days": null
+      },
+      "L_off": {
+        "n": 8,
+        "wr": 25,
+        "mean_r": -0.133,
+        "sum_r": -1.07,
+        "pnl": -439,
+        "pf": 0.84,
+        "max_dd_pct": 2.38,
+        "zero_months": 1,
+        "longest_gap_days": null
+      },
+      "S_on": {
+        "n": 0,
+        "wr": 0,
+        "mean_r": 0,
+        "sum_r": 0,
+        "pnl": 0,
+        "pf": 0,
+        "max_dd_pct": 0,
+        "zero_months": 2,
+        "longest_gap_days": null
+      },
+      "LS_on": {
+        "n": 8,
+        "wr": 25,
+        "mean_r": -0.139,
+        "sum_r": -1.11,
+        "pnl": -438,
+        "pf": 0.84,
+        "max_dd_pct": 2.38,
+        "zero_months": 1,
+        "longest_gap_days": null
+      },
+      "L_on_after40": {
+        "n": 11,
+        "wr": 45.45,
+        "mean_r": 0.702,
+        "sum_r": 7.72,
+        "pnl": 3304
+      }
+    },
+    {
+      "bias": "bullish",
+      "start": "2017-05-17T21:00:00.000Z",
+      "end": "2017-06-12T21:00:00.000Z",
+      "sessions": 19,
+      "gold_ret_pct": 2.33,
+      "gold_mdd_pct": 2.16,
+      "start_i": 614,
+      "end_i": 632,
+      "L_on": {
+        "n": 10,
+        "wr": 50,
+        "mean_r": 0.876,
+        "sum_r": 8.76,
+        "pnl": 3736,
+        "pf": 2.7,
+        "max_dd_pct": 1.31,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "L_off": {
+        "n": 10,
+        "wr": 50,
+        "mean_r": 0.869,
+        "sum_r": 8.69,
+        "pnl": 3699,
+        "pf": 2.66,
+        "max_dd_pct": 1.34,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "S_on": {
+        "n": 0,
+        "wr": 0,
+        "mean_r": 0,
+        "sum_r": 0,
+        "pnl": 0,
+        "pf": 0,
+        "max_dd_pct": 0,
+        "zero_months": 1,
+        "longest_gap_days": null
+      },
+      "LS_on": {
+        "n": 10,
+        "wr": 50,
+        "mean_r": 0.879,
+        "sum_r": 8.79,
+        "pnl": 3743,
+        "pf": 2.7,
+        "max_dd_pct": 1.32,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "L_on_after40": {
+        "n": 3,
+        "wr": 66.67,
+        "mean_r": 1.463,
+        "sum_r": 4.39,
+        "pnl": 1955
+      }
+    },
+    {
+      "bias": "bearish",
+      "start": "2017-06-13T21:00:00.000Z",
+      "end": "2017-07-16T21:00:00.000Z",
+      "sessions": 24,
+      "gold_ret_pct": -2.95,
+      "gold_mdd_pct": 4.26,
+      "start_i": 633,
+      "end_i": 656,
+      "L_on": {
+        "n": 0,
+        "wr": 0,
+        "mean_r": 0,
+        "sum_r": 0,
+        "pnl": 0,
+        "pf": 0,
+        "max_dd_pct": 0,
+        "zero_months": 2,
+        "longest_gap_days": null
+      },
+      "L_off": {
+        "n": 14,
+        "wr": 21.43,
+        "mean_r": -0.173,
+        "sum_r": -2.43,
+        "pnl": -994,
+        "pf": 0.79,
+        "max_dd_pct": 4.64,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "S_on": {
+        "n": 13,
+        "wr": 53.85,
+        "mean_r": 0.986,
+        "sum_r": 12.82,
+        "pnl": 5538,
+        "pf": 3.21,
+        "max_dd_pct": 1.34,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "LS_on": {
+        "n": 13,
+        "wr": 53.85,
+        "mean_r": 1,
+        "sum_r": 13,
+        "pnl": 5637,
+        "pf": 3.26,
+        "max_dd_pct": 1.33,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "L_on_after40": {
+        "n": 16,
+        "wr": 50,
+        "mean_r": 0.853,
+        "sum_r": 13.65,
+        "pnl": 5945
+      }
+    },
+    {
+      "bias": "bullish",
+      "start": "2017-07-17T21:00:00.000Z",
+      "end": "2017-09-17T21:00:00.000Z",
+      "sessions": 45,
+      "gold_ret_pct": 7.48,
+      "gold_mdd_pct": 2.16,
+      "start_i": 657,
+      "end_i": 701,
+      "L_on": {
+        "n": 22,
+        "wr": 36.36,
+        "mean_r": 0.346,
+        "sum_r": 7.61,
+        "pnl": 3327,
+        "pf": 1.54,
+        "max_dd_pct": 3.94,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "L_off": {
+        "n": 22,
+        "wr": 36.36,
+        "mean_r": 0.333,
+        "sum_r": 7.33,
+        "pnl": 3193,
+        "pf": 1.52,
+        "max_dd_pct": 3.95,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "S_on": {
+        "n": 0,
+        "wr": 0,
+        "mean_r": 0,
+        "sum_r": 0,
+        "pnl": 0,
+        "pf": 0,
+        "max_dd_pct": 0,
+        "zero_months": 3,
+        "longest_gap_days": null
+      },
+      "LS_on": {
+        "n": 26,
+        "wr": 30.77,
+        "mean_r": 0.133,
+        "sum_r": 3.47,
+        "pnl": 1484,
+        "pf": 1.19,
+        "max_dd_pct": 3.95,
+        "zero_months": 1,
+        "longest_gap_days": null
+      },
+      "L_on_after40": {
+        "n": 4,
+        "wr": 0,
+        "mean_r": -1.002,
+        "sum_r": -4.01,
+        "pnl": -1750
+      }
+    },
+    {
+      "bias": "bearish",
+      "start": "2017-09-18T21:00:00.000Z",
+      "end": "2017-10-10T21:00:00.000Z",
+      "sessions": 18,
+      "gold_ret_pct": -2.48,
+      "gold_mdd_pct": 3.28,
+      "start_i": 702,
+      "end_i": 719,
+      "L_on": {
+        "n": 0,
+        "wr": 0,
+        "mean_r": 0,
+        "sum_r": 0,
+        "pnl": 0,
+        "pf": 0,
+        "max_dd_pct": 0,
+        "zero_months": 1,
+        "longest_gap_days": null
+      },
+      "L_off": {
+        "n": 19,
+        "wr": 0,
+        "mean_r": -0.984,
+        "sum_r": -18.7,
+        "pnl": -8170,
+        "pf": 0,
+        "max_dd_pct": 8.17,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "S_on": {
+        "n": 11,
+        "wr": 45.45,
+        "mean_r": 0.647,
+        "sum_r": 7.11,
+        "pnl": 3126,
+        "pf": 2.17,
+        "max_dd_pct": 1.77,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "LS_on": {
+        "n": 9,
+        "wr": 66.67,
+        "mean_r": 1.456,
+        "sum_r": 13.1,
+        "pnl": 5720,
+        "pf": 5.22,
+        "max_dd_pct": 0.9,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "L_on_after40": {
+        "n": 8,
+        "wr": 0,
+        "mean_r": -1.001,
+        "sum_r": -8.01,
+        "pnl": -3487
+      }
+    },
+    {
+      "bias": "bearish",
+      "start": "2017-11-30T22:00:00.000Z",
+      "end": "2017-12-20T22:00:00.000Z",
+      "sessions": 15,
+      "gold_ret_pct": -1.43,
+      "gold_mdd_pct": 2.99,
+      "start_i": 757,
+      "end_i": 771,
+      "L_on": {
+        "n": 0,
+        "wr": 0,
+        "mean_r": 0,
+        "sum_r": 0,
+        "pnl": 0,
+        "pf": 0,
+        "max_dd_pct": 0,
+        "zero_months": 1,
+        "longest_gap_days": null
+      },
+      "L_off": {
+        "n": 8,
+        "wr": 87.5,
+        "mean_r": 2.27,
+        "sum_r": 18.16,
+        "pnl": 7803,
+        "pf": 19.47,
+        "max_dd_pct": 0.42,
+        "zero_months": 1,
+        "longest_gap_days": null
+      },
+      "S_on": {
+        "n": 13,
+        "wr": 38.46,
+        "mean_r": 0.398,
+        "sum_r": 5.17,
+        "pnl": 2198,
+        "pf": 1.62,
+        "max_dd_pct": 3.55,
+        "zero_months": 1,
+        "longest_gap_days": null
+      },
+      "LS_on": {
+        "n": 11,
+        "wr": 27.27,
+        "mean_r": -0.064,
+        "sum_r": -0.7,
+        "pnl": -286,
+        "pf": 0.92,
+        "max_dd_pct": 3.58,
+        "zero_months": 1,
+        "longest_gap_days": null
+      },
+      "L_on_after40": {
+        "n": 27,
+        "wr": 25.93,
+        "mean_r": -0.04,
+        "sum_r": -1.07,
+        "pnl": -574
+      }
+    },
+    {
+      "bias": "bullish",
+      "start": "2017-12-21T22:00:00.000Z",
+      "end": "2018-02-01T22:00:00.000Z",
+      "sessions": 29,
+      "gold_ret_pct": 6.65,
+      "gold_mdd_pct": 1.48,
+      "start_i": 772,
+      "end_i": 800,
+      "L_on": {
+        "n": 25,
+        "wr": 28,
+        "mean_r": 0.037,
+        "sum_r": 0.93,
+        "pnl": 314,
+        "pf": 1.04,
+        "max_dd_pct": 5.25,
+        "zero_months": 1,
+        "longest_gap_days": null
+      },
+      "L_off": {
+        "n": 25,
+        "wr": 28,
+        "mean_r": 0.04,
+        "sum_r": 0.99,
+        "pnl": 336,
+        "pf": 1.04,
+        "max_dd_pct": 5.28,
+        "zero_months": 1,
+        "longest_gap_days": null
+      },
+      "S_on": {
+        "n": 0,
+        "wr": 0,
+        "mean_r": 0,
+        "sum_r": 0,
+        "pnl": 0,
+        "pf": 0,
+        "max_dd_pct": 0,
+        "zero_months": 2,
+        "longest_gap_days": null
+      },
+      "LS_on": {
+        "n": 25,
+        "wr": 28,
+        "mean_r": 0.034,
+        "sum_r": 0.86,
+        "pnl": 295,
+        "pf": 1.04,
+        "max_dd_pct": 5.32,
+        "zero_months": 1,
+        "longest_gap_days": null
+      },
+      "L_on_after40": {
+        "n": 6,
+        "wr": 0,
+        "mean_r": -0.999,
+        "sum_r": -6,
+        "pnl": -2652
+      }
+    },
+    {
+      "bias": "bearish",
+      "start": "2018-04-22T21:00:00.000Z",
+      "end": "2018-06-07T21:00:00.000Z",
+      "sessions": 35,
+      "gold_ret_pct": -3.62,
+      "gold_mdd_pct": 3.45,
+      "start_i": 855,
+      "end_i": 889,
+      "L_on": {
+        "n": 0,
+        "wr": 0,
+        "mean_r": 0,
+        "sum_r": 0,
+        "pnl": 0,
+        "pf": 0,
+        "max_dd_pct": 0,
+        "zero_months": 2,
+        "longest_gap_days": null
+      },
+      "L_off": {
+        "n": 13,
+        "wr": 23.08,
+        "mean_r": -0.174,
+        "sum_r": -2.26,
+        "pnl": -978,
+        "pf": 0.78,
+        "max_dd_pct": 2.84,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "S_on": {
+        "n": 9,
+        "wr": 33.33,
+        "mean_r": 0.244,
+        "sum_r": 2.2,
+        "pnl": 808,
+        "pf": 1.3,
+        "max_dd_pct": 1.8,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "LS_on": {
+        "n": 9,
+        "wr": 33.33,
+        "mean_r": 0.25,
+        "sum_r": 2.25,
+        "pnl": 863,
+        "pf": 1.32,
+        "max_dd_pct": 1.8,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "L_on_after40": {
+        "n": 0,
+        "wr": 0,
+        "mean_r": 0,
+        "sum_r": 0,
+        "pnl": 0
+      }
+    },
+    {
+      "bias": "bearish",
+      "start": "2018-06-17T21:00:00.000Z",
+      "end": "2018-08-23T21:00:00.000Z",
+      "sessions": 50,
+      "gold_ret_pct": -9.01,
+      "gold_mdd_pct": 8.21,
+      "start_i": 895,
+      "end_i": 944,
+      "L_on": {
+        "n": 0,
+        "wr": 0,
+        "mean_r": 0,
+        "sum_r": 0,
+        "pnl": 0,
+        "pf": 0,
+        "max_dd_pct": 0,
+        "zero_months": 3,
+        "longest_gap_days": null
+      },
+      "L_off": {
+        "n": 31,
+        "wr": 19.35,
+        "mean_r": -0.299,
+        "sum_r": -9.27,
+        "pnl": -4074,
+        "pf": 0.63,
+        "max_dd_pct": 9.53,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "S_on": {
+        "n": 24,
+        "wr": 54.17,
+        "mean_r": 1.014,
+        "sum_r": 24.32,
+        "pnl": 10651,
+        "pf": 3.16,
+        "max_dd_pct": 4.47,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "LS_on": {
+        "n": 24,
+        "wr": 54.17,
+        "mean_r": 1.009,
+        "sum_r": 24.22,
+        "pnl": 10661,
+        "pf": 3.16,
+        "max_dd_pct": 4.49,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "L_on_after40": {
+        "n": 18,
+        "wr": 16.67,
+        "mean_r": -0.374,
+        "sum_r": -6.73,
+        "pnl": -2912
+      }
+    },
+    {
+      "bias": "bullish",
+      "start": "2018-11-28T22:00:00.000Z",
+      "end": "2019-01-17T22:00:00.000Z",
+      "sessions": 37,
+      "gold_ret_pct": 6.29,
+      "gold_mdd_pct": 0.75,
+      "start_i": 1013,
+      "end_i": 1049,
+      "L_on": {
+        "n": 8,
+        "wr": 50,
+        "mean_r": 0.891,
+        "sum_r": 7.12,
+        "pnl": 3019,
+        "pf": 2.72,
+        "max_dd_pct": 0.9,
+        "zero_months": 1,
+        "longest_gap_days": null
+      },
+      "L_off": {
+        "n": 6,
+        "wr": 66.67,
+        "mean_r": 1.552,
+        "sum_r": 9.31,
+        "pnl": 4008,
+        "pf": 5.37,
+        "max_dd_pct": 0.92,
+        "zero_months": 1,
+        "longest_gap_days": null
+      },
+      "S_on": {
+        "n": 0,
+        "wr": 0,
+        "mean_r": 0,
+        "sum_r": 0,
+        "pnl": 0,
+        "pf": 0,
+        "max_dd_pct": 0,
+        "zero_months": 2,
+        "longest_gap_days": null
+      },
+      "LS_on": {
+        "n": 8,
+        "wr": 50,
+        "mean_r": 0.904,
+        "sum_r": 7.23,
+        "pnl": 3138,
+        "pf": 2.75,
+        "max_dd_pct": 0.92,
+        "zero_months": 1,
+        "longest_gap_days": null
+      },
+      "L_on_after40": {
+        "n": 7,
+        "wr": 14.29,
+        "mean_r": -0.518,
+        "sum_r": -3.63,
+        "pnl": -1527
+      }
+    },
+    {
+      "bias": "bullish",
+      "start": "2019-01-27T22:00:00.000Z",
+      "end": "2019-02-27T22:00:00.000Z",
+      "sessions": 25,
+      "gold_ret_pct": 3.06,
+      "gold_mdd_pct": 1.56,
+      "start_i": 1055,
+      "end_i": 1079,
+      "L_on": {
+        "n": 7,
+        "wr": 14.29,
+        "mean_r": -0.518,
+        "sum_r": -3.63,
+        "pnl": -1527,
+        "pf": 0.42,
+        "max_dd_pct": 2.61,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "L_off": {
+        "n": 7,
+        "wr": 14.29,
+        "mean_r": -0.512,
+        "sum_r": -3.58,
+        "pnl": -1560,
+        "pf": 0.41,
+        "max_dd_pct": 2.67,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "S_on": {
+        "n": 0,
+        "wr": 0,
+        "mean_r": 0,
+        "sum_r": 0,
+        "pnl": 0,
+        "pf": 0,
+        "max_dd_pct": 0,
+        "zero_months": 2,
+        "longest_gap_days": null
+      },
+      "LS_on": {
+        "n": 7,
+        "wr": 14.29,
+        "mean_r": -0.516,
+        "sum_r": -3.61,
+        "pnl": -1540,
+        "pf": 0.42,
+        "max_dd_pct": 2.65,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "L_on_after40": {
+        "n": 9,
+        "wr": 0,
+        "mean_r": -1.013,
+        "sum_r": -9.12,
+        "pnl": -3873
+      }
+    },
+    {
+      "bias": "bearish",
+      "start": "2019-04-11T21:00:00.000Z",
+      "end": "2019-05-06T21:00:00.000Z",
+      "sessions": 17,
+      "gold_ret_pct": -2.1,
+      "gold_mdd_pct": 1.71,
+      "start_i": 1112,
+      "end_i": 1128,
+      "L_on": {
+        "n": 0,
+        "wr": 0,
+        "mean_r": 0,
+        "sum_r": 0,
+        "pnl": 0,
+        "pf": 0,
+        "max_dd_pct": 0,
+        "zero_months": 1,
+        "longest_gap_days": null
+      },
+      "L_off": {
+        "n": 11,
+        "wr": 45.45,
+        "mean_r": 0.695,
+        "sum_r": 7.64,
+        "pnl": 3362,
+        "pf": 2.25,
+        "max_dd_pct": 2.69,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "S_on": {
+        "n": 13,
+        "wr": 30.77,
+        "mean_r": 0.152,
+        "sum_r": 1.97,
+        "pnl": 846,
+        "pf": 1.22,
+        "max_dd_pct": 3.86,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "LS_on": {
+        "n": 13,
+        "wr": 30.77,
+        "mean_r": 0.15,
+        "sum_r": 1.95,
+        "pnl": 854,
+        "pf": 1.22,
+        "max_dd_pct": 3.9,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "L_on_after40": {
+        "n": 20,
+        "wr": 35,
+        "mean_r": 0.291,
+        "sum_r": 5.83,
+        "pnl": 2387
+      }
+    },
+    {
+      "bias": "bullish",
+      "start": "2019-05-30T21:00:00.000Z",
+      "end": "2019-07-15T21:00:00.000Z",
+      "sessions": 36,
+      "gold_ret_pct": 10.45,
+      "gold_mdd_pct": 2.76,
+      "start_i": 1147,
+      "end_i": 1182,
+      "L_on": {
+        "n": 19,
+        "wr": 47.37,
+        "mean_r": 0.754,
+        "sum_r": 14.33,
+        "pnl": 5950,
+        "pf": 2.34,
+        "max_dd_pct": 2.21,
+        "zero_months": 1,
+        "longest_gap_days": null
+      },
+      "L_off": {
+        "n": 20,
+        "wr": 45,
+        "mean_r": 0.654,
+        "sum_r": 13.07,
+        "pnl": 5674,
+        "pf": 2.11,
+        "max_dd_pct": 2.3,
+        "zero_months": 1,
+        "longest_gap_days": null
+      },
+      "S_on": {
+        "n": 0,
+        "wr": 0,
+        "mean_r": 0,
+        "sum_r": 0,
+        "pnl": 0,
+        "pf": 0,
+        "max_dd_pct": 0,
+        "zero_months": 2,
+        "longest_gap_days": null
+      },
+      "LS_on": {
+        "n": 19,
+        "wr": 47.37,
+        "mean_r": 0.753,
+        "sum_r": 14.31,
+        "pnl": 5979,
+        "pf": 2.32,
+        "max_dd_pct": 2.26,
+        "zero_months": 1,
+        "longest_gap_days": null
+      },
+      "L_on_after40": {
+        "n": 23,
+        "wr": 30.43,
+        "mean_r": 0.137,
+        "sum_r": 3.16,
+        "pnl": 1383
+      }
+    },
+    {
+      "bias": "bullish",
+      "start": "2019-08-01T21:00:00.000Z",
+      "end": "2019-09-04T21:00:00.000Z",
+      "sessions": 27,
+      "gold_ret_pct": 9.88,
+      "gold_mdd_pct": 1.78,
+      "start_i": 1195,
+      "end_i": 1221,
+      "L_on": {
+        "n": 18,
+        "wr": 38.89,
+        "mean_r": 0.451,
+        "sum_r": 8.11,
+        "pnl": 3486,
+        "pf": 1.74,
+        "max_dd_pct": 3.45,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "L_off": {
+        "n": 20,
+        "wr": 35,
+        "mean_r": 0.274,
+        "sum_r": 5.49,
+        "pnl": 2533,
+        "pf": 1.43,
+        "max_dd_pct": 4.07,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "S_on": {
+        "n": 0,
+        "wr": 0,
+        "mean_r": 0,
+        "sum_r": 0,
+        "pnl": 0,
+        "pf": 0,
+        "max_dd_pct": 0,
+        "zero_months": 2,
+        "longest_gap_days": null
+      },
+      "LS_on": {
+        "n": 18,
+        "wr": 38.89,
+        "mean_r": 0.451,
+        "sum_r": 8.11,
+        "pnl": 3527,
+        "pf": 1.73,
+        "max_dd_pct": 3.5,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "L_on_after40": {
+        "n": 9,
+        "wr": 0,
+        "mean_r": -1.001,
+        "sum_r": -9.01,
+        "pnl": -3838
+      }
+    },
+    {
+      "bias": "bearish",
+      "start": "2019-11-05T22:00:00.000Z",
+      "end": "2019-12-02T22:00:00.000Z",
+      "sessions": 20,
+      "gold_ret_pct": -3.1,
+      "gold_mdd_pct": 2.41,
+      "start_i": 1271,
+      "end_i": 1290,
+      "L_on": {
+        "n": 1,
+        "wr": 0,
+        "mean_r": -1.008,
+        "sum_r": -1.01,
+        "pnl": -443,
+        "pf": 0,
+        "max_dd_pct": 0.44,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "L_off": {
+        "n": 11,
+        "wr": 27.27,
+        "mean_r": 0.023,
+        "sum_r": 0.25,
+        "pnl": 119,
+        "pf": 1.03,
+        "max_dd_pct": 3.56,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "S_on": {
+        "n": 2,
+        "wr": 50,
+        "mean_r": 0.981,
+        "sum_r": 1.96,
+        "pnl": 846,
+        "pf": 2.92,
+        "max_dd_pct": 0.44,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "LS_on": {
+        "n": 4,
+        "wr": 25,
+        "mean_r": 0.006,
+        "sum_r": 0.02,
+        "pnl": 4,
+        "pf": 1,
+        "max_dd_pct": 1.33,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "L_on_after40": {
+        "n": 20,
+        "wr": 50,
+        "mean_r": 0.875,
+        "sum_r": 17.51,
+        "pnl": 7428
+      }
+    },
+    {
+      "bias": "bullish",
+      "start": "2019-12-11T22:00:00.000Z",
+      "end": "2020-02-03T22:00:00.000Z",
+      "sessions": 37,
+      "gold_ret_pct": 7.68,
+      "gold_mdd_pct": 1.77,
+      "start_i": 1297,
+      "end_i": 1333,
+      "L_on": {
+        "n": 18,
+        "wr": 50,
+        "mean_r": 0.87,
+        "sum_r": 15.65,
+        "pnl": 6672,
+        "pf": 2.74,
+        "max_dd_pct": 2.56,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "L_off": {
+        "n": 17,
+        "wr": 47.06,
+        "mean_r": 0.741,
+        "sum_r": 12.6,
+        "pnl": 5535,
+        "pf": 2.37,
+        "max_dd_pct": 2.68,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "S_on": {
+        "n": 0,
+        "wr": 0,
+        "mean_r": 0,
+        "sum_r": 0,
+        "pnl": 0,
+        "pf": 0,
+        "max_dd_pct": 0,
+        "zero_months": 2,
+        "longest_gap_days": null
+      },
+      "LS_on": {
+        "n": 15,
+        "wr": 40,
+        "mean_r": 0.476,
+        "sum_r": 7.14,
+        "pnl": 3139,
+        "pf": 1.8,
+        "max_dd_pct": 2.6,
+        "zero_months": 1,
+        "longest_gap_days": null
+      },
+      "L_on_after40": {
+        "n": 17,
+        "wr": 29.41,
+        "mean_r": 0.116,
+        "sum_r": 1.97,
+        "pnl": 746
+      }
+    },
+    {
+      "bias": "bullish",
+      "start": "2020-04-01T21:00:00.000Z",
+      "end": "2020-04-29T21:00:00.000Z",
+      "sessions": 20,
+      "gold_ret_pct": 8.6,
+      "gold_mdd_pct": 2.53,
+      "start_i": 1375,
+      "end_i": 1394,
+      "L_on": {
+        "n": 9,
+        "wr": 44.44,
+        "mean_r": 0.614,
+        "sum_r": 5.53,
+        "pnl": 2310,
+        "pf": 2.07,
+        "max_dd_pct": 2.16,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "L_off": {
+        "n": 7,
+        "wr": 28.57,
+        "mean_r": 0.112,
+        "sum_r": 0.78,
+        "pnl": 349,
+        "pf": 1.15,
+        "max_dd_pct": 2.27,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "S_on": {
+        "n": 0,
+        "wr": 0,
+        "mean_r": 0,
+        "sum_r": 0,
+        "pnl": 0,
+        "pf": 0,
+        "max_dd_pct": 0,
+        "zero_months": 1,
+        "longest_gap_days": null
+      },
+      "LS_on": {
+        "n": 9,
+        "wr": 44.44,
+        "mean_r": 0.648,
+        "sum_r": 5.83,
+        "pnl": 2442,
+        "pf": 2.11,
+        "max_dd_pct": 2.2,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "L_on_after40": {
+        "n": 6,
+        "wr": 16.67,
+        "mean_r": -0.44,
+        "sum_r": -2.64,
+        "pnl": -1101
+      }
+    },
+    {
+      "bias": "bullish",
+      "start": "2020-06-10T21:00:00.000Z",
+      "end": "2020-08-10T21:00:00.000Z",
+      "sessions": 44,
+      "gold_ret_pct": 18.25,
+      "gold_mdd_pct": 1.72,
+      "start_i": 1424,
+      "end_i": 1467,
+      "L_on": {
+        "n": 13,
+        "wr": 61.54,
+        "mean_r": 1.298,
+        "sum_r": 16.88,
+        "pnl": 7344,
+        "pf": 4.55,
+        "max_dd_pct": 0.83,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "L_off": {
+        "n": 11,
+        "wr": 72.73,
+        "mean_r": 1.716,
+        "sum_r": 18.87,
+        "pnl": 8732,
+        "pf": 7.43,
+        "max_dd_pct": 0.9,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "S_on": {
+        "n": 0,
+        "wr": 0,
+        "mean_r": 0,
+        "sum_r": 0,
+        "pnl": 0,
+        "pf": 0,
+        "max_dd_pct": 0,
+        "zero_months": 3,
+        "longest_gap_days": null
+      },
+      "LS_on": {
+        "n": 13,
+        "wr": 61.54,
+        "mean_r": 1.288,
+        "sum_r": 16.75,
+        "pnl": 7419,
+        "pf": 4.53,
+        "max_dd_pct": 0.86,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "L_on_after40": {
+        "n": 2,
+        "wr": 0,
+        "mean_r": -0.969,
+        "sum_r": -1.94,
+        "pnl": -836
+      }
+    },
+    {
+      "bias": "bearish",
+      "start": "2020-11-09T22:00:00.000Z",
+      "end": "2020-12-06T22:00:00.000Z",
+      "sessions": 20,
+      "gold_ret_pct": -5.76,
+      "gold_mdd_pct": 5.96,
+      "start_i": 1532,
+      "end_i": 1551,
+      "L_on": {
+        "n": 0,
+        "wr": 0,
+        "mean_r": 0,
+        "sum_r": 0,
+        "pnl": 0,
+        "pf": 0,
+        "max_dd_pct": 0,
+        "zero_months": 1,
+        "longest_gap_days": null
+      },
+      "L_off": {
+        "n": 15,
+        "wr": 33.33,
+        "mean_r": 0.247,
+        "sum_r": 3.71,
+        "pnl": 1781,
+        "pf": 1.38,
+        "max_dd_pct": 4.19,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "S_on": {
+        "n": 17,
+        "wr": 41.18,
+        "mean_r": 0.571,
+        "sum_r": 9.7,
+        "pnl": 4106,
+        "pf": 2.02,
+        "max_dd_pct": 2.58,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "LS_on": {
+        "n": 17,
+        "wr": 41.18,
+        "mean_r": 0.57,
+        "sum_r": 9.7,
+        "pnl": 4180,
+        "pf": 2.02,
+        "max_dd_pct": 2.62,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "L_on_after40": {
+        "n": 7,
+        "wr": 28.57,
+        "mean_r": 0.117,
+        "sum_r": 0.82,
+        "pnl": 329
+      }
+    },
+    {
+      "bias": "bullish",
+      "start": "2020-12-15T22:00:00.000Z",
+      "end": "2021-01-07T22:00:00.000Z",
+      "sessions": 16,
+      "gold_ret_pct": 4.74,
+      "gold_mdd_pct": 1.87,
+      "start_i": 1558,
+      "end_i": 1573,
+      "L_on": {
+        "n": 6,
+        "wr": 33.33,
+        "mean_r": 0.305,
+        "sum_r": 1.83,
+        "pnl": 761,
+        "pf": 1.48,
+        "max_dd_pct": 1.34,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "L_off": {
+        "n": 6,
+        "wr": 33.33,
+        "mean_r": 0.312,
+        "sum_r": 1.87,
+        "pnl": 889,
+        "pf": 1.54,
+        "max_dd_pct": 1.4,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "S_on": {
+        "n": 0,
+        "wr": 0,
+        "mean_r": 0,
+        "sum_r": 0,
+        "pnl": 0,
+        "pf": 0,
+        "max_dd_pct": 0,
+        "zero_months": 1,
+        "longest_gap_days": null
+      },
+      "LS_on": {
+        "n": 0,
+        "wr": 0,
+        "mean_r": 0,
+        "sum_r": 0,
+        "pnl": 0,
+        "pf": 0,
+        "max_dd_pct": 0,
+        "zero_months": 1,
+        "longest_gap_days": null
+      },
+      "L_on_after40": {
+        "n": 0,
+        "wr": 0,
+        "mean_r": 0,
+        "sum_r": 0,
+        "pnl": 0
+      }
+    },
+    {
+      "bias": "bearish",
+      "start": "2021-01-10T22:00:00.000Z",
+      "end": "2021-02-09T22:00:00.000Z",
+      "sessions": 23,
+      "gold_ret_pct": -3.91,
+      "gold_mdd_pct": 4.15,
+      "start_i": 1574,
+      "end_i": 1596,
+      "L_on": {
+        "n": 0,
+        "wr": 0,
+        "mean_r": 0,
+        "sum_r": 0,
+        "pnl": 0,
+        "pf": 0,
+        "max_dd_pct": 0,
+        "zero_months": 1,
+        "longest_gap_days": null
+      },
+      "L_off": {
+        "n": 16,
+        "wr": 6.25,
+        "mean_r": -0.748,
+        "sum_r": -11.97,
+        "pnl": -5563,
+        "pf": 0.2,
+        "max_dd_pct": 5.56,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "S_on": {
+        "n": 18,
+        "wr": 33.33,
+        "mean_r": 0.236,
+        "sum_r": 4.26,
+        "pnl": 1790,
+        "pf": 1.35,
+        "max_dd_pct": 2.56,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "LS_on": {
+        "n": 18,
+        "wr": 33.33,
+        "mean_r": 0.237,
+        "sum_r": 4.27,
+        "pnl": 1811,
+        "pf": 1.35,
+        "max_dd_pct": 2.6,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "L_on_after40": {
+        "n": 0,
+        "wr": 0,
+        "mean_r": 0,
+        "sum_r": 0,
+        "pnl": 0
+      }
+    },
+    {
+      "bias": "bearish",
+      "start": "2021-02-11T22:00:00.000Z",
+      "end": "2021-03-16T21:00:00.000Z",
+      "sessions": 24,
+      "gold_ret_pct": -6.06,
+      "gold_mdd_pct": 7.79,
+      "start_i": 1598,
+      "end_i": 1621,
+      "L_on": {
+        "n": 0,
+        "wr": 0,
+        "mean_r": 0,
+        "sum_r": 0,
+        "pnl": 0,
+        "pf": 0,
+        "max_dd_pct": 0,
+        "zero_months": 2,
+        "longest_gap_days": null
+      },
+      "L_off": {
+        "n": 15,
+        "wr": 6.67,
+        "mean_r": -0.726,
+        "sum_r": -10.89,
+        "pnl": -5043,
+        "pf": 0.22,
+        "max_dd_pct": 5.09,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "S_on": {
+        "n": 12,
+        "wr": 41.67,
+        "mean_r": 0.553,
+        "sum_r": 6.64,
+        "pnl": 2918,
+        "pf": 1.98,
+        "max_dd_pct": 2.11,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "LS_on": {
+        "n": 12,
+        "wr": 41.67,
+        "mean_r": 0.569,
+        "sum_r": 6.83,
+        "pnl": 3035,
+        "pf": 2,
+        "max_dd_pct": 2.11,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "L_on_after40": {
+        "n": 11,
+        "wr": 63.64,
+        "mean_r": 1.37,
+        "sum_r": 15.07,
+        "pnl": 6716
+      }
+    },
+    {
+      "bias": "bullish",
+      "start": "2021-04-04T21:00:00.000Z",
+      "end": "2021-06-02T21:00:00.000Z",
+      "sessions": 44,
+      "gold_ret_pct": 11.76,
+      "gold_mdd_pct": 1.29,
+      "start_i": 1633,
+      "end_i": 1676,
+      "L_on": {
+        "n": 14,
+        "wr": 57.14,
+        "mean_r": 1.134,
+        "sum_r": 15.87,
+        "pnl": 7103,
+        "pf": 3.65,
+        "max_dd_pct": 1.77,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "L_off": {
+        "n": 14,
+        "wr": 57.14,
+        "mean_r": 1.137,
+        "sum_r": 15.91,
+        "pnl": 7587,
+        "pf": 3.61,
+        "max_dd_pct": 1.94,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "S_on": {
+        "n": 0,
+        "wr": 0,
+        "mean_r": 0,
+        "sum_r": 0,
+        "pnl": 0,
+        "pf": 0,
+        "max_dd_pct": 0,
+        "zero_months": 2,
+        "longest_gap_days": null
+      },
+      "LS_on": {
+        "n": 0,
+        "wr": 0,
+        "mean_r": 0,
+        "sum_r": 0,
+        "pnl": 0,
+        "pf": 0,
+        "max_dd_pct": 0,
+        "zero_months": 2,
+        "longest_gap_days": null
+      },
+      "L_on_after40": {
+        "n": 9,
+        "wr": 11.11,
+        "mean_r": -0.619,
+        "sum_r": -5.57,
+        "pnl": -2486
+      }
+    },
+    {
+      "bias": "bearish",
+      "start": "2021-06-13T21:00:00.000Z",
+      "end": "2021-07-06T21:00:00.000Z",
+      "sessions": 18,
+      "gold_ret_pct": -5.33,
+      "gold_mdd_pct": 6.22,
+      "start_i": 1683,
+      "end_i": 1700,
+      "L_on": {
+        "n": 0,
+        "wr": 0,
+        "mean_r": 0,
+        "sum_r": 0,
+        "pnl": 0,
+        "pf": 0,
+        "max_dd_pct": 0,
+        "zero_months": 1,
+        "longest_gap_days": null
+      },
+      "L_off": {
+        "n": 12,
+        "wr": 33.33,
+        "mean_r": 0.234,
+        "sum_r": 2.81,
+        "pnl": 1173,
+        "pf": 1.31,
+        "max_dd_pct": 3.29,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "S_on": {
+        "n": 11,
+        "wr": 63.64,
+        "mean_r": 1.3,
+        "sum_r": 14.3,
+        "pnl": 6146,
+        "pf": 4.57,
+        "max_dd_pct": 1.3,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "LS_on": {
+        "n": 11,
+        "wr": 63.64,
+        "mean_r": 1.323,
+        "sum_r": 14.55,
+        "pnl": 6371,
+        "pf": 4.7,
+        "max_dd_pct": 1.3,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "L_on_after40": {
+        "n": 8,
+        "wr": 12.5,
+        "mean_r": -0.519,
+        "sum_r": -4.16,
+        "pnl": -1956
+      }
+    },
+    {
+      "bias": "bullish",
+      "start": "2021-10-12T21:00:00.000Z",
+      "end": "2021-11-02T21:00:00.000Z",
+      "sessions": 16,
+      "gold_ret_pct": 1.92,
+      "gold_mdd_pct": 1.73,
+      "start_i": 1770,
+      "end_i": 1785,
+      "L_on": {
+        "n": 5,
+        "wr": 20,
+        "mean_r": -0.184,
+        "sum_r": -0.92,
+        "pnl": -428,
+        "pf": 0.75,
+        "max_dd_pct": 1.7,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "L_off": {
+        "n": 4,
+        "wr": 0,
+        "mean_r": -0.979,
+        "sum_r": -3.92,
+        "pnl": -1844,
+        "pf": 0,
+        "max_dd_pct": 1.84,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "S_on": {
+        "n": 0,
+        "wr": 0,
+        "mean_r": 0,
+        "sum_r": 0,
+        "pnl": 0,
+        "pf": 0,
+        "max_dd_pct": 0,
+        "zero_months": 1,
+        "longest_gap_days": null
+      },
+      "LS_on": {
+        "n": 0,
+        "wr": 0,
+        "mean_r": 0,
+        "sum_r": 0,
+        "pnl": 0,
+        "pf": 0,
+        "max_dd_pct": 0,
+        "zero_months": 1,
+        "longest_gap_days": null
+      },
+      "L_on_after40": {
+        "n": 1,
+        "wr": 0,
+        "mean_r": -1.019,
+        "sum_r": -1.02,
+        "pnl": -467
+      }
+    },
+    {
+      "bias": "bearish",
+      "start": "2021-11-22T22:00:00.000Z",
+      "end": "2021-12-15T22:00:00.000Z",
+      "sessions": 18,
+      "gold_ret_pct": -3.72,
+      "gold_mdd_pct": 2.03,
+      "start_i": 1799,
+      "end_i": 1816,
+      "L_on": {
+        "n": 0,
+        "wr": 0,
+        "mean_r": 0,
+        "sum_r": 0,
+        "pnl": 0,
+        "pf": 0,
+        "max_dd_pct": 0,
+        "zero_months": 1,
+        "longest_gap_days": null
+      },
+      "L_off": {
+        "n": 1,
+        "wr": 0,
+        "mean_r": -1.02,
+        "sum_r": -1.02,
+        "pnl": -518,
+        "pf": 0,
+        "max_dd_pct": 0.52,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "S_on": {
+        "n": 18,
+        "wr": 11.11,
+        "mean_r": -0.594,
+        "sum_r": -10.69,
+        "pnl": -4487,
+        "pf": 0.32,
+        "max_dd_pct": 5.59,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "LS_on": {
+        "n": 0,
+        "wr": 0,
+        "mean_r": 0,
+        "sum_r": 0,
+        "pnl": 0,
+        "pf": 0,
+        "max_dd_pct": 0,
+        "zero_months": 1,
+        "longest_gap_days": null
+      },
+      "L_on_after40": {
+        "n": 5,
+        "wr": 40,
+        "mean_r": 0.473,
+        "sum_r": 2.36,
+        "pnl": 1022
+      }
+    },
+    {
+      "bias": "bullish",
+      "start": "2022-02-07T22:00:00.000Z",
+      "end": "2022-03-14T21:00:00.000Z",
+      "sessions": 26,
+      "gold_ret_pct": 7.88,
+      "gold_mdd_pct": 4.86,
+      "start_i": 1853,
+      "end_i": 1878,
+      "L_on": {
+        "n": 20,
+        "wr": 55,
+        "mean_r": 1.038,
+        "sum_r": 20.77,
+        "pnl": 9211,
+        "pf": 3.36,
+        "max_dd_pct": 2.23,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "L_off": {
+        "n": 20,
+        "wr": 50,
+        "mean_r": 0.879,
+        "sum_r": 17.58,
+        "pnl": 8635,
+        "pf": 2.88,
+        "max_dd_pct": 2.36,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "S_on": {
+        "n": 0,
+        "wr": 0,
+        "mean_r": 0,
+        "sum_r": 0,
+        "pnl": 0,
+        "pf": 0,
+        "max_dd_pct": 0,
+        "zero_months": 2,
+        "longest_gap_days": null
+      },
+      "LS_on": {
+        "n": 2,
+        "wr": 0,
+        "mean_r": -1.003,
+        "sum_r": -2.01,
+        "pnl": -875,
+        "pf": 0,
+        "max_dd_pct": 0.88,
+        "zero_months": 1,
+        "longest_gap_days": null
+      },
+      "L_on_after40": {
+        "n": 8,
+        "wr": 0,
+        "mean_r": -0.996,
+        "sum_r": -7.97,
+        "pnl": -3598
+      }
+    },
+    {
+      "bias": "bearish",
+      "start": "2022-04-24T21:00:00.000Z",
+      "end": "2022-05-23T21:00:00.000Z",
+      "sessions": 22,
+      "gold_ret_pct": -5.02,
+      "gold_mdd_pct": 6.26,
+      "start_i": 1906,
+      "end_i": 1927,
+      "L_on": {
+        "n": 0,
+        "wr": 0,
+        "mean_r": 0,
+        "sum_r": 0,
+        "pnl": 0,
+        "pf": 0,
+        "max_dd_pct": 0,
+        "zero_months": 1,
+        "longest_gap_days": null
+      },
+      "L_off": {
+        "n": 22,
+        "wr": 13.64,
+        "mean_r": -0.476,
+        "sum_r": -10.48,
+        "pnl": -4865,
+        "pf": 0.46,
+        "max_dd_pct": 6.13,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "S_on": {
+        "n": 7,
+        "wr": 57.14,
+        "mean_r": 1.063,
+        "sum_r": 7.44,
+        "pnl": 3117,
+        "pf": 3.48,
+        "max_dd_pct": 0.82,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "LS_on": {
+        "n": 7,
+        "wr": 57.14,
+        "mean_r": 1.109,
+        "sum_r": 7.77,
+        "pnl": 3278,
+        "pf": 3.48,
+        "max_dd_pct": 0.86,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "L_on_after40": {
+        "n": 3,
+        "wr": 0,
+        "mean_r": -0.986,
+        "sum_r": -2.96,
+        "pnl": -1301
+      }
+    },
+    {
+      "bias": "bearish",
+      "start": "2022-06-19T21:00:00.000Z",
+      "end": "2022-07-27T21:00:00.000Z",
+      "sessions": 29,
+      "gold_ret_pct": -6.58,
+      "gold_mdd_pct": 7.8,
+      "start_i": 1946,
+      "end_i": 1974,
+      "L_on": {
+        "n": 0,
+        "wr": 0,
+        "mean_r": 0,
+        "sum_r": 0,
+        "pnl": 0,
+        "pf": 0,
+        "max_dd_pct": 0,
+        "zero_months": 2,
+        "longest_gap_days": null
+      },
+      "L_off": {
+        "n": 8,
+        "wr": 12.5,
+        "mean_r": -0.509,
+        "sum_r": -4.07,
+        "pnl": -2019,
+        "pf": 0.43,
+        "max_dd_pct": 3.55,
+        "zero_months": 1,
+        "longest_gap_days": null
+      },
+      "S_on": {
+        "n": 6,
+        "wr": 33.33,
+        "mean_r": 0.252,
+        "sum_r": 1.51,
+        "pnl": 639,
+        "pf": 1.38,
+        "max_dd_pct": 1.67,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "LS_on": {
+        "n": 6,
+        "wr": 33.33,
+        "mean_r": 0.259,
+        "sum_r": 1.55,
+        "pnl": 696,
+        "pf": 1.41,
+        "max_dd_pct": 1.71,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "L_on_after40": {
+        "n": 3,
+        "wr": 66.67,
+        "mean_r": 1.474,
+        "sum_r": 4.42,
+        "pnl": 2033
+      }
+    },
+    {
+      "bias": "bearish",
+      "start": "2022-08-17T21:00:00.000Z",
+      "end": "2022-10-02T21:00:00.000Z",
+      "sessions": 33,
+      "gold_ret_pct": -6.47,
+      "gold_mdd_pct": 7.91,
+      "start_i": 1989,
+      "end_i": 2021,
+      "L_on": {
+        "n": 0,
+        "wr": 0,
+        "mean_r": 0,
+        "sum_r": 0,
+        "pnl": 0,
+        "pf": 0,
+        "max_dd_pct": 0,
+        "zero_months": 2,
+        "longest_gap_days": null
+      },
+      "L_off": {
+        "n": 12,
+        "wr": 33.33,
+        "mean_r": 0.236,
+        "sum_r": 2.84,
+        "pnl": 1144,
+        "pf": 1.3,
+        "max_dd_pct": 3.82,
+        "zero_months": 1,
+        "longest_gap_days": null
+      },
+      "S_on": {
+        "n": 14,
+        "wr": 35.71,
+        "mean_r": 0.339,
+        "sum_r": 4.74,
+        "pnl": 2073,
+        "pf": 1.54,
+        "max_dd_pct": 2.11,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "LS_on": {
+        "n": 14,
+        "wr": 35.71,
+        "mean_r": 0.342,
+        "sum_r": 4.79,
+        "pnl": 2116,
+        "pf": 1.54,
+        "max_dd_pct": 2.14,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "L_on_after40": {
+        "n": 12,
+        "wr": 33.33,
+        "mean_r": 0.213,
+        "sum_r": 2.56,
+        "pnl": 1057
+      }
+    },
+    {
+      "bias": "bearish",
+      "start": "2022-10-13T21:00:00.000Z",
+      "end": "2022-11-03T21:00:00.000Z",
+      "sessions": 16,
+      "gold_ret_pct": -2.61,
+      "gold_mdd_pct": 2.28,
+      "start_i": 2030,
+      "end_i": 2045,
+      "L_on": {
+        "n": 0,
+        "wr": 0,
+        "mean_r": 0,
+        "sum_r": 0,
+        "pnl": 0,
+        "pf": 0,
+        "max_dd_pct": 0,
+        "zero_months": 1,
+        "longest_gap_days": null
+      },
+      "L_off": {
+        "n": 15,
+        "wr": 0,
+        "mean_r": -0.955,
+        "sum_r": -14.33,
+        "pnl": -6972,
+        "pf": 0,
+        "max_dd_pct": 6.97,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "S_on": {
+        "n": 9,
+        "wr": 22.22,
+        "mean_r": -0.158,
+        "sum_r": -1.42,
+        "pnl": -623,
+        "pf": 0.78,
+        "max_dd_pct": 1.63,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "LS_on": {
+        "n": 9,
+        "wr": 22.22,
+        "mean_r": -0.168,
+        "sum_r": -1.52,
+        "pnl": -668,
+        "pf": 0.77,
+        "max_dd_pct": 1.69,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "L_on_after40": {
+        "n": 12,
+        "wr": 75,
+        "mean_r": 1.727,
+        "sum_r": 20.72,
+        "pnl": 9371
+      }
+    },
+    {
+      "bias": "bullish",
+      "start": "2022-11-06T22:00:00.000Z",
+      "end": "2023-02-01T22:00:00.000Z",
+      "sessions": 62,
+      "gold_ret_pct": 19.67,
+      "gold_mdd_pct": 2.25,
+      "start_i": 2046,
+      "end_i": 2107,
+      "L_on": {
+        "n": 25,
+        "wr": 60,
+        "mean_r": 1.201,
+        "sum_r": 30.02,
+        "pnl": 13733,
+        "pf": 4.09,
+        "max_dd_pct": 2.64,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "L_off": {
+        "n": 24,
+        "wr": 58.33,
+        "mean_r": 1.126,
+        "sum_r": 27.02,
+        "pnl": 12746,
+        "pf": 3.67,
+        "max_dd_pct": 3.24,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "S_on": {
+        "n": 0,
+        "wr": 0,
+        "mean_r": 0,
+        "sum_r": 0,
+        "pnl": 0,
+        "pf": 0,
+        "max_dd_pct": 0,
+        "zero_months": 3,
+        "longest_gap_days": null
+      },
+      "LS_on": {
+        "n": 24,
+        "wr": 62.5,
+        "mean_r": 1.289,
+        "sum_r": 30.95,
+        "pnl": 13959,
+        "pf": 4.55,
+        "max_dd_pct": 2.64,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "L_on_after40": {
+        "n": 15,
+        "wr": 66.67,
+        "mean_r": 1.523,
+        "sum_r": 22.85,
+        "pnl": 10253
+      }
+    },
+    {
+      "bias": "bearish",
+      "start": "2023-02-02T22:00:00.000Z",
+      "end": "2023-03-02T22:00:00.000Z",
+      "sessions": 21,
+      "gold_ret_pct": -5.86,
+      "gold_mdd_pct": 5.32,
+      "start_i": 2108,
+      "end_i": 2128,
+      "L_on": {
+        "n": 0,
+        "wr": 0,
+        "mean_r": 0,
+        "sum_r": 0,
+        "pnl": 0,
+        "pf": 0,
+        "max_dd_pct": 0,
+        "zero_months": 2,
+        "longest_gap_days": null
+      },
+      "L_off": {
+        "n": 11,
+        "wr": 0,
+        "mean_r": -1.003,
+        "sum_r": -11.03,
+        "pnl": -5380,
+        "pf": 0,
+        "max_dd_pct": 5.38,
+        "zero_months": 1,
+        "longest_gap_days": null
+      },
+      "S_on": {
+        "n": 8,
+        "wr": 12.5,
+        "mean_r": -0.574,
+        "sum_r": -4.59,
+        "pnl": -1852,
+        "pf": 0.38,
+        "max_dd_pct": 1.85,
+        "zero_months": 1,
+        "longest_gap_days": null
+      },
+      "LS_on": {
+        "n": 3,
+        "wr": 0,
+        "mean_r": -0.999,
+        "sum_r": -3,
+        "pnl": -1275,
+        "pf": 0,
+        "max_dd_pct": 1.27,
+        "zero_months": 1,
+        "longest_gap_days": null
+      },
+      "L_on_after40": {
+        "n": 21,
+        "wr": 47.62,
+        "mean_r": 0.807,
+        "sum_r": 16.95,
+        "pnl": 7611
+      }
+    },
+    {
+      "bias": "bullish",
+      "start": "2023-03-12T21:00:00.000Z",
+      "end": "2023-04-20T21:00:00.000Z",
+      "sessions": 29,
+      "gold_ret_pct": 9.49,
+      "gold_mdd_pct": 2.4,
+      "start_i": 2134,
+      "end_i": 2162,
+      "L_on": {
+        "n": 21,
+        "wr": 47.62,
+        "mean_r": 0.807,
+        "sum_r": 16.95,
+        "pnl": 7611,
+        "pf": 2.66,
+        "max_dd_pct": 2.18,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "L_off": {
+        "n": 21,
+        "wr": 47.62,
+        "mean_r": 0.788,
+        "sum_r": 16.54,
+        "pnl": 7854,
+        "pf": 2.57,
+        "max_dd_pct": 2.31,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "S_on": {
+        "n": 0,
+        "wr": 0,
+        "mean_r": 0,
+        "sum_r": 0,
+        "pnl": 0,
+        "pf": 0,
+        "max_dd_pct": 0,
+        "zero_months": 2,
+        "longest_gap_days": null
+      },
+      "LS_on": {
+        "n": 11,
+        "wr": 54.55,
+        "mean_r": 1.031,
+        "sum_r": 11.34,
+        "pnl": 5164,
+        "pf": 3.39,
+        "max_dd_pct": 1.72,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "L_on_after40": {
+        "n": 9,
+        "wr": 0,
+        "mean_r": -1,
+        "sum_r": -9,
+        "pnl": -4104
+      }
+    },
+    {
+      "bias": "bearish",
+      "start": "2023-05-16T21:00:00.000Z",
+      "end": "2023-06-14T21:00:00.000Z",
+      "sessions": 22,
+      "gold_ret_pct": -3.73,
+      "gold_mdd_pct": 2.46,
+      "start_i": 2180,
+      "end_i": 2201,
+      "L_on": {
+        "n": 0,
+        "wr": 0,
+        "mean_r": 0,
+        "sum_r": 0,
+        "pnl": 0,
+        "pf": 0,
+        "max_dd_pct": 0,
+        "zero_months": 1,
+        "longest_gap_days": null
+      },
+      "L_off": {
+        "n": 2,
+        "wr": 0,
+        "mean_r": -0.979,
+        "sum_r": -1.96,
+        "pnl": -901,
+        "pf": 0,
+        "max_dd_pct": 0.9,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "S_on": {
+        "n": 4,
+        "wr": 0,
+        "mean_r": -0.946,
+        "sum_r": -3.78,
+        "pnl": -1575,
+        "pf": 0,
+        "max_dd_pct": 1.58,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "LS_on": {
+        "n": 4,
+        "wr": 0,
+        "mean_r": -0.958,
+        "sum_r": -3.83,
+        "pnl": -1655,
+        "pf": 0,
+        "max_dd_pct": 1.66,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "L_on_after40": {
+        "n": 6,
+        "wr": 16.67,
+        "mean_r": -0.344,
+        "sum_r": -2.06,
+        "pnl": -1007
+      }
+    },
+    {
+      "bias": "bearish",
+      "start": "2023-06-19T21:00:00.000Z",
+      "end": "2023-07-10T21:00:00.000Z",
+      "sessions": 16,
+      "gold_ret_pct": -1.64,
+      "gold_mdd_pct": 2.2,
+      "start_i": 2204,
+      "end_i": 2219,
+      "L_on": {
+        "n": 0,
+        "wr": 0,
+        "mean_r": 0,
+        "sum_r": 0,
+        "pnl": 0,
+        "pf": 0,
+        "max_dd_pct": 0,
+        "zero_months": 1,
+        "longest_gap_days": null
+      },
+      "L_off": {
+        "n": 3,
+        "wr": 100,
+        "mean_r": 2.779,
+        "sum_r": 8.34,
+        "pnl": 4183,
+        "pf": null,
+        "max_dd_pct": 0,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "S_on": {
+        "n": 8,
+        "wr": 0,
+        "mean_r": -0.992,
+        "sum_r": -7.93,
+        "pnl": -3407,
+        "pf": 0,
+        "max_dd_pct": 3.41,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "LS_on": {
+        "n": 8,
+        "wr": 0,
+        "mean_r": -0.986,
+        "sum_r": -7.88,
+        "pnl": -3488,
+        "pf": 0,
+        "max_dd_pct": 3.49,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "L_on_after40": {
+        "n": 5,
+        "wr": 20,
+        "mean_r": -0.21,
+        "sum_r": -1.05,
+        "pnl": -549
+      }
+    },
+    {
+      "bias": "bearish",
+      "start": "2023-08-01T21:00:00.000Z",
+      "end": "2023-08-27T21:00:00.000Z",
+      "sessions": 19,
+      "gold_ret_pct": -2.6,
+      "gold_mdd_pct": 2.83,
+      "start_i": 2235,
+      "end_i": 2253,
+      "L_on": {
+        "n": 0,
+        "wr": 0,
+        "mean_r": 0,
+        "sum_r": 0,
+        "pnl": 0,
+        "pf": 0,
+        "max_dd_pct": 0,
+        "zero_months": 1,
+        "longest_gap_days": null
+      },
+      "L_off": {
+        "n": 2,
+        "wr": 50,
+        "mean_r": 0.968,
+        "sum_r": 1.94,
+        "pnl": 1000,
+        "pf": 2.91,
+        "max_dd_pct": 0.52,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "S_on": {
+        "n": 6,
+        "wr": 33.33,
+        "mean_r": 0.24,
+        "sum_r": 1.44,
+        "pnl": 620,
+        "pf": 1.37,
+        "max_dd_pct": 1.69,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "LS_on": {
+        "n": 6,
+        "wr": 33.33,
+        "mean_r": 0.24,
+        "sum_r": 1.44,
+        "pnl": 640,
+        "pf": 1.36,
+        "max_dd_pct": 1.76,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "L_on_after40": {
+        "n": 8,
+        "wr": 62.5,
+        "mean_r": 1.336,
+        "sum_r": 10.69,
+        "pnl": 4926
+      }
+    },
+    {
+      "bias": "bearish",
+      "start": "2023-09-21T21:00:00.000Z",
+      "end": "2023-10-12T21:00:00.000Z",
+      "sessions": 16,
+      "gold_ret_pct": -3.2,
+      "gold_mdd_pct": 5.46,
+      "start_i": 2272,
+      "end_i": 2287,
+      "L_on": {
+        "n": 0,
+        "wr": 0,
+        "mean_r": 0,
+        "sum_r": 0,
+        "pnl": 0,
+        "pf": 0,
+        "max_dd_pct": 0,
+        "zero_months": 1,
+        "longest_gap_days": null
+      },
+      "L_off": {
+        "n": 10,
+        "wr": 50,
+        "mean_r": 0.863,
+        "sum_r": 8.63,
+        "pnl": 4193,
+        "pf": 2.68,
+        "max_dd_pct": 2.49,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "S_on": {
+        "n": 12,
+        "wr": 25,
+        "mean_r": -0.056,
+        "sum_r": -0.67,
+        "pnl": -181,
+        "pf": 0.95,
+        "max_dd_pct": 3.71,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "LS_on": {
+        "n": 12,
+        "wr": 25,
+        "mean_r": -0.059,
+        "sum_r": -0.71,
+        "pnl": -177,
+        "pf": 0.95,
+        "max_dd_pct": 3.86,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "L_on_after40": {
+        "n": 21,
+        "wr": 47.62,
+        "mean_r": 0.752,
+        "sum_r": 15.79,
+        "pnl": 7369
+      }
+    },
+    {
+      "bias": "bullish",
+      "start": "2023-10-15T21:00:00.000Z",
+      "end": "2023-11-07T22:00:00.000Z",
+      "sessions": 18,
+      "gold_ret_pct": 5.38,
+      "gold_mdd_pct": 1.83,
+      "start_i": 2288,
+      "end_i": 2305,
+      "L_on": {
+        "n": 8,
+        "wr": 62.5,
+        "mean_r": 1.339,
+        "sum_r": 10.71,
+        "pnl": 4894,
+        "pf": 4.61,
+        "max_dd_pct": 1.36,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "L_off": {
+        "n": 4,
+        "wr": 75,
+        "mean_r": 1.828,
+        "sum_r": 7.31,
+        "pnl": 3787,
+        "pf": 9.08,
+        "max_dd_pct": 0.47,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "S_on": {
+        "n": 0,
+        "wr": 0,
+        "mean_r": 0,
+        "sum_r": 0,
+        "pnl": 0,
+        "pf": 0,
+        "max_dd_pct": 0,
+        "zero_months": 1,
+        "longest_gap_days": null
+      },
+      "LS_on": {
+        "n": 8,
+        "wr": 62.5,
+        "mean_r": 1.307,
+        "sum_r": 10.46,
+        "pnl": 4699,
+        "pf": 4.47,
+        "max_dd_pct": 1.36,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "L_on_after40": {
+        "n": 22,
+        "wr": 50,
+        "mean_r": 0.82,
+        "sum_r": 18.04,
+        "pnl": 8589
+      }
+    },
+    {
+      "bias": "bullish",
+      "start": "2023-11-16T22:00:00.000Z",
+      "end": "2023-12-07T22:00:00.000Z",
+      "sessions": 16,
+      "gold_ret_pct": 3.52,
+      "gold_mdd_pct": 2.54,
+      "start_i": 2312,
+      "end_i": 2327,
+      "L_on": {
+        "n": 13,
+        "wr": 38.46,
+        "mean_r": 0.391,
+        "sum_r": 5.08,
+        "pnl": 2475,
+        "pf": 1.67,
+        "max_dd_pct": 3.67,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "L_off": {
+        "n": 10,
+        "wr": 40,
+        "mean_r": 0.421,
+        "sum_r": 4.21,
+        "pnl": 1925,
+        "pf": 1.62,
+        "max_dd_pct": 3.08,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "S_on": {
+        "n": 0,
+        "wr": 0,
+        "mean_r": 0,
+        "sum_r": 0,
+        "pnl": 0,
+        "pf": 0,
+        "max_dd_pct": 0,
+        "zero_months": 1,
+        "longest_gap_days": null
+      },
+      "LS_on": {
+        "n": 13,
+        "wr": 38.46,
+        "mean_r": 0.39,
+        "sum_r": 5.07,
+        "pnl": 2470,
+        "pf": 1.68,
+        "max_dd_pct": 3.64,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "L_on_after40": {
+        "n": 13,
+        "wr": 46.15,
+        "mean_r": 0.695,
+        "sum_r": 9.03,
+        "pnl": 4380
+      }
+    },
+    {
+      "bias": "bullish",
+      "start": "2023-12-13T22:00:00.000Z",
+      "end": "2024-01-07T22:00:00.000Z",
+      "sessions": 16,
+      "gold_ret_pct": 3.34,
+      "gold_mdd_pct": 1.72,
+      "start_i": 2331,
+      "end_i": 2346,
+      "L_on": {
+        "n": 9,
+        "wr": 66.67,
+        "mean_r": 1.44,
+        "sum_r": 12.96,
+        "pnl": 6114,
+        "pf": 5.44,
+        "max_dd_pct": 1.38,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "L_off": {
+        "n": 5,
+        "wr": 80,
+        "mean_r": 1.955,
+        "sum_r": 9.77,
+        "pnl": 5004,
+        "pf": 10.34,
+        "max_dd_pct": 0.54,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "S_on": {
+        "n": 0,
+        "wr": 0,
+        "mean_r": 0,
+        "sum_r": 0,
+        "pnl": 0,
+        "pf": 0,
+        "max_dd_pct": 0,
+        "zero_months": 1,
+        "longest_gap_days": null
+      },
+      "LS_on": {
+        "n": 9,
+        "wr": 66.67,
+        "mean_r": 1.44,
+        "sum_r": 12.96,
+        "pnl": 6022,
+        "pf": 5.37,
+        "max_dd_pct": 1.38,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "L_on_after40": {
+        "n": 5,
+        "wr": 20,
+        "mean_r": -0.29,
+        "sum_r": -1.45,
+        "pnl": -470
+      }
+    },
+    {
+      "bias": "bullish",
+      "start": "2024-02-25T22:00:00.000Z",
+      "end": "2024-04-23T21:00:00.000Z",
+      "sessions": 42,
+      "gold_ret_pct": 14.71,
+      "gold_mdd_pct": 2.92,
+      "start_i": 2381,
+      "end_i": 2422,
+      "L_on": {
+        "n": 21,
+        "wr": 66.67,
+        "mean_r": 1.447,
+        "sum_r": 30.39,
+        "pnl": 14123,
+        "pf": 5.26,
+        "max_dd_pct": 1.41,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "L_off": {
+        "n": 21,
+        "wr": 57.14,
+        "mean_r": 1.112,
+        "sum_r": 23.36,
+        "pnl": 11946,
+        "pf": 3.67,
+        "max_dd_pct": 1.94,
+        "zero_months": 1,
+        "longest_gap_days": null
+      },
+      "S_on": {
+        "n": 0,
+        "wr": 0,
+        "mean_r": 0,
+        "sum_r": 0,
+        "pnl": 0,
+        "pf": 0,
+        "max_dd_pct": 0,
+        "zero_months": 2,
+        "longest_gap_days": null
+      },
+      "LS_on": {
+        "n": 21,
+        "wr": 66.67,
+        "mean_r": 1.421,
+        "sum_r": 29.84,
+        "pnl": 13695,
+        "pf": 5.26,
+        "max_dd_pct": 1.35,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "L_on_after40": {
+        "n": 5,
+        "wr": 0,
+        "mean_r": -0.958,
+        "sum_r": -4.79,
+        "pnl": -2280
+      }
+    },
+    {
+      "bias": "bullish",
+      "start": "2024-07-01T21:00:00.000Z",
+      "end": "2024-07-24T21:00:00.000Z",
+      "sessions": 18,
+      "gold_ret_pct": 3.04,
+      "gold_mdd_pct": 2.94,
+      "start_i": 2471,
+      "end_i": 2488,
+      "L_on": {
+        "n": 7,
+        "wr": 28.57,
+        "mean_r": 0.118,
+        "sum_r": 0.82,
+        "pnl": 332,
+        "pf": 1.14,
+        "max_dd_pct": 2.3,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "L_off": {
+        "n": 7,
+        "wr": 28.57,
+        "mean_r": 0.122,
+        "sum_r": 0.85,
+        "pnl": 544,
+        "pf": 1.21,
+        "max_dd_pct": 2.55,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "S_on": {
+        "n": 0,
+        "wr": 0,
+        "mean_r": 0,
+        "sum_r": 0,
+        "pnl": 0,
+        "pf": 0,
+        "max_dd_pct": 0,
+        "zero_months": 1,
+        "longest_gap_days": null
+      },
+      "LS_on": {
+        "n": 7,
+        "wr": 28.57,
+        "mean_r": 0.115,
+        "sum_r": 0.81,
+        "pnl": 302,
+        "pf": 1.13,
+        "max_dd_pct": 2.28,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "L_on_after40": {
+        "n": 14,
+        "wr": 50,
+        "mean_r": 0.824,
+        "sum_r": 11.53,
+        "pnl": 5393
+      }
+    },
+    {
+      "bias": "bullish",
+      "start": "2024-08-08T21:00:00.000Z",
+      "end": "2024-09-05T21:00:00.000Z",
+      "sessions": 21,
+      "gold_ret_pct": 5.62,
+      "gold_mdd_pct": 1.26,
+      "start_i": 2499,
+      "end_i": 2519,
+      "L_on": {
+        "n": 10,
+        "wr": 70,
+        "mean_r": 1.537,
+        "sum_r": 15.37,
+        "pnl": 7204,
+        "pf": 6.01,
+        "max_dd_pct": 1.44,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "L_off": {
+        "n": 7,
+        "wr": 57.14,
+        "mean_r": 1.039,
+        "sum_r": 7.27,
+        "pnl": 3534,
+        "pf": 3.17,
+        "max_dd_pct": 1.63,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "S_on": {
+        "n": 0,
+        "wr": 0,
+        "mean_r": 0,
+        "sum_r": 0,
+        "pnl": 0,
+        "pf": 0,
+        "max_dd_pct": 0,
+        "zero_months": 1,
+        "longest_gap_days": null
+      },
+      "LS_on": {
+        "n": 11,
+        "wr": 45.45,
+        "mean_r": 0.633,
+        "sum_r": 6.96,
+        "pnl": 3057,
+        "pf": 2.07,
+        "max_dd_pct": 2.33,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "L_on_after40": {
+        "n": 13,
+        "wr": 69.23,
+        "mean_r": 1.509,
+        "sum_r": 19.62,
+        "pnl": 9744
+      }
+    },
+    {
+      "bias": "bullish",
+      "start": "2024-09-09T21:00:00.000Z",
+      "end": "2024-10-08T21:00:00.000Z",
+      "sessions": 22,
+      "gold_ret_pct": 4.98,
+      "gold_mdd_pct": 1.89,
+      "start_i": 2521,
+      "end_i": 2542,
+      "L_on": {
+        "n": 8,
+        "wr": 87.5,
+        "mean_r": 2.209,
+        "sum_r": 17.67,
+        "pnl": 8612,
+        "pf": 20.97,
+        "max_dd_pct": 0.43,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "L_off": {
+        "n": 8,
+        "wr": 75,
+        "mean_r": 1.774,
+        "sum_r": 14.2,
+        "pnl": 7761,
+        "pf": 8.92,
+        "max_dd_pct": 0.98,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "S_on": {
+        "n": 0,
+        "wr": 0,
+        "mean_r": 0,
+        "sum_r": 0,
+        "pnl": 0,
+        "pf": 0,
+        "max_dd_pct": 0,
+        "zero_months": 1,
+        "longest_gap_days": null
+      },
+      "LS_on": {
+        "n": 8,
+        "wr": 87.5,
+        "mean_r": 2.214,
+        "sum_r": 17.71,
+        "pnl": 8403,
+        "pf": 18.86,
+        "max_dd_pct": 0.47,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "L_on_after40": {
+        "n": 10,
+        "wr": 30,
+        "mean_r": 0.09,
+        "sum_r": 0.9,
+        "pnl": 555
+      }
+    },
+    {
+      "bias": "bullish",
+      "start": "2024-10-10T21:00:00.000Z",
+      "end": "2024-11-05T22:00:00.000Z",
+      "sessions": 19,
+      "gold_ret_pct": 5.22,
+      "gold_mdd_pct": 1.83,
+      "start_i": 2544,
+      "end_i": 2562,
+      "L_on": {
+        "n": 7,
+        "wr": 28.57,
+        "mean_r": -0.002,
+        "sum_r": -0.01,
+        "pnl": 101,
+        "pf": 1.04,
+        "max_dd_pct": 2.54,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "L_off": {
+        "n": 7,
+        "wr": 28.57,
+        "mean_r": -0.01,
+        "sum_r": -0.07,
+        "pnl": -179,
+        "pf": 0.93,
+        "max_dd_pct": 2.75,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "S_on": {
+        "n": 0,
+        "wr": 0,
+        "mean_r": 0,
+        "sum_r": 0,
+        "pnl": 0,
+        "pf": 0,
+        "max_dd_pct": 0,
+        "zero_months": 1,
+        "longest_gap_days": null
+      },
+      "LS_on": {
+        "n": 7,
+        "wr": 28.57,
+        "mean_r": -0.012,
+        "sum_r": -0.08,
+        "pnl": 59,
+        "pf": 1.02,
+        "max_dd_pct": 2.51,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "L_on_after40": {
+        "n": 11,
+        "wr": 9.09,
+        "mean_r": -0.645,
+        "sum_r": -7.1,
+        "pnl": -3570
+      }
+    },
+    {
+      "bias": "bullish",
+      "start": "2025-01-07T22:00:00.000Z",
+      "end": "2025-02-26T22:00:00.000Z",
+      "sessions": 37,
+      "gold_ret_pct": 10.63,
+      "gold_mdd_pct": 1.57,
+      "start_i": 2605,
+      "end_i": 2641,
+      "L_on": {
+        "n": 28,
+        "wr": 57.14,
+        "mean_r": 1.124,
+        "sum_r": 31.46,
+        "pnl": 15426,
+        "pf": 3.6,
+        "max_dd_pct": 1.98,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "L_off": {
+        "n": 21,
+        "wr": 42.86,
+        "mean_r": 0.606,
+        "sum_r": 12.73,
+        "pnl": 7023,
+        "pf": 2.06,
+        "max_dd_pct": 2.3,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "S_on": {
+        "n": 0,
+        "wr": 0,
+        "mean_r": 0,
+        "sum_r": 0,
+        "pnl": 0,
+        "pf": 0,
+        "max_dd_pct": 0,
+        "zero_months": 2,
+        "longest_gap_days": null
+      },
+      "LS_on": {
+        "n": 28,
+        "wr": 57.14,
+        "mean_r": 1.112,
+        "sum_r": 31.14,
+        "pnl": 14986,
+        "pf": 3.57,
+        "max_dd_pct": 1.91,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "L_on_after40": {
+        "n": 23,
+        "wr": 56.52,
+        "mean_r": 1.07,
+        "sum_r": 24.61,
+        "pnl": 12463
+      }
+    },
+    {
+      "bias": "bullish",
+      "start": "2025-03-11T21:00:00.000Z",
+      "end": "2025-04-06T21:00:00.000Z",
+      "sessions": 19,
+      "gold_ret_pct": 5.14,
+      "gold_mdd_pct": 3.08,
+      "start_i": 2650,
+      "end_i": 2668,
+      "L_on": {
+        "n": 13,
+        "wr": 61.54,
+        "mean_r": 1.265,
+        "sum_r": 16.44,
+        "pnl": 8209,
+        "pf": 4.45,
+        "max_dd_pct": 2.38,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "L_off": {
+        "n": 10,
+        "wr": 40,
+        "mean_r": 0.447,
+        "sum_r": 4.47,
+        "pnl": 2256,
+        "pf": 1.69,
+        "max_dd_pct": 2.74,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "S_on": {
+        "n": 0,
+        "wr": 0,
+        "mean_r": 0,
+        "sum_r": 0,
+        "pnl": 0,
+        "pf": 0,
+        "max_dd_pct": 0,
+        "zero_months": 1,
+        "longest_gap_days": null
+      },
+      "LS_on": {
+        "n": 13,
+        "wr": 61.54,
+        "mean_r": 1.269,
+        "sum_r": 16.5,
+        "pnl": 8084,
+        "pf": 4.47,
+        "max_dd_pct": 2.33,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "L_on_after40": {
+        "n": 16,
+        "wr": 43.75,
+        "mean_r": 0.621,
+        "sum_r": 9.93,
+        "pnl": 5248
+      }
+    },
+    {
+      "bias": "bullish",
+      "start": "2025-04-09T21:00:00.000Z",
+      "end": "2025-05-07T21:00:00.000Z",
+      "sessions": 20,
+      "gold_ret_pct": 12.81,
+      "gold_mdd_pct": 5.44,
+      "start_i": 2671,
+      "end_i": 2690,
+      "L_on": {
+        "n": 16,
+        "wr": 43.75,
+        "mean_r": 0.621,
+        "sum_r": 9.93,
+        "pnl": 5248,
+        "pf": 2.28,
+        "max_dd_pct": 3.26,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "L_off": {
+        "n": 13,
+        "wr": 38.46,
+        "mean_r": 0.434,
+        "sum_r": 5.65,
+        "pnl": 3484,
+        "pf": 1.81,
+        "max_dd_pct": 3.28,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "S_on": {
+        "n": 0,
+        "wr": 0,
+        "mean_r": 0,
+        "sum_r": 0,
+        "pnl": 0,
+        "pf": 0,
+        "max_dd_pct": 0,
+        "zero_months": 1,
+        "longest_gap_days": null
+      },
+      "LS_on": {
+        "n": 16,
+        "wr": 43.75,
+        "mean_r": 0.61,
+        "sum_r": 9.76,
+        "pnl": 5082,
+        "pf": 2.24,
+        "max_dd_pct": 3.26,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "L_on_after40": {
+        "n": 4,
+        "wr": 25,
+        "mean_r": -0.111,
+        "sum_r": -0.45,
+        "pnl": -400
+      }
+    },
+    {
+      "bias": "bullish",
+      "start": "2025-06-02T21:00:00.000Z",
+      "end": "2025-06-23T21:00:00.000Z",
+      "sessions": 16,
+      "gold_ret_pct": 2.42,
+      "gold_mdd_pct": 2.13,
+      "start_i": 2708,
+      "end_i": 2723,
+      "L_on": {
+        "n": 4,
+        "wr": 25,
+        "mean_r": -0.111,
+        "sum_r": -0.45,
+        "pnl": -400,
+        "pf": 0.74,
+        "max_dd_pct": 1.54,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "L_off": {
+        "n": 2,
+        "wr": 0,
+        "mean_r": -0.971,
+        "sum_r": -1.94,
+        "pnl": -1155,
+        "pf": 0,
+        "max_dd_pct": 1.15,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "S_on": {
+        "n": 0,
+        "wr": 0,
+        "mean_r": 0,
+        "sum_r": 0,
+        "pnl": 0,
+        "pf": 0,
+        "max_dd_pct": 0,
+        "zero_months": 1,
+        "longest_gap_days": null
+      },
+      "LS_on": {
+        "n": 4,
+        "wr": 25,
+        "mean_r": -0.129,
+        "sum_r": -0.52,
+        "pnl": -385,
+        "pf": 0.73,
+        "max_dd_pct": 1.43,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "L_on_after40": {
+        "n": 3,
+        "wr": 0,
+        "mean_r": -0.999,
+        "sum_r": -3,
+        "pnl": -1574
+      }
+    },
+    {
+      "bias": "bullish",
+      "start": "2025-08-24T21:00:00.000Z",
+      "end": "2025-10-26T21:00:00.000Z",
+      "sessions": 46,
+      "gold_ret_pct": 23.22,
+      "gold_mdd_pct": 5.89,
+      "start_i": 2767,
+      "end_i": 2812,
+      "L_on": {
+        "n": 29,
+        "wr": 68.97,
+        "mean_r": 1.517,
+        "sum_r": 44.01,
+        "pnl": 23186,
+        "pf": 6.49,
+        "max_dd_pct": 1.85,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "L_off": {
+        "n": 29,
+        "wr": 68.97,
+        "mean_r": 1.523,
+        "sum_r": 44.15,
+        "pnl": 25727,
+        "pf": 6.08,
+        "max_dd_pct": 2.2,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "S_on": {
+        "n": 0,
+        "wr": 0,
+        "mean_r": 0,
+        "sum_r": 0,
+        "pnl": 0,
+        "pf": 0,
+        "max_dd_pct": 0,
+        "zero_months": 3,
+        "longest_gap_days": null
+      },
+      "LS_on": {
+        "n": 29,
+        "wr": 68.97,
+        "mean_r": 1.51,
+        "sum_r": 43.8,
+        "pnl": 22747,
+        "pf": 6.41,
+        "max_dd_pct": 1.85,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "L_on_after40": {
+        "n": 19,
+        "wr": 47.37,
+        "mean_r": 0.746,
+        "sum_r": 14.17,
+        "pnl": 7637
+      }
+    },
+    {
+      "bias": "bullish",
+      "start": "2025-11-18T22:00:00.000Z",
+      "end": "2026-02-01T22:00:00.000Z",
+      "sessions": 52,
+      "gold_ret_pct": 21,
+      "gold_mdd_pct": 9.65,
+      "start_i": 2829,
+      "end_i": 2880,
+      "L_on": {
+        "n": 43,
+        "wr": 46.51,
+        "mean_r": 0.68,
+        "sum_r": 29.22,
+        "pnl": 15276,
+        "pf": 2.34,
+        "max_dd_pct": 4.07,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "L_off": {
+        "n": 41,
+        "wr": 46.34,
+        "mean_r": 0.694,
+        "sum_r": 28.44,
+        "pnl": 16799,
+        "pf": 2.36,
+        "max_dd_pct": 4.68,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "S_on": {
+        "n": 0,
+        "wr": 0,
+        "mean_r": 0,
+        "sum_r": 0,
+        "pnl": 0,
+        "pf": 0,
+        "max_dd_pct": 0,
+        "zero_months": 3,
+        "longest_gap_days": null
+      },
+      "LS_on": {
+        "n": 43,
+        "wr": 46.51,
+        "mean_r": 0.68,
+        "sum_r": 29.24,
+        "pnl": 15093,
+        "pf": 2.35,
+        "max_dd_pct": 4.07,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "L_on_after40": {
+        "n": 16,
+        "wr": 25,
+        "mean_r": -0.032,
+        "sum_r": -0.51,
+        "pnl": -255
+      }
+    },
+    {
+      "bias": "bearish",
+      "start": "2026-03-12T21:00:00.000Z",
+      "end": "2026-04-07T21:00:00.000Z",
+      "sessions": 18,
+      "gold_ret_pct": -9.11,
+      "gold_mdd_pct": 13.81,
+      "start_i": 2909,
+      "end_i": 2926,
+      "L_on": {
+        "n": 0,
+        "wr": 0,
+        "mean_r": 0,
+        "sum_r": 0,
+        "pnl": 0,
+        "pf": 0,
+        "max_dd_pct": 0,
+        "zero_months": 1,
+        "longest_gap_days": null
+      },
+      "L_off": {
+        "n": 14,
+        "wr": 28.57,
+        "mean_r": 0.117,
+        "sum_r": 1.64,
+        "pnl": 937,
+        "pf": 1.18,
+        "max_dd_pct": 2.7,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "S_on": {
+        "n": 6,
+        "wr": 83.33,
+        "mean_r": 1.66,
+        "sum_r": 9.96,
+        "pnl": 4168,
+        "pf": 13.02,
+        "max_dd_pct": 0.35,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "LS_on": {
+        "n": 5,
+        "wr": 40,
+        "mean_r": 0.515,
+        "sum_r": 2.58,
+        "pnl": 1163,
+        "pf": 2.14,
+        "max_dd_pct": 1.02,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "L_on_after40": {
+        "n": 2,
+        "wr": 0,
+        "mean_r": -1.425,
+        "sum_r": -2.85,
+        "pnl": -1453
+      }
+    },
+    {
+      "bias": "bearish",
+      "start": "2026-05-14T21:00:00.000Z",
+      "end": "2026-07-02T21:00:00.000Z",
+      "sessions": 36,
+      "gold_ret_pct": -12.06,
+      "gold_mdd_pct": 14.03,
+      "start_i": 2953,
+      "end_i": 2988,
+      "L_on": {
+        "n": 0,
+        "wr": 0,
+        "mean_r": 0,
+        "sum_r": 0,
+        "pnl": 0,
+        "pf": 0,
+        "max_dd_pct": 0,
+        "zero_months": 2,
+        "longest_gap_days": null
+      },
+      "L_off": {
+        "n": 11,
+        "wr": 0,
+        "mean_r": -0.931,
+        "sum_r": -10.24,
+        "pnl": -6501,
+        "pf": 0,
+        "max_dd_pct": 6.5,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "S_on": {
+        "n": 10,
+        "wr": 30,
+        "mean_r": 0.155,
+        "sum_r": 1.55,
+        "pnl": 618,
+        "pf": 1.24,
+        "max_dd_pct": 1.45,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "LS_on": {
+        "n": 10,
+        "wr": 30,
+        "mean_r": 0.14,
+        "sum_r": 1.4,
+        "pnl": 583,
+        "pf": 1.22,
+        "max_dd_pct": 1.56,
+        "zero_months": 0,
+        "longest_gap_days": null
+      },
+      "L_on_after40": {
+        "n": 0,
+        "wr": 0,
+        "mean_r": 0,
+        "sum_r": 0,
+        "pnl": 0
+      }
+    }
+  ],
+  "bias_runs_agg": {
+    "bearish": {
+      "L_on": {
+        "runs": 29,
+        "sessions": 692,
+        "n": 1,
+        "wr": 0,
+        "mean_r": -1.008,
+        "sum_r": -1.01,
+        "pnl": -443
+      },
+      "L_off": {
+        "runs": 29,
+        "sessions": 692,
+        "n": 343,
+        "wr": 20.7,
+        "mean_r": -0.216,
+        "sum_r": -74.14,
+        "pnl": -35615
+      },
+      "S_on": {
+        "runs": 29,
+        "sessions": 692,
+        "n": 329,
+        "wr": 37.99,
+        "mean_r": 0.4,
+        "sum_r": 131.44,
+        "pnl": 56147
+      },
+      "S_off": {
+        "runs": 29,
+        "sessions": 692,
+        "n": 252,
+        "wr": 36.51,
+        "mean_r": 0.342,
+        "sum_r": 86.25,
+        "pnl": 35829
+      },
+      "LS_on": {
+        "runs": 29,
+        "sessions": 692,
+        "n": 303,
+        "wr": 38.94,
+        "mean_r": 0.447,
+        "sum_r": 135.59,
+        "pnl": 58435
+      }
+    },
+    "bullish": {
+      "L_on": {
+        "runs": 39,
+        "sessions": 1081,
+        "n": 589,
+        "wr": 47.54,
+        "mean_r": 0.756,
+        "sum_r": 445.26,
+        "pnl": 206871
+      },
+      "L_off": {
+        "runs": 39,
+        "sessions": 1081,
+        "n": 532,
+        "wr": 44.55,
+        "mean_r": 0.647,
+        "sum_r": 344.04,
+        "pnl": 171446
+      },
+      "S_on": {
+        "runs": 39,
+        "sessions": 1081,
+        "n": 0,
+        "wr": 0,
+        "mean_r": 0,
+        "sum_r": 0,
+        "pnl": 0
+      },
+      "S_off": {
+        "runs": 39,
+        "sessions": 1081,
+        "n": 566,
+        "wr": 18.02,
+        "mean_r": -0.343,
+        "sum_r": -194.4,
+        "pnl": -81068
+      },
+      "LS_on": {
+        "runs": 39,
+        "sessions": 1081,
+        "n": 525,
+        "wr": 46.29,
+        "mean_r": 0.701,
+        "sum_r": 368.21,
+        "pnl": 171340
+      }
+    }
+  },
+  "outside_runs_ge15": {
+    "L_on": {
+      "n": 272,
+      "wr": 12.13,
+      "mean_r": -0.546,
+      "sum_r": -148.59,
+      "pnl": -66553
+    },
+    "L_off": {
+      "n": 490,
+      "wr": 36.73,
+      "mean_r": 0.365,
+      "sum_r": 178.7,
+      "pnl": 88400
+    },
+    "S_on": {
+      "n": 324,
+      "wr": 10.19,
+      "mean_r": -0.613,
+      "sum_r": -198.57,
+      "pnl": -84259
+    },
+    "S_off": {
+      "n": 443,
+      "wr": 26.41,
+      "mean_r": -0.012,
+      "sum_r": -5.3,
+      "pnl": -2723
+    },
+    "LS_on": {
+      "n": 423,
+      "wr": 12.29,
+      "mean_r": -0.532,
+      "sum_r": -225,
+      "pnl": -99332
+    }
+  },
+  "l_on_after_bearish_runs_40_sessions": {
+    "n": 313,
+    "wr": 39.3,
+    "mean_r": 0.459,
+    "sum_r": 143.63,
+    "pnl": 62370
+  },
+  "longest_bearish_runs": [
+    {
+      "bias": "bearish",
+      "start": "2018-06-17T21:00:00.000Z",
+      "end": "2018-08-23T21:00:00.000Z",
+      "sessions": 50,
+      "gold_ret_pct": -9.01,
+      "gold_mdd_pct": 8.21,
+      "start_i": 895,
+      "end_i": 944
+    },
+    {
+      "bias": "bearish",
+      "start": "2026-05-14T21:00:00.000Z",
+      "end": "2026-07-02T21:00:00.000Z",
+      "sessions": 36,
+      "gold_ret_pct": -12.06,
+      "gold_mdd_pct": 14.03,
+      "start_i": 2953,
+      "end_i": 2988
+    },
+    {
+      "bias": "bearish",
+      "start": "2018-04-22T21:00:00.000Z",
+      "end": "2018-06-07T21:00:00.000Z",
+      "sessions": 35,
+      "gold_ret_pct": -3.62,
+      "gold_mdd_pct": 3.45,
+      "start_i": 855,
+      "end_i": 889
+    },
+    {
+      "bias": "bearish",
+      "start": "2015-06-23T21:00:00.000Z",
+      "end": "2015-08-09T21:00:00.000Z",
+      "sessions": 34,
+      "gold_ret_pct": -7.73,
+      "gold_mdd_pct": 8.03,
+      "start_i": 122,
+      "end_i": 155
+    },
+    {
+      "bias": "bearish",
+      "start": "2016-11-10T22:00:00.000Z",
+      "end": "2016-12-28T22:00:00.000Z",
+      "sessions": 34,
+      "gold_ret_pct": -10.72,
+      "gold_mdd_pct": 10.36,
+      "start_i": 483,
+      "end_i": 516
+    },
+    {
+      "bias": "bearish",
+      "start": "2022-08-17T21:00:00.000Z",
+      "end": "2022-10-02T21:00:00.000Z",
+      "sessions": 33,
+      "gold_ret_pct": -6.47,
+      "gold_mdd_pct": 7.91,
+      "start_i": 1989,
+      "end_i": 2021
+    },
+    {
+      "bias": "bearish",
+      "start": "2015-02-05T22:00:00.000Z",
+      "end": "2015-03-19T21:00:00.000Z",
+      "sessions": 31,
+      "gold_ret_pct": -7.72,
+      "gold_mdd_pct": 9.11,
+      "start_i": 24,
+      "end_i": 54
+    },
+    {
+      "bias": "bearish",
+      "start": "2022-06-19T21:00:00.000Z",
+      "end": "2022-07-27T21:00:00.000Z",
+      "sessions": 29,
+      "gold_ret_pct": -6.58,
+      "gold_mdd_pct": 7.8,
+      "start_i": 1946,
+      "end_i": 1974
+    },
+    {
+      "bias": "bearish",
+      "start": "2015-10-28T21:00:00.000Z",
+      "end": "2015-12-03T22:00:00.000Z",
+      "sessions": 27,
+      "gold_ret_pct": -8.96,
+      "gold_mdd_pct": 8.82,
+      "start_i": 214,
+      "end_i": 240
+    },
+    {
+      "bias": "bearish",
+      "start": "2017-06-13T21:00:00.000Z",
+      "end": "2017-07-16T21:00:00.000Z",
+      "sessions": 24,
+      "gold_ret_pct": -2.95,
+      "gold_mdd_pct": 4.26,
+      "start_i": 633,
+      "end_i": 656
+    }
+  ],
+  "regime_yearly": [
+    {
+      "key": "2015",
+      "regime": {
+        "gold_ret_pct": -10.76,
+        "bull_frac": 0.373,
+        "flips": 31,
+        "rv_ann_pct": 13.57,
+        "atr_pct": 0.0139,
+        "eff_ratio": 0.066,
+        "gold_mdd_pct": 19.25,
+        "above_sma200_frac": 0.066,
+        "sma50_slope_pct": null,
+        "adx14": 23.79,
+        "sessions": 260
+      },
+      "n": 57,
+      "wr": 29.82,
+      "mean_r": 0.095,
+      "sum_r": 5.43,
+      "pnl": 2166,
+      "pf": 1.13,
+      "max_dd_pct": 5.88,
+      "zero_months": 3,
+      "longest_gap_days": 53
+    },
+    {
+      "key": "2016",
+      "regime": {
+        "gold_ret_pct": 9.19,
+        "bull_frac": 0.558,
+        "flips": 33,
+        "rv_ann_pct": 15.54,
+        "atr_pct": 0.0148,
+        "eff_ratio": 0.042,
+        "gold_mdd_pct": 17.39,
+        "above_sma200_frac": 0.713,
+        "sma50_slope_pct": 11.13,
+        "adx14": 25.81,
+        "sessions": 258
+      },
+      "n": 97,
+      "wr": 29.9,
+      "mean_r": 0.112,
+      "sum_r": 10.83,
+      "pnl": 4392,
+      "pf": 1.15,
+      "max_dd_pct": 11.16,
+      "zero_months": 1,
+      "longest_gap_days": 54
+    },
+    {
+      "key": "2017",
+      "regime": {
+        "gold_ret_pct": 11.82,
+        "bull_frac": 0.606,
+        "flips": 24,
+        "rv_ann_pct": 9.92,
+        "atr_pct": 0.0103,
+        "eff_ratio": 0.084,
+        "gold_mdd_pct": 7.98,
+        "above_sma200_frac": 0.598,
+        "sma50_slope_pct": 5.81,
+        "adx14": 23.48,
+        "sessions": 259
+      },
+      "n": 73,
+      "wr": 35.62,
+      "mean_r": 0.32,
+      "sum_r": 23.33,
+      "pnl": 9975,
+      "pf": 1.48,
+      "max_dd_pct": 7.42,
+      "zero_months": 1,
+      "longest_gap_days": 44
+    },
+    {
+      "key": "2018",
+      "regime": {
+        "gold_ret_pct": -1.18,
+        "bull_frac": 0.458,
+        "flips": 40,
+        "rv_ann_pct": 9.75,
+        "atr_pct": 0.0098,
+        "eff_ratio": 0.01,
+        "gold_mdd_pct": 13.57,
+        "above_sma200_frac": 0.392,
+        "sma50_slope_pct": -3.1,
+        "adx14": 26.97,
+        "sessions": 260
+      },
+      "n": 72,
+      "wr": 22.22,
+      "mean_r": -0.171,
+      "sum_r": -12.28,
+      "pnl": -5545,
+      "pf": 0.77,
+      "max_dd_pct": 14.64,
+      "zero_months": 3,
+      "longest_gap_days": 132
+    },
+    {
+      "key": "2019",
+      "regime": {
+        "gold_ret_pct": 18.37,
+        "bull_frac": 0.597,
+        "flips": 36,
+        "rv_ann_pct": 11.04,
+        "atr_pct": 0.0103,
+        "eff_ratio": 0.121,
+        "gold_mdd_pct": 6.31,
+        "above_sma200_frac": 1,
+        "sma50_slope_pct": 19.62,
+        "adx14": 27.52,
+        "sessions": 273
+      },
+      "n": 84,
+      "wr": 26.19,
+      "mean_r": -0.027,
+      "sum_r": -2.29,
+      "pnl": -1130,
+      "pf": 0.96,
+      "max_dd_pct": 10.78,
+      "zero_months": 0,
+      "longest_gap_days": 30
+    },
+    {
+      "key": "2020",
+      "regime": {
+        "gold_ret_pct": 25.04,
+        "bull_frac": 0.653,
+        "flips": 44,
+        "rv_ann_pct": 19.02,
+        "atr_pct": 0.0169,
+        "eff_ratio": 0.098,
+        "gold_mdd_pct": 13.88,
+        "above_sma200_frac": 0.981,
+        "sma50_slope_pct": 26.23,
+        "adx14": 26.6,
+        "sessions": 259
+      },
+      "n": 69,
+      "wr": 37.68,
+      "mean_r": 0.405,
+      "sum_r": 27.97,
+      "pnl": 11899,
+      "pf": 1.65,
+      "max_dd_pct": 5.82,
+      "zero_months": 1,
+      "longest_gap_days": 58
+    },
+    {
+      "key": "2021",
+      "regime": {
+        "gold_ret_pct": -4.21,
+        "bull_frac": 0.508,
+        "flips": 28,
+        "rv_ann_pct": 13.36,
+        "atr_pct": 0.0135,
+        "eff_ratio": 0.028,
+        "gold_mdd_pct": 13.67,
+        "above_sma200_frac": 0.287,
+        "sma50_slope_pct": -3.42,
+        "adx14": 25.19,
+        "sessions": 258
+      },
+      "n": 35,
+      "wr": 31.43,
+      "mean_r": 0.176,
+      "sum_r": 6.16,
+      "pnl": 2688,
+      "pf": 1.25,
+      "max_dd_pct": 4.2,
+      "zero_months": 4,
+      "longest_gap_days": 96
+    },
+    {
+      "key": "2022",
+      "regime": {
+        "gold_ret_pct": 0.01,
+        "bull_frac": 0.481,
+        "flips": 26,
+        "rv_ann_pct": 14.89,
+        "atr_pct": 0.0141,
+        "eff_ratio": 0,
+        "gold_mdd_pct": 20.84,
+        "above_sma200_frac": 0.453,
+        "sma50_slope_pct": -3.36,
+        "adx14": 24.61,
+        "sessions": 258
+      },
+      "n": 56,
+      "wr": 41.07,
+      "mean_r": 0.515,
+      "sum_r": 28.85,
+      "pnl": 12935,
+      "pf": 1.88,
+      "max_dd_pct": 8.69,
+      "zero_months": 2,
+      "longest_gap_days": 64
+    },
+    {
+      "key": "2023",
+      "regime": {
+        "gold_ret_pct": 13.79,
+        "bull_frac": 0.545,
+        "flips": 22,
+        "rv_ann_pct": 13.16,
+        "atr_pct": 0.0122,
+        "eff_ratio": 0.082,
+        "gold_mdd_pct": 11.22,
+        "above_sma200_frac": 0.895,
+        "sma50_slope_pct": 14.65,
+        "adx14": 26.49,
+        "sessions": 257
+      },
+      "n": 80,
+      "wr": 41.25,
+      "mean_r": 0.536,
+      "sum_r": 42.92,
+      "pnl": 19886,
+      "pf": 1.95,
+      "max_dd_pct": 6.45,
+      "zero_months": 1,
+      "longest_gap_days": 55
+    },
+    {
+      "key": "2024",
+      "regime": {
+        "gold_ret_pct": 26.17,
+        "bull_frac": 0.656,
+        "flips": 39,
+        "rv_ann_pct": 15.04,
+        "atr_pct": 0.0136,
+        "eff_ratio": 0.12,
+        "gold_mdd_pct": 8.05,
+        "above_sma200_frac": 1,
+        "sma50_slope_pct": 32.82,
+        "adx14": 27.19,
+        "sessions": 259
+      },
+      "n": 77,
+      "wr": 42.86,
+      "mean_r": 0.579,
+      "sum_r": 44.58,
+      "pnl": 20978,
+      "pf": 2.01,
+      "max_dd_pct": 6.11,
+      "zero_months": 0,
+      "longest_gap_days": 31
+    },
+    {
+      "key": "2025",
+      "regime": {
+        "gold_ret_pct": 66.53,
+        "bull_frac": 0.791,
+        "flips": 31,
+        "rv_ann_pct": 18.97,
+        "atr_pct": 0.0166,
+        "eff_ratio": 0.216,
+        "gold_mdd_pct": 9.76,
+        "above_sma200_frac": 1,
+        "sma50_slope_pct": 56.74,
+        "adx14": 26.55,
+        "sessions": 258
+      },
+      "n": 123,
+      "wr": 50.41,
+      "mean_r": 0.857,
+      "sum_r": 105.43,
+      "pnl": 54087,
+      "pf": 2.84,
+      "max_dd_pct": 3.49,
+      "zero_months": 0,
+      "longest_gap_days": 42
+    },
+    {
+      "key": "2026",
+      "regime": {
+        "gold_ret_pct": -6.04,
+        "bull_frac": 0.448,
+        "flips": 17,
+        "rv_ann_pct": 31.96,
+        "atr_pct": 0.029,
+        "eff_ratio": 0.028,
+        "gold_mdd_pct": 26.19,
+        "above_sma200_frac": 0.821,
+        "sma50_slope_pct": 4.73,
+        "adx14": 27.02,
+        "sessions": 134
+      },
+      "n": 39,
+      "wr": 38.46,
+      "mean_r": 0.377,
+      "sum_r": 14.72,
+      "pnl": 7544,
+      "pf": 1.62,
+      "max_dd_pct": 6.72,
+      "zero_months": 3,
+      "longest_gap_days": 91
+    }
+  ],
+  "corr_yearly_mean_r": {
+    "gold_ret_pct": {
+      "pearson": 0.65,
+      "spearman": 0.58,
+      "n_periods": 12
+    },
+    "bull_frac": {
+      "pearson": 0.604,
+      "spearman": 0.538,
+      "n_periods": 12
+    },
+    "flips": {
+      "pearson": -0.262,
+      "spearman": -0.256,
+      "n_periods": 12
+    },
+    "rv_ann_pct": {
+      "pearson": 0.391,
+      "spearman": 0.517,
+      "n_periods": 12
+    },
+    "atr_pct": {
+      "pearson": 0.328,
+      "spearman": 0.462,
+      "n_periods": 12
+    },
+    "eff_ratio": {
+      "pearson": 0.545,
+      "spearman": 0.35,
+      "n_periods": 12
+    },
+    "gold_mdd_pct": {
+      "pearson": -0.071,
+      "spearman": -0.056,
+      "n_periods": 12
+    },
+    "above_sma200_frac": {
+      "pearson": 0.496,
+      "spearman": 0.528,
+      "n_periods": 12
+    },
+    "sma50_slope_pct": {
+      "pearson": 0.632,
+      "spearman": 0.518,
+      "n_periods": 11
+    },
+    "adx14": {
+      "pearson": 0.044,
+      "spearman": 0.028,
+      "n_periods": 12
+    }
+  },
+  "corr_yearly_sum_r": {
+    "gold_ret_pct": {
+      "pearson": 0.846,
+      "spearman": 0.636,
+      "n_periods": 12
+    },
+    "bull_frac": {
+      "pearson": 0.748,
+      "spearman": 0.601,
+      "n_periods": 12
+    },
+    "flips": {
+      "pearson": -0.101,
+      "spearman": -0.221,
+      "n_periods": 12
+    },
+    "rv_ann_pct": {
+      "pearson": 0.242,
+      "spearman": 0.476,
+      "n_periods": 12
+    },
+    "atr_pct": {
+      "pearson": 0.169,
+      "spearman": 0.424,
+      "n_periods": 12
+    },
+    "eff_ratio": {
+      "pearson": 0.749,
+      "spearman": 0.392,
+      "n_periods": 12
+    },
+    "gold_mdd_pct": {
+      "pearson": -0.256,
+      "spearman": -0.112,
+      "n_periods": 12
+    },
+    "above_sma200_frac": {
+      "pearson": 0.511,
+      "spearman": 0.542,
+      "n_periods": 12
+    },
+    "sma50_slope_pct": {
+      "pearson": 0.812,
+      "spearman": 0.573,
+      "n_periods": 11
+    },
+    "adx14": {
+      "pearson": 0.108,
+      "spearman": -0.028,
+      "n_periods": 12
+    }
+  },
+  "loo_best": {
+    "gold_ret_pct": 7,
+    "above_sma200_frac": 1,
+    "rv_ann_pct": 2,
+    "sma50_slope_pct": 1,
+    "atr_pct": 1
+  },
+  "regime_quarterly": [
+    {
+      "key": "2015Q1",
+      "regime": {
+        "gold_ret_pct": -0.43,
+        "bull_frac": 0.19,
+        "flips": 4,
+        "rv_ann_pct": 15.34,
+        "atr_pct": 0.0161,
+        "eff_ratio": 0.009,
+        "gold_mdd_pct": 11.75,
+        "above_sma200_frac": null,
+        "sma50_slope_pct": null,
+        "adx14": 32.81,
+        "sessions": 63
+      },
+      "n": 9,
+      "wr": 66.67,
+      "mean_r": 1.487,
+      "sum_r": 13.38,
+      "pnl": 5627,
+      "pf": 5.55,
+      "max_dd_pct": 0.81,
+      "zero_months": 1,
+      "longest_gap_days": 52
+    },
+    {
+      "key": "2015Q2",
+      "regime": {
+        "gold_ret_pct": -0.96,
+        "bull_frac": 0.446,
+        "flips": 11,
+        "rv_ann_pct": 12.16,
+        "atr_pct": 0.0128,
+        "eff_ratio": 0.025,
+        "gold_mdd_pct": 4.34,
+        "above_sma200_frac": null,
+        "sma50_slope_pct": -1.86,
+        "adx14": 15.02,
+        "sessions": 65
+      },
+      "n": 11,
+      "wr": 0,
+      "mean_r": -1.012,
+      "sum_r": -11.13,
+      "pnl": -4716,
+      "pf": 0,
+      "max_dd_pct": 4.72,
+      "zero_months": 0,
+      "longest_gap_days": 30
+    },
+    {
+      "key": "2015Q3",
+      "regime": {
+        "gold_ret_pct": -4.91,
+        "bull_frac": 0.418,
+        "flips": 4,
+        "rv_ann_pct": 13.41,
+        "atr_pct": 0.0134,
+        "eff_ratio": 0.122,
+        "gold_mdd_pct": 7.29,
+        "above_sma200_frac": null,
+        "sma50_slope_pct": -6,
+        "adx14": 27.66,
+        "sessions": 67
+      },
+      "n": 15,
+      "wr": 33.33,
+      "mean_r": 0.238,
+      "sum_r": 3.57,
+      "pnl": 1453,
+      "pf": 1.34,
+      "max_dd_pct": 3.4,
+      "zero_months": 1,
+      "longest_gap_days": 41
+    },
+    {
+      "key": "2015Q4",
+      "regime": {
+        "gold_ret_pct": -4.84,
+        "bull_frac": 0.431,
+        "flips": 12,
+        "rv_ann_pct": 13.54,
+        "atr_pct": 0.014,
+        "eff_ratio": 0.115,
+        "gold_mdd_pct": 11.18,
+        "above_sma200_frac": 0.066,
+        "sma50_slope_pct": -2.83,
+        "adx14": 23.59,
+        "sessions": 65
+      },
+      "n": 22,
+      "wr": 27.27,
+      "mean_r": -0.017,
+      "sum_r": -0.38,
+      "pnl": -197,
+      "pf": 0.97,
+      "max_dd_pct": 5.36,
+      "zero_months": 1,
+      "longest_gap_days": 42
+    },
+    {
+      "key": "2016Q1",
+      "regime": {
+        "gold_ret_pct": 16.21,
+        "bull_frac": 0.844,
+        "flips": 6,
+        "rv_ann_pct": 18.35,
+        "atr_pct": 0.0162,
+        "eff_ratio": 0.245,
+        "gold_mdd_pct": 4.33,
+        "above_sma200_frac": 0.641,
+        "sma50_slope_pct": 11.26,
+        "adx14": 31.92,
+        "sessions": 64
+      },
+      "n": 32,
+      "wr": 46.88,
+      "mean_r": 0.751,
+      "sum_r": 24.03,
+      "pnl": 10159,
+      "pf": 2.42,
+      "max_dd_pct": 2.93,
+      "zero_months": 0,
+      "longest_gap_days": 13
+    },
+    {
+      "key": "2016Q2",
+      "regime": {
+        "gold_ret_pct": 7.23,
+        "bull_frac": 0.677,
+        "flips": 9,
+        "rv_ann_pct": 17.59,
+        "atr_pct": 0.0155,
+        "eff_ratio": 0.136,
+        "gold_mdd_pct": 6.83,
+        "above_sma200_frac": 1,
+        "sma50_slope_pct": 4.47,
+        "adx14": 22.67,
+        "sessions": 65
+      },
+      "n": 36,
+      "wr": 27.78,
+      "mean_r": 0.026,
+      "sum_r": 0.94,
+      "pnl": 294,
+      "pf": 1.03,
+      "max_dd_pct": 8.15,
+      "zero_months": 0,
+      "longest_gap_days": 30
+    },
+    {
+      "key": "2016Q3",
+      "regime": {
+        "gold_ret_pct": -0.12,
+        "bull_frac": 0.523,
+        "flips": 13,
+        "rv_ann_pct": 11.4,
+        "atr_pct": 0.0137,
+        "eff_ratio": 0.003,
+        "gold_mdd_pct": 4.15,
+        "above_sma200_frac": 1,
+        "sma50_slope_pct": 5.2,
+        "adx14": 21.54,
+        "sessions": 65
+      },
+      "n": 23,
+      "wr": 0,
+      "mean_r": -0.998,
+      "sum_r": -22.96,
+      "pnl": -9800,
+      "pf": 0,
+      "max_dd_pct": 9.8,
+      "zero_months": 0,
+      "longest_gap_days": 23
+    },
+    {
+      "key": "2016Q4",
+      "regime": {
+        "gold_ret_pct": -12.27,
+        "bull_frac": 0.188,
+        "flips": 5,
+        "rv_ann_pct": 13.21,
+        "atr_pct": 0.0138,
+        "eff_ratio": 0.343,
+        "gold_mdd_pct": 14.24,
+        "above_sma200_frac": 0.203,
+        "sma50_slope_pct": -9.45,
+        "adx14": 27.24,
+        "sessions": 64
+      },
+      "n": 6,
+      "wr": 66.67,
+      "mean_r": 1.471,
+      "sum_r": 8.83,
+      "pnl": 3739,
+      "pf": 5.51,
+      "max_dd_pct": 0.83,
+      "zero_months": 1,
+      "longest_gap_days": 53
+    },
+    {
+      "key": "2017Q1",
+      "regime": {
+        "gold_ret_pct": 7.31,
+        "bull_frac": 0.797,
+        "flips": 4,
+        "rv_ann_pct": 10.43,
+        "atr_pct": 0.0117,
+        "eff_ratio": 0.199,
+        "gold_mdd_pct": 4.67,
+        "above_sma200_frac": 0,
+        "sma50_slope_pct": 1.96,
+        "adx14": 27.58,
+        "sessions": 64
+      },
+      "n": 24,
+      "wr": 45.83,
+      "mean_r": 0.713,
+      "sum_r": 17.1,
+      "pnl": 7268,
+      "pf": 2.31,
+      "max_dd_pct": 2.5,
+      "zero_months": 0,
+      "longest_gap_days": 30
+    },
+    {
+      "key": "2017Q2",
+      "regime": {
+        "gold_ret_pct": 0.2,
+        "bull_frac": 0.563,
+        "flips": 5,
+        "rv_ann_pct": 10.07,
+        "atr_pct": 0.01,
+        "eff_ratio": 0.006,
+        "gold_mdd_pct": 5.45,
+        "above_sma200_frac": 0.734,
+        "sma50_slope_pct": 2.14,
+        "adx14": 24.89,
+        "sessions": 64
+      },
+      "n": 19,
+      "wr": 36.84,
+      "mean_r": 0.349,
+      "sum_r": 6.62,
+      "pnl": 2868,
+      "pf": 1.53,
+      "max_dd_pct": 3.23,
+      "zero_months": 0,
+      "longest_gap_days": 25
+    },
+    {
+      "key": "2017Q3",
+      "regime": {
+        "gold_ret_pct": 3.37,
+        "bull_frac": 0.692,
+        "flips": 2,
+        "rv_ann_pct": 10.58,
+        "atr_pct": 0.0101,
+        "eff_ratio": 0.095,
+        "gold_mdd_pct": 4.9,
+        "above_sma200_frac": 0.846,
+        "sma50_slope_pct": 3.18,
+        "adx14": 25.89,
+        "sessions": 65
+      },
+      "n": 22,
+      "wr": 36.36,
+      "mean_r": 0.346,
+      "sum_r": 7.61,
+      "pnl": 3327,
+      "pf": 1.54,
+      "max_dd_pct": 3.94,
+      "zero_months": 0,
+      "longest_gap_days": 26
+    },
+    {
+      "key": "2017Q4",
+      "regime": {
+        "gold_ret_pct": 0.6,
+        "bull_frac": 0.379,
+        "flips": 13,
+        "rv_ann_pct": 8.67,
+        "atr_pct": 0.0095,
+        "eff_ratio": 0.021,
+        "gold_mdd_pct": 4.71,
+        "above_sma200_frac": 0.803,
+        "sma50_slope_pct": -1.57,
+        "adx14": 15.76,
+        "sessions": 66
+      },
+      "n": 8,
+      "wr": 0,
+      "mean_r": -1.001,
+      "sum_r": -8.01,
+      "pnl": -3487,
+      "pf": 0,
+      "max_dd_pct": 3.49,
+      "zero_months": 1,
+      "longest_gap_days": 39
+    },
+    {
+      "key": "2018Q1",
+      "regime": {
+        "gold_ret_pct": 2.32,
+        "bull_frac": 0.556,
+        "flips": 9,
+        "rv_ann_pct": 10.77,
+        "atr_pct": 0.0103,
+        "eff_ratio": 0.069,
+        "gold_mdd_pct": 3.47,
+        "above_sma200_frac": 1,
+        "sma50_slope_pct": 4.46,
+        "adx14": 27.5,
+        "sessions": 63
+      },
+      "n": 31,
+      "wr": 22.58,
+      "mean_r": -0.163,
+      "sum_r": -5.07,
+      "pnl": -2338,
+      "pf": 0.78,
+      "max_dd_pct": 7.9,
+      "zero_months": 0,
+      "longest_gap_days": 29
+    },
+    {
+      "key": "2018Q2",
+      "regime": {
+        "gold_ret_pct": -5.79,
+        "bull_frac": 0.262,
+        "flips": 8,
+        "rv_ann_pct": 8.7,
+        "atr_pct": 0.0097,
+        "eff_ratio": 0.23,
+        "gold_mdd_pct": 7.73,
+        "above_sma200_frac": 0.477,
+        "sma50_slope_pct": -2.54,
+        "adx14": 17.66,
+        "sessions": 65
+      },
+      "n": 12,
+      "wr": 25,
+      "mean_r": -0.053,
+      "sum_r": -0.64,
+      "pnl": -356,
+      "pf": 0.91,
+      "max_dd_pct": 2.61,
+      "zero_months": 2,
+      "longest_gap_days": 74
+    },
+    {
+      "key": "2018Q3",
+      "regime": {
+        "gold_ret_pct": -4.51,
+        "bull_frac": 0.258,
+        "flips": 10,
+        "rv_ann_pct": 9.7,
+        "atr_pct": 0.0097,
+        "eff_ratio": 0.149,
+        "gold_mdd_pct": 6.66,
+        "above_sma200_frac": 0,
+        "sma50_slope_pct": -7.19,
+        "adx14": 41.52,
+        "sessions": 66
+      },
+      "n": 11,
+      "wr": 0,
+      "mean_r": -1.01,
+      "sum_r": -11.11,
+      "pnl": -4797,
+      "pf": 0,
+      "max_dd_pct": 4.8,
+      "zero_months": 1,
+      "longest_gap_days": 58
+    },
+    {
+      "key": "2018Q4",
+      "regime": {
+        "gold_ret_pct": 7.35,
+        "bull_frac": 0.758,
+        "flips": 13,
+        "rv_ann_pct": 9.64,
+        "atr_pct": 0.0095,
+        "eff_ratio": 0.243,
+        "gold_mdd_pct": 2.71,
+        "above_sma200_frac": 0.121,
+        "sma50_slope_pct": 2.75,
+        "adx14": 21.06,
+        "sessions": 66
+      },
+      "n": 18,
+      "wr": 33.33,
+      "mean_r": 0.252,
+      "sum_r": 4.54,
+      "pnl": 1946,
+      "pf": 1.38,
+      "max_dd_pct": 4.31,
+      "zero_months": 0,
+      "longest_gap_days": 28
+    },
+    {
+      "key": "2019Q1",
+      "regime": {
+        "gold_ret_pct": 0.99,
+        "bull_frac": 0.701,
+        "flips": 7,
+        "rv_ann_pct": 9.11,
+        "atr_pct": 0.0081,
+        "eff_ratio": 0.033,
+        "gold_mdd_pct": 4.14,
+        "above_sma200_frac": 1,
+        "sma50_slope_pct": 5.92,
+        "adx14": 31.19,
+        "sessions": 67
+      },
+      "n": 16,
+      "wr": 12.5,
+      "mean_r": -0.551,
+      "sum_r": -8.82,
+      "pnl": -3780,
+      "pf": 0.38,
+      "max_dd_pct": 5.2,
+      "zero_months": 0,
+      "longest_gap_days": 26
+    },
+    {
+      "key": "2019Q2",
+      "regime": {
+        "gold_ret_pct": 9.03,
+        "bull_frac": 0.545,
+        "flips": 9,
+        "rv_ann_pct": 9.42,
+        "atr_pct": 0.0087,
+        "eff_ratio": 0.309,
+        "gold_mdd_pct": 2.85,
+        "above_sma200_frac": 1,
+        "sma50_slope_pct": 0.58,
+        "adx14": 21.8,
+        "sessions": 66
+      },
+      "n": 23,
+      "wr": 30.43,
+      "mean_r": 0.122,
+      "sum_r": 2.81,
+      "pnl": 1102,
+      "pf": 1.16,
+      "max_dd_pct": 5.58,
+      "zero_months": 0,
+      "longest_gap_days": 28
+    },
+    {
+      "key": "2019Q3",
+      "regime": {
+        "gold_ret_pct": 4.49,
+        "bull_frac": 0.712,
+        "flips": 9,
+        "rv_ann_pct": 15.13,
+        "atr_pct": 0.0136,
+        "eff_ratio": 0.082,
+        "gold_mdd_pct": 5.15,
+        "above_sma200_frac": 1,
+        "sma50_slope_pct": 13.88,
+        "adx14": 37.46,
+        "sessions": 73
+      },
+      "n": 30,
+      "wr": 30,
+      "mean_r": 0.117,
+      "sum_r": 3.52,
+      "pnl": 1539,
+      "pf": 1.17,
+      "max_dd_pct": 4.31,
+      "zero_months": 0,
+      "longest_gap_days": 27
+    },
+    {
+      "key": "2019Q4",
+      "regime": {
+        "gold_ret_pct": 2.89,
+        "bull_frac": 0.418,
+        "flips": 11,
+        "rv_ann_pct": 8.99,
+        "atr_pct": 0.0106,
+        "eff_ratio": 0.104,
+        "gold_mdd_pct": 3.95,
+        "above_sma200_frac": 1,
+        "sma50_slope_pct": -1.65,
+        "adx14": 18.65,
+        "sessions": 67
+      },
+      "n": 15,
+      "wr": 26.67,
+      "mean_r": 0.014,
+      "sum_r": 0.21,
+      "pnl": 8,
+      "pf": 1,
+      "max_dd_pct": 4.28,
+      "zero_months": 0,
+      "longest_gap_days": 30
+    },
+    {
+      "key": "2020Q1",
+      "regime": {
+        "gold_ret_pct": 4.09,
+        "bull_frac": 0.785,
+        "flips": 9,
+        "rv_ann_pct": 22.93,
+        "atr_pct": 0.016,
+        "eff_ratio": 0.061,
+        "gold_mdd_pct": 12.34,
+        "above_sma200_frac": 0.954,
+        "sma50_slope_pct": 7.52,
+        "adx14": 38.75,
+        "sessions": 65
+      },
+      "n": 32,
+      "wr": 34.38,
+      "mean_r": 0.289,
+      "sum_r": 9.25,
+      "pnl": 3885,
+      "pf": 1.43,
+      "max_dd_pct": 3.9,
+      "zero_months": 0,
+      "longest_gap_days": 15
+    },
+    {
+      "key": "2020Q2",
+      "regime": {
+        "gold_ret_pct": 12.92,
+        "bull_frac": 0.813,
+        "flips": 10,
+        "rv_ann_pct": 15.03,
+        "atr_pct": 0.0188,
+        "eff_ratio": 0.246,
+        "gold_mdd_pct": 3.59,
+        "above_sma200_frac": 1,
+        "sma50_slope_pct": 8.43,
+        "adx14": 19.87,
+        "sessions": 64
+      },
+      "n": 16,
+      "wr": 37.5,
+      "mean_r": 0.361,
+      "sum_r": 5.77,
+      "pnl": 2404,
+      "pf": 1.56,
+      "max_dd_pct": 4.3,
+      "zero_months": 0,
+      "longest_gap_days": 27
+    },
+    {
+      "key": "2020Q3",
+      "regime": {
+        "gold_ret_pct": 5.88,
+        "bull_frac": 0.561,
+        "flips": 11,
+        "rv_ann_pct": 20.13,
+        "atr_pct": 0.0172,
+        "eff_ratio": 0.095,
+        "gold_mdd_pct": 9.78,
+        "above_sma200_frac": 1,
+        "sma50_slope_pct": 12.66,
+        "adx14": 27.65,
+        "sessions": 66
+      },
+      "n": 11,
+      "wr": 54.55,
+      "mean_r": 1.061,
+      "sum_r": 11.67,
+      "pnl": 5100,
+      "pf": 3.45,
+      "max_dd_pct": 1.67,
+      "zero_months": 1,
+      "longest_gap_days": 44
+    },
+    {
+      "key": "2020Q4",
+      "regime": {
+        "gold_ret_pct": 0.48,
+        "bull_frac": 0.453,
+        "flips": 13,
+        "rv_ann_pct": 17.28,
+        "atr_pct": 0.0156,
+        "eff_ratio": 0.01,
+        "gold_mdd_pct": 8.93,
+        "above_sma200_frac": 0.969,
+        "sma50_slope_pct": -4.02,
+        "adx14": 19.91,
+        "sessions": 64
+      },
+      "n": 10,
+      "wr": 30,
+      "mean_r": 0.129,
+      "sum_r": 1.29,
+      "pnl": 510,
+      "pf": 1.18,
+      "max_dd_pct": 2.19,
+      "zero_months": 0,
+      "longest_gap_days": 34
+    },
+    {
+      "key": "2021Q1",
+      "regime": {
+        "gold_ret_pct": -9.87,
+        "bull_frac": 0.188,
+        "flips": 9,
+        "rv_ann_pct": 16.13,
+        "atr_pct": 0.016,
+        "eff_ratio": 0.215,
+        "gold_mdd_pct": 13.67,
+        "above_sma200_frac": 0.25,
+        "sma50_slope_pct": -4.92,
+        "adx14": 27.41,
+        "sessions": 64
+      },
+      "n": 3,
+      "wr": 0,
+      "mean_r": -1.005,
+      "sum_r": -3.02,
+      "pnl": -1342,
+      "pf": 0,
+      "max_dd_pct": 1.34,
+      "zero_months": 2,
+      "longest_gap_days": 84
+    },
+    {
+      "key": "2021Q2",
+      "regime": {
+        "gold_ret_pct": 3.69,
+        "bull_frac": 0.766,
+        "flips": 3,
+        "rv_ann_pct": 13.14,
+        "atr_pct": 0.0133,
+        "eff_ratio": 0.086,
+        "gold_mdd_pct": 7.72,
+        "above_sma200_frac": 0.344,
+        "sma50_slope_pct": 3.45,
+        "adx14": 34.69,
+        "sessions": 64
+      },
+      "n": 17,
+      "wr": 52.94,
+      "mean_r": 0.96,
+      "sum_r": 16.32,
+      "pnl": 7335,
+      "pf": 3.06,
+      "max_dd_pct": 1.77,
+      "zero_months": 0,
+      "longest_gap_days": 22
+    },
+    {
+      "key": "2021Q3",
+      "regime": {
+        "gold_ret_pct": -0.76,
+        "bull_frac": 0.47,
+        "flips": 8,
+        "rv_ann_pct": 12.57,
+        "atr_pct": 0.0123,
+        "eff_ratio": 0.021,
+        "gold_mdd_pct": 5.63,
+        "above_sma200_frac": 0.152,
+        "sma50_slope_pct": -2.62,
+        "adx14": 20.87,
+        "sessions": 66
+      },
+      "n": 8,
+      "wr": 12.5,
+      "mean_r": -0.519,
+      "sum_r": -4.16,
+      "pnl": -1956,
+      "pf": 0.39,
+      "max_dd_pct": 3.19,
+      "zero_months": 1,
+      "longest_gap_days": 43
+    },
+    {
+      "key": "2021Q4",
+      "regime": {
+        "gold_ret_pct": 3.29,
+        "bull_frac": 0.609,
+        "flips": 7,
+        "rv_ann_pct": 11.15,
+        "atr_pct": 0.0124,
+        "eff_ratio": 0.094,
+        "gold_mdd_pct": 5.31,
+        "above_sma200_frac": 0.406,
+        "sma50_slope_pct": 1.05,
+        "adx14": 17.94,
+        "sessions": 64
+      },
+      "n": 7,
+      "wr": 14.29,
+      "mean_r": -0.428,
+      "sum_r": -2.99,
+      "pnl": -1350,
+      "pf": 0.49,
+      "max_dd_pct": 2.17,
+      "zero_months": 1,
+      "longest_gap_days": 45
+    },
+    {
+      "key": "2022Q1",
+      "regime": {
+        "gold_ret_pct": 6.74,
+        "bull_frac": 0.677,
+        "flips": 7,
+        "rv_ann_pct": 15.79,
+        "atr_pct": 0.0135,
+        "eff_ratio": 0.13,
+        "gold_mdd_pct": 6.46,
+        "above_sma200_frac": 0.892,
+        "sma50_slope_pct": 5.12,
+        "adx14": 25.14,
+        "sessions": 65
+      },
+      "n": 27,
+      "wr": 44.44,
+      "mean_r": 0.656,
+      "sum_r": 17.7,
+      "pnl": 7753,
+      "pf": 2.17,
+      "max_dd_pct": 3.6,
+      "zero_months": 0,
+      "longest_gap_days": 21
+    },
+    {
+      "key": "2022Q2",
+      "regime": {
+        "gold_ret_pct": -6.7,
+        "bull_frac": 0.328,
+        "flips": 12,
+        "rv_ann_pct": 13.34,
+        "atr_pct": 0.0146,
+        "eff_ratio": 0.166,
+        "gold_mdd_pct": 8.66,
+        "above_sma200_frac": 0.703,
+        "sma50_slope_pct": -2.54,
+        "adx14": 20.45,
+        "sessions": 64
+      },
+      "n": 8,
+      "wr": 0,
+      "mean_r": -0.991,
+      "sum_r": -7.93,
+      "pnl": -3522,
+      "pf": 0,
+      "max_dd_pct": 3.52,
+      "zero_months": 1,
+      "longest_gap_days": 59
+    },
+    {
+      "key": "2022Q3",
+      "regime": {
+        "gold_ret_pct": -8.1,
+        "bull_frac": 0.215,
+        "flips": 2,
+        "rv_ann_pct": 13.27,
+        "atr_pct": 0.0133,
+        "eff_ratio": 0.199,
+        "gold_mdd_pct": 10.31,
+        "above_sma200_frac": 0,
+        "sma50_slope_pct": -6.56,
+        "adx14": 27.67,
+        "sessions": 65
+      },
+      "n": 3,
+      "wr": 66.67,
+      "mean_r": 1.474,
+      "sum_r": 4.42,
+      "pnl": 2033,
+      "pf": 5.7,
+      "max_dd_pct": 0.43,
+      "zero_months": 1,
+      "longest_gap_days": 61
+    },
+    {
+      "key": "2022Q4",
+      "regime": {
+        "gold_ret_pct": 9.28,
+        "bull_frac": 0.703,
+        "flips": 5,
+        "rv_ann_pct": 16.73,
+        "atr_pct": 0.0149,
+        "eff_ratio": 0.176,
+        "gold_mdd_pct": 5.69,
+        "above_sma200_frac": 0.219,
+        "sma50_slope_pct": 1.07,
+        "adx14": 25.11,
+        "sessions": 64
+      },
+      "n": 18,
+      "wr": 50,
+      "mean_r": 0.814,
+      "sum_r": 14.66,
+      "pnl": 6671,
+      "pf": 2.64,
+      "max_dd_pct": 3.6,
+      "zero_months": 0,
+      "longest_gap_days": 25
+    },
+    {
+      "key": "2023Q1",
+      "regime": {
+        "gold_ret_pct": 9.12,
+        "bull_frac": 0.625,
+        "flips": 4,
+        "rv_ann_pct": 16.35,
+        "atr_pct": 0.0134,
+        "eff_ratio": 0.18,
+        "gold_mdd_pct": 7.14,
+        "above_sma200_frac": 1,
+        "sma50_slope_pct": 8.29,
+        "adx14": 32.72,
+        "sessions": 64
+      },
+      "n": 28,
+      "wr": 57.14,
+      "mean_r": 1.148,
+      "sum_r": 32.15,
+      "pnl": 14615,
+      "pf": 3.9,
+      "max_dd_pct": 3.74,
+      "zero_months": 0,
+      "longest_gap_days": 40
+    },
+    {
+      "key": "2023Q2",
+      "regime": {
+        "gold_ret_pct": -3.65,
+        "bull_frac": 0.406,
+        "flips": 5,
+        "rv_ann_pct": 12.43,
+        "atr_pct": 0.014,
+        "eff_ratio": 0.092,
+        "gold_mdd_pct": 6.96,
+        "above_sma200_frac": 1,
+        "sma50_slope_pct": 4.08,
+        "adx14": 21.71,
+        "sessions": 64
+      },
+      "n": 16,
+      "wr": 0,
+      "mean_r": -0.995,
+      "sum_r": -15.92,
+      "pnl": -7203,
+      "pf": 0,
+      "max_dd_pct": 7.2,
+      "zero_months": 0,
+      "longest_gap_days": 35
+    },
+    {
+      "key": "2023Q3",
+      "regime": {
+        "gold_ret_pct": -2.27,
+        "bull_frac": 0.446,
+        "flips": 8,
+        "rv_ann_pct": 8.43,
+        "atr_pct": 0.0093,
+        "eff_ratio": 0.085,
+        "gold_mdd_pct": 5.77,
+        "above_sma200_frac": 0.769,
+        "sma50_slope_pct": -2.31,
+        "adx14": 20.96,
+        "sessions": 65
+      },
+      "n": 6,
+      "wr": 16.67,
+      "mean_r": -0.345,
+      "sum_r": -2.07,
+      "pnl": -1008,
+      "pf": 0.57,
+      "max_dd_pct": 2.34,
+      "zero_months": 1,
+      "longest_gap_days": 55
+    },
+    {
+      "key": "2023Q4",
+      "regime": {
+        "gold_ret_pct": 10.75,
+        "bull_frac": 0.703,
+        "flips": 5,
+        "rv_ann_pct": 14.12,
+        "atr_pct": 0.0119,
+        "eff_ratio": 0.238,
+        "gold_mdd_pct": 4.46,
+        "above_sma200_frac": 0.813,
+        "sma50_slope_pct": 4.27,
+        "adx14": 30.64,
+        "sessions": 64
+      },
+      "n": 30,
+      "wr": 53.33,
+      "mean_r": 0.958,
+      "sum_r": 28.75,
+      "pnl": 13483,
+      "pf": 3.1,
+      "max_dd_pct": 3.67,
+      "zero_months": 0,
+      "longest_gap_days": 27
+    },
+    {
+      "key": "2024Q1",
+      "regime": {
+        "gold_ret_pct": 8.13,
+        "bull_frac": 0.656,
+        "flips": 10,
+        "rv_ann_pct": 10.73,
+        "atr_pct": 0.0114,
+        "eff_ratio": 0.239,
+        "gold_mdd_pct": 3.43,
+        "above_sma200_frac": 1,
+        "sma50_slope_pct": 3.8,
+        "adx14": 27.95,
+        "sessions": 64
+      },
+      "n": 16,
+      "wr": 62.5,
+      "mean_r": 1.276,
+      "sum_r": 20.42,
+      "pnl": 9744,
+      "pf": 4.75,
+      "max_dd_pct": 1.73,
+      "zero_months": 0,
+      "longest_gap_days": 31
+    },
+    {
+      "key": "2024Q2",
+      "regime": {
+        "gold_ret_pct": 4.19,
+        "bull_frac": 0.523,
+        "flips": 13,
+        "rv_ann_pct": 17.63,
+        "atr_pct": 0.0156,
+        "eff_ratio": 0.07,
+        "gold_mdd_pct": 5.46,
+        "above_sma200_frac": 1,
+        "sma50_slope_pct": 12.08,
+        "adx14": 33.98,
+        "sessions": 65
+      },
+      "n": 14,
+      "wr": 28.57,
+      "mean_r": 0.089,
+      "sum_r": 1.25,
+      "pnl": 366,
+      "pf": 1.08,
+      "max_dd_pct": 3.69,
+      "zero_months": 0,
+      "longest_gap_days": 24
+    },
+    {
+      "key": "2024Q3",
+      "regime": {
+        "gold_ret_pct": 13.24,
+        "bull_frac": 0.894,
+        "flips": 6,
+        "rv_ann_pct": 14.1,
+        "atr_pct": 0.0139,
+        "eff_ratio": 0.27,
+        "gold_mdd_pct": 4.24,
+        "above_sma200_frac": 1,
+        "sma50_slope_pct": 7.1,
+        "adx14": 20.28,
+        "sessions": 66
+      },
+      "n": 29,
+      "wr": 55.17,
+      "mean_r": 1.035,
+      "sum_r": 30.02,
+      "pnl": 14338,
+      "pf": 3.4,
+      "max_dd_pct": 4.11,
+      "zero_months": 0,
+      "longest_gap_days": 14
+    },
+    {
+      "key": "2024Q4",
+      "regime": {
+        "gold_ret_pct": -1.1,
+        "bull_frac": 0.547,
+        "flips": 9,
+        "rv_ann_pct": 16.85,
+        "atr_pct": 0.0135,
+        "eff_ratio": 0.022,
+        "gold_mdd_pct": 8.05,
+        "above_sma200_frac": 1,
+        "sma50_slope_pct": 6.16,
+        "adx14": 26.65,
+        "sessions": 64
+      },
+      "n": 18,
+      "wr": 16.67,
+      "mean_r": -0.395,
+      "sum_r": -7.11,
+      "pnl": -3470,
+      "pf": 0.53,
+      "max_dd_pct": 6.11,
+      "zero_months": 0,
+      "longest_gap_days": 25
+    },
+    {
+      "key": "2025Q1",
+      "regime": {
+        "gold_ret_pct": 19.88,
+        "bull_frac": 0.891,
+        "flips": 7,
+        "rv_ann_pct": 11.82,
+        "atr_pct": 0.0125,
+        "eff_ratio": 0.438,
+        "gold_mdd_pct": 3.18,
+        "above_sma200_frac": 1,
+        "sma50_slope_pct": 9.37,
+        "adx14": 27.04,
+        "sessions": 64
+      },
+      "n": 41,
+      "wr": 60.98,
+      "mean_r": 1.247,
+      "sum_r": 51.12,
+      "pnl": 25353,
+      "pf": 4.21,
+      "max_dd_pct": 3.42,
+      "zero_months": 0,
+      "longest_gap_days": 12
+    },
+    {
+      "key": "2025Q2",
+      "regime": {
+        "gold_ret_pct": 5.74,
+        "bull_frac": 0.766,
+        "flips": 9,
+        "rv_ann_pct": 24.37,
+        "atr_pct": 0.0207,
+        "eff_ratio": 0.07,
+        "gold_mdd_pct": 7.39,
+        "above_sma200_frac": 1,
+        "sma50_slope_pct": 13.82,
+        "adx14": 24.48,
+        "sessions": 64
+      },
+      "n": 24,
+      "wr": 33.33,
+      "mean_r": 0.236,
+      "sum_r": 5.66,
+      "pnl": 2972,
+      "pf": 1.39,
+      "max_dd_pct": 3.26,
+      "zero_months": 0,
+      "longest_gap_days": 37
+    },
+    {
+      "key": "2025Q3",
+      "regime": {
+        "gold_ret_pct": 16.81,
+        "bull_frac": 0.682,
+        "flips": 11,
+        "rv_ann_pct": 12.85,
+        "atr_pct": 0.0134,
+        "eff_ratio": 0.357,
+        "gold_mdd_pct": 4.55,
+        "above_sma200_frac": 1,
+        "sma50_slope_pct": 5.23,
+        "adx14": 19.53,
+        "sessions": 66
+      },
+      "n": 17,
+      "wr": 64.71,
+      "mean_r": 1.348,
+      "sum_r": 22.92,
+      "pnl": 12401,
+      "pf": 5.08,
+      "max_dd_pct": 1.57,
+      "zero_months": 0,
+      "longest_gap_days": 24
+    },
+    {
+      "key": "2025Q4",
+      "regime": {
+        "gold_ret_pct": 12.46,
+        "bull_frac": 0.828,
+        "flips": 4,
+        "rv_ann_pct": 23.62,
+        "atr_pct": 0.02,
+        "eff_ratio": 0.176,
+        "gold_mdd_pct": 9.76,
+        "above_sma200_frac": 1,
+        "sma50_slope_pct": 19.05,
+        "adx14": 35.38,
+        "sessions": 64
+      },
+      "n": 41,
+      "wr": 43.9,
+      "mean_r": 0.628,
+      "sum_r": 25.74,
+      "pnl": 13361,
+      "pf": 2.21,
+      "max_dd_pct": 3.49,
+      "zero_months": 0,
+      "longest_gap_days": 26
+    },
+    {
+      "key": "2026Q1",
+      "regime": {
+        "gold_ret_pct": 7.57,
+        "bull_frac": 0.672,
+        "flips": 11,
+        "rv_ann_pct": 39.39,
+        "atr_pct": 0.0308,
+        "eff_ratio": 0.057,
+        "gold_mdd_pct": 19.2,
+        "above_sma200_frac": 1,
+        "sma50_slope_pct": 18.73,
+        "adx14": 26.25,
+        "sessions": 64
+      },
+      "n": 37,
+      "wr": 40.54,
+      "mean_r": 0.475,
+      "sum_r": 17.56,
+      "pnl": 8997,
+      "pf": 1.84,
+      "max_dd_pct": 6.72,
+      "zero_months": 0,
+      "longest_gap_days": 20
+    },
+    {
+      "key": "2026Q2",
+      "regime": {
+        "gold_ret_pct": -14.15,
+        "bull_frac": 0.234,
+        "flips": 4,
+        "rv_ann_pct": 23.43,
+        "atr_pct": 0.0274,
+        "eff_ratio": 0.198,
+        "gold_mdd_pct": 17.4,
+        "above_sma200_frac": 0.719,
+        "sma50_slope_pct": -10.43,
+        "adx14": 26.61,
+        "sessions": 64
+      },
+      "n": 2,
+      "wr": 0,
+      "mean_r": -1.425,
+      "sum_r": -2.85,
+      "pnl": -1453,
+      "pf": 0,
+      "max_dd_pct": 1.45,
+      "zero_months": 2,
+      "longest_gap_days": 83
+    },
+    {
+      "key": "2026Q3",
+      "regime": {
+        "gold_ret_pct": 1.74,
+        "bull_frac": 0.333,
+        "flips": 2,
+        "rv_ann_pct": 21.45,
+        "atr_pct": 0.0271,
+        "eff_ratio": 0.261,
+        "gold_mdd_pct": 2.36,
+        "above_sma200_frac": 0,
+        "sma50_slope_pct": -1.17,
+        "adx14": 39.72,
+        "sessions": 6
+      },
+      "n": 0,
+      "wr": 0,
+      "mean_r": 0,
+      "sum_r": 0,
+      "pnl": 0,
+      "pf": 0,
+      "max_dd_pct": 0,
+      "zero_months": 1,
+      "longest_gap_days": 9
+    }
+  ],
+  "corr_quarterly_mean_r": {
+    "gold_ret_pct": {
+      "pearson": 0.523,
+      "spearman": 0.601,
+      "n_periods": 43
+    },
+    "bull_frac": {
+      "pearson": 0.378,
+      "spearman": 0.461,
+      "n_periods": 43
+    },
+    "flips": {
+      "pearson": -0.431,
+      "spearman": -0.429,
+      "n_periods": 43
+    },
+    "rv_ann_pct": {
+      "pearson": 0.254,
+      "spearman": 0.369,
+      "n_periods": 43
+    },
+    "atr_pct": {
+      "pearson": 0.24,
+      "spearman": 0.302,
+      "n_periods": 43
+    },
+    "eff_ratio": {
+      "pearson": 0.535,
+      "spearman": 0.499,
+      "n_periods": 43
+    },
+    "gold_mdd_pct": {
+      "pearson": 0.17,
+      "spearman": 0.075,
+      "n_periods": 43
+    },
+    "above_sma200_frac": {
+      "pearson": 0.061,
+      "spearman": 0.1,
+      "n_periods": 40
+    },
+    "sma50_slope_pct": {
+      "pearson": 0.312,
+      "spearman": 0.359,
+      "n_periods": 42
+    },
+    "adx14": {
+      "pearson": 0.306,
+      "spearman": 0.373,
+      "n_periods": 43
+    }
+  },
+  "corr_quarterly_predictive_mean_r": {
+    "gold_ret_pct": {
+      "pearson": -0.058,
+      "spearman": -0.042,
+      "n_periods": 42
+    },
+    "bull_frac": {
+      "pearson": -0.01,
+      "spearman": 0.006,
+      "n_periods": 42
+    },
+    "flips": {
+      "pearson": 0.253,
+      "spearman": 0.232,
+      "n_periods": 42
+    },
+    "rv_ann_pct": {
+      "pearson": 0.189,
+      "spearman": 0.212,
+      "n_periods": 42
+    },
+    "atr_pct": {
+      "pearson": 0.265,
+      "spearman": 0.256,
+      "n_periods": 42
+    },
+    "eff_ratio": {
+      "pearson": 0.032,
+      "spearman": 0.001,
+      "n_periods": 42
+    },
+    "gold_mdd_pct": {
+      "pearson": 0.066,
+      "spearman": 0.076,
+      "n_periods": 42
+    },
+    "above_sma200_frac": {
+      "pearson": -0.052,
+      "spearman": -0.023,
+      "n_periods": 39
+    },
+    "sma50_slope_pct": {
+      "pearson": 0.02,
+      "spearman": 0.031,
+      "n_periods": 41
+    },
+    "adx14": {
+      "pearson": -0.004,
+      "spearman": -0.007,
+      "n_periods": 42
+    }
+  },
+  "corr_quarterly_predictive_sum_r": {
+    "gold_ret_pct": {
+      "pearson": -0.043,
+      "spearman": -0.03,
+      "n_periods": 46
+    },
+    "bull_frac": {
+      "pearson": -0.02,
+      "spearman": 0.005,
+      "n_periods": 46
+    },
+    "flips": {
+      "pearson": 0.106,
+      "spearman": 0.126,
+      "n_periods": 46
+    },
+    "rv_ann_pct": {
+      "pearson": 0.045,
+      "spearman": 0.08,
+      "n_periods": 46
+    },
+    "atr_pct": {
+      "pearson": 0.035,
+      "spearman": 0.106,
+      "n_periods": 46
+    },
+    "eff_ratio": {
+      "pearson": 0.039,
+      "spearman": 0.082,
+      "n_periods": 46
+    },
+    "gold_mdd_pct": {
+      "pearson": 0.023,
+      "spearman": 0.029,
+      "n_periods": 46
+    },
+    "above_sma200_frac": {
+      "pearson": -0.099,
+      "spearman": -0.054,
+      "n_periods": 43
+    },
+    "sma50_slope_pct": {
+      "pearson": 0.018,
+      "spearman": 0.006,
+      "n_periods": 45
+    },
+    "adx14": {
+      "pearson": 0.025,
+      "spearman": 0.028,
+      "n_periods": 46
+    }
+  },
+  "runs_2026_refresh_description": [
+    {
+      "bias": "bearish",
+      "start": "2026-02-02T22:00:00.000Z",
+      "end": "2026-02-02T22:00:00.000Z",
+      "sessions": 1,
+      "gold_ret_pct": -4.79,
+      "gold_mdd_pct": 0,
+      "start_i": 2881,
+      "end_i": 2881
+    },
+    {
+      "bias": "bullish",
+      "start": "2026-02-03T22:00:00.000Z",
+      "end": "2026-02-04T22:00:00.000Z",
+      "sessions": 2,
+      "gold_ret_pct": 6.51,
+      "gold_mdd_pct": 0,
+      "start_i": 2882,
+      "end_i": 2883
+    },
+    {
+      "bias": "bearish",
+      "start": "2026-02-05T22:00:00.000Z",
+      "end": "2026-02-05T22:00:00.000Z",
+      "sessions": 1,
+      "gold_ret_pct": -3.7,
+      "gold_mdd_pct": 0,
+      "start_i": 2884,
+      "end_i": 2884
+    },
+    {
+      "bias": "bullish",
+      "start": "2026-02-08T22:00:00.000Z",
+      "end": "2026-02-11T22:00:00.000Z",
+      "sessions": 4,
+      "gold_ret_pct": 6.35,
+      "gold_mdd_pct": 0.65,
+      "start_i": 2885,
+      "end_i": 2888
+    },
+    {
+      "bias": "bearish",
+      "start": "2026-02-12T22:00:00.000Z",
+      "end": "2026-02-12T22:00:00.000Z",
+      "sessions": 1,
+      "gold_ret_pct": -3.19,
+      "gold_mdd_pct": 0,
+      "start_i": 2889,
+      "end_i": 2889
+    },
+    {
+      "bias": "bullish",
+      "start": "2026-02-15T22:00:00.000Z",
+      "end": "2026-02-16T22:00:00.000Z",
+      "sessions": 2,
+      "gold_ret_pct": 1.42,
+      "gold_mdd_pct": 1.01,
+      "start_i": 2890,
+      "end_i": 2891
+    },
+    {
+      "bias": "bearish",
+      "start": "2026-02-17T22:00:00.000Z",
+      "end": "2026-02-19T22:00:00.000Z",
+      "sessions": 3,
+      "gold_ret_pct": 0.09,
+      "gold_mdd_pct": 0,
+      "start_i": 2892,
+      "end_i": 2894
+    },
+    {
+      "bias": "bullish",
+      "start": "2026-02-22T22:00:00.000Z",
+      "end": "2026-03-04T22:00:00.000Z",
+      "sessions": 9,
+      "gold_ret_pct": 2.89,
+      "gold_mdd_pct": 4.38,
+      "start_i": 2895,
+      "end_i": 2903
+    },
+    {
+      "bias": "bearish",
+      "start": "2026-03-05T22:00:00.000Z",
+      "end": "2026-03-05T22:00:00.000Z",
+      "sessions": 1,
+      "gold_ret_pct": -1.16,
+      "gold_mdd_pct": 0,
+      "start_i": 2904,
+      "end_i": 2904
+    },
+    {
+      "bias": "bullish",
+      "start": "2026-03-08T21:00:00.000Z",
+      "end": "2026-03-11T21:00:00.000Z",
+      "sessions": 4,
+      "gold_ret_pct": 1.87,
+      "gold_mdd_pct": 0.65,
+      "start_i": 2905,
+      "end_i": 2908
+    },
+    {
+      "bias": "bearish",
+      "start": "2026-03-12T21:00:00.000Z",
+      "end": "2026-04-07T21:00:00.000Z",
+      "sessions": 18,
+      "gold_ret_pct": -9.11,
+      "gold_mdd_pct": 13.81,
+      "start_i": 2909,
+      "end_i": 2926
+    },
+    {
+      "bias": "bullish",
+      "start": "2026-04-08T21:00:00.000Z",
+      "end": "2026-04-22T21:00:00.000Z",
+      "sessions": 11,
+      "gold_ret_pct": 0.76,
+      "gold_mdd_pct": 2.5,
+      "start_i": 2927,
+      "end_i": 2937
+    },
+    {
+      "bias": "bearish",
+      "start": "2026-04-23T21:00:00.000Z",
+      "end": "2026-05-07T21:00:00.000Z",
+      "sessions": 11,
+      "gold_ret_pct": -1.12,
+      "gold_mdd_pct": 3.94,
+      "start_i": 2938,
+      "end_i": 2948
+    },
+    {
+      "bias": "bullish",
+      "start": "2026-05-10T21:00:00.000Z",
+      "end": "2026-05-13T21:00:00.000Z",
+      "sessions": 4,
+      "gold_ret_pct": 0.04,
+      "gold_mdd_pct": 0.98,
+      "start_i": 2949,
+      "end_i": 2952
+    },
+    {
+      "bias": "bearish",
+      "start": "2026-05-14T21:00:00.000Z",
+      "end": "2026-07-02T21:00:00.000Z",
+      "sessions": 36,
+      "gold_ret_pct": -12.06,
+      "gold_mdd_pct": 14.03,
+      "start_i": 2953,
+      "end_i": 2988
+    },
+    {
+      "bias": "bullish",
+      "start": "2026-07-05T21:00:00.000Z",
+      "end": "2026-07-06T21:00:00.000Z",
+      "sessions": 2,
+      "gold_ret_pct": 1.01,
+      "gold_mdd_pct": 0.25,
+      "start_i": 2989,
+      "end_i": 2990
+    },
+    {
+      "bias": "bearish",
+      "start": "2026-07-07T21:00:00.000Z",
+      "end": "2026-07-20T21:00:00.000Z",
+      "sessions": 10,
+      "gold_ret_pct": -3.78,
+      "gold_mdd_pct": 3.57,
+      "start_i": 2991,
+      "end_i": 3000
+    },
+    {
+      "bias": "bullish",
+      "start": "2026-07-21T21:00:00.000Z",
+      "end": "2026-07-22T21:00:00.000Z",
+      "sessions": 2,
+      "gold_ret_pct": 3.05,
+      "gold_mdd_pct": 0,
+      "start_i": 3001,
+      "end_i": 3002
+    },
+    {
+      "bias": "bearish",
+      "start": "2026-07-23T21:00:00.000Z",
+      "end": "2026-07-26T21:00:00.000Z",
+      "sessions": 2,
+      "gold_ret_pct": -1.86,
+      "gold_mdd_pct": 0,
+      "start_i": 3003,
+      "end_i": 3004
+    },
+    {
+      "bias": "bullish",
+      "start": "2026-07-27T21:00:00.000Z",
+      "end": "2026-07-27T21:00:00.000Z",
+      "sessions": 1,
+      "gold_ret_pct": 0.58,
+      "gold_mdd_pct": 0,
+      "start_i": 3005,
+      "end_i": 3005
+    },
+    {
+      "bias": "bearish",
+      "start": "2026-07-28T21:00:00.000Z",
+      "end": "2026-07-29T21:00:00.000Z",
+      "sessions": 2,
+      "gold_ret_pct": -0.25,
+      "gold_mdd_pct": 0,
+      "start_i": 3006,
+      "end_i": 3007
+    },
+    {
+      "bias": "bullish",
+      "start": "2026-07-30T21:00:00.000Z",
+      "end": "2026-07-30T21:00:00.000Z",
+      "sessions": 1,
+      "gold_ret_pct": 0.91,
+      "gold_mdd_pct": 0,
+      "start_i": 3008,
+      "end_i": 3008
+    },
+    {
+      "bias": "bearish",
+      "start": "2026-08-02T21:00:00.000Z",
+      "end": "2026-08-03T21:00:00.000Z",
+      "sessions": 2,
+      "gold_ret_pct": -1.17,
+      "gold_mdd_pct": 0,
+      "start_i": 3009,
+      "end_i": 3010
+    },
+    {
+      "bias": "bullish",
+      "start": "2026-08-04T21:00:00.000Z",
+      "end": "2026-08-31T21:00:00.000Z",
+      "sessions": 20,
+      "gold_ret_pct": 9.72,
+      "gold_mdd_pct": 4.5,
+      "start_i": 3011,
+      "end_i": 3030
+    },
+    {
+      "bias": "bearish",
+      "start": "2026-09-01T21:00:00.000Z",
+      "end": "2026-09-02T21:00:00.000Z",
+      "sessions": 2,
+      "gold_ret_pct": -1.37,
+      "gold_mdd_pct": 0,
+      "start_i": 3031,
+      "end_i": 3032
+    },
+    {
+      "bias": "bullish",
+      "start": "2026-09-03T21:00:00.000Z",
+      "end": "2026-09-03T21:00:00.000Z",
+      "sessions": 1,
+      "gold_ret_pct": 1.93,
+      "gold_mdd_pct": 0,
+      "start_i": 3033,
+      "end_i": 3033
+    },
+    {
+      "bias": "bearish",
+      "start": "2026-09-06T21:00:00.000Z",
+      "end": "2026-10-27T21:00:00.000Z",
+      "sessions": 38,
+      "gold_ret_pct": -9.23,
+      "gold_mdd_pct": 9.8,
+      "start_i": 3034,
+      "end_i": 3071
+    }
+  ]
+}

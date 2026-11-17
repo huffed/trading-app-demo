@@ -1,0 +1,397 @@
+{
+  "generated_at": "2026-11-17T02:39:26.630Z",
+  "rows": [
+    {
+      "set": "L_on",
+      "capital": 100000,
+      "risk": 0.42,
+      "n": 862,
+      "mean_r": 0.34,
+      "p1_pass_pct": 82.92,
+      "p1_median_months": 8.25,
+      "p2_pass_pct": 88.13,
+      "p2_median_months": 3.68,
+      "p_funded_pct": 73.08,
+      "stress_windows": 576,
+      "stress_fail_ml": 0,
+      "stress_fail_dl": 0,
+      "stress_worst_ml": 9.23,
+      "stress_worst_dl": 3.21,
+      "mc_p_ml_gt5": 33.35,
+      "mc_p_ml_gt8": 16.2,
+      "mc_p_ml_gt10": 10.13,
+      "mc_ml_p95": 10.41
+    },
+    {
+      "set": "L_on",
+      "capital": 50000,
+      "risk": 0.3,
+      "n": 860,
+      "mean_r": 0.33,
+      "p1_pass_pct": 91.04,
+      "p1_median_months": 14.85,
+      "p2_pass_pct": 92.27,
+      "p2_median_months": 5.72,
+      "p_funded_pct": 84,
+      "stress_windows": 576,
+      "stress_fail_ml": 0,
+      "stress_fail_dl": 0,
+      "stress_worst_ml": 6.38,
+      "stress_worst_dl": 2.26,
+      "mc_p_ml_gt5": 19.62,
+      "mc_p_ml_gt8": 6.62,
+      "mc_p_ml_gt10": 3.51,
+      "mc_ml_p95": 8.87
+    },
+    {
+      "set": "L_off",
+      "capital": 100000,
+      "risk": 0.42,
+      "n": 1365,
+      "mean_r": 0.33,
+      "p1_pass_pct": 88,
+      "p1_median_months": 5.16,
+      "p2_pass_pct": 88.93,
+      "p2_median_months": 2.6,
+      "p_funded_pct": 78.26,
+      "stress_windows": 591,
+      "stress_fail_ml": 3,
+      "stress_fail_dl": 0,
+      "stress_worst_ml": 11.59,
+      "stress_worst_dl": 3.33,
+      "mc_p_ml_gt5": 35.9,
+      "mc_p_ml_gt8": 20.14,
+      "mc_p_ml_gt10": 13.27,
+      "mc_ml_p95": 10.55
+    },
+    {
+      "set": "L_off",
+      "capital": 50000,
+      "risk": 0.3,
+      "n": 1361,
+      "mean_r": 0.31,
+      "p1_pass_pct": 98.58,
+      "p1_median_months": 10.41,
+      "p2_pass_pct": 98.61,
+      "p2_median_months": 4.24,
+      "p_funded_pct": 97.22,
+      "stress_windows": 591,
+      "stress_fail_ml": 0,
+      "stress_fail_dl": 0,
+      "stress_worst_ml": 8.11,
+      "stress_worst_dl": 2.34,
+      "mc_p_ml_gt5": 24.4,
+      "mc_p_ml_gt8": 10.71,
+      "mc_p_ml_gt10": 6.07,
+      "mc_ml_p95": 10.1
+    },
+    {
+      "set": "S_on",
+      "capital": 100000,
+      "risk": 0.42,
+      "n": 653,
+      "mean_r": -0.1,
+      "p1_pass_pct": 37.65,
+      "p1_median_months": 8.74,
+      "p2_pass_pct": 49.38,
+      "p2_median_months": 5.58,
+      "p_funded_pct": 18.59,
+      "stress_windows": 585,
+      "stress_fail_ml": 0,
+      "stress_fail_dl": 9,
+      "stress_worst_ml": 9.68,
+      "stress_worst_dl": 5.2,
+      "mc_p_ml_gt5": 79.18,
+      "mc_p_ml_gt8": 67.43,
+      "mc_p_ml_gt10": 59.9,
+      "mc_ml_p95": 11.49
+    },
+    {
+      "set": "S_on",
+      "capital": 50000,
+      "risk": 0.3,
+      "n": 682,
+      "mean_r": -0.13,
+      "p1_pass_pct": 27.62,
+      "p1_median_months": 16.16,
+      "p2_pass_pct": 43.35,
+      "p2_median_months": 10.97,
+      "p_funded_pct": 11.97,
+      "stress_windows": 585,
+      "stress_fail_ml": 0,
+      "stress_fail_dl": 0,
+      "stress_worst_ml": 6.65,
+      "stress_worst_dl": 3.49,
+      "mc_p_ml_gt5": 81.94,
+      "mc_p_ml_gt8": 69.1,
+      "mc_p_ml_gt10": 59.06,
+      "mc_ml_p95": 11.02
+    },
+    {
+      "set": "LS_on",
+      "capital": 100000,
+      "risk": 0.42,
+      "n": 1251,
+      "mean_r": 0.22,
+      "p1_pass_pct": 66.96,
+      "p1_median_months": 5.26,
+      "p2_pass_pct": 77.31,
+      "p2_median_months": 2.96,
+      "p_funded_pct": 51.77,
+      "stress_windows": 586,
+      "stress_fail_ml": 11,
+      "stress_fail_dl": 8,
+      "stress_worst_ml": 13.4,
+      "stress_worst_dl": 5.17,
+      "mc_p_ml_gt5": 45.76,
+      "mc_p_ml_gt8": 28.23,
+      "mc_p_ml_gt10": 20.86,
+      "mc_ml_p95": 10.84
+    },
+    {
+      "set": "LS_on",
+      "capital": 50000,
+      "risk": 0.3,
+      "n": 1260,
+      "mean_r": 0.21,
+      "p1_pass_pct": 85.66,
+      "p1_median_months": 9.66,
+      "p2_pass_pct": 87.24,
+      "p2_median_months": 5.06,
+      "p_funded_pct": 74.73,
+      "stress_windows": 586,
+      "stress_fail_ml": 0,
+      "stress_fail_dl": 0,
+      "stress_worst_ml": 9.22,
+      "stress_worst_dl": 3.64,
+      "mc_p_ml_gt5": 35.08,
+      "mc_p_ml_gt8": 18.31,
+      "mc_p_ml_gt10": 12.19,
+      "mc_ml_p95": 10.36
+    }
+  ],
+  "worst_60d_ml_by_year": {
+    "L_on": {
+      "2015": {
+        "windows": 38,
+        "fail_ml": 0,
+        "worst_ml": 3.96,
+        "worst_dl": 1.91
+      },
+      "2016": {
+        "windows": 36,
+        "fail_ml": 0,
+        "worst_ml": 7.99,
+        "worst_dl": 2.12
+      },
+      "2017": {
+        "windows": 40,
+        "fail_ml": 0,
+        "worst_ml": 5.05,
+        "worst_dl": 1.66
+      },
+      "2018": {
+        "windows": 44,
+        "fail_ml": 0,
+        "worst_ml": 6.49,
+        "worst_dl": 2.21
+      },
+      "2019": {
+        "windows": 44,
+        "fail_ml": 0,
+        "worst_ml": 7.91,
+        "worst_dl": 3.09
+      },
+      "2020": {
+        "windows": 43,
+        "fail_ml": 0,
+        "worst_ml": 4.66,
+        "worst_dl": 2.06
+      },
+      "2021": {
+        "windows": 41,
+        "fail_ml": 0,
+        "worst_ml": 3.57,
+        "worst_dl": 0.97
+      },
+      "2022": {
+        "windows": 44,
+        "fail_ml": 0,
+        "worst_ml": 4.5,
+        "worst_dl": 2.39
+      },
+      "2023": {
+        "windows": 55,
+        "fail_ml": 0,
+        "worst_ml": 6.96,
+        "worst_dl": 2.95
+      },
+      "2024": {
+        "windows": 38,
+        "fail_ml": 0,
+        "worst_ml": 4.47,
+        "worst_dl": 3.21
+      },
+      "2025": {
+        "windows": 45,
+        "fail_ml": 0,
+        "worst_ml": 4.33,
+        "worst_dl": 2.39
+      },
+      "2026": {
+        "windows": 6,
+        "fail_ml": 0,
+        "worst_ml": 4,
+        "worst_dl": 1.61
+      }
+    },
+    "L_off": {
+      "2015": {
+        "windows": 48,
+        "fail_ml": 0,
+        "worst_ml": 7.34,
+        "worst_dl": 1.52
+      },
+      "2016": {
+        "windows": 42,
+        "fail_ml": 0,
+        "worst_ml": 7.6,
+        "worst_dl": 2.91
+      },
+      "2017": {
+        "windows": 44,
+        "fail_ml": 0,
+        "worst_ml": 9.15,
+        "worst_dl": 2.94
+      },
+      "2018": {
+        "windows": 48,
+        "fail_ml": 0,
+        "worst_ml": 8.8,
+        "worst_dl": 2.17
+      },
+      "2019": {
+        "windows": 44,
+        "fail_ml": 0,
+        "worst_ml": 8.98,
+        "worst_dl": 2.95
+      },
+      "2020": {
+        "windows": 43,
+        "fail_ml": 0,
+        "worst_ml": 5.41,
+        "worst_dl": 3.33
+      },
+      "2021": {
+        "windows": 41,
+        "fail_ml": 0,
+        "worst_ml": 9.7,
+        "worst_dl": 2.82
+      },
+      "2022": {
+        "windows": 45,
+        "fail_ml": 0,
+        "worst_ml": 8.66,
+        "worst_dl": 3.2
+      },
+      "2023": {
+        "windows": 55,
+        "fail_ml": 0,
+        "worst_ml": 7.5,
+        "worst_dl": 2.96
+      },
+      "2024": {
+        "windows": 46,
+        "fail_ml": 0,
+        "worst_ml": 3.51,
+        "worst_dl": 2.46
+      },
+      "2025": {
+        "windows": 45,
+        "fail_ml": 0,
+        "worst_ml": 3.41,
+        "worst_dl": 1.92
+      },
+      "2026": {
+        "windows": 16,
+        "fail_ml": 0,
+        "worst_ml": 4.77,
+        "worst_dl": 1.47
+      }
+    },
+    "LS_on": {
+      "2015": {
+        "windows": 41,
+        "fail_ml": 0,
+        "worst_ml": 6.18,
+        "worst_dl": 1.82
+      },
+      "2016": {
+        "windows": 44,
+        "fail_ml": 0,
+        "worst_ml": 7.99,
+        "worst_dl": 2.13
+      },
+      "2017": {
+        "windows": 43,
+        "fail_ml": 0,
+        "worst_ml": 5.23,
+        "worst_dl": 2.6
+      },
+      "2018": {
+        "windows": 44,
+        "fail_ml": 2,
+        "worst_ml": 12.87,
+        "worst_dl": 2.42
+      },
+      "2019": {
+        "windows": 42,
+        "fail_ml": 2,
+        "worst_ml": 10.95,
+        "worst_dl": 2.97
+      },
+      "2020": {
+        "windows": 41,
+        "fail_ml": 0,
+        "worst_ml": 7.22,
+        "worst_dl": 3.39
+      },
+      "2021": {
+        "windows": 35,
+        "fail_ml": 0,
+        "worst_ml": 5.79,
+        "worst_dl": 2
+      },
+      "2022": {
+        "windows": 44,
+        "fail_ml": 7,
+        "worst_ml": 13.4,
+        "worst_dl": 2.39
+      },
+      "2023": {
+        "windows": 55,
+        "fail_ml": 0,
+        "worst_ml": 6.88,
+        "worst_dl": 5.17
+      },
+      "2024": {
+        "windows": 39,
+        "fail_ml": 0,
+        "worst_ml": 4.56,
+        "worst_dl": 3.31
+      },
+      "2025": {
+        "windows": 45,
+        "fail_ml": 0,
+        "worst_ml": 6.38,
+        "worst_dl": 2.36
+      },
+      "2026": {
+        "windows": 15,
+        "fail_ml": 0,
+        "worst_ml": 4.65,
+        "worst_dl": 1.64
+      }
+    }
+  }
+}
