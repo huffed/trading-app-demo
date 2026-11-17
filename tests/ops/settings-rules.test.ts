@@ -21,12 +21,16 @@ describe(".claude/settings.json permission rules", () => {
     "Bash(gh pr merge)",
     "Bash(gh pr merge *)",
     "Edit(/vitest.config.*)",
-    "Edit(/.lintstagedrc*)",
+    "Edit(/**/.lintstagedrc*)",
+    "Edit(/**/lint-staged.config.*)",
     "Edit(/eslint.config*)",
-    "Edit(/.prettierrc*)",
-    "Edit(/prettier.config.*)",
+    "Edit(/scripts/dev/**)",
+    "Edit(/**/.prettierrc*)",
+    "Edit(/**/prettier.config.*)",
     "Edit(/Makefile)",
-    "Edit(/package.json)",
+    "Edit(/**/package.json)",
+    "Edit(/.npmrc)",
+    "Edit(/pnpm-workspace.yaml)",
   ])("asks before %s", (rule) => {
     expect(settings.permissions.ask).toContain(rule);
   });

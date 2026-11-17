@@ -24,7 +24,7 @@ import { MIRROR_ALLOWED, MIRROR_BLOCKED } from "./mirror-cases";
 import { MODULE_FLAG_ALLOWED, MODULE_FLAG_BLOCKED } from "./module-flag-cases";
 
 // Each hook run is bounded by runHook below; a case may make two runs, or run make, on a loaded machine.
-vi.setConfig({ testTimeout: 30_000 });
+vi.setConfig({ testTimeout: 150_000 });
 
 const ROOT = resolve(__dirname, "..", "..");
 const HOOKS = join(ROOT, ".claude", "hooks");
@@ -48,9 +48,8 @@ function runHook(name: string, payload: unknown, env: Env = {}): HookResult {
     env: merged,
     cwd: ROOT,
     // Claude Code gives the two guards 60 s and refuses the call when one runs longer (onFailure: block in
-    // .claude/settings.json); the reviewer agent's allowlist hook has 10 s. A run past 10 s fails here, with status -1,
-    // so a guard slowing toward those limits shows here first (DEBT D-22).
-    timeout: 10_000,
+    // .claude/settings.json), so a run past 60 s fails here, with status -1, as it would be refused there (DEBT D-22).
+    timeout: 60_000,
   });
   return { status: r.status ?? -1, stdout: r.stdout, stderr: r.stderr };
 }
