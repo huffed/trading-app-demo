@@ -155,6 +155,8 @@ const eslintConfig = defineConfig([
       curly: "off",
       "max-lines-per-function": "off",
       "no-nested-ternary": "off",
+      "max-lines": "off",
+      "no-unneeded-ternary": "off",
     },
   },
 
