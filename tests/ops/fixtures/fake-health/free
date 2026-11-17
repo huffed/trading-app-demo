@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Fake free -m.
+echo "              total        used        free"
+echo "Mem:           3814         650        3164"

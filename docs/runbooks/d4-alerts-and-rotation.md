@@ -32,4 +32,18 @@ Then one ledger row (`HEARTBEAT_PING_URL appended on the host`, the time, the he
 
 When `scripts/ops/notify-failure.sh` or `ops-health.sh` change in the repo, repeat the `install` line: the host runs the installed copies, not the checkout's.
 
+## The paused-pairs count (2026-11-17)
+
+`ops-health.sh` adds `paused-pairs=N` to the daily summary: the watchlist pairs the pair-quality evaluator auto-paused on an active algorithm, which the scan then skips without a word. It reads them through the backups' read-only role (`BACKUP_DATABASE_URL`, decision 0011) with the server verified against `/usr/local/lib/quanttrader/supabase-prod-ca-2021.crt`, so it goes on the host after the `verify-full` install of `docs/runbooks/d6-backups.md`, which puts that certificate there. Above zero, the summary lists the pairs and goes out at high priority; a read that fails says `paused-pairs=?` and also goes out at high priority. Host steps, as `ops`, from a workstation checkout of `origin/dev` once the PR is merged; the first prints `SAME` when the checkout's script is `origin/dev`'s:
+
+```bash
+git fetch -q origin && git diff --quiet origin/dev -- ':(top)scripts/ops/ops-health.sh' && echo SAME
+scp scripts/ops/ops-health.sh qt:/tmp/ops-health-pp.sh
+ssh qt 'sudo -n install -m 755 /tmp/ops-health-pp.sh /usr/local/lib/quanttrader/ops-health.sh && rm -f /tmp/ops-health-pp.sh && ls -l /usr/local/lib/quanttrader/ops-health.sh'
+ssh qt '/usr/local/lib/quanttrader/ops-health.sh >> /var/log/quanttrader/ops-health.log 2>&1'
+make logs LOG=ops-health N=2
+```
+
+The fourth line sends one extra daily summary, and prunes deploy logs older than 30 days as the 07:05 run does. It passes when that summary has `paused-pairs=` followed by a number. `paused-pairs=?` means the read failed: the env file's `BACKUP_DATABASE_URL` or the certificate is missing, or the database refused; change nothing and tell the session. **Rollback:** install the previous script the same way, from `git show <merge-commit>^:scripts/ops/ops-health.sh > /tmp/ops-health-pp.sh`, copied with `scp /tmp/ops-health-pp.sh qt:/tmp/`.
+
 Verification: `make logs LOG=ops-health N=2` after 07:05 UTC the next day (done 2026-11-02: logged and pushed); the two test pushes received on the phone (done 2026-11-02 after a resend about 6½ minutes apart, 17:40:20Z and 17:46:58Z — of the first pair, sent 2 s apart, only one arrived, unexplained); `ls -la /var/log/quanttrader/` after the first weekly rotation (`.1` files owned by `ops`, `deploys.log` untouched; the weekly run falls on Sunday, so probably 2026-11-08 00:00 UTC, checked on 2026-11-09); after the next `make deploy`, its restart ends the unit `inactive` (not `failed`) and sends no failure push; the healthchecks.io dashboard shows the pings (operator; not yet recorded).
