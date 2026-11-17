@@ -1,0 +1,19 @@
+# Production crontab — the `ops` user's since D.2, 2026-10-31 16:45Z (decision 0007; root's was removed
+# in the same minute, see the runbook). UTC. PATH is set because cron's default (/usr/bin:/bin) has no pnpm or
+# node: three wrappers (broker-health, m1-band-check, cohort-report) run `pnpm dlx tsx …` and the
+# E2.29 incident was exactly this silent "command not found". Each wrapper reads CRON_SECRET from
+# /opt/quanttrader/.env.local on every run, calls the server on loopback and appends to
+# /var/log/quanttrader/<name>.log. Apply as ops: crontab ops/crontab
+PATH=/usr/local/bin:/usr/bin:/bin
+*/15 * * * * /opt/quanttrader/scripts/scan-cron.sh >> /var/log/quanttrader/scan.log 2>&1
+*/5 * * * * /opt/quanttrader/scripts/manage-cron.sh >> /var/log/quanttrader/manage.log 2>&1
+*/5 * * * * /opt/quanttrader/scripts/heartbeat-cron.sh >> /var/log/quanttrader/heartbeat.log 2>&1
+*/20 * * * * /opt/quanttrader/scripts/oanda-positioning-cron.sh >> /var/log/quanttrader/oanda-positioning.log 2>&1
+0 4 * * * /opt/quanttrader/scripts/prune-sentiment-cache-cron.sh >> /var/log/quanttrader/prune.log 2>&1
+0 23 * * 0 /opt/quanttrader/scripts/cohort-report-cron.sh >> /var/log/quanttrader/cohort-report.log 2>&1
+10 */6 * * * /opt/quanttrader/scripts/alpha-decay-cron.sh >> /var/log/quanttrader/alpha-decay.log 2>&1
+0 */6 * * * /opt/quanttrader/scripts/broker-health-snapshot-cron.sh >> /var/log/quanttrader/broker-health.log 2>&1
+*/30 * * * * /opt/quanttrader/scripts/reconcile-broker-positions-cron.sh >> /var/log/quanttrader/reconcile.log 2>&1
+30 21 * * * /opt/quanttrader/scripts/m1-band-check-cron.sh >> /var/log/quanttrader/m1-band-check.log 2>&1
+5 7 * * * /usr/local/lib/quanttrader/ops-health.sh >> /var/log/quanttrader/ops-health.log 2>&1
+22 2 * * * /usr/local/lib/quanttrader/backup.sh >> /var/log/quanttrader/backup.log 2>&1

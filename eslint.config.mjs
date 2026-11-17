@@ -3,6 +3,7 @@ import nextVitals from "eslint-config-next/core-web-vitals";
 import nextTs from "eslint-config-next/typescript";
 import prettier from "eslint-config-prettier";
 import importPlugin from "eslint-plugin-import-x";
+import { RESEARCH_SCRIPTS, SCRIPT_IGNORE_GLOBS } from "./scripts/dev/checked-scripts.mjs";
 
 const eslintConfig = defineConfig([
   ...nextVitals,
@@ -104,18 +105,45 @@ const eslintConfig = defineConfig([
     },
   },
 
-  // Override default ignores of eslint-config-next. `scripts/` is one-off
-  // CLI tooling (data analysis, ad-hoc maintenance) — console.log is the
-  // intended output channel there, and the production code rules don't fit.
+  // Override default ignores of eslint-config-next. Live-path scripts
+  // (cron wrappers' TS, deploy, verdict/baseline, data pins, diagnostics)
+  // are linted like src/. The research one-offs are listed by name in
+  // scripts/dev/checked-scripts.mjs (docs/DEBT.md D-20, target 2027-01-31);
+  // the archive and run caches are never linted.
   // database.types.ts is generated (Supabase MCP) — never hand-edited.
   globalIgnores([
     ".next/**",
     "out/**",
     "build/**",
+    "coverage/**",
+    // Claude Code worktrees and local settings live under .claude/ inside the repo.
+    ".claude/**",
     "next-env.d.ts",
-    "scripts/**",
     "src/lib/supabase/database.types.ts",
+    ...SCRIPT_IGNORE_GLOBS,
+    ...RESEARCH_SCRIPTS,
   ]),
+
+  // Live-path scripts: console is their output channel. Three rules are held
+  // at WARN here as the 2026-10-28 baseline (25 object-literal casts, 12 unused
+  // vars, 1 prefer-const across 24 files) because fixing them shifts lines the
+  // audit on review/skeptical-audit-2026-10 cites. New scripts are held to the
+  // strict config (eslint.config.strict.mjs). docs/DEBT.md D-20.
+  {
+    files: ["scripts/**/*.ts", "scripts/**/*.mjs"],
+    rules: {
+      "no-console": "off",
+      "@typescript-eslint/consistent-type-assertions": [
+        "warn",
+        { assertionStyle: "as", objectLiteralTypeAssertions: "never" },
+      ],
+      "@typescript-eslint/no-unused-vars": [
+        "warn",
+        { argsIgnorePattern: "^_", varsIgnorePattern: "^_", ignoreRestSiblings: true },
+      ],
+      "prefer-const": "warn",
+    },
+  },
 
   // CB.E2 (Stage 0.4) — per-file `max-lines: off` overrides for legitimate
   // single-responsibility files. These are not splittable without harming

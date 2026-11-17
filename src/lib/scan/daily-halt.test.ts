@@ -49,6 +49,7 @@
  *   - Default daily_loss_halt_pct (undefined → 100) threads into halt_threshold_pct
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { asFixture } from "@/test-utils/fixture";
 import type { AlgorithmRules } from "@/types/algorithm";
 import {
   checkDailyLossHalt,
@@ -56,7 +57,7 @@ import {
   maybeHaltOnDailyLoss,
   maybeWarnOnDailyLoss,
 } from "./daily-halt";
-import { flattenAlgorithmPositions } from "./flatten";
+import { flattenAlgorithmPositions, type FlattenResult } from "./flatten";
 import { logActivity } from "./helpers";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -94,11 +95,13 @@ interface SupabaseMockBag {
   } | null;
 }
 
-function makeSupabaseDailyHaltMock(opts: {
-  closedData?: ClosedShape[];
-  openData?: OpenShape[];
-  existingWarnings?: ActLogShape[]; // for activity_log idempotency
-} = {}): SupabaseMockBag {
+function makeSupabaseDailyHaltMock(
+  opts: {
+    closedData?: ClosedShape[];
+    openData?: OpenShape[];
+    existingWarnings?: ActLogShape[]; // for activity_log idempotency
+  } = {}
+): SupabaseMockBag {
   const closedQueue: ClosedShape[][] = [opts.closedData ?? []];
   const openQueue: OpenShape[][] = [opts.openData ?? []];
   const activityLogQueue: ActLogShape[][] = [opts.existingWarnings ?? []];
@@ -210,7 +213,9 @@ function makeSupabaseDailyHaltMock(opts: {
 }
 
 // ---- Fixture helpers. -------------------------------------------------
-function makeRules(overrides: { daily_loss_limit?: number; daily_loss_halt_pct?: number } = {}): AlgorithmRules {
+function makeRules(
+  overrides: { daily_loss_limit?: number; daily_loss_halt_pct?: number } = {}
+): AlgorithmRules {
   return {
     timeframe: "4h",
     asset_class: "commodities",
@@ -391,15 +396,20 @@ describe("executeDailyHalt — side effects", () => {
   });
 
   it("positions_flattened reflects flatten's return-array length", async () => {
-    mockedFlatten.mockResolvedValue([
-      { positionId: "p1", brokerClosed: true, paperClosed: true },
-      { positionId: "p2", brokerClosed: true, paperClosed: true },
-      { positionId: "p3", brokerClosed: true, paperClosed: true },
-    ] as Array<{ positionId: string; brokerClosed: boolean; paperClosed: boolean }>);
+    mockedFlatten.mockResolvedValue(
+      asFixture<FlattenResult[]>([
+        { positionId: "p1", brokerClosed: true, paperClosed: true },
+        { positionId: "p2", brokerClosed: true, paperClosed: true },
+        { positionId: "p3", brokerClosed: true, paperClosed: true },
+      ])
+    );
     const { supabase } = makeSupabaseDailyHaltMock();
     await executeDailyHalt(supabase, "user-1", "algo-1", check);
     const call = mockedLogActivity.mock.calls[0];
-    expect((call[2] as { details: { positions_flattened: number } }).details.positions_flattened).toBe(3);
+    expect(
+      (call[2] as unknown as { details: { positions_flattened: number } }).details
+        .positions_flattened
+    ).toBe(3);
   });
 });
 
@@ -475,7 +485,9 @@ describe("maybeHaltOnDailyLoss — orchestrator", () => {
     expect(result).toBe(true); // tripped at -4% (= -5 × 0.8)
     // Confirm threshold made it into the executeDailyHalt payload
     const logCall = mockedLogActivity.mock.calls[0];
-    expect((logCall[2] as { details: { threshold_pct: number } }).details.threshold_pct).toBe(-4);
+    expect(
+      (logCall[2] as unknown as { details: { threshold_pct: number } }).details.threshold_pct
+    ).toBe(-4);
   });
 });
 
@@ -590,7 +602,8 @@ describe("maybeWarnOnDailyLoss — 40% warning + idempotency", () => {
     });
     // halt_threshold_pct = -5 × (80/100) = -4 (the actual halt threshold)
     // warn_threshold_pct = -5 × (40/100) = -2 (the warn threshold used internally)
-    const details = (mockedLogActivity.mock.calls[0][2] as { details: Record<string, number> }).details;
+    const details = (mockedLogActivity.mock.calls[0][2] as { details: Record<string, number> })
+      .details;
     expect(details.halt_threshold_pct).toBe(-4);
     expect(details.warn_threshold_pct).toBe(-2);
   });
@@ -605,7 +618,8 @@ describe("maybeWarnOnDailyLoss — 40% warning + idempotency", () => {
       capital: 10_000,
       rules: makeRules({ daily_loss_limit: 5 }), // no halt_pct override
     });
-    const details = (mockedLogActivity.mock.calls[0][2] as { details: Record<string, number> }).details;
+    const details = (mockedLogActivity.mock.calls[0][2] as { details: Record<string, number> })
+      .details;
     expect(details.halt_threshold_pct).toBe(-5); // -dll × 1.0
   });
 
@@ -619,7 +633,9 @@ describe("maybeWarnOnDailyLoss — 40% warning + idempotency", () => {
       capital: 10_000,
       rules: makeRules({ daily_loss_limit: 5 }),
     });
-    const details = (mockedLogActivity.mock.calls[0][2] as { details: { message: string } }).details;
+    const details = (
+      mockedLogActivity.mock.calls[0][2] as unknown as { details: { message: string } }
+    ).details;
     expect(details.message).toContain("Algo algo-dea"); // first 8 chars
     expect(details.message).toContain("-2.50%"); // todaysPnlPct (-2.5%, formatted to 2dp)
     expect(details.message).toContain("DLL halt");

@@ -23,8 +23,9 @@
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getTodayAnchor } from "@/lib/utils/date";
+import { asFixture } from "@/test-utils/fixture";
 import type { Portfolio } from "@/types/portfolio";
-import { flattenAlgorithmPositions } from "./flatten";
+import { flattenAlgorithmPositions, type FlattenResult } from "./flatten";
 import { logActivity } from "./helpers";
 import {
   checkPortfolioHalt,
@@ -58,21 +59,28 @@ const mockedLogActivity = vi.mocked(logActivity);
 //   3. .from("algorithms").update({...}).eq("id", algoId) per algo.
 type PnlRow = { realized_pnl?: number | null; unrealized_pnl?: number | null };
 
-function makeSupabaseHaltMock(opts: {
-  closedToday?: Array<{ realized_pnl: number | null }>;
-  openNow?: Array<{ unrealized_pnl: number | null }>;
-} = {}): {
+function makeSupabaseHaltMock(
+  opts: {
+    closedToday?: Array<{ realized_pnl: number | null }>;
+    openNow?: Array<{ unrealized_pnl: number | null }>;
+  } = {}
+): {
   supabase: SupabaseClient;
   fromMock: ReturnType<typeof vi.fn>;
   capturedSelects: string[];
-  capturedClosedFilters: { in?: [string, unknown]; eq?: [string, unknown]; gte?: [string, unknown] };
+  capturedClosedFilters: {
+    in?: [string, unknown];
+    eq?: [string, unknown];
+    gte?: [string, unknown];
+  };
   capturedOpenFilters: { in?: [string, unknown]; eq?: [string, unknown] };
   capturedAlgoUpdates: Array<{ payload: unknown; eq: [string, unknown] }>;
 } {
   const capturedSelects: string[] = [];
-  const capturedClosedFilters: typeof returned.capturedClosedFilters = {};
-  const capturedOpenFilters: typeof returned.capturedOpenFilters = {};
-  const capturedAlgoUpdates: typeof returned.capturedAlgoUpdates = [];
+  const capturedClosedFilters: ReturnType<typeof makeSupabaseHaltMock>["capturedClosedFilters"] =
+    {};
+  const capturedOpenFilters: ReturnType<typeof makeSupabaseHaltMock>["capturedOpenFilters"] = {};
+  const capturedAlgoUpdates: ReturnType<typeof makeSupabaseHaltMock>["capturedAlgoUpdates"] = [];
 
   // Builder factory for the paper_positions queries — terminal-thenable
   // pattern. Dispatches captured-filter map by the select column.
@@ -97,10 +105,8 @@ function makeSupabaseHaltMock(opts: {
       capturedClosedFilters.gte = [col, val];
       return builder;
     });
-    builder.then = (
-      onful?: (v: typeof result) => unknown,
-      onrej?: (e: unknown) => unknown
-    ) => Promise.resolve(result).then(onful, onrej);
+    builder.then = (onful?: (v: typeof result) => unknown, onrej?: (e: unknown) => unknown) =>
+      Promise.resolve(result).then(onful, onrej);
     return builder;
   }
 
@@ -155,11 +161,13 @@ function makeSupabaseHaltMock(opts: {
 }
 
 // ---- Fixture helpers. -------------------------------------------------
-function makePortfolio(opts: {
-  capital?: number;
-  dailyLossLimit?: number;
-  dailyLossHaltPct?: number;
-} = {}): Portfolio {
+function makePortfolio(
+  opts: {
+    capital?: number;
+    dailyLossLimit?: number;
+    dailyLossHaltPct?: number;
+  } = {}
+): Portfolio {
   const stub = Object.create(null) as Record<string, unknown>;
   Object.assign(stub, {
     id: "portfolio-1",
@@ -210,9 +218,7 @@ describe("checkPortfolioHalt — null-return paths", () => {
 
   it("returns null when algoIds is empty", async () => {
     const { supabase, fromMock } = makeSupabaseHaltMock();
-    expect(
-      await checkPortfolioHalt(supabase, makePortfolio({ dailyLossLimit: 5 }), [])
-    ).toBeNull();
+    expect(await checkPortfolioHalt(supabase, makePortfolio({ dailyLossLimit: 5 }), [])).toBeNull();
     expect(fromMock).not.toHaveBeenCalled();
   });
 });
@@ -224,18 +230,13 @@ describe("checkPortfolioHalt — null-return paths", () => {
 describe("checkPortfolioHalt — sum computation", () => {
   it("realized = sum of realized_pnl over today's closed trades", async () => {
     const { supabase } = makeSupabaseHaltMock({
-      closedToday: [
-        { realized_pnl: -1500 },
-        { realized_pnl: -800 },
-        { realized_pnl: 200 },
-      ],
+      closedToday: [{ realized_pnl: -1500 }, { realized_pnl: -800 }, { realized_pnl: 200 }],
       openNow: [],
     });
-    const r = await checkPortfolioHalt(
-      supabase,
-      makePortfolio({ dailyLossLimit: 5 }),
-      ["algo-1", "algo-2"]
-    );
+    const r = await checkPortfolioHalt(supabase, makePortfolio({ dailyLossLimit: 5 }), [
+      "algo-1",
+      "algo-2",
+    ]);
     expect(r?.realized).toBe(-2100);
   });
 
@@ -244,11 +245,7 @@ describe("checkPortfolioHalt — sum computation", () => {
       closedToday: [],
       openNow: [{ unrealized_pnl: -300 }, { unrealized_pnl: -100 }],
     });
-    const r = await checkPortfolioHalt(
-      supabase,
-      makePortfolio({ dailyLossLimit: 5 }),
-      ["algo-1"]
-    );
+    const r = await checkPortfolioHalt(supabase, makePortfolio({ dailyLossLimit: 5 }), ["algo-1"]);
     expect(r?.unrealized).toBe(-400);
   });
 
@@ -257,11 +254,7 @@ describe("checkPortfolioHalt — sum computation", () => {
       closedToday: [{ realized_pnl: null }, { realized_pnl: -100 }],
       openNow: [{ unrealized_pnl: null }, { unrealized_pnl: -50 }],
     });
-    const r = await checkPortfolioHalt(
-      supabase,
-      makePortfolio({ dailyLossLimit: 5 }),
-      ["algo-1"]
-    );
+    const r = await checkPortfolioHalt(supabase, makePortfolio({ dailyLossLimit: 5 }), ["algo-1"]);
     expect(r?.realized).toBe(-100);
     expect(r?.unrealized).toBe(-50);
   });
@@ -298,11 +291,9 @@ describe("checkPortfolioHalt — verdict math", () => {
 
     // Default halt-trigger = 100 → threshold = -5%
     const conf2 = makeSupabaseHaltMock();
-    const r2 = await checkPortfolioHalt(
-      conf2.supabase,
-      makePortfolio({ dailyLossLimit: 5 }),
-      ["algo-1"]
-    );
+    const r2 = await checkPortfolioHalt(conf2.supabase, makePortfolio({ dailyLossLimit: 5 }), [
+      "algo-1",
+    ]);
     expect(r2?.threshold_pct).toBe(-5);
   });
 
@@ -341,22 +332,20 @@ describe("checkPortfolioHalt — verdict math", () => {
       closedToday: [{ realized_pnl: -1000 }],
       openNow: [],
     });
-    const r = await checkPortfolioHalt(
-      supabase,
-      makePortfolio({ capital: 0, dailyLossLimit: 5 }),
-      ["algo-1"]
-    );
+    const r = await checkPortfolioHalt(supabase, makePortfolio({ capital: 0, dailyLossLimit: 5 }), [
+      "algo-1",
+    ]);
     expect(r?.todays_pnl_pct).toBe(0);
     expect(r?.tripped).toBe(false); // 0 > -5
   });
 
   it("algos_in_portfolio = algoIds.length (passes through)", async () => {
     const { supabase } = makeSupabaseHaltMock();
-    const r = await checkPortfolioHalt(
-      supabase,
-      makePortfolio({ dailyLossLimit: 5 }),
-      ["algo-1", "algo-2", "algo-3"]
-    );
+    const r = await checkPortfolioHalt(supabase, makePortfolio({ dailyLossLimit: 5 }), [
+      "algo-1",
+      "algo-2",
+      "algo-3",
+    ]);
     expect(r?.algos_in_portfolio).toBe(3);
   });
 });
@@ -368,26 +357,18 @@ describe("checkPortfolioHalt — verdict math", () => {
 describe("checkPortfolioHalt — query construction", () => {
   it("closed query: .in(algorithm_id, algoIds).eq(status, closed).gte(closed_at, startIso)", async () => {
     const conf = makeSupabaseHaltMock();
-    await checkPortfolioHalt(
-      conf.supabase,
-      makePortfolio({ dailyLossLimit: 5 }),
-      ["algo-1", "algo-2"]
-    );
+    await checkPortfolioHalt(conf.supabase, makePortfolio({ dailyLossLimit: 5 }), [
+      "algo-1",
+      "algo-2",
+    ]);
     expect(conf.capturedClosedFilters.in).toEqual(["algorithm_id", ["algo-1", "algo-2"]]);
     expect(conf.capturedClosedFilters.eq).toEqual(["status", "closed"]);
-    expect(conf.capturedClosedFilters.gte).toEqual([
-      "closed_at",
-      "2026-06-22T00:00:00.000Z",
-    ]);
+    expect(conf.capturedClosedFilters.gte).toEqual(["closed_at", "2026-06-22T00:00:00.000Z"]);
   });
 
   it("open query: .in(algorithm_id, algoIds).eq(status, open) — no gte filter", async () => {
     const conf = makeSupabaseHaltMock();
-    await checkPortfolioHalt(
-      conf.supabase,
-      makePortfolio({ dailyLossLimit: 5 }),
-      ["algo-1"]
-    );
+    await checkPortfolioHalt(conf.supabase, makePortfolio({ dailyLossLimit: 5 }), ["algo-1"]);
     expect(conf.capturedOpenFilters.in).toEqual(["algorithm_id", ["algo-1"]]);
     expect(conf.capturedOpenFilters.eq).toEqual(["status", "open"]);
   });
@@ -398,11 +379,7 @@ describe("checkPortfolioHalt — query construction", () => {
       utcIso: "2026-12-31T00:00:00.000Z",
       utcDate: "2026-12-31",
     });
-    await checkPortfolioHalt(
-      conf.supabase,
-      makePortfolio({ dailyLossLimit: 5 }),
-      ["algo-1"]
-    );
+    await checkPortfolioHalt(conf.supabase, makePortfolio({ dailyLossLimit: 5 }), ["algo-1"]);
     expect(conf.capturedClosedFilters.gte?.[1]).toBe("2026-12-31T00:00:00.000Z");
   });
 });
@@ -452,10 +429,12 @@ describe("executePortfolioHalt — side effects per algo", () => {
   });
 
   it("logActivity per algo with portfolio_halt event + rounded payload (3dp pct, 2dp $)", async () => {
-    mockedFlatten.mockResolvedValue([
-      { id: "pos-1", ticker: "XAU/USD" },
-      { id: "pos-2", ticker: "EUR/USD" },
-    ] as Array<{ id: string; ticker: string }>);
+    mockedFlatten.mockResolvedValue(
+      asFixture<FlattenResult[]>([
+        { id: "pos-1", ticker: "XAU/USD" },
+        { id: "pos-2", ticker: "EUR/USD" },
+      ])
+    );
     const { supabase } = makeSupabaseHaltMock();
     await executePortfolioHalt(
       supabase,
@@ -508,9 +487,17 @@ describe("executePortfolioHalt — side effects per algo", () => {
 /** Minimal activity_log query stub: .select().eq().gte().filter().limit().maybeSingle() */
 function makeActivityLogMock(existingRow: { id: string } | null): {
   supabase: SupabaseClient;
-  captured: { eq: Array<[string, unknown]>; gte?: [string, unknown]; filter?: [string, string, unknown] };
+  captured: {
+    eq: Array<[string, unknown]>;
+    gte?: [string, unknown];
+    filter?: [string, string, unknown];
+  };
 } {
-  const captured: { eq: Array<[string, unknown]>; gte?: [string, unknown]; filter?: [string, string, unknown] } = {
+  const captured: {
+    eq: Array<[string, unknown]>;
+    gte?: [string, unknown];
+    filter?: [string, string, unknown];
+  } = {
     eq: [],
   };
   const builder: Record<string, unknown> = {};

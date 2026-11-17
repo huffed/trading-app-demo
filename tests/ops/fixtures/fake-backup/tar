@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# Fake tar: emits a stand-in archive on stdout, or fails after a partial write with fail-tar.
+echo archive
+[ -e "$FAKE_HOST/fail-tar" ] && exit 2
+exit 0

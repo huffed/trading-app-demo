@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# Fake id: the script refuses to run as anyone but ops.
+echo ops

@@ -3,11 +3,8 @@
  * cross freshness.
  */
 import { ema, sma } from "@/lib/market-data/indicators";
+import { closesUpTo } from "./closes";
 import type { Feature } from "./types";
-
-function closesUpTo(bars: Parameters<Feature["compute"]>[0], idx: number): number[] {
-  return bars.slice(0, idx + 1).map((b) => b.close);
-}
 
 const f_ema12_above_ema26: Feature = {
   name: "ema12_above_ema26",
@@ -101,14 +98,14 @@ const f_ema_cross_freshness: Feature = {
     const closes = closesUpTo(bars, idx);
     const e12 = ema(closes, 12);
     const e26 = ema(closes, 26);
-    const startSign = (e12[idx]! - e26[idx]!) > 0;
+    const startSign = e12[idx]! - e26[idx]! > 0;
     const limit = Math.min(500, idx - 26);
     for (let back = 1; back <= limit; back++) {
       const j = idx - back;
       const a = e12[j];
       const b = e26[j];
       if (a == null || b == null) continue;
-      const sign = (a - b) > 0;
+      const sign = a - b > 0;
       if (sign !== startSign) return back;
     }
     return limit;

@@ -20,8 +20,10 @@ import {
   checkMarketStateGateConfig,
   computePositionInRangePct,
   gateConfigModeLabel,
+  type GateVerdict,
 } from "@/lib/algorithm/market-state-gate";
 import type { MarketState } from "@/lib/market-data/market-state";
+import { asFixture } from "@/test-utils/fixture";
 import type { AlgorithmRules } from "@/types/algorithm";
 import type { PaperPosition } from "@/types/position";
 import { checkLlmMarketStateGate } from "./entry-llm-market-state-gate";
@@ -60,9 +62,11 @@ function makeRules(withGate: boolean): AlgorithmRules {
   } as unknown as AlgorithmRules;
 }
 
-function makeCtx(overrides: {
-  rules?: AlgorithmRules;
-} = {}): EntryContext {
+function makeCtx(
+  overrides: {
+    rules?: AlgorithmRules;
+  } = {}
+): EntryContext {
   const supabaseStub = Object.create(null) as SupabaseClient;
   return {
     supabase: supabaseStub,
@@ -108,7 +112,7 @@ beforeEach(() => {
   mockedComputePositionInRangePct.mockReturnValue(50);
   mockedGateConfigModeLabel.mockReturnValue("allow:vol=mid");
   // Default: gate allows + no shadow → pass-through
-  mockedCheckGateConfig.mockReturnValue({ allowed: true });
+  mockedCheckGateConfig.mockReturnValue(asFixture<GateVerdict>({ allowed: true }));
   mockedLogActivity.mockResolvedValue(undefined);
 });
 
@@ -143,17 +147,19 @@ describe("checkLlmMarketStateGate — flat-only + per-algo conditions", () => {
 
 describe("checkLlmMarketStateGate — gate verdict paths", () => {
   it("pass-through { blocked: false } when verdict.allowed=true and no shadow", async () => {
-    mockedCheckGateConfig.mockReturnValue({ allowed: true });
+    mockedCheckGateConfig.mockReturnValue(asFixture<GateVerdict>({ allowed: true }));
     const result = await checkLlmMarketStateGate(makeCtx(), SAMPLE_MARKET_STATE, 3005, null);
     expect(result).toEqual({ blocked: false });
     expect(mockedLogActivity).not.toHaveBeenCalled();
   });
 
   it("emits shadow log (only) when verdict.shadow_block_reason set but verdict.allowed=true", async () => {
-    mockedCheckGateConfig.mockReturnValue({
-      allowed: true,
-      shadow_block_reason: "would block under stricter vol=high",
-    });
+    mockedCheckGateConfig.mockReturnValue(
+      asFixture<GateVerdict>({
+        allowed: true,
+        shadow_block_reason: "would block under stricter vol=high",
+      })
+    );
     const result = await checkLlmMarketStateGate(makeCtx(), SAMPLE_MARKET_STATE, 3005, null);
     // Critically: still returns false — shadow does NOT block.
     expect(result).toEqual({ blocked: false });
@@ -200,9 +206,9 @@ describe("checkLlmMarketStateGate — gate verdict paths", () => {
     expect(result).toEqual({ blocked: true });
     expect(mockedLogActivity).toHaveBeenCalledTimes(2);
     // First call: shadow log
-    expect(mockedLogActivity.mock.calls[0][2].details.reason).toBe("market_state_gate_shadow");
+    expect(mockedLogActivity.mock.calls[0][2].details!.reason).toBe("market_state_gate_shadow");
     // Second call: block log
-    expect(mockedLogActivity.mock.calls[1][2].details.reason).toBe("market_state_gate");
+    expect(mockedLogActivity.mock.calls[1][2].details!.reason).toBe("market_state_gate");
   });
 });
 
@@ -216,7 +222,7 @@ describe("checkLlmMarketStateGate — GateContext construction", () => {
       3005 // currentPrice
     );
     const logCall = mockedLogActivity.mock.calls[0];
-    expect(logCall[2].details.position_in_range_pct).toBe(75);
+    expect(logCall[2].details!.position_in_range_pct).toBe(75);
   });
 
   it("wires entryHourUtc from new Date().getUTCHours() (read at call time)", async () => {
@@ -225,7 +231,7 @@ describe("checkLlmMarketStateGate — GateContext construction", () => {
     const logCall = mockedLogActivity.mock.calls[0];
     // Can't pin the value without freezing time; just verify it's a sane
     // UTC hour (0-23) and that it was set on the gateCtx passed in.
-    const hour = logCall[2].details.entry_hour_utc;
+    const hour = logCall[2].details!.entry_hour_utc;
     expect(typeof hour).toBe("number");
     expect(hour).toBeGreaterThanOrEqual(0);
     expect(hour).toBeLessThanOrEqual(23);
@@ -257,6 +263,6 @@ describe("checkLlmMarketStateGate — specialist fail-closed semantics", () => {
     // And the block log records `market_state: null` so the operator can
     // grep for "unreadable state" patterns.
     const logCall = mockedLogActivity.mock.calls[0];
-    expect(logCall[2].details.market_state).toBeNull();
+    expect(logCall[2].details!.market_state).toBeNull();
   });
 });

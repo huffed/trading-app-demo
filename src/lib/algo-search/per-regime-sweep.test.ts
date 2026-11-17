@@ -5,10 +5,10 @@
  * the absolute +0.10 gate is unreachable.
  */
 import { describe, expect, it } from "vitest";
-import { runPerRegimeSweep } from "./per-regime-sweep";
-import { REGIMES } from "../algorithm/regime-classifier";
-import type { AlgorithmRules } from "@/types/algorithm";
 import type { PriceBar } from "@/lib/market-data/types";
+import type { AlgorithmRules } from "@/types/algorithm";
+import { REGIMES } from "../algorithm/regime-classifier";
+import { runPerRegimeSweep } from "./per-regime-sweep";
 
 function makeRules(): AlgorithmRules {
   return {
@@ -115,7 +115,7 @@ describe("runPerRegimeSweep", () => {
 
   it("passes_gate is exactly dsr_delta >= 0.10 (literal spec)", () => {
     const r = runPerRegimeSweep(ALGO, BARS);
-    expect(r.passes_gate).toBe(r.dsr_delta >= 0.10);
+    expect(r.passes_gate).toBe(r.dsr_delta >= 0.1);
   }, 120_000);
 
   it("DSR values are bounded in [0, 1] (sanity — they're CDF outputs)", () => {

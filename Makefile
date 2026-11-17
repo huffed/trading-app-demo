@@ -1,0 +1,210 @@
+# QuantTrader — one entry point per check. Every target exits non-zero on failure.
+# `make help` lists them. Details and the baseline/target rules: docs/DEV_SETUP.md.
+SHELL := /bin/bash
+# override: `make .DEFAULT_GOAL=unpause` would otherwise run a host target as the default goal
+override .DEFAULT_GOAL := help
+PNPM ?= pnpm
+BASE ?= origin/dev
+# VPS targets read these from the environment inside the recipe ($$VAR) and validate them there.
+# `override X := $(value X)` freezes each as the text it was given, so exporting it to the recipe's
+# environment expands nothing (a command-line `X:=$(shell …)` is expanded by make while it parses its
+# arguments, which the Claude Code Bash guard refuses by refusing `$` in make commands). REF must come
+# from the command line: a REF exported by the shell would turn a bare `make deploy` into a silent rollback.
+ifeq ($(origin REF),environment)
+$(error REF is set in the environment; unset it and pass it on the command line: make deploy REF=<commit|branch|tag>)
+endif
+QT_HOST ?= qt
+REF ?= origin/dev
+# status, logs, kill-switch, resume and unpause share one multiplexed ssh connection (the host's
+# `ufw limit 22/tcp` rejects a source that opens six or more connections in 30 s; the deploy driver keeps
+# its own). The master lives 60 s after the last command and declares a dead connection within 30 s
+# (15 s x 2), so a stale socket costs a stall of about 30-45 s, exit 255 and one re-run. This is the only text make expands into
+# those recipes; `override` keeps a command line or MAKEFLAGS from replacing it (pinned by
+# tests/ops/makefile-host-targets.test.ts).
+override SSH := ssh -o BatchMode=yes -o ConnectTimeout=20 -o ControlMaster=auto -o ControlPath=~/.ssh/qt-make-%C -o ControlPersist=60 -o ServerAliveInterval=15 -o ServerAliveCountMax=2
+LOG ?= scan
+N ?= 40
+QT_MARKET_HOURS_OK ?= 0
+REASON ?= operator
+override QT_HOST := $(value QT_HOST)
+override REASON := $(value REASON)
+override REF := $(value REF)
+override LOG := $(value LOG)
+override N := $(value N)
+override QT_MARKET_HOURS_OK := $(value QT_MARKET_HOURS_OK)
+export QT_HOST REF LOG N QT_MARKET_HOURS_OK REASON
+# The host targets run alone. make runs every goal on its command line, so `make lint-strict FILES=x unpause`
+# would match the pre-approved `make lint-strict *` rule and run the un-pause with no prompt (CLAUDE.md's
+# live-table rule, decision 0010). A host goal beside any other goal, or a MAKECMDGOALS that make did not set
+# itself, is refused while make reads this file, before any recipe runs. .claude/hooks/guard-bash.sh refuses
+# the same shapes, plus flags and overrides before the target, before the command reaches make.
+HOST_GOALS := deploy deploy-pointer status logs kill-switch resume unpause
+# checked before the goal filter: a MAKECMDGOALS supplied from outside names goals make will not run
+# (make leaves it undefined when no goal is given, and defines it itself otherwise)
+ifeq ($(filter default undefined,$(origin MAKECMDGOALS)),)
+$(error MAKECMDGOALS came from the $(origin MAKECMDGOALS), not from make — unset it; the host targets run alone: make <target> [NAME=value])
+endif
+ifneq ($(filter $(HOST_GOALS),$(MAKECMDGOALS)),)
+ifneq ($(words $(MAKECMDGOALS)),1)
+$(error the host targets run alone: make $(firstword $(filter $(HOST_GOALS),$(MAKECMDGOALS))) [NAME=value], with no other goal)
+endif
+endif
+
+.PHONY: help install lint lint-strict lint-shell typecheck format format-check format-all-check \
+        test test-watch build check backtest validate parity db-types db-types-check \
+        secrets-scan secrets-scan-history env-check backtest-update lint-workflows python-env python-lock regime-report fence-check \
+        deploy deploy-pointer status logs kill-switch resume unpause
+
+help: ## List targets
+	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "} {printf "  %-18s %s\n", $$1, $$2}'
+
+install: ## Install dependencies exactly as locked
+	$(PNPM) install --frozen-lockfile
+
+lint: ## ESLint, baseline rules; fails on any error or on more warnings than .eslint-warning-budget
+	$(PNPM) exec eslint . --max-warnings "$$(cat .eslint-warning-budget)"
+
+# lint-strict splits FILES on spaces and passes it NUL-separated: make expands the variable inline,
+# and a path with a Next.js route group such as src/app/(dashboard)/… is a bash syntax error unquoted.
+# Without FILES it lints the code files added vs $(BASE), committed or untracked, as CI checks a PR; that
+# bare form is the only pre-approved one (no pre-approved make rule takes arguments, decision 0010).
+lint-strict: ## ESLint target rule set on FILES=... (default: the code files added vs $(BASE), as CI checks a PR); new code is held to this
+	@set -o pipefail; files="$(FILES)"; \
+	if [ -z "$$files" ]; then \
+	  git rev-parse --verify --quiet '$(BASE)^{commit}' >/dev/null || { echo "lint-strict: $(BASE) not found — git fetch origin"; exit 2; }; \
+	  mb=$$(git merge-base $(BASE) HEAD) || { echo "lint-strict: no merge base between $(BASE) and HEAD"; exit 2; }; \
+	  files=$$({ git diff --name-only --diff-filter=A "$$mb" -- '*.ts' '*.tsx' '*.mjs' '*.js' && git ls-files --others --exclude-standard -- '*.ts' '*.tsx' '*.mjs' '*.js'; } | { grep -vE '^(scripts/archive|scripts/ad-hoc)/' || true; } | sort -u | tr '\n' ' ') || { echo "lint-strict: listing the files added vs $(BASE) failed"; exit 2; }; \
+	fi; \
+	if [ -z "$$(printf '%s' "$$files" | tr -d ' ')" ]; then echo "lint-strict: no code files added vs $(BASE)"; exit 0; fi; \
+	printf '%s' "$$files" | tr ' ' '\n' | grep -v '^$$' | tr '\n' '\0' | xargs -0 $(PNPM) exec eslint --config eslint.config.strict.mjs --no-ignore
+
+lint-shell: ## shellcheck: cron wrappers at the baseline (-S error, see DEBT.md); the Claude hooks, the commit-msg hook and the ops scripts are new code and meet the target (-S warning)
+	shellcheck -S error scripts/*.sh
+	shellcheck -S warning .claude/hooks/*.sh .husky/commit-msg scripts/ops/*.sh ops/*.sh
+
+lint-workflows: ## actionlint on .github/workflows (a workflow GitHub cannot parse fails here, not as a run with no jobs)
+	@command -v actionlint >/dev/null || { echo "actionlint is not installed (brew install actionlint)"; exit 2; }
+	actionlint -no-color
+
+typecheck: ## tsc over src, tests and scripts (test files included)
+	$(PNPM) exec tsc --noEmit -p tsconfig.json
+
+# Files this branch adds or changes vs $(BASE): committed, staged, unstaged and untracked.
+FORMAT_PATTERNS := '*.ts' '*.tsx' '*.mjs' '*.js' '*.json' '*.css'
+define changed_files
+{ git diff --name-only --diff-filter=ACMR $(BASE)...HEAD -- $(FORMAT_PATTERNS); \
+  git diff --name-only --diff-filter=ACMR HEAD -- $(FORMAT_PATTERNS); \
+  git ls-files --others --exclude-standard -- $(FORMAT_PATTERNS); } | sort -u | while read -r f; do [ -f "$$f" ] && echo "$$f"; done
+endef
+
+format: ## Prettier --write on files changed vs $(BASE) (whole-tree format is one dedicated PR after the audit verdict)
+	@files=$$($(changed_files)); \
+	if [ -z "$$files" ]; then echo "format: no changed files vs $(BASE)"; else $(PNPM) exec prettier --write $$files; fi
+
+format-check: ## Prettier --check on files changed vs $(BASE)
+	@files=$$($(changed_files)); \
+	if [ -z "$$files" ]; then echo "format-check: no changed files vs $(BASE)"; else $(PNPM) exec prettier --check $$files; fi
+
+format-all-check: ## Prettier --check on the whole tree (informational until the format PR lands)
+	$(PNPM) exec prettier --check .
+
+test: ## Vitest, once
+	$(PNPM) exec vitest run
+
+test-watch: ## Vitest, watch mode
+	$(PNPM) exec vitest
+
+build: ## Production build
+	$(PNPM) run build
+
+env-check: ## Every env var the app reads is documented by name in .env.example (secret-shaped names in scripts too)
+	node scripts/dev/env-names-check.mjs
+
+fence-check: ## The live-path override and the Stop-hook switch are never set in a committed file (docs/decisions/0004)
+	node scripts/dev/fence-check.mjs
+
+check: lint lint-shell lint-workflows typecheck env-check fence-check db-types-check test ## Everything CI runs, locally
+
+backtest: ## Golden-file replay of the five deployed algorithms on the pinned XAU/USD 4h slice (fails on any changed trade)
+	$(PNPM) exec tsx scripts/golden-replay.ts
+
+backtest-update: ## Regenerate the golden file on purpose (commit it with an explanation)
+	$(PNPM) exec tsx scripts/golden-replay.ts --update
+
+regime-report: ## Vol-regime distribution + daily-bias flips from the pinned XAU/USD corpora (read-only; ARGS="<h4-bars> <days>")
+	$(PNPM) exec tsx scripts/regime-report.ts $(ARGS)
+
+validate: ## Validation harness (wired to review/scripts when the audit lands them on dev)
+	@echo "make validate: not wired yet — the audit's scripts live on review/skeptical-audit-2026-10 (docs/DEBT.md D-20)."; exit 2
+
+parity: ## Live-vs-backtest parity replay (wired to review/scripts/paper-replay.ts when it lands on dev)
+	@echo "make parity: not wired yet — review/scripts/paper-replay.ts is on the audit branch (docs/DEBT.md D-02)."; exit 2
+
+db-types: ## Regenerate src/lib/supabase/database.types.ts from the live schema (needs SUPABASE_ACCESS_TOKEN in the shell) and stamp the manifest
+	node --env-file=.env.local scripts/dev/db-types.mjs generate
+
+db-types-check: ## Fail if supabase/migrations/ changed since database.types.ts was generated (CI)
+	node scripts/dev/db-types.mjs check
+
+secrets-scan: ## gitleaks over the working tree and staged changes (history: make secrets-scan-history)
+	gitleaks dir . --no-banner --redact=100
+	gitleaks git --pre-commit --staged --no-banner --redact=100
+
+secrets-scan-history: ## gitleaks over the full git history (slow: minutes)
+	gitleaks git --no-banner --redact=100
+
+python-env: ## Create scripts/python/.venv from uv.lock
+	uv sync --project scripts/python
+
+python-lock: ## Re-resolve the Python sidecar after editing scripts/python/pyproject.toml
+	uv lock --project scripts/python
+	cd scripts/python && uv export --format requirements-txt --no-hashes --no-emit-project -o requirements.txt
+
+deploy: ## VPS: deploy REF (default origin/dev) with verification, then move the production pointer main; REF=<previous sha> is the rollback (docs/DEV_SETUP.md §17)
+	@scripts/ops/deploy-driver.sh "$$REF"
+
+deploy-pointer: ## Move main to the host's verified running commit (after a `make deploy` whose driver was cut off); reads one file on the host, pushes one ref
+	@scripts/ops/deploy-driver.sh --pointer-only
+
+status: ## VPS: service, checkout vs verified running commit, last verified tick per log, pending reboot (read-only; the status script is streamed from origin/dev) plus origin/dev for comparison
+	@case "$$QT_HOST" in -*|*[!A-Za-z0-9._-]*|"") echo "make status: QT_HOST must be an ssh host alias"; exit 2;; esac; \
+	git fetch --quiet origin && git show origin/dev:scripts/ops/status.sh | $(SSH) -- "$$QT_HOST" 'bash -s' && \
+	echo "origin/dev:  $$(git rev-parse --short=12 origin/dev)"
+
+logs: ## VPS: tail a log, read-only — make logs LOG=scan N=40 (scan manage heartbeat oanda-positioning reconcile alpha-decay broker-health m1-band-check prune cohort-report ops-health backup kill-switch deploys deploy-<stamp>)
+	@case "$$QT_HOST" in -*|*[!A-Za-z0-9._-]*|"") echo "make logs: QT_HOST must be an ssh host alias"; exit 2;; esac; \
+	case "$$LOG" in *[!A-Za-z0-9-]*|"") echo "make logs: LOG must be a log name (letters, digits, -)"; exit 2;; esac; \
+	case "$$N" in *[!0-9]*|"") echo "make logs: N must be a number"; exit 2;; esac; \
+	$(SSH) -- "$$QT_HOST" "tail -n $$N /var/log/quanttrader/$$LOG.log"
+
+# The kill switch and its reverse stream the reviewed script from the LOCAL copy of origin/dev (no fetch:
+# the switch must not depend on GitHub being reachable) over one ssh connection; the host reads its own
+# secrets. The kill switch is the only host command allowed in market hours (the one other exception: appending
+# the HEARTBEAT_PING_URL line, docs/runbooks/d4-alerts-and-rotation.md); the three are the only way a session
+# writes to the live tables (CLAUDE.md, decision 0010): each prompts every time (`ask` in .claude/settings.json, never in an
+# allow list; the single-goal check above and guard-bash keep a pre-approved goal from carrying them;
+# tests/ops/makefile-host-targets.test.ts checks all of it), runs only when the operator asks for it, and
+# writes its ledger line (the row in docs/decisions/deploys.md is copied from it; DEBT D-24 lists the two
+# paths that still miss the line).
+kill-switch: ## EMERGENCY: disable the crons, pause every active algorithm, flatten their positions, stop + disable the service, alert, ledger line — idempotent, fails closed, exits non-zero on any failed step; prompts every time, never pre-approved (docs/runbooks/kill-switch.md). REASON=<word>
+	@set -o pipefail; \
+	case "$$QT_HOST" in -*|*[!A-Za-z0-9._-]*|"") echo "make kill-switch: QT_HOST must be an ssh host alias"; exit 2;; esac; \
+	case "$$REASON" in *[!A-Za-z0-9_.-]*|"") echo "make kill-switch: REASON must be one word (letters, digits, _ . -)"; exit 2;; esac; \
+	[ "$${#REASON}" -le 40 ] || { echo "make kill-switch: REASON must be at most 40 characters"; exit 2; }; \
+	git cat-file -e origin/dev:scripts/ops/kill-switch.sh 2>/dev/null || { echo "make kill-switch: scripts/ops/kill-switch.sh is not in your local origin/dev — run: git fetch origin"; exit 2; }; \
+	echo "kill-switch: streaming scripts/ops/kill-switch.sh from local origin/dev $$(git rev-parse --short=12 origin/dev) to $$QT_HOST"; \
+	git show origin/dev:scripts/ops/kill-switch.sh | $(SSH) -- "$$QT_HOST" "bash -s -- $$REASON"
+
+resume: ## Reverse the kill switch's stop: enable + start the service, restore the crontab only if no algorithm is active, verify the next ticks, alert, ledger line — algorithms stay paused (make unpause is the operator's act); prompts every time, never pre-approved
+	@set -o pipefail; \
+	case "$$QT_HOST" in -*|*[!A-Za-z0-9._-]*|"") echo "make resume: QT_HOST must be an ssh host alias"; exit 2;; esac; \
+	git cat-file -e origin/dev:scripts/ops/resume.sh 2>/dev/null || { echo "make resume: scripts/ops/resume.sh is not in your local origin/dev — run: git fetch origin"; exit 2; }; \
+	echo "resume: streaming scripts/ops/resume.sh from local origin/dev $$(git rev-parse --short=12 origin/dev) to $$QT_HOST"; \
+	git show origin/dev:scripts/ops/resume.sh | $(SSH) -- "$$QT_HOST" 'bash -s'
+
+unpause: ## Re-activate exactly the algorithms the kill switch paused (its saved id list), ledger line — the operator's deliberate act after a resume; prompts every time, never pre-approved
+	@set -o pipefail; \
+	case "$$QT_HOST" in -*|*[!A-Za-z0-9._-]*|"") echo "make unpause: QT_HOST must be an ssh host alias"; exit 2;; esac; \
+	git cat-file -e origin/dev:scripts/ops/unpause.sh 2>/dev/null || { echo "make unpause: scripts/ops/unpause.sh is not in your local origin/dev — run: git fetch origin"; exit 2; }; \
+	echo "unpause: streaming scripts/ops/unpause.sh from local origin/dev $$(git rev-parse --short=12 origin/dev) to $$QT_HOST"; \
+	git show origin/dev:scripts/ops/unpause.sh | $(SSH) -- "$$QT_HOST" 'bash -s'

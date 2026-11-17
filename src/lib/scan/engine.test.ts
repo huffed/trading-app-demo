@@ -60,6 +60,7 @@ import { getCachedPrices } from "@/lib/market-data/price-cache";
 import { fetchDailyPrices } from "@/lib/market-data/prices";
 import { fetchBatchQuotes } from "@/lib/market-data/twelve-data";
 import type { PriceBar } from "@/lib/market-data/types";
+import { asFixture } from "@/test-utils/fixture";
 import type { AlgorithmRules } from "@/types/algorithm";
 import { maybeHaltOnDailyLoss, maybeWarnOnDailyLoss } from "./daily-halt";
 import { detectDrift, executeDriftHalt } from "./drift-detector";
@@ -117,7 +118,9 @@ interface SupabaseMockBag {
   capturedUpdate: { payload: unknown; eq: [string, unknown] | null } | null;
 }
 
-function makeSupabaseMock(opts: { openPositions?: unknown[]; backtestResults?: unknown } = {}): SupabaseMockBag {
+function makeSupabaseMock(
+  opts: { openPositions?: unknown[]; backtestResults?: unknown } = {}
+): SupabaseMockBag {
   let capturedUpdate: SupabaseMockBag["capturedUpdate"] = null;
 
   const fromMock = vi.fn().mockImplementation((table: string) => {
@@ -177,10 +180,12 @@ function makeBars(n: number): PriceBar[] {
   }));
 }
 
-function makeAlgo(opts: {
-  watchlist?: Array<{ ticker: string; name: string; auto_paused?: boolean }>;
-  rules?: Partial<AlgorithmRules>;
-} = {}) {
+function makeAlgo(
+  opts: {
+    watchlist?: Array<{ ticker: string; name: string; auto_paused?: boolean }>;
+    rules?: Partial<AlgorithmRules>;
+  } = {}
+) {
   return {
     id: "algo-1",
     name: "Test",
@@ -276,7 +281,9 @@ describe("scanAlgorithm — halt gating", () => {
     expect(r.tickers_scanned).toBe(0);
     expect(mockedProcessTicker).not.toHaveBeenCalled();
     // scan_started fired BEFORE halt check; scan_completed did NOT
-    const eventTypes = mockedLogActivity.mock.calls.map((c) => (c[2] as { event_type: string }).event_type);
+    const eventTypes = mockedLogActivity.mock.calls.map(
+      (c) => (c[2] as { event_type: string }).event_type
+    );
     expect(eventTypes).toContain("scan_started");
     expect(eventTypes).not.toContain("scan_completed");
   });
@@ -291,7 +298,9 @@ describe("scanAlgorithm — halt gating", () => {
   it("scan_started + scan_completed both logged on happy path", async () => {
     const { supabase } = makeSupabaseMock();
     await scanAlgorithm(supabase, "user-1", makeAlgo());
-    const eventTypes = mockedLogActivity.mock.calls.map((c) => (c[2] as { event_type: string }).event_type);
+    const eventTypes = mockedLogActivity.mock.calls.map(
+      (c) => (c[2] as { event_type: string }).event_type
+    );
     expect(eventTypes).toContain("scan_started");
     expect(eventTypes).toContain("scan_completed");
   });
@@ -322,7 +331,9 @@ describe("scanAlgorithm — DXY conditional fetch", () => {
     const { supabase } = makeSupabaseMock();
     const dxyBars = makeBars(40);
     mockedGetCached.mockResolvedValueOnce(dxyBars); // first call: DXY
-    const algo = makeAlgo({ rules: { dxy_filter: { enabled: true } } as unknown as Partial<AlgorithmRules> });
+    const algo = makeAlgo({
+      rules: { dxy_filter: { enabled: true } } as unknown as Partial<AlgorithmRules>,
+    });
     await scanAlgorithm(supabase, "user-1", algo);
     expect(mockedGetCached).toHaveBeenCalledWith("EUR/USD", "full", "1h");
     // Direct call-args inspection (expect.anything() doesn't match null,
@@ -334,7 +345,9 @@ describe("scanAlgorithm — DXY conditional fetch", () => {
     const { supabase } = makeSupabaseMock();
     const dxyBars = makeBars(40);
     mockedGetCached.mockResolvedValueOnce(dxyBars);
-    const algo = makeAlgo({ rules: { llm_trader: { enabled: true } } as unknown as Partial<AlgorithmRules> });
+    const algo = makeAlgo({
+      rules: { llm_trader: { enabled: true } } as unknown as Partial<AlgorithmRules>,
+    });
     await scanAlgorithm(supabase, "user-1", algo);
     expect(mockedGetCached).toHaveBeenCalledWith("EUR/USD", "full", "1h");
   });
@@ -352,7 +365,9 @@ describe("scanAlgorithm — DXY conditional fetch", () => {
     const { supabase } = makeSupabaseMock();
     mockedGetCached.mockResolvedValueOnce(null); // first call: DXY → miss
     mockedFetchDaily.mockRejectedValueOnce(new Error("network"));
-    const algo = makeAlgo({ rules: { dxy_filter: { enabled: true } } as unknown as Partial<AlgorithmRules> });
+    const algo = makeAlgo({
+      rules: { dxy_filter: { enabled: true } } as unknown as Partial<AlgorithmRules>,
+    });
     await expect(scanAlgorithm(supabase, "user-1", algo)).resolves.toBeDefined();
     expect(mockedProcessTicker.mock.calls[0][9]).toBeNull(); // fell back to null
   });
@@ -376,7 +391,12 @@ describe("scanAlgorithm — intermarket conditional fetch", () => {
       if (ticker === "^VIX") return vixBars;
       return null;
     });
-    const algo = makeAlgo({ rules: { llm_trader: { enabled: true }, asset_class: "commodity" } as unknown as Partial<AlgorithmRules> });
+    const algo = makeAlgo({
+      rules: {
+        llm_trader: { enabled: true },
+        asset_class: "commodity",
+      } as unknown as Partial<AlgorithmRules>,
+    });
     await scanAlgorithm(supabase, "user-1", algo);
     // All three intermarket tickers cached-fetched
     const cachedTickers = mockedGetCached.mock.calls.map((c) => c[0]);
@@ -390,7 +410,12 @@ describe("scanAlgorithm — intermarket conditional fetch", () => {
 
   it("llm_trader enabled but NOT commodity → intermarket=null", async () => {
     const { supabase } = makeSupabaseMock();
-    const algo = makeAlgo({ rules: { llm_trader: { enabled: true }, asset_class: "forex" } as unknown as Partial<AlgorithmRules> });
+    const algo = makeAlgo({
+      rules: {
+        llm_trader: { enabled: true },
+        asset_class: "forex",
+      } as unknown as Partial<AlgorithmRules>,
+    });
     await scanAlgorithm(supabase, "user-1", algo);
     expect(mockedProcessTicker.mock.calls[0][10]).toBeNull();
     // XAG/USD NOT fetched
@@ -449,11 +474,13 @@ describe("scanAlgorithm — post-close analytics gating", () => {
       result.tickers_scanned++;
       result.positions_closed++;
     });
-    mockedEvalPrune.mockResolvedValue([
-      { ticker: "XAU/USD", pruned: true, reason: "low_winrate", stats: { wr: 0.1 } },
-      { ticker: "EUR/USD", pruned: true, reason: "already_paused", stats: {} }, // skipped
-      { ticker: "GBP/USD", pruned: false, reason: "ok", stats: { wr: 0.6 } }, // not pruned
-    ] as Array<{ ticker: string; pruned: boolean; reason: string; stats: Record<string, unknown> }>);
+    mockedEvalPrune.mockResolvedValue(
+      asFixture<Awaited<ReturnType<typeof evaluateAndPrune>>>([
+        { ticker: "XAU/USD", pruned: true, reason: "low_winrate", stats: { wr: 0.1 } },
+        { ticker: "EUR/USD", pruned: true, reason: "already_paused", stats: {} }, // skipped
+        { ticker: "GBP/USD", pruned: false, reason: "ok", stats: { wr: 0.6 } }, // not pruned
+      ])
+    );
     await scanAlgorithm(supabase, "user-1", makeAlgo());
     const autoPauseLogs = mockedLogActivity.mock.calls.filter(
       (c) => (c[2] as { event_type: string }).event_type === "pair_auto_paused"

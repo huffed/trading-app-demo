@@ -23,11 +23,7 @@ import {
   evaluateConditionsDetailed,
 } from "@/lib/conditions/evaluate";
 import { resampleTo, resampleToDaily } from "@/lib/market-data/resample";
-import type {
-  AlgorithmRules,
-  PatternCondition,
-  TechnicalCondition,
-} from "@/types/algorithm";
+import type { AlgorithmRules, PatternCondition, TechnicalCondition } from "@/types/algorithm";
 import {
   checkEntryConditions,
   pickConvictionMultiplier,
@@ -124,7 +120,7 @@ describe("snapshotCondition — type-discriminated serializer", () => {
   it("pattern condition with optional ma_period unset → ma_period undefined", () => {
     const c: PatternCondition = {
       type: "pattern",
-      pattern: "sweep_reclaim",
+      pattern: "sweep_reclaim" as PatternCondition["pattern"],
       direction: "bearish",
       lookback: 10,
       timeframe: "1h",
@@ -162,7 +158,12 @@ describe("pickConvictionMultiplier — dispatch over rules.position_sizing", () 
   const sampleGate = { met: 3, total: 5, firedTfs: 2, totalTfs: 3 };
 
   it("returns 1 for non-conviction_scaled sizing types", () => {
-    for (const type of ["percentage_of_capital", "fixed_amount", "lots", "risk_per_trade"] as const) {
+    for (const type of [
+      "percentage_of_capital",
+      "fixed_amount",
+      "lots",
+      "risk_per_trade",
+    ] as const) {
       const result = pickConvictionMultiplier(rules(makeSizing({ type, value: 1 })), sampleGate);
       expect(result).toBe(1);
       // None of the multiplier helpers should be called for non-conviction sizing
@@ -225,7 +226,9 @@ const TECH_SMA: TechnicalCondition = {
   timeframe: "4h",
 };
 
-const BARS = [{ date: "2026-06-22T10:00:00Z", open: 3000, high: 3010, low: 2990, close: 3005, volume: 100 }];
+const BARS = [
+  { date: "2026-06-22T10:00:00Z", open: 3000, high: 3010, low: 2990, close: 3005, volume: 100 },
+];
 const CLOSES = [3005];
 
 describe("checkEntryConditions — empty + gate-pass paths", () => {
@@ -376,7 +379,7 @@ describe("checkEntryConditions — gate-fail paths log signal_no_action", () => 
     );
     expect(result.pass).toBe(false);
     expect(mockedLogActivity).toHaveBeenCalledOnce();
-    expect(mockedLogActivity.mock.calls[0][2].details.entry_logic).toBe("any");
+    expect(mockedLogActivity.mock.calls[0][2].details!.entry_logic).toBe("any");
   });
 
   it("n_of_m logic + met<n → pass:false + log fires with 'n_of_m(N)' label", async () => {
@@ -398,7 +401,7 @@ describe("checkEntryConditions — gate-fail paths log signal_no_action", () => 
     );
     expect(result.pass).toBe(false);
     const logCall = mockedLogActivity.mock.calls[0];
-    expect(logCall[2].details.entry_logic).toBe("n_of_m(2)");
+    expect(logCall[2].details!.entry_logic).toBe("n_of_m(2)");
   });
 
   it("log breakdown includes snapshotCondition fields + timeframe + met per condition", async () => {
@@ -419,7 +422,7 @@ describe("checkEntryConditions — gate-fail paths log signal_no_action", () => 
       "all"
     );
     const logCall = mockedLogActivity.mock.calls[0];
-    const breakdown = logCall[2].details.conditions_breakdown;
+    const breakdown = logCall[2].details!.conditions_breakdown;
     expect(breakdown).toEqual([
       {
         type: "technical",

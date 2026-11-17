@@ -33,17 +33,15 @@ import {
   fetchEconomicCalendar,
   getEventCurrencies,
   isWithinVetoWindow,
+  type EconomicEvent,
 } from "@/lib/market-data/economic-calendar";
 import { computeMarketState4h } from "@/lib/market-data/market-state";
 import { getCachedPrices, savePricesToCache } from "@/lib/market-data/price-cache";
 import { fetchDailyPrices } from "@/lib/market-data/prices";
 import { resampleTo } from "@/lib/market-data/resample";
+import { asFixture } from "@/test-utils/fixture";
 import type { AlgorithmRules } from "@/types/algorithm";
-import {
-  checkDirectionConflict,
-  checkNewsVeto,
-  computeLiveMarketState,
-} from "./entry-gates";
+import { checkDirectionConflict, checkNewsVeto, computeLiveMarketState } from "./entry-gates";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 // ---- Mocks. -----------------------------------------------------------
@@ -79,10 +77,12 @@ const mockedResampleTo = vi.mocked(resampleTo);
 // The select chain is .from(t).select(c).eq(...).eq(...).eq(...).eq(...).neq(...)
 // where the FINAL .neq awaits a `{data, error}` promise. Build a chainable
 // stub where every method returns `this` until the terminal `.neq(...)`.
-function makeSupabaseConflictMock(opts: {
-  data?: Array<{ algorithm_id: string }> | null;
-  error?: { message: string } | null;
-} = {}): {
+function makeSupabaseConflictMock(
+  opts: {
+    data?: Array<{ algorithm_id: string }> | null;
+    error?: { message: string } | null;
+  } = {}
+): {
   supabase: SupabaseClient;
   fromMock: ReturnType<typeof vi.fn>;
   capturedEqCalls: Array<[string, unknown]>;
@@ -205,12 +205,14 @@ describe("checkDirectionConflict — supabase select + verdict", () => {
 // checkNewsVeto
 // ======================================================================
 
-function makeRulesWithVeto(opts: {
-  enabled?: boolean;
-  before?: number;
-  after?: number;
-  min_impact?: "low" | "medium" | "high";
-} = {}): AlgorithmRules {
+function makeRulesWithVeto(
+  opts: {
+    enabled?: boolean;
+    before?: number;
+    after?: number;
+    min_impact?: "low" | "medium" | "high";
+  } = {}
+): AlgorithmRules {
   if (opts.enabled === false) {
     return { news_veto: { enabled: false } } as unknown as AlgorithmRules;
   }
@@ -258,11 +260,13 @@ describe("checkNewsVeto", () => {
 
   it("returns vetoed:true with formatted reason when isWithinVetoWindow returns hit", async () => {
     mockedGetEventCurrencies.mockReturnValue(["USD"]);
-    mockedIsWithinVetoWindow.mockReturnValue({
-      currency: "USD",
-      event: "FOMC Rate Decision",
-      impact: "high",
-    });
+    mockedIsWithinVetoWindow.mockReturnValue(
+      asFixture<EconomicEvent>({
+        currency: "USD",
+        event: "FOMC Rate Decision",
+        impact: "high",
+      })
+    );
     const result = await checkNewsVeto(makeRulesWithVeto(), "XAU/USD");
     expect(result).toEqual({
       vetoed: true,
@@ -350,12 +354,7 @@ describe("computeLiveMarketState", () => {
     await computeLiveMarketState("XAU/USD", "4h", BARS_4H);
     expect(mockedFetchDailyPrices).toHaveBeenCalledWith("XAU/USD", "compact", "1h");
     // Fresh bars are persisted to cache (best-effort, .catch(() => {}))
-    expect(mockedSavePricesToCache).toHaveBeenCalledWith(
-      "XAU/USD",
-      "compact",
-      freshBars,
-      "1h"
-    );
+    expect(mockedSavePricesToCache).toHaveBeenCalledWith("XAU/USD", "compact", freshBars, "1h");
     // State computer receives the fresh bars (not the sparse cached ones)
     const [stateInput] = mockedComputeMarketState4h.mock.calls[0];
     expect(stateInput.oneHourBars).toBe(freshBars);

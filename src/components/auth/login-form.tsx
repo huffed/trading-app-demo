@@ -6,24 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { createClient } from "@/lib/supabase/client";
-
-function EmailField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  return (
-    <div className="flex flex-col gap-2">
-      <label htmlFor="email" className="text-sm font-medium">
-        Email
-      </label>
-      <Input
-        id="email"
-        type="email"
-        placeholder="you@example.com"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        required
-      />
-    </div>
-  );
-}
+import { EmailField } from "./email-field";
 
 function PasswordField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   return (

@@ -1,0 +1,8 @@
+# Runs on every commit. Fails the commit on the first problem; nothing is auto-skipped.
+# One-off bypass (document why in the PR): git commit --no-verify
+command -v gitleaks >/dev/null 2>&1 || {
+  echo "pre-commit: gitleaks is not installed (brew install gitleaks). Refusing to commit without a secrets scan." >&2
+  exit 1
+}
+gitleaks git --pre-commit --staged --no-banner --redact=100
+pnpm exec lint-staged

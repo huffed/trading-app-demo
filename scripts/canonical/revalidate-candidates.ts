@@ -43,17 +43,17 @@
  */
 import { readFileSync } from "fs";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { computeDeflatedSharpe, type DeflatedSharpeResult } from "../../src/lib/stats/deflated-sharpe";
 import { timeframeToInterval } from "../../src/lib/market-data/interval";
 import { runPortfolioBacktest } from "../../src/lib/market-data/portfolio-backtest";
 import {
-  computeProbabilityOfBacktestOverfitting,
-  type PboResult,
-} from "../../src/lib/stats/pbo";
-import type { Database } from "../../src/lib/supabase/database.types";
-import type { BacktestTrade, PriceBar } from "../../src/lib/market-data/types";
-import type { AlgorithmRules } from "../../src/types/algorithm";
+  computeDeflatedSharpe,
+  type DeflatedSharpeResult,
+} from "../../src/lib/stats/deflated-sharpe";
+import { computeProbabilityOfBacktestOverfitting, type PboResult } from "../../src/lib/stats/pbo";
 import { loadPinnedForInterval, pinnedSessionDaily } from "./lib/pinned-eval";
+import type { BacktestTrade, PriceBar } from "../../src/lib/market-data/types";
+import type { Database } from "../../src/lib/supabase/database.types";
+import type { AlgorithmRules } from "../../src/types/algorithm";
 
 // .env.local loader (mirrors validate-algo / algo-search drivers)
 {
@@ -95,7 +95,7 @@ function requireEnv(): { url: string; key: string } {
   if (!url || !key) {
     throw new Error(
       "revalidate-candidates requires NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY " +
-        "(preferred) or NEXT_PUBLIC_SUPABASE_ANON_KEY in .env.local.",
+        "(preferred) or NEXT_PUBLIC_SUPABASE_ANON_KEY in .env.local."
     );
   }
   return { url, key };
@@ -143,7 +143,7 @@ function buildWeeklyReturns(
   trades: BacktestTrade[],
   riskDollars: number,
   gridStartMs: number,
-  weekCount: number,
+  weekCount: number
 ): number[] {
   const out = new Array(weekCount).fill(0);
   for (const t of trades) {
@@ -184,7 +184,7 @@ function extractTicker(name: string): string {
 async function runFamilyBacktests(
   supabase: SupabaseClient<Database>,
   familyPattern: string,
-  barsCache: Map<string, PriceBar[]>,
+  barsCache: Map<string, PriceBar[]>
 ): Promise<VariantStats[]> {
   const { data: rows, error } = await supabase
     .from("algorithms")
@@ -254,7 +254,9 @@ async function runFamilyBacktests(
     if (Number.isFinite(p.exitMax) && p.exitMax > globalMax) globalMax = p.exitMax;
   }
   if (!Number.isFinite(globalMin) || !Number.isFinite(globalMax)) {
-    throw new Error(`Family ${familyPattern} produced no trades across any variant; can't compute PBO grid.`);
+    throw new Error(
+      `Family ${familyPattern} produced no trades across any variant; can't compute PBO grid.`
+    );
   }
   const weekCount = Math.ceil((globalMax - globalMin) / WEEK_MS) + 1;
   console.log(`  [${familyPattern}] time grid: ${weekCount} weeks`);
@@ -293,7 +295,7 @@ interface ExistingBacktestResults {
 async function persistDeflated(
   supabase: SupabaseClient<Database>,
   variantName: string,
-  payload: DeflatedStatsPayload,
+  payload: DeflatedStatsPayload
 ): Promise<void> {
   const { data: row, error } = await supabase
     .from("algorithms")
@@ -308,7 +310,10 @@ async function persistDeflated(
   const updatedResults = { ...current, statistical_rigor: updatedRigor };
   const { error: e2 } = await supabase
     .from("algorithms")
-    .update({ backtest_results: updatedResults as unknown as Database["public"]["Tables"]["algorithms"]["Update"]["backtest_results"] })
+    .update({
+      backtest_results:
+        updatedResults as unknown as Database["public"]["Tables"]["algorithms"]["Update"]["backtest_results"],
+    })
     .eq("id", row.id);
   if (e2) throw new Error(`Failed to update ${variantName}: ${e2.message}`);
 }
@@ -318,10 +323,13 @@ async function main(): Promise<void> {
   if (!targetsEnv) {
     throw new Error(
       "TARGETS env var required. CSV of algo names to revalidate. Family for each is auto-derived from its name (split at ' | '). Example:\n" +
-        '  TARGETS="LayerB: XAU/USD BOS-Long 4h | rr3_lb3_r06_rf0_af0" pnpm dlx tsx scripts/canonical/revalidate-candidates.ts',
+        '  TARGETS="LayerB: XAU/USD BOS-Long 4h | rr3_lb3_r06_rf0_af0" pnpm dlx tsx scripts/canonical/revalidate-candidates.ts'
     );
   }
-  const targets = targetsEnv.split(",").map((s) => s.trim()).filter(Boolean);
+  const targets = targetsEnv
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
   if (targets.length === 0) throw new Error("TARGETS contained no usable names.");
 
   console.log(`\n===== revalidate-candidates @ ${new Date().toISOString().slice(0, 16)} =====`);
@@ -370,7 +378,10 @@ async function main(): Promise<void> {
       trialSharpeStd,
     });
     const returnsMatrix = family.map((v) => v.weeklyReturns);
-    const pbo = computeProbabilityOfBacktestOverfitting({ returns: returnsMatrix, nSplits: NSPLITS });
+    const pbo = computeProbabilityOfBacktestOverfitting({
+      returns: returnsMatrix,
+      nSplits: NSPLITS,
+    });
 
     const { data: row, error } = await supabase
       .from("algorithms")
@@ -396,14 +407,28 @@ async function main(): Promise<void> {
 
     console.log(`\n[${target}]`);
     console.log(`  Observed Sharpe (per-trade):  ${variant.sharpe.toFixed(4)}`);
-    console.log(`  Family Sharpe mean / std:     ${familySharpeMean.toFixed(4)} / ${trialSharpeStd.toFixed(4)}`);
-    console.log(`  DSR / p-value:                ${dsr.deflatedSharpe.toFixed(4)} / ${dsr.pValueOneSided.toFixed(4)}`);
+    console.log(
+      `  Family Sharpe mean / std:     ${familySharpeMean.toFixed(4)} / ${trialSharpeStd.toFixed(4)}`
+    );
+    console.log(
+      `  DSR / p-value:                ${dsr.deflatedSharpe.toFixed(4)} / ${dsr.pValueOneSided.toFixed(4)}`
+    );
     console.log(`  Expected-max-SR:              ${dsr.expectedMaxSharpe.toFixed(4)}`);
-    console.log(`  skewness / kurtosis:          ${dsr.skewness.toFixed(3)} / ${dsr.kurtosis.toFixed(3)}`);
-    console.log(`  PBO:                          ${pbo.probabilityOfBacktestOverfitting.toFixed(4)} (N=${pbo.nStrategies}, T=${pbo.nObservations}, combos=${pbo.nCombinations})`);
+    console.log(
+      `  skewness / kurtosis:          ${dsr.skewness.toFixed(3)} / ${dsr.kurtosis.toFixed(3)}`
+    );
+    console.log(
+      `  PBO:                          ${pbo.probabilityOfBacktestOverfitting.toFixed(4)} (N=${pbo.nStrategies}, T=${pbo.nObservations}, combos=${pbo.nCombinations})`
+    );
     if (purgedKfold && typeof purgedKfold === "object") {
-      const pk = purgedKfold as { consistency_count?: number; n_folds?: number; oos_mean_r_aggregate?: number };
-      console.log(`  purged_kfold:                 ${pk.consistency_count ?? "?"}/${pk.n_folds ?? "?"} folds positive (aggregate R = ${(pk.oos_mean_r_aggregate ?? 0).toFixed(3)})`);
+      const pk = purgedKfold as {
+        consistency_count?: number;
+        n_folds?: number;
+        oos_mean_r_aggregate?: number;
+      };
+      console.log(
+        `  purged_kfold:                 ${pk.consistency_count ?? "?"}/${pk.n_folds ?? "?"} folds positive (aggregate R = ${(pk.oos_mean_r_aggregate ?? 0).toFixed(3)})`
+      );
     } else {
       console.log(`  purged_kfold:                 missing (run validate-algo with KFOLD=N first)`);
     }
@@ -411,7 +436,9 @@ async function main(): Promise<void> {
   }
 
   console.log(`\nrevalidate-candidates complete. Inspect via:`);
-  console.log(`  SELECT name, backtest_results->'statistical_rigor'->'deflated' FROM algorithms WHERE backtest_results->'statistical_rigor'->'deflated' IS NOT NULL;`);
+  console.log(
+    `  SELECT name, backtest_results->'statistical_rigor'->'deflated' FROM algorithms WHERE backtest_results->'statistical_rigor'->'deflated' IS NOT NULL;`
+  );
 }
 
 main().catch((e) => {

@@ -51,7 +51,7 @@ import {
   type SiblingTradeWindow,
   type SpreadGateConfig,
 } from "./portfolio-backtest";
-import type { PriceBar } from "./types";
+import type { BacktestExitReason, PriceBar } from "./types";
 
 function bar(date: string, o: number, h: number, l: number, c: number): PriceBar {
   return { date, open: o, high: h, low: l, close: c, volume: 0 };
@@ -61,8 +61,12 @@ const baseRules: AlgorithmRules = {
   asset_class: "commodity",
   side: "long",
   timeframe: "4h",
-  entry_conditions: [{ type: "technical", indicator: "rsi", operator: "less_than", value: 50, timeframe: "4h" }],
-  exit_conditions: [{ type: "technical", indicator: "rsi", operator: "greater_than", value: 70, timeframe: "4h" }],
+  entry_conditions: [
+    { type: "technical", indicator: "rsi", operator: "less_than", value: 50, timeframe: "4h" },
+  ],
+  exit_conditions: [
+    { type: "technical", indicator: "rsi", operator: "greater_than", value: 70, timeframe: "4h" },
+  ],
   entry_logic: "all",
   stop_loss: { type: "percentage", value: 1.5 },
   take_profit: { type: "percentage", value: 3 },
@@ -87,18 +91,31 @@ const baseRules: AlgorithmRules = {
 function makeFixture(): PriceBar[] {
   const bars: PriceBar[] = [];
   let price = 100;
-  let day = 1, month = 1;
+  let day = 1,
+    month = 1;
   const next = (): string => {
     const d = day.toString().padStart(2, "0");
     const m = month.toString().padStart(2, "0");
     day++;
-    if (day > 28) { day = 1; month++; }
+    if (day > 28) {
+      day = 1;
+      month++;
+    }
     return `2026-${m}-${d}T04:00:00Z`;
   };
   for (let cycle = 0; cycle < 6; cycle++) {
-    for (let i = 0; i < 20; i++) { bars.push(bar(next(), price, price + 1, price - 0.5, price + 0.8)); price += 0.8; }
-    for (let i = 0; i < 15; i++) { bars.push(bar(next(), price, price + 0.3, price - 2, price - 1.5)); price -= 1.5; }
-    for (let i = 0; i < 10; i++) { bars.push(bar(next(), price, price + 1.5, price - 0.3, price + 1.2)); price += 1.2; }
+    for (let i = 0; i < 20; i++) {
+      bars.push(bar(next(), price, price + 1, price - 0.5, price + 0.8));
+      price += 0.8;
+    }
+    for (let i = 0; i < 15; i++) {
+      bars.push(bar(next(), price, price + 0.3, price - 2, price - 1.5));
+      price -= 1.5;
+    }
+    for (let i = 0; i < 10; i++) {
+      bars.push(bar(next(), price, price + 1.5, price - 0.3, price + 1.2));
+      price += 1.2;
+    }
   }
   return bars;
 }
@@ -108,13 +125,32 @@ const prices = new Map([["XAU/USD", fixture]]);
 
 // Pair-specific gate configurations.
 const directionConflictSiblings: SiblingTradeWindow[] = [
-  { ticker: "XAU/USD", side: "short", entry_date: "2025-12-01T00:00:00Z", exit_date: "2026-01-15T00:00:00Z" },
+  {
+    ticker: "XAU/USD",
+    side: "short",
+    entry_date: "2025-12-01T00:00:00Z",
+    exit_date: "2026-01-15T00:00:00Z",
+  },
 ];
-const riskPoolEnabled: RiskPoolConfig = { enabled: true, pool_cap_pct: 4, reference_capital: 50_000 };
+const riskPoolEnabled: RiskPoolConfig = {
+  enabled: true,
+  pool_cap_pct: 4,
+  reference_capital: 50_000,
+};
 const riskPoolSiblings: SiblingTradeWindow[] = [
-  { ticker: "XAU/USD", side: "long", entry_date: "2025-12-01T00:00:00Z", exit_date: "2026-02-15T00:00:00Z", risk_dollars: 800 },
+  {
+    ticker: "XAU/USD",
+    side: "long",
+    entry_date: "2025-12-01T00:00:00Z",
+    exit_date: "2026-02-15T00:00:00Z",
+    risk_dollars: 800,
+  },
 ];
-const spreadGate: SpreadGateConfig = { enabled: true, threshold_multiplier: 2.5, atr_lookback_bars: 200 };
+const spreadGate: SpreadGateConfig = {
+  enabled: true,
+  threshold_multiplier: 2.5,
+  atr_lookback_bars: 200,
+};
 const ftmoTermination: FtmoTerminationConfig = { enabled: true };
 const reEntryCooldown: ReEntryCooldownConfig = { enabled: true };
 const portfolioHalt: PortfolioHaltConfig = {
@@ -136,7 +172,9 @@ describe("SG.14 — FTMO termination dominance over other gates", () => {
     });
     // If termination fired, find the breach point and verify no later entries.
     const breachIdx = result.trades.findIndex(
-      (t) => t.exit_reason === "ftmo_termination" || t.exit_reason === "max_drawdown"
+      (t) =>
+        t.exit_reason === ("ftmo_termination" as BacktestExitReason) ||
+        t.exit_reason === ("max_drawdown" as BacktestExitReason)
     );
     if (breachIdx >= 0) {
       const breachDate = result.trades[breachIdx].entry_date;
@@ -161,7 +199,9 @@ describe("SG.14 — FTMO termination dominance over other gates", () => {
     });
     // Any termination event has the same dominance contract regardless of
     // the other gates' state.
-    const breached = result.trades.find((t) => t.exit_reason === "max_drawdown");
+    const breached = result.trades.find(
+      (t) => t.exit_reason === ("max_drawdown" as BacktestExitReason)
+    );
     if (breached) {
       const breachDate = breached.entry_date;
       expect(result.trades.every((t) => t.entry_date <= breachDate)).toBe(true);
@@ -249,22 +289,10 @@ describe("SG.14 — pair-stable composition (no crashes, valid output)", () => {
         riskPoolSiblings,
       },
     ],
-    [
-      "spread-gate + risk-pool",
-      { spreadGate, riskPool: riskPoolEnabled, riskPoolSiblings },
-    ],
-    [
-      "portfolio-halt + ftmo-termination",
-      { portfolioHalt, ftmoTermination },
-    ],
-    [
-      "cooldown + spread-gate",
-      { reEntryCooldown, spreadGate },
-    ],
-    [
-      "cooldown + ftmo-termination",
-      { reEntryCooldown, ftmoTermination },
-    ],
+    ["spread-gate + risk-pool", { spreadGate, riskPool: riskPoolEnabled, riskPoolSiblings }],
+    ["portfolio-halt + ftmo-termination", { portfolioHalt, ftmoTermination }],
+    ["cooldown + spread-gate", { reEntryCooldown, spreadGate }],
+    ["cooldown + ftmo-termination", { reEntryCooldown, ftmoTermination }],
     [
       "direction-conflict + portfolio-halt",
       { siblingBlockingTrades: directionConflictSiblings, portfolioHalt },
@@ -318,7 +346,12 @@ describe("SG.14 — gates ON with empty inputs ≡ baseline (no false-positive b
   it("portfolio-halt with {} sibling_daily_pnl → identical to baseline", () => {
     const baseline = runPortfolioBacktest(baseRules, prices, 10_000);
     const empty = runPortfolioBacktest(baseRules, prices, 10_000, {
-      portfolioHalt: { enabled: true, daily_loss_limit_pct: 5, reference_capital: 50_000, sibling_daily_pnl: {} },
+      portfolioHalt: {
+        enabled: true,
+        daily_loss_limit_pct: 5,
+        reference_capital: 50_000,
+        sibling_daily_pnl: {},
+      },
     });
     expect(empty.trades.length).toBe(baseline.trades.length);
     expect(empty.total_return).toBeCloseTo(baseline.total_return, 2);

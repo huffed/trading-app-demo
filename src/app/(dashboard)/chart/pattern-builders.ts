@@ -3,17 +3,12 @@
  * pairs for break-style patterns (BOS, sweep, ChoCh). Extracted to
  * keep pattern-scan.ts under max-lines.
  */
+import { fmtPrice } from "./fmt-price";
 import type { ChartBar, PatternAnnotation, PatternPoint } from "./actions";
 
 export interface BreakResult {
   point: PatternPoint;
   annotation: PatternAnnotation;
-}
-
-function fmtPrice(p: number): string {
-  if (Math.abs(p) >= 100) return p.toFixed(2);
-  if (Math.abs(p) >= 1) return p.toFixed(4);
-  return p.toFixed(5);
 }
 
 function timeAt(chartBars: ChartBar[], idx: number): number {

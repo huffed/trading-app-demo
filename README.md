@@ -51,7 +51,7 @@ Production cron runs on the operator's local Mac (system `cron` daemon) — see 
 | every 20 min | `/api/admin/snapshot-oanda-positioning` | OANDA retail positioning snapshot |
 | daily 04:00 UTC | `/api/admin/prune-sentiment-cache` | Cache hygiene |
 
-Independent of the Mac: `.github/workflows/dead-man.yml` (GitHub Actions, every 30 min) emails the owner when the heartbeat trail goes stale >45 min.
+Independent of the Mac: `.github/workflows/dead-man.yml` (GitHub Actions, scheduled every 30 min, started 2 to 5 times a day; `docs/DEBT.md` D-30) emails the owner when the heartbeat trail is stale >45 min at a run.
 
 ## Repo & branches
 

@@ -2,11 +2,8 @@
  * Momentum features — RSI variants, ROC, MACD histogram.
  */
 import { ema, macd, rsi } from "@/lib/market-data/indicators";
+import { closesUpTo } from "./closes";
 import type { Feature } from "./types";
-
-function closesUpTo(bars: Parameters<Feature["compute"]>[0], idx: number): number[] {
-  return bars.slice(0, idx + 1).map((b) => b.close);
-}
 
 const f_rsi14: Feature = {
   name: "rsi14",

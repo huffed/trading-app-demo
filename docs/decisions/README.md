@@ -1,0 +1,22 @@
+# Decisions log
+
+One short file per choice that shapes the system: what was decided, why, when, and what the alternatives were. A decision is logged when it is made — in the same PR — or retroactively when it is discovered undocumented (marked `retro`). Reversed decisions are not deleted; a new entry supersedes the old one and both link.
+
+Format: `NNNN-short-slug.md` with the fields **Date · Status (active / superseded by NNNN / proposed) · Decision · Why · Alternatives considered · Consequences · Evidence**. Keep each under a screen. Anything that changes `algorithms.rules` in the database, a deploy or cron script, a halt threshold, a provider, a hosting or billing choice, or a tooling rule gets an entry.
+
+| # | Decision | Status |
+|---|---|---|
+| [0001](0001-remove-dead-llm-strategy-selector.md) | Remove the dead LLM strategy-template selector and 21 other unreachable files | active |
+| [0002](0002-one-pr-at-a-time.md) | One PR at a time against `dev`; no stacked PRs | active |
+| [0003](0003-paper-fills-from-twelve-data.md) | Paper fills come from Twelve Data quotes, not the OANDA bar feed (`retro`, reason not recorded) | active, under audit review |
+| [0004](0004-live-path-guard-is-a-hook.md) | Live-runner paths are guarded by a hook with a session override; secrets, pinned data and the golden file by deny rules | active |
+| [0005](0005-reproducible-deploy-and-production-pointer.md) | Deploys run one reviewed script on the host from `make deploy`; `main` is the production pointer that script moves; `ops/` captures the host | active |
+| [0006](0006-fence-covers-trading-code-not-infrastructure.md) | The live-path fence covers trading code (exact list inside), not infrastructure; `ops/**` and `scripts/ops/**` are not fenced | active, amends 0004 |
+| [0007](0007-node-26-ops-user-loopback-tailscale.md) | Node 26 LTS system-wide, the `ops` process user, loopback + Tailscale, HTTPS git remote (revisit if the repo goes private) | active |
+| [0008](0008-kill-switch.md) | One kill switch: pause, flatten (paper rows and the broker side of mirrored positions), stop the service and the crons, alert, record; resume never un-pauses | active, amended by 0010 |
+| [0009](0009-alerts-and-rotation.md) | The host alerts on its own (OnFailure, deploy result, daily summary via ntfy), weekly log rotation, nightly gate on dev | active |
+| [0010](0010-live-table-rule.md) | A MetaApi redeploy without `APPLY=1` is infrastructure, prompted, with a ledger row. The live-table rule: `make kill-switch`, `make resume` and `make unpause` are the only session path that writes the live tables; they prompt every time, no committed make rule can pre-approve them, they write a ledger row; the kill switch may flatten mirrored positions, and once mirroring is on resume and unpause count as acting on the broker account; read-only broker access is allowed | active, amends 0008 |
+| [0011](0011-backups-and-restore-drill.md) | Nightly age-encrypted backups to the Storage Box through a read-only role, 30 nights, a drilled restore | active; restore drilled 2026-11-07 to 11-10 |
+| [deploys](deploys.md) | Ledger: one row per deploy and per host change | running |
+
+`evidence/` holds raw host output that ledger rows cite. Temporary files do not survive on the workstation (a session's scratch space is cleaned within days), so evidence a row depends on is committed with that row. The repo is public: before committing, read the file for the ntfy topic, the ping URL, tokens, credentials and anything new that D-18 would keep private. Verbatim yields to secrets, and a redaction is noted in the file's header.

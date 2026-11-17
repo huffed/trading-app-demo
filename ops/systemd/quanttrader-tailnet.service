@@ -1,0 +1,16 @@
+# /etc/systemd/system/quanttrader-tailnet.service — activated by quanttrader-tailnet.socket.
+# systemd-socket-proxyd ships with systemd: no new package, no config file, forwards each
+# accepted tailnet connection to the loopback Next server. Runs unprivileged with the same
+# sandbox flags as the app unit.
+[Unit]
+Description=QuantTrader tailnet → loopback proxy
+Requires=quanttrader-tailnet.socket
+After=quanttrader-tailnet.socket quanttrader.service
+
+[Service]
+ExecStart=/usr/lib/systemd/systemd-socket-proxyd 127.0.0.1:3000
+DynamicUser=yes
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
