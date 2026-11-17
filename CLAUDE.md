@@ -48,11 +48,11 @@ pnpm only. Node is pinned by `.nvmrc`. `pnpm build` and `make check` before ever
 
 Decision 0013 holds these rules in full; the operator can only answer what they can see is blocked.
 
-- **Questions** only at the end of a turn, under a line reading exactly **BLOCKED ON YOU**, one per numbered line (`1. `), each with a recommended answer; one already asked is repeated as its number and first line only.
-- **A turn ends** with READY TO MERGE, then BLOCKED ON YOU, each only when it has items, then a `Next action:` line; work carried on meanwhile is said, and started, above them.
+- **Questions** only at the end of a turn, under a line reading exactly **BLOCKED ON YOU**, one per numbered line (`1. ` at the start of the line, further lines indented), each with a recommended answer; while a question is open, every later turn repeats it as its number and first line only, that line word for word.
+- **A turn ends** with READY TO MERGE, then BLOCKED ON YOU, each only when it has items, then, when the session's own work is outstanding, a last `Next action:` line naming the next action and who starts it. Work carried on meanwhile is said and started above them; work longer than a few minutes runs in background agents.
 - **The queue:** the operator's order stands; the session's own findings go to the end as proposals.
 - **Claims** about how a tool behaves say what was run to check them.
-- **Merges** happen only on "merge the queue": each listed PR at its listed head (`gh pr merge <n> --squash --match-head-commit <sha>`), one behind `dev` first rebased with `gh pr update-branch <n> --rebase` and merged once green.
-- **Reviews:** a docs PR with no runnable command gets one; code, tooling, runbooks and plans with host commands get at most three, ending at a review with no Critical or High. A later edit, or a rebase that needed a conflict resolved, gets one review of that diff, unless the conflict is confined to `docs/DEBT.md` rows with both sides' rows kept whole.
-- **Being visible:** sessions start with `caffeinate -is claude`; one frozen hook pushes waits and BLOCKED ON YOU turns to the phone (`docs/DEV_SETUP.md` §16).
-- **Secrets:** no session reads `~/.config/quanttrader/`, and `gh pr merge` prompts (D-42, D-43).
+- **Merges** happen only on "merge the queue", for PRs listed as review-clean and green, each at its listed head (`gh pr merge <n> --squash --match-head-commit <sha>`); one behind `dev` is first rebased with `gh pr update-branch <n> --rebase`, then merged at the new head once green; one whose rebase conflicts leaves the list until it is resolved.
+- **Reviews:** a docs PR with no runnable command gets one, and one more after a Critical or High is fixed; code, tooling, runbooks and plans with host commands get at most three, ending at one with no Critical or High, else the session stops and asks the operator; Mediums and Lows are fixed or go to `docs/DEBT.md`. A later edit, or a rebase that needed a conflict resolved, gets one review of that diff, unless the conflict is confined to `docs/DEBT.md` rows with both sides' rows kept whole, which needs no review and which the PR says so.
+- **Being visible:** sessions start with `caffeinate -is claude`; one frozen hook pushes waits and BLOCKED ON YOU turns to the phone (`docs/DEV_SETUP.md` §16). The session does not look into a failed push, and writes a BLOCKED ON YOU section again when the operator says it could not be read.
+- **Push files and merges:** no session reads `~/.config/quanttrader/`, and `gh pr merge` prompts (D-42, D-43).
