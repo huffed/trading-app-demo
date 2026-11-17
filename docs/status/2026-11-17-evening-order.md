@@ -111,3 +111,20 @@ Written by the dev-setup session for the planner, at about 22:00 UTC on 2026-11-
 - **The DEBT-rows rule:** it helped once tonight, on #342's DEBT rows, but #342 also conflicted on a DEV_SETUP line, so it still needed its review.
 
 **What I would cut to reach "finished" soonest:** as in this afternoon's report. To that list: the paused-pairs count can take the next window if it misses Friday's cutoff, and the trial's report can be shorter than the spike's.
+
+## Later the same night
+
+- **#349 (questions 4 and 5):** loop ended at round 2, at `bf734e7` (CI running at writing).
+  - **Round 1:** the ask rules now reach the configs lint-staged and Prettier really load at any depth, plus `scripts/dev/**`, `.npmrc` and `pnpm-workspace.yaml`; D-22 says "narrowed".
+  - **Two live headless checks on Claude Code 2.1.308:** a hook timeout with `onFailure: block` refused a Bash call while `continue` let it run, and an acceptEdits session was refused a nested `package.json` write while a text file beside it was written.
+  - **The guard tests' bound:** each run now has its hook's own limit (60 s for the guards, 10 s for the reviewer allowlist). #344's 10 s had failed 54 guard cases under load.
+  - **Round 2:** `package.yaml` and `package.yml` added, the root forms kept beside the `/**/` ones, 200 s per case.
+- **#350 (question 1):** loop ended at round 1, no Medium. Its Lows added `max-lines` and `no-unneeded-ternary` to the rules turned off, and D-46 names the block. Green at `57521e6`.
+- **#351 (paused pairs):** loop ended at round 1. Green at `05bc383`, so it can make Friday's cutoff once merged.
+  - **What it counts:** a pair is one `algorithm_watchlist` row, paused after 8 closed trades at a 30% or lower win rate (`src/lib/scan/pair-quality.ts`). The columns come from migration 00020. Only the manual watchlist action clears them.
+  - **Round 1's Medium:** the read is cut off at 60 s, so a lock or a stalled pooler cannot hold the summary. The install step checks the certificate first.
+- **The trial's day one** is done; its notes are in the private repo at `f7bfdc1`, `trial/2026-11-18-day1.md`.
+  - **Works:** committed-tier settings, `./` paths and `excludedCommands` hold; a commit and a `gh pr` flow (each `gh` call excluded) work.
+  - **Fails as it stands:** `pnpm install` cannot run inside the sandbox, because a dependency ships a `.gitmodules`, a name Claude Code always protects. `make check` took 62 minutes, with 27 failures: 21 timeouts, 5 from `tsx`'s IPC socket, 1 a `/tmp` write, 2 cleanup errors. `make backtest` passes once `tsx`'s socket is allowed. `pnpm build` fails on Turbopack's font fetch and builds as an excluded call.
+  - **Days 2–7** are planned in the notes.
+- **E0's first PR:** still being built; its `make check` and `make backtest` were running at writing.
