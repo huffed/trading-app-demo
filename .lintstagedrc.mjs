@@ -10,7 +10,7 @@
  * - actionlint on staged GitHub workflow files (a workflow GitHub cannot parse
  *   otherwise fails as a run with no jobs and no log).
  * - Nothing under review/: the audit's scripts are evidence, not product code, and
- *   their lines are cited; make typecheck and the baseline lint still read them.
+ *   their lines are cited; make typecheck and the baseline lint still read its TypeScript.
  */
 import { execFileSync } from "node:child_process";
 

@@ -86,7 +86,7 @@ lint-workflows: ## actionlint on .github/workflows (a workflow GitHub cannot par
 	@command -v actionlint >/dev/null || { echo "actionlint is not installed (brew install actionlint)"; exit 2; }
 	actionlint -no-color
 
-typecheck: ## tsc over src, tests and scripts (test files included)
+typecheck: ## tsc over src, tests, scripts and review (test files included)
 	$(PNPM) exec tsc --noEmit -p tsconfig.json
 
 # Files this branch adds or changes vs $(BASE): committed, staged, unstaged and untracked. The audit's review/ is
