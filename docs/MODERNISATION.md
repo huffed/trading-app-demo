@@ -76,7 +76,7 @@ The 22 dead files went in B8. Left because they sit inside audit-cited files: 89
 - The exit-reason and activity-event rows (§1.3): P1.
 - One ATR and one Sharpe: P13.
 - `symbol` as data. `trades.symbol` is a database column (`00002_create_trades.sql:7`, `types/trade.ts:8`) and `symbol` is Twelve Data's request field. Both keep the name; changing the column is a migration, not a rename.
-- A name something outside the app calls. `scripts/ops/kill-switch.sh:110` POSTs to `/api/admin/flatten-algo`, and that script streams from the local `origin/dev` to a host running the last deployed commit, which can be a week behind. Renaming the route in one PR would give the switch a 404 and leave positions open, with `make check` and golden green. Such a rename is four steps: add the new name as an alias, deploy, change the caller, then remove the alias after the next deploy. The cron wrappers' URLs get the same treatment.
+- A name something outside the app calls. `scripts/ops/kill-switch.sh:216` POSTs to `/api/admin/flatten-algo`, and that script streams from the local `origin/dev` to a host running the last deployed commit, which can be a week behind. Renaming the route in one PR would give the switch a 404 and leave positions open, with `make check` and golden green. Such a rename is four steps: add the new name as an alias, deploy, change the caller, then remove the alias after the next deploy. The cron wrappers' URLs get the same treatment.
 
 CI holds added files to the strict rule set. A move counts as a rename and passes through (tested 2026-11-06), but a stub left at the old path, a split, or a small file falling under 50% similar makes the new file an added one. So a move PR edits import lines only, leaves no stub, and shows no `A` rows in `git diff --name-status`.
 
@@ -179,7 +179,7 @@ Not Phase E work as such, but a gate it must not pass over. Each of these is mir
 - **P4:** `live-execution.ts:146-151` clamps up to the broker's minimum, so 0.0084 lots on a $10K pool becomes 0.01, about 19% over the intended risk on a signal the backtest skips.
 - **P10:** the news veto.
 - **P19:** D-26, D-29 and D-33.
-- **D-25, both halves, D-27 and D-28:** a failed broker close must be seen, a re-run of the switch must flatten, and resume must not read OK with algorithms active. The script fixes are on #324; the engine half of D-25 is P11.
+- **D-25, both halves, D-27 and D-28:** a failed broker close must be seen, a re-run of the switch must flatten, and resume must not read OK with algorithms active. The script fixes are on #324 and #342; the engine half of D-25 is P11.
 - **D-35, a lost flatten response (independent check of #324, 2026-11-12):** the switch saves broker failures only from a 200 body it can parse, so a timed-out flatten, a resume and a second run can end OK with a broker position still open. #342 puts such an id on the broker list as unknown; the item clears when #342 merges and its paper re-test passes.
 - **D-19, before real capital:** 16 raw `fetch()` calls have no outbound timeout.
 - **D-36, no live 10% max-loss halt (audit A16):** FTMO's max loss fails the account, and only a UI gauge watches it. It blocks mirroring (operator, 2026-11-13).
