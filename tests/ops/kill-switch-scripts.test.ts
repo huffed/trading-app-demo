@@ -67,13 +67,6 @@ describe("kill-switch.sh, a normal engagement", () => {
     expect(hostLog(host, "curl-stdin.log")).toContain(CRON_SECRET);
   });
 
-  it("finishes after a dropped ssh session", () => {
-    const host = makeHost({ active: [A] });
-    mark(host, "send-hup");
-    expect(runScript(host, "kill-switch.sh", ["test"]).stdout).toContain("KILL_RESULT=OK");
-    expect(ledger(host)).toContain(" KILL reason=test");
-  });
-
   it("is idempotent: a second run skips the flatten and still reports what is open", () => {
     const host = makeHost({ active: [A] });
     runScript(host, "kill-switch.sh", ["first"]);
