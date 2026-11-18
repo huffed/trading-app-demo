@@ -109,7 +109,7 @@ ssh qt 'ssh -p 23 -i ~/.ssh/quanttrader_backup -o IdentitiesOnly=yes -o UserKnow
 
 Then the restore drill below, then one ledger row for all of it. The nightly run is at 02:22 UTC, a minute no tick uses. The next daily summary shows `backup=<time>` and turns high priority if the last good night is older than 26 hours.
 
-**Rollback**, in reverse: `crontab` from the previous `ops/crontab`; remove `backup.sh`, `backup-age-recipient.txt` and `~/.ssh/quanttrader_backup*`; remove the `BACKUP_DATABASE_URL` line by hand; `apt-get remove postgresql-client age`; and in the SQL editor:
+**Rollback**, in reverse: `crontab` from the previous `ops/crontab`; remove `backup.sh`, `backup-age-recipient.txt` and `~/.ssh/quanttrader_backup*`; remove the `BACKUP_DATABASE_URL` line by hand (the daily summary's paused-pairs count then reads `?` every day: roll `ops-health.sh` back too, `docs/runbooks/d4-alerts-and-rotation.md`); `apt-get remove postgresql-client age`; and in the SQL editor:
 
 ```sql
 revoke pg_read_all_data from backup_ro;

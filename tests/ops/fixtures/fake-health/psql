@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# Fake psql for tests/ops/ops-health-script.test.ts: records its arguments and the libpq environment (never the
+# password), then prints the rows in $FAKE_HOST/psql.out, or fails when $FAKE_HOST/fail-psql exists.
+printf '%s user=%s host=%s db=%s ssl=%s ca=%s gss=%s password=%s\n' "$*" "$PGUSER" "$PGHOST" "$PGDATABASE" "$PGSSLMODE" "$PGSSLROOTCERT" "$PGGSSENCMODE" "${PGPASSWORD:+set}" >> "$FAKE_HOST/psql.log"
+[ -e "$FAKE_HOST/fail-psql" ] && { echo "psql: error: connection to server failed" >&2; exit 2; }
+[ -e "$FAKE_HOST/psql.out" ] && cat "$FAKE_HOST/psql.out"
+exit 0

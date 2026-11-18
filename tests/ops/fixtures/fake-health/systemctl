@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# Fake systemctl: an active service with no restarts and no failed units.
+case "$*" in
+  *--failed*) ;;
+  "is-active quanttrader") echo active ;;
+  *NRestarts*) echo 0 ;;
+esac
