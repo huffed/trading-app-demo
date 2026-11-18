@@ -23,8 +23,8 @@ import { HOST_ALLOWED, HOST_BLOCKED } from "./host-cases";
 import { MIRROR_ALLOWED, MIRROR_BLOCKED } from "./mirror-cases";
 import { MODULE_FLAG_ALLOWED, MODULE_FLAG_BLOCKED } from "./module-flag-cases";
 
-// Each hook run is bounded by runHook below; a case may make two runs, or run make, on a loaded machine.
-vi.setConfig({ testTimeout: 30_000 });
+// Each hook run is bounded by runHook below; a case may make up to three runs, on a loaded machine.
+vi.setConfig({ testTimeout: 200_000 });
 
 const ROOT = resolve(__dirname, "..", "..");
 const HOOKS = join(ROOT, ".claude", "hooks");
@@ -47,9 +47,10 @@ function runHook(name: string, payload: unknown, env: Env = {}): HookResult {
     encoding: "utf8",
     env: merged,
     cwd: ROOT,
-    // Claude Code gives each guard 10 s (.claude/settings.json, the reviewer agent's frontmatter) and does not block
-    // on one that runs longer (DEBT D-22), so a run past 10 s fails here, with status -1.
-    timeout: 10_000,
+    // Claude Code gives the two guards 60 s and refuses the call when one runs longer (onFailure: block in
+    // .claude/settings.json); the reviewer agent's allowlist hook has 10 s and lets the call through past it (its
+    // frontmatter). So a run past its hook's limit fails here, with status -1, where Claude Code would (DEBT D-22).
+    timeout: name === "reviewer-bash-allowlist.sh" ? 10_000 : 60_000,
   });
   return { status: r.status ?? -1, stdout: r.stdout, stderr: r.stderr };
 }
@@ -248,5 +249,28 @@ describe("make fence-check", () => {
     });
     expect(r.status).toBe(0);
     expect(r.stdout).toMatch(/no committed file sets/);
+  });
+});
+
+describe("settings.json: the two guard hooks refuse the call when they fail or time out", () => {
+  interface Hook {
+    command: string;
+    timeout?: number;
+    onFailure?: string;
+  }
+  const settings = JSON.parse(readFileSync(join(ROOT, ".claude", "settings.json"), "utf8")) as {
+    hooks: { PreToolUse: { hooks: Hook[] }[] };
+  };
+  const guards = settings.hooks.PreToolUse.flatMap((m) => m.hooks).filter((h) =>
+    /guard-(bash|paths)\.sh/.test(h.command)
+  );
+
+  it("registers both guards", () => {
+    expect(guards).toHaveLength(2);
+  });
+
+  it.each(guards)("$command: onFailure block, 60 s (DEBT D-22)", (h) => {
+    expect(h.onFailure).toBe("block");
+    expect(h.timeout).toBe(60);
   });
 });
