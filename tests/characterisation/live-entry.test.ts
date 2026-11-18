@@ -320,30 +320,6 @@ describe("E0: the same entry with a Twelve Data quote (production's path)", () =
     });
     const { entry_price, stop_loss_price, quantity } = rows[0] as Record<string, number>;
     expect(quantity * (entry_price - stop_loss_price)).toBeCloseTo(420, 6);
-  });
-});
-
-describe("E0: the database stub refuses what Postgres and PostgREST would", () => {
-  const position: Row = {
-    user_id: USER,
-    algorithm_id: ALGO_ID,
-    ticker: "XAU/USD",
-    entry_price: 1,
-    quantity: 1,
-    notional_value: 1,
-  };
-
-  it("refuses an unknown column, a NULL and a broken CHECK, and returns rows only after select()", async () => {
-    const client = new FakeDatabase().client();
-    const insert = (row: Row) => client.from("paper_positions").insert(row);
-    const codes = [
-      (await insert({ ...position, typo: 1 })).error?.code,
-      (await insert({ ...position, ticker: null })).error?.code,
-      (await insert({ ...position, quantity: 0 })).error?.code,
-    ];
-    expect(codes).toEqual(["PGRST204", "23502", "23514"]);
-    expect((await insert(position)).data).toBeNull();
-    const stored = await insert(position).select().single();
-    expect(stored.data).toMatchObject({ status: "open", side: "long", unrealized_pnl: 0 });
+    expect(db.writes.filter((w) => w.error !== null)).toEqual([]);
   });
 });

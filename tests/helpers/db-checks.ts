@@ -34,8 +34,10 @@ export function checkListFor(constraint: string): string[] {
   return list;
 }
 
+type Table = "paper_positions" | "activity_log";
+type Column<T extends Table> = keyof Tables<T> & string;
 /** Every column of the generated Row type, so tsc fails when a migration adds or drops one and this map does not. */
-type Columns<T extends "paper_positions" | "activity_log"> = Record<keyof Tables<T>, true>;
+type Columns<T extends Table> = Record<Column<T>, true>;
 
 const PAPER_POSITION_COLUMNS: Columns<"paper_positions"> = {
   algorithm_id: true,
@@ -82,6 +84,14 @@ const ACTIVITY_LOG_COLUMNS: Columns<"activity_log"> = {
   user_id: true,
 };
 
+/** One table's rules, every column name checked against the generated types, so a misspelt one fails tsc. */
+interface TableRules<T extends Table> {
+  columns: Columns<T>;
+  defaults: (now: string) => Partial<Record<Column<T>, unknown>>;
+  notNull: readonly Column<T>[];
+  checks: readonly { column: Column<T>; accepts: (v: unknown) => boolean }[];
+}
+
 interface Check {
   constraint: string;
   holds: (row: Row) => boolean;
@@ -94,12 +104,24 @@ interface TableSchema {
   checks: readonly Check[];
 }
 
-/** A column CHECK under Postgres's name for it; a NULL passes, as in Postgres. */
-function check(table: string, column: string, test: (v: unknown) => boolean): Check {
-  return {
+/**
+ * A table's schema. Each column CHECK goes under Postgres's name for it and passes a NULL, as in Postgres, which tests
+ * a table's CHECKs in alphabetical order of name.
+ */
+function schema<T extends Table>(table: T, rules: TableRules<T>): [string, TableSchema] {
+  const checks = rules.checks.map(({ column, accepts }) => ({
     constraint: `${table}_${column}_check`,
-    holds: (row) => row[column] == null || test(row[column]),
-  };
+    holds: (row: Row) => row[column] == null || accepts(row[column]),
+  }));
+  return [
+    table,
+    {
+      columns: new Set(Object.keys(rules.columns)),
+      defaults: rules.defaults,
+      notNull: rules.notNull,
+      checks: checks.sort((a, b) => (a.constraint < b.constraint ? -1 : 1)),
+    },
+  ];
 }
 
 const positive = (v: unknown): boolean => Number(v) > 0;
@@ -110,58 +132,48 @@ const oneOf =
 
 /** 00011 (paper_positions), 00012 (activity_log); the exit_reason and event_type lists are the newest migration's. */
 const SCHEMA = new Map<string, TableSchema>([
-  [
-    "paper_positions",
-    {
-      columns: new Set(Object.keys(PAPER_POSITION_COLUMNS)),
-      defaults: (now) => ({
-        id: randomUUID(),
-        side: "long",
-        opened_at: now,
-        unrealized_pnl: 0,
-        entry_reason: {},
-        status: "open",
-        created_at: now,
-        updated_at: now,
-      }),
-      notNull: [
-        "id",
-        "user_id",
-        "algorithm_id",
-        "ticker",
-        "side",
-        "quantity",
-        "notional_value",
-        "entry_price",
-        "opened_at",
-        "entry_reason",
-        "status",
-      ],
-      checks: [
-        check("paper_positions", "side", oneOf(["long", "short"])),
-        check("paper_positions", "quantity", positive),
-        check("paper_positions", "notional_value", positive),
-        check("paper_positions", "entry_price", positive),
-        check(
-          "paper_positions",
-          "exit_reason",
-          oneOf(checkListFor("paper_positions_exit_reason_check"))
-        ),
-        check("paper_positions", "status", oneOf(["open", "closed"])),
-      ],
-    },
-  ],
-  [
-    "activity_log",
-    {
-      columns: new Set(Object.keys(ACTIVITY_LOG_COLUMNS)),
-      defaults: (now) => ({ id: randomUUID(), details: {}, created_at: now }),
-      notNull: ["id", "user_id", "event_type"],
-      checks: [
-        check("activity_log", "event_type", oneOf(checkListFor("activity_log_event_type_check"))),
-      ],
-    },
-  ],
+  schema("paper_positions", {
+    columns: PAPER_POSITION_COLUMNS,
+    defaults: (now) => ({
+      id: randomUUID(),
+      side: "long",
+      opened_at: now,
+      unrealized_pnl: 0,
+      entry_reason: {},
+      status: "open",
+      created_at: now,
+      updated_at: now,
+    }),
+    notNull: [
+      "id",
+      "user_id",
+      "algorithm_id",
+      "ticker",
+      "side",
+      "quantity",
+      "notional_value",
+      "entry_price",
+      "opened_at",
+      "entry_reason",
+      "status",
+    ],
+    checks: [
+      { column: "side", accepts: oneOf(["long", "short"]) },
+      { column: "quantity", accepts: positive },
+      { column: "notional_value", accepts: positive },
+      { column: "entry_price", accepts: positive },
+      { column: "exit_reason", accepts: oneOf(checkListFor("paper_positions_exit_reason_check")) },
+      { column: "status", accepts: oneOf(["open", "closed"]) },
+    ],
+  }),
+  schema("activity_log", {
+    columns: ACTIVITY_LOG_COLUMNS,
+    defaults: (now) => ({ id: randomUUID(), details: {}, created_at: now }),
+    notNull: ["id", "user_id", "event_type"],
+    checks: [
+      { column: "event_type", accepts: oneOf(checkListFor("activity_log_event_type_check")) },
+    ],
+  }),
 ]);
 
 /** PostgREST's refusal of a payload key that is not a column. */

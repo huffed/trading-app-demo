@@ -33,9 +33,12 @@ interface Result {
   count?: number;
 }
 
-/** The payload as PostgREST receives it: JSON drops a key whose value is undefined, so its default applies. */
-function defined(row: Row): Row {
-  return Object.fromEntries(Object.entries(row).filter(([, v]) => v !== undefined));
+/**
+ * The payload as PostgREST receives it, and a copy of it: JSON drops a key whose value is undefined, so its default
+ * applies, and sends NaN and ±Infinity as null.
+ */
+function asSent(row: Row): Row {
+  return JSON.parse(JSON.stringify(row)) as Row;
 }
 
 function compare(a: unknown, b: unknown): number {
@@ -176,7 +179,7 @@ class Query implements PromiseLike<Result> {
 
   private write(op: WriteOp, rows: Row | Row[]): this {
     this.op = op;
-    this.payload = (Array.isArray(rows) ? rows : [rows]).map(defined);
+    this.payload = (Array.isArray(rows) ? rows : [rows]).map(asSent);
     return this;
   }
 
