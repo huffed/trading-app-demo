@@ -127,4 +127,8 @@ Written by the dev-setup session for the planner, at about 22:00 UTC on 2026-11-
   - **Works:** committed-tier settings, `./` paths and `excludedCommands` hold; a commit and a `gh pr` flow (each `gh` call excluded) work.
   - **Fails as it stands:** `pnpm install` cannot run inside the sandbox, because a dependency ships a `.gitmodules`, a name Claude Code always protects. `make check` took 62 minutes, with 27 failures: 21 timeouts, 5 from `tsx`'s IPC socket, 1 a `/tmp` write, 2 cleanup errors. `make backtest` passes once `tsx`'s socket is allowed. `pnpm build` fails on Turbopack's font fetch and builds as an excluded call.
   - **Days 2–7** are planned in the notes.
-- **E0's first PR:** still being built; its `make check` and `make backtest` were running at writing.
+- **E0's first PR, #352:** green at `23fe19c`; the loop ended at round 2.
+  - **What it pins:** the live engine's entry (`scanAlgorithm`) on the pinned bars, two ways: with no quote, filling at the bar's close, and with a quote, filling at the quote. Both pin every column of the position row, the four activity events and the full write sequence. A database stub refuses what Postgres would: the seven CHECKs, the NOT NULLs, unknown columns.
+  - **Against the backtester:** the stop matches the golden trade. The fill does not (live fills at the close, the backtester adds slippage), so it is an `it.fails` naming P2 and D-02. `make backtest` still matches.
+  - **Size:** 883 lines, over the ~500 guideline. The round-2 reviewer advised against splitting it, since the stub would then merge with nothing using it.
+  - **Left:** D-47 lists the stub's known gaps; its fixes come in their own PR before the stop scenario.
