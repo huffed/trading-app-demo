@@ -145,3 +145,15 @@ That is likely the window's ledger PR, unless another docs PR comes first.
   - "merge the queue" for #352; the audit's go follows it;
   - after that, `notify.log` gets read.
 - **Watch:** from Friday 20:00 UK nothing merges into `dev` until step 2 merges #342. Item 7's PR, if it is ready before then, goes on the list for after the window.
+
+## Later: day two's result, and a fault in the slot
+
+- **Day two is done.** The notes are in the private repo at `b5f5034`, `trial/2026-11-18-day2.md`, with the raw logs.
+  - **Pair 2,** both runs at the same commit, back to back, under the slot: inside the sandbox 1,955 s (32.6 min), outside 1,903 s (31.7 min). Both exit 0, with 2,818 passed and 11 expected fail; no failures on either side. The one-minute load averaged 4.76 inside and 3.78 outside.
+  - **What that shows:** with day one's two fixes, `make check` passes inside the sandbox, and the sandbox costs about 3% in time. Day one's 2.4 times was the load and the 10-second timeouts.
+- **The git push from inside the sandbox works.**
+  - **The evidence:** the probe branch appeared on GitHub at `dev`'s commit, and `ci` started a run for it at 19:20:10Z.
+  - **How:** the credential came from `osxkeychain`, which the Command Line Tools' system gitconfig sets, so git reached the keychain from inside the sandbox; `github.com` is allowed. A rule against pushing has to be a permission rule or a git hook.
+  - **What was lost, by my scripting errors:** git's own output and exit status. Pair 1's push never left the machine (zsh's `:r` modifier on `$sha:refs`), and my fix then commented out the line's redirect.
+  - **Cleaned up:** the branch is deleted, and its CI run was cancelled.
+- **A fault in my slot tool, fixed at about 19:35Z.** `heavy.py` counted the waiting `heavy-run.sh` wrappers as heavy jobs, because their command lines contain "make check". With two wrappers waiting, each saw two jobs and neither started. Item 5's checks, the fence agent's `make check` and item 6's install all sat idle from 19:20Z, when the trial's pair freed the slot. Waiting wrappers no longer count; the next poll starts one of them.
