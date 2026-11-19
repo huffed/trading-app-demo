@@ -8,7 +8,7 @@ import { existsSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync 
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { fencedPaths, makeBase, MARKER, modified, runGate } from "./live-path-fence-harness";
+import { fencedPaths, HEAD, makeBase, MARKER, modified, runGate } from "./live-path-fence-harness";
 
 const ENGINE = "src/lib/scan/engine.ts";
 
@@ -112,5 +112,38 @@ describe("live-path-fence.sh: fails closed on input it cannot read", () => {
     const base = makeBase(false);
     writeFileSync(join(base, ".claude", "hooks", "live-paths.txt"), "# only a comment\n");
     expect(runGate({ pages: [modified("docs/a.md")], base }).status).toBe(2);
+  });
+});
+
+describe("live-path-fence.sh: the list is the one of the commit the check reports on", () => {
+  const moved = "b".repeat(40);
+  it("a head that moved before the list fails closed", () => {
+    expect(runGate({ pages: [modified("docs/a.md")], heads: [moved, moved] }).status).toBe(2);
+  });
+  it("a head that moved while the files were listed fails closed", () => {
+    expect(runGate({ pages: [modified("docs/a.md")], heads: [HEAD, moved] }).status).toBe(2);
+  });
+});
+
+describe("live-path-fence.sh: warnings and the list's last line", () => {
+  it("warns on the fence's files, on another workflow and on the verdict, each in its own words", () => {
+    const run = runGate({
+      pages: [
+        modified(".github/workflows/fence.yml", ".github/workflows/ci.yml", "review/VERDICT.md"),
+      ],
+    });
+    expect(run.status).toBe(0);
+    const warnings = run.output.split("\n").filter((line) => line.startsWith("::warning"));
+    expect(warnings).toHaveLength(3);
+    expect(warnings[0]).toContain("fence.yml changes the fence itself");
+    expect(warnings[1]).toContain(
+      "ci.yml changes a workflow; one on pull_request runs this PR's own copy"
+    );
+    expect(warnings[2]).toContain("review/VERDICT.md adds or changes the audit verdict");
+  });
+  it("a glob on a last line with no newline still fences", () => {
+    const base = makeBase(false);
+    writeFileSync(join(base, ".claude", "hooks", "live-paths.txt"), "src/lib/scan/**\ndocs/**");
+    expect(runGate({ pages: [modified("docs/a.md")], base }).status).toBe(1);
   });
 });

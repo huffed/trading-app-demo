@@ -3,7 +3,8 @@
 # review/VERDICT.md is already on dev and the title carries the marker CLAUDE.md quotes.
 #
 # It runs on pull_request_target, so this file, the script and live-paths.txt are the default branch's (dev's)
-# copies, not the PR's: a PR cannot switch its own check off. From 2026-12-02 GitHub runs that trigger in a public
+# copies, not the PR's: a PR cannot change this workflow's copy. (It can still add a workflow of its own with a job of
+# the same name; decision 0015 and DEBT D-48 say what that means.) From 2026-12-02 GitHub runs that trigger in a public
 # repository only where an Actions event policy allows it (decision 0015 has the call). It never checks out, fetches
 # or runs the PR's code: the changed files come from the API, and the title reaches the script only through env.
 # A re-run re-reads the original event (its title, its dev); edit the title or push to decide again.
@@ -28,7 +29,7 @@ jobs:
     timeout-minutes: 5
     steps:
       - name: check out dev (pull_request_target's default ref, the default branch; never the PR's head)
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
       - name: list the files the PR changes, from the API (a rename gives its old name too; a deletion its path)
@@ -36,10 +37,15 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
+        # the PR's [head, changed_files] just before and just after the list, so the script can tie it to HEAD_SHA
         run: |
+          gh api "repos/$REPO/pulls/$PR_NUMBER" --jq '[.head.sha, .changed_files]' > "$RUNNER_TEMP/pr-before.json"
           gh api --paginate "repos/$REPO/pulls/$PR_NUMBER/files?per_page=100" > "$RUNNER_TEMP/pr-files.json"
-          gh api "repos/$REPO/pulls/$PR_NUMBER" --jq .changed_files > "$RUNNER_TEMP/pr-changed-files.txt"
+          gh api "repos/$REPO/pulls/$PR_NUMBER" --jq '[.head.sha, .changed_files]' > "$RUNNER_TEMP/pr-after.json"
       - name: fail on a fenced path unless review/VERDICT.md is on dev and the title has the marker
         env:
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           PR_TITLE: ${{ github.event.pull_request.title }}
-        run: bash scripts/ci/live-path-fence.sh . "$RUNNER_TEMP/pr-files.json" "$(cat "$RUNNER_TEMP/pr-changed-files.txt")"
+        run: >-
+          bash scripts/ci/live-path-fence.sh . "$RUNNER_TEMP/pr-files.json"
+          "$RUNNER_TEMP/pr-before.json" "$RUNNER_TEMP/pr-after.json"
