@@ -7,7 +7,7 @@
 # the warning budget, so inherited warnings in audit-cited files are not pushed
 # into "fixes" that move lines. The audit's review/ is evidence, not product code
 # (#345, #350): a file there, new or not, gets the baseline config, errors only,
-# and no Prettier check, as CI and lint-staged treat it.
+# and no Prettier check, as CI treats it (lint-staged skips it altogether).
 set -uo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 command -v node >/dev/null || { echo "post-edit-lint: node not found; could not lint the edited file" >&2; exit 2; }
@@ -21,10 +21,11 @@ esac
 [ -f "$path" ] || exit 0                                  # deleted or moved: nothing to lint
 root="${CLAUDE_PROJECT_DIR:-$PWD}"
 cd "$root" || { echo "post-edit-lint: cannot cd to the project root" >&2; exit 2; }
-# Compared with symlinks resolved, so /tmp and /private/tmp (or /var and /private/var) name the same place.
-real_path="$(cd "$(dirname "$path")" && pwd -P)/$(basename "$path")"
+# The path as guard-paths matches it: symlinks resolved, .claude/worktrees/<x>/ stripped, case folded on macOS.
+# A path the helper cannot place counts as outside review/, so it gets the stricter checks.
+rel=$(printf '%s' "$input" | node "$here/lib/hook-input.cjs" relpath "$root") || rel=OUTSIDE
 in_review=false
-case "${real_path#"$(pwd -P)"/}" in
+case "$rel" in
   review/*) in_review=true;;
 esac
 

@@ -12,11 +12,15 @@ import {
   readFileSync,
   realpathSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+
+// Each hook run is bounded at 20 s below; vitest's 5 s default would cut a slow run under load first.
+vi.setConfig({ testTimeout: 60_000 });
 
 const HOOK = resolve(__dirname, "..", "..", ".claude", "hooks", "post-edit-lint.sh");
 const STRICT = "--config eslint.config.strict.mjs --no-ignore --no-warn-ignored";
@@ -58,14 +62,14 @@ function file(rel: string): void {
   writeFileSync(join(repo, rel), "export const x = 1\n");
 }
 
-function run(filePath: string): Run {
+function run(filePath: string, projectDir = repo): Run {
   writeFileSync(calls, "");
   const r = spawnSync("bash", [HOOK], {
     input: JSON.stringify({ tool_name: "Write", tool_input: { file_path: filePath } }),
     encoding: "utf8",
     env: {
       ...process.env,
-      CLAUDE_PROJECT_DIR: repo,
+      CLAUDE_PROJECT_DIR: projectDir,
       PATH: `${join(top, "bin")}:${process.env.PATH ?? ""}`,
       FAKE_PNPM_CALLS: calls,
     },
@@ -93,6 +97,11 @@ beforeAll(() => {
   git("commit", "-q", "-m", "tracked files");
   file("review/new.ts");
   file("src/new.ts");
+  file(".claude/worktrees/x/review/new.ts");
+  symlinkSync(repo, join(top, "link"));
+  symlinkSync(join("..", "src", "old.ts"), join(repo, "review", "link.ts"));
+  symlinkSync(join("..", "src"), join(repo, "review", "out"));
+  symlinkSync(join("..", "review"), join(repo, "src", "in"));
 });
 
 afterAll(() => {
@@ -128,8 +137,34 @@ describe("post-edit-lint.sh: which checks a written file gets", () => {
     expect(run(p).calls).toEqual([`exec prettier --check ${p}`, `exec eslint ${BASELINE} ${p}`]);
   });
 
-  it("a review/ file named through its resolved path (macOS's /private/var for /var) still counts as review/", () => {
-    const p = join(realpathSync(repo), "review/new.ts");
+  it("a review/ file named through a symlinked project root still counts as review/, either way round", () => {
+    const viaRepo = join(realpathSync(repo), "review/new.ts");
+    expect(run(viaRepo, join(top, "link")).calls).toEqual([`exec eslint ${BASELINE} ${viaRepo}`]);
+    const viaLink = join(top, "link", "review/new.ts");
+    expect(run(viaLink, realpathSync(repo)).calls).toEqual([`exec eslint ${BASELINE} ${viaLink}`]);
+  });
+
+  it("a review/ file in a Claude Code worktree copy (.claude/worktrees/<x>/) counts as review/", () => {
+    const p = join(repo, ".claude/worktrees/x/review/new.ts");
+    expect(run(p).calls).toEqual([`exec eslint ${BASELINE} ${p}`]);
+  });
+
+  it.runIf(process.platform === "darwin")(
+    "on macOS, Review/ typed in another case counts as review/",
+    () => {
+      const p = join(repo, "Review/new.ts");
+      expect(run(p).calls).toEqual([`exec eslint ${BASELINE} ${p}`]);
+    }
+  );
+
+  it("a file in review/ that links out, or a folder in review/ that links out, gets the checks of where it leads", () => {
+    for (const p of [join(repo, "review/link.ts"), join(repo, "review/out/new.ts")]) {
+      expect(run(p).calls[0]).toBe(`exec prettier --check ${p}`);
+    }
+  });
+
+  it("a folder elsewhere that links into review/ counts as review/", () => {
+    const p = join(repo, "src/in/new.ts");
     expect(run(p).calls).toEqual([`exec eslint ${BASELINE} ${p}`]);
   });
 
