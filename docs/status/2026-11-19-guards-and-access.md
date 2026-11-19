@@ -25,14 +25,14 @@
 | refuse, a shell construct | 165 | a substitution or variable as a command word, a heredoc, a pre-approved tool over several lines |
 | refuse, text about secrets, hosts, the broker or deletion | 46 | file writes (runbooks, scripts, tests, PR bodies) whose text names `ssh`, `.env`, `make kill-switch` and so on; none of them ran one |
 | refuse, a `.env` name | 2 | an agent grepping a test log for the test named "blocks: cat .env.local"; no `.env` file was read |
-| refuse, a host command | 4 | read-only host scripts over ssh, `ssh qt 'bash -s' < <local read script>`: two on 6 November at 19:00Z, two on 10 November at 19:57Z; I have not yet traced the operator's ask for each |
+| refuse, a host command | 4 | read-only host scripts over ssh, `ssh qt 'bash -s' < <local read script>`: two on 6 November at 19:00Z, two on 10 November at 19:57Z. Each followed the operator's ask: 18:46Z on 6 November, "Keep tracing D-31 read-only: which endpoint returns the 401 …"; 19:50Z on 10 November, "Host state now: running commit, service, ticks …" |
 | no answer after 180 s | 4 | two on 1 and 18 November, two in an agent on 17 November |
 
 The replay used today's guard, which is stricter than the one that was installed at the time, so "refuse" means today's rules, not the rules then.
 
 **What I take from it.**
 - No skipped guard let a `.env` read, a broker call, a live-table write or a `gh pr merge` through.
-- The four host reads are the open question.
+- The four host reads were all asked for.
 - I'm not changing the guards: they are frozen until the trial's report.
 
 **The fix.**
@@ -87,6 +87,5 @@ The replay used today's guard, which is stricter than the one that was installed
 2. #353: round 1 from its author, then a round-2 review of the diff since `77538b7`.
 3. After #352 merges: #342's rebase and E0 PR-A.
 4. The window sheet's heads.
-5. Tracing the four host reads' asks.
 
 **Deadline:** #342 READY TO MERGE at its new head by Fri 20 Nov 20:00 UK. It needs #352 merged by about Friday midday to leave time for CI.
