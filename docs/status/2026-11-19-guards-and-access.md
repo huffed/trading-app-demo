@@ -54,7 +54,7 @@ The replay used today's guard, which is stricter than the one that was installed
 
 | Item | State |
 |---|---|
-| #354 (item 5) | Round 1 found no Critical or High, so the loop ends. Fixes are committed at `0615de2`, not yet pushed; `make check` is running through the slot. Fixed: M1, the hook places a path with `hook-input.cjs relpath` as guard-paths does; M2, the DEV_SETUP hooks row; L4, a 60 s test timeout; L5, "as CI does, not as lint-staged". L3 (test 5 vacuous on Linux) is folded into M1's tests: a symlinked root both ways, a worktree copy, `Review/` on macOS, links out of and into `review/`. Three of them fail on the previous hook. L7 is DEBT D-49. L6, the title and the body, follow the push. |
+| #354 (item 5) | Round 1 found no Critical or High, so the loop ends. Fixes pushed at `0615de2`: `make check` exit 0 (2,861 passed, 11 expected fail, 1,934 s), CI green, CLEAN. **READY TO MERGE.** Fixed: M1, the hook places a path with `hook-input.cjs relpath` as guard-paths does; M2, the DEV_SETUP hooks row; L4, a 60 s test timeout; L5, "as CI does, not as lint-staged". L3 (test 5 vacuous on Linux) is folded into M1's tests: a symlinked root both ways, a worktree copy, `Review/` on macOS, links out of and into `review/`. Three of them fail on the previous hook. L7 is DEBT D-49. L6, the title and the body, follow the push. |
 | #353 (item 7) | Its author was resumed at about 14:10Z to finish round 1; its head is still `77538b7`. |
 | #352 | READY TO MERGE at `15b974e`. The audit's go, #342's rebase and E0 PR-A wait on it. |
 | #342 (item 1) | READY TO MERGE at `c531812` until #352 merges; then a rebase. Due Fri 20 Nov 20:00 UK. |
@@ -83,7 +83,7 @@ The replay used today's guard, which is stricter than the one that was installed
 - questions 1 and 2, as before.
 
 **Mine, in order:**
-1. #354: push and CI, then the title and body. Then READY TO MERGE.
+1. #354: done, READY TO MERGE at `0615de2`.
 2. #353: round 1 from its author, then a round-2 review of the diff since `77538b7`.
 3. After #352 merges: #342's rebase and E0 PR-A.
 4. The window sheet's heads.
