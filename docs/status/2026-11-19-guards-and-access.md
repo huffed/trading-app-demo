@@ -57,7 +57,7 @@ The replay used today's guard, which is stricter than the one that was installed
 | Item | State |
 |---|---|
 | #354 (item 5) | Round 1 found no Critical or High, so the loop ends. Fixes pushed at `0615de2`: `make check` exit 0 (2,861 passed, 11 expected fail, 1,934 s), CI green, CLEAN. **READY TO MERGE.** Fixed: M1, the hook places a path with `hook-input.cjs relpath` as guard-paths does; M2, the DEV_SETUP hooks row; L4, a 60 s test timeout; L5, "as CI does, not as lint-staged". L3 (test 5 vacuous on Linux) is folded into M1's tests: a symlinked root both ways, a worktree copy, `Review/` on macOS, links out of and into `review/`. Three of them fail on the previous hook. L7 is DEBT D-49. L6, the title and the body, follow the push. |
-| #353 (item 7) | Round 1's fixes pushed at `b40f90b`; CI green. Its `make check` failed only the kill-switch test, at 30,879 ms in the suite against 11,331 ms alone, so no limit change. Round 2 (diff since `77538b7`) found no Critical, High or Medium, so the loop ends. Eight Lows: seven are fixed in one commit, and one (tests for the new fail-closed branches) goes into D-48. The pinned `actions/checkout` commit is v4's tag commit on actions/checkout. |
+| #353 (item 7) | Round 1's fixes pushed at `b40f90b`; CI green. Its `make check` failed only the kill-switch test, at 30,879 ms in the suite against 11,331 ms alone, so no limit change. Round 2 (diff since `77538b7`) found no Critical, High or Medium, so the loop ends. Eight Lows: seven are fixed in one commit, and one (tests for the new fail-closed branches) goes into D-48. The pinned `actions/checkout` commit is v4's tag commit on actions/checkout. The Lows are fixed at `2d1d526` (CI green, CLEAN), and the untested branches are D-48 (6). `make check` failed only the kill-switch test: 31,490 ms in the suite against 20,333 ms alone, so no limit change. **READY TO MERGE at `2d1d526`.** Item 7's done-when: the tests show a diff touching `src/lib/scan` fails and one touching only `tests/` and `docs/` passes; on live data the job fails #291 (eight fenced paths) and passes #352. The required check in protect-dev is held for questions 1 and 2. |
 | #352 | READY TO MERGE at `15b974e`. The audit's go, #342's rebase and E0 PR-A wait on it. |
 | #342 (item 1) | READY TO MERGE at `c531812` until #352 merges; then a rebase. Due Fri 20 Nov 20:00 UK. |
 | Window sheet (item 8) | Pushed at `899a96e`. It names dev at `ea75c40` and #342 at `c531812`; to update when they move. |
@@ -77,6 +77,14 @@ The replay used today's guard, which is stricter than the one that was installed
 4. Unchecked: whether 00011/00012 apply on PGlite without shims for Supabase's `auth` schema, roles and extensions. Row-level security needs the same shims.
 5. Cost: one dev dependency, plus an adapter about the stub's size. Recommendation: not before the stop-and-target scenario; revisit if a scenario fails on a gap from line 1.
 
+## The kill-switch case under load
+
+"does not lose an id across switch, resume, re-activate, switch, resume, switch" has a 30 s limit.
+
+- **Under load** it has failed in every loaded `make check` since 18 November: 35.3, 38.8, 34.0, 34.2, 30.9 and 31.5 s.
+- **Alone** it passes every time, in 11 to 20 s. It also passed in #354's `make check`, which ran with no other heavy job.
+- **No limit is raised,** per item 3. If it ever fails alone, that becomes a DEBT row.
+
 ## For the planner
 
 **Waiting on the operator:**
@@ -86,7 +94,7 @@ The replay used today's guard, which is stricter than the one that was installed
 
 **Mine, in order:**
 1. #354: done, READY TO MERGE at `0615de2`.
-2. #353: round 1 from its author, then a round-2 review of the diff since `77538b7`.
+2. #353: done, READY TO MERGE at `2d1d526`; the ruleset change waits for the merge and questions 1 and 2.
 3. After #352 merges: #342's rebase and E0 PR-A.
 4. The window sheet's heads.
 
