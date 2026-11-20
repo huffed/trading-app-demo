@@ -222,6 +222,8 @@ JSON
 
 A test that exposes a **known defect** is written for the intended behaviour and marked `it.fails(...)` with the audit finding or DEBT id in its name. Vitest counts it as "expected fail". When the defect is fixed, the test starts passing and Vitest reports "expected to fail but passed" — the marker must then come off in the same PR. Today: 12 such cases (the three rejected exit reasons, four rejected event types and a rejected close logged as closed from audit A4 / draft PR #291, the dropped `higherTfCloseStamped` flag from audit A6, the IEEE-754 lot-floor case from DEBT D-08, the FTMO day boundary from DEBT D-14, and the no-quote entry's fill price against the backtester's from DEBT D-02, E0).
 
+A file that imports E0's database stub (`tests/helpers/fake-supabase.ts`) also gets its afterEach and afterAll: a call the stub does not support fails the test it was made in, or the file when that test is an `it.fails`, whose expected failure would otherwise hide it (`docs/DEBT.md` D-47).
+
 **Why:** the Phase A audit found no test that spans live and backtest, no test for sizing or fills, and a DB contract that the code violates in three places. Characterisation tests are what make the Phase E refactors safe: they describe current behaviour, including the wrong parts, so a refactor that changes behaviour by accident cannot pass.
 
 **Commands:**

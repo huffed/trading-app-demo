@@ -9,12 +9,21 @@
  * supabase-js v2 a write returns rows only when `.select()` is chained.
  *
  * A call the stub does not support is recorded when it is made: an unknown method or client property (which also
- * throws), rpc, upsert, a second order(), a count without head, single() over several rows. After each test of a file
- * that imports this module, the record of every stub the test opened must be empty, so a call that an engine `catch`
- * swallows still fails the test. The stub's known gaps are docs/DEBT.md D-47.
+ * throws), rpc, upsert, a second order(), a count without head, single() over several rows, a filter given null or
+ * undefined. After each test of a file that imports this module, the record of every stub the file opened must be
+ * empty, so a call that an engine `catch` swallows still fails the test. A test marked `fails` would take that failure
+ * for the one it expects, so its calls are checked after the file's last test instead, and fail the file. The stub's
+ * known gaps are docs/DEBT.md D-47.
  */
-import { afterEach, expect } from "vitest";
-import { asRead, columnDefaults, refusal, touchesUpdatedAt, unknownColumn } from "./db-checks";
+import { afterAll, afterEach, expect } from "vitest";
+import {
+  asRead,
+  columnDefaults,
+  refusal,
+  rulesOf,
+  touchesUpdatedAt,
+  unknownColumn,
+} from "./db-checks";
 import type { DbError, Row } from "./db-checks";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -40,12 +49,22 @@ interface Result {
   count?: number;
 }
 
-/** The stubs the running test opened. */
+/** Every stub the file opened, and the unsupported calls drained from them in tests marked `fails`. */
 const opened: FakeDatabase[] = [];
+const inFailsTests: string[] = [];
+const UNSUPPORTED = "calls the E0 database stub does not support (docs/DEBT.md D-47)";
 
-afterEach(() => {
-  const calls = opened.splice(0).flatMap((db) => db.unsupported);
-  expect(calls, "calls the E0 database stub does not support (docs/DEBT.md D-47)").toEqual([]);
+afterEach(({ task }) => {
+  const calls = opened.flatMap((db) => db.unsupported.splice(0));
+  // vitest turns any failure of a test marked `fails` into a pass, this hook's included (@vitest/runner's runTest).
+  if (task.fails) inFailsTests.push(...calls);
+  else expect(calls, UNSUPPORTED).toEqual([]);
+});
+
+/** A suite hook's failure is not turned; this one runs after the file's own afterAll hooks, so it sees their calls. */
+afterAll(() => {
+  const calls = [...inFailsTests.splice(0), ...opened.flatMap((db) => db.unsupported.splice(0))];
+  expect(calls, UNSUPPORTED).toEqual([]);
 });
 
 /**
@@ -61,7 +80,7 @@ function compare(a: unknown, b: unknown): number {
   return String(a).localeCompare(String(b));
 }
 
-/** As in SQL, `=`, `<>` and IN never match NULL; postgrest-js sends eq(…, null) as `eq.null`, a text comparison. */
+/** As in SQL, `=`, `<>` and IN never match NULL. A filter given null or undefined is also recorded (Query.where). */
 const PREDICATES: Record<Filter["op"], (v: unknown, want: unknown) => boolean> = {
   eq: (v, want) => v != null && v === want,
   is: (v, want) => v === want || (want === null && v === undefined),
@@ -85,6 +104,8 @@ export class FakeDatabase {
   readonly unsupported: string[] = [];
 
   constructor(seed: Record<string, Row[]> = {}) {
+    // Read the migrations now: a parse failure then throws here, not inside an engine call that may catch it.
+    rulesOf("paper_positions");
     opened.push(this);
     const now = new Date().toISOString();
     for (const [table, rows] of Object.entries(seed)) {
@@ -234,6 +255,10 @@ class Query implements PromiseLike<Result> {
   }
 
   private where(column: string, op: Filter["op"], value: unknown): this {
+    // postgrest-js sends `eq.null` or `eq.undefined`: text, which the database casts to the column's type or refuses.
+    if (value == null && op !== "is") {
+      this.unsupported(`${op}("${column}", ${String(value)}), which postgrest-js sends as text`);
+    }
     this.filters.push({ column, op, value });
     return this;
   }

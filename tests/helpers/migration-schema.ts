@@ -3,11 +3,13 @@
  * (./fake-supabase.ts, through ./db-checks.ts): each column with its NOT NULL and DEFAULT, each CHECK under its
  * Postgres name, and whether 00002's updated_at trigger runs on an update. The migrations are read in file order.
  * Only the forms they use are read: CREATE TABLE, ALTER TABLE's ADD COLUMN, ADD CONSTRAINT … CHECK, DROP CONSTRAINT
- * and ENABLE ROW LEVEL SECURITY, and that trigger; DEFAULTs of gen_random_uuid(), now(), a number or a quoted literal;
- * CHECKs of IN lists, comparisons with a number and `x IS NULL OR …`. Any other statement that can change these rules
- * (another ALTER TABLE action or trigger, a unique index, DROP TABLE) or an expression outside those forms throws,
- * naming the migration, so a migration the stub cannot follow fails the E0 tests instead of going unseen. Indexes,
- * policies, grants, functions and data statements are left out: they change no rule the stub applies.
+ * and ENABLE ROW LEVEL SECURITY, that trigger and 00002's body of its function; DEFAULTs of gen_random_uuid(), now(), a
+ * number or a quoted literal; CHECKs of IN lists, comparisons with a number and `x IS NULL OR …`. Comments of both
+ * kinds are dropped. Any other statement that names either table throws, naming the migration, unless it is of a kind
+ * that changes no rule the stub applies (IGNORED: an index that is not unique, a policy, a grant, a comment, a function
+ * other than update_updated_at(), a data statement, another table's CREATE or ALTER TABLE). So do an expression
+ * outside those forms, another body for update_updated_at() and a DROP of it. A migration the stub cannot follow
+ * fails the E0 tests instead of going unseen.
  */
 import { randomUUID } from "node:crypto";
 import { readdirSync, readFileSync } from "node:fs";
@@ -50,10 +52,11 @@ export function readMigrations(): MigrationFile[] {
     .map((file) => ({ file, sql: readFileSync(join(MIGRATIONS, file), "utf8") }));
 }
 
-/** Comments, quoted literals, dollar-quoted bodies, the statement end, and everything else. */
-const TOKEN = /--[^\n]*|'(?:[^']|'')*'|\$(\w*)\$[\s\S]*?\$\1\$|;|[^;'$-]+|[\s\S]/g;
+/** Comments of both kinds, quoted literals, dollar-quoted bodies, the statement end, and everything else. */
+const TOKEN =
+  /--[^\n]*|\/\*[\s\S]*?\*\/|'(?:[^']|'')*'|\$(\w*)\$[\s\S]*?\$\1\$|;|[^;'$/-]+|[\s\S]/g;
 
-/** The top-level statements, comments dropped and whitespace collapsed. */
+/** The top-level statements, each comment read as a space and whitespace collapsed. */
 export function statements(sql: string): string[] {
   const out: string[] = [];
   let current = "";
@@ -61,8 +64,8 @@ export function statements(sql: string): string[] {
     if (token === ";") {
       out.push(current);
       current = "";
-    } else if (!token.startsWith("--")) {
-      current += token;
+    } else {
+      current += /^(?:--|\/\*)/.test(token) ? " " : token;
     }
   }
   out.push(current);
@@ -212,6 +215,10 @@ function trigger(tables: Tables, table: string, rest: string, where: string): vo
 
 type Statement = (tables: Tables, m: RegExpExecArray, where: string) => void;
 
+/** 00002's update_updated_at() after its name: the function the trigger runs. */
+const UPDATED_AT_BODY =
+  /^returns trigger as \$\$ begin new\.updated_at = now\(\); return new; end; \$\$ language plpgsql$/i;
+
 /** The statements that can change a rule of either table, and what each does. */
 const STATEMENTS: [RegExp, Statement][] = [
   [
@@ -239,7 +246,26 @@ const STATEMENTS: [RegExp, Statement][] = [
     ),
     (_tables, m, where) => cannot(where, `"${m[0]}"`),
   ],
+  [
+    /^create (?:or replace )?function (?:public\.)?update_updated_at\(\) (.*)$/i,
+    (_tables, m, where) => {
+      if (!UPDATED_AT_BODY.test(m[1])) cannot(where, `update_updated_at() as "${m[1]}"`);
+    },
+  ],
+  [
+    /^drop function (?:if exists )?(?:public\.)?update_updated_at\b.*$/i,
+    (_tables, m, where) => cannot(where, `"${m[0]}"`),
+  ],
 ];
+
+/** A statement that names either table. */
+const NAMES = new RegExp(String.raw`\b${TABLE}`, "i");
+
+/** The kinds of statement that name either table and change no rule the stub applies. */
+const IGNORED = new RegExp(
+  String.raw`^(?:(?:create|alter|drop) (?:index|policy)|comment on|grant|revoke|insert|update|delete|select|with|create (?:or replace )?function)\b|^(?:create table (?:if not exists )?|alter table (?:if exists )?(?:only )?)(?!${TABLE})`,
+  "i"
+);
 
 /** The first pattern that matches `text`, with its match. */
 function firstMatch<F>(patterns: [RegExp, F][], text: string): [RegExpExecArray, F] | undefined {
@@ -257,6 +283,9 @@ export function deriveTables(migrations: MigrationFile[] = readMigrations()): Ta
     for (const statement of statements(sql)) {
       const found = firstMatch(STATEMENTS, statement);
       if (found) found[1](tables, found[0], file);
+      else if (NAMES.test(statement) && !IGNORED.test(statement)) {
+        cannot(file, `"${statement.slice(0, 200)}"`);
+      }
     }
   }
   return tables;

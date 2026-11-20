@@ -38,7 +38,7 @@ export function checkListFor(constraint: string): string[] {
 let derived: Map<string, DerivedTable> | null = null;
 
 /** A table's rules from the migrations, read once; undefined for a table the stub does not check. */
-function rulesOf(table: string): DerivedTable | undefined {
+export function rulesOf(table: string): DerivedTable | undefined {
   derived ??= deriveTables();
   return derived.get(table);
 }

@@ -165,6 +165,17 @@ describe("E0: the stub's rules are the migrations'", () => {
     ]);
   });
 
+  it("reads statements after a block comment, an apostrophe in it included", () => {
+    const sql =
+      "/* the stub's next rules */ alter table public.paper_positions drop constraint paper_positions_quantity_check;" +
+      " alter table public.activity_log add constraint activity_log_probe check (event_type in ('x'));";
+    const tables = deriveTables(probe(sql));
+    expect(tables.get("paper_positions")?.checks.has("paper_positions_quantity_check")).toBe(false);
+    expect(tables.get("activity_log")?.checks.has("activity_log_probe")).toBe(true);
+  });
+});
+
+describe("E0: a migration the stub cannot follow fails the E0 tests", () => {
   it.each([
     "alter table public.paper_positions alter column side set default 'short'",
     "alter table public.paper_positions rename column ticker to symbol",
@@ -173,6 +184,10 @@ describe("E0: the stub's rules are the migrations'", () => {
     "create unique index paper_positions_one_open on public.paper_positions (algorithm_id)",
     "create trigger audit after insert on public.paper_positions for each row execute function audit()",
     "drop table public.activity_log",
+    "drop trigger update_paper_positions_updated_at on public.paper_positions",
+    "do $$ begin alter table public.paper_positions drop constraint paper_positions_quantity_check; end $$",
+    "create or replace function public.update_updated_at() returns trigger as $$ begin return new; end; $$ language sql",
+    "drop function public.update_updated_at() cascade",
   ])("throws on a statement it cannot read, naming the migration: %s", (sql) => {
     expect(() => deriveTables(probe(`${sql};`))).toThrow(
       /^99999_probe\.sql: the E0 database stub cannot read/
@@ -241,13 +256,12 @@ describe("E0: the stub stores, records and hands out separate JSON copies", () =
 });
 
 describe("E0: the stub's filters treat NULL as SQL does", () => {
-  it("eq, neq and in never match NULL; is(null) does", async () => {
+  it("neq and in never match NULL; is(null) does", async () => {
     const closed = { ...POSITION, ticker: "EUR/USD", exit_reason: "manual" };
     const db = new FakeDatabase({ paper_positions: [POSITION, closed] });
     const select = () => db.client().from("paper_positions").select("*");
     const tickers = async (q: PromiseLike<{ data: unknown }>) =>
       ((await q).data as Row[]).map((r) => r.ticker);
-    expect(await tickers(select().eq("exit_reason", null as unknown as string))).toEqual([]);
     expect(await tickers(select().neq("exit_reason", "manual"))).toEqual([]);
     expect(await tickers(select().in("exit_reason", ["manual"]))).toEqual(["EUR/USD"]);
     expect(await tickers(select().is("exit_reason", null))).toEqual(["XAU/USD"]);
@@ -284,6 +298,17 @@ describe("E0: the stub records every call it does not support", () => {
       'from("paper_positions") a second order(), which replaces the first',
       'from("paper_positions") select() with a count but no head',
       'from("paper_positions") single() over 3 rows',
+    ]);
+  });
+
+  it("a filter given null or undefined, which postgrest-js sends as text", async () => {
+    const db = new FakeDatabase();
+    const select = () => db.client().from("paper_positions").select("*");
+    await select().eq("algorithm_id", undefined as unknown as string);
+    await select().lt("closed_at", null as unknown as string);
+    expect(db.unsupported.splice(0)).toEqual([
+      'from("paper_positions") eq("algorithm_id", undefined), which postgrest-js sends as text',
+      'from("paper_positions") lt("closed_at", null), which postgrest-js sends as text',
     ]);
   });
 });
