@@ -8,8 +8,9 @@
 #                         and guard-bash.sh read) and its review/VERDICT.md is the verdict
 #   <pr-files.json>       what `gh api --paginate repos/<repo>/pulls/<n>/files` wrote: one JSON array per page
 #   <pr-before.json>,     `[head sha, changed_files]` of the PR, read just before and just after the file list: both
-#   <pr-after.json>       heads must be HEAD_SHA, so the list is the one of the commit this check reports on, and the
-#                         count must match the list, so a list the API cut short (it stops at 3,000) fails, not passes
+#   <pr-after.json>       reads must show HEAD_SHA, and the count must match the list and be under the API's cap of
+#                         3,000. The list itself is not addressed by a sha: if GitHub's /files and changed_files lag a
+#                         push, a run can pass on the previous head's list (DEBT D-48)
 #   HEAD_SHA (env)        the event's head commit, the one GitHub reports this check on
 #   PR_TITLE (env)        the PR's title; the workflow passes both through env, never through ${{ }} in run:
 #
@@ -47,8 +48,8 @@ read_pr() {
 }
 before=$(read_pr "$3") || die "the PR read before the file list is not [head sha, changed_files]"
 after=$(read_pr "$4") || die "the PR read after the file list is not [head sha, changed_files]"
-[ "$before" = "$after" ] || die "the PR changed while its files were listed ($before, then $after); its newer run decides"
-[ "${before%% *}" = "$HEAD_SHA" ] || die "the PR's head is ${before%% *}, not $HEAD_SHA, the commit this check reports on; its newer run decides"
+[ "$before" = "$after" ] || die "the PR changed while its files were listed ($before, then $after); its newer run decides; if no newer run comes, re-run this job"
+[ "${before%% *}" = "$HEAD_SHA" ] || die "the PR's head is ${before%% *}, not $HEAD_SHA, the commit this check reports on; its newer run decides; if no newer run comes, re-run this job"
 expected=${before##* }
 
 # One array of objects per page; each object has a string filename and, on a rename, a string previous_filename.
@@ -56,7 +57,8 @@ shape=$(jq -s 'all(.[]; type == "array") and all(.[][]; type == "object" and (.f
   and ((.previous_filename // "") | type) == "string")' "$files_json" 2>/dev/null) || die "the file list is not JSON"
 [ "$shape" = "true" ] || die "the file list is not the shape the pulls/files API returns"
 count=$(jq -s '[.[][]] | length' "$files_json") || die "could not count the file list"
-[ "$count" = "$expected" ] || die "the API listed $count changed files and the pull request has $expected (the API stops at 3,000)"
+[ "$count" = "$expected" ] || die "the API listed $count changed files and the pull request has $expected (GitHub's diff stats can lag a push, and the API stops at 3,000); if no newer run comes, re-run this job"
+[ "$count" -lt 3000 ] || die "the API listed $count changed files, its cap of 3,000, so it may not have listed them all"
 bad=$(jq -s '[.[][] | .filename, (.previous_filename // empty) | select(test("[[:cntrl:]]"))] | length' "$files_json") || die "could not read the paths"
 [ "$bad" = "0" ] || die "$bad changed path(s) hold a control character, which this check does not match"
 paths=$(jq -r '.[] | .filename, (.previous_filename // empty) | select(. != "")' "$files_json") || die "could not read the paths"
@@ -80,7 +82,7 @@ while IFS= read -r path <&3 && IFS= read -r low <&4; do
       warn "$path changes the fence itself; this run used dev's copy, and the change applies to pull requests after it merges"
       ;;
     .github/workflows/*)
-      warn "$path changes a workflow; one on pull_request runs this PR's own copy, and a job named live-path fence there could answer this check"
+      warn "$path changes a workflow; one on push or pull_request runs this PR's own copy, and unless GitHub requires every check run of a name to pass (undocumented), a job named live-path fence there could answer this check"
       ;;
     review/verdict.md)
       warn "$path adds or changes the audit verdict; once it is on dev, a fenced pull request whose title has the marker passes"

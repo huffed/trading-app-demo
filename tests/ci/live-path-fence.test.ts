@@ -94,6 +94,12 @@ describe("live-path-fence.sh: fails closed on input it cannot read", () => {
   it("a list shorter than the PR's changed_files (the API stops at 3,000)", () => {
     expect(runGate({ pages: [modified("docs/a.md")], count: 3001 }).status).toBe(2);
   });
+  it("a list of 3,000 files, the API's cap, even when changed_files agrees", () => {
+    const paths = Array.from({ length: 3000 }, (_, i) => `docs/f${String(i)}.md`);
+    const run = runGate({ pages: [modified(...paths)] });
+    expect(run.status).toBe(2);
+    expect(run.output).toContain("its cap of 3,000");
+  });
   it("a file list that is not JSON", () => {
     expect(runGate({ pages: "not json", count: 1 }).status).toBe(2);
   });
@@ -115,7 +121,7 @@ describe("live-path-fence.sh: fails closed on input it cannot read", () => {
   });
 });
 
-describe("live-path-fence.sh: the list is the one of the commit the check reports on", () => {
+describe("live-path-fence.sh: both reads of the PR must show HEAD_SHA", () => {
   const moved = "b".repeat(40);
   it("a head that moved before the list fails closed", () => {
     expect(runGate({ pages: [modified("docs/a.md")], heads: [moved, moved] }).status).toBe(2);
@@ -137,7 +143,7 @@ describe("live-path-fence.sh: warnings and the list's last line", () => {
     expect(warnings).toHaveLength(3);
     expect(warnings[0]).toContain("fence.yml changes the fence itself");
     expect(warnings[1]).toContain(
-      "ci.yml changes a workflow; one on pull_request runs this PR's own copy"
+      "ci.yml changes a workflow; one on push or pull_request runs this PR's own copy"
     );
     expect(warnings[2]).toContain("review/VERDICT.md adds or changes the audit verdict");
   });
