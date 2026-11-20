@@ -8,24 +8,24 @@
  * stores, records and hands out are separate copies, a read with NULL in each column a row lacks; and as in
  * supabase-js v2 a write returns rows only when `.select()` is chained.
  *
+ * A select can embed a related table as `<table>!inner(...)`, joined through `<table, singular>_id` (algorithms
+ * through algorithm_id), and filter on `<table>.<column>`; the embedded row comes whole, as the base row does.
+ *
  * A call the stub does not support is recorded when it is made: an unknown method or client property (which also
- * throws), rpc, upsert, a second order(), a count without head, single() over several rows. After each test of a file
+ * throws), rpc, upsert, a second order(), a count without head, single() over several rows, any other embed, a
+ * `.not()` with an operator the stub lacks. After each test of a file
  * that imports this module, the record of every stub the test opened must be empty, so a call that an engine `catch`
  * swallows still fails the test. The stub's known gaps are docs/DEBT.md D-47.
  */
 import { afterEach, expect } from "vitest";
 import { asRead, columnDefaults, refusal, touchesUpdatedAt, unknownColumn } from "./db-checks";
+import { compare, isOperator, matches } from "./postgrest-filters";
 import type { DbError, Row } from "./db-checks";
+import type { Filter } from "./postgrest-filters";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 export type { Row } from "./db-checks";
 type WriteOp = "insert" | "update" | "upsert" | "delete";
-
-interface Filter {
-  column: string;
-  op: "eq" | "neq" | "gt" | "gte" | "lt" | "lte" | "in" | "is";
-  value: unknown;
-}
 
 export interface WriteRecord {
   table: string;
@@ -54,27 +54,6 @@ afterEach(() => {
  */
 function asSent(row: Row): Row {
   return JSON.parse(JSON.stringify(row)) as Row;
-}
-
-function compare(a: unknown, b: unknown): number {
-  if (typeof a === "number" && typeof b === "number") return a - b;
-  return String(a).localeCompare(String(b));
-}
-
-/** As in SQL, `=`, `<>` and IN never match NULL; postgrest-js sends eq(…, null) as `eq.null`, a text comparison. */
-const PREDICATES: Record<Filter["op"], (v: unknown, want: unknown) => boolean> = {
-  eq: (v, want) => v != null && v === want,
-  is: (v, want) => v === want || (want === null && v === undefined),
-  neq: (v, want) => v != null && v !== want,
-  in: (v, want) => v != null && Array.isArray(want) && want.includes(v),
-  gt: (v, want) => v != null && compare(v, want) > 0,
-  gte: (v, want) => v != null && compare(v, want) >= 0,
-  lt: (v, want) => v != null && compare(v, want) < 0,
-  lte: (v, want) => v != null && compare(v, want) <= 0,
-};
-
-function matches(row: Row, f: Filter): boolean {
-  return PREDICATES[f.op](row[f.column], f.value);
 }
 
 export class FakeDatabase {
@@ -146,13 +125,19 @@ class Query implements PromiseLike<Result> {
   private orderBy: { column: string; ascending: boolean } | null = null;
   private headCount = false;
   private returning = false;
+  /** The tables a select embeds with `<table>!inner(...)`, each through `<table, singular>_id`. */
+  private embeds: string[] = [];
 
   constructor(
     private readonly db: FakeDatabase,
     private readonly table: string
   ) {}
 
-  select(_columns?: string, opts?: { count?: string; head?: boolean }): this {
+  select(columns = "*", opts?: { count?: string; head?: boolean }): this {
+    this.embeds = [...columns.matchAll(/(\w+)!inner\(/g)].map(([, name]) => name);
+    if (columns.split("(").length - 1 > this.embeds.length) {
+      this.unsupported(`select("${columns}"), an embed other than <table>!inner(...)`);
+    }
     if (this.op !== "select") this.returning = true;
     if (opts?.head) this.headCount = true;
     else if (opts?.count) this.unsupported("select() with a count but no head");
@@ -196,6 +181,14 @@ class Query implements PromiseLike<Result> {
   is(column: string, value: unknown): this {
     return this.where(column, "is", value);
   }
+  not(column: string, op: string, value: unknown): this {
+    if (!isOperator(op)) {
+      this.unsupported(`not("${column}", "${op}")`);
+      return this;
+    }
+    this.filters.push({ column, op, value, negate: true });
+    return this;
+  }
   order(column: string, opts?: { ascending?: boolean }): this {
     if (this.orderBy) this.unsupported("a second order(), which replaces the first");
     this.orderBy = { column, ascending: opts?.ascending ?? true };
@@ -238,8 +231,35 @@ class Query implements PromiseLike<Result> {
     return this;
   }
 
+  /** The row embedded under `name`: the one whose id is this row's `<name, singular>_id`. */
+  private related(row: Row, name: string): Row | undefined {
+    const key = row[`${name.replace(/s$/, "")}_id`];
+    return this.db.rows(name).find((r) => r.id === key);
+  }
+
+  /** The row with its embeds, or null when an `!inner` embed has no row. */
+  private joined(row: Row): Row | null {
+    const view: Row = { ...row };
+    for (const name of this.embeds) {
+      const other = this.related(row, name);
+      if (!other) return null;
+      view[name] = other;
+    }
+    return view;
+  }
+
+  /** A read's copy of a row, with a copy of each embedded row. */
+  private readView(row: Row): Row {
+    const view = asRead(this.table, row);
+    for (const name of this.embeds) view[name] = asRead(name, this.related(row, name) ?? {});
+    return view;
+  }
+
   private selected(): Row[] {
-    let rows = this.db.rows(this.table).filter((r) => this.filters.every((f) => matches(r, f)));
+    let rows = this.db.rows(this.table).filter((r) => {
+      const view = this.joined(r);
+      return view !== null && this.filters.every((f) => matches(view, f));
+    });
     if (this.orderBy) {
       const { column, ascending } = this.orderBy;
       rows = [...rows].sort((a, b) => compare(a[column], b[column]) * (ascending ? 1 : -1));
@@ -250,7 +270,7 @@ class Query implements PromiseLike<Result> {
   private execute(): Result {
     if (this.op === "select") {
       this.db.reads.push(this.table);
-      return this.shape(this.selected().map((r) => asRead(this.table, r)));
+      return this.shape(this.selected().map((r) => this.readView(r)));
     }
     return this.op === "delete" ? this.remove() : this.change();
   }
