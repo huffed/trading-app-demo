@@ -78,9 +78,9 @@ lint-strict: ## ESLint target rule set on FILES=... (default: the code files add
 	if [ -z "$$(printf '%s' "$$files" | tr -d ' ')" ]; then echo "lint-strict: no code files added vs $(BASE)"; exit 0; fi; \
 	printf '%s' "$$files" | tr ' ' '\n' | grep -v '^$$' | tr '\n' '\0' | xargs -0 $(PNPM) exec eslint --config eslint.config.strict.mjs --no-ignore
 
-lint-shell: ## shellcheck: cron wrappers at the baseline (-S error, see DEBT.md); the Claude hooks, the commit-msg hook and the ops scripts are new code and meet the target (-S warning)
+lint-shell: ## shellcheck: cron wrappers at the baseline (-S error, see DEBT.md); the Claude hooks, the commit-msg hook, the ops and the CI scripts are new code and meet the target (-S warning)
 	shellcheck -S error scripts/*.sh
-	shellcheck -S warning .claude/hooks/*.sh .husky/commit-msg scripts/ops/*.sh ops/*.sh
+	shellcheck -S warning .claude/hooks/*.sh .husky/commit-msg scripts/ops/*.sh scripts/ci/*.sh ops/*.sh
 
 lint-workflows: ## actionlint on .github/workflows (a workflow GitHub cannot parse fails here, not as a run with no jobs)
 	@command -v actionlint >/dev/null || { echo "actionlint is not installed (brew install actionlint)"; exit 2; }
