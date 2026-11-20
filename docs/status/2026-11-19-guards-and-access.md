@@ -49,13 +49,15 @@ The replay used today's guard, which is stricter than the one that was installed
 - **The cause.** Not found. It fits macOS's Files and Folders privacy control. I could not read `tccd`'s log.
 - **Data.** Nothing was lost: a refusal blocks access and removes nothing.
 - **Meanwhile.** I ran only read-only commands, and wrote nothing until access came back.
+- **Again, briefly.** #353's round-2 reviewer was refused from 15:35:29Z to 15:35:51Z on 19 November, and nothing else hit it. The cause is still unknown; a look at Warp's Files and Folders entry in System Settings would show whether the grant is being reset.
+- **The window is not affected.** Saturday's session starts fresh in `../qt-window` on `dev`, so it runs #349's guards. The window sheet's step 0 now says so.
 
 ## Where things are
 
 | Item | State |
 |---|---|
 | #354 (item 5) | Round 1 found no Critical or High, so the loop ends. Fixes pushed at `0615de2`: `make check` exit 0 (2,861 passed, 11 expected fail, 1,934 s), CI green, CLEAN. **READY TO MERGE.** Fixed: M1, the hook places a path with `hook-input.cjs relpath` as guard-paths does; M2, the DEV_SETUP hooks row; L4, a 60 s test timeout; L5, "as CI does, not as lint-staged". L3 (test 5 vacuous on Linux) is folded into M1's tests: a symlinked root both ways, a worktree copy, `Review/` on macOS, links out of and into `review/`. Three of them fail on the previous hook. L7 is DEBT D-49. L6, the title and the body, follow the push. |
-| #353 (item 7) | Its author was resumed at about 14:10Z to finish round 1; its head is still `77538b7`. |
+| #353 (item 7) | Round 1's fixes pushed at `b40f90b`; CI green. Its `make check` failed only the kill-switch test, at 30,879 ms in the suite against 11,331 ms alone, so no limit change. Round 2 (diff since `77538b7`) found no Critical, High or Medium, so the loop ends. Eight Lows: seven are fixed in one commit, and one (tests for the new fail-closed branches) goes into D-48. The pinned `actions/checkout` commit is v4's tag commit on actions/checkout. |
 | #352 | READY TO MERGE at `15b974e`. The audit's go, #342's rebase and E0 PR-A wait on it. |
 | #342 (item 1) | READY TO MERGE at `c531812` until #352 merges; then a rebase. Due Fri 20 Nov 20:00 UK. |
 | Window sheet (item 8) | Pushed at `899a96e`. It names dev at `ea75c40` and #342 at `c531812`; to update when they move. |
