@@ -27,7 +27,12 @@
 **The review of #353's resolution** (fresh context, 21 November, on the trial `7d2d7e3`): no Critical or High. Nothing of #353, #352, #354 or #342 is lost in either file; rows D-46 to D-49 are whole and in order; the sentence sits where #353 had it; every fence reference says D-48. Its findings:
 - **Medium, in my resolver, not the PR:** it took its base from the commit named on its command line, unchecked; naming the wrong one would have reverted #354's D-46 silently. **Fixed:** `wt/tools/resolve_rebase.py` replaces both resolvers. It reads each block's own base (the rebase runs with `merge.conflictStyle=diff3`), so no commit is named.
 - **Four Lows, in the resolver:** two rows with one ID on a side, deleted rows, a weak check of the DEV_SETUP block, other unmerged paths. **Fixed in the same script:** each of them stops it, and the DEV_SETUP block must equal its own base plus the one sentence. Both trials, run again with it, give the same trees as before (`2257095`, `7d2d7e3`).
-- **Low, in #353 itself, already at `2d1d526`:** DEV_SETUP §9 says lint-staged's shellcheck covers "ops scripts and hooks", but #353 added `scripts/ci/*.sh` to it. It is one line, so it is fixed: one commit on top of the rebased #353 (`wt/tools/fix_353_l117.py`), because #354 rewrote that line. Its one review, on the trial, is running.
+- **Low, in #353 itself, already at `2d1d526`:** DEV_SETUP §9 says lint-staged's shellcheck covers "ops scripts and hooks", but #353 added `scripts/ci/*.sh` to it. It is one line, so it is fixed in one commit on top of the rebased #353, because #354 rewrote that line. Two reviews of the fix followed, on the trial and uncommitted. Neither found a Critical or High, so the loop ends. Their Lows were each one line, and all are fixed:
+  - `.lintstagedrc.mjs:9`'s header comment had the same stale list. It now names the CI scripts.
+  - The DEV_SETUP sentence said "hooks", which reads as every hook, and named them again in a later "also covers" clause. It now names each glob lint-staged shellchecks, the baseline's included, and the clause is gone.
+  - An exception sentence for `.husky/pre-commit` is out. It read as the only shell script nothing checks, but `scripts/canonical/e2-post-sweep.sh` and `scripts/canonical/run-augmented-f-f2.sh` are unchecked too.
+
+  The final diff is `wt/tools/fix353-trial.diff`: one line in each file, and no line moves. Shell scripts that nothing shellchecks (`.husky/pre-commit` and those two) become a row in the ledger PR, beside item 10's row for `review/`'s scripts. A reviewer also noticed that lint-staged lints no `.cjs` file at commit time (`.claude/hooks/lib/hook-input.cjs`). That is unchecked, and I'll look at it before writing that row.
 
 ## After the restart: what to pick up
 
@@ -46,7 +51,7 @@ You restart this session and the audit's on Sunday, once the audit's merge of `d
    - Squash it to one commit on `ea75c40` with `2d1d526`'s tree, then `git -c merge.conflictStyle=diff3 rebase origin/dev`.
    - `python3 -I wt/tools/resolve_rebase.py wt/fence --fence-sentence`, add both files, continue.
    - The new head's tree must equal the trial's `7d2d7e3`. If it does not, the resolution gets a new review.
-   - Then `python3 -I wt/tools/fix_353_l117.py wt/fence` and one commit, with the hooks, as for any commit.
+   - Then the follow-up: `python3 -I wt/tools/fix_353_l117.py wt/fence` for DEV_SETUP, and the same one-line edit of `.lintstagedrc.mjs:9`'s comment, made with the Edit tool so the tool-config rules apply. `git diff` must equal `wt/tools/fix353-trial.diff`. Then one commit, run through the hooks like any other.
    - Push with `--force-with-lease=tooling/fence-ci:2d1d526`. The body says it was squashed and reviewed. Wait for green, merge.
 5. **Any other conflict** takes that PR off the list, and the report says so.
 6. **E0 PR-A, after #352, in `wt/e0b`.**
@@ -57,7 +62,7 @@ You restart this session and the audit's on Sunday, once the audit's merge of `d
 7. **notify.log.** Report whether turn endings are logged again since the restart (section below).
 8. **After the window.**
    - Push the window session's log (`../qt-window/docs/status/2026-11-21-window-log.md`, uncommitted) to `status/2026-11-18`.
-   - Open the ledger PR from that log and the deploy driver's rows. It also carries D-24, D-25 and D-27's stale targets, item 10's rows and the `/tmp` row.
+   - Open the ledger PR from that log and the deploy driver's rows. It also carries D-24, D-25 and D-27's stale targets, item 10's rows, the `/tmp` row, and a row for the shell scripts nothing shellchecks (above).
    - Then look at why the kill-switch case is slow when it runs alone (below).
 9. **After Sunday 18:00 UK, with #353 on `dev`.**
    - Run decision 0015's policy call, which prompts you; then show the job running on an open PR.
@@ -198,7 +203,7 @@ The replay used today's guard, which is stricter than the one that was installed
 1. When main moves: #352, then #354, then #353 (the pick-up's steps 1 to 5).
 2. After #352 merges: E0 PR-A (step 6).
 3. After the restart: start the poll again if it is still needed, then report on notify.log.
-4. After the window: push the window log to `status/2026-11-18` and open the ledger PR, with item 10's rows, D-24/25/27 and the `/tmp` row. Then the kill-switch case's time alone.
+4. After the window: push the window log to `status/2026-11-18` and open the ledger PR. It carries item 10's rows, D-24/25/27, the `/tmp` row and the unchecked-shell-scripts row. Then the kill-switch case's time alone.
 5. After Sunday 18:00 UK, with #353 on `dev`: decision 0015's policy call, the job on an open PR, the throwaway repository's test, and the record in 0015 and D-48.
 6. After PR-A merges: the stop-and-target PR.
 7. Next week: the sudoers PR.
