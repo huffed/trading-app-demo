@@ -1,6 +1,87 @@
-# Status, 2026-11-19: the guards time out, and Documents access was lost for a night
+# Status, 2026-11-21: the queue waits for the window's deploy, and what to pick up after the restart
 
-## First: guard-bash usually lets the command run when it doesn't answer in time
+`wt/` below is `~/Documents/trading-app/wt/`. The sections from 19 and 20 November follow the new ones.
+
+## 21 November: the queue waits for the window's deploy
+
+**The order (operator, 21 November).**
+- Merge #352, #354 and #353, in that order, once `origin/main` has moved off `2a7d7f7` to the commit that merged #342.
+- Each merges at its new head once green, and `gh pr merge` prompts you for each.
+- If the window is off this weekend, they merge at once, and #342 is rebased for next Friday.
+
+**When I started (19:34 UK).**
+- `origin/main` was `2a7d7f7` and `dev` was `ea75c40`.
+- #342 was open at `c531812`, CLEAN.
+- At 19:50 UK there was no `../qt-window` yet.
+- A background poll waits for main to move: `wt/tools/wait_main.sh`, every 60 s for at most 24 h, logging to `wt/tools/wait-main.log`. It dies with the session, so it has to be started again after the restart (next section).
+
+**What the rebases will meet.** I checked with `git merge-tree`, then rebased for real in a detached worktree onto a stand-in for `dev`: #342's head with #352 merged on it.
+
+| PR | Conflict | What it then needs |
+|---|---|---|
+| #352 | None. | `gh pr update-branch --rebase`, then green CI. |
+| #354 | `docs/DEBT.md` rows only: #354 changed D-46 and added D-49; #352 added D-47. 18 November's row resolver keeps both sides' rows whole. `git range-diff` shows #354's two commits unchanged apart from context lines. | A local rebase in `wt/pel`, a push and green CI. No review, per decision 0013; the PR body says so. |
+| #353 | `docs/DEBT.md` rows, with its D-48 among D-46, D-47 and D-49. Also one row of `docs/DEV_SETUP.md`'s hooks table, where #354 changed a sentence and #353 added one. | Its first commit named its row D-47, which is #352's, so its five commits are squashed into one before the rebase (same tree as `2d1d526`). `wt/tools/resolve_353.py` resolves both files, and stops on any other shape. After the rebase the change is the same size: 13 files, +630/−7. The one review of the resolution ran on the trial: running since 19:58 UK, in a fresh context; its result is added here when it lands. If it is not here after the restart, run it again on the trial worktree `wt/qtrial` (`7d2d7e3`). The real rebase must produce the trial's tree, or the review is done again. Then a push and green CI. |
+| E0 PR-A | After #352: `docs/DEBT.md` rows only, with #354 and #353. | A rebase, `pnpm build`, then open it. |
+
+## After the restart: what to pick up
+
+You restart this session and the audit's on Sunday, once the audit's merge of `dev` is in the main checkout and each session has stopped on a turn ending. The merge is in: `6b834d2`, 18:47Z today. The new session starts here, as does a pointer in its memory.
+
+1. **The poll.** Read `wt/tools/wait-main.log`.
+   - If main has not moved, start `bash wt/tools/wait_main.sh 2a7d7f7210de1fa2f81e8aecb805372a4f735162` again, in the background.
+   - If it has moved, check it is #342's merge commit (`gh pr view 342 --json mergeCommit`), and say what main showed.
+2. **#352.** `gh pr update-branch 352 --rebase`, then `wt/tools/wait_head.sh 352`, then `gh pr merge 352 --squash --match-head-commit <the green head>`.
+3. **#354, in `wt/pel`.**
+   - `git fetch origin`, then `git rebase origin/dev`.
+   - At each stop: `python3 -I wt/tools/resolve_rows.py wt/pel <the commit being applied>`, `git add docs/DEBT.md`, `git rebase --continue`.
+   - Check that `git range-diff` shows context lines only. If `dev`'s tree equals the stand-in `9ac2090`'s, the new head's tree must equal the trial's `2257095`.
+   - Push with `--force-with-lease=tooling/post-edit-lint-review:0615de2`, put the no-review line in the body, wait for green, merge.
+4. **#353, in `wt/fence`.**
+   - Squash it to one commit on `ea75c40` with `2d1d526`'s tree, then `git rebase origin/dev`.
+   - `python3 -I wt/tools/resolve_353.py wt/fence <the squashed commit>`, add both files, continue.
+   - The new head's tree must equal the trial's `7d2d7e3`. If it does not, the resolution gets a new review.
+   - Push with `--force-with-lease=tooling/fence-ci:2d1d526`. The body says it was squashed and reviewed. Wait for green, merge.
+5. **Any other conflict** takes that PR off the list, and the report says so.
+6. **E0 PR-A, after #352, in `wt/e0b`.**
+   - `git rebase --onto origin/dev 15b974e`, with the rows resolved as in step 3.
+   - `bash ../tools/heavy-run.sh e0b-build pnpm build`.
+   - `gh pr create` with `wt/tools/pr-a-body.md`, its size line updated; the PR's number goes in D-47 ("this PR") and in MODERNISATION.
+   - After it merges: the stop-and-target branch (`wt/e0c`, `9aff959`) is rebased and opened, and gets its own review.
+7. **notify.log.** Report whether turn endings are logged again since the restart (section below).
+8. **After the window.**
+   - Push the window session's log (`../qt-window/docs/status/2026-11-21-window-log.md`, uncommitted) to `status/2026-11-18`.
+   - Open the ledger PR from that log and the deploy driver's rows. It also carries D-24, D-25 and D-27's stale targets, item 10's rows and the `/tmp` row.
+   - Then look at why the kill-switch case is slow when it runs alone (below).
+9. **After Sunday 18:00 UK, with #353 on `dev`.**
+   - Run decision 0015's policy call, which prompts you; then show the job running on an open PR.
+   - The throwaway public repository, which prompts you when it is created: test whether a second check run named `live-path fence`, from the PR's own workflow, can answer the required check. Record what was run in 0015 and D-48. Then delete the repository; if `gh` lacks the scope, say so, and the operator deletes it.
+   - The check becomes required once the result is recorded and the job has been seen on a PR on or after 2 December, with the policy in place. Until then, a red fence run keeps a PR off READY TO MERGE.
+10. **Next week.** The sudoers PR, from the window's ledger: READY TO MERGE by Fri 27 Nov 20:00 UK.
+11. **Standing rules.**
+    - Heavy jobs run only through `wt/tools/heavy-run.sh`.
+    - A time limit is never raised because a loaded run timed out.
+    - `/tmp` is purged after three days, so the trial scripts and PR-A's body are kept in `wt/tools/`.
+
+## The audit session's guard runs: the same count and replay
+
+You asked for the same count and replay over the audit session's transcripts, read-only, within 30 minutes. It took about 15.
+
+- **The session.** One session, `efe10428…`, running since 19 October: its main transcript and six agents'. Since 28 October it has run the same Claude Code version as this session, which records a cancelled hook the same way. The folder's two other sessions (2 and 6 November, 13 Bash calls) have no runs without a verdict.
+- **The count.** 1,483 Bash calls, and **9 guard runs that gave no verdict**, all 10 s timeouts: eight on 17 November, from 01:56Z to 19:12Z, and one today at 18:46Z. All nine commands ran unchecked.
+- **The replay.** Today's guard (`dev`'s `ea75c40`, which demo-1 now carries) **allows all nine**. They were:
+  - `git status`, `fetch`, `log` and `rev-parse`;
+  - a checkout of the audit's own branch in its own checkout;
+  - an append to `review/log.md`;
+  - a Python read of `review/results/`;
+  - tails of the audit's own scratchpad logs.
+
+  None touched `.env`, a host, the broker, a live table or `gh pr merge`.
+- **Control.** Two of this session's commands that 19 November's replay refused are still refused by today's guard; both were heredocs fed to Python, in a command that names a host command. One that it allowed is still allowed.
+- **This session, for comparison.** 976 runs without a verdict over 17,096 Bash calls: 949 timeouts and 27 that could not start, the last on 20 November at 17:08Z. The 77 since 19 November 03:45Z have not been replayed.
+- **Scripts and output:** `wt/tools/guard-replay/`.
+
+## 19 November: guard-bash usually lets the command run when it doesn't answer in time
 
 **What happens.**
 - In this session, `guard-bash.sh` is a PreToolUse hook with a 10 s timeout.
@@ -15,7 +96,7 @@
 **Why this session has it.**
 - `dev` fixed this in #349 (`ea75c40`, 18 November): 60 s and `"onFailure": "block"`, so a guard that times out or cannot start refuses the call.
 - This session takes its settings from the demo-1 checkout. That is the audit's branch, which still has 10 s and no `onFailure`. Claude Code also reads hooks only when a session starts, and this one started on 28 October.
-- The audit's own session very likely runs the same way. I haven't checked.
+- The audit's own session runs the same way: checked on 21 November (above).
 
 **What the skipped commands were.** I ran today's guard by hand on each of the 899 recorded up to 03:45Z (script and results in the session's scratchpad):
 
@@ -51,25 +132,27 @@ The replay used today's guard, which is stricter than the one that was installed
 - **Meanwhile.** I ran only read-only commands, and wrote nothing until access came back.
 - **Again, briefly.** #353's round-2 reviewer was refused from 15:35:29Z to 15:35:51Z on 19 November, and nothing else hit it. The cause is still unknown; a look at Warp's Files and Folders entry in System Settings would show whether the grant is being reset.
 - **The window is not affected.** Saturday's session starts fresh in `../qt-window` on `dev`, so it runs #349's guards. The window sheet's step 0 now says so.
+- **21 November.** No cause found, so this stays open. If it happens again, I record the times as before and write nothing until access is back. The proposal to move the project out of `~/Documents` is the last item in the queue (the section before For the planner).
 
 ## Where things are
 
 | Item | State |
 |---|---|
-| #354 (item 5) | Round 1 found no Critical or High, so the loop ends. Fixes pushed at `0615de2`: `make check` exit 0 (2,861 passed, 11 expected fail, 1,934 s), CI green, CLEAN. **READY TO MERGE.** Fixed: M1, the hook places a path with `hook-input.cjs relpath` as guard-paths does; M2, the DEV_SETUP hooks row; L4, a 60 s test timeout; L5, "as CI does, not as lint-staged". L3 (test 5 vacuous on Linux) is folded into M1's tests: a symlinked root both ways, a worktree copy, `Review/` on macOS, links out of and into `review/`. Three of them fail on the previous hook. L7 is DEBT D-49. L6, the title and the body, follow the push. |
-| #353 (item 7) | Round 1's fixes pushed at `b40f90b`; CI green. Its `make check` failed only the kill-switch test, at 30,879 ms in the suite against 11,331 ms alone, so no limit change. Round 2 (diff since `77538b7`) found no Critical, High or Medium, so the loop ends. Eight Lows: seven are fixed in one commit, and one (tests for the new fail-closed branches) goes into D-48. The pinned `actions/checkout` commit is v4's tag commit on actions/checkout. The Lows are fixed at `2d1d526` (CI green, CLEAN), and the untested branches are D-48 (6). `make check` failed only the kill-switch test: 31,490 ms in the suite against 20,333 ms alone, so no limit change. **READY TO MERGE at `2d1d526`.** Item 7's done-when: the tests show a diff touching `src/lib/scan` fails and one touching only `tests/` and `docs/` passes; on live data the job fails #291 (eight fenced paths) and passes #352. The required check in protect-dev is held for questions 1 and 2. |
-| #352 | READY TO MERGE at `15b974e`, not merged at 17:10 UK. The audit's go and E0 PR-A wait on it. Unless it merges before 20:00 UK, it waits until window step 2 has merged #342. |
-| #342 (item 1) | READY TO MERGE at `c531812`. It contains `dev` at `ea75c40`, and `dev` has not moved, so it meets the Fri 20 Nov 20:00 UK deadline as it stands: CI green, CLEAN (checked 16:40 UK). It needs a rebase only if #352 merges first. From 20:00 UK nothing else merges until window step 2 has merged it. |
-| Window sheet (item 8) | Pushed at `899a96e`. It names dev at `ea75c40` and #342 at `c531812`; to update when they move. |
-| E0 PR-A (item 6) | `test/e0-harness-gaps` at `8f70405`, pushed, not opened. Round 1 (fresh context, 20 November) found no Critical or High, so the loop ends. Fixed: M1, an `it.fails` test turned the stub record's failure into its expected one, so an unsupported call was hidden and a fixed defect would never show; such a test's calls now fail the file in an afterAll (a probe file showed it before and after, not committed). M2, the migration parser skipped what it could not read; any statement naming either table now throws unless it is of an ignored kind. M3, a filter given null or undefined is recorded. L1, L3 and L6 are fixed too; L2, L4 and L5 are D-47 rows. `make check` failed only the kill-switch case (below). It opens after #352 merges, a rebase and `pnpm build`; the body is ready. |
-| E0 stop-and-target (item 6) | `test/e0-stop-target` rebased locally onto `8f70405` (`9aff959`): two doc conflicts and the stub's header resolved, and the null-filter check carried into its `.not()`. Its E0 tests: 87 passed and 14 expected fail. It opens after PR-A merges, with its own review. |
+| #352 | READY TO MERGE at `15b974e`. Merges first, once main has moved to #342's merge commit; its rebase is predicted clean. |
+| #354 (item 5) | READY TO MERGE at `0615de2`. Merges second; its rebase conflicts only in DEBT rows (above). |
+| #353 (item 7) | READY TO MERGE at `2d1d526`. Merges third, after the squash, the resolved rebase and that resolution's review (above). `pull_request_target` stays, allowed for `.github/workflows/fence.yml` only (operator, 21 November). For the required check, see step 9 of the pick-up. |
+| #342 (item 1) | READY TO MERGE at `c531812`, for window step 2. `dev` has not moved since 18 November. |
+| Window sheet (item 8) | Pushed at `899a96e`. Its heads still hold: `dev` at `ea75c40`, #342 at `c531812`. Step 3 runs first thing on Sunday, unless it could start by 19:00 UK tonight (operator, 21 November). |
+| E0 PR-A (item 6) | `test/e0-harness-gaps` at `8f70405`, pushed, not opened. Round 1 is done (20 November, below in the history). It opens after #352 merges. |
+| E0 stop-and-target (item 6) | `test/e0-stop-target` at `9aff959`, local. It opens after PR-A merges, with its own review. |
+| The audit's go | Given on 21 November. Its merge of `dev` is `6b834d2` in the main checkout. |
 
 ## notify.log, my turn endings
 
 - The log's last line is 2026-11-17T12:01:57Z, a `blocked_on_you` that was sent. **Nothing has been logged since**, for any session: no push, and no "not sent".
 - `271ae5b` (17 Nov 16:15Z) changed `notify-ntfy.sh` and its registration in `.claude/settings.json`. This session started on 28 October with the old registration.
 - A restart is the likely fix. That is inferred and unchecked.
-- Reported before the audit's go, which still waits on #352.
+- **After Sunday's restart** I read the log's tail and report whether this session's turn endings are logged again.
 
 ## Proposal: an in-process Postgres under the E0 stub (five lines)
 
@@ -79,6 +162,8 @@ The replay used today's guard, which is stricter than the one that was installed
 4. Unchecked: whether 00011/00012 apply on PGlite without shims for Supabase's `auth` schema, roles and extensions. Row-level security needs the same shims.
 5. Cost: one dev dependency, plus an adapter about the stub's size. Recommendation: not before the stop-and-target scenario; revisit if a scenario fails on a gap from line 1.
 
+**Agreed** (operator, 21 November): not before the stop-and-target scenario; revisit if a scenario fails on one of the database-side gaps.
+
 ## The kill-switch case under load
 
 "does not lose an id across switch, resume, re-activate, switch, resume, switch" has a 30 s limit.
@@ -86,19 +171,31 @@ The replay used today's guard, which is stricter than the one that was installed
 - **Under load** it has failed in every loaded `make check` since 18 November: 35.3, 38.8, 34.0, 34.2, 30.9 and 31.5 s; on 20 November 34.1 s on the stop-and-target branch and 36.5 s on E0 PR-A's `8f70405`.
 - **Alone** it passes every time, in 11 to 20 s (20.0 s on 20 November, after PR-A's run). It also passed in #354's `make check`, which ran with no other heavy job.
 - **No limit is raised,** per item 3. If it ever fails alone, that becomes a DEBT row.
+- **After the window** (operator, 21 November): find out why it takes 11 to 20 s alone. Are there real sleeps or waits in the scripts under test? If so, make it fast with a stand-in, in one small PR, or add a DEBT row saying why not. A local check that is red every time gets ignored.
+
+## Proposal, last in the queue: the project out of `~/Documents` (five lines, no work done)
+
+1. **Sessions.** Claude Code keys each project's transcripts, agents and memory (131 files) by its path: `~/.claude/projects/-Users-jack-jones-Documents-trading-app-demo-1`. That folder is renamed to the new key as part of the move; otherwise every session starts with no history and no memory.
+2. **Worktrees.** This repo has 11 worktrees, and git records absolute paths in both directions; `../qt-window` will be one more. `git worktree repair`, run from the moved main checkout, fixes them. `wt/tools/*` and the session scratchpads' names contain the old path.
+3. **The repo.** 22 files on `dev` name the path: 14 cron scripts, which are fenced (`scripts/*-cron.sh`), 4 in `scripts/canonical/`, 3 in `scripts/archive/` and `scripts/README.md`. One PR replaces the path in place. It moves no file, so no cited line shifts, but it edits fenced and cited files, so it waits for the verdict.
+4. **Outside the repo.** Read each of these once before the move: Warp's launch configuration, any absolute path in `~/.claude/settings.json` and in local settings, and the folder `caffeinate -is claude` is started from.
+5. **Cost.** About an hour, with every session stopped: the move, the folder rename, `git worktree repair`, the PR and one restart. I recommend doing it after the audit's verdict, when demo-1 is free and the cited files may change. Until then, the privacy grant stays a single point of failure.
 
 ## For the planner
 
 **Waiting on the operator:**
-- "merge the queue" for #352. If it merges before 20:00 UK, #342 gets its rebase tonight; otherwise #352 waits for window step 2. It starts the audit's go and E0 PR-A;
-- then, after the audit's merge of dev, one restart of this session and the audit's, for the guards (#349) and notify;
-- questions 1 and 2, as before.
+- The window's deploy. Main moving off `2a7d7f7` to #342's merge commit starts the queue, and each `gh pr merge` prompts you.
+- Sunday's restart of this session and the audit's, once each has stopped on a turn ending.
+- No open questions: all three were answered on 21 November.
 
 **Mine, in order:**
-1. If #352 merges before 20:00 UK: #342's rebase, green and READY TO MERGE before 20:00.
-2. After #352 merges: E0 PR-A's rebase, `pnpm build`, and the PR, with its number in D-47 and MODERNISATION.
-3. The window sheet's heads, if `dev` or #342 moves.
-4. After PR-A merges: the stop-and-target PR and its review.
-5. Next week: the sudoers PR (item 9), and item 10's rows in the next docs PR.
+1. When main moves: #352, then #354, then #353 (the pick-up's steps 1 to 5).
+2. After #352 merges: E0 PR-A (step 6).
+3. After the restart: start the poll again if it is still needed, then report on notify.log.
+4. After the window: push the window log to `status/2026-11-18` and open the ledger PR, with item 10's rows, D-24/25/27 and the `/tmp` row. Then the kill-switch case's time alone.
+5. After Sunday 18:00 UK, with #353 on `dev`: decision 0015's policy call, the job on an open PR, the throwaway repository's test, and the record in 0015 and D-48.
+6. After PR-A merges: the stop-and-target PR.
+7. Next week: the sudoers PR.
+8. Last in the queue: the move out of `~/Documents` (proposal above; no work).
 
-**Deadline:** #342 READY TO MERGE at its head by 20:00 UK today. Met at `c531812` while `dev` stays at `ea75c40`.
+**Deadlines:** the sudoers PR READY TO MERGE by Fri 27 Nov 20:00 UK. The fence's event policy must be in place before GitHub's change on 2 December.
