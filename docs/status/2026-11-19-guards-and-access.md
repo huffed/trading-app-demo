@@ -20,9 +20,14 @@
 | PR | Conflict | What it then needs |
 |---|---|---|
 | #352 | None. | `gh pr update-branch --rebase`, then green CI. |
-| #354 | `docs/DEBT.md` rows only: #354 changed D-46 and added D-49; #352 added D-47. 18 November's row resolver keeps both sides' rows whole. `git range-diff` shows #354's two commits unchanged apart from context lines. | A local rebase in `wt/pel`, a push and green CI. No review, per decision 0013; the PR body says so. |
-| #353 | `docs/DEBT.md` rows, with its D-48 among D-46, D-47 and D-49. Also one row of `docs/DEV_SETUP.md`'s hooks table, where #354 changed a sentence and #353 added one. | Its first commit named its row D-47, which is #352's, so its five commits are squashed into one before the rebase (same tree as `2d1d526`). `wt/tools/resolve_353.py` resolves both files, and stops on any other shape. After the rebase the change is the same size: 13 files, +630/−7. The one review of the resolution ran on the trial: running since 19:58 UK, in a fresh context; its result is added here when it lands. If it is not here after the restart, run it again on the trial worktree `wt/qtrial` (`7d2d7e3`). The real rebase must produce the trial's tree, or the review is done again. Then a push and green CI. |
+| #354 | `docs/DEBT.md` rows only: #354 changed D-46 and added D-49; #352 added D-47. The resolver (`wt/tools/resolve_rebase.py`, below) keeps both sides' rows whole. `git range-diff` shows #354's two commits unchanged apart from context lines. | A local rebase in `wt/pel`, a push and green CI. No review, per decision 0013; the PR body says so. |
+| #353 | `docs/DEBT.md` rows, with its D-48 among D-46, D-47 and D-49. Also one row of `docs/DEV_SETUP.md`'s hooks table, where #354 changed a sentence and #353 added one. | Its first commit named its row D-47, which is #352's, so its five commits are squashed into one before the rebase (same tree as `2d1d526`). `wt/tools/resolve_rebase.py --fence-sentence` resolves both files, and stops on any other shape. After the rebase the change is the same size: 13 files, +630/−7. The resolution's one review, on the trial, found no Critical or High (below). The real rebase must produce the trial's tree, or the review is done again. Then a one-line fix and its review, a push and green CI. Then a push and green CI. |
 | E0 PR-A | After #352: `docs/DEBT.md` rows only, with #354 and #353. | A rebase, `pnpm build`, then open it. |
+
+**The review of #353's resolution** (fresh context, 21 November, on the trial `7d2d7e3`): no Critical or High. Nothing of #353, #352, #354 or #342 is lost in either file; rows D-46 to D-49 are whole and in order; the sentence sits where #353 had it; every fence reference says D-48. Its findings:
+- **Medium, in my resolver, not the PR:** it took its base from the commit named on its command line, unchecked; naming the wrong one would have reverted #354's D-46 silently. **Fixed:** `wt/tools/resolve_rebase.py` replaces both resolvers. It reads each block's own base (the rebase runs with `merge.conflictStyle=diff3`), so no commit is named.
+- **Four Lows, in the resolver:** two rows with one ID on a side, deleted rows, a weak check of the DEV_SETUP block, other unmerged paths. **Fixed in the same script:** each of them stops it, and the DEV_SETUP block must equal its own base plus the one sentence. Both trials, run again with it, give the same trees as before (`2257095`, `7d2d7e3`).
+- **Low, in #353 itself, already at `2d1d526`:** DEV_SETUP §9 says lint-staged's shellcheck covers "ops scripts and hooks", but #353 added `scripts/ci/*.sh` to it. It is one line, so it is fixed: one commit on top of the rebased #353 (`wt/tools/fix_353_l117.py`), because #354 rewrote that line. Its one review, on the trial, is running.
 
 ## After the restart: what to pick up
 
@@ -33,14 +38,15 @@ You restart this session and the audit's on Sunday, once the audit's merge of `d
    - If it has moved, check it is #342's merge commit (`gh pr view 342 --json mergeCommit`), and say what main showed.
 2. **#352.** `gh pr update-branch 352 --rebase`, then `wt/tools/wait_head.sh 352`, then `gh pr merge 352 --squash --match-head-commit <the green head>`.
 3. **#354, in `wt/pel`.**
-   - `git fetch origin`, then `git rebase origin/dev`.
-   - At each stop: `python3 -I wt/tools/resolve_rows.py wt/pel <the commit being applied>`, `git add docs/DEBT.md`, `git rebase --continue`.
+   - `git fetch origin`, then `git -c merge.conflictStyle=diff3 rebase origin/dev`.
+   - At each stop: `python3 -I wt/tools/resolve_rebase.py wt/pel`, `git add docs/DEBT.md`, `git -c merge.conflictStyle=diff3 rebase --continue`. Without the base sections, the script stops.
    - Check that `git range-diff` shows context lines only. If `dev`'s tree equals the stand-in `9ac2090`'s, the new head's tree must equal the trial's `2257095`.
    - Push with `--force-with-lease=tooling/post-edit-lint-review:0615de2`, put the no-review line in the body, wait for green, merge.
 4. **#353, in `wt/fence`.**
-   - Squash it to one commit on `ea75c40` with `2d1d526`'s tree, then `git rebase origin/dev`.
-   - `python3 -I wt/tools/resolve_353.py wt/fence <the squashed commit>`, add both files, continue.
+   - Squash it to one commit on `ea75c40` with `2d1d526`'s tree, then `git -c merge.conflictStyle=diff3 rebase origin/dev`.
+   - `python3 -I wt/tools/resolve_rebase.py wt/fence --fence-sentence`, add both files, continue.
    - The new head's tree must equal the trial's `7d2d7e3`. If it does not, the resolution gets a new review.
+   - Then `python3 -I wt/tools/fix_353_l117.py wt/fence` and one commit, with the hooks, as for any commit.
    - Push with `--force-with-lease=tooling/fence-ci:2d1d526`. The body says it was squashed and reviewed. Wait for green, merge.
 5. **Any other conflict** takes that PR off the list, and the report says so.
 6. **E0 PR-A, after #352, in `wt/e0b`.**
