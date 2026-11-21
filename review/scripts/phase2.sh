@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Reproduces every number in review/02-validation.md. From the repo root:
 #   bash review/scripts/phase2.sh
-# Needs .env.local (read by the scripts for the read-only Supabase rules lookup).
+# Rules come from review/inputs/deployed-rules-2026-11-21.json (QT_REVIEW_RULES=live reads the database).
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 echo "### baseline two ways (A2, sizing)";      pnpm exec tsx review/scripts/baseline-two-ways.ts

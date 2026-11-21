@@ -68,3 +68,54 @@ Convention: UTC timestamps; `ran` = executed, `read` = inspected only. Branch: `
 - ran `pnpm exec tsx review/scripts/phase3-regime.ts` (≈5 min; three runs, the last after the strict-lint rewrite, all identical) → `review/results/phase3-regime.json`, `phase3-trades.csv` (5,392 annotated trades). L_on = Phase 2 baseline exactly (862 / 0.343). L_off 1,365 / 0.329 / $224K / DD 20.3%; S_on 653 / −0.103 / −$28K / DD 63%; S_off 1,261 / −0.090; LS_on 1,251 / 0.223 / $130K. Bias runs: 68 of 372 ≥15 sessions (29 bearish = 692 sessions, 39 bullish = 1,081); L_on 1 trade inside bearish runs, 589 / +0.756 inside bullish runs, 272 / −0.546 outside any run; L_off 343 / −0.216 inside bearish runs; S_on 329 / +0.400 inside, 324 / −0.613 outside. Run-age tables: non-monotonic for L_on, negative at every age for S_on, positive at every age for the trades the filter removes. Regime variables: coincident gold return ρ_s 0.58 / ρ 0.65 (sum R 0.85), LOO best 7/12; predictive best |ρ| 0.26 (ATR/price, 42 quarters). 2026 bias runs on the refresh (description only): 03-12→04-07 18 sessions −9.1%, 05-14→07-02 36 −12.1%, 09-06→10-27 38 −9.2%.
 - ran `pnpm exec tsx review/scripts/phase3-stress.ts` (≈8 min) → `review/results/phase3-stress.json`: L_on $50K/0.30% funded 84.0% / worst 60-day ML 6.38% / MC P(ML>10%) 3.5%; L_off 97.2% / 8.11% / 6.1%; at $100K/0.42% L_off worst 60-day 11.59% with 3 breaching windows vs L_on 9.23% / 0; S_on funded 12–19%; LS_on breaches in 2018, 2019, 2022.
 - Wrote `review/03-regime.md`. CHECK-IN after Phase 3.
+
+## Status for the planner (2026-11-17)
+
+- Wrote `review/status-2026-11-17.md` (commit `9415d6a`). Read-only: git, the database, and PR #291 rebased and checked in a throwaway worktree that was then deleted.
+
+## Operator's answers and the snapshot (2026-11-21)
+
+- **Answers of 2026-11-21 to the six status questions:**
+  1. `daily_bias` stays on in the Phase 6 candidate. "Filter off" is pre-registered as the one forward hypothesis, with its acceptance test written now.
+  2. The hour filter is switched off by the session under decision 0012, in a later message the operator sends after the window's re-test. It will name the ids, carry a returning clause, expect 5 rows, show the before-values first and write the ledger line. Not in this turn. If a row auto-pauses before the Phase 6 change, the session tells the operator, who authorises clearing `auto_paused` the same way, and the session records it as a parity event.
+  3. #291 waits for the verdict, and the fence stays. It is the first engine PR afterwards.
+  4. Done by #345 and #350.
+  5. Authorised, quoted: "Phase 6 patches are written and tested in a throwaway worktree outside the project and outside /tmp, under /Users/jack.jones/Documents/trading-app/wt/. Run pnpm install --frozen-lockfile in it when you create it, and treat a tool that cannot start as a failure to report, not as a check that was skipped. Only .patch files are committed, under review/patches/, each naming the dev commit it applies to. No branch carrying them is pushed, and the worktree is deleted when the phase ends."
+  6. Merge `dev` now (done below).
+- **Constraints of 2026-11-21, until the operator says the host window is over:** no database writes; expect a restart, paused algorithms and test rows in reads. The session's guard hook still has the old 10 s timeout, so commands stay short until the operator restarts the session. Files that must outlive three days live outside `/tmp`.
+- **FTMO's XAU/USD costs as the operator read them** (symbols page, Metals CFD tab, 2026-11-18 about 15:45 UTC; data to check, not settled):
+  - swap long −58.41 and swap short −4.2, in points, contract size 100;
+  - spread 0.39 at that moment;
+  - commission 0.0014% of volume, per side or round turn not stated;
+  - leverage 1:50, and 1:15 on Swing;
+  - hours Monday to Friday, 01:05 to 23:50 platform time, shown as GMT+2;
+  - the triple-swap day is not on the page; FTMO's swap article says Wednesday for most instruments (unverified).
+- **Merged `origin/dev` (`ea75c40`) into the branch:** merge commit `6b834d2`, pushed. It brought #338, #344, #345, #346, #347, #348, #349, #350 and #351. Nothing under `review/` changed.
+- **Snapshot.** The database read at 18:48 UTC showed the five deployed rows `active` (`updated_at` 18:45 UTC, the re-test's un-pause per the operator's description), no other active algorithm, no algorithm or paper position created since 20 November, and no open position. Then:
+  - `pnpm exec tsx review/scripts/snapshot-rules.ts` → `review/inputs/deployed-rules-2026-11-21.json`, taken 18:50:53 UTC. It holds the nine rows the review scripts read: the five deployed rows (active) and the four harness-source rows (draft), each with a sha-256 of its rules. The script refuses unless exactly the five deployed rows are active.
+  - `review/scripts/lib/harness.ts` reads rules from the snapshot by default (`lib/rules-snapshot.ts`, which re-checks each hash on load); `QT_REVIEW_RULES=live` reads the database instead.
+- **typecheck and lint at the merge:** `make typecheck` had the 4 errors the other session measured, all in `review/`. `make lint` had 9 errors, all in `review/`, and 166 warnings (budget 166). Fixed without restructuring:
+  - casts through `unknown` (`_debug-cache.ts:9`, `_debug-sunday.ts:7`, `paper-replay.ts:162`);
+  - a `Map<string, string>` type (`paper-replay.ts:50`);
+  - unused imports removed (`costs.ts`, `intrabar-h1.ts`, `paper-replay.ts`);
+  - `const` for two never-reassigned bindings (`costs.ts:45`, `intrabar-h1.ts:48`);
+  - typed declarations instead of object-literal assertions (`baseline-two-ways.ts:66-67`, `bias-alignment.ts:59`, `lib/harness.ts` `withDailyBias`).
+  
+  After the fixes, `make typecheck` exits 0 and `make lint` exits 0 (0 errors, 166 warnings). No line moved in any file a report cites by line, except `lib/harness.ts`, which no report cites by line.
+- **Read for the FTMO items** (web search, 2026-11-21; FTMO's trading-update notices, not yet checked against the platform):
+  - FTMO's MetaTrader server time follows the US daylight-saving calendar. It was GMT+3 until 3 November 2025 and GMT+2 after it, and moved to GMT+3 on Sunday 8 March 2026; the 2023 and 2024 changes match the US dates too. FTMO's notices: https://ftmo.com/en/blog/trading-updates/trading-update-02-nov-2023/, https://ftmo.com/en/blog/trading-updates/trading-update-6-mar-2025/, https://ftmo.com/en/blog/trading-updates/trading-update-26-oct-2023/.
+  - If that holds, 01:05 to 23:50 platform time is 18:05 to 16:50 New York time all year. The nightly break is then 20:50 to 22:05 UTC in US summer time and 21:50 to 23:05 UTC in winter **(inferred)**.
+  - Max Daily Loss resets at midnight Prague time, not server time (same notices).
+  - FTMO's swap article puts the triple charge on the Wednesday-to-Thursday night: https://ftmo.com/en/blog/what-is-a-swap-and-for-whom-is-it-important/.
+- **Leads for the nightly-break list** (read from `review/results/phase3-trades.csv`, not yet analysed):
+  - The backtest's 862 deployed-set entries are stamped on the New York-aligned 4h grid: 01, 05, 09, 13, 17 and 21 UTC in US summer time, and 02, 06, 10, 14, 18 and 22 UTC in winter. One slot a day therefore sits at 17:00 New York, which is inside FTMO's break if the platform follows US daylight saving. Which slot it is depends on whether `entry_date` is the signal bar's or the fill bar's timestamp; to be checked in the backtester.
+  - Backtest exits carry a date only, so placing an exit inside the break needs intrabar data.
+  - Four of the 18 live entries opened at 21:00 UTC. That was 17:00 New York in September **(inferred; the dates are to be checked)**.
+- **Re-run from the snapshot** (18:57 to 19:29 UTC, with the Supabase URL pointed at a closed local port, so any database read would have failed):
+  - `bash review/scripts/phase2.sh`: exit 0.
+  - `pnpm exec tsx review/scripts/phase3-regime.ts`: exit 0.
+  - `pnpm exec tsx review/scripts/phase3-stress.ts`: exit 0.
+  - Each regenerated file was compared with the committed one, parsed, ignoring `generated_at` and the runtime fields `ms` and `seconds`. All seven are identical: `baseline-two-ways.json`, `phase2-stats.json`, `phase2-propfirm.json`, `window-stats.json`, `phase3-regime.json`, `phase3-stress.json`, and `phase3-trades.csv` as text.
+  - The rewritten files were restored to their committed text, because they differed only in formatting and timestamps.
+  - No number moved. The runs were not slowed noticeably: load average about 5, and prop-firm rows took 40 to 63 s against 39 to 60 s on 28 October.
+- **For the planner.** The three "First" steps are done, and the rules every review number rests on are now a committed file. Not done in this turn: the window re-reads (they wait for the operator's word), the FTMO items, Phase 6A and the `time_filter` statement (it waits for the operator's authorisation). One lead for the FTMO items: if FTMO's platform clock follows US daylight saving, as its notices say, one 4h bar close a day falls at 17:00 New York, inside FTMO's break, so some backtest and live entries could not have been filled there. It is counted properly in the next step.

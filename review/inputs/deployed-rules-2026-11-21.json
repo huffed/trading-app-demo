@@ -1,0 +1,632 @@
+{
+  "taken_at": "2026-11-21T18:50:53.371Z",
+  "source": "algorithms table, read-only, through the review harness's Supabase client",
+  "check": {
+    "active_ids": [
+      "1ebdce3d-4ab9-4e30-b5d3-075942b7cf69",
+      "52e911a6-b4ed-4507-b0a3-5414e40ec16c",
+      "6cea13b6-86fb-41f6-9f2c-6bef47541a6a",
+      "824b6e40-042a-49fa-8d80-61e1e92f6d79",
+      "f4b56c3a-ff61-4233-a6da-224b39e1668a"
+    ],
+    "deployed_all_active": true,
+    "other_active": 0
+  },
+  "rows": [
+    {
+      "id": "1ebdce3d-4ab9-4e30-b5d3-075942b7cf69",
+      "name": "Deploy: XAU/USD ARB+DailyBias 4h | r085 v1",
+      "status": "active",
+      "updated_at": "2026-11-21T18:45:15.913115+00:00",
+      "rules": {
+        "side": "long",
+        "leverage": 50,
+        "news_veto": {
+          "enabled": true,
+          "min_impact": "high",
+          "block_minutes_after": 30,
+          "block_minutes_before": 15
+        },
+        "prop_firm": {
+          "spread_bps": 0.4,
+          "max_drawdown": 10,
+          "slippage_bps": 0.5,
+          "profit_target": 10,
+          "commission_pct": 0,
+          "consistency_rule": 0,
+          "daily_loss_limit": 5,
+          "commission_per_lot": 0,
+          "daily_loss_halt_pct": 80,
+          "combined_risk_cap_pct": 4,
+          "max_consecutive_losses": 0,
+          "consecutive_loss_daily_halt": 2
+        },
+        "stop_loss": {
+          "type": "swing_anchor",
+          "value": 0.1,
+          "lookback": 3
+        },
+        "timeframe": "4h",
+        "asset_class": "commodity",
+        "entry_logic": "all",
+        "take_profit": {
+          "type": "rr_multiple",
+          "value": 3
+        },
+        "time_filter": {
+          "enabled": true,
+          "min_wr_pct": 45,
+          "min_samples": 5
+        },
+        "max_positions": 1,
+        "regime_filter": {
+          "enabled": true,
+          "atr_period": 20,
+          "lookback_days": 90,
+          "percentile_floor": 0.3
+        },
+        "stagnant_exit": {
+          "enabled": true
+        },
+        "max_per_ticker": 1,
+        "exit_conditions": [],
+        "position_sizing": {
+          "type": "risk_per_trade",
+          "value": 0.42
+        },
+        "entry_conditions": [
+          {
+            "type": "pattern",
+            "pattern": "asian_range_break",
+            "direction": "bullish",
+            "timeframe": "4h"
+          },
+          {
+            "type": "pattern",
+            "pattern": "daily_bias",
+            "direction": "bullish",
+            "ma_period": 20,
+            "timeframe": "1d"
+          }
+        ]
+      },
+      "rules_sha256": "ca4b7ee42d375185d2876cbae4fcc247d65ce9ccba1b4fe69064f30bbddb07a4"
+    },
+    {
+      "id": "824b6e40-042a-49fa-8d80-61e1e92f6d79",
+      "name": "Deploy: XAU/USD Engulfing+DailyBias 4h | r080 v1",
+      "status": "active",
+      "updated_at": "2026-11-21T18:45:22.960635+00:00",
+      "rules": {
+        "side": "long",
+        "leverage": 50,
+        "news_veto": {
+          "enabled": true,
+          "min_impact": "high",
+          "block_minutes_after": 30,
+          "block_minutes_before": 15
+        },
+        "prop_firm": {
+          "spread_bps": 0.4,
+          "max_drawdown": 10,
+          "slippage_bps": 0.5,
+          "profit_target": 10,
+          "commission_pct": 0,
+          "consistency_rule": 0,
+          "daily_loss_limit": 5,
+          "commission_per_lot": 0,
+          "daily_loss_halt_pct": 80,
+          "combined_risk_cap_pct": 4,
+          "max_consecutive_losses": 0,
+          "consecutive_loss_daily_halt": 2
+        },
+        "stop_loss": {
+          "type": "swing_anchor",
+          "value": 0.1,
+          "lookback": 6
+        },
+        "timeframe": "4h",
+        "adx_filter": {
+          "enabled": true,
+          "min_adx": 20,
+          "adx_period": 14
+        },
+        "asset_class": "commodity",
+        "entry_logic": "all",
+        "take_profit": {
+          "type": "rr_multiple",
+          "value": 3
+        },
+        "time_filter": {
+          "enabled": true,
+          "min_wr_pct": 45,
+          "min_samples": 5
+        },
+        "max_positions": 1,
+        "stagnant_exit": {
+          "enabled": true
+        },
+        "max_per_ticker": 1,
+        "exit_conditions": [],
+        "position_sizing": {
+          "type": "risk_per_trade",
+          "value": 0.42
+        },
+        "entry_conditions": [
+          {
+            "type": "pattern",
+            "pattern": "engulfing",
+            "direction": "bullish",
+            "timeframe": "4h"
+          },
+          {
+            "type": "pattern",
+            "pattern": "daily_bias",
+            "direction": "bullish",
+            "ma_period": 20,
+            "timeframe": "1d"
+          }
+        ]
+      },
+      "rules_sha256": "a821ffc6691d6752d81b03477386dbf18e156773970e84c28b7cab690f8b8df2"
+    },
+    {
+      "id": "f4b56c3a-ff61-4233-a6da-224b39e1668a",
+      "name": "Deploy: XAU/USD ARB25+DailyBias 4h | r080 v1",
+      "status": "active",
+      "updated_at": "2026-11-21T18:45:14.350789+00:00",
+      "rules": {
+        "side": "long",
+        "leverage": 50,
+        "news_veto": {
+          "enabled": true,
+          "min_impact": "high",
+          "block_minutes_after": 30,
+          "block_minutes_before": 15
+        },
+        "prop_firm": {
+          "spread_bps": 0.4,
+          "max_drawdown": 10,
+          "slippage_bps": 0.5,
+          "profit_target": 10,
+          "commission_pct": 0,
+          "consistency_rule": 0,
+          "daily_loss_limit": 5,
+          "commission_per_lot": 0,
+          "daily_loss_halt_pct": 80,
+          "combined_risk_cap_pct": 4,
+          "max_consecutive_losses": 0,
+          "consecutive_loss_daily_halt": 2
+        },
+        "stop_loss": {
+          "type": "swing_anchor",
+          "value": 0.1,
+          "lookback": 3
+        },
+        "timeframe": "4h",
+        "asset_class": "commodity",
+        "entry_logic": "all",
+        "take_profit": {
+          "type": "rr_multiple",
+          "value": 2.5
+        },
+        "time_filter": {
+          "enabled": true,
+          "min_wr_pct": 45,
+          "min_samples": 5
+        },
+        "max_positions": 1,
+        "regime_filter": {
+          "enabled": true,
+          "atr_period": 20,
+          "lookback_days": 90,
+          "percentile_floor": 0.3
+        },
+        "stagnant_exit": {
+          "enabled": true
+        },
+        "max_per_ticker": 1,
+        "exit_conditions": [],
+        "position_sizing": {
+          "type": "risk_per_trade",
+          "value": 0.42
+        },
+        "entry_conditions": [
+          {
+            "type": "pattern",
+            "pattern": "asian_range_break",
+            "direction": "bullish",
+            "timeframe": "4h"
+          },
+          {
+            "type": "pattern",
+            "pattern": "daily_bias",
+            "direction": "bullish",
+            "ma_period": 20,
+            "timeframe": "1d"
+          }
+        ]
+      },
+      "rules_sha256": "ef18fc2ac2fb28e8977b26f093ef9c2c9e5a6657de3d3707eaf0ee485ea0432c"
+    },
+    {
+      "id": "6cea13b6-86fb-41f6-9f2c-6bef47541a6a",
+      "name": "Deploy: XAU/USD OutsideBar+DailyBias 4h | rr3_lb3 r066 v2",
+      "status": "active",
+      "updated_at": "2026-11-21T18:45:04.847934+00:00",
+      "rules": {
+        "side": "long",
+        "leverage": 50,
+        "news_veto": {
+          "enabled": true,
+          "min_impact": "high",
+          "block_minutes_after": 30,
+          "block_minutes_before": 15
+        },
+        "prop_firm": {
+          "spread_bps": 0.4,
+          "max_drawdown": 10,
+          "slippage_bps": 0.5,
+          "profit_target": 10,
+          "commission_pct": 0,
+          "consistency_rule": 0,
+          "daily_loss_limit": 5,
+          "commission_per_lot": 0,
+          "daily_loss_halt_pct": 80,
+          "combined_risk_cap_pct": 4,
+          "max_consecutive_losses": 0,
+          "consecutive_loss_daily_halt": 2
+        },
+        "stop_loss": {
+          "type": "swing_anchor",
+          "value": 0.1,
+          "lookback": 3
+        },
+        "timeframe": "4h",
+        "asset_class": "commodity",
+        "entry_logic": "all",
+        "take_profit": {
+          "type": "rr_multiple",
+          "value": 3
+        },
+        "time_filter": {
+          "enabled": true,
+          "min_wr_pct": 45,
+          "min_samples": 5
+        },
+        "max_positions": 1,
+        "stagnant_exit": {
+          "enabled": true
+        },
+        "max_per_ticker": 1,
+        "exit_conditions": [],
+        "position_sizing": {
+          "type": "risk_per_trade",
+          "value": 0.42
+        },
+        "entry_conditions": [
+          {
+            "type": "pattern",
+            "pattern": "outside_bar",
+            "direction": "bullish",
+            "timeframe": "4h"
+          },
+          {
+            "type": "pattern",
+            "pattern": "daily_bias",
+            "direction": "bullish",
+            "ma_period": 20,
+            "timeframe": "1d"
+          }
+        ]
+      },
+      "rules_sha256": "fea9bd380948c31f70fb8b3dfbc9ccb45684e00bfb0888c29d60de49c1a4efef"
+    },
+    {
+      "id": "52e911a6-b4ed-4507-b0a3-5414e40ec16c",
+      "name": "Deploy: XAU/USD Engulfing25+DailyBias 4h | r042 v1",
+      "status": "active",
+      "updated_at": "2026-11-21T18:45:06.352626+00:00",
+      "rules": {
+        "side": "long",
+        "leverage": 50,
+        "news_veto": {
+          "enabled": true,
+          "min_impact": "high",
+          "block_minutes_after": 30,
+          "block_minutes_before": 15
+        },
+        "prop_firm": {
+          "spread_bps": 0.4,
+          "max_drawdown": 10,
+          "slippage_bps": 0.5,
+          "profit_target": 10,
+          "commission_pct": 0,
+          "consistency_rule": 0,
+          "daily_loss_limit": 5,
+          "commission_per_lot": 0,
+          "daily_loss_halt_pct": 80,
+          "combined_risk_cap_pct": 4,
+          "max_consecutive_losses": 0,
+          "consecutive_loss_daily_halt": 2
+        },
+        "stop_loss": {
+          "type": "swing_anchor",
+          "value": 0.1,
+          "lookback": 4
+        },
+        "timeframe": "4h",
+        "asset_class": "commodity",
+        "entry_logic": "all",
+        "take_profit": {
+          "type": "rr_multiple",
+          "value": 2.5
+        },
+        "time_filter": {
+          "enabled": true,
+          "min_wr_pct": 45,
+          "min_samples": 5
+        },
+        "max_positions": 1,
+        "stagnant_exit": {
+          "enabled": true
+        },
+        "max_per_ticker": 1,
+        "exit_conditions": [],
+        "position_sizing": {
+          "type": "risk_per_trade",
+          "value": 0.42
+        },
+        "entry_conditions": [
+          {
+            "type": "pattern",
+            "pattern": "engulfing",
+            "direction": "bullish",
+            "timeframe": "4h"
+          },
+          {
+            "type": "pattern",
+            "pattern": "daily_bias",
+            "direction": "bullish",
+            "ma_period": 20,
+            "timeframe": "1d"
+          }
+        ]
+      },
+      "rules_sha256": "49ddc77d2e2441b3f419edc233e0598fc669bebee832e29fe6aa42d465e90800"
+    },
+    {
+      "id": "069813f1-2a80-48e7-a086-5bf22c05e300",
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr3_lb3_r06_rf1_af0",
+      "status": "draft",
+      "updated_at": "2026-06-24T17:41:28.053341+00:00",
+      "rules": {
+        "side": "long",
+        "leverage": 50,
+        "prop_firm": {
+          "spread_bps": 0.4,
+          "max_drawdown": 10,
+          "slippage_bps": 0.5,
+          "profit_target": 10,
+          "commission_pct": 0,
+          "consistency_rule": 0,
+          "daily_loss_limit": 5,
+          "commission_per_lot": 0,
+          "combined_risk_cap_pct": 4,
+          "max_consecutive_losses": 0,
+          "consecutive_loss_daily_halt": 2
+        },
+        "stop_loss": {
+          "type": "swing_anchor",
+          "value": 0.1,
+          "lookback": 3
+        },
+        "timeframe": "4h",
+        "asset_class": "commodity",
+        "entry_logic": "all",
+        "take_profit": {
+          "type": "rr_multiple",
+          "value": 3
+        },
+        "max_positions": 1,
+        "regime_filter": {
+          "enabled": true,
+          "atr_period": 20,
+          "lookback_days": 90,
+          "percentile_floor": 0.3
+        },
+        "stagnant_exit": {
+          "enabled": true
+        },
+        "max_per_ticker": 1,
+        "exit_conditions": [],
+        "position_sizing": {
+          "type": "risk_per_trade",
+          "value": 0.6
+        },
+        "entry_conditions": [
+          {
+            "type": "pattern",
+            "pattern": "asian_range_break",
+            "direction": "bullish",
+            "timeframe": "4h"
+          }
+        ]
+      },
+      "rules_sha256": "0ab43a9f9bc78394c33aec3bbfd11b9d14a626c42acd98bd1ce97fa8bffc21ef"
+    },
+    {
+      "id": "daff0052-824a-4cd4-a43c-7fd177fe8513",
+      "name": "LayerB: XAU/USD Engulfing-Long 4h | rr3_lb6_r1_rf0_af1",
+      "status": "draft",
+      "updated_at": "2026-06-23T08:16:02.810748+00:00",
+      "rules": {
+        "side": "long",
+        "leverage": 50,
+        "prop_firm": {
+          "spread_bps": 0.4,
+          "max_drawdown": 10,
+          "slippage_bps": 0.5,
+          "profit_target": 10,
+          "commission_pct": 0,
+          "consistency_rule": 0,
+          "daily_loss_limit": 5,
+          "commission_per_lot": 0,
+          "combined_risk_cap_pct": 4,
+          "max_consecutive_losses": 0,
+          "consecutive_loss_daily_halt": 2
+        },
+        "stop_loss": {
+          "type": "swing_anchor",
+          "value": 0.1,
+          "lookback": 6
+        },
+        "timeframe": "4h",
+        "adx_filter": {
+          "enabled": true,
+          "min_adx": 20,
+          "adx_period": 14
+        },
+        "asset_class": "commodity",
+        "entry_logic": "all",
+        "take_profit": {
+          "type": "rr_multiple",
+          "value": 3
+        },
+        "max_positions": 1,
+        "stagnant_exit": {
+          "enabled": true
+        },
+        "max_per_ticker": 1,
+        "exit_conditions": [],
+        "position_sizing": {
+          "type": "risk_per_trade",
+          "value": 1
+        },
+        "entry_conditions": [
+          {
+            "type": "pattern",
+            "pattern": "engulfing",
+            "direction": "bullish",
+            "timeframe": "4h"
+          }
+        ]
+      },
+      "rules_sha256": "9cdeb91d868b8ba09dc92ebc5d20fce19291fc8f4e2ecc8316464ccaf0c8f9ab"
+    },
+    {
+      "id": "85d421e6-bcc9-40b5-9ee4-be1e7d6fea03",
+      "name": "LayerB: XAU/USD AsianRangeBreak-Long 4h | rr25_lb3_r06_rf1_af0",
+      "status": "draft",
+      "updated_at": "2026-06-24T17:39:16.586677+00:00",
+      "rules": {
+        "side": "long",
+        "leverage": 50,
+        "prop_firm": {
+          "spread_bps": 0.4,
+          "max_drawdown": 10,
+          "slippage_bps": 0.5,
+          "profit_target": 10,
+          "commission_pct": 0,
+          "consistency_rule": 0,
+          "daily_loss_limit": 5,
+          "commission_per_lot": 0,
+          "combined_risk_cap_pct": 4,
+          "max_consecutive_losses": 0,
+          "consecutive_loss_daily_halt": 2
+        },
+        "stop_loss": {
+          "type": "swing_anchor",
+          "value": 0.1,
+          "lookback": 3
+        },
+        "timeframe": "4h",
+        "asset_class": "commodity",
+        "entry_logic": "all",
+        "take_profit": {
+          "type": "rr_multiple",
+          "value": 2.5
+        },
+        "max_positions": 1,
+        "regime_filter": {
+          "enabled": true,
+          "atr_period": 20,
+          "lookback_days": 90,
+          "percentile_floor": 0.3
+        },
+        "stagnant_exit": {
+          "enabled": true
+        },
+        "max_per_ticker": 1,
+        "exit_conditions": [],
+        "position_sizing": {
+          "type": "risk_per_trade",
+          "value": 0.6
+        },
+        "entry_conditions": [
+          {
+            "type": "pattern",
+            "pattern": "asian_range_break",
+            "direction": "bullish",
+            "timeframe": "4h"
+          }
+        ]
+      },
+      "rules_sha256": "b48067b557a271b18d17291266a66cd29b56fa555c003c71b038cfec21438f5c"
+    },
+    {
+      "id": "02c1892f-a765-4ed8-8d5d-86329392d110",
+      "name": "Search: XAU/USD Engulfing-Long 4h",
+      "status": "draft",
+      "updated_at": "2026-06-24T16:52:40.568651+00:00",
+      "rules": {
+        "side": "long",
+        "leverage": 50,
+        "prop_firm": {
+          "spread_bps": 0.4,
+          "max_drawdown": 10,
+          "slippage_bps": 0.5,
+          "profit_target": 10,
+          "commission_pct": 0,
+          "consistency_rule": 0,
+          "daily_loss_limit": 5,
+          "commission_per_lot": 0,
+          "combined_risk_cap_pct": 4,
+          "max_consecutive_losses": 0,
+          "consecutive_loss_daily_halt": 2
+        },
+        "stop_loss": {
+          "type": "swing_anchor",
+          "value": 0.1,
+          "lookback": 4
+        },
+        "timeframe": "4h",
+        "asset_class": "commodity",
+        "entry_logic": "all",
+        "take_profit": {
+          "type": "rr_multiple",
+          "value": 3
+        },
+        "max_positions": 1,
+        "stagnant_exit": {
+          "enabled": true
+        },
+        "max_per_ticker": 1,
+        "exit_conditions": [],
+        "position_sizing": {
+          "type": "risk_per_trade",
+          "value": 1
+        },
+        "entry_conditions": [
+          {
+            "type": "pattern",
+            "pattern": "engulfing",
+            "direction": "bullish",
+            "timeframe": "4h"
+          }
+        ]
+      },
+      "rules_sha256": "b146375604eeb6de96688950bcf48593e4ea80f4e8d95fe77e139d7fbc39ab33"
+    }
+  ]
+}

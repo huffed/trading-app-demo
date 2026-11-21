@@ -63,8 +63,8 @@ async function main() {
   const ignore = new Set(["news_veto", "time_filter", "leverage", "capital"]);
   const rulesDiff: Record<string, string[]> = {};
   for (let i = 0; i < 5; i++) {
-    const a = { ...sets.deployed[i].rules } as Record<string, unknown>;
-    const b = { ...sets.harness_source[i].rules } as Record<string, unknown>;
+    const a: Record<string, unknown> = { ...sets.deployed[i].rules };
+    const b: Record<string, unknown> = { ...sets.harness_source[i].rules };
     for (const k of ignore) { delete a[k]; delete b[k]; }
     const diffs = diffRules(a, b);
     rulesDiff[sets.deployed[i].label] = diffs;

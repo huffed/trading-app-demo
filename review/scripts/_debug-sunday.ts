@@ -4,7 +4,7 @@ import { CANONICAL_PINS, loadPinnedFile, sessionDaily } from "./lib/pins";
   const h4 = loadPinnedFile(CANONICAL_PINS.h4).bars; const daily = sessionDaily(loadPinnedFile(CANONICAL_PINS.d).bars);
   const members = await loadDeployedMembers();
   const run = runSiblingAware(members, h4, daily, 100_000, { uniformRisk: 0.42 });
-  const u = run.union as Array<{ entry_date: string; algo: string; pnl: number }>;
+  const u = run.union as unknown as Array<{ entry_date: string; algo: string; pnl: number }>;
   const isSundayOpen = (d: string) => { const x = new Date(d); return x.getUTCDay() === 0 && x.getUTCHours() >= 21; };
   const sun = u.filter((t) => isSundayOpen(t.entry_date));
   const byAlgo: Record<string, number> = {}; for (const t of sun) byAlgo[t.algo] = (byAlgo[t.algo] ?? 0) + 1;

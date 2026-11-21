@@ -9,7 +9,7 @@
  * scenario. Reproduce: pnpm dlx tsx review/scripts/costs.ts
  */
 import { readFileSync, writeFileSync } from "node:fs";
-import { dateIndexOf, loadDeployedMembers, mean, nominalR, reconstructGeometry, runSiblingAware } from "./lib/harness";
+import { dateIndexOf, loadDeployedMembers, mean, reconstructGeometry, runSiblingAware } from "./lib/harness";
 import { CANONICAL_PINS, loadPinnedFile, sessionDaily } from "./lib/pins";
 import type { BacktestTrade } from "../../src/lib/market-data/types";
 
@@ -42,7 +42,7 @@ async function main() {
   const trades = run.union as Array<BacktestTrade & { algo: string }>;
 
   const scen = { engine: [] as number[], no_costs: [] as number[], spread_median_by_hour: [] as number[], spread_p95_by_hour: [] as number[], swap_050: [] as number[], swap_100: [] as number[], all_in_median_swap050: [] as number[], all_in_p95_swap100: [] as number[], commission_3_per_lot_side: [] as number[] };
-  let holdNights: number[] = [], skipped = 0;
+  const holdNights: number[] = []; let skipped = 0;
   const costUsd = { engine_friction: 0, spread_median: 0, spread_p95: 0, swap050: 0, swap100: 0, commission: 0 };
   for (const t of trades) {
     const g = reconstructGeometry(t, rulesByLabel.get(t.algo)!, h4, idx);

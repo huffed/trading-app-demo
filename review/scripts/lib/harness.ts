@@ -19,6 +19,7 @@ import {
 import type { BacktestTrade, PriceBar } from "../../../src/lib/market-data/types";
 import type { AlgorithmRules, EntryCondition } from "../../../src/types/algorithm";
 import { readOnlySupabase } from "./env";
+import { readsLiveRules, snapshotRules } from "./rules-snapshot";
 
 export interface Member {
   label: string;
@@ -48,16 +49,18 @@ export const HARNESS_SOURCE = {
 
 export function withDailyBias(base: AlgorithmRules, direction: "bullish" | "bearish" = "bullish"): AlgorithmRules {
   const hasBias = base.entry_conditions.some((c) => (c as { pattern?: string }).pattern === "daily_bias");
+  const bias = { type: "pattern", pattern: "daily_bias", direction, ma_period: 20, timeframe: "1d" } as const;
   return {
     ...base,
     entry_conditions: hasBias
       ? base.entry_conditions
-      : [...base.entry_conditions, { type: "pattern", pattern: "daily_bias", direction, ma_period: 20, timeframe: "1d" } as EntryCondition],
+      : [...base.entry_conditions, bias as EntryCondition],
     entry_logic: "all",
   };
 }
 
 async function fetchRules(id: string): Promise<{ rules: AlgorithmRules; name: string }> {
+  if (!readsLiveRules()) return snapshotRules(id); // review/inputs/deployed-rules-2026-11-21.json
   const sb = readOnlySupabase();
   const { data, error } = await sb.from("algorithms").select("name, rules").eq("id", id).maybeSingle();
   if (error) throw new Error(error.message);

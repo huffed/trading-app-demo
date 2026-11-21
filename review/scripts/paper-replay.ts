@@ -24,7 +24,7 @@ import { detectEngulfing } from "../../src/lib/patterns/engulfing";
 import { detectOutsideBar } from "../../src/lib/patterns/outside-bar";
 import type { BacktestTrade, PriceBar } from "../../src/lib/market-data/types";
 import { readOnlySupabase } from "./lib/env";
-import { ACTIVE, dateIndexOf, loadDeployedMembers, mean, nominalR, reconstructGeometry, runSiblingAware, type Member } from "./lib/harness";
+import { ACTIVE, dateIndexOf, loadDeployedMembers, mean, nominalR, reconstructGeometry, runSiblingAware } from "./lib/harness";
 import { CANONICAL_PINS, REVIEW_PINS, loadPinnedFile, mergeBars, sessionDaily } from "./lib/pins";
 
 const RISK = 0.42, CAP = 100_000, H4_MS = 4 * 3600_000;
@@ -47,7 +47,7 @@ async function main() {
   const daily = sessionDaily(dStart);
   const idx = dateIndexOf(h4);
   const members = await loadDeployedMembers();
-  const labelById = new Map(ACTIVE.map((a) => [a.id, a.label]));
+  const labelById = new Map<string, string>(ACTIVE.map((a) => [a.id, a.label]));
   console.log(`bars: H4 ${h4.length} (${h4[0].date} → ${h4[h4.length - 1].date}), session dailies ${daily.length} (last ${daily[daily.length - 1].date})`);
 
   // ---- live trades
@@ -159,7 +159,7 @@ async function main() {
   const { data: pc } = await sb.from("price_cache").select("bars, fetched_at, bar_count").eq("ticker", "XAU/USD").eq("interval", "4h").eq("output_size", "full").maybeSingle();
   let cacheCheck: Record<string, unknown> = { available: false };
   if (pc) {
-    const cb = pc.bars as PriceBar[]; const byDate = new Map(h4.map((b) => [b.date, b]));
+    const cb = pc.bars as unknown as PriceBar[]; const byDate = new Map(h4.map((b) => [b.date, b]));
     let common = 0, mism = 0, foreign = 0, maxDiff = 0;
     for (const b of cb) { const o = byDate.get(b.date); if (!o) { foreign++; continue; } common++; const d = Math.max(Math.abs(o.open - b.open), Math.abs(o.high - b.high), Math.abs(o.low - b.low), Math.abs(o.close - b.close)); if (d > 1e-6) mism++; maxDiff = Math.max(maxDiff, d); }
     cacheCheck = { available: true, cache_bars: cb.length, cache_first: cb[0]?.date, cache_last: cb[cb.length - 1]?.date, fetched_at: pc.fetched_at, common, ohlc_mismatches: mism, max_abs_diff: maxDiff, bars_not_in_oanda: foreign };

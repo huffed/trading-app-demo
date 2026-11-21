@@ -56,7 +56,7 @@ async function main() {
   const liveOnly: Array<{ r: number; algo: string; date: string }> = [], btOnly: Array<{ r: number; algo: string; date: string }> = [];
   const h4 = loadPinnedFile(CANONICAL_PINS.h4).bars;
   const closeStamped = sessionDaily(loadPinnedFile(CANONICAL_PINS.d).bars);
-  const counts = { bars: 0, live_vs_current_diff: 0, live_vs_intended_diff: 0, current_vs_intended_diff: 0, sig: 0, sig_live_vs_current_diff: 0, sig_live_bull_current_bear: 0, sig_live_bear_current_bull: 0, byHour: {} as Record<number, { bars: number; diff: number }> };
+  const byHour: Record<number, { bars: number; diff: number }> = {}; const counts = { bars: 0, live_vs_current_diff: 0, live_vs_intended_diff: 0, current_vs_intended_diff: 0, sig: 0, sig_live_vs_current_diff: 0, sig_live_bull_current_bear: 0, sig_live_bear_current_bull: 0, byHour };
   const examples: string[] = [];
   for (let i = 200; i < h4.length; i++) {
     const bar = h4[i];

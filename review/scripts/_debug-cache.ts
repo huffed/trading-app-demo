@@ -6,7 +6,7 @@ import type { PriceBar } from "../../src/lib/market-data/types";
   const byDate = new Set(h4.map((b) => b.date));
   const sb = readOnlySupabase();
   const { data } = await sb.from("price_cache").select("bars").eq("ticker", "XAU/USD").eq("interval", "4h").eq("output_size", "full").maybeSingle();
-  const cb = (data!.bars as PriceBar[]);
+  const cb = (data!.bars as unknown as PriceBar[]);
   const foreign = cb.filter((b) => !byDate.has(b.date));
   console.log(`foreign=${foreign.length}`); console.log(foreign.map((b) => `${b.date} v=${b.volume}`).join("\n"));
   // what does OANDA have around the first foreign date?

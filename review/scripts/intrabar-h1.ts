@@ -9,7 +9,7 @@
 import { writeFileSync } from "node:fs";
 import { dateIndexOf, loadDeployedMembers, mean, nominalR, reconstructGeometry, runSiblingAware } from "./lib/harness";
 import { CANONICAL_PINS, REVIEW_PINS, loadPinnedFile, mergeBars, sessionDaily } from "./lib/pins";
-import type { BacktestTrade, PriceBar } from "../../src/lib/market-data/types";
+import type { PriceBar } from "../../src/lib/market-data/types";
 
 const RISK = 0.42, CAP = 100_000;
 const H4_MS = 4 * 3600_000;
@@ -45,7 +45,7 @@ async function main() {
   for (const m of members) {
     const trades = run.soloTrades.get(m.label)!;
     const rr = m.rules.take_profit?.type === "rr_multiple" ? m.rules.take_profit.value : 3;
-    let c = { n: trades.length, slOrTp: 0, same4hBar: 0, h1Ambiguous: 0, disagree: 0, noGeom: 0, engineTp: 0, h1Tp: 0 };
+    const c = { n: trades.length, slOrTp: 0, same4hBar: 0, h1Ambiguous: 0, disagree: 0, noGeom: 0, engineTp: 0, h1Tp: 0 };
     for (const t of trades) {
       const g = reconstructGeometry(t, m.rules, h4, idx);
       if (!g) { c.noGeom++; continue; }
