@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Fake df: a quarter of the disk used.
+echo "Filesystem Size Used Avail Use% Mounted on"
+echo "/dev/sda1 38G 9G 29G 25% /"

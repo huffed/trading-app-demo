@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Fake crontab -l: two entries.
+echo "*/15 * * * * scan"
+echo "*/5 * * * * manage"

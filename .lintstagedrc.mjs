@@ -9,6 +9,8 @@
  * - shellcheck on staged cron wrappers (baseline), ops scripts and hooks (target).
  * - actionlint on staged GitHub workflow files (a workflow GitHub cannot parse
  *   otherwise fails as a run with no jobs and no log).
+ * - Nothing under review/: the audit's scripts are evidence, not product code, and
+ *   their lines are cited; make typecheck and the baseline lint still read its TypeScript.
  */
 import { execFileSync } from "node:child_process";
 
@@ -20,10 +22,17 @@ function addedInThisCommit() {
 }
 
 const quote = (files) => files.map((f) => `"${f}"`).join(" ");
+const notReview = (files) =>
+  files.filter((f) => !f.replace(`${process.cwd()}/`, "").startsWith("review/"));
 
 const config = {
-  "*.{ts,tsx,mjs,js,json,css}": (files) => [`prettier --write ${quote(files)}`],
-  "*.{ts,tsx,mjs,js}": (files) => {
+  "*.{ts,tsx,mjs,js,json,css}": (all) => {
+    const files = notReview(all);
+    return files.length > 0 ? [`prettier --write ${quote(files)}`] : [];
+  },
+  "*.{ts,tsx,mjs,js}": (all) => {
+    const files = notReview(all);
+    if (files.length === 0) return [];
     const added = addedInThisCommit();
     const newFiles = files.filter((f) => added.has(f.replace(`${process.cwd()}/`, "")));
     const commands = [`eslint --no-warn-ignored ${quote(files)}`];

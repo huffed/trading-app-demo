@@ -1,6 +1,6 @@
 # Deploy and host-change ledger
 
-One line per production deploy, appended by `make deploy` and committed in the next PR, one line per host change that is not a deploy (reboot, package install, config change), and one line per MetaApi redeploy (decision 0010), pointing at its `docs/decisions/` entry. The audit brackets paper-trading results with these dates. The machine record on the host is `/var/log/quanttrader/deploys.log`.
+One line per production deploy, appended by `make deploy` and committed in the next PR, one line per host change that is not a deploy (reboot, package install, config change), one line per MetaApi redeploy (decision 0010), and one line per live-table statement a session runs (decision 0012), pointing at its `docs/decisions/` entry. The audit brackets paper-trading results with these dates. The machine record on the host is `/var/log/quanttrader/deploys.log`.
 
 From the window of 2026-11-07 on, each hand-written row that records a session's host commands or merges says how they were approved: at a prompt the operator answered (an `ask` rule), or by Claude Code's auto-mode classifier with no prompt. A row `make deploy` appends records a deploy, which is an `ask` rule and prompts. Every database read the session made in the window and on 2026-11-10 was a read-only SQL call approved by the classifier; the rows do not repeat it. These approvals were read from the session's permission records on 2026-11-10. The row dated `2026-11-10T18:00:04Z` records paper positions kept open for the audit; it is not a host change.
 

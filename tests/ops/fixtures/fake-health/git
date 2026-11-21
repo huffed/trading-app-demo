@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# Fake git for ops-health.sh: the fetch works, dev is three commits past the live commit, which is on it.
+shift 2 # -C <dir>
+case "$1" in
+  rev-parse) echo 2222222222222222222222222222222222222222 ;;
+  rev-list) echo 3 ;;
+esac
+exit 0

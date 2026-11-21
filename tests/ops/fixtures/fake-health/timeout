@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# Fake timeout for tests/ops/ops-health-script.test.ts: macOS has no timeout(1); this runs the command without a
+# limit, after dropping the duration.
+shift
+exec "$@"

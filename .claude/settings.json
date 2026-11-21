@@ -76,11 +76,31 @@
       "Bash(pnpm remove *)",
       "Edit(/.claude/**)",
       "Edit(/.husky/**)",
-      "Edit(/.github/workflows/**)"
+      "Edit(/.github/workflows/**)",
+      "Bash(gh pr merge)",
+      "Bash(gh pr merge *)",
+      "Edit(/vitest.config.*)",
+      "Edit(/.lintstagedrc*)",
+      "Edit(/**/.lintstagedrc*)",
+      "Edit(/**/lint-staged.config.*)",
+      "Edit(/eslint.config*)",
+      "Edit(/scripts/dev/**)",
+      "Edit(/.prettierrc*)",
+      "Edit(/**/.prettierrc*)",
+      "Edit(/**/prettier.config.*)",
+      "Edit(/Makefile)",
+      "Edit(/package.json)",
+      "Edit(/**/package.json)",
+      "Edit(/**/package.yaml)",
+      "Edit(/**/package.yml)",
+      "Edit(/.npmrc)",
+      "Edit(/pnpm-workspace.yaml)"
     ],
     "deny": [
       "Read(.env*)",
       "Read(!.env.example)",
+      "Read(~/.config/quanttrader/**)",
+      "Edit(~/.ssh/**)",
       "Edit(.env*)",
       "Edit(!.env.example)",
       "Edit(/scripts/canonical/data/**)",
@@ -99,7 +119,8 @@
           {
             "type": "command",
             "command": "\"${CLAUDE_PROJECT_DIR}\"/.claude/hooks/guard-paths.sh",
-            "timeout": 10
+            "timeout": 60,
+            "onFailure": "block"
           }
         ]
       },
@@ -109,7 +130,8 @@
           {
             "type": "command",
             "command": "\"${CLAUDE_PROJECT_DIR}\"/.claude/hooks/guard-bash.sh",
-            "timeout": 10
+            "timeout": 60,
+            "onFailure": "block"
           }
         ]
       }
@@ -133,6 +155,23 @@
             "type": "command",
             "command": "\"${CLAUDE_PROJECT_DIR}\"/.claude/hooks/stop-validate.sh",
             "timeout": 600
+          },
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PROJECT_DIR}\"/.claude/hooks/notify-ntfy.sh",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "matcher": "permission_prompt|idle_prompt|agent_needs_input|elicitation_dialog|elicitation_url_dialog",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PROJECT_DIR}\"/.claude/hooks/notify-ntfy.sh",
+            "timeout": 15
           }
         ]
       }

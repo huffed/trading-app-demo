@@ -73,7 +73,7 @@ lint-strict: ## ESLint target rule set on FILES=... (default: the code files add
 	if [ -z "$$files" ]; then \
 	  git rev-parse --verify --quiet '$(BASE)^{commit}' >/dev/null || { echo "lint-strict: $(BASE) not found — git fetch origin"; exit 2; }; \
 	  mb=$$(git merge-base $(BASE) HEAD) || { echo "lint-strict: no merge base between $(BASE) and HEAD"; exit 2; }; \
-	  files=$$({ git diff --name-only --diff-filter=A "$$mb" -- '*.ts' '*.tsx' '*.mjs' '*.js' && git ls-files --others --exclude-standard -- '*.ts' '*.tsx' '*.mjs' '*.js'; } | { grep -vE '^(scripts/archive|scripts/ad-hoc)/' || true; } | sort -u | tr '\n' ' ') || { echo "lint-strict: listing the files added vs $(BASE) failed"; exit 2; }; \
+	  files=$$({ git diff --name-only --diff-filter=A "$$mb" -- '*.ts' '*.tsx' '*.mjs' '*.js' && git ls-files --others --exclude-standard -- '*.ts' '*.tsx' '*.mjs' '*.js'; } | { grep -vE '^(scripts/archive|scripts/ad-hoc|review)/' || true; } | sort -u | tr '\n' ' ') || { echo "lint-strict: listing the files added vs $(BASE) failed"; exit 2; }; \
 	fi; \
 	if [ -z "$$(printf '%s' "$$files" | tr -d ' ')" ]; then echo "lint-strict: no code files added vs $(BASE)"; exit 0; fi; \
 	printf '%s' "$$files" | tr ' ' '\n' | grep -v '^$$' | tr '\n' '\0' | xargs -0 $(PNPM) exec eslint --config eslint.config.strict.mjs --no-ignore
@@ -86,15 +86,16 @@ lint-workflows: ## actionlint on .github/workflows (a workflow GitHub cannot par
 	@command -v actionlint >/dev/null || { echo "actionlint is not installed (brew install actionlint)"; exit 2; }
 	actionlint -no-color
 
-typecheck: ## tsc over src, tests and scripts (test files included)
+typecheck: ## tsc over src, tests, scripts and review (test files included)
 	$(PNPM) exec tsc --noEmit -p tsconfig.json
 
-# Files this branch adds or changes vs $(BASE): committed, staged, unstaged and untracked.
+# Files this branch adds or changes vs $(BASE): committed, staged, unstaged and untracked. The audit's review/ is
+# left as committed: its scripts are evidence, and their lines are cited.
 FORMAT_PATTERNS := '*.ts' '*.tsx' '*.mjs' '*.js' '*.json' '*.css'
 define changed_files
 { git diff --name-only --diff-filter=ACMR $(BASE)...HEAD -- $(FORMAT_PATTERNS); \
   git diff --name-only --diff-filter=ACMR HEAD -- $(FORMAT_PATTERNS); \
-  git ls-files --others --exclude-standard -- $(FORMAT_PATTERNS); } | sort -u | while read -r f; do [ -f "$$f" ] && echo "$$f"; done
+  git ls-files --others --exclude-standard -- $(FORMAT_PATTERNS); } | grep -v '^review/' | sort -u | while read -r f; do [ -f "$$f" ] && echo "$$f"; done
 endef
 
 format: ## Prettier --write on files changed vs $(BASE) (whole-tree format is one dedicated PR after the audit verdict)
@@ -181,7 +182,7 @@ logs: ## VPS: tail a log, read-only — make logs LOG=scan N=40 (scan manage hea
 # the switch must not depend on GitHub being reachable) over one ssh connection; the host reads its own
 # secrets. The kill switch is the only host command allowed in market hours (the one other exception: appending
 # the HEARTBEAT_PING_URL line, docs/runbooks/d4-alerts-and-rotation.md); the three are the only way a session
-# writes to the live tables (CLAUDE.md, decision 0010): each prompts every time (`ask` in .claude/settings.json, never in an
+# writes to the live tables besides one statement the operator's message in that turn authorises (CLAUDE.md, decisions 0010 and 0012): each prompts every time (`ask` in .claude/settings.json, never in an
 # allow list; the single-goal check above and guard-bash keep a pre-approved goal from carrying them;
 # tests/ops/makefile-host-targets.test.ts checks all of it), runs only when the operator asks for it, and
 # writes its ledger line (the row in docs/decisions/deploys.md is copied from it; DEBT D-24 lists the two
