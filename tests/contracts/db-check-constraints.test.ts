@@ -12,24 +12,9 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { checkListFor } from "../helpers/db-checks";
 
 const ROOT = join(__dirname, "..", "..");
-const MIGRATIONS = join(ROOT, "supabase", "migrations");
-
-/** Values of the newest `add constraint <name> check (... in (...))` in the migrations folder. */
-function checkListFor(constraint: string): string[] {
-  const files = readdirSync(MIGRATIONS)
-    .filter((f) => f.endsWith(".sql"))
-    .sort();
-  let list: string[] = [];
-  for (const file of files) {
-    const sql = readFileSync(join(MIGRATIONS, file), "utf8");
-    const re = new RegExp(`add constraint\\s+${constraint}[\\s\\S]*?in\\s*\\(([^)]*)\\)`, "i");
-    const m = sql.match(re);
-    if (m) list = [...m[1].matchAll(/'([^']+)'/g)].map((x) => x[1]);
-  }
-  return list;
-}
 
 /** Every `event_type: "<literal>"` the application code writes. */
 function eventTypeLiteralsInSource(): Map<string, string[]> {
