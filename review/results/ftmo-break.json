@@ -1,0 +1,607 @@
+{
+ "n": 862,
+ "entry_rule": "fill = signal bar close = entry_date + 4h",
+ "clocks": {
+  "us": {
+   "in_break": 85,
+   "share_pct": 9.860788863109049,
+   "nightly": 69,
+   "weekend": 16,
+   "by_algo": {
+    "ARB rr3_lb3": 21,
+    "ARB rr25_lb3": 18,
+    "Engulfing25 rr25_lb4": 20,
+    "Engulfing rr3_lb6": 16,
+    "OutsideBar v2 rr3_lb3": 10
+   },
+   "by_season": {
+    "winter": 25,
+    "summer": 60
+   },
+   "by_algo_season_kind": {
+    "OutsideBar v2 rr3_lb3 | summer | nightly": 7,
+    "Engulfing25 rr25_lb4 | summer | nightly": 10,
+    "Engulfing rr3_lb6 | winter | nightly": 6,
+    "Engulfing25 rr25_lb4 | winter | nightly": 7,
+    "OutsideBar v2 rr3_lb3 | summer | weekend": 2,
+    "ARB rr25_lb3 | summer | nightly": 11,
+    "Engulfing rr3_lb6 | summer | nightly": 6,
+    "ARB rr3_lb3 | summer | nightly": 13,
+    "ARB rr3_lb3 | summer | weekend": 3,
+    "ARB rr25_lb3 | summer | weekend": 3,
+    "ARB rr3_lb3 | winter | nightly": 4,
+    "ARB rr25_lb3 | winter | nightly": 4,
+    "Engulfing rr3_lb6 | summer | weekend": 3,
+    "OutsideBar v2 rr3_lb3 | winter | nightly": 1,
+    "Engulfing25 rr25_lb4 | summer | weekend": 2,
+    "Engulfing rr3_lb6 | winter | weekend": 1,
+    "ARB rr3_lb3 | winter | weekend": 1,
+    "Engulfing25 rr25_lb4 | winter | weekend": 1
+   }
+  },
+  "fixed2": {
+   "in_break": 25,
+   "share_pct": 2.9002320185614847,
+   "nightly": 22,
+   "weekend": 3,
+   "by_algo": {
+    "ARB rr3_lb3": 5,
+    "ARB rr25_lb3": 4,
+    "Engulfing25 rr25_lb4": 8,
+    "Engulfing rr3_lb6": 7,
+    "OutsideBar v2 rr3_lb3": 1
+   },
+   "by_season": {
+    "winter": 25,
+    "summer": 0
+   },
+   "by_algo_season_kind": {
+    "Engulfing rr3_lb6 | winter | nightly": 6,
+    "Engulfing25 rr25_lb4 | winter | nightly": 7,
+    "ARB rr3_lb3 | winter | nightly": 4,
+    "ARB rr25_lb3 | winter | nightly": 4,
+    "OutsideBar v2 rr3_lb3 | winter | nightly": 1,
+    "Engulfing rr3_lb6 | winter | weekend": 1,
+    "ARB rr3_lb3 | winter | weekend": 1,
+    "Engulfing25 rr25_lb4 | winter | weekend": 1
+   }
+  },
+  "eu": {
+   "in_break": 76,
+   "share_pct": 8.816705336426914,
+   "nightly": 65,
+   "weekend": 11,
+   "by_algo": {
+    "ARB rr3_lb3": 19,
+    "ARB rr25_lb3": 17,
+    "Engulfing25 rr25_lb4": 18,
+    "Engulfing rr3_lb6": 14,
+    "OutsideBar v2 rr3_lb3": 8
+   },
+   "by_season": {
+    "winter": 25,
+    "summer": 51
+   },
+   "by_algo_season_kind": {
+    "OutsideBar v2 rr3_lb3 | summer | nightly": 6,
+    "Engulfing25 rr25_lb4 | summer | nightly": 9,
+    "Engulfing rr3_lb6 | winter | nightly": 6,
+    "Engulfing25 rr25_lb4 | winter | nightly": 7,
+    "ARB rr25_lb3 | summer | nightly": 11,
+    "Engulfing rr3_lb6 | summer | nightly": 5,
+    "ARB rr3_lb3 | summer | nightly": 12,
+    "ARB rr3_lb3 | summer | weekend": 2,
+    "ARB rr25_lb3 | summer | weekend": 2,
+    "ARB rr3_lb3 | winter | nightly": 4,
+    "ARB rr25_lb3 | winter | nightly": 4,
+    "Engulfing rr3_lb6 | summer | weekend": 2,
+    "OutsideBar v2 rr3_lb3 | winter | nightly": 1,
+    "Engulfing rr3_lb6 | winter | weekend": 1,
+    "ARB rr3_lb3 | winter | weekend": 1,
+    "Engulfing25 rr25_lb4 | summer | weekend": 1,
+    "OutsideBar v2 rr3_lb3 | summer | weekend": 1,
+    "Engulfing25 rr25_lb4 | winter | weekend": 1
+   }
+  }
+ },
+ "exits_by_placement": {
+  "clear": 815,
+  "18:00–18:30 NY (contains FTMO's 18:05 reopen)": 38,
+  "16:30–17:00 NY (contains FTMO's 16:50 close)": 6,
+  "unplaced": 3
+ },
+ "distinct_signal_bars_in_break": 55,
+ "straddle_exits": 44,
+ "straddle_exits_with_ticks": 2,
+ "exits_on_a_utc_day_that_is_not_the_prague_day": 47,
+ "exits_placed_on_m30": 859,
+ "paper": [
+  {
+   "algo": "Deploy: XAU/USD OutsideBar+DailyBias 4h | rr3_lb3 r066 v2",
+   "opened_at": "2026-08-10T15:00:50.210Z",
+   "opened_ny": "2026-08-10 11:00 NY",
+   "open_in_break": "open",
+   "closed_at": "2026-08-19T13:15:09.536Z",
+   "closed_ny": "2026-08-19 09:15 NY",
+   "close_in_break": "open",
+   "season_open": "summer",
+   "exit_reason": "take_profit",
+   "entry_price": 4344.80361,
+   "exit_price": 4458.31476,
+   "clocks": {
+    "us": {
+     "open": "open",
+     "close": "open"
+    },
+    "fixed2": {
+     "open": "open",
+     "close": "open"
+    },
+    "eu": {
+     "open": "open",
+     "close": "open"
+    }
+   }
+  },
+  {
+   "algo": "Deploy: XAU/USD Engulfing25+DailyBias 4h | r042 v1",
+   "opened_at": "2026-08-13T13:00:10.551Z",
+   "opened_ny": "2026-08-13 09:00 NY",
+   "open_in_break": "open",
+   "closed_at": "2026-08-13T15:35:10.744Z",
+   "closed_ny": "2026-08-13 11:35 NY",
+   "close_in_break": "open",
+   "season_open": "summer",
+   "exit_reason": "stop_loss",
+   "entry_price": 4400.24641,
+   "exit_price": 4359.38794,
+   "clocks": {
+    "us": {
+     "open": "open",
+     "close": "open"
+    },
+    "fixed2": {
+     "open": "open",
+     "close": "open"
+    },
+    "eu": {
+     "open": "open",
+     "close": "open"
+    }
+   }
+  },
+  {
+   "algo": "Deploy: XAU/USD Engulfing+DailyBias 4h | r080 v1",
+   "opened_at": "2026-08-13T13:01:01.362Z",
+   "opened_ny": "2026-08-13 09:01 NY",
+   "open_in_break": "open",
+   "closed_at": "2026-08-13T15:35:05.109Z",
+   "closed_ny": "2026-08-13 11:35 NY",
+   "close_in_break": "open",
+   "season_open": "summer",
+   "exit_reason": "stop_loss",
+   "entry_price": 4399.8592,
+   "exit_price": 4358.6279,
+   "clocks": {
+    "us": {
+     "open": "open",
+     "close": "open"
+    },
+    "fixed2": {
+     "open": "open",
+     "close": "open"
+    },
+    "eu": {
+     "open": "open",
+     "close": "open"
+    }
+   }
+  },
+  {
+   "algo": "Deploy: XAU/USD Engulfing25+DailyBias 4h | r042 v1",
+   "opened_at": "2026-08-14T08:00:34.857Z",
+   "opened_ny": "2026-08-14 04:00 NY",
+   "open_in_break": "open",
+   "closed_at": "2026-08-19T13:00:15.510Z",
+   "closed_ny": "2026-08-19 09:00 NY",
+   "close_in_break": "open",
+   "season_open": "summer",
+   "exit_reason": "take_profit",
+   "entry_price": 4344.04865,
+   "exit_price": 4438.72342,
+   "clocks": {
+    "us": {
+     "open": "open",
+     "close": "open"
+    },
+    "fixed2": {
+     "open": "open",
+     "close": "open"
+    },
+    "eu": {
+     "open": "open",
+     "close": "open"
+    }
+   }
+  },
+  {
+   "algo": "Deploy: XAU/USD Engulfing+DailyBias 4h | r080 v1",
+   "opened_at": "2026-08-18T13:00:14.520Z",
+   "opened_ny": "2026-08-18 09:00 NY",
+   "open_in_break": "open",
+   "closed_at": "2026-08-18T15:05:10.373Z",
+   "closed_ny": "2026-08-18 11:05 NY",
+   "close_in_break": "open",
+   "season_open": "summer",
+   "exit_reason": "stop_loss",
+   "entry_price": 4394.44542,
+   "exit_price": 4373.30534,
+   "clocks": {
+    "us": {
+     "open": "open",
+     "close": "open"
+    },
+    "fixed2": {
+     "open": "open",
+     "close": "open"
+    },
+    "eu": {
+     "open": "open",
+     "close": "open"
+    }
+   }
+  },
+  {
+   "algo": "Deploy: XAU/USD Engulfing+DailyBias 4h | r080 v1",
+   "opened_at": "2026-08-19T08:30:14.311Z",
+   "opened_ny": "2026-08-19 04:30 NY",
+   "open_in_break": "open",
+   "closed_at": "2026-08-19T14:17:17.914Z",
+   "closed_ny": "2026-08-19 10:17 NY",
+   "close_in_break": "open",
+   "season_open": "summer",
+   "exit_reason": "take_profit",
+   "entry_price": 4359.76806,
+   "exit_price": 4475.27411,
+   "clocks": {
+    "us": {
+     "open": "open",
+     "close": "open"
+    },
+    "fixed2": {
+     "open": "open",
+     "close": "open"
+    },
+    "eu": {
+     "open": "open",
+     "close": "open"
+    }
+   }
+  },
+  {
+   "algo": "Deploy: XAU/USD Engulfing25+DailyBias 4h | r042 v1",
+   "opened_at": "2026-08-21T01:30:15.684Z",
+   "opened_ny": "2026-08-20 21:30 NY",
+   "open_in_break": "open",
+   "closed_at": "2026-08-31T01:10:03.883Z",
+   "closed_ny": "2026-08-30 21:10 NY",
+   "close_in_break": "open",
+   "season_open": "summer",
+   "exit_reason": "stop_loss",
+   "entry_price": 4530.01133,
+   "exit_price": 4445.43232,
+   "clocks": {
+    "us": {
+     "open": "open",
+     "close": "open"
+    },
+    "fixed2": {
+     "open": "open",
+     "close": "open"
+    },
+    "eu": {
+     "open": "open",
+     "close": "open"
+    }
+   }
+  },
+  {
+   "algo": "Deploy: XAU/USD OutsideBar+DailyBias 4h | rr3_lb3 r066 v2",
+   "opened_at": "2026-08-21T05:00:04.946Z",
+   "opened_ny": "2026-08-21 01:00 NY",
+   "open_in_break": "open",
+   "closed_at": "2026-08-28T21:00:08.032Z",
+   "closed_ny": "2026-08-28 17:00 NY",
+   "close_in_break": "weekend",
+   "season_open": "summer",
+   "exit_reason": "stop_loss",
+   "entry_price": 4541.11984,
+   "exit_price": 4454.99,
+   "clocks": {
+    "us": {
+     "open": "open",
+     "close": "weekend"
+    },
+    "fixed2": {
+     "open": "open",
+     "close": "open"
+    },
+    "eu": {
+     "open": "open",
+     "close": "weekend"
+    }
+   }
+  },
+  {
+   "algo": "Deploy: XAU/USD Engulfing+DailyBias 4h | r080 v1",
+   "opened_at": "2026-08-21T05:00:13.799Z",
+   "opened_ny": "2026-08-21 01:00 NY",
+   "open_in_break": "open",
+   "closed_at": "2026-08-31T01:10:06.118Z",
+   "closed_ny": "2026-08-30 21:10 NY",
+   "close_in_break": "open",
+   "season_open": "summer",
+   "exit_reason": "stop_loss",
+   "entry_price": 4540.91363,
+   "exit_price": 4442.86476,
+   "clocks": {
+    "us": {
+     "open": "open",
+     "close": "open"
+    },
+    "fixed2": {
+     "open": "open",
+     "close": "open"
+    },
+    "eu": {
+     "open": "open",
+     "close": "open"
+    }
+   }
+  },
+  {
+   "algo": "Deploy: XAU/USD Engulfing25+DailyBias 4h | r042 v1",
+   "opened_at": "2026-08-31T21:00:09.580Z",
+   "opened_ny": "2026-08-31 17:00 NY",
+   "open_in_break": "nightly",
+   "closed_at": "2026-09-01T08:25:07.292Z",
+   "closed_ny": "2026-09-01 04:25 NY",
+   "close_in_break": "open",
+   "season_open": "summer",
+   "exit_reason": "stop_loss",
+   "entry_price": 4448.39858,
+   "exit_price": 4387.31189,
+   "clocks": {
+    "us": {
+     "open": "nightly",
+     "close": "open"
+    },
+    "fixed2": {
+     "open": "open",
+     "close": "open"
+    },
+    "eu": {
+     "open": "nightly",
+     "close": "open"
+    }
+   }
+  },
+  {
+   "algo": "Deploy: XAU/USD Engulfing+DailyBias 4h | r080 v1",
+   "opened_at": "2026-08-31T21:00:20.397Z",
+   "opened_ny": "2026-08-31 17:00 NY",
+   "open_in_break": "nightly",
+   "closed_at": "2026-09-01T08:25:03.734Z",
+   "closed_ny": "2026-09-01 04:25 NY",
+   "close_in_break": "open",
+   "season_open": "summer",
+   "exit_reason": "stop_loss",
+   "entry_price": 4448.39858,
+   "exit_price": 4387.31189,
+   "clocks": {
+    "us": {
+     "open": "nightly",
+     "close": "open"
+    },
+    "fixed2": {
+     "open": "open",
+     "close": "open"
+    },
+    "eu": {
+     "open": "nightly",
+     "close": "open"
+    }
+   }
+  },
+  {
+   "algo": "Deploy: XAU/USD ARB25+DailyBias 4h | r080 v1",
+   "opened_at": "2026-09-03T21:00:11.077Z",
+   "opened_ny": "2026-09-03 17:00 NY",
+   "open_in_break": "nightly",
+   "closed_at": "2026-09-04T12:35:16.827Z",
+   "closed_ny": "2026-09-04 08:35 NY",
+   "close_in_break": "open",
+   "season_open": "summer",
+   "exit_reason": "stop_loss",
+   "entry_price": 4473.2722,
+   "exit_price": 4407.61636,
+   "clocks": {
+    "us": {
+     "open": "nightly",
+     "close": "open"
+    },
+    "fixed2": {
+     "open": "open",
+     "close": "open"
+    },
+    "eu": {
+     "open": "nightly",
+     "close": "open"
+    }
+   }
+  },
+  {
+   "algo": "Deploy: XAU/USD ARB+DailyBias 4h | r085 v1",
+   "opened_at": "2026-09-03T21:00:15.550Z",
+   "opened_ny": "2026-09-03 17:00 NY",
+   "open_in_break": "nightly",
+   "closed_at": "2026-09-04T12:35:03.731Z",
+   "closed_ny": "2026-09-04 08:35 NY",
+   "close_in_break": "open",
+   "season_open": "summer",
+   "exit_reason": "stop_loss",
+   "entry_price": 4472.87203,
+   "exit_price": 4398.69799,
+   "clocks": {
+    "us": {
+     "open": "nightly",
+     "close": "open"
+    },
+    "fixed2": {
+     "open": "open",
+     "close": "open"
+    },
+    "eu": {
+     "open": "nightly",
+     "close": "open"
+    }
+   }
+  },
+  {
+   "algo": "Deploy: XAU/USD OutsideBar+DailyBias 4h | rr3_lb3 r066 v2",
+   "opened_at": "2026-09-04T09:00:10.809Z",
+   "opened_ny": "2026-09-04 05:00 NY",
+   "open_in_break": "open",
+   "closed_at": "2026-09-04T12:35:05.627Z",
+   "closed_ny": "2026-09-04 08:35 NY",
+   "close_in_break": "open",
+   "season_open": "summer",
+   "exit_reason": "stop_loss",
+   "entry_price": 4478.0798,
+   "exit_price": 4407.22785,
+   "clocks": {
+    "us": {
+     "open": "open",
+     "close": "open"
+    },
+    "fixed2": {
+     "open": "open",
+     "close": "open"
+    },
+    "eu": {
+     "open": "open",
+     "close": "open"
+    }
+   }
+  },
+  {
+   "algo": "Deploy: XAU/USD OutsideBar+DailyBias 4h | rr3_lb3 r066 v2",
+   "opened_at": "2026-11-05T14:15:25.815Z",
+   "opened_ny": "2026-11-05 09:15 NY",
+   "open_in_break": "open",
+   "closed_at": "2026-11-06T03:10:02.931Z",
+   "closed_ny": "2026-11-05 22:10 NY",
+   "close_in_break": "open",
+   "season_open": "winter",
+   "exit_reason": "stop_loss",
+   "entry_price": 4124.05147,
+   "exit_price": 4053.34198,
+   "clocks": {
+    "us": {
+     "open": "open",
+     "close": "open"
+    },
+    "fixed2": {
+     "open": "open",
+     "close": "open"
+    },
+    "eu": {
+     "open": "open",
+     "close": "open"
+    }
+   }
+  },
+  {
+   "algo": "Deploy: XAU/USD Engulfing25+DailyBias 4h | r042 v1",
+   "opened_at": "2026-11-06T10:00:12.112Z",
+   "opened_ny": "2026-11-06 05:00 NY",
+   "open_in_break": "open",
+   "closed_at": "2026-11-10T18:00:04.960Z",
+   "closed_ny": "2026-11-10 13:00 NY",
+   "close_in_break": "open",
+   "season_open": "winter",
+   "exit_reason": "stop_loss",
+   "entry_price": 4072.15865,
+   "exit_price": 4018.52,
+   "clocks": {
+    "us": {
+     "open": "open",
+     "close": "open"
+    },
+    "fixed2": {
+     "open": "open",
+     "close": "open"
+    },
+    "eu": {
+     "open": "open",
+     "close": "open"
+    }
+   }
+  },
+  {
+   "algo": "Deploy: XAU/USD Engulfing+DailyBias 4h | r080 v1",
+   "opened_at": "2026-11-06T10:00:32.382Z",
+   "opened_ny": "2026-11-06 05:00 NY",
+   "open_in_break": "open",
+   "closed_at": "2026-11-10T18:00:06.995Z",
+   "closed_ny": "2026-11-10 13:00 NY",
+   "close_in_break": "open",
+   "season_open": "winter",
+   "exit_reason": "stop_loss",
+   "entry_price": 4072.65619,
+   "exit_price": 4018.52,
+   "clocks": {
+    "us": {
+     "open": "open",
+     "close": "open"
+    },
+    "fixed2": {
+     "open": "open",
+     "close": "open"
+    },
+    "eu": {
+     "open": "open",
+     "close": "open"
+    }
+   }
+  },
+  {
+   "algo": "Deploy: XAU/USD OutsideBar+DailyBias 4h | rr3_lb3 r066 v2",
+   "opened_at": "2026-11-09T02:00:08.563Z",
+   "opened_ny": "2026-11-08 21:00 NY",
+   "open_in_break": "open",
+   "closed_at": "2026-11-10T18:00:04.738Z",
+   "closed_ny": "2026-11-10 13:00 NY",
+   "close_in_break": "open",
+   "season_open": "winter",
+   "exit_reason": "stop_loss",
+   "entry_price": 4122.86127,
+   "exit_price": 4018.52,
+   "clocks": {
+    "us": {
+     "open": "open",
+     "close": "open"
+    },
+    "fixed2": {
+     "open": "open",
+     "close": "open"
+    },
+    "eu": {
+     "open": "open",
+     "close": "open"
+    }
+   }
+  }
+ ],
+ "generated_at": "2026-11-25T17:49:11.339Z"
+}
