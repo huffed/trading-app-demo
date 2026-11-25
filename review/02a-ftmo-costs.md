@@ -2,7 +2,7 @@
 
 **Date:** 2026-11-25 · **Inputs:** the canonical pins (H4, D, M30), the rules snapshot (`review/inputs/deployed-rules-2026-11-21.json`), the 18 closed paper trades (`review/inputs/paper-record-2026-11-25.json`) and FTMO's XAU/USD costs as the operator read them on 18 November 2026 (§1). **Status:** first order. The swap is charged per trade on the Phase 2 trade list, with no re-sizing and no path effects (halts, cooldowns, sizing). Phase 6 puts it in the harness. The entry list is complete; nothing is re-priced.
 
-The scripts (`review/scripts/ftmo-costs.ts`, `ftmo-break.ts`, `lib/ftmo.ts`) are written but not yet committed, because the operator asked for `dev` to be merged with #354 in it before a new script is written. Their result files are committed: `review/results/ftmo-costs.json`, `ftmo-break.json`, `ftmo-break-trades.csv`, `ftmo-break-exits.csv`.
+**Reproduce:** `pnpm exec tsx review/scripts/ftmo-costs.ts` (§2, about 45 s), `pnpm exec tsx review/scripts/ftmo-break.ts` (§3 and §4, about 60 s) and, on a machine with the local journal, `pnpm exec tsx review/scripts/ftmo-clock.ts` (§1). Results: `review/results/ftmo-costs.json`, `ftmo-break.json`, `ftmo-break-trades.csv`, `ftmo-break-exits.csv`.
 
 ## 1. FTMO's costs, and what was checked about them
 

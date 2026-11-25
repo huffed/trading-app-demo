@@ -116,3 +116,7 @@ There is nothing to ablate on the live path: no active algorithm invokes the LLM
 - All of §2.1–2.5 is in-sample on the selection corpus by construction; the locked window is reserved for Phase 6's final candidate.
 - The engine's own friction (0.4 bps/side + 0.5 bps/fill) is included; swap and the tick-model spread are not (01-audit A7/A12 quantify them: −0.01 to −0.34R).
 - Daily-loss breaches in §2.6 use the harness's UTC-day, floating-MAE proxy, not FTMO's 00:00 CE(S)T balance reference (01-audit A16).
+
+## Erratum (2026-11-25)
+- **The σ label in §2.4 and in the verdict-inputs table.** They say "0.25–0.34 at the observed σ_SR 0.069". Those cells are the grid at σ = 0.060. At 0.069 itself the swap-free deflated Sharpe is 0.05 (N = 3,300) to 0.08 (N = 2,000). The table and its conclusion do not change. The scripts and stored results are unchanged.
+- **The headline with FTMO's swap** is in `02a-ftmo-costs.md`: mean R 0.255 [0.093, 0.418] against 0.343 [0.180, 0.507] without it. From here on, headlines are stated with swap.
