@@ -5,7 +5,9 @@
 # target config (eslint.config.strict.mjs), as the pre-commit hook and CI apply
 # to added files; an existing file gets the baseline config, errors only — never
 # the warning budget, so inherited warnings in audit-cited files are not pushed
-# into "fixes" that move lines.
+# into "fixes" that move lines. The audit's review/ is evidence, not product code
+# (#345, #350): a file there, new or not, gets the baseline config, errors only,
+# and no Prettier check, as CI treats it (lint-staged skips it altogether).
 set -uo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 command -v node >/dev/null || { echo "post-edit-lint: node not found; could not lint the edited file" >&2; exit 2; }
@@ -19,16 +21,26 @@ esac
 [ -f "$path" ] || exit 0                                  # deleted or moved: nothing to lint
 root="${CLAUDE_PROJECT_DIR:-$PWD}"
 cd "$root" || { echo "post-edit-lint: cannot cd to the project root" >&2; exit 2; }
+# The path as guard-paths matches it: symlinks resolved, .claude/worktrees/<x>/ stripped, case folded on macOS.
+# A path the helper cannot place counts as outside review/, so it gets the stricter checks.
+rel=$(printf '%s' "$input" | node "$here/lib/hook-input.cjs" relpath "$root") || rel=OUTSIDE
+in_review=false
+case "$rel" in
+  review/*) in_review=true;;
+esac
 
 out=""
-if prettier_out=$(pnpm exec prettier --check "$path" 2>&1); then :; else
+if $in_review; then :; elif prettier_out=$(pnpm exec prettier --check "$path" 2>&1); then :; else
   if grep -q "Code style issues" <<<"$prettier_out"; then
     out+="prettier: $path is not formatted (run: make format)"$'\n'
   else
     out+="prettier could not run on $path:"$'\n'"$prettier_out"$'\n'
   fi
 fi
-if git ls-files --error-unmatch "$path" >/dev/null 2>&1; then
+if $in_review; then
+  label="baseline config, errors only (review/)"
+  eslint_cmd=(pnpm exec eslint --no-warn-ignored --quiet "$path")
+elif git ls-files --error-unmatch "$path" >/dev/null 2>&1; then
   label="baseline config, errors only"
   eslint_cmd=(pnpm exec eslint --no-warn-ignored --quiet "$path")
 else
