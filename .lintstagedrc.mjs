@@ -45,6 +45,7 @@ const config = {
   },
   "scripts/*.sh": (files) => [`shellcheck -S error ${quote(files)}`],
   "scripts/ops/*.sh": (files) => [`shellcheck -S warning ${quote(files)}`],
+  "scripts/ci/*.sh": (files) => [`shellcheck -S warning ${quote(files)}`],
   "ops/*.sh": (files) => [`shellcheck -S warning ${quote(files)}`],
   ".claude/hooks/*.sh": (files) => [`shellcheck -S warning ${quote(files)}`],
   ".husky/commit-msg": (files) => [`shellcheck -S warning ${quote(files)}`],
