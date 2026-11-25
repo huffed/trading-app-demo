@@ -141,7 +141,7 @@ You asked for the same count and replay over the audit session's transcripts, re
 |---|---|---|
 | allow | 678 | — |
 | refuse, a shell construct | 165 | a substitution or variable as a command word, a heredoc, a pre-approved tool over several lines |
-| refuse, text about secrets, hosts, the broker or deletion | 46 | file writes (runbooks, scripts, tests, PR bodies) whose text names `ssh`, `.env`, `make kill-switch` and so on; none of them ran one |
+| refuse, text about secrets, hosts, the broker or deletion | 46 | file writes (runbooks, scripts, tests, PR bodies) whose text names `ssh`, `.env`, `make kill-switch` and so on; one of them wrote a host script and ran it (D.4's host steps 3 to 5, 1 November 16:07Z, which change the host, under your order of 13:32Z that day; corrected 25 November, see `2026-11-25-queue-and-fence.md`) |
 | refuse, a `.env` name | 2 | an agent grepping a test log for the test named "blocks: cat .env.local"; no `.env` file was read |
 | refuse, a host command | 4 | read-only host scripts over ssh, `ssh qt 'bash -s' < <local read script>`: two on 6 November at 19:00Z, two on 10 November at 19:57Z. Each followed the operator's ask: 18:46Z on 6 November, "Keep tracing D-31 read-only: which endpoint returns the 401 …"; 19:50Z on 10 November, "Host state now: running commit, service, ticks …" |
 | no answer after 180 s | 4 | two on 1 and 18 November, two in an agent on 17 November |
@@ -149,8 +149,8 @@ You asked for the same count and replay over the audit session's transcripts, re
 The replay used today's guard, which is stricter than the one that was installed at the time, so "refuse" means today's rules, not the rules then.
 
 **What I take from it.**
-- No skipped guard let a `.env` read, a broker call, a live-table write or a `gh pr merge` through.
-- The four host reads were all asked for.
+- **Corrected 25 November** (the sentence here said no skipped guard let a `.env` read, a broker call, a live-table write or a `gh pr merge` through; it was an inference from the refused commands). Two skipped commands ran `gh pr merge`: #343 and #345 on 17 November. Each met a permission prompt that you accepted once, so the guard's absence let nothing through, but the sentence was wrong. No live-table write or broker call was found. The details and what was not searched are in `2026-11-25-queue-and-fence.md` and the trial's report.
+- **Corrected 25 November:** five skipped host reads, and one host change, ran with neither the guard nor a prompt; the auto-mode classifier accepted them. Four reads followed an order of yours. The fifth (7 November 15:34Z) has none I could find.
 - I'm not changing the guards: they are frozen until the trial's report.
 
 **The fix.**
