@@ -1,6 +1,32 @@
-# Status, 2026-11-21: the queue waits for the window's deploy, and what to pick up after the restart
+# Status, 2026-11-25: picked up in a new chat; the window did not run, so the queue waits on one answer
 
 `wt/` below is `~/Documents/trading-app/wt/`. The sections from 19 and 20 November follow the new ones.
+
+## 25 November: picked up in a new chat
+
+**Where the old chat stopped.**
+- Its id is `16c30c82-8ba1-4fd3-8a0c-b7d90e544910` (titled "Repository tooling and modernisation plan"). No process has it open.
+- On 22 November its poll timed out at 24 h, and it found no `../qt-window`. It started the poll again at 19:54Z, then ran a read-only `gh` check for the throwaway repository.
+- That call waited on a permission prompt, pushed to the phone at 19:54:56Z. No answer is in its transcript. The session's poll was stopped at 17:01Z on 23 November.
+- Nothing was half-done: every worktree is at the head this file names, and the only uncommitted files are the trial's, in `wt/qtrial` and `wt/trial`. `wt/qtrial` holds #353's follow-up, also saved in `wt/tools/fix353-trial.diff`.
+
+**What I read today (14:30 UK).**
+- `origin/main` is `2a7d7f7` and `dev` is `ea75c40`: neither has moved. #342, #352, #353 and #354 are open at the heads below, CLEAN and green.
+- There is no `../qt-window`, no transcript folder for it, and #342 is not merged. So the window's step 2 did not run. Whether any host step before it ran is not checked: that needs `make status`, which I have not been asked for.
+- Changes to the host are allowed again from Friday 27 November 22:00 UK. A poll is running again, appending to `wt/tools/wait-main.log`; it lasts 24 h, so it ends before that.
+
+**notify.log (pick-up step 7).** Logging works again, and it did before any restart: `idle_prompt … sent` at 19:31:58Z and 20:13:17Z on 21 November, and the permission prompt above. Whether a BLOCKED ON YOU turn is logged is not shown yet; none has happened since.
+
+**The prompts for decision 0015's two steps.**
+- `gh api *` is in the ask list of `.claude/settings.local.json`, so the policy call prompts, as you expect. The 22 November call that prompted contained one.
+- `gh repo create` is in no ask list. In auto mode it may run without a prompt (inferred, not run), and you were told it would prompt. So the throwaway repository is created and deleted with `gh api`, which does.
+
+**Dates that moved with the window.**
+- The fence's event policy must be in place before 2 December, and it needs #353 on `dev` first. If the queue waits for a 28–29 November deploy, that leaves 30 November and 1 December.
+- The sudoers PR was due Friday 27 November 20:00 UK, written from this window's ledger. There is no such ledger.
+- If the window moves to 28–29 November: #342 is rebased after the three merge, the window sheet and `docs/PHASE_D_PLAN.md` carry 21–22 November's dates and heads, and I read the Friday 20:00 hold on merges into `dev` as applying again on 27 November.
+
+**The `.cjs` note below** is half checked: lint-staged's globs do skip `.claude/hooks/lib/hook-input.cjs` (read by the old chat on 21 November). Whether `make lint` reads it is still unchecked.
 
 ## 21 November: the queue waits for the window's deploy
 
@@ -195,18 +221,17 @@ The replay used today's guard, which is stricter than the one that was installed
 ## For the planner
 
 **Waiting on the operator:**
-- The window's deploy. Main moving off `2a7d7f7` to #342's merge commit starts the queue, and each `gh pr merge` prompts you.
-- Sunday's restart of this session and the audit's, once each has stopped on a turn ending.
-- No open questions: all three were answered on 21 November.
+- Whether the 21–22 November window is off. If it is, #352, #354 and #353 merge at once (each prompts) and #342 is rebased for 28–29 November.
+- The sudoers PR's new date, as the ledger it was to be written from does not exist.
 
 **Mine, in order:**
-1. When main moves: #352, then #354, then #353 (the pick-up's steps 1 to 5).
+1. When the operator says the window is off, or when main moves: #352, then #354, then #353 (the pick-up's steps 1 to 5).
 2. After #352 merges: E0 PR-A (step 6).
-3. After the restart: start the poll again if it is still needed, then report on notify.log.
+3. Done on 25 November: the poll is running again, and notify.log is reported above.
 4. After the window: push the window log to `status/2026-11-18` and open the ledger PR. It carries item 10's rows, D-24/25/27, the `/tmp` row and the unchecked-shell-scripts row. Then the kill-switch case's time alone.
 5. After Sunday 18:00 UK, with #353 on `dev`: decision 0015's policy call, the job on an open PR, the throwaway repository's test, and the record in 0015 and D-48.
 6. After PR-A merges: the stop-and-target PR.
 7. Next week: the sudoers PR.
 8. Last in the queue: the move out of `~/Documents` (proposal above; no work).
 
-**Deadlines:** the sudoers PR READY TO MERGE by Fri 27 Nov 20:00 UK. The fence's event policy must be in place before GitHub's change on 2 December.
+**Deadlines:** the sudoers PR was READY TO MERGE by Fri 27 Nov 20:00 UK (waiting on the operator, above). The fence's event policy must be in place before GitHub's change on 2 December.
