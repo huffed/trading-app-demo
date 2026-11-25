@@ -6,7 +6,7 @@
  * - ESLint baseline (errors only) on staged TS/JS.
  * - ESLint TARGET config (eslint.config.strict.mjs) on files that are NEW in
  *   this commit — new code is held to the target from its first commit.
- * - shellcheck on staged cron wrappers (baseline), ops scripts and hooks (target).
+ * - shellcheck on staged cron wrappers (baseline), ops scripts, CI scripts and hooks (target).
  * - actionlint on staged GitHub workflow files (a workflow GitHub cannot parse
  *   otherwise fails as a run with no jobs and no log).
  * - Nothing under review/: the audit's scripts are evidence, not product code, and
@@ -45,6 +45,7 @@ const config = {
   },
   "scripts/*.sh": (files) => [`shellcheck -S error ${quote(files)}`],
   "scripts/ops/*.sh": (files) => [`shellcheck -S warning ${quote(files)}`],
+  "scripts/ci/*.sh": (files) => [`shellcheck -S warning ${quote(files)}`],
   "ops/*.sh": (files) => [`shellcheck -S warning ${quote(files)}`],
   ".claude/hooks/*.sh": (files) => [`shellcheck -S warning ${quote(files)}`],
   ".husky/commit-msg": (files) => [`shellcheck -S warning ${quote(files)}`],
