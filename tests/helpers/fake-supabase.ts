@@ -1,13 +1,29 @@
 /**
  * An in-memory stand-in for the Supabase client, for E0's live-path tests (decision 0014). Tables are arrays of rows,
  * seeded by the test. Every read and write is recorded. A write to paper_positions or activity_log is checked as
- * PostgREST and Postgres would check it (./db-checks.ts): an unknown column, then a NULL in a NOT NULL column once the
- * column defaults are applied, then a broken CHECK. A refused write gets their error code, and the engine sees only
- * the `{ error }` it already ignores in places (docs/DEBT.md D-04). As in supabase-js v2, a write returns rows only
- * when `.select()` is chained. A query method this stub does not implement is a TypeError. The stub's known gaps are
- * docs/DEBT.md D-47.
+ * PostgREST and Postgres would check it, by the rules the migrations leave (./db-checks.ts): an unknown column, then a
+ * NULL in a NOT NULL column once the column defaults are applied, then a broken CHECK; an update runs the updated_at
+ * trigger. A refused write gets their error code, and the engine sees only the `{ error }` it already ignores in
+ * places (docs/DEBT.md D-04). Seed rows get the same defaults and checks. A payload is sent as JSON; what the stub
+ * stores, records and hands out are separate copies, a read with NULL in each column a row lacks; and as in
+ * supabase-js v2 a write returns rows only when `.select()` is chained.
+ *
+ * A call the stub does not support is recorded when it is made: an unknown method or client property (which also
+ * throws), rpc, upsert, a second order(), a count without head, single() over several rows, a filter given null or
+ * undefined. After each test of a file that imports this module, the record of every stub the file opened must be
+ * empty, so a call that an engine `catch` swallows still fails the test. A test marked `fails` would take that failure
+ * for the one it expects, so its calls are checked after the file's last test instead, and fail the file. The stub's
+ * known gaps are docs/DEBT.md D-47.
  */
-import { columnDefaults, refusal, unknownColumn } from "./db-checks";
+import { afterAll, afterEach, expect } from "vitest";
+import {
+  asRead,
+  columnDefaults,
+  refusal,
+  rulesOf,
+  touchesUpdatedAt,
+  unknownColumn,
+} from "./db-checks";
 import type { DbError, Row } from "./db-checks";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -33,6 +49,24 @@ interface Result {
   count?: number;
 }
 
+/** Every stub the file opened, and the unsupported calls drained from them in tests marked `fails`. */
+const opened: FakeDatabase[] = [];
+const inFailsTests: string[] = [];
+const UNSUPPORTED = "calls the E0 database stub does not support (docs/DEBT.md D-47)";
+
+afterEach(({ task }) => {
+  const calls = opened.flatMap((db) => db.unsupported.splice(0));
+  // vitest turns any failure of a test marked `fails` into a pass, this hook's included (@vitest/runner's runTest).
+  if (task.fails) inFailsTests.push(...calls);
+  else expect(calls, UNSUPPORTED).toEqual([]);
+});
+
+/** A suite hook's failure is not turned; this one runs after the file's own afterAll hooks, so it sees their calls. */
+afterAll(() => {
+  const calls = [...inFailsTests.splice(0), ...opened.flatMap((db) => db.unsupported.splice(0))];
+  expect(calls, UNSUPPORTED).toEqual([]);
+});
+
 /**
  * The payload as PostgREST receives it, and a copy of it: JSON drops a key whose value is undefined, so its default
  * applies, and sends NaN and ±Infinity as null.
@@ -46,11 +80,12 @@ function compare(a: unknown, b: unknown): number {
   return String(a).localeCompare(String(b));
 }
 
+/** As in SQL, `=`, `<>` and IN never match NULL. A filter given null or undefined is also recorded (Query.where). */
 const PREDICATES: Record<Filter["op"], (v: unknown, want: unknown) => boolean> = {
-  eq: (v, want) => v === want || (want === null && v === undefined),
+  eq: (v, want) => v != null && v === want,
   is: (v, want) => v === want || (want === null && v === undefined),
-  neq: (v, want) => v !== want,
-  in: (v, want) => Array.isArray(want) && want.includes(v),
+  neq: (v, want) => v != null && v !== want,
+  in: (v, want) => v != null && Array.isArray(want) && want.includes(v),
   gt: (v, want) => v != null && compare(v, want) > 0,
   gte: (v, want) => v != null && compare(v, want) >= 0,
   lt: (v, want) => v != null && compare(v, want) < 0,
@@ -65,12 +100,18 @@ export class FakeDatabase {
   readonly tables = new Map<string, Row[]>();
   readonly writes: WriteRecord[] = [];
   readonly reads: string[] = [];
+  /** The calls the stub does not support, in the order they were made. */
+  readonly unsupported: string[] = [];
 
   constructor(seed: Record<string, Row[]> = {}) {
+    // Read the migrations now: a parse failure then throws here, not inside an engine call that may catch it.
+    rulesOf("paper_positions");
+    opened.push(this);
+    const now = new Date().toISOString();
     for (const [table, rows] of Object.entries(seed)) {
       this.tables.set(
         table,
-        rows.map((r) => ({ ...r }))
+        rows.map((r) => seeded(table, r, now))
       );
     }
   }
@@ -85,13 +126,36 @@ export class FakeDatabase {
 
   client(): SupabaseClient {
     const api = {
-      from: (table: string): Query => new Query(this, table),
+      from: (table: string): Query => this.guard(new Query(this, table), `from("${table}")`),
       rpc: (fn: string): never => {
+        this.unsupported.push(`rpc("${fn}")`);
         throw new Error(`E0 stub: rpc ${fn} is not stubbed`);
       },
     };
-    return api as unknown as SupabaseClient;
+    return this.guard(api, "client") as unknown as SupabaseClient;
   }
+
+  /** `target`, with each property it lacks recorded when read and replaced by a function that throws. */
+  private guard<T extends object>(target: T, path: string): T {
+    return new Proxy(target, {
+      get: (t, key, receiver): unknown => {
+        if (typeof key === "symbol" || key in t) return Reflect.get(t, key, receiver);
+        if (key === "then") return undefined;
+        this.unsupported.push(`${path}.${key}`);
+        return () => {
+          throw new Error(`E0 stub: ${path}.${key} is not supported`);
+        };
+      },
+    });
+  }
+}
+
+/** A seed row as an insert would store it; a seed the database would refuse throws. */
+function seeded(table: string, row: Row, now: string): Row {
+  const stored = { ...columnDefaults(table, now), ...asSent(row) };
+  const error = unknownColumn(table, [row]) ?? refusal(table, stored);
+  if (error) throw new Error(`E0 stub: a ${table} seed row is refused: ${error.message}`);
+  return stored;
 }
 
 class Query implements PromiseLike<Result> {
@@ -112,12 +176,14 @@ class Query implements PromiseLike<Result> {
   select(_columns?: string, opts?: { count?: string; head?: boolean }): this {
     if (this.op !== "select") this.returning = true;
     if (opts?.head) this.headCount = true;
+    else if (opts?.count) this.unsupported("select() with a count but no head");
     return this;
   }
   insert(rows: Row | Row[]): this {
     return this.write("insert", rows);
   }
   upsert(rows: Row | Row[]): this {
+    this.unsupported("upsert(), which the stub stores as an insert");
     return this.write("upsert", rows);
   }
   update(values: Row): this {
@@ -152,6 +218,7 @@ class Query implements PromiseLike<Result> {
     return this.where(column, "is", value);
   }
   order(column: string, opts?: { ascending?: boolean }): this {
+    if (this.orderBy) this.unsupported("a second order(), which replaces the first");
     this.orderBy = { column, ascending: opts?.ascending ?? true };
     return this;
   }
@@ -183,7 +250,15 @@ class Query implements PromiseLike<Result> {
     return this;
   }
 
+  private unsupported(what: string): void {
+    this.db.unsupported.push(`from("${this.table}") ${what}`);
+  }
+
   private where(column: string, op: Filter["op"], value: unknown): this {
+    // postgrest-js sends `eq.null` or `eq.undefined`: text, which the database casts to the column's type or refuses.
+    if (value == null && op !== "is") {
+      this.unsupported(`${op}("${column}", ${String(value)}), which postgrest-js sends as text`);
+    }
     this.filters.push({ column, op, value });
     return this;
   }
@@ -200,29 +275,45 @@ class Query implements PromiseLike<Result> {
   private execute(): Result {
     if (this.op === "select") {
       this.db.reads.push(this.table);
-      return this.shape(this.selected());
+      return this.shape(this.selected().map((r) => asRead(this.table, r)));
     }
     return this.op === "delete" ? this.remove() : this.change();
   }
 
   private change(): Result {
     const now = new Date().toISOString();
+    const set = this.op === "update" ? this.updateSet(now) : {};
     const rows =
       this.op === "update"
-        ? this.selected().map((r) => ({ ...r, ...this.payload[0] }))
+        ? this.selected().map((r) => ({ ...r, ...set }))
         : this.payload.map((r) => ({ ...columnDefaults(this.table, now), ...r }));
     const error =
       unknownColumn(this.table, this.payload) ??
       rows.map((r) => refusal(this.table, r)).find((e) => e !== null) ??
       null;
-    this.db.writes.push({ table: this.table, op: this.op as WriteOp, rows, error });
+    const record = rows.map((r) => structuredClone(r));
+    this.db.writes.push({ table: this.table, op: this.op as WriteOp, rows: record, error });
     if (error) return { data: null, error };
+    if (this.mode !== "many" && rows.length > 1) {
+      this.unsupported(`single() over ${String(rows.length)} rows`);
+    }
+    this.store(rows, set);
+    return this.returned(rows);
+  }
+
+  /** An update's SET, and the updated_at trigger's column where the table has the trigger. */
+  private updateSet(now: string): Row {
+    return touchesUpdatedAt(this.table)
+      ? { ...this.payload[0], updated_at: now }
+      : { ...this.payload[0] };
+  }
+
+  private store(rows: Row[], set: Row): void {
     if (this.op === "update") {
-      for (const r of this.selected()) Object.assign(r, this.payload[0]);
+      for (const r of this.selected()) Object.assign(r, set);
     } else {
       this.db.rows(this.table).push(...rows);
     }
-    return this.returned(rows);
   }
 
   private remove(): Result {
@@ -232,13 +323,15 @@ class Query implements PromiseLike<Result> {
       this.table,
       this.db.rows(this.table).filter((r) => !gone.has(r))
     );
-    this.db.writes.push({ table: this.table, op: "delete", rows: doomed, error: null });
+    const record = doomed.map((r) => structuredClone(r));
+    this.db.writes.push({ table: this.table, op: "delete", rows: record, error: null });
     return this.returned(doomed);
   }
 
   /** supabase-js v2 returns a write's rows only when `.select()` is chained after it. */
   private returned(rows: Row[]): Result {
-    return this.returning ? this.shape(rows) : { data: null, error: null };
+    const copies = rows.map((r) => asRead(this.table, r));
+    return this.returning ? this.shape(copies) : { data: null, error: null };
   }
 
   private shape(rows: Row[]): Result {
